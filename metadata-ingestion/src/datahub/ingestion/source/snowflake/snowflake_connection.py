@@ -5,6 +5,8 @@ import pydantic
 import snowflake.connector
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from snowflake.connector import SnowflakeConnection as NativeSnowflakeConnection
+from snowflake.connector.cursor import DictCursor
 from snowflake.connector.network import (
     DEFAULT_AUTHENTICATOR,
     EXTERNAL_BROWSER_AUTHENTICATOR,
@@ -12,38 +14,41 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import ConfigModel, ConfigurationError, MetaError
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.oauth import OAuthConfiguration, OAuthIdentityProvider
-from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
 )
 from datahub.ingestion.source.sql.oauth_generator import OAuthTokenGenerator
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
     remove_suffix,
     remove_trailing_slashes,
 )
 
-logger: logging.Logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-APPLICATION_NAME: str = "acryl_datahub"
+_APPLICATION_NAME: str = "acryl_datahub"
 
-VALID_AUTH_TYPES: Dict[str, str] = {
+_VALID_AUTH_TYPES: Dict[str, str] = {
     "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
     "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
     "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
     "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
 }
 
-SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
+_SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
 
 
-class BaseSnowflakeConfig(ConfigModel):
+class SnowflakePermissionError(MetaError):
+    """A permission error has happened"""
+
+
+class SnowflakeConnectionConfig(ConfigModel):
     # Note: this config model is also used by the snowflake-usage source.
 
     _connection = auto_connection_resolver()
@@ -106,15 +111,15 @@ class BaseSnowflakeConfig(ConfigModel):
     def validate_account_id(cls, account_id: str) -> str:
         account_id = remove_protocol(account_id)
         account_id = remove_trailing_slashes(account_id)
-        account_id = remove_suffix(account_id, SNOWFLAKE_HOST_SUFFIX)
+        account_id = remove_suffix(account_id, _SNOWFLAKE_HOST_SUFFIX)
         return account_id
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values):
-        if v not in VALID_AUTH_TYPES.keys():
+        if v not in _VALID_AUTH_TYPES.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
-                f" use one of {list(VALID_AUTH_TYPES.keys())}"
+                f" use one of {list(_VALID_AUTH_TYPES.keys())}"
             )
         if (
             values.get("private_key") is not None
@@ -189,10 +194,10 @@ class BaseSnowflakeConfig(ConfigModel):
                 # Drop the options if value is None.
                 key: value
                 for (key, value) in {
-                    "authenticator": VALID_AUTH_TYPES.get(self.authentication_type),
+                    "authenticator": _VALID_AUTH_TYPES.get(self.authentication_type),
                     "warehouse": self.warehouse,
                     "role": role,
-                    "application": APPLICATION_NAME,
+                    "application": _APPLICATION_NAME,
                 }.items()
                 if value
             },
@@ -255,7 +260,7 @@ class BaseSnowflakeConfig(ConfigModel):
         self.options["connect_args"] = options_connect_args
         return self.options
 
-    def get_oauth_connection(self) -> snowflake.connector.SnowflakeConnection:
+    def get_oauth_connection(self) -> NativeSnowflakeConnection:
         assert (
             self.oauth_config
         ), "oauth_config should be provided if using oauth based authentication"
@@ -292,12 +297,12 @@ class BaseSnowflakeConfig(ConfigModel):
             token=token,
             role=self.role,
             warehouse=self.warehouse,
-            authenticator=VALID_AUTH_TYPES.get(self.authentication_type),
-            application=APPLICATION_NAME,
+            authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
+            application=_APPLICATION_NAME,
             **connect_args,
         )
 
-    def get_key_pair_connection(self) -> snowflake.connector.SnowflakeConnection:
+    def get_key_pair_connection(self) -> NativeSnowflakeConnection:
         connect_args = self.get_options()["connect_args"]
 
         return snowflake.connector.connect(
@@ -305,12 +310,12 @@ class BaseSnowflakeConfig(ConfigModel):
             account=self.account_id,
             warehouse=self.warehouse,
             role=self.role,
-            authenticator=VALID_AUTH_TYPES.get(self.authentication_type),
-            application=APPLICATION_NAME,
+            authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
+            application=_APPLICATION_NAME,
             **connect_args,
         )
 
-    def get_connection(self) -> snowflake.connector.SnowflakeConnection:
+    def get_native_connection(self) -> NativeSnowflakeConnection:
         connect_args = self.get_options()["connect_args"]
         if self.authentication_type == "DEFAULT_AUTHENTICATOR":
             return snowflake.connector.connect(
@@ -319,7 +324,7 @@ class BaseSnowflakeConfig(ConfigModel):
                 account=self.account_id,
                 warehouse=self.warehouse,
                 role=self.role,
-                application=APPLICATION_NAME,
+                application=_APPLICATION_NAME,
                 **connect_args,
             )
         elif self.authentication_type == "OAUTH_AUTHENTICATOR":
@@ -333,40 +338,59 @@ class BaseSnowflakeConfig(ConfigModel):
                 account=self.account_id,
                 warehouse=self.warehouse,
                 role=self.role,
-                authenticator=VALID_AUTH_TYPES.get(self.authentication_type),
-                application=APPLICATION_NAME,
+                authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
+                application=_APPLICATION_NAME,
                 **connect_args,
             )
         else:
             # not expected to be here
             raise Exception("Not expected to be here.")
 
+    def get_connection(self) -> "SnowflakeConnection":
+        try:
+            return SnowflakeConnection(self.get_native_connection())
+        except Exception as e:
+            logger.debug(e, exc_info=e)
 
-class SnowflakeConfig(BaseSnowflakeConfig, BaseTimeWindowConfig, SQLCommonConfig):
-    include_table_lineage: bool = pydantic.Field(
-        default=True,
-        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
-    )
-    include_view_lineage: bool = pydantic.Field(
-        default=True,
-        description="If enabled, populates the snowflake view->table and table->view lineages. Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
-    )
+            if "not granted to this user" in str(e):
+                raise SnowflakePermissionError(
+                    f"Permissions error when connecting to snowflake: {e}"
+                ) from e
 
-    database_pattern: AllowDenyPattern = AllowDenyPattern(
-        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
-    )
+            raise ConfigurationError(
+                f"Failed to connect to snowflake instance: {e}"
+            ) from e
 
-    ignore_start_time_lineage: bool = False
-    upstream_lineage_in_report: bool = False
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_include_view_lineage(cls, values):
-        if (
-            "include_table_lineage" in values
-            and not values.get("include_table_lineage")
-            and values.get("include_view_lineage")
-        ):
-            raise ValueError(
-                "include_table_lineage must be True for include_view_lineage to be set."
-            )
-        return values
+class SnowflakeConnection:
+    _connection: NativeSnowflakeConnection
+
+    def __init__(self, connection: NativeSnowflakeConnection):
+        self._connection = connection
+
+    def native_connection(self) -> NativeSnowflakeConnection:
+        return self._connection
+
+    def query(self, query: str) -> Any:
+        try:
+            logger.info(f"Query: {query}", stacklevel=2)
+            resp = self._connection.cursor(DictCursor).execute(query)
+            return resp
+
+        except Exception as e:
+            if _is_permission_error(e):
+                raise SnowflakePermissionError(e) from e
+            raise
+
+    def is_closed(self) -> bool:
+        return self._connection.is_closed()
+
+    def close(self):
+        self._connection.close()
+
+
+def _is_permission_error(e: Exception) -> bool:
+    msg = str(e)
+    # 002003 (02000): SQL compilation error: Database/SCHEMA 'XXXX' does not exist or not authorized.
+    # Insufficient privileges to operate on database 'XXXX'
+    return "Insufficient privileges" in msg or "not authorized" in msg

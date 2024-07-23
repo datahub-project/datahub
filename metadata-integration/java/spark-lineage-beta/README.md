@@ -346,8 +346,10 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 
 + 
 ## Changelog
+### Version 0.2.14
+- Fix warning about MeterFilter warning from Micrometer
 
-### Version 0.2.12
+### Version 0.2.13
 - Silencing some chatty warnings in RddPathUtils
 
 ### Version 0.2.12

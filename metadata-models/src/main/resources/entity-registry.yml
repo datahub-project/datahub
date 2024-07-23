@@ -623,6 +623,7 @@ entities:
     aspects:
       - queryProperties
       - querySubjects
+      - queryUsageStatistics
       - status
       - dataPlatformInstance
       - subTypes
@@ -867,3 +868,9 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: 'corpUserEditableInfo'
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins

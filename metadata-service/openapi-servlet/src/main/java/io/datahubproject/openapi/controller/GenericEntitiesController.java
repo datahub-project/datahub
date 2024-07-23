@@ -13,6 +13,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -508,10 +509,10 @@ public abstract class GenericEntitiesController<
       @PathVariable("aspectName") String aspectName,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
-      @RequestParam(value = "createIfNotExists", required = false, defaultValue = "false")
+      @RequestParam(value = "createIfNotExists", required = false, defaultValue = "true")
           Boolean createIfNotExists,
       @RequestBody @Nonnull String jsonAspect)
-      throws URISyntaxException {
+      throws URISyntaxException, JsonProcessingException {
 
     Urn urn = validatedUrn(entityUrn);
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -649,8 +650,8 @@ public abstract class GenericEntitiesController<
    * fixes)
    *
    * @param requestedAspectNames requested aspects
-   * @return updated map
    * @param <T> map values
+   * @return updated map
    */
   protected <T> LinkedHashMap<Urn, Map<String, T>> resolveAspectNames(
       LinkedHashMap<Urn, Map<String, T>> requestedAspectNames, @Nonnull T defaultValue) {
@@ -732,7 +733,9 @@ public abstract class GenericEntitiesController<
       Boolean createIfNotExists,
       String jsonAspect,
       Actor actor)
-      throws URISyntaxException {
+      throws JsonProcessingException {
+    JsonNode jsonNode = objectMapper.readTree(jsonAspect);
+    String aspectJson = jsonNode.get("value").toString();
     return ChangeItemImpl.builder()
         .urn(entityUrn)
         .aspectName(aspectSpec.getName())
@@ -740,7 +743,7 @@ public abstract class GenericEntitiesController<
         .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
         .recordTemplate(
             GenericRecordUtils.deserializeAspect(
-                ByteString.copyString(jsonAspect, StandardCharsets.UTF_8),
+                ByteString.copyString(aspectJson, StandardCharsets.UTF_8),
                 GenericRecordUtils.JSON,
                 aspectSpec))
         .build(aspectRetriever);

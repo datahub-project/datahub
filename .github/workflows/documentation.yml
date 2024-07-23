@@ -27,6 +27,8 @@ concurrency:
 jobs:
   gh-pages:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       # We explicitly don't use acryldata/sane-checkout-action because docusaurus runs
       # git commands to determine the last change date for each file.
@@ -38,7 +40,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"

@@ -1,0 +1,25 @@
+{
+    "id": null,
+    "uid": "default",
+    "title": "Default Dashboard",
+    "tags": [],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 0,
+    "panels": [
+        {
+            "type": "text",
+            "title": "Welcome",
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 24,
+                "h": 5
+            },
+            "options": {
+                "content": "Welcome to your Grafana dashboard!",
+                "mode": "markdown"
+            }
+        }
+    ]
+}

@@ -45,6 +45,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.redshift.exception import handle_redshift_exceptions_yield
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
 from datahub.ingestion.source.redshift.lineage_v2 import RedshiftSqlLineageV2
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
@@ -411,7 +412,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        connection = RedshiftSource.get_redshift_connection(self.config)
+        connection = self._try_get_redshift_connection(self.config)
+
+        if connection is None:
+            # If we failed to establish a connection, short circuit the connector.
+            return
+
         database = self.config.database
         logger.info(f"Processing db {database}")
         self.report.report_ingestion_stage_start(METADATA_EXTRACTION)
@@ -419,9 +425,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.db_views[database] = defaultdict()
         self.db_schemas.setdefault(database, {})
 
+        # TODO: Ideally, we'd push down exception handling to the place where the connection is used, as opposed to keeping
+        # this fallback. For now, this gets us broad coverage quickly.
+        yield from handle_redshift_exceptions_yield(
+            self.report, self._extract_metadata, connection, database
+        )
+
+    def _extract_metadata(
+        self, connection: redshift_connector.Connection, database: str
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+
         yield from self.gen_database_container(
             database=database,
         )
+
         self.cache_tables_and_views(connection, database)
 
         self.report.tables_in_mem_size[database] = humanfriendly.format_size(
@@ -556,6 +573,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     for table in self.db_tables[schema.database][schema.name]:
                         table.columns = schema_columns[schema.name].get(table.name, [])
+                        table.column_count = len(table.columns)
                         table_wu_generator = self._process_table(
                             table, database=database
                         )
@@ -575,8 +593,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                             f"Table processed: {schema.database}.{schema.name}.{table.name}"
                         )
                 else:
-                    logger.info(
-                        f"No tables in cache for {schema.database}.{schema.name}, skipping"
+                    self.report.info(
+                        title="No tables found in some schemas",
+                        message="No tables found in some schemas. This may be due to insufficient privileges for the provided user.",
+                        context=f"Schema: {schema.database}.{schema.name}",
                     )
             else:
                 logger.info("Table processing disabled, skipping")
@@ -589,6 +609,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     for view in self.db_views[schema.database][schema.name]:
                         view.columns = schema_columns[schema.name].get(view.name, [])
+                        view.column_count = len(view.columns)
                         yield from self._process_view(
                             table=view, database=database, schema=schema
                         )
@@ -603,8 +624,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                             f"Table processed: {schema.database}.{schema.name}.{view.name}"
                         )
                 else:
-                    logger.info(
-                        f"No views in cache for {schema.database}.{schema.name}, skipping"
+                    self.report.info(
+                        title="No views found in some schemas",
+                        message="No views found in some schemas. This may be due to insufficient privileges for the provided user.",
+                        context=f"Schema: {schema.database}.{schema.name}",
                     )
             else:
                 logger.info("View processing disabled, skipping")
@@ -1088,3 +1111,43 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.config.start_time,
             self.config.end_time,
         )
+
+    def _try_get_redshift_connection(
+        self,
+        config: RedshiftConfig,
+    ) -> Optional[redshift_connector.Connection]:
+        try:
+            return RedshiftSource.get_redshift_connection(config)
+        except redshift_connector.Error as e:
+            error_message = str(e).lower()
+            if "password authentication failed" in error_message:
+                self.report.report_failure(
+                    title="Invalid credentials",
+                    message="Failed to connect to Redshift. Please verify your username, password, and database.",
+                    exc=e,
+                )
+            elif "timeout" in error_message:
+                self.report.report_failure(
+                    title="Unable to connect",
+                    message="Failed to connect to Redshift. Please verify your host name and port number.",
+                    exc=e,
+                )
+            elif "communication error" in error_message:
+                self.report.report_failure(
+                    title="Unable to connect",
+                    message="Failed to connect to Redshift. Please verify that the host name is valid and reachable.",
+                    exc=e,
+                )
+            elif "database" in error_message and "does not exist" in error_message:
+                self.report.report_failure(
+                    title="Database does not exist",
+                    message="Failed to connect to Redshift. Please verify that the provided database exists and the provided user has access to it.",
+                    exc=e,
+                )
+            else:
+                self.report.report_failure(
+                    title="Unable to connect",
+                    message="Failed to connect to Redshift. Please verify your connection details.",
+                    exc=e,
+                )
+            return None

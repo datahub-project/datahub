@@ -713,7 +713,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                             data_reader,
                         )
                     except Exception as e:
-                        self.warn(logger, f"{schema}.{table}", f"Ingestion error: {e}")
+                        self.warn(
+                            logger,
+                            f"{schema}.{table}",
+                            f"Ingestion error: {e}",
+                        )
+                        logger.debug(
+                            f"Error processing table {schema}.{table}: Error was: {e} Traceback:",
+                            exc_info=e,
+                        )
+
             except Exception as e:
                 self.error(logger, f"{schema}", f"Tables error: {e}")
 
@@ -723,6 +732,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_extra_tags(
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[Dict[str, List[str]]]:
+        return None
+
+    def get_partitions(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Optional[List[str]]:
         return None
 
     def _process_table(
@@ -769,9 +783,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         extra_tags = self.get_extra_tags(inspector, schema, table)
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
+        partitions: Optional[List[str]] = self.get_partitions(inspector, schema, table)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         schema_fields = self.get_schema_fields(
-            dataset_name, columns, pk_constraints, tags=extra_tags
+            dataset_name,
+            columns,
+            pk_constraints,
+            tags=extra_tags,
+            partition_keys=partitions,
         )
         schema_metadata = get_schema_metadata(
             self.report,
@@ -921,6 +940,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             if len(columns) == 0:
                 self.warn(logger, "missing column information", dataset_name)
         except Exception as e:
+            logger.error(traceback.format_exc())
             self.warn(
                 logger,
                 dataset_name,
@@ -949,6 +969,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
         columns: List[dict],
         pk_constraints: Optional[dict] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaField]:
         canonical_schema = []
@@ -957,7 +978,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             if tags:
                 column_tags = tags.get(column["name"], [])
             fields = self.get_schema_fields_for_column(
-                dataset_name, column, pk_constraints, tags=column_tags
+                dataset_name,
+                column,
+                pk_constraints,
+                tags=column_tags,
+                partition_keys=partition_keys,
             )
             canonical_schema.extend(fields)
         return canonical_schema
@@ -967,6 +992,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
         column: dict,
         pk_constraints: Optional[dict] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         gtc: Optional[GlobalTagsClass] = None
@@ -989,6 +1015,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             and column["name"] in pk_constraints.get("constrained_columns", [])
         ):
             field.isPartOfKey = True
+
+        if partition_keys is not None and column["name"] in partition_keys:
+            field.isPartitioningKey = True
+
         return [field]
 
     def loop_views(
@@ -1017,7 +1047,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         sql_config=sql_config,
                     )
                 except Exception as e:
-                    self.warn(logger, f"{schema}.{view}", f"Ingestion error: {e}")
+                    self.warn(
+                        logger,
+                        f"{schema}.{view}",
+                        f"Ingestion error: {e} {traceback.format_exc()}",
+                    )
         except Exception as e:
             self.error(logger, f"{schema}", f"Views error: {e}")
 

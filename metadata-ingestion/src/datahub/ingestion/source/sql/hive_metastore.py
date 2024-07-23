@@ -878,6 +878,7 @@ class HiveMetastoreSource(SQLAlchemySource):
         dataset_name: str,
         column: Dict[Any, Any],
         pk_constraints: Optional[Dict[Any, Any]] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         return get_schema_fields_for_hive_column(

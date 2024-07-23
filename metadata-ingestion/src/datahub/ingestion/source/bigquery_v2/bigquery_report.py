@@ -20,20 +20,32 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass
 class BigQuerySchemaApiPerfReport(Report):
-    num_list_projects: int = 0
+    num_listed_projects: int = 0
     num_list_projects_retry_request: int = 0
+    num_list_projects_api_requests: int = 0
+    num_list_datasets_api_requests: int = 0
+    num_get_columns_for_dataset_api_requests: int = 0
+    num_get_tables_for_dataset_api_requests: int = 0
+    num_list_tables_api_requests: int = 0
+    num_get_views_for_dataset_api_requests: int = 0
+    num_get_snapshots_for_dataset_api_requests: int = 0
+
     list_projects: PerfTimer = field(default_factory=PerfTimer)
     list_datasets: PerfTimer = field(default_factory=PerfTimer)
-    get_columns_for_dataset: PerfTimer = field(default_factory=PerfTimer)
-    get_tables_for_dataset: PerfTimer = field(default_factory=PerfTimer)
-    list_tables: PerfTimer = field(default_factory=PerfTimer)
-    get_views_for_dataset: PerfTimer = field(default_factory=PerfTimer)
-    get_snapshots_for_dataset: PerfTimer = field(default_factory=PerfTimer)
+
+    get_columns_for_dataset_sec: float = 0
+    get_tables_for_dataset_sec: float = 0
+    list_tables_sec: float = 0
+    get_views_for_dataset_sec: float = 0
+    get_snapshots_for_dataset_sec: float = 0
 
 
 @dataclass
 class BigQueryAuditLogApiPerfReport(Report):
+    num_get_exported_log_entries_api_requests: int = 0
     get_exported_log_entries: PerfTimer = field(default_factory=PerfTimer)
+
+    num_list_log_entries_api_requests: int = 0
     list_log_entries: PerfTimer = field(default_factory=PerfTimer)
 
 
@@ -85,7 +97,6 @@ class BigQueryV2Report(
     num_usage_parsed_log_entries: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
-    usage_error_count: Dict[str, int] = field(default_factory=int_top_k_dict)
 
     num_usage_resources_dropped: int = 0
     num_usage_operations_dropped: int = 0

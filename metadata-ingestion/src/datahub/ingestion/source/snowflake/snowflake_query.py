@@ -3,7 +3,9 @@ from typing import List, Optional
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
-from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    DEFAULT_TEMP_TABLES_PATTERNS,
+)
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 SHOW_VIEWS_MAX_PAGE_SIZE = 10000
@@ -28,13 +30,15 @@ def create_deny_regex_sql_filter(
 
 
 class SnowflakeQuery:
-    ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = (
-        "("
-        f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.VIEW.capitalize()}',"
-        f"'{SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize()}'"
-        ")"
+    ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
+        SnowflakeObjectDomain.TABLE.capitalize(),
+        SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
+        SnowflakeObjectDomain.VIEW.capitalize(),
+        SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
+    }
+
+    ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
+        ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
     )
     ACCESS_HISTORY_TABLE_DOMAINS_FILTER = (
         "("
@@ -356,7 +360,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         end_time_millis: int,
         include_view_lineage: bool = True,
         include_column_lineage: bool = True,
-        upstreams_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
+        upstreams_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
         if include_column_lineage:
             return SnowflakeQuery.table_upstreams_with_column_lineage(
@@ -407,7 +411,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def copy_lineage_history(
         start_time_millis: int,
         end_time_millis: int,
-        downstreams_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
+        downstreams_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
         temp_table_filter = create_deny_regex_sql_filter(
             downstreams_deny_pattern,
@@ -450,7 +454,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         include_top_n_queries: bool,
         email_domain: Optional[str],
         email_filter: AllowDenyPattern,
-        table_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
+        table_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0

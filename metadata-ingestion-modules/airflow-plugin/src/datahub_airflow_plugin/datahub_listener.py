@@ -362,8 +362,13 @@ class DataHubListener:
 
         # Render templates in a copy of the task instance.
         # This is necessary to get the correct operator args in the extractors.
-        task_instance = copy.deepcopy(task_instance)
-        task_instance.render_templates()
+        try:
+            task_instance = copy.deepcopy(task_instance)
+            task_instance.render_templates()
+        except Exception as e:
+            logger.info(
+                f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
+            )
 
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]

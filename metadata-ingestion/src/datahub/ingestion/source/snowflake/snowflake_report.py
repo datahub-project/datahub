@@ -15,6 +15,9 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.snowflake.snowflake_queries import (
+        SnowflakeQueriesExtractorReport,
+    )
     from datahub.ingestion.source.snowflake.snowflake_schema import (
         SnowflakeDataDictionary,
     )
@@ -112,6 +115,8 @@ class SnowflakeV2Report(
     num_upstream_lineage_edge_parsing_failed: int = 0
 
     data_dictionary_cache: Optional["SnowflakeDataDictionary"] = None
+
+    queries_extractor: Optional["SnowflakeQueriesExtractorReport"] = None
 
     # These will be non-zero if snowflake information_schema queries fail with error -
     # "Information schema query returned too much data. Please repeat query with more selective predicates.""

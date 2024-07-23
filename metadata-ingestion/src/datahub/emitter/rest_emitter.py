@@ -252,6 +252,7 @@ class DataHubRestEmitter(Closeable, Emitter):
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposal"
         ensure_has_system_metadata(mcp)
+
         mcp_obj = pre_json_transform(mcp.to_obj())
         payload_dict = {"proposal": mcp_obj}
 

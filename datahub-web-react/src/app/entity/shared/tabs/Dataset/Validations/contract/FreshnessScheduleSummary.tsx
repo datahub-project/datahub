@@ -14,7 +14,6 @@ type Props = {
 
 export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: Props) => {
     let scheduleText = '';
-
     const cronStr = definition.cron?.cron ?? evaluationSchedule?.cron;
     switch (definition.type) {
         case FreshnessAssertionScheduleType.Cron:

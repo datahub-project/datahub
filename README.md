@@ -118,6 +118,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Cabify](https://cabify.tech/)
 - [ClassDojo](https://www.classdojo.com/)
 - [Coursera](https://www.coursera.org/)
+- [CVS Health](https://www.cvshealth.com/)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
 - [Digital Turbine](https://www.digitalturbine.com/)

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Type, cast
+from typing import Any, Callable, Dict, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
 import pydantic
@@ -8,8 +8,10 @@ import pytest
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
+import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
 from datahub.ingestion.source.state.sql_common_state import (
@@ -35,6 +37,7 @@ from tests.unit.test_glue_source_stubs import (
     get_bucket_tagging,
     get_databases_delta_response,
     get_databases_response,
+    get_databases_response_for_lineage,
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
@@ -47,6 +50,7 @@ from tests.unit.test_glue_source_stubs import (
     get_object_response_1,
     get_object_response_2,
     get_object_tagging,
+    get_tables_lineage_response_1,
     get_tables_response_1,
     get_tables_response_2,
     get_tables_response_for_target_database,
@@ -63,19 +67,28 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 def glue_source(
     platform_instance: Optional[str] = None,
+    mock_datahub_graph: Optional[Callable[[DatahubClientConfig], DataHubGraph]] = None,
     use_s3_bucket_tags: bool = True,
     use_s3_object_tags: bool = True,
     extract_delta_schema_from_parameters: bool = False,
+    emit_s3_lineage: bool = False,
+    include_column_lineage: bool = False,
+    extract_transforms: bool = True,
 ) -> GlueSource:
+    pipeline_context = PipelineContext(run_id="glue-source-tes")
+    if mock_datahub_graph:
+        pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
     return GlueSource(
-        ctx=PipelineContext(run_id="glue-source-test"),
+        ctx=pipeline_context,
         config=GlueSourceConfig(
             aws_region="us-west-2",
-            extract_transforms=True,
+            extract_transforms=extract_transforms,
             platform_instance=platform_instance,
             use_s3_bucket_tags=use_s3_bucket_tags,
             use_s3_object_tags=use_s3_object_tags,
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
+            emit_s3_lineage=emit_s3_lineage,
+            include_column_lineage=include_column_lineage,
         ),
     )
 
@@ -424,4 +437,207 @@ def test_glue_with_malformed_delta_schema_ingest(
         pytestconfig,
         output_path=tmp_path / "glue_malformed_delta_mces.json",
         golden_path=test_resources_dir / "glue_malformed_delta_mces_golden.json",
+    )
+
+
+@pytest.mark.parametrize(
+    "platform_instance, mce_file, mce_golden_file",
+    [
+        (None, "glue_mces.json", "glue_mces_golden_table_lineage.json"),
+    ],
+)
+@freeze_time(FROZEN_TIME)
+def test_glue_ingest_include_table_lineage(
+    tmp_path: Path,
+    pytestconfig: PytestConfig,
+    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+    platform_instance: str,
+    mce_file: str,
+    mce_golden_file: str,
+) -> None:
+    glue_source_instance = glue_source(
+        platform_instance=platform_instance,
+        mock_datahub_graph=mock_datahub_graph,
+        emit_s3_lineage=True,
+    )
+
+    with Stubber(glue_source_instance.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_databases_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_1,
+            {"DatabaseName": "flights-database"},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_2,
+            {"DatabaseName": "test-database"},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            {"TableList": []},
+            {"DatabaseName": "empty-database"},
+        )
+        glue_stubber.add_response("get_jobs", get_jobs_response, {})
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_1,
+            {"PythonScript": get_object_body_1},
+        )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_2,
+            {"PythonScript": get_object_body_2},
+        )
+
+        with Stubber(glue_source_instance.s3_client) as s3_stubber:
+            for _ in range(
+                len(get_tables_response_1["TableList"])
+                + len(get_tables_response_2["TableList"])
+            ):
+                s3_stubber.add_response(
+                    "get_bucket_tagging",
+                    get_bucket_tagging(),
+                )
+                s3_stubber.add_response(
+                    "get_object_tagging",
+                    get_object_tagging(),
+                )
+
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_1(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-1.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_2(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-2.py",
+                },
+            )
+
+            mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+            glue_stubber.assert_no_pending_responses()
+            s3_stubber.assert_no_pending_responses()
+
+            write_metadata_file(tmp_path / mce_file, mce_objects)
+
+    # Verify the output.
+    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_file,
+        golden_path=test_resources_dir / mce_golden_file,
+    )
+
+
+@pytest.mark.parametrize(
+    "platform_instance, mce_file, mce_golden_file",
+    [
+        (None, "glue_mces.json", "glue_mces_golden_table_column_lineage.json"),
+    ],
+)
+@freeze_time(FROZEN_TIME)
+def test_glue_ingest_include_column_lineage(
+    tmp_path: Path,
+    pytestconfig: PytestConfig,
+    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+    platform_instance: str,
+    mce_file: str,
+    mce_golden_file: str,
+) -> None:
+    glue_source_instance = glue_source(
+        platform_instance=platform_instance,
+        mock_datahub_graph=mock_datahub_graph,
+        emit_s3_lineage=True,
+        include_column_lineage=True,
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+        extract_transforms=False,
+    )
+
+    # fake the server response
+    def fake_schema_metadata(entity_urn: str) -> models.SchemaMetadataClass:
+        return models.SchemaMetadataClass(
+            schemaName="crawler-public-us-west-2/flight/avro",
+            platform="urn:li:dataPlatform:s3",  # important <- platform must be an urn
+            version=0,
+            hash="",
+            platformSchema=models.OtherSchemaClass(
+                rawSchema="__insert raw schema here__"
+            ),
+            fields=[
+                models.SchemaFieldClass(
+                    fieldPath="yr",
+                    type=models.SchemaFieldDataTypeClass(type=models.NumberTypeClass()),
+                    nativeDataType="int",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="flightdate",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="uniquecarrier",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="airlineid",
+                    type=models.SchemaFieldDataTypeClass(type=models.NumberTypeClass()),
+                    nativeDataType="int",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="carrier",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="flightnum",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="origin",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+            ],
+        )
+
+    glue_source_instance.ctx.graph.get_schema_metadata = fake_schema_metadata  # type: ignore
+
+    with Stubber(glue_source_instance.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases", get_databases_response_for_lineage, {}
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_lineage_response_1,
+            {"DatabaseName": "flights-database-lineage"},
+        )
+
+        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+        glue_stubber.assert_no_pending_responses()
+
+        write_metadata_file(tmp_path / mce_file, mce_objects)
+
+    # Verify the output.
+    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_file,
+        golden_path=test_resources_dir / mce_golden_file,
     )

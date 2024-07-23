@@ -1142,11 +1142,6 @@ type FeatureFlagsConfig {
   slackBotTokensConfigEnabled: Boolean!
 
   """
-  If turned on, all siblings will be separated with no way to get to a "combined" sibling view
-  """
-  showSeparateSiblings: Boolean!
-
-  """
   Enables the form creation workflow feature on the documentation page
   """
   formCreationEnabled: Boolean!
@@ -1155,6 +1150,11 @@ type FeatureFlagsConfig {
   Enables links to schema field-level lineage on lineage explorer.
   """
   schemaFieldCLLEnabled: Boolean!
+
+  """
+  If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  """
+  showSeparateSiblings: Boolean!
 }
 
 """
