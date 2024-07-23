@@ -123,7 +123,11 @@ public class SpringPluginFactory extends PluginFactory {
           }
 
           if (plugin.enabled()) {
-            result.add((T) plugin.setConfig(config));
+            // Only overwrite plugin configuration if it's non-existent
+            if (plugin.getConfig() == null) {
+              plugin.setConfig(config);
+            }
+            result.add((T) plugin);
           }
 
           loaded = true;

@@ -638,6 +638,9 @@ businessAttribute:
 metadataChangeProposal:
   validation:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
+    extensions:
+      enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
+      configFile: ${MCP_VALIDATION_EXTENSIONS_CONFIG_FILE:extended_properties_config.yml}
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

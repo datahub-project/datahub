@@ -203,7 +203,7 @@ public class PatchItemImpl implements PatchMCP {
           .build(entityRegistry);
     }
 
-    private static JsonPatch convertToJsonPatch(MetadataChangeProposal mcp) {
+    public static JsonPatch convertToJsonPatch(MetadataChangeProposal mcp) {
       JsonNode json;
       try {
         return Json.createPatch(
