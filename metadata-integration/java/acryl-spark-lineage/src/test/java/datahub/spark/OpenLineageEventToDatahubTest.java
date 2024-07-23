@@ -781,4 +781,37 @@ public class OpenLineageEventToDatahubTest extends TestCase {
           dataset.getSchemaMetadata().getPlatform().toString(), "urn:li:dataPlatform:redshift");
     }
   }
+
+  public void testProcessGCSInputsOutputs() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/gs_input_output.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(1, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:gcs,my-gs-input-bucket/path/to/my-input-file.csv,DEV)",
+          dataset.getUrn().toString());
+    }
+    assertEquals(1, datahubJob.getOutSet().size());
+
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:gcs,my-gs-output-bucket/path/to/my-output-file.csv,DEV)",
+          dataset.getUrn().toString());
+    }
+  }
 }

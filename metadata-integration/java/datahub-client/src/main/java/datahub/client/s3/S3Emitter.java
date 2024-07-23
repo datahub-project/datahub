@@ -22,6 +22,7 @@ import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.profiles.ProfileFile;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -50,23 +51,24 @@ public class S3Emitter implements Emitter {
             .eventFormatter(config.getEventFormatter())
             .build();
     fileEmitter = new FileEmitter(fileEmitterConfig);
-    S3ClientBuilder builder = S3Client.builder();
+    S3ClientBuilder s3ClientBuilder = S3Client.builder();
 
     if (config.getRegion() != null) {
-      builder.region(Region.of(config.getRegion()));
+      s3ClientBuilder.region(Region.of(config.getRegion()));
     }
 
     if (config.getEndpoint() != null) {
       try {
-        builder.endpointOverride(new URI(config.getEndpoint()));
+        s3ClientBuilder.endpointOverride(new URI(config.getEndpoint()));
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);
       }
     }
 
     if (config.getAccessKey() != null && config.getSecretKey() != null) {
-      builder.credentialsProvider(
-          () -> AwsBasicCredentials.create(config.getAccessKey(), config.getSecretKey()));
+      s3ClientBuilder.credentialsProvider(
+          StaticCredentialsProvider.create(
+              AwsBasicCredentials.create(config.getAccessKey(), config.getSecretKey())));
     } else {
       DefaultCredentialsProvider.Builder credentialsProviderBuilder =
           DefaultCredentialsProvider.builder();
@@ -78,10 +80,10 @@ public class S3Emitter implements Emitter {
         credentialsProviderBuilder.profileFile(
             ProfileFile.builder().content(Paths.get(config.getProfileFile())).build());
       }
+      s3ClientBuilder.credentialsProvider(credentialsProviderBuilder.build());
     }
 
-    this.client =
-        S3Client.builder().credentialsProvider(DefaultCredentialsProvider.create()).build();
+    this.client = s3ClientBuilder.build();
     this.config = config;
   }
 

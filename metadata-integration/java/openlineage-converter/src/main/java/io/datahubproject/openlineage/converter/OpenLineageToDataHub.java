@@ -768,10 +768,7 @@ public class OpenLineageToDataHub {
     }
 
     for (OpenLineage.InputDataset input :
-        event.getInputs().stream()
-            .filter(input -> input.getFacets() != null)
-            .distinct()
-            .collect(Collectors.toList())) {
+        event.getInputs().stream().distinct().collect(Collectors.toList())) {
       Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(input, datahubConf);
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
@@ -798,10 +795,7 @@ public class OpenLineageToDataHub {
     }
 
     for (OpenLineage.OutputDataset output :
-        event.getOutputs().stream()
-            .filter(input -> input.getFacets() != null)
-            .distinct()
-            .collect(Collectors.toList())) {
+        event.getOutputs().stream().distinct().collect(Collectors.toList())) {
       Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(output, datahubConf);
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();

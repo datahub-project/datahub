@@ -189,6 +189,10 @@ information like tokens.
 | spark.datahub.patch.enabled                            |          | false                 | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default, it is disabled.                                             |
 | spark.datahub.metadata.dataset.lowerCaseUrns           |          | false                 | Set this to true to lowercase dataset urns. By default, it is disabled.                                                                                                                   |
 | spark.datahub.disableSymlinkResolution                 |          | false                 | Set this to true if you prefer using the s3 location instead of the Hive table. By default, it is disabled.                                                                               |
+| spark.datahub.s3.bucket                                |          |                       | The name of the bucket where metadata will be written if s3 emitter is set                                                                                                                |
+| spark.datahub.s3.prefix                                |          |                       | The prefix for the file where metadata will be written on s3 if s3 emitter is set                                                                                                         |
+| spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
+
 
 ## What to Expect: The Metadata Model
 
