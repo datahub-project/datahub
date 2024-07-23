@@ -71,7 +71,7 @@ const SNOWFLAKE_INTEGRATION = {
 
 export const SUPPORTED_INTEGRATIONS = [
     SLACK_INTEGRATION,
-    // TEAMS_INTEGRATION, -- Uncheck when backend is complete. 
+    // TEAMS_INTEGRATION, -- Uncheck when backend is complete.
     ACRYL_INSTANCE_INTEGRATION,
     SNOWFLAKE_INTEGRATION,
 ];
