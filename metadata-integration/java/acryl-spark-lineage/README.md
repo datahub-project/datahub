@@ -357,11 +357,11 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ### Next
 - Add Kafka emitter to emit lineage to kafka
 - Add File emitter to emit lineage to file
-- Upgrading OpenLineage to 1.18.0
+- Add S3 emitter to save mcps to s3
+- Upgrading OpenLineage to 1.19.0
 - Renaming project to acryl-datahub-spark-lineage
 - Supporting OpenLineage 1.17+ glue identifier changes
-- Removing custom
--
+- Fix handling OpenLineage input/output where wasn't facet
 
 ### Version 0.2.14
 - Fix warning about MeterFilter warning from Micrometer
