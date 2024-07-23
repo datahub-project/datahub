@@ -25,6 +25,8 @@ const StyledEntitySidebarContainer = styled.div<{
 
     background-color: #ffffff;
     border-radius: 8px;
+    display: flex;
+    flex-direction: column;
 `;
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
