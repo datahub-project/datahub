@@ -166,11 +166,15 @@ def dataset_key_to_urn(key: DatasetKeyClass) -> str:
 
 
 def make_container_urn(guid: Union[str, "DatahubKey"]) -> str:
-    from datahub.emitter.mcp_builder import DatahubKey
+    if isinstance(guid, str) and guid.startswith("urn:li:container"):
+        return guid
+    else:
+        from datahub.emitter.mcp_builder import DatahubKey
 
-    if isinstance(guid, DatahubKey):
-        guid = guid.guid()
-    return f"urn:li:container:{guid}"
+        if isinstance(guid, DatahubKey):
+            guid = guid.guid()
+
+        return f"urn:li:container:{guid}"
 
 
 def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
