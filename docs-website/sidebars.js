@@ -419,7 +419,7 @@ module.exports = {
         },
         {
           type: "doc",
-          id: "metadata-integration/java/spark-lineage/README",
+          id: "metadata-integration/java/acryl-spark-lineage/README",
           label: "Spark (Legacy)",
         },
         {
