@@ -10,7 +10,7 @@ import FormCard from './FormCard';
 const Container = styled.div`
     display: flex;
     justify-content: space-between;
-    margin: 5px 20px;
+    margin: 20px;
 `;
 
 const SectionHeader = styled.div`

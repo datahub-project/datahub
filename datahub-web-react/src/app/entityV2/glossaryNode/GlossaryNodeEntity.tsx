@@ -1,10 +1,4 @@
-import Icon, {
-    AppstoreOutlined,
-    FileOutlined,
-    FolderFilled,
-    FolderOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
+import Icon, { AppstoreOutlined, FileOutlined, FolderFilled, FolderOutlined } from '@ant-design/icons';
 import React from 'react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
@@ -99,6 +93,10 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                             hideLinksButton: true,
                         },
                     },
+                    {
+                        name: 'Properties',
+                        component: PropertiesTab,
+                    },
                 ]}
                 sidebarSections={this.getSidebarSections()}
                 headerActionItems={
@@ -128,14 +126,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         },
     ];
 
-    getSidebarTabs = () => [
-        {
-            name: 'Properties',
-            component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
-        },
-    ];
+    getSidebarTabs = () => [];
 
     displayName = (data: GlossaryNode) => {
         return data?.properties?.name || data?.urn;

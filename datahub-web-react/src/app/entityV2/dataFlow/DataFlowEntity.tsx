@@ -1,11 +1,5 @@
 import * as React from 'react';
-import {
-    ConsoleSqlOutlined,
-    FileOutlined,
-    ShareAltOutlined,
-    UnorderedListOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
+import { ConsoleSqlOutlined, FileOutlined, ShareAltOutlined, WarningOutlined } from '@ant-design/icons';
 import { DataFlow, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -115,6 +109,10 @@ export class DataFlowEntity implements Entity<DataFlow> {
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
             ]}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
@@ -151,14 +149,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         },
     ];
 
-    getSidebarTabs = () => [
-        {
-            name: 'Properties',
-            component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
-        },
-    ];
+    getSidebarTabs = () => [];
 
     getOverridePropertiesFromEntity = (dataFlow?: DataFlow | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.

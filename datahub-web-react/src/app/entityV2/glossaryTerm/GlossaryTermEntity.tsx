@@ -1,10 +1,4 @@
-import Icon, {
-    AppstoreOutlined,
-    BookFilled,
-    FileOutlined,
-    LayoutOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
+import Icon, { AppstoreOutlined, BookFilled, FileOutlined, LayoutOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
 import BookOutlined from '../../../images/glossary_term_material_logo.svg?react';
@@ -126,6 +120,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         component: GlossayRelatedTerms,
                         icon: () => <BookOutlined style={{ marginRight: 6 }} />,
                     },
+                    {
+                        name: 'Properties',
+                        component: PropertiesTab,
+                    },
                 ]}
                 sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
@@ -158,14 +156,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         },
     ];
 
-    getSidebarTabs = () => [
-        {
-            name: 'Properties',
-            component: PropertiesTab,
-            description: 'View additional properties about this term',
-            icon: UnorderedListOutlined,
-        },
-    ];
+    getSidebarTabs = () => [];
 
     getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it

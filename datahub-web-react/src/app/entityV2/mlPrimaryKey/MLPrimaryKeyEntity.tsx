@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { DotChartOutlined, PartitionOutlined } from '@ant-design/icons';
 import { MlPrimaryKey, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -96,6 +96,10 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                     name: 'Lineage',
                     component: LineageTab,
                 },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
             ]}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
@@ -141,12 +145,6 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
-        },
-        {
-            name: 'Properties',
-            component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
         },
     ];
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import oidcLogo from '../../../images/oidclogo.png';
 import slackLogo from '../../../images/slacklogo.png';
-import teamsLogo from '../../../images/teamslogo.png';
+// import teamsLogo from '../../../images/teamslogo.png';
 import acrylLogo from '../../../images/acryl-dark-mark.svg';
 import snowflakeLogo from '../../../images/snowflakelogo.png';
 import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '../../../types.generated';
@@ -9,7 +9,7 @@ import { SlackIntegration } from './slack/SlackIntegration';
 import { OidcIntegration } from './sso/OidcIntegration';
 import AcrylInstances from './acryl/AcrylInstances';
 import { SnowflakeIntegration } from './snowflake/SnowflakeIntegration';
-import { TeamsIntegration } from './teams/TeamsIntegration';
+// import { TeamsIntegration } from './teams/TeamsIntegration';
 
 /**
  * SSO
@@ -38,13 +38,13 @@ const SLACK_INTEGRATION = {
 /**
  * Teams Integrations
  */
-const TEAMS_INTEGRATION = {
-    id: 'microsoft-teams',
-    name: 'Microsoft Teams',
-    img: teamsLogo,
-    description: 'Notify Teams channels when important things happen',
-    content: <TeamsIntegration />,
-};
+// const TEAMS_INTEGRATION = {
+//    id: 'microsoft-teams',
+//    name: 'Microsoft Teams',
+//    img: teamsLogo,
+//    description: 'Notify Teams channels when important things happen',
+//    content: <TeamsIntegration />,
+// };
 
 /**
  * Acryl Instance Integrations
@@ -71,7 +71,7 @@ const SNOWFLAKE_INTEGRATION = {
 
 export const SUPPORTED_INTEGRATIONS = [
     SLACK_INTEGRATION,
-    TEAMS_INTEGRATION,
+    // TEAMS_INTEGRATION, -- Uncheck when backend is complete.
     ACRYL_INSTANCE_INTEGRATION,
     SNOWFLAKE_INTEGRATION,
 ];

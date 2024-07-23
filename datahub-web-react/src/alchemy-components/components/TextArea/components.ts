@@ -22,21 +22,14 @@ export const TextAreaWrapper = styled.div({
     width: '100%',
 });
 
-export const TextAreaContainer = styled.div({
-    ...defaultFlexStyles,
-    flex: 1,
-    width: '100%',
-    color: colors.gray[400], // 1st icon color
-});
-
 export const StyledIcon = styled(Icon)({
     minWidth: '16px',
 });
 
-export const TextAreaBase = styled.div(
+export const TextAreaContainer = styled.div(
     ({ isSuccess, warning, isDisabled, isInvalid }: TextAreaProps) => ({
         border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
-        backgroundColor: isDisabled ? colors.gray['50'] : colors.white,
+        backgroundColor: isDisabled ? colors.gray[100] : colors.white,
     }),
     {
         ...defaultFlexStyles,
@@ -46,6 +39,8 @@ export const TextAreaBase = styled.div(
         width: sizes.full,
         borderRadius: radius.md,
         padding: spacing.xsm,
+        flex: 1,
+        color: colors.gray[400], // first icon color
 
         '&:focus-within': {
             borderColor: colors.violet[200],

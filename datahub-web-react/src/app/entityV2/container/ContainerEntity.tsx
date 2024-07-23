@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { AppstoreOutlined, FileOutlined, FolderOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, FileOutlined, FolderOutlined } from '@ant-design/icons';
 import { Container, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -108,6 +108,10 @@ export class ContainerEntity implements Entity<Container> {
                     component: DocumentationTab,
                     icon: FileOutlined,
                 },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
             ]}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
@@ -151,14 +155,7 @@ export class ContainerEntity implements Entity<Container> {
         // },
     ];
 
-    getSidebarTabs = () => [
-        {
-            name: 'Properties',
-            component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
-        },
-    ];
+    getSidebarTabs = () => [];
 
     renderPreview = (_: PreviewType, data: Container) => {
         const genericProperties = this.getGenericEntityProperties(data);

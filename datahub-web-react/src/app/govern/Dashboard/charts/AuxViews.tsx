@@ -4,7 +4,15 @@ import { Skeleton } from 'antd';
 import styled from 'styled-components';
 import { FcLeave, FcHighPriority, FcMediumPriority } from 'react-icons/fc';
 
-import { Layout, Body, PrimaryHeading } from '../components';
+import { Body, PrimaryHeading } from '../components';
+
+const Container = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #fff;
+    height: 100%;
+`;
 
 const ChartStateCard = styled.div`
     display: flex;
@@ -70,7 +78,7 @@ export const ChartError = () => (
 
 // View if the Integration Service is offline
 export const IntegrationServiceOffline = () => (
-    <Layout>
+    <Container>
         <Body>
             <FlexWrapper>
                 <div style={{ textAlign: 'center', fontSize: '18px' }}>
@@ -83,12 +91,12 @@ export const IntegrationServiceOffline = () => (
                 </div>
             </FlexWrapper>
         </Body>
-    </Layout>
+    </Container>
 );
 
 // View if the user doesn't have the required permissions
 export const MissingPermissions = () => (
-    <Layout>
+    <Container>
         <Body>
             <FlexWrapper>
                 <div style={{ textAlign: 'center', fontSize: '18px' }}>
@@ -100,7 +108,7 @@ export const MissingPermissions = () => (
                 </div>
             </FlexWrapper>
         </Body>
-    </Layout>
+    </Container>
 );
 
 export const ChartState = ({
