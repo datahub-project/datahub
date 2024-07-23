@@ -9,14 +9,14 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @Builder(toBuilder = true)
 @Getter
 @ToString
 @EqualsAndHashCode
-@JsonDeserialize(builder =
-    ExtendedModelValidationConfiguration.ExtendedModelValidationConfigurationBuilder.class)
+@JsonDeserialize(
+    builder =
+        ExtendedModelValidationConfiguration.ExtendedModelValidationConfigurationBuilder.class)
 public class ExtendedModelValidationConfiguration {
   List<EntityConfiguration> entities;
   List<StructuredPropertyConfiguration> structuredProperties;

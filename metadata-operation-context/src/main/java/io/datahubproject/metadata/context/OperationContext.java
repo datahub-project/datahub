@@ -130,7 +130,8 @@ public class OperationContext {
         entityRegistry,
         servicesRegistryContext,
         indexConvention,
-        retrieverContext, validationContext,
+        retrieverContext,
+        validationContext,
         ObjectMapperContext.DEFAULT);
   }
 

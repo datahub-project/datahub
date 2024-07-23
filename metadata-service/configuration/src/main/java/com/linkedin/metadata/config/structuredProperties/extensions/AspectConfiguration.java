@@ -9,7 +9,6 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @Builder(toBuilder = true)
 @Getter
@@ -20,6 +19,7 @@ public class AspectConfiguration {
 
   private String aspect;
   private List<FieldConfiguration> fields;
+
   @JsonPOJOBuilder(withPrefix = "")
   public static class AspectConfigurationBuilder {}
 }

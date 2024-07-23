@@ -9,13 +9,13 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @Builder(toBuilder = true)
 @Getter
 @ToString
 @EqualsAndHashCode
-@JsonDeserialize(builder = StructuredPropertyConfiguration.StructuredPropertyConfigurationBuilder.class)
+@JsonDeserialize(
+    builder = StructuredPropertyConfiguration.StructuredPropertyConfigurationBuilder.class)
 public class StructuredPropertyConfiguration {
 
   private String qualifiedName;
@@ -35,7 +35,8 @@ public class StructuredPropertyConfiguration {
   @Getter
   @ToString
   @EqualsAndHashCode
-  @JsonDeserialize(builder = StructuredPropertyConfiguration.PropertyValue.PropertyValueBuilder.class)
+  @JsonDeserialize(
+      builder = StructuredPropertyConfiguration.PropertyValue.PropertyValueBuilder.class)
   public static class PropertyValue {
     private String value;
     private String description;

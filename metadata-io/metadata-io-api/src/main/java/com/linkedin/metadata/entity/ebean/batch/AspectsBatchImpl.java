@@ -100,20 +100,21 @@ public class AspectsBatchImpl implements AspectsBatch {
   }
 
   private Stream<? extends BatchItem> proposedItemsToChangeItemStream(List<MCPItem> proposedItems) {
-    List<MCPItem> mutatedItems = applyProposalMutationHooks(proposedItems, retrieverContext)
-        .collect(Collectors.toList());
+    List<MCPItem> mutatedItems =
+        applyProposalMutationHooks(proposedItems, retrieverContext).collect(Collectors.toList());
     Stream<ChangeMCP> proposedItemsToChangeItems =
-        mutatedItems.stream().filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
-        // Filter on proposed items again to avoid applying builder to Patch Item side effects
-        .filter(mcpItem -> mcpItem instanceof ProposedItem)
-        .map(
-            mcpItem ->
-                ChangeItemImpl.ChangeItemImplBuilder.build(
-                    mcpItem.getMetadataChangeProposal(),
-                    mcpItem.getAuditStamp(),
-                    retrieverContext.getAspectRetriever()));
-    Stream<? extends BatchItem> sideEffectItems = mutatedItems.stream()
-        .filter(mcpItem -> !(mcpItem instanceof ProposedItem));
+        mutatedItems.stream()
+            .filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
+            // Filter on proposed items again to avoid applying builder to Patch Item side effects
+            .filter(mcpItem -> mcpItem instanceof ProposedItem)
+            .map(
+                mcpItem ->
+                    ChangeItemImpl.ChangeItemImplBuilder.build(
+                        mcpItem.getMetadataChangeProposal(),
+                        mcpItem.getAuditStamp(),
+                        retrieverContext.getAspectRetriever()));
+    Stream<? extends BatchItem> sideEffectItems =
+        mutatedItems.stream().filter(mcpItem -> !(mcpItem instanceof ProposedItem));
     return Stream.concat(proposedItemsToChangeItems, sideEffectItems);
   }
 

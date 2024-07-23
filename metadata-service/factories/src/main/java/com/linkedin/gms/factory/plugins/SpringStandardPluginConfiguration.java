@@ -1,28 +1,14 @@
 package com.linkedin.gms.factory.plugins;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-import com.google.common.collect.ImmutableMap;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
 import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
-import com.linkedin.metadata.config.structuredProperties.extensions.AspectConfiguration;
-import com.linkedin.metadata.config.structuredProperties.extensions.EntityConfiguration;
 import com.linkedin.metadata.config.structuredProperties.extensions.ExtendedModelValidationConfiguration;
-import com.linkedin.metadata.config.structuredProperties.extensions.FieldConfiguration;
-import com.linkedin.metadata.config.structuredProperties.extensions.StructuredPropertyConfiguration;
-import com.linkedin.structured.PropertyCardinality;
-import com.linkedin.structured.StructuredPropertyDefinition;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -62,9 +48,14 @@ public class SpringStandardPluginConfiguration {
   @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.extensions.enabled",
       havingValue = "true")
-  public MutationHook extendedModelStructuredPropertyMutator(ConfigurationProvider configurationProvider) throws Exception {
-    ExtendedModelValidationConfiguration config = configurationProvider.getMetadataChangeProposal().getValidation()
-        .getExtensions().resolve(new YAMLMapper());
+  public MutationHook extendedModelStructuredPropertyMutator(
+      ConfigurationProvider configurationProvider) throws Exception {
+    ExtendedModelValidationConfiguration config =
+        configurationProvider
+            .getMetadataChangeProposal()
+            .getValidation()
+            .getExtensions()
+            .resolve(new YAMLMapper());
     return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
   }
 }

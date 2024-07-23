@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 
-
 @Data
 @Slf4j
 public class ModelExtensionValidationConfiguration {
@@ -27,16 +26,22 @@ public class ModelExtensionValidationConfiguration {
     if (enabled) {
       log.info("Custom model extension validation configuration enabled.");
       try (InputStream stream = new ClassPathResource(configFile).getInputStream()) {
-        log.info("Custom model extension alternate validation mapping configuration found in classpath: {}", configFile);
+        log.info(
+            "Custom model extension alternate validation mapping configuration found in classpath: {}",
+            configFile);
         return mapper.readValue(stream, ExtendedModelValidationConfiguration.class);
       } catch (FileNotFoundException e) {
-        log.info("Custom model extension alternate validation configuration was NOT found in the classpath.");
+        log.info(
+            "Custom model extension alternate validation configuration was NOT found in the classpath.");
         try (InputStream stream = new FileSystemResource(configFile).getInputStream()) {
-          log.info("Custom model extension alternate validation configuration found in filesystem: {}", configFile);
+          log.info(
+              "Custom model extension alternate validation configuration found in filesystem: {}",
+              configFile);
           return mapper.readValue(stream, ExtendedModelValidationConfiguration.class);
         } catch (Exception e2) {
           log.warn(
-              "Custom model extension alternate validation enabled, however there was an error loading configuration: " + configFile,
+              "Custom model extension alternate validation enabled, however there was an error loading configuration: "
+                  + configFile,
               e2);
           return null;
         }

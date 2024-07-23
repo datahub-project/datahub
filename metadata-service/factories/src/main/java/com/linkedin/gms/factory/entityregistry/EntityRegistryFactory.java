@@ -40,12 +40,14 @@ public class EntityRegistryFactory {
   @Bean("entityRegistry")
   @Primary
   @Nonnull
-  protected EntityRegistry getInstance(SpringStandardPluginConfiguration springStandardPluginConfiguration)
+  protected EntityRegistry getInstance(
+      SpringStandardPluginConfiguration springStandardPluginConfiguration)
       throws EntityRegistryException {
     BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider =
         (config, loaders) -> new SpringPluginFactory(applicationContext, config, loaders);
     MergedEntityRegistry baseEntityRegistry =
-        new MergedEntityRegistry(new SnapshotEntityRegistry(pluginFactoryProvider)).apply(configEntityRegistry);
+        new MergedEntityRegistry(new SnapshotEntityRegistry(pluginFactoryProvider))
+            .apply(configEntityRegistry);
     pluginEntityRegistryLoader.withBaseRegistry(baseEntityRegistry).start(true);
     return baseEntityRegistry;
   }

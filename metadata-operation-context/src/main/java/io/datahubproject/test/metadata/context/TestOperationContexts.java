@@ -25,12 +25,12 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
-import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -234,7 +234,8 @@ public class TestOperationContexts {
             entityRegistry,
             servicesRegistryContext,
             indexConvention,
-            retrieverContext, validationContext);
+            retrieverContext,
+            validationContext);
 
     if (postConstruct != null) {
       postConstruct.accept(operationContext);
