@@ -22,11 +22,13 @@ public class IngestStructuredPropertyExtensionsStep implements BootstrapStep {
   private EntityService<?> entityService;
   private Map<String, StructuredPropertyDefinition> structuredPropertyMappings;
 
-  public IngestStructuredPropertyExtensionsStep(EntityService<?> entityService,
+  public IngestStructuredPropertyExtensionsStep(
+      EntityService<?> entityService,
       Map<String, StructuredPropertyDefinition> structuredPropertyMappings) {
     this.entityService = entityService;
     this.structuredPropertyMappings = structuredPropertyMappings;
   }
+
   @Override
   public String name() {
     return this.getClass().getSimpleName();
@@ -38,39 +40,48 @@ public class IngestStructuredPropertyExtensionsStep implements BootstrapStep {
     if (!structuredPropertyMappings.isEmpty()) {
       // May result in extraneous writes from multiple GMS, but backend will handle
       List<MetadataChangeProposal> proposals = new ArrayList<>();
-      structuredPropertyMappings.values().forEach(structuredPropertyDefinition -> {
-        StructuredPropertyDefinitionPatchBuilder builder =
-            new StructuredPropertyDefinitionPatchBuilder()
-                .urn(StructuredPropertyUtils.toURNFromFQN(structuredPropertyDefinition.getQualifiedName()));
+      structuredPropertyMappings
+          .values()
+          .forEach(
+              structuredPropertyDefinition -> {
+                StructuredPropertyDefinitionPatchBuilder builder =
+                    new StructuredPropertyDefinitionPatchBuilder()
+                        .urn(
+                            StructuredPropertyUtils.toURNFromFQN(
+                                structuredPropertyDefinition.getQualifiedName()));
 
-        builder.setQualifiedName(structuredPropertyDefinition.getQualifiedName());
-        builder.setValueType(structuredPropertyDefinition.getValueType().toString());
-        structuredPropertyDefinition.getEntityTypes().stream().map(Urn::toString).forEach(builder::addEntityType);
-        if (structuredPropertyDefinition.getDisplayName() != null) {
-          builder.setDisplayName(structuredPropertyDefinition.getDisplayName());
-        }
-        if (structuredPropertyDefinition.getDescription() != null) {
-          builder.setDescription(structuredPropertyDefinition.getDescription());
-        }
+                builder.setQualifiedName(structuredPropertyDefinition.getQualifiedName());
+                builder.setValueType(structuredPropertyDefinition.getValueType().toString());
+                structuredPropertyDefinition.getEntityTypes().stream()
+                    .map(Urn::toString)
+                    .forEach(builder::addEntityType);
+                if (structuredPropertyDefinition.getDisplayName() != null) {
+                  builder.setDisplayName(structuredPropertyDefinition.getDisplayName());
+                }
+                if (structuredPropertyDefinition.getDescription() != null) {
+                  builder.setDescription(structuredPropertyDefinition.getDescription());
+                }
 
-        builder.setImmutable(structuredPropertyDefinition.isImmutable());
+                builder.setImmutable(structuredPropertyDefinition.isImmutable());
 
-        if (structuredPropertyDefinition.getTypeQualifier() != null) {
-          builder.setTypeQualifier(structuredPropertyDefinition.getTypeQualifier());
-        }
-        if (structuredPropertyDefinition.getAllowedValues() != null) {
-          structuredPropertyDefinition.getAllowedValues().forEach(builder::addAllowedValue);
-        }
-        if (structuredPropertyDefinition.getCardinality() != null) {
-          builder.setCardinality(structuredPropertyDefinition.getCardinality());
-        }
+                if (structuredPropertyDefinition.getTypeQualifier() != null) {
+                  builder.setTypeQualifier(structuredPropertyDefinition.getTypeQualifier());
+                }
+                if (structuredPropertyDefinition.getAllowedValues() != null) {
+                  structuredPropertyDefinition.getAllowedValues().forEach(builder::addAllowedValue);
+                }
+                if (structuredPropertyDefinition.getCardinality() != null) {
+                  builder.setCardinality(structuredPropertyDefinition.getCardinality());
+                }
 
-        MetadataChangeProposal mcp = builder.build();
-        proposals.add(mcp);
-        log.info("Adding structured property: {}", mcp.getEntityUrn());
-      });
-      AspectsBatch aspectsBatch = AspectsBatchImpl.builder().mcps(proposals, opContext.getAuditStamp(),
-          opContext.getRetrieverContext().get()).build();
+                MetadataChangeProposal mcp = builder.build();
+                proposals.add(mcp);
+                log.info("Adding structured property: {}", mcp.getEntityUrn());
+              });
+      AspectsBatch aspectsBatch =
+          AspectsBatchImpl.builder()
+              .mcps(proposals, opContext.getAuditStamp(), opContext.getRetrieverContext().get())
+              .build();
       entityService.ingestProposal(opContext, aspectsBatch, false);
     }
   }

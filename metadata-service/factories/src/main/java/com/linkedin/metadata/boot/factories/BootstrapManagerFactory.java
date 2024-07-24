@@ -1,6 +1,5 @@
 package com.linkedin.metadata.boot.factories;
 
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
@@ -47,7 +46,6 @@ import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -131,8 +129,7 @@ public class BootstrapManagerFactory {
   @Qualifier("ingestMetadataTestsStep")
   private IngestMetadataTestsStep _ingestMetadataTestsStep;
 
-  @Autowired
-  private ApplicationContext applicationContext;
+  @Autowired private ApplicationContext applicationContext;
 
   @Value("${bootstrap.policies.file}")
   private Resource _policiesResource;
@@ -223,13 +220,14 @@ public class BootstrapManagerFactory {
       finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
     }
 
-    ModelExtensionValidationConfiguration mcpExtensionValidationConfig = _configurationProvider
-        .getMetadataChangeProposal().getValidation().getExtensions();
+    ModelExtensionValidationConfiguration mcpExtensionValidationConfig =
+        _configurationProvider.getMetadataChangeProposal().getValidation().getExtensions();
     if (mcpExtensionValidationConfig.isEnabled()) {
-      ExtendedModelStructuredPropertyMutator mutator = applicationContext
-          .getBean(ExtendedModelStructuredPropertyMutator.class);
-      finalSteps.add(new IngestStructuredPropertyExtensionsStep(_entityService,
-          mutator.getStructuredPropertyMappings()));
+      ExtendedModelStructuredPropertyMutator mutator =
+          applicationContext.getBean(ExtendedModelStructuredPropertyMutator.class);
+      finalSteps.add(
+          new IngestStructuredPropertyExtensionsStep(
+              _entityService, mutator.getStructuredPropertyMappings()));
     }
 
     return new BootstrapManager(finalSteps);
