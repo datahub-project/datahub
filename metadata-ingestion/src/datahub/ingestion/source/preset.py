@@ -113,7 +113,7 @@ class PresetSource(SupersetSource):
             }
         )
 
-        # # Test the connection
-        # test_response = self.session.get(f"{self.config.connect_uri}/version")
-        # if not test_response.ok:
-        #     logger.error("Unable to connect to workspace")
+        # Test the connection
+        test_response = self.session.get(f"{self.config.connect_uri}/version")
+        if not test_response.ok:
+            logger.error("Unable to connect to workspace")
