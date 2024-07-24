@@ -208,7 +208,7 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         "mutationsV2",
         "operrationsV2",
         "ownershipV2",
-        "schema_blameV2"
+        "schema_blameV2",
     }
     rest_specs.difference_update(set(cypress_saas_suite1_specs))
     rest_specs.difference_update(set(cypress_saas_suite2_specs))
