@@ -12,6 +12,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v2.generated.controller.DatahubUsageEventsApiDelegate;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,8 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
   @Qualifier("systemOperationContext")
   OperationContext systemOperationContext;
 
+  @Autowired private HttpServletRequest request;
+
   public static final String DATAHUB_USAGE_INDEX = "datahub_usage_event";
 
   @Override
@@ -36,7 +39,8 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("raw", List.of()),
+            RequestContext.builder()
+                .buildOpenapi(authentication.getActor().toUrnStr(), request, "raw", List.of()),
             _authorizationChain,
             authentication,
             true);

@@ -2,6 +2,7 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -107,7 +108,7 @@ public class FormServiceTest {
     // Case 1 - non existing form.
     Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
     SystemEntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm), anyBoolean()))
         .thenReturn(false);
 
     FormService formService =
@@ -178,7 +179,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.eq(true));
+            anyBoolean());
   }
 
   @Test
@@ -233,7 +234,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.eq(true));
+            anyBoolean());
   }
 
   @Test
@@ -395,7 +396,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.eq(true));
+            anyBoolean());
   }
 
   @Test
@@ -455,7 +456,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.eq(true));
+            anyBoolean());
   }
 
   @Test
@@ -654,7 +655,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.eq(true));
+            anyBoolean());
   }
 
   @Test
@@ -768,7 +769,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.eq(true));
+            anyBoolean());
   }
 
   @Test
@@ -850,7 +851,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.eq(true));
+            anyBoolean());
   }
 
   @Test
@@ -898,7 +899,7 @@ public class FormServiceTest {
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
-            Mockito.eq(false));
+            eq(false));
   }
 
   @Test
@@ -956,7 +957,7 @@ public class FormServiceTest {
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
-            Mockito.eq(false));
+            eq(false));
   }
 
   @Test
@@ -1021,7 +1022,7 @@ public class FormServiceTest {
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
-            Mockito.eq(false));
+            eq(false));
   }
 
   @Test
@@ -1311,7 +1312,7 @@ public class FormServiceTest {
                         TEST_ENTITY_URN,
                         FORMS_ASPECT_NAME,
                         formsAspectMap.get(FORMS_ASPECT_NAME)))),
-            Mockito.eq(false));
+            eq(false));
   }
 
   @Test

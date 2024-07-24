@@ -1,5 +1,6 @@
 package com.linkedin.metadata.filter;
 
+import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.restli.common.HttpMethod;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.filter.Filter;
@@ -33,7 +34,9 @@ public class RestliLoggingFilter implements Filter {
       final FilterRequestContext requestContext,
       final FilterResponseContext responseContext) {
     logResponse(requestContext, responseContext);
-    log.error("Rest.li error: ", th);
+    if (!(th instanceof NonExceptionHttpErrorResponse)) {
+      log.error("Rest.li error: ", th);
+    }
     return CompletableFuture.completedFuture(null);
   }
 

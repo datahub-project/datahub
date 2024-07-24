@@ -87,10 +87,11 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham jagtap",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -98,7 +99,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1707327442987,
+        "lastObserved": 1720073670616,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -303,10 +304,11 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham jagtap",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -314,7 +316,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1707327443016,
+        "lastObserved": 1720073670661,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -432,10 +434,11 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham jagtap",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -443,7 +446,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1707327443023,
+        "lastObserved": 1720073670669,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1113,10 +1116,11 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham jagtap",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -1124,7 +1128,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1707327443058,
+        "lastObserved": 1720073670731,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1289,10 +1293,11 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham jagtap",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -1300,7 +1305,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1707327443073,
+        "lastObserved": 1720073670744,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }

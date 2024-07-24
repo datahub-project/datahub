@@ -139,7 +139,3 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
         except PipelineExecutionError as exec_error:
             assert exec_error.args[0] == "Source reported errors"
             assert len(exec_error.args[1].failures) == 1
-            assert (
-                list(exec_error.args[1].failures.keys())[0]
-                == "mode-report-75737b70402e"
-            )

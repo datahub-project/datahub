@@ -101,6 +101,11 @@
                 },
                 "doc" : "Additional properties",
                 "optional" : true
+              }, {
+                "name" : "version",
+                "type" : "string",
+                "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
+                "optional" : true
               } ]
             }
           } ]
@@ -1565,6 +1570,17 @@
           "fieldType" : "DATETIME"
         }
       }
+    }, {
+      "name" : "env",
+      "type" : "com.linkedin.common.FabricType",
+      "doc" : "Environment for this flow",
+      "optional" : true,
+      "Searchable" : {
+        "addToFilters" : true,
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Environment",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "name" : "dataFlowInfo"
@@ -1661,6 +1677,17 @@
       "doc" : "Status of the job - Deprecated for Data Process Instance model.",
       "optional" : true,
       "deprecated" : "Use Data Process Instance model, instead"
+    }, {
+      "name" : "env",
+      "type" : "com.linkedin.common.FabricType",
+      "doc" : "Environment for this job",
+      "optional" : true,
+      "Searchable" : {
+        "addToFilters" : true,
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Environment",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "name" : "dataJobInfo"
@@ -4191,7 +4218,15 @@
     }, {
       "name" : "systemMetadata",
       "type" : "SystemMetadata",
-      "doc" : "A string->string map of custom properties that one might want to attach to an event\n",
+      "doc" : "System properties that one might want to attach to an event\n",
+      "optional" : true
+    }, {
+      "name" : "headers",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "Headers - intended to mimic http headers",
       "optional" : true
     }, {
       "name" : "headers",

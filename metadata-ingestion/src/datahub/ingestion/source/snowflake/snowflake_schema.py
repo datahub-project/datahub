@@ -3,18 +3,18 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, List, Optional
-
-from snowflake.connector import SnowflakeConnection
+from typing import Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_VIEWS_MAX_PAGE_SIZE,
     SnowflakeQuery,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.prefix_batch_builder import build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -183,18 +183,9 @@ class _SnowflakeTagCache:
         )
 
 
-class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
-    def __init__(self) -> None:
-        self.logger = logger
-        self.connection: Optional[SnowflakeConnection] = None
-
-    def set_connection(self, connection: SnowflakeConnection) -> None:
+class SnowflakeDataDictionary(SupportsAsObj):
+    def __init__(self, connection: SnowflakeConnection) -> None:
         self.connection = connection
-
-    def get_connection(self) -> SnowflakeConnection:
-        # Connection is already present by the time this is called
-        assert self.connection is not None
-        return self.connection
 
     def as_obj(self) -> Dict[str, Dict[str, int]]:
         # TODO: Move this into a proper report type that gets computed.
@@ -219,7 +210,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
     def show_databases(self) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.show_databases(),
         )
 
@@ -236,7 +227,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
     def get_databases(self, db_name: str) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.get_databases(db_name),
         )
 
@@ -254,7 +245,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
     def get_schemas_for_database(self, db_name: str) -> List[SnowflakeSchema]:
         snowflake_schemas = []
 
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.schemas_for_database(db_name),
         )
 
@@ -274,7 +265,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
-            cur = self.query(
+            cur = self.connection.query(
                 SnowflakeQuery.tables_for_database(db_name),
             )
         except Exception as e:
@@ -307,7 +298,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
 
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.tables_for_schema(schema_name, db_name),
         )
 
@@ -335,7 +326,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
         first_iteration = True
         view_pagination_marker: Optional[str] = None
         while first_iteration or view_pagination_marker is not None:
-            cur = self.query(
+            cur = self.connection.query(
                 SnowflakeQuery.show_views_for_database(
                     db_name,
                     limit=page_limit,
@@ -379,58 +370,48 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
 
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_columns_for_schema(
-        self, schema_name: str, db_name: str
-    ) -> Optional[Dict[str, List[SnowflakeColumn]]]:
-        columns: Dict[str, List[SnowflakeColumn]] = {}
-        try:
-            cur = self.query(SnowflakeQuery.columns_for_schema(schema_name, db_name))
-        except Exception as e:
-            logger.debug(
-                f"Failed to get all columns for schema - {schema_name}", exc_info=e
-            )
-            # Error - Information schema query returned too much data.
-            # Please repeat query with more selective predicates.
-            return None
+        self,
+        schema_name: str,
+        db_name: str,
+        # HACK: This key is excluded from the cache key.
+        cache_exclude_all_objects: Iterable[str],
+    ) -> MutableMapping[str, List[SnowflakeColumn]]:
+        all_objects = list(cache_exclude_all_objects)
 
-        for column in cur:
-            if column["TABLE_NAME"] not in columns:
-                columns[column["TABLE_NAME"]] = []
-            columns[column["TABLE_NAME"]].append(
-                SnowflakeColumn(
-                    name=column["COLUMN_NAME"],
-                    ordinal_position=column["ORDINAL_POSITION"],
-                    is_nullable=column["IS_NULLABLE"] == "YES",
-                    data_type=column["DATA_TYPE"],
-                    comment=column["COMMENT"],
-                    character_maximum_length=column["CHARACTER_MAXIMUM_LENGTH"],
-                    numeric_precision=column["NUMERIC_PRECISION"],
-                    numeric_scale=column["NUMERIC_SCALE"],
-                )
-            )
-        return columns
+        columns: MutableMapping[str, List[SnowflakeColumn]] = {}
+        if len(all_objects) > 10000:
+            # For massive schemas, use a FileBackedDict to avoid memory issues.
+            columns = FileBackedDict()
 
-    def get_columns_for_table(
-        self, table_name: str, schema_name: str, db_name: str
-    ) -> List[SnowflakeColumn]:
-        columns: List[SnowflakeColumn] = []
-
-        cur = self.query(
-            SnowflakeQuery.columns_for_table(table_name, schema_name, db_name),
+        object_batches = build_prefix_batches(
+            all_objects, max_batch_size=10000, max_groups_in_batch=5
         )
-
-        for column in cur:
-            columns.append(
-                SnowflakeColumn(
-                    name=column["COLUMN_NAME"],
-                    ordinal_position=column["ORDINAL_POSITION"],
-                    is_nullable=column["IS_NULLABLE"] == "YES",
-                    data_type=column["DATA_TYPE"],
-                    comment=column["COMMENT"],
-                    character_maximum_length=column["CHARACTER_MAXIMUM_LENGTH"],
-                    numeric_precision=column["NUMERIC_PRECISION"],
-                    numeric_scale=column["NUMERIC_SCALE"],
+        for batch_index, object_batch in enumerate(object_batches):
+            if batch_index > 0:
+                logger.info(
+                    f"Still fetching columns for {db_name}.{schema_name} - batch {batch_index + 1} of {len(object_batches)}"
                 )
+            query = SnowflakeQuery.columns_for_schema(
+                schema_name, db_name, object_batch
             )
+
+            cur = self.connection.query(query)
+
+            for column in cur:
+                if column["TABLE_NAME"] not in columns:
+                    columns[column["TABLE_NAME"]] = []
+                columns[column["TABLE_NAME"]].append(
+                    SnowflakeColumn(
+                        name=column["COLUMN_NAME"],
+                        ordinal_position=column["ORDINAL_POSITION"],
+                        is_nullable=column["IS_NULLABLE"] == "YES",
+                        data_type=column["DATA_TYPE"],
+                        comment=column["COMMENT"],
+                        character_maximum_length=column["CHARACTER_MAXIMUM_LENGTH"],
+                        numeric_precision=column["NUMERIC_PRECISION"],
+                        numeric_scale=column["NUMERIC_SCALE"],
+                    )
+                )
         return columns
 
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
@@ -438,7 +419,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
         self, schema_name: str, db_name: str
     ) -> Dict[str, SnowflakePK]:
         constraints: Dict[str, SnowflakePK] = {}
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.show_primary_keys_for_schema(schema_name, db_name),
         )
 
@@ -457,7 +438,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
         constraints: Dict[str, List[SnowflakeFK]] = {}
         fk_constraints_map: Dict[str, SnowflakeFK] = {}
 
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.show_foreign_keys_for_schema(schema_name, db_name),
         )
 
@@ -489,7 +470,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
         self,
         db_name: str,
     ) -> _SnowflakeTagCache:
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.get_all_tags_in_database_without_propagation(db_name)
         )
 
@@ -531,7 +512,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
                 )
             else:
                 # This should never happen.
-                self.logger.error(f"Encountered an unexpected domain: {domain}")
+                logger.error(f"Encountered an unexpected domain: {domain}")
                 continue
 
         return tags
@@ -544,7 +525,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
     ) -> List[SnowflakeTag]:
         tags: List[SnowflakeTag] = []
 
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.get_all_tags_on_object_with_propagation(
                 db_name, quoted_identifier, domain
             ),
@@ -565,7 +546,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
         self, quoted_table_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeTag]]:
         tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.get_tags_on_columns_with_propagation(
                 db_name, quoted_table_name
             ),

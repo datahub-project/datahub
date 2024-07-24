@@ -138,7 +138,7 @@ In the next steps, we'll show you how to configure the Slack Action based on the
 
 #### Managed DataHub
 
-Head over to the [Configuring Notifications](../../managed-datahub/saas-slack-setup.md#configuring-notifications) section in the Managed DataHub guide to configure Slack notifications for your Managed DataHub instance.
+Head over to the [Configuring Notifications](../../managed-datahub/slack/saas-slack-setup.md#configuring-notifications) section in the Managed DataHub guide to configure Slack notifications for your Managed DataHub instance.
 
 
 #### Quickstart
@@ -190,7 +190,7 @@ Similar to the quickstart scenario, there are no specific software installation 
 If you are using the `datahub-actions` library directly from Python, or the `datahub-actions` cli directly, then you need to first install the `slack` action plugin in your Python virtualenv. 
 
 ```
-pip install "datahub-actions[slack]"
+pip install "acryl-datahub-actions[slack]"
 ```
 
 Then run the action with a configuration file that you have modified to capture your credentials and configuration.

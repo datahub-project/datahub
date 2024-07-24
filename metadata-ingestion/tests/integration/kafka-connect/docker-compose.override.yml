@@ -1,5 +1,4 @@
 ---
-version: '3.8'
 services:
   connect:
     image: confluentinc/cp-kafka-connect:7.4.0

@@ -20,9 +20,10 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
-import io.datahubproject.openapi.models.GenericEntity;
-import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
-import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
+import io.datahubproject.openapi.v2.models.BatchGetUrnRequestV2;
+import io.datahubproject.openapi.v2.models.BatchGetUrnResponseV2;
+import io.datahubproject.openapi.v2.models.GenericAspectV2;
+import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -99,13 +100,13 @@ public class BaseService {
     }
 
     try {
-      BatchGetUrnRequest getUrnRequest =
-          BatchGetUrnRequest.builder()
+      BatchGetUrnRequestV2 getUrnRequest =
+          BatchGetUrnRequestV2.builder()
               .urns(entityUrns.stream().map(Urn::toString).collect(Collectors.toList()))
               .aspectNames(Collections.singletonList(aspectName))
               .withSystemMetadata(true)
               .build();
-      BatchGetUrnResponse response =
+      BatchGetUrnResponseV2<GenericAspectV2, GenericEntityV2> response =
           openApiClient.getBatchUrns(
               entityUrns.stream().findFirst().get().getEntityType(),
               getUrnRequest,
@@ -125,7 +126,7 @@ public class BaseService {
     }
   }
 
-  private RecordTemplate convertToRecordTemplate(GenericEntity entity, String aspectName) {
+  private RecordTemplate convertToRecordTemplate(GenericEntityV2 entity, String aspectName) {
     JsonNode valueNode = objectMapper.valueToTree(entity.getAspects().get(aspectName)).get("value");
     AspectSpec aspectSpec =
         openApiClient

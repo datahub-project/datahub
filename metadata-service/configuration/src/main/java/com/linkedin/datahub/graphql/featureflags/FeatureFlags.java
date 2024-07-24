@@ -37,8 +37,8 @@ public class FeatureFlags {
   private boolean runAssertionsEnabled = false;
   private boolean broadcastNewIncidentUpdatesEnabled = false;
   private boolean separateSiblingsLineageByDefault = false;
-  private boolean showSeparateSiblings = false;
   private boolean formCreationEnabled = false;
   private boolean alternateMCPValidation = false;
   private boolean schemaFieldCLLEnabled = false;
+  private boolean showSeparateSiblings = false;
 }

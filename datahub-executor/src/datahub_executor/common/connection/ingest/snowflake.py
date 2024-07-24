@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source_config.sql.snowflake import SnowflakeConfig
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeConfig
 
 from datahub_executor.common.connection.connection import Connection
 from datahub_executor.common.connection.snowflake.snowflake_connection import (

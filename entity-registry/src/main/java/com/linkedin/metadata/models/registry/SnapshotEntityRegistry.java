@@ -116,9 +116,9 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());
     aspectSpecTemplateMap.put(
         STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertiesTemplate());
-    aspectSpecTemplateMap.put(FORM_INFO_ASPECT_NAME, new FormInfoTemplate());
     aspectSpecTemplateMap.put(
         STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new StructuredPropertyDefinitionTemplate());
+    aspectSpecTemplateMap.put(FORM_INFO_ASPECT_NAME, new FormInfoTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 

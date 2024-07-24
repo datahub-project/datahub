@@ -38,6 +38,7 @@ public class MetadataTestsConfig {
         testApiDelegate =
             new EntityApiDelegateImpl<>(
                 systemOpContext,
+                null,
                 entityService,
                 searchService,
                 entitiesController,

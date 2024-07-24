@@ -31,15 +31,16 @@ pytestmark = pytest.mark.random_order(disabled=True)
 
 
 class TestPipeline:
+    @patch("confluent_kafka.Consumer", autospec=True)
     @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
     @freeze_time(FROZEN_TIME)
-    def test_configure(self, mock_sink, mock_source):
+    def test_configure(self, mock_sink, mock_source, mock_consumer):
         pipeline = Pipeline.create(
             {
                 "source": {
                     "type": "kafka",
-                    "config": {"connection": {"bootstrap": "localhost:9092"}},
+                    "config": {"connection": {"bootstrap": "fake-dns-name:9092"}},
                 },
                 "sink": {"type": "console"},
             }

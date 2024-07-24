@@ -152,29 +152,29 @@ public class DeleteEntityServiceTest {
     scrollResult.setNumEntities(1);
     scrollResult.setScrollId("1");
     Mockito.when(
-            _mockSearchService.scroll(
+            _mockSearchService.structuredScroll(
                 Mockito.any(OperationContext.class),
                 Mockito.any(),
+                Mockito.eq("*"),
                 Mockito.any(Filter.class),
                 Mockito.eq(null),
-                Mockito.eq(1000),
                 Mockito.eq(null),
                 Mockito.eq("5m"),
-                Mockito.eq(null)))
+                Mockito.eq(1000)))
         .thenReturn(scrollResult);
 
     ScrollResult scrollResult2 = new ScrollResult();
     scrollResult2.setNumEntities(0);
     Mockito.when(
-            _mockSearchService.scroll(
+            _mockSearchService.structuredScroll(
                 Mockito.any(OperationContext.class),
                 Mockito.any(),
+                Mockito.eq("*"),
                 Mockito.any(Filter.class),
                 Mockito.eq(null),
-                Mockito.eq(1000),
                 Mockito.eq("1"),
                 Mockito.eq("5m"),
-                Mockito.eq(null)))
+                Mockito.eq(1000)))
         .thenReturn(scrollResult2);
 
     Forms formsAspect = new Forms();
@@ -233,15 +233,15 @@ public class DeleteEntityServiceTest {
     scrollResult.setEntities(new SearchEntityArray());
     scrollResult.setNumEntities(0);
     Mockito.when(
-            _mockSearchService.scroll(
+            _mockSearchService.structuredScroll(
                 Mockito.any(OperationContext.class),
                 Mockito.any(),
+                Mockito.eq("*"),
                 Mockito.any(Filter.class),
                 Mockito.eq(null),
-                Mockito.eq(1000),
                 Mockito.eq(null),
                 Mockito.eq("5m"),
-                Mockito.eq(null)))
+                Mockito.eq(1000)))
         .thenReturn(scrollResult);
 
     // no entities with relationships on forms
@@ -292,15 +292,15 @@ public class DeleteEntityServiceTest {
     scrollResult.setNumEntities(1);
     scrollResult.setScrollId("1");
     Mockito.when(
-            _mockSearchService.scroll(
+            _mockSearchService.structuredScroll(
                 Mockito.any(OperationContext.class),
                 Mockito.any(),
+                Mockito.eq("*"),
                 Mockito.any(Filter.class),
                 Mockito.eq(null),
-                Mockito.eq(1000),
                 Mockito.eq(null),
                 Mockito.eq("5m"),
-                Mockito.eq(null)))
+                Mockito.eq(1000)))
         .thenReturn(scrollResult);
 
     // no entities with relationships on forms

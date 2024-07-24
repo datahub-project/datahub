@@ -254,6 +254,10 @@ public class GraphQLEngineFactory {
   @Qualifier("connectionService")
   private ConnectionService _connectionService;
 
+  @Autowired
+  @Qualifier("assertionService")
+  private AssertionService assertionService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -325,6 +329,7 @@ public class GraphQLEngineFactory {
     args.setExecutorConfiguration(configProvider.getExecutors());
     args.setDataContractService(_dataContractService);
     args.setConnectionService(_connectionService);
+    args.setAssertionService(assertionService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 

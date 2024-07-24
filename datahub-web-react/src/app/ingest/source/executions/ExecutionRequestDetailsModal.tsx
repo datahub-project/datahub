@@ -13,9 +13,13 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
     getExecutionRequestSummaryText,
+    getIngestionSourceStatus,
+    getStructuredReport,
     RUNNING,
     SUCCESS,
 } from '../utils';
+import { ExecutionRequestResult } from '../../../../types.generated';
+import { StructuredReport } from './reporting/StructuredReport';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;
@@ -125,26 +129,30 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     };
 
     const logs = (showExpandedLogs && output) || output?.split('\n').slice(0, 5).join('\n');
-    const result = data?.executionRequest?.result?.status;
+    const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
+    const status = getIngestionSourceStatus(result);
 
     useEffect(() => {
         const interval = setInterval(() => {
-            if (result === RUNNING) refetch();
+            if (status === RUNNING) refetch();
         }, 2000);
 
         return () => clearInterval(interval);
     });
 
-    const ResultIcon = result && getExecutionRequestStatusIcon(result);
-    const resultColor = result && getExecutionRequestStatusDisplayColor(result);
-    const resultText = result && (
+    const ResultIcon = status && getExecutionRequestStatusIcon(status);
+    const resultColor = status && getExecutionRequestStatusDisplayColor(status);
+    const resultText = status && (
         <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
             {ResultIcon && <ResultIcon style={{ marginRight: 4 }} />}
-            {getExecutionRequestStatusDisplayText(result)}
+            {getExecutionRequestStatusDisplayText(status)}
         </Typography.Text>
     );
+
+    const structuredReport = result && getStructuredReport(result);
+
     const resultSummaryText =
-        (result && <Typography.Text type="secondary">{getExecutionRequestSummaryText(result)}</Typography.Text>) ||
+        (status && <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>) ||
         undefined;
 
     const recipeJson = data?.executionRequest?.input.arguments?.find((arg) => arg.key === 'recipe')?.value;
@@ -167,21 +175,22 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
             bodyStyle={modalBodyStyle}
             title={
                 <HeaderSection>
-                    <StyledTitle level={4}>Ingestion Run Details</StyledTitle>
+                    <StyledTitle level={4}>Sync Details</StyledTitle>
                 </HeaderSection>
             }
             visible={visible}
             onCancel={onClose}
         >
-            {!data && loading && <Message type="loading" content="Loading execution details..." />}
-            {error && message.error('Failed to load execution details :(')}
+            {!data && loading && <Message type="loading" content="Loading sync details..." />}
+            {error && message.error('Failed to load sync details :(')}
             <Section>
                 <StatusSection>
                     <Typography.Title level={5}>Status</Typography.Title>
                     <ResultText>{resultText}</ResultText>
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
+                    {structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
-                {result === SUCCESS && (
+                {status === SUCCESS && (
                     <IngestedAssetsSection>
                         {data?.executionRequest?.id && <IngestedAssets id={data?.executionRequest?.id} />}
                     </IngestedAssetsSection>
@@ -190,7 +199,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                     <SectionHeader level={5}>Logs</SectionHeader>
                     <SectionSubHeader>
                         <SubHeaderParagraph type="secondary">
-                            View logs that were collected during the ingestion run.
+                            View logs that were collected during the sync.
                         </SubHeaderParagraph>
                         <Button type="text" onClick={downloadLogs}>
                             <DownloadOutlined />
@@ -213,7 +222,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                         <SectionHeader level={5}>Recipe</SectionHeader>
                         <SectionSubHeader>
                             <SubHeaderParagraph type="secondary">
-                                The recipe used for this ingestion run.
+                                The configurations used for this sync with the data source.
                             </SubHeaderParagraph>
                         </SectionSubHeader>
                         <DetailsContainer

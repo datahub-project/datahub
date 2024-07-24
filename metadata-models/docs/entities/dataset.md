@@ -88,7 +88,7 @@ Here is an example of how you can add a tag to a field in a dataset using the lo
 <summary>Python SDK: Add a tag to a column (field) of a dataset</summary>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_column_term.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_column_tag.py show_path_as_comment }}
 ```
 </details>
 

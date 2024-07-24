@@ -166,17 +166,17 @@ public class PoliciesConfig {
           "Manage Connections",
           "Manage connections to external DataHub platforms.");
 
-  public static final Privilege MANAGE_DOCUMENTATION_FORMS_PRIVILEGE =
-      Privilege.of(
-          "MANAGE_DOCUMENTATION_FORMS",
-          "Manage Documentation Forms",
-          "Manage forms assigned to assets to assist in documentation efforts.");
-
   public static final Privilege MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE =
       Privilege.of(
           "MANAGE_STRUCTURED_PROPERTIES",
           "Manage Structured Properties",
           "Manage structured properties in your instance.");
+
+  public static final Privilege MANAGE_DOCUMENTATION_FORMS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DOCUMENTATION_FORMS",
+          "Manage Documentation Forms",
+          "Manage forms assigned to assets to assist in documentation efforts.");
 
   // Acryl-Main only.
   public static final Privilege MANAGE_MONITORS =
@@ -211,13 +211,11 @@ public class PoliciesConfig {
           MANAGE_GLOBAL_OWNERSHIP_TYPES,
           CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
-          MANAGE_GLOBAL_OWNERSHIP_TYPES,
-          MANAGE_GLOBAL_SETTINGS,
           MANAGE_CONNECTIONS_PRIVILEGE,
+          MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
-          MANAGE_MONITORS,
-          MANAGE_CONNECTIONS_PRIVILEGE,
-          MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
+          MANAGE_GLOBAL_SETTINGS,
+          MANAGE_MONITORS);
 
   // Resource Privileges //
 
@@ -233,7 +231,7 @@ public class PoliciesConfig {
       Privilege.of(
           "EXISTS_ENTITY", "Entity Exists", "The ability to determine whether the entity exists.");
 
-  public static final Privilege CREATE_ENTITY_PRIVILEGE =
+  static final Privilege CREATE_ENTITY_PRIVILEGE =
       Privilege.of(
           "CREATE_ENTITY", "Create Entity", "The ability to create an entity if it doesn't exist.");
 
@@ -1148,6 +1146,38 @@ public class PoliciesConfig {
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  // regular entity level permissions + MANAGE_ACCESS_TOKENS
+                  Constants.ACCESS_TOKEN_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(
+                              MANAGE_ACCESS_TOKENS, CREATE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              MANAGE_ACCESS_TOKENS,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(MANAGE_ACCESS_TOKENS, EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(MANAGE_ACCESS_TOKENS, DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              MANAGE_ACCESS_TOKENS,
+                              EXISTS_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              SEARCH_PRIVILEGE))
                       .build())
               .build();
 

@@ -388,6 +388,7 @@ class TrinoSource(SQLAlchemySource):
         dataset_name: str,
         column: dict,
         pk_constraints: Optional[dict] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         fields = super().get_schema_fields_for_column(

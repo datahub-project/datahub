@@ -39,6 +39,12 @@ RUN uv pip install --no-cache -e .
 ## Production Image Built From Build Image
 FROM build as prod-install
 
+# Install OpenJDK 17 in the prod image
+RUN apt-get update && apt-get install -y openjdk-17-jdk
+
+# Set JAVA_HOME environment variable
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
 USER datahub
 
 FROM prod-install as dev-install

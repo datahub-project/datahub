@@ -22,9 +22,9 @@ describe("search", () => {
   it("can search, find a result, and visit the dataset page", () => {
     cy.login();
     cy.visit(
-      "/search?filter_entity=DATASET&filter_tags=urn%3Ali%3Atag%3ACypress&page=1&query=users_created",
+      "/search?filter_entity=DATASET&filter_tags=urn%3Ali%3Atag%3ACypress&page=1&query=users created",
     );
-    cy.contains("of 2 result");
+    cy.contains("of 1 result");
 
     cy.contains("Cypress");
 
