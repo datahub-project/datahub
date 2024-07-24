@@ -217,6 +217,7 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         "cypress_suite1": cypress_suite1_specs,
         "cypress_saas_suite1": cypress_saas_suite1_specs,
         "cypress_saas_suite2": cypress_saas_suite2_specs,
+        "cypress_saas_suite3": cypress_saas_suite3_specs,
         "cypress_rest": rest_specs,
     }
     print(f"test strategy is {test_strategy}")
