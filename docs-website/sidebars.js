@@ -420,11 +420,6 @@ module.exports = {
         {
           type: "doc",
           id: "metadata-integration/java/acryl-spark-lineage/README",
-          label: "Spark (Legacy)",
-        },
-        {
-          type: "doc",
-          id: "metadata-integration/java/acryl-spark-lineage/README",
           label: "Spark",
         },
         //"docker/airflow/local_airflow",
