@@ -48,6 +48,19 @@
     filter: invert(1);
     mix-blend-mode: exclusion;
   }
+
+  :global {
+    .swiper-wrapper {
+      display: flex;
+      align-items: center;
+      .swiper-slide {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+      }
+    }
+  }
 }
 
 .companyLogoContainer {
@@ -85,23 +98,23 @@
 }
 
 .companyLogo {
-  width: auto;
+  flex-shrink: 0;
+  width: 100%;
+  height: auto;
   mix-blend-mode: luminosity;
   opacity: 0.66;
   filter: grayscale(100%);
-  margin: 2.5rem;
-  height: 60px;
 
   &.default {
-    height: 60px;
+    padding: 30px;
   }
   &.large {
-    height: 100px;
+    padding: 5px;
   }
   &.medium {
-    height: 30px;
+    padding: 15px;
   }
   &.small {
-    height: 20px;
+    padding: 10px;
   }
 }

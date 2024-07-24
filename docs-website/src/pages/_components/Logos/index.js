@@ -360,6 +360,20 @@ export const CompanyLogos = () => (
           <Swiper
             slidesPerView={6}
             spaceBetween={30}
+            breakpoints={{
+              320: {
+                slidesPerView: 2,
+                spaceBetween: 10,
+              },
+              480: {
+                slidesPerView: 4,
+                spaceBetween: 20,
+              },
+              960: {
+                slidesPerView: 6,
+                spaceBetween: 30,
+              },
+            }}
             pagination={{ clickable: true }}
             modules={[Pagination]}
             className={clsx("mySwiper", styles.companyWrapper)}
