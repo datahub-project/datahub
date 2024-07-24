@@ -82,6 +82,7 @@ interface Props {
     usageStats?: UsageQueryResult | null;
     displayedRows: ExtendedSchemaFields[];
     refetch?: () => void;
+    mask?: boolean;
 }
 
 export default function SchemaFieldDrawer({
@@ -96,6 +97,7 @@ export default function SchemaFieldDrawer({
     usageStats,
     displayedRows,
     refetch,
+    mask = false,
 }: Props) {
     const expandedFieldIndex = useMemo(
         () => displayedRows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
@@ -212,8 +214,8 @@ export default function SchemaFieldDrawer({
                     // The minWidth is calculated based on the width of the Chart's displayed in the Historical stats view
                     // And Insight Stats View Table to ensure consistent container width across various screen sizes.
                     contentWrapperStyle={{ width: `fit-content`, minWidth: '560px', maxWidth: '560px' }}
-                    mask={false}
-                    maskClosable={false}
+                    mask={mask}
+                    maskClosable={mask}
                     placement="right"
                     closable={false}
                 >

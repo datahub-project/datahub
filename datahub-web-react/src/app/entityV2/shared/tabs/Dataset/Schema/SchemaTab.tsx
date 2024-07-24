@@ -190,8 +190,13 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                 rows={rows}
                 schemaMetadata={schemaMetadata}
                 editableSchemaMetadata={editableSchemaMetadata}
+                expandedDrawerFieldPath={expandedDrawerFieldPath}
+                setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
+                openTimelineDrawer={openTimelineDrawer}
+                setOpenTimelineDrawer={setOpenTimelineDrawer}
                 usageStats={usageStats}
                 fullHeight={!!properties?.fullHeight}
+                refetch={refetch}
             />
         );
     }
