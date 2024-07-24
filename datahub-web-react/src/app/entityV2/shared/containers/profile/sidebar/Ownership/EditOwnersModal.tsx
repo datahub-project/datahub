@@ -1,6 +1,7 @@
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { getModalDomContainer } from '@src/utils/focus';
 
 import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
@@ -344,6 +345,7 @@ export const EditOwnersModal = ({
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <Form layout="vertical" colon={false}>
                 <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
