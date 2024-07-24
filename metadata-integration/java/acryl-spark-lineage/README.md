@@ -356,7 +356,7 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 + 
 ## Changelog
 
-### Next
+### Version 0.2.15
 - Add Kafka emitter to emit lineage to kafka
 - Add File emitter to emit lineage to file
 - Add S3 emitter to save mcps to s3
