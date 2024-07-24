@@ -1,3 +1,4 @@
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { debounce } from 'lodash';
@@ -24,7 +25,7 @@ const Body = styled.div`
     display: flex;
     flex-direction: row;
     flex: 1;
-    background-color: #f4f5f7;
+    background-color: ${REDESIGN_COLORS.BACKGROUND};
 `;
 
 const Navigation = styled.div`

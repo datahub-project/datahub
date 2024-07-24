@@ -21,7 +21,7 @@ const SearchBody = styled.div`
     height: 100%;
     overflow-y: auto;
     display: flex;
-    background-color: ${REDESIGN_COLORS.BORDER_3};
+    background-color: ${REDESIGN_COLORS.BACKGROUND};
 `;
 
 const PaginationInfo = styled(Typography.Text)`
@@ -29,6 +29,7 @@ const PaginationInfo = styled(Typography.Text)`
 `;
 
 const FiltersContainer = styled.div`
+    background-color: ${REDESIGN_COLORS.WHITE};
     display: flex;
     flex-direction: column;
     height: 100%;

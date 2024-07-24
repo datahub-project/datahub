@@ -21,6 +21,8 @@ import {
     setDefault,
 } from './common';
 
+const PER_HOP_LIMIT = 2;
+
 /**
  * Fetches the lineage structure for a given urn and direction, and updates the nodes map with the results.
  * @param urn Urn for which to fetch lineage
@@ -65,7 +67,7 @@ export default function useSearchAcrossLineage(
         lineageFlags: {
             startTimeMillis,
             endTimeMillis,
-            entitiesExploredPerHopLimit: LINEAGE_FILTER_PAGINATION,
+            entitiesExploredPerHopLimit: PER_HOP_LIMIT,
             ignoreAsHops: [
                 {
                     entityType: EntityType.Dataset,

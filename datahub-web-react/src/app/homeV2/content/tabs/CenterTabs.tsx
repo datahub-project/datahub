@@ -1,3 +1,4 @@
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 import { Skeleton } from 'antd';
@@ -9,7 +10,7 @@ import { useAppConfig } from '../../../useAppConfig';
 
 const Container = styled.div`
     flex: 1;
-    background-color: #f4f5f7;
+    background-color: ${REDESIGN_COLORS.BACKGROUND};
     border-radius: 8px;
     padding: 0px 0px 0px 0px;
     margin-top: 18px;

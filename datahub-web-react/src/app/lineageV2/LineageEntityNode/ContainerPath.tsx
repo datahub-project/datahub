@@ -1,6 +1,7 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ContainerIconBase } from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
+import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Container } from '@types';
 import { Typography } from 'antd';
@@ -13,13 +14,16 @@ const ContainerPathWrapper = styled.div`
     text-overflow: ellipsis;
     white-space: nowrap;
     width: 100%;
+
+    flex: 1 1 10px;
+    min-height: 8px;
+    max-height: 12px;
 `;
 
 // TODO: Put ellipsis on last item correctly
-const ContainerEntry = styled.div<{ numItems?: number; isLast: boolean }>`
+const ContainerEntry = styled(MatchTextSizeWrapper)<{ numItems?: number; isLast: boolean }>`
     align-items: center;
-    color: ${ANTD_GRAY[9]};
-    font-size: 10px;
+    color: ${REDESIGN_COLORS.TEXT_GREY};
     display: flex;
     flex-direction: row;
     max-width: ${({ numItems, isLast }) => (numItems && !isLast ? 100 / numItems : 100)}%;
@@ -27,7 +31,7 @@ const ContainerEntry = styled.div<{ numItems?: number; isLast: boolean }>`
 
 const ContainerText = styled(Typography.Text)`
     color: inherit;
-    margin-left: 4px;
+    margin: 0 4px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -58,10 +62,15 @@ export default function ContainerPath({ parents, className }: Props) {
     return (
         <ContainerPathWrapper className={className}>
             {containers?.map((container, i) => (
-                <ContainerEntry key={container.urn} isLast={i === containers.length - 1} numItems={containers.length}>
+                <ContainerEntry
+                    key={container.urn}
+                    isLast={i === containers.length - 1}
+                    numItems={containers.length}
+                    defaultHeight={10}
+                >
                     {i > 0 && <VerticalDivider margin={4} />}
                     <ContainerIconBase container={container} />
-                    <ContainerText ellipsis={{ tooltip: true }}>
+                    <ContainerText ellipsis={{ tooltip: { showArrow: false } }}>
                         {entityRegistry.getDisplayName(container.type, container)}
                     </ContainerText>
                 </ContainerEntry>

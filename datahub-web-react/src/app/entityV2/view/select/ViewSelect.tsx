@@ -150,22 +150,24 @@ export const ViewSelect = () => {
         fetchPolicy: 'cache-first',
     });
 
-    const highlightedPublicViewData = filterViews(filterText, publicViewsData?.listGlobalViews?.views || []);
-
-    const highlightedPrivateViewData = filterViews(filterText, privateViewsData?.listMyViews?.views || []);
-
     useEffect(() => {
         setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
         const selectedView =
-            highlightedPrivateViewData?.find((view) => view?.urn === userContext.localState?.selectedViewUrn) ||
-            highlightedPublicViewData?.find((view) => view?.urn === userContext.localState?.selectedViewUrn);
-        setSelectedView(selectedView?.name || undefined);
-    }, [
-        userContext.localState?.selectedViewUrn,
-        setSelectedUrn,
-        highlightedPrivateViewData,
-        highlightedPublicViewData,
-    ]);
+            privateViewsData?.listMyViews?.views?.find(
+                (view) => view?.urn === userContext.localState?.selectedViewUrn,
+            ) ||
+            publicViewsData?.listGlobalViews?.views?.find(
+                (view) => view?.urn === userContext.localState?.selectedViewUrn,
+            );
+        if (selectedView === undefined) {
+            setSelectedView('');
+        } else {
+            setSelectedView(selectedView.name);
+        }
+    }, [userContext.localState?.selectedViewUrn, setSelectedUrn, privateViewsData, publicViewsData]);
+
+    const highlightedPublicViewData = filterViews(filterText, publicViewsData?.listGlobalViews?.views || []);
+    const highlightedPrivateViewData = filterViews(filterText, privateViewsData?.listMyViews?.views || []);
 
     const debouncedSetFilterText = debounce(
         (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),
@@ -182,7 +184,7 @@ export const ViewSelect = () => {
         const selectedView =
             highlightedPrivateViewData?.find((view) => view?.urn === selectedUrn) ||
             highlightedPublicViewData?.find((view) => view?.urn === selectedUrn);
-        setSelectedView(selectedView?.name);
+        setSelectedView(selectedView?.name ?? '');
         userContext.updateLocalState({
             ...userContext.localState,
             selectedViewUrn: newUrn,

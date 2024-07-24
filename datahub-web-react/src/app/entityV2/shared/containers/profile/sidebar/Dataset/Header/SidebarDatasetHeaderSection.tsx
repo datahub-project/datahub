@@ -77,7 +77,7 @@ const SidebarDatasetHeaderSection = () => {
     if (isValuePresent(dataset?.datasetProfiles?.[0]?.rowCount)) {
         columns.push({
             title: 'Rows',
-            content: <StatContent>{formatNumber(dataset?.datasetProfiles[0]?.rowCount)} rows</StatContent>,
+            content: <StatContent>{formatNumber(dataset?.datasetProfiles?.[0]?.rowCount)} rows</StatContent>,
         });
     }
 

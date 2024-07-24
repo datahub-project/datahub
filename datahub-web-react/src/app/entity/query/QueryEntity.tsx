@@ -1,18 +1,11 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { ConsoleSqlOutlined } from '@ant-design/icons';
+import { useGetQueryQuery } from '@graphql/query.generated';
+import { DataPlatform, EntityType, QueryEntity as Query } from '@types';
 import * as React from 'react';
-import { ConsoleSqlOutlined, FileOutlined } from '@ant-design/icons';
-import { DataPlatform, EntityType, QueryEntity as Query } from '../../../types.generated';
 import { Entity, IconStyleType } from '../Entity';
-import { GenericEntityProperties } from '../../entity/shared/types';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { useGetQueryQuery } from '../../../graphql/query.generated';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import SidebarQueryUpdatedAtSection from '../shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection';
-import SidebarQueryDescriptionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import SidebarQueryDefinitionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
-import { SidebarQueryLogicSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 
 /**
  * Definition of the DataHub DataPlatformInstance entity.
@@ -49,30 +42,8 @@ export class QueryEntity implements Entity<Query> {
 
     useEntityQuery = useGetQueryQuery;
 
-    renderProfile = (urn: string) => {
-        return (
-            <EntityProfile
-                urn={urn}
-                entityType={EntityType.Query}
-                useEntityQuery={useGetQueryQuery}
-                tabs={[
-                    {
-                        name: 'Documentation',
-                        component: DocumentationTab,
-                        icon: FileOutlined,
-                    },
-                ]}
-                sidebarSections={[
-                    { component: SidebarQueryUpdatedAtSection },
-                    { component: SidebarQueryDefinitionSection },
-                    { component: SidebarQueryLogicSection },
-                    { component: SidebarQueryDescriptionSection },
-                    { component: SidebarQueryOperationsSection },
-                ]}
-                sidebarTabs={[]}
-                getOverrideProperties={() => ({})}
-            />
-        );
+    renderProfile = (_urn: string) => {
+        return <></>;
     };
 
     getOverridePropertiesFromEntity = (query?: Query | null): GenericEntityProperties => {

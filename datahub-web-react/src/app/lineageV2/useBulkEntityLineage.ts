@@ -18,22 +18,37 @@ import {
 import { FetchedEntityV2Relationship } from './types';
 import { addQueryNodes, entityNodeDefault, pruneDuplicateEdges } from './useSearchAcrossLineage';
 
+const BATCH_SIZE = 10;
+
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
-    const { nodes, edges, adjacencyList, setDataVersion, setDisplayVersion } = useContext(LineageNodesContext);
+    const { nodes, edges, adjacencyList, dataVersion, setDataVersion, setDisplayVersion } =
+        useContext(LineageNodesContext);
     shownUrns.sort();
     const prevShownUrns = usePrevious(shownUrns);
-    const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
+
+    const [memoizedShownUrns, setMemoizedShownUrns] = useState<string[]>([]);
     useEffect(() => {
         // TODO: Implement string[] equality?
         if (JSON.stringify(prevShownUrns) !== JSON.stringify(shownUrns)) {
-            setUrnsToFetch(
-                shownUrns.filter((urn) => {
+            setMemoizedShownUrns(shownUrns);
+        }
+    }, [prevShownUrns, shownUrns]);
+
+    const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
+    useEffect(() => {
+        setUrnsToFetch((oldUrnsToFetch) => {
+            const newUrnsToFetch = memoizedShownUrns
+                .filter((urn) => {
                     const node = nodes.get(urn);
                     return !node?.entity;
-                }),
-            );
-        }
-    }, [nodes, prevShownUrns, shownUrns]);
+                })
+                .slice(0, BATCH_SIZE);
+            if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
+                return newUrnsToFetch;
+            }
+            return oldUrnsToFetch;
+        });
+    }, [nodes, dataVersion, memoizedShownUrns]);
 
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
@@ -112,7 +127,7 @@ function processEdge(
             return;
         }
 
-        if ([FetchStatus.COMPLETE, FetchStatus.LOADING].includes(node.fetchStatus[direction])) {
+        if (node.fetchStatus[direction] !== FetchStatus.UNNEEDED) {
             // Add nodes that should be in the graph
             // TODO: Bust search across lineage cache?
             setDefault(

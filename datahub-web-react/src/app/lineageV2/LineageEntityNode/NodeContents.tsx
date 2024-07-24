@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
+import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useContext } from 'react';
@@ -131,40 +132,39 @@ const MainTextWrapper = styled.div`
     flex-direction: column;
     flex-grow: 1;
     justify-content: center;
-    gap: 3px;
+    gap: 4px;
     height: 100%;
     min-width: 0;
 `;
 
-const Header = styled.div`
-    display: flex;
-    justify-content: space-between;
-    min-height: 0;
-    overflow: hidden;
-    width: 100%;
-`;
-
 const TitleWrapper = styled.div`
     display: flex;
-    align-items: start;
+    align-items: center;
+    font-size: 14px;
     gap: 4px;
     overflow: hidden;
+
+    flex: 1 0 fit-content;
+    min-height: 12px;
 `;
 
 const Title = styled(OverflowTitle)`
     font-weight: 600;
-    line-height: 1.25em;
+    line-height: 1.2em;
 `;
 
-const ExpandColumnsWrapper = styled.div`
+const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
     align-items: center;
     border: 0.5px solid ${LINEAGE_COLORS.BLUE_1}50;
     border-radius: 10px;
     color: ${LINEAGE_COLORS.BLUE_1};
     display: flex;
-    font-size: 10px;
     justify-content: center;
     width: 100%;
+
+    flex: 1 1 16px;
+    min-height: 12px;
+    max-height: 16px;
 
     :hover {
         background-color: ${LINEAGE_COLORS.BLUE_1}20;
@@ -359,25 +359,20 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 {entity && (
                     <MainTextWrapper>
                         <ContainerPath parents={entity?.parents} />
-                        <Header>
-                            <TitleWrapper>
-                                <Title title={entity?.name} />
-                                {entity?.health && (
-                                    <HealthIcon
-                                        health={entity.health}
-                                        baseUrl={entityRegistry.getEntityUrl(type, urn)}
-                                    />
-                                )}
-                            </TitleWrapper>
-                            <ManageLineageMenu node={props} refetch={refetch} />
-                        </Header>
+                        <TitleWrapper>
+                            <Title title={entity?.name} />
+                            {entity?.health && (
+                                <HealthIcon health={entity.health} baseUrl={entityRegistry.getEntityUrl(type, urn)} />
+                            )}
+                        </TitleWrapper>
                         {!!numColumnsTotal && (
-                            <ExpandColumnsWrapper onClick={showHideColumns}>
+                            <ExpandColumnsWrapper onClick={showHideColumns} defaultHeight={10}>
                                 {numColumnsTotal} columns
                                 {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
                                 {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
                             </ExpandColumnsWrapper>
                         )}
+                        <ManageLineageMenu node={props} refetch={refetch} />
                     </MainTextWrapper>
                 )}
                 {!entity && <NodeSkeleton />}
