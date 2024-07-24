@@ -864,11 +864,11 @@ jobs:
       - id: set-matrix
         run: |
           if [ '${{ needs.setup.outputs.frontend_only }}' == 'true' ]; then
-             echo 'matrix=["cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2", "cypress_saas_suite3_specs"]' >> $GITHUB_OUTPUT
+             echo 'matrix=["cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2", "cypress_saas_suite3"]' >> $GITHUB_OUTPUT
           elif [ '${{ needs.setup.outputs.ingestion_only }}' == 'true' ]; then
              echo 'matrix=["no_cypress_suite0","no_cypress_suite1"]' >> $GITHUB_OUTPUT
           elif [ '${{ needs.setup.outputs.backend_change }}' == 'true' ]; then
-             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2","cypress_saas_suite3_specs"]' >> $GITHUB_OUTPUT
+             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2","cypress_saas_suite3"]' >> $GITHUB_OUTPUT
           else
              echo 'matrix=[]' >> $GITHUB_OUTPUT
           fi
