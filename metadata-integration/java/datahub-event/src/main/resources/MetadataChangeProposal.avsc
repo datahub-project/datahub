@@ -184,13 +184,5 @@
     } ],
     "doc" : "Headers - intended to mimic http headers",
     "default" : null
-  }, {
-    "name" : "headers",
-    "type" : [ "null", {
-      "type" : "map",
-      "values" : "string"
-    } ],
-    "doc" : "Headers - intended to mimic http headers",
-    "default" : null
   } ]
 }
