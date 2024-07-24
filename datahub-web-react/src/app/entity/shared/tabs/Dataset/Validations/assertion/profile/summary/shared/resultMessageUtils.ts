@@ -299,8 +299,8 @@ const getFormattedExpectedResultTextForAbsoluteAssertionRange = (
     range: AssertionExpectedRange,
 ): string | undefined => {
     let { low, high } = range;
-    low = low && formatNumberWithoutAbbreviation(Math.floor(low));
-    high = high && formatNumberWithoutAbbreviation(Math.floor(high));
+    low = low && formatNumberWithoutAbbreviation(low);
+    high = high && formatNumberWithoutAbbreviation(high);
 
     let message: string | undefined;
     const isHighValid = typeof high !== 'undefined';
