@@ -364,7 +364,6 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 - Renaming project to acryl-datahub-spark-lineage
 - Supporting OpenLineage 1.17+ glue identifier changes
 - Fix handling OpenLineage input/output where wasn't any facet attached
-- Bumping OpenLineage version to 1.19.0
 
 ### Version 0.2.14
 - Fix warning about MeterFilter warning from Micrometer
