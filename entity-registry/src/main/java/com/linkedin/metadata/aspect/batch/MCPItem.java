@@ -5,17 +5,41 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /** Represents a proposal to write to the primary data store which may be represented by an MCP */
 public interface MCPItem extends BatchItem {
 
   Set<ChangeType> CHANGE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY);
+      ImmutableSet.of(
+          ChangeType.UPSERT, ChangeType.UPDATE, ChangeType.CREATE, ChangeType.CREATE_ENTITY);
 
   @Nullable
   MetadataChangeProposal getMetadataChangeProposal();
+
+  @Nonnull
+  default Map<String, String> getHeaders() {
+    if (getMetadataChangeProposal() != null && getMetadataChangeProposal().getHeaders() != null) {
+      return getMetadataChangeProposal().getHeaders();
+    }
+    return Collections.emptyMap();
+  }
+
+  default boolean hasHeader(@Nonnull String headerName) {
+    return getHeaders().keySet().stream().anyMatch(hdr -> hdr.equalsIgnoreCase(headerName));
+  }
+
+  default Optional<String> getHeader(@Nonnull String headerName) {
+    return getHeaders().entrySet().stream()
+        .filter(entry -> entry.getKey().equalsIgnoreCase(headerName))
+        .map(Map.Entry::getValue)
+        .findAny();
+  }
 
   /**
    * Validates that a change type is valid for the given aspect

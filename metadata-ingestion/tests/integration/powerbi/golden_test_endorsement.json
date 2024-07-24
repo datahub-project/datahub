@@ -482,7 +482,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "let\n    Source = Oracle.Database(\"localhost:1521/salesdb.GSLAB.COM\", [HierarchicalNavigation=true]), HR = Source{[Schema=\"HR\"]}[Data], EMPLOYEES1 = HR{[Name=\"EMPLOYEES\"]}[Data] \n in EMPLOYEES1",
+            "viewLogic": "let\n    Source = Oracle.Database(\"localhost:1521/salesdb.domain.com\", [HierarchicalNavigation=true]), HR = Source{[Schema=\"HR\"]}[Data], EMPLOYEES1 = HR{[Name=\"EMPLOYEES\"]}[Data] \n in EMPLOYEES1",
             "viewLanguage": "m_query"
         }
     },

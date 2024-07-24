@@ -15,6 +15,9 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.snowflake.snowflake_queries import (
+        SnowflakeQueriesExtractorReport,
+    )
     from datahub.ingestion.source.snowflake.snowflake_schema import (
         SnowflakeDataDictionary,
     )
@@ -113,11 +116,12 @@ class SnowflakeV2Report(
 
     data_dictionary_cache: Optional["SnowflakeDataDictionary"] = None
 
+    queries_extractor: Optional["SnowflakeQueriesExtractorReport"] = None
+
     # These will be non-zero if snowflake information_schema queries fail with error -
     # "Information schema query returned too much data. Please repeat query with more selective predicates.""
     # This will result in overall increase in time complexity
     num_get_tables_for_schema_queries: int = 0
-    num_get_columns_for_table_queries: int = 0
 
     # these will be non-zero if the user choses to enable the extract_tags = "with_lineage" option, which requires
     # individual queries per object (database, schema, table) and an extra query per table to get the tags on the columns.

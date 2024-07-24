@@ -14,6 +14,7 @@ import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.generated.controller.LineageApi;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -50,6 +51,8 @@ public class LineageApiImpl implements LineageApi {
     return Optional.of(OBJECT_MAPPER);
   }
 
+  @Autowired private HttpServletRequest request;
+
   @Override
   public ResponseEntity<Void> postRunEventRaw(String body) {
     try {
@@ -68,7 +71,9 @@ public class LineageApiImpl implements LineageApi {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("postRunEventRaw", List.of()),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "postRunEventRaw", List.of()),
             _authorizerChain,
             authentication,
             true);

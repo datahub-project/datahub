@@ -34,7 +34,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -159,7 +161,7 @@ public class EntityUtils {
    * Prefer batched interfaces
    *
    * @param entityAspect optional entity aspect
-   * @param aspectRetriever
+   * @param retrieverContext
    * @return
    */
   public static Optional<SystemAspect> toSystemAspect(
@@ -175,7 +177,7 @@ public class EntityUtils {
    * translate that into our java classes
    *
    * @param rawAspects `Map<EntityUrn, <Map<AspectName, EntityAspect>>`
-   * @param aspectRetriever used for read mutations
+   * @param retrieverContext used for read mutations
    * @return the java map for the given database object map
    */
   @Nonnull
@@ -277,5 +279,74 @@ public class EntityUtils {
     // TODO consider applying write validation plugins
 
     return systemAspects;
+  }
+
+  /**
+   * Use the precalculated next version from system metadata if it exists, otherwise lookup the next
+   * version the normal way from the database
+   *
+   * @param aspectDao database access
+   * @param latestAspects aspect version 0 with system metadata
+   * @param urnAspects urn/aspects which we need next version information for
+   * @return map of the urn/aspect to the next aspect version
+   */
+  public static Map<String, Map<String, Long>> calculateNextVersions(
+      AspectDao aspectDao,
+      Map<String, Map<String, SystemAspect>> latestAspects,
+      Map<String, Set<String>> urnAspects) {
+    Map<String, Map<String, Long>> precalculatedVersions =
+        latestAspects.entrySet().stream()
+            .map(
+                entry ->
+                    Map.entry(
+                        entry.getKey(), convertSystemAspectToNextVersionMap(entry.getValue())))
+            .filter(entry -> !entry.getValue().isEmpty())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    Map<String, Set<String>> missingAspectVersions =
+        urnAspects.entrySet().stream()
+            .flatMap(
+                entry ->
+                    entry.getValue().stream()
+                        .map(aspectName -> Pair.of(entry.getKey(), aspectName)))
+            .filter(
+                urnAspectName ->
+                    !precalculatedVersions
+                        .getOrDefault(urnAspectName.getKey(), Map.of())
+                        .containsKey(urnAspectName.getValue()))
+            .collect(
+                Collectors.groupingBy(
+                    Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toSet())));
+    Map<String, Map<String, Long>> databaseVersions =
+        missingAspectVersions.isEmpty()
+            ? Map.of()
+            : aspectDao.getNextVersions(missingAspectVersions);
+
+    // stitch back together the precalculated and database versions
+    return Stream.concat(
+            precalculatedVersions.entrySet().stream(), databaseVersions.entrySet().stream())
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (m1, m2) ->
+                    Stream.concat(m1.entrySet().stream(), m2.entrySet().stream())
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+  }
+
+  /**
+   * Given a map of aspect name to system aspect, extract the next version if it exists
+   *
+   * @param aspectMap aspect name to system aspect map
+   * @return aspect name to next aspect version
+   */
+  private static Map<String, Long> convertSystemAspectToNextVersionMap(
+      Map<String, SystemAspect> aspectMap) {
+    return aspectMap.entrySet().stream()
+        .filter(entry -> entry.getValue().getVersion() == 0)
+        .map(entry -> Map.entry(entry.getKey(), entry.getValue().getSystemMetadataVersion()))
+        .filter(entry -> entry.getValue().isPresent())
+        .map(entry -> Map.entry(entry.getKey(), entry.getValue().get()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

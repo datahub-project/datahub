@@ -1,0 +1,147 @@
+{
+  "eventTime": "2024-06-18T06:52:21.64Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "COMPLETE",
+  "run": {
+    "runId": "01902a1e-371a-7dbf-8098-2337d441e8dc",
+    "facets": {
+      "parent": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ParentRunFacet.json#/$defs/ParentRunFacet",
+        "run": {
+          "runId": "01902a1e-0b05-750e-b38d-439998f7a853"
+        },
+        "job": {
+          "namespace": "default",
+          "name": "jdbc_test_demo"
+        }
+      },
+      "processing_engine": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "version": "3.3.4",
+        "name": "spark"
+      },
+      "environment-properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "environment-properties": {}
+      },
+      "spark_properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "properties": {
+          "spark.master": "local[*]",
+          "spark.app.name": "JdbcTest-Demo"
+        }
+      }
+    }
+  },
+  "job": {
+    "namespace": "default",
+    "name": "jdbc_test_demo.execute_save_into_data_source_command.spark_redshift_load_test",
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-2/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "processingType": "BATCH",
+        "integration": "SPARK",
+        "jobType": "SQL_JOB"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "namespace": "mysql://localhost:3306",
+      "name": "DataHub.Metadata_Aspect_V2",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "mysql://localhost:3306",
+          "uri": "mysql://localhost:3306"
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string"
+            },
+            {
+              "name": "aspect",
+              "type": "string"
+            },
+            {
+              "name": "version",
+              "type": "long"
+            },
+            {
+              "name": "metadata",
+              "type": "string"
+            },
+            {
+              "name": "systemmetadata",
+              "type": "string"
+            },
+            {
+              "name": "createdon",
+              "type": "timestamp"
+            },
+            {
+              "name": "createdby",
+              "type": "string"
+            },
+            {
+              "name": "createdfor",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "inputFacets": {}
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "redshift://my-redshift-cluster.us-west-2.redshift.amazonaws.com:5439",
+      "name": "DEV.PuBliC.SparK_RedshifT_Load_Test",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "redshift://my-redshift-cluster.us-west-2.redshift.amazonaws.com:5439",
+          "uri": "redshift://my-redshift-cluster.us-west-2.redshift.amazonaws.com:5439"
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string"
+            }
+          ]
+        },
+        "columnLineage": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-2/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+          "fields": {
+            "urn": {
+              "inputFields": [
+                {
+                  "namespace": "mysql://localhost:3306",
+                  "name": "datahub.metadata_aspect_v2",
+                  "field": "urn"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "outputFacets": {}
+    }
+  ]
+}

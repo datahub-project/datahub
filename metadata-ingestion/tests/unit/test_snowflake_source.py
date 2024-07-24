@@ -14,7 +14,7 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeCloudProvider,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
-    DEFAULT_TABLES_DENY_LIST,
+    DEFAULT_TEMP_TABLES_PATTERNS,
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import (
@@ -24,7 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowsightUrlBuilder
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from tests.test_helpers import test_connection_helpers
 
@@ -274,21 +274,31 @@ def test_test_connection_basic_success(mock_connect):
     test_connection_helpers.assert_basic_connectivity_success(report)
 
 
-def setup_mock_connect(mock_connect, query_results=None):
-    def default_query_results(query):
+class MissingQueryMock(Exception):
+    pass
+
+
+def setup_mock_connect(mock_connect, extra_query_results=None):
+    def query_results(query):
+        if extra_query_results is not None:
+            try:
+                return extra_query_results(query)
+            except MissingQueryMock:
+                pass
+
         if query == "select current_role()":
-            return [("TEST_ROLE",)]
+            return [{"CURRENT_ROLE()": "TEST_ROLE"}]
         elif query == "select current_secondary_roles()":
-            return [('{"roles":"","value":""}',)]
+            return [{"CURRENT_SECONDARY_ROLES()": '{"roles":"","value":""}'}]
         elif query == "select current_warehouse()":
-            return [("TEST_WAREHOUSE")]
-        raise ValueError(f"Unexpected query: {query}")
+            return [{"CURRENT_WAREHOUSE()": "TEST_WAREHOUSE"}]
+        elif query == 'show grants to role "PUBLIC"':
+            return []
+        raise MissingQueryMock(f"Unexpected query: {query}")
 
     connection_mock = MagicMock()
     cursor_mock = MagicMock()
-    cursor_mock.execute.side_effect = (
-        query_results if query_results is not None else default_query_results
-    )
+    cursor_mock.execute.side_effect = query_results
     connection_mock.cursor.return_value = cursor_mock
     mock_connect.return_value = connection_mock
 
@@ -296,21 +306,11 @@ def setup_mock_connect(mock_connect, query_results=None):
 @patch("snowflake.connector.connect")
 def test_test_connection_no_warehouse(mock_connect):
     def query_results(query):
-        if query == "select current_role()":
-            return [("TEST_ROLE",)]
-        elif query == "select current_secondary_roles()":
-            return [('{"roles":"","value":""}',)]
-        elif query == "select current_warehouse()":
-            return [(None,)]
+        if query == "select current_warehouse()":
+            return [{"CURRENT_WAREHOUSE()": None}]
         elif query == 'show grants to role "TEST_ROLE"':
-            return [
-                ("", "USAGE", "DATABASE", "DB1"),
-                ("", "USAGE", "SCHEMA", "DB1.SCHEMA1"),
-                ("", "REFERENCES", "TABLE", "DB1.SCHEMA1.TABLE1"),
-            ]
-        elif query == 'show grants to role "PUBLIC"':
-            return []
-        raise ValueError(f"Unexpected query: {query}")
+            return [{"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"}]
+        raise MissingQueryMock(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
     report = test_connection_helpers.run_test_connection(
@@ -330,17 +330,9 @@ def test_test_connection_no_warehouse(mock_connect):
 @patch("snowflake.connector.connect")
 def test_test_connection_capability_schema_failure(mock_connect):
     def query_results(query):
-        if query == "select current_role()":
-            return [("TEST_ROLE",)]
-        elif query == "select current_secondary_roles()":
-            return [('{"roles":"","value":""}',)]
-        elif query == "select current_warehouse()":
-            return [("TEST_WAREHOUSE",)]
-        elif query == 'show grants to role "TEST_ROLE"':
-            return [("", "USAGE", "DATABASE", "DB1")]
-        elif query == 'show grants to role "PUBLIC"':
-            return []
-        raise ValueError(f"Unexpected query: {query}")
+        if query == 'show grants to role "TEST_ROLE"':
+            return [{"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"}]
+        raise MissingQueryMock(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
 
@@ -361,21 +353,17 @@ def test_test_connection_capability_schema_failure(mock_connect):
 @patch("snowflake.connector.connect")
 def test_test_connection_capability_schema_success(mock_connect):
     def query_results(query):
-        if query == "select current_role()":
-            return [("TEST_ROLE",)]
-        elif query == "select current_secondary_roles()":
-            return [('{"roles":"","value":""}',)]
-        elif query == "select current_warehouse()":
-            return [("TEST_WAREHOUSE")]
-        elif query == 'show grants to role "TEST_ROLE"':
+        if query == 'show grants to role "TEST_ROLE"':
             return [
-                ["", "USAGE", "DATABASE", "DB1"],
-                ["", "USAGE", "SCHEMA", "DB1.SCHEMA1"],
-                ["", "REFERENCES", "TABLE", "DB1.SCHEMA1.TABLE1"],
+                {"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"},
+                {"privilege": "USAGE", "granted_on": "SCHEMA", "name": "DB1.SCHEMA1"},
+                {
+                    "privilege": "REFERENCES",
+                    "granted_on": "TABLE",
+                    "name": "DB1.SCHEMA1.TABLE1",
+                },
             ]
-        elif query == 'show grants to role "PUBLIC"':
-            return []
-        raise ValueError(f"Unexpected query: {query}")
+        raise MissingQueryMock(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
 
@@ -397,30 +385,38 @@ def test_test_connection_capability_schema_success(mock_connect):
 @patch("snowflake.connector.connect")
 def test_test_connection_capability_all_success(mock_connect):
     def query_results(query):
-        if query == "select current_role()":
-            return [("TEST_ROLE",)]
-        elif query == "select current_secondary_roles()":
-            return [('{"roles":"","value":""}',)]
-        elif query == "select current_warehouse()":
-            return [("TEST_WAREHOUSE")]
-        elif query == 'show grants to role "TEST_ROLE"':
+        if query == 'show grants to role "TEST_ROLE"':
             return [
-                ("", "USAGE", "DATABASE", "DB1"),
-                ("", "USAGE", "SCHEMA", "DB1.SCHEMA1"),
-                ("", "SELECT", "TABLE", "DB1.SCHEMA1.TABLE1"),
-                ("", "USAGE", "ROLE", "TEST_USAGE_ROLE"),
+                {"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"},
+                {"privilege": "USAGE", "granted_on": "SCHEMA", "name": "DB1.SCHEMA1"},
+                {
+                    "privilege": "SELECT",
+                    "granted_on": "TABLE",
+                    "name": "DB1.SCHEMA1.TABLE1",
+                },
+                {"privilege": "USAGE", "granted_on": "ROLE", "name": "TEST_USAGE_ROLE"},
             ]
-        elif query == 'show grants to role "PUBLIC"':
-            return []
         elif query == 'show grants to role "TEST_USAGE_ROLE"':
             return [
-                ["", "USAGE", "DATABASE", "SNOWFLAKE"],
-                ["", "USAGE", "SCHEMA", "ACCOUNT_USAGE"],
-                ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY"],
-                ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY"],
-                ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.OBJECT_DEPENDENCIES"],
+                {"privilege": "USAGE", "granted_on": "DATABASE", "name": "SNOWFLAKE"},
+                {"privilege": "USAGE", "granted_on": "SCHEMA", "name": "ACCOUNT_USAGE"},
+                {
+                    "privilege": "USAGE",
+                    "granted_on": "VIEW",
+                    "name": "SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY",
+                },
+                {
+                    "privilege": "USAGE",
+                    "granted_on": "VIEW",
+                    "name": "SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY",
+                },
+                {
+                    "privilege": "USAGE",
+                    "granted_on": "VIEW",
+                    "name": "SNOWFLAKE.ACCOUNT_USAGE.OBJECT_DEPENDENCIES",
+                },
             ]
-        raise ValueError(f"Unexpected query: {query}")
+        raise MissingQueryMock(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
 
@@ -445,7 +441,9 @@ def test_aws_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id("aws_ca_central_1")
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
+        "aws_ca_central_1"
+    )
 
     assert cloud == SnowflakeCloudProvider.AWS
     assert cloud_region_id == "ca-central-1"
@@ -453,7 +451,9 @@ def test_aws_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id("aws_us_east_1_gov")
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
+        "aws_us_east_1_gov"
+    )
 
     assert cloud == SnowflakeCloudProvider.AWS
     assert cloud_region_id == "us-east-1"
@@ -463,7 +463,9 @@ def test_google_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id("gcp_europe_west2")
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
+        "gcp_europe_west2"
+    )
 
     assert cloud == SnowflakeCloudProvider.GCP
     assert cloud_region_id == "europe-west2"
@@ -473,7 +475,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id(
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
         "azure_switzerlandnorth"
     )
 
@@ -483,7 +485,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id(
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
         "azure_centralindia"
     )
 
@@ -493,7 +495,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
 
 def test_unknown_cloud_region_from_snowflake_region_id():
     with pytest.raises(Exception, match="Unknown snowflake region"):
-        SnowflakeV2Source.get_cloud_region_from_snowflake_region_id(
+        SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
             "somecloud_someregion"
         )
 
@@ -529,8 +531,10 @@ def test_snowflake_query_create_deny_regex_sql():
     )
 
     assert (
-        create_deny_regex_sql_filter(DEFAULT_TABLES_DENY_LIST, ["upstream_table_name"])
-        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        create_deny_regex_sql_filter(
+            DEFAULT_TEMP_TABLES_PATTERNS, ["upstream_table_name"]
+        )
+        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}','i')"
     )
 
 
@@ -588,26 +592,15 @@ def test_email_filter_query_generation_with_case_insensitive_filter():
 
 
 def test_create_snowsight_base_url_us_west():
-    (
-        cloud,
-        cloud_region_id,
-    ) = SnowflakeCommonMixin.get_cloud_region_from_snowflake_region_id("aws_us_west_2")
-
-    result = SnowflakeCommonMixin.create_snowsight_base_url(
-        "account_locator", cloud_region_id, cloud, False
-    )
+    result = SnowsightUrlBuilder(
+        "account_locator", "aws_us_west_2", privatelink=False
+    ).snowsight_base_url
     assert result == "https://app.snowflake.com/us-west-2/account_locator/"
 
 
 def test_create_snowsight_base_url_ap_northeast_1():
-    (
-        cloud,
-        cloud_region_id,
-    ) = SnowflakeCommonMixin.get_cloud_region_from_snowflake_region_id(
-        "aws_ap_northeast_1"
-    )
+    result = SnowsightUrlBuilder(
+        "account_locator", "aws_ap_northeast_1", privatelink=False
+    ).snowsight_base_url
 
-    result = SnowflakeCommonMixin.create_snowsight_base_url(
-        "account_locator", cloud_region_id, cloud, False
-    )
     assert result == "https://app.snowflake.com/ap-northeast-1.aws/account_locator/"

@@ -319,9 +319,8 @@ def test_privilege_to_create_and_manage_ingestion_source():
     )
 
 
-@pytest.mark.skip(reason="Functionality and test needs to be validated for correctness")
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_privilege_to_create_and_manage_access_tokens():
+def test_privilege_to_create_and_revoke_personal_access_tokens():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
     user_session = login_as("user", "user")
@@ -345,12 +344,14 @@ def test_privilege_to_create_and_manage_access_tokens():
 
     # Assign privileges to the new user to create and manage access tokens
     policy_urn = create_user_policy(
-        "urn:li:corpuser:user", ["MANAGE_ACCESS_TOKENS"], admin_session
+        "urn:li:corpuser:user", ["GENERATE_PERSONAL_ACCESS_TOKENS"], admin_session
     )
 
     # Verify new user can create and manage access token(create, revoke)
     # Create a access token
     _ensure_can_create_access_token(user_session, create_access_token)
+
+    wait_for_writes_to_sync()
 
     # List access tokens first to get token id
     list_access_tokens = {

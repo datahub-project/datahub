@@ -228,9 +228,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setMetadataShareEnabled(_featureFlags.isMetadataShareEnabled())
             .setDocumentationFormsEnabled(_featureFlags.isDocumentationFormsEnabled())
             .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
-            .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
             .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
+            .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

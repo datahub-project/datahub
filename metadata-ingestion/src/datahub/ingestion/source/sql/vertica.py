@@ -52,7 +52,6 @@ from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
-MISSING_COLUMN_INFO = "missing column information"
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -542,12 +541,7 @@ class VerticaSource(SQLAlchemySource):
             else:
                 logger.debug(f"{dataset_name} has already been seen, skipping...")
                 continue
-            missing_column_info_warn = self.report.warnings.get(MISSING_COLUMN_INFO)
-            if (
-                missing_column_info_warn is not None
-                and dataset_name in missing_column_info_warn
-            ):
-                continue
+
             (partition, custom_sql) = self.generate_partition_profiler_query(
                 schema, projection, self.config.profiling.partition_datetime
             )

@@ -24,7 +24,7 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: max-content;
+    height: 100%;
 `;
 
 const HeaderContainer = styled.div`
@@ -64,6 +64,7 @@ const InstancesList = styled.div<{ isEmptyState?: boolean }>`
     grid-gap: 40px;
     margin: ${(props) => !props.isEmptyState && '40px'};
     height: ${(props) => props.isEmptyState && '100%'};
+    padding-bottom: ${(props) => !props.isEmptyState && '40px'};
 `;
 
 const Header = styled.div`

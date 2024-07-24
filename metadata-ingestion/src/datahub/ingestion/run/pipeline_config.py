@@ -62,6 +62,14 @@ class FlagsConfig(ConfigModel):
         ),
     )
 
+    set_system_metadata: bool = Field(
+        True, description="Set system metadata on entities."
+    )
+    set_system_metadata_pipeline_name: bool = Field(
+        True,
+        description="Set system metadata pipeline name. Requires `set_system_metadata` to be enabled.",
+    )
+
 
 class PipelineConfig(ConfigModel):
     source: SourceConfig

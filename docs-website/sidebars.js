@@ -212,18 +212,8 @@ module.exports = {
         "docs/managed-datahub/welcome-acryl",
         {
           type: "doc",
-          id: "docs/managed-datahub/saas-slack-setup",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
           id: "docs/managed-datahub/approval-workflows",
           className: "saasOnly",
-        },
-        {
-          "Metadata Ingestion With Acryl": [
-            "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
-          ],
         },
         {
           "DataHub API": [
@@ -254,6 +244,20 @@ module.exports = {
           ],
         },
         {
+          Slack: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-setup",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           "Operator Guide": [
             {
               type: "doc",
@@ -278,6 +282,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_3",
             "docs/managed-datahub/release-notes/v_0_3_2",
             "docs/managed-datahub/release-notes/v_0_3_1",
             "docs/managed-datahub/release-notes/v_0_2_16",
@@ -819,6 +824,7 @@ module.exports = {
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/assertions",
+        "docs/api/tutorials/custom-assertions",
         "docs/api/tutorials/incidents",
         "docs/api/tutorials/operations",
         "docs/api/tutorials/data-contracts",

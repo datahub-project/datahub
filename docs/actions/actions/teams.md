@@ -95,7 +95,7 @@ Similar to the quickstart scenario, there are no specific software installation 
 If you are using the `datahub-actions` library directly from Python, or the `datahub-actions` cli directly, then you need to first install the `teams` action plugin in your Python virtualenv. 
 
 ```
-pip install "datahub-actions[teams]"
+pip install "acryl-datahub-actions[teams]"
 ```
 
 Then run the action with a configuration file that you have modified to capture your credentials and configuration.

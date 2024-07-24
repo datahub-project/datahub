@@ -13,9 +13,33 @@ DataHub allows users to make Posts that can be displayed on the app. Currently, 
 
 Anyone can view Posts on the home page. To create Posts, a user must either have the **Create Global Announcements** Privilege, or possess the **Admin** DataHub Role.
 
-## Using Posts
+## Creating Posts
 
-To create a post, users must use the [createPost](../graphql/mutations.md#createPost) GraphQL mutation. There is currently no way to create posts using the UI, though this will come in the future.
+### Create Posts Using the UI
+To create a post, first navigate to the Settings tab in the top-right menu of DataHub.
+Once you're on the Settings page, click 'Home Page Posts'.
+To create a new Post, click '+ New Post'.
+<p align="center">
+ <img alt="Creating a new post" width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/new-post.png" />
+</p>
+DataHub currently supports two types of Post content. Posts can either be of type **Text** or **Link**. Click on "Post Type" to switch between these types.
+<p align="center">
+ <img alt="Selecting text post type" width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/post-type-text.png" />
+</p>
+<p align="center">
+ <img alt="Selecting link post type" width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/post-type-link.png" />
+</p>
+If you choose the text type, enter the title and description as prompted; if you choose the link type, enter the title and the URL of the link and the address of the image as prompted.
+
+Click 'Create' to complete.
+<p align="center">
+ <img alt="Viewing posts" width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/view-posts.png" />
+</p>
+
+### Create Posts Using the GraphQL
+
+To create a post via API, you can call the [createPost](../graphql/mutations.md#createPost) GraphQL mutation.
+To create a post via API, you can call the [createPost](../graphql/mutations.md#createPost) GraphQL mutation.
 
 There is only one type of Post that can be currently made, and that is a **Home Page Announcement**. This may be extended in the future to other surfaces.
 

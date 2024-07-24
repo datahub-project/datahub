@@ -217,6 +217,33 @@ fragment assertionDetails on Assertion {
     }
 }
 
+fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
+    field {
+        path
+        type
+        nativeType
+    }
+    transformer {
+        type
+        nativeType
+    }
+}
+
+fragment assertionStdParametersDetails on AssertionStdParameters {
+    value {
+        value
+        type
+    }
+    minValue {
+        value
+        type
+    }
+    maxValue {
+        value
+        type
+    }
+}
+
 fragment assertionDetailsWithRunEvents on Assertion {
     ...assertionDetails
     runEvents(status: COMPLETE, limit: 1) {
