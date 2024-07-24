@@ -1,5 +1,6 @@
 package com.linkedin.metadata.boot.factories;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
@@ -7,6 +8,7 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.incident.IncidentServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
+import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
@@ -24,6 +26,7 @@ import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRolesStep;
 import com.linkedin.metadata.boot.steps.IngestRootUserStep;
+import com.linkedin.metadata.boot.steps.IngestStructuredPropertyExtensionsStep;
 import com.linkedin.metadata.boot.steps.MigrateAssertionsSummaryStep;
 import com.linkedin.metadata.boot.steps.MigrateFreshnessAssertionCronToSinceTheLastCheck;
 import com.linkedin.metadata.boot.steps.MigrateIncidentsSummaryStep;
@@ -33,6 +36,7 @@ import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.UpgradeDefaultBrowsePathsStep;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
+import com.linkedin.metadata.config.structuredProperties.extensions.ModelExtensionValidationConfiguration;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -43,6 +47,7 @@ import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -51,6 +56,7 @@ import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -124,6 +130,9 @@ public class BootstrapManagerFactory {
   @Autowired
   @Qualifier("ingestMetadataTestsStep")
   private IngestMetadataTestsStep _ingestMetadataTestsStep;
+
+  @Autowired
+  private ApplicationContext applicationContext;
 
   @Value("${bootstrap.policies.file}")
   private Resource _policiesResource;
@@ -212,6 +221,15 @@ public class BootstrapManagerFactory {
 
     if (_backfillBrowsePathsV2Enabled) {
       finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
+    }
+
+    ModelExtensionValidationConfiguration mcpExtensionValidationConfig = _configurationProvider
+        .getMetadataChangeProposal().getValidation().getExtensions();
+    if (mcpExtensionValidationConfig.isEnabled()) {
+      ExtendedModelStructuredPropertyMutator mutator = applicationContext
+          .getBean(ExtendedModelStructuredPropertyMutator.class);
+      finalSteps.add(new IngestStructuredPropertyExtensionsStep(_entityService,
+          mutator.getStructuredPropertyMappings()));
     }
 
     return new BootstrapManager(finalSteps);

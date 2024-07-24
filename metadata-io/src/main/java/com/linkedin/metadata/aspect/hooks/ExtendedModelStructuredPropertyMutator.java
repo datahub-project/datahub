@@ -72,6 +72,9 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
   private Map<AspectPluginConfig.EntityAspectName, Map<String, StructuredPropertyDefinition>>
       aspectFieldMappings;
 
+  @Nonnull
+  private Map<String, StructuredPropertyDefinition> structuredPropertyMappings;
+
   private static String DATA_TYPE_URN_PREFIX = "urn:li:datatype:datahub.";
   private static String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:datahub.";
   private static String STRUCTURED_PROPERTY_FIELD = "structuredProperty";
@@ -100,7 +103,8 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
                 .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT"))
                 .supportedEntityAspectNames(entityAspectNames)
                 .build())
-        .setAspectFieldMappings(aspectFieldMappings);
+        .setAspectFieldMappings(aspectFieldMappings)
+        .setStructuredPropertyMappings(structuredPropertyMappings);
   }
 
   private Map<String, StructuredPropertyDefinition> createStructuredPropertyMappings(
