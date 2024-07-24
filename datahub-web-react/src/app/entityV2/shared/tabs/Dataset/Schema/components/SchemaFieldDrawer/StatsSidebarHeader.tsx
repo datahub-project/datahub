@@ -12,7 +12,7 @@ export enum StatsViewType {
 
 const TabContainer = styled.div`
     display: flex;
-    margin: 15px 0px 25px;
+    margin: 15px 0px 0px;
     align-items: start;
     padding: 0 15px;
     gap: 20px;

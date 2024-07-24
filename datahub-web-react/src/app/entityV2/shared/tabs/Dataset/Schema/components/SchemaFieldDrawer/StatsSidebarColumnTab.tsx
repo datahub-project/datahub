@@ -14,8 +14,7 @@ const CHART_HEIGHT = 170;
 const DEFAULT_LINE_COLOR = REDESIGN_COLORS.BACKGROUND_PURPLE;
 
 const StatSection = styled.div`
-    padding: 0px 16px;
-    margin-top: 12px;
+    padding: 12px 16px;
     // Temporary solution for chart circle color, as V1 theme colors are in place.
     circle {
         fill: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_1};

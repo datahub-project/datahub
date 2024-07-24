@@ -47,7 +47,11 @@ const SidebarDatasetHeaderSection = () => {
     ) {
         columns.push({
             title: 'Top Users',
-            content: <SidebarTopUsersHeaderSection />,
+            content: (
+                <Tooltip showArrow={false} title="Top users over the past 30 days">
+                    <SidebarTopUsersHeaderSection />
+                </Tooltip>
+            ),
         });
     }
 
@@ -57,7 +61,16 @@ const SidebarDatasetHeaderSection = () => {
     if (dataset?.statsSummary?.queryCountLast30Days) {
         columns.push({
             title: 'Queries',
-            content: <StatContent>{formatNumber(dataset?.statsSummary?.queryCountLast30Days)} queries</StatContent>,
+            content: (
+                <Tooltip
+                    showArrow={false}
+                    title={`${formatNumberWithoutAbbreviation(
+                        dataset?.statsSummary?.queryCountLast30Days,
+                    )} queries over the past 30 days`}
+                >
+                    <StatContent>{formatNumber(dataset?.statsSummary?.queryCountLast30Days)} queries</StatContent>
+                </Tooltip>
+            ),
         });
     }
 
@@ -67,7 +80,16 @@ const SidebarDatasetHeaderSection = () => {
     if (dataset?.statsSummary?.uniqueUserCountLast30Days) {
         columns.push({
             title: 'Users',
-            content: <StatContent>{formatNumber(dataset?.statsSummary?.uniqueUserCountLast30Days)} users</StatContent>,
+            content: (
+                <Tooltip
+                    showArrow={false}
+                    title={`${formatNumberWithoutAbbreviation(
+                        dataset?.statsSummary?.uniqueUserCountLast30Days,
+                    )} users over the past 30 days`}
+                >
+                    <StatContent>{formatNumber(dataset?.statsSummary?.uniqueUserCountLast30Days)} users</StatContent>
+                </Tooltip>
+            ),
         });
     }
 
@@ -77,7 +99,14 @@ const SidebarDatasetHeaderSection = () => {
     if (isValuePresent(dataset?.datasetProfiles?.[0]?.rowCount)) {
         columns.push({
             title: 'Rows',
-            content: <StatContent>{formatNumber(dataset?.datasetProfiles?.[0]?.rowCount)} rows</StatContent>,
+            content: (
+                <Tooltip
+                    showArrow={false}
+                    title={`${formatNumberWithoutAbbreviation(dataset?.datasetProfiles?.[0]?.rowCount)} rows`}
+                >
+                    <StatContent>{formatNumber(dataset?.datasetProfiles[0]?.rowCount)} rows</StatContent>
+                </Tooltip>
+            ),
         });
     }
 
@@ -101,7 +130,8 @@ const SidebarDatasetHeaderSection = () => {
             title: 'Size',
             content: (
                 <Tooltip
-                    title={`This asset consumes ${formatNumberWithoutAbbreviation(
+                    showArrow={false}
+                    title={`Consumes ${formatNumberWithoutAbbreviation(
                         dataset?.datasetProfiles[0]?.sizeInBytes,
                     )} bytes of storage.`}
                 >

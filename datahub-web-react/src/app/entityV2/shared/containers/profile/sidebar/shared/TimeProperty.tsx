@@ -19,12 +19,15 @@ const UpdatedTime = styled.span`
 interface Props {
     labelText: string;
     time?: number | null;
+    titleTip?: React.ReactNode;
 }
 
-const TimeProperty = ({ labelText, time }: Props) => {
+const TimeProperty = ({ labelText, time, titleTip }: Props) => {
     return (
         <PropertyContainer>
-            <LabelText>{labelText}</LabelText>
+            <Tooltip showArrow={false} title={titleTip}>
+                <LabelText>{labelText}</LabelText>
+            </Tooltip>
             {!!time && (
                 <Tooltip title={toLocalDateString(time)}>
                     <UpdatedTime>{toRelativeTimeString(time)}</UpdatedTime>

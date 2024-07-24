@@ -123,6 +123,7 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
         overflow-x: hidden;        
         overflow-y: auto;
     `}
+    margin: 4px 12px 4px 0px;
 `;
 
 const CustomSwitch = styled.div`

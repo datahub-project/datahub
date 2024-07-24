@@ -9,13 +9,13 @@ import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.
 import { REDESIGN_COLORS } from '../../../../../constants';
 import SampleValueTag from '../../../Stats/snapshot/SampleValueTag';
 import { decimalToPercentStr } from '../../utils/statsUtil';
-import { StyledDivider } from './components';
 import { extractChartValuesFromFieldProfiles } from '../../../../../utils';
+import { formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
 
 const maxLabelWidth = 150;
 
 const StatsWrapper = styled.div`
-    padding: 16px 24px;
+    padding: 0px 24px;
     display: flex;
     flex-direction: column;
     height: fit-content; // to prevent unnecessary scrolling
@@ -125,7 +125,7 @@ export function StatsSidebarContent({ properties }: Props) {
         stats: [
             {
                 name: 'Null Count',
-                value: fieldProfile.nullCount,
+                value: fieldProfile.nullCount ? formatNumberWithoutAbbreviation(fieldProfile.nullCount) : null,
                 trend: getFieldStatTrendComponent('nullCount'),
             },
             {
@@ -135,7 +135,7 @@ export function StatsSidebarContent({ properties }: Props) {
             },
             {
                 name: 'Distinct Count',
-                value: fieldProfile.uniqueCount,
+                value: fieldProfile.uniqueCount ? formatNumberWithoutAbbreviation(fieldProfile.uniqueCount) : null,
                 trend: getFieldStatTrendComponent('uniqueCount'),
             },
             {
@@ -145,22 +145,22 @@ export function StatsSidebarContent({ properties }: Props) {
             },
             {
                 name: 'Min',
-                value: fieldProfile.min,
+                value: fieldProfile.min ? formatNumberWithoutAbbreviation(fieldProfile.min) : null,
                 trend: getFieldStatTrendComponent('min'),
             },
             {
                 name: 'Max',
-                value: fieldProfile.max,
+                value: fieldProfile.max ? formatNumberWithoutAbbreviation(fieldProfile.max) : null,
                 trend: getFieldStatTrendComponent('max'),
             },
             {
                 name: 'Median',
-                value: fieldProfile.median,
+                value: fieldProfile.median ? formatNumberWithoutAbbreviation(fieldProfile.median) : null,
                 trend: getFieldStatTrendComponent('median'),
             },
             {
                 name: 'Std Dev',
-                value: fieldProfile.stdev,
+                value: fieldProfile.stdev ? formatNumberWithoutAbbreviation(fieldProfile.stdev) : null,
                 trend: getFieldStatTrendComponent('stdev'),
             },
             {
@@ -176,8 +176,6 @@ export function StatsSidebarContent({ properties }: Props) {
 
     return (
         <StatsWrapper>
-            <StyledDivider dashed />
-
             {fieldProfile && (
                 <StatRow>
                     {statsData.stats.map((stat) => {

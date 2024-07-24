@@ -3,6 +3,7 @@ import { Tooltip } from 'antd';
 import { UsageQueryResult } from '../../../../../../../../types.generated';
 import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';
 import { PopularityBars } from './PopularityBars';
+import { formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
 
 type FieldPopularityProps = {
     isFieldSelected: boolean;
@@ -28,7 +29,11 @@ export const FieldPopularity = ({ isFieldSelected, usageStats, fieldPath, displa
     return (
         <Tooltip
             placement="top"
-            title={relevantUsageStats ? `${relevantUsageStats.count} queries / month` : 'No column usage data'}
+            title={
+                relevantUsageStats
+                    ? `${formatNumberWithoutAbbreviation(relevantUsageStats.count || 0)} queries / month`
+                    : 'No column usage data'
+            }
         >
             <div>
                 <PopularityBars
