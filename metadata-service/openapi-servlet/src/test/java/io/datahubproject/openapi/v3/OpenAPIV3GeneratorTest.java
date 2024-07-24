@@ -88,5 +88,18 @@ public class OpenAPIV3GeneratorTest {
     Schema fabricType = openAPI.getComponents().getSchemas().get("FabricType");
     assertEquals("string", fabricType.getType());
     assertFalse(fabricType.getEnum().isEmpty());
+
+    Map<String, Schema> batchProperties =
+        openAPI
+            .getComponents()
+            .getSchemas()
+            .get("BatchGetContainerEntityRequest_v3")
+            .getProperties();
+    batchProperties.entrySet().stream()
+        .filter(entry -> !entry.getKey().equals("urn"))
+        .forEach(
+            entry ->
+                assertEquals(
+                    "#/components/schemas/BatchGetRequestBody", entry.getValue().get$ref()));
   }
 }
