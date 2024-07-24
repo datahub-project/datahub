@@ -16,9 +16,10 @@ describe("managing secrets for ingestion creation", () => {
     cy.wait(2000);
     cy.handleIntroducePage();
     cy.goToIngestionPage();
-    cy.openEntityTab("Secrets");
+    // cy.openEntityTab("Secrets");
 
     // Create a new secret
+    cy.get('[data-node-key="Secrets"]').click();
     cy.clickOptionWithTestId("create-secret-button");
     cy.enterTextInTestId("secret-modal-name-input", `secretname${number}`);
     cy.enterTextInTestId("secret-modal-value-input", `secretvalue${number}`);
@@ -33,9 +34,10 @@ describe("managing secrets for ingestion creation", () => {
 
     // Create an ingestion source using a secret
     cy.goToIngestionPage();
+    cy.get('[data-node-key="Sources"]').click();
     cy.get("#ingestion-create-source").click();
     cy.clickOptionWithText("Snowflake");
-    cy.waitTextVisible("Snowflake Details");
+    cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
     cy.get("#username").type(username);
@@ -46,7 +48,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.get("button").contains("Next").click();
     cy.waitTextVisible("Configure an Ingestion Schedule");
     cy.get("button").contains("Next").click();
-    cy.waitTextVisible("Give this data source a name");
+    cy.get(".ant-collapse-item").should("be.visible");
     cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
     cy.get("button").contains("Save").click();
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000);
@@ -65,6 +67,7 @@ describe("managing secrets for ingestion creation", () => {
 
     // Remove ingestion source
     cy.goToIngestionPage();
+    cy.get('[data-node-key="Sources"]').click();
     cy.get('[data-testid="delete-button"]').first().click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
     cy.get("button").contains("Yes").click();
@@ -74,7 +77,7 @@ describe("managing secrets for ingestion creation", () => {
     // Verify secret is not present during ingestion source creation for password dropdown
     cy.clickOptionWithText("Create new source");
     cy.clickOptionWithText("Snowflake");
-    cy.waitTextVisible("Snowflake Details");
+    cy.waitTextVisible("Account");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
     cy.get("#username").type(username);
@@ -95,15 +98,16 @@ describe("managing secrets for ingestion creation", () => {
     cy.get("button").contains("Next").click();
     cy.waitTextVisible("Configure an Ingestion Schedule");
     cy.get("button").contains("Next").click();
-    cy.waitTextVisible("Give this data source a name");
+    cy.get(".ant-collapse-item").should("be.visible");
     cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
     cy.get("button").contains("Save").click();
-    cy.waitTextVisible("Successfully created ingestion source!").wait(5000); //prevent issue with missing form data
+    cy.waitTextVisible("Successfully created ingestion source!").wait(5000); // prevent issue with missing form data
     cy.waitTextVisible(ingestion_source_name);
     cy.get("button").contains("Pending...").should("be.visible");
 
-    //Remove ingestion source and secret
+    // Remove ingestion source and secret
     cy.goToIngestionPage();
+    cy.get('[data-node-key="Sources"]').click();
     cy.get('[data-testid="delete-button"]').first().click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
     cy.get("button").contains("Yes").click();
