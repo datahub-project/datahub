@@ -4,7 +4,7 @@ source:
     name: test_endpoint # this name will appear in DatHub
     url: https://example.com/gms/
     swagger_file: classicapi/doc/swagger.json  # where to search for the OpenApi definitions
-    bearer_token: "<token>" # bearer token 
+    bearer_token: "<token>" # bearer token
 
     # optionals
     forced_examples:
