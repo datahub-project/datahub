@@ -83,10 +83,10 @@ DataHub's Spark Event Listener plugin enhances OpenLineage support by providing 
 
 #### How to Use
 
-Follow the guides of the Spark Lineage plugin page for more information on how to set up the Spark Lineage plugin. The guide can be found [here](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage/README.md)
+Follow the guides of the Spark Lineage plugin page for more information on how to set up the Spark Lineage plugin. The guide can be found [here](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage)
 
 ## References
 
 - [OpenLineage](https://openlineage.io/)
 - [DataHub OpenAPI Guide](../api/openapi/openapi-usage-guide.md)
-- [DataHub Spark Lineage Plugin](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage/README.md)
+- [DataHub Spark Lineage Plugin](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage)
