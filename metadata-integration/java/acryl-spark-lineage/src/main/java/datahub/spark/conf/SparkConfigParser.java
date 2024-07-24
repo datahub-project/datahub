@@ -34,6 +34,8 @@ public class SparkConfigParser {
   public static final String RETRY_INTERVAL_IN_SEC = "rest.retry_interval_in_sec";
   public static final String KAFKA_EMITTER_BOOTSTRAP = "kafka.bootstrap";
   public static final String KAFKA_EMITTER_SCHEMA_REGISTRY_URL = "kafka.schema_registry_url";
+  public static final String KAFKA_EMITTER_SCHEMA_REGISTRY_CONFIG = "kafka.schema_registry_config";
+  public static final String KAFKA_EMITTER_PRODUCER_CONFIG = "kafka.producer_config";
 
   public static final String S3_EMITTER_BUCKET = "s3.bucket";
   public static final String S3_EMITTER_REGION = "s3.region";

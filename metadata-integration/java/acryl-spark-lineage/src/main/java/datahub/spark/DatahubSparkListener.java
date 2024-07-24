@@ -163,6 +163,32 @@ public class DatahubSparkListener extends SparkListener {
           kafkaEmitterConfig.schemaRegistryUrl(
               sparkConf.getString(SparkConfigParser.KAFKA_EMITTER_SCHEMA_REGISTRY_URL));
         }
+
+        if (sparkConf.hasPath(KAFKA_EMITTER_SCHEMA_REGISTRY_CONFIG)) {
+          Map<String, String> schemaRegistryConfig = new HashMap<>();
+          sparkConf
+              .getConfig(KAFKA_EMITTER_SCHEMA_REGISTRY_CONFIG)
+              .entrySet()
+              .forEach(
+                  entry -> {
+                    schemaRegistryConfig.put(
+                        entry.getKey(), entry.getValue().unwrapped().toString());
+                  });
+          kafkaEmitterConfig.schemaRegistryConfig(schemaRegistryConfig);
+        }
+
+        if (sparkConf.hasPath(KAFKA_EMITTER_PRODUCER_CONFIG)) {
+          Map<String, String> kafkaConfig = new HashMap<>();
+          sparkConf
+              .getConfig(KAFKA_EMITTER_PRODUCER_CONFIG)
+              .entrySet()
+              .forEach(
+                  entry -> {
+                    kafkaConfig.put(entry.getKey(), entry.getValue().unwrapped().toString());
+                  });
+          kafkaEmitterConfig.producerConfig(kafkaConfig);
+        }
+
         return Optional.of(new KafkaDatahubEmitterConfig(kafkaEmitterConfig.build()));
       case "file":
         log.info("File Emitter Configuration: File emitter will be used");
