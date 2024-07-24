@@ -108,7 +108,7 @@ class SupersetConfig(
     api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
     api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
     manager_uri: str = Field(
-        default="https://api.app.preset.io/", description="Preset.io API URL"
+        default="https://api.app.preset.io", description="Preset.io API URL"
     )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(

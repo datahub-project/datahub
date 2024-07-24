@@ -33,11 +33,11 @@ from datahub.ingestion.source.superset import SupersetSource
 logger = logging.getLogger(__name__)
 class PresetConfig(StatefulIngestionConfigBase, ConfigModel):
     manager_uri: str = Field(
-        default="https://api.app.preset.io/", description="Preset.io API URL"
+        default="https://api.app.preset.io", description="Preset.io API URL"
     )
-    connect_uri: str = Field(default=None, description="Preset workspace URL.")
+    connect_uri: str = Field(default='https://api.app.preset.io', description="Preset workspace URL.")
     display_uri: Optional[str] = Field(
-        default=None,
+        default='https://api.app.preset.io',
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
     api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
@@ -113,7 +113,7 @@ class PresetSource(SupersetSource):
             }
         )
 
-        # Test the connection
-        test_response = self.session.get(f"{self.config.connect_uri}/version")
-        if not test_response.ok:
-            logger.error("Unable to connect to workspace")
+        # # Test the connection
+        # test_response = self.session.get(f"{self.config.connect_uri}/version")
+        # if not test_response.ok:
+        #     logger.error("Unable to connect to workspace")
