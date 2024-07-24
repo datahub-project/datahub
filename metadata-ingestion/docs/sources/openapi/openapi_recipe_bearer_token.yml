@@ -1,0 +1,18 @@
+source:
+  type: openapi
+  config:
+    name: test_endpoint # this name will appear in DatHub
+    url: https://example.com/gms/
+    swagger_file: classicapi/doc/swagger.json  # where to search for the OpenApi definitions
+    bearer_token: "<token>" # bearer token 
+
+    # optionals
+    forced_examples:
+      /accounts/groupname/{name}: ['test']
+      /accounts/username/{name}: ['test']
+    ignore_endpoints: [/ignore/this, /ignore/that, /also/that_other]
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'
