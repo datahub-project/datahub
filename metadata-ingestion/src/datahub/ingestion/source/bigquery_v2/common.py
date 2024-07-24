@@ -1,3 +1,4 @@
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.source import SourceReport
@@ -15,6 +16,8 @@ BQ_DATE_SHARD_FORMAT = "%Y%m%d"
 
 BQ_EXTERNAL_TABLE_URL_TEMPLATE = "https://console.cloud.google.com/bigquery?project={project}&ws=!1m5!1m4!4m3!1s{project}!2s{dataset}!3s{table}"
 BQ_EXTERNAL_DATASET_URL_TEMPLATE = "https://console.cloud.google.com/bigquery?project={project}&ws=!1m4!1m3!3m2!1s{project}!2s{dataset}"
+
+BQ_SYSTEM_TABLES_PATTERN = [r".*\.INFORMATION_SCHEMA\..*", r".*\.__TABLES__.*"]
 
 
 class BigQueryIdentifierBuilder:
@@ -59,7 +62,9 @@ class BigQueryFilter:
         self.structured_reporter = structured_reporter
 
     def is_allowed(self, table_id: BigqueryTableIdentifier) -> bool:
-        return (
+        return AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN).allowed(
+            str(table_id)
+        ) and (
             self.filter_config.project_id_pattern.allowed(table_id.project_id)
             and is_schema_allowed(
                 self.filter_config.dataset_pattern,
@@ -68,5 +73,4 @@ class BigQueryFilter:
                 self.filter_config.match_fully_qualified_names,
             )
             and self.filter_config.table_pattern.allowed(str(table_id))
-            # TODO: use view_pattern ?
-        )
+        )  # TODO: use view_pattern ?

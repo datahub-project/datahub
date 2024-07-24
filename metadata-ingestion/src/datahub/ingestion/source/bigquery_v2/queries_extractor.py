@@ -233,9 +233,11 @@ class BigQueryQueriesExtractor:
             )
 
             with self.structured_report.report_exc(
-                f"Error fetching query log from BigQuery Project {project.id}"
+                f"Error fetching query log from BigQuery Project {project.id} Region {region}"
             ):
-                logger.info(f"Fetching query log from BigQuery Project {project.id}")
+                logger.info(
+                    f"Fetching query log from BigQuery Project {project.id} Region {region}"
+                )
                 resp = self.connection.query(query_log_query)
 
                 for i, row in enumerate(resp):
@@ -308,5 +310,5 @@ def _build_enriched_query_log_query(
         WHERE
             creation_time >= '{audit_start_time}' AND
             creation_time <= '{audit_end_time}' AND
-            error_result is not null
+            error_result is null
     """
