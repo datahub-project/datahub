@@ -11,7 +11,7 @@ from wcmatch import pathlib
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
-from datahub.ingestion.source.azure.abs_util import is_abs_uri
+from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 # hide annoying debug errors from py4j
