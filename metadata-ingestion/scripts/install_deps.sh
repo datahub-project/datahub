@@ -18,7 +18,8 @@ else
             sqlite-devel \
             xz-devel \
             libxml2-devel \
-            libxslt-devel
+            libxslt-devel \
+	    krb5-devel
     else
         $sudo_cmd apt-get update && $sudo_cmd apt-get install -y \
             python3-ldap \

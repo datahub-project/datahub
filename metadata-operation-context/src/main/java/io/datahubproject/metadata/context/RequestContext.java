@@ -35,6 +35,7 @@ public class RequestContext implements ContextInterface {
   @Nonnull private final String requestID;
 
   @Nonnull private final String userAgent;
+  @Builder.Default private boolean validated = true;
 
   public RequestContext(
       @Nonnull String actorUrn,

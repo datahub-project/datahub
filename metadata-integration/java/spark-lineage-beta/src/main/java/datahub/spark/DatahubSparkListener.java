@@ -287,13 +287,7 @@ public class DatahubSparkListener extends SparkListener {
     } else {
       disabledFacets = "";
     }
-    meterRegistry
-        .config()
-        .commonTags(
-            Tags.of(
-                Tag.of("openlineage.spark.integration.version", Versions.getVersion()),
-                Tag.of("openlineage.spark.version", sparkVersion),
-                Tag.of("openlineage.spark.disabled.facets", disabledFacets)));
+
     ((CompositeMeterRegistry) meterRegistry)
         .getRegistries()
         .forEach(

@@ -371,7 +371,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             if field is None:
                 continue
 
-            # we haven't loaded in metadata about the explore yet, so we need to wait until explores are populated later to fetch this
+            # we haven't loaded in metadata about the explore yet, so we need to wait until explores are populated
+            # later to fetch this
             result.append(
                 InputFieldElement(
                     name=field, view_field=None, model=query.model, explore=query.view
@@ -669,11 +670,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             )
             chart_snapshot.aspects.append(browse_path)
 
+            dashboard_urn = self.make_dashboard_urn(dashboard)
             browse_path_v2 = BrowsePathsV2Class(
                 path=[
                     BrowsePathEntryClass("Folders"),
                     *self._get_folder_browse_path_v2_entries(dashboard.folder),
-                    BrowsePathEntryClass(id=dashboard.title),
+                    BrowsePathEntryClass(id=dashboard_urn, urn=dashboard_urn),
                 ],
             )
         elif (
@@ -818,7 +820,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return proposals
 
-    def make_dashboard_urn(self, looker_dashboard):
+    def make_dashboard_urn(self, looker_dashboard: LookerDashboard) -> str:
         return builder.make_dashboard_urn(
             self.source_config.platform_name, looker_dashboard.get_urn_dashboard_id()
         )
@@ -1201,9 +1203,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_metrics_dimensions_dashboard_mcp(
         self, dashboard: LookerDashboard
     ) -> MetadataChangeProposalWrapper:
-        dashboard_urn = builder.make_dashboard_urn(
-            self.source_config.platform_name, dashboard.get_urn_dashboard_id()
-        )
+        dashboard_urn = self.make_dashboard_urn(dashboard)
         all_fields = []
         for dashboard_element in dashboard.dashboard_elements:
             all_fields.extend(

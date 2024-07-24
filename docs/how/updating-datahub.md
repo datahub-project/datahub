@@ -22,6 +22,39 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this 
   behavior is required.
+- #10814 Data flow info and data job info aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
+- #10868 - OpenAPI V3 - Creation of aspects will need to be wrapped within a `value` key and the API is now symmetric with respect to input and outputs.
+
+Example Global Tags Aspect:
+
+Previous:
+```json
+{
+  "tags": [
+    {
+      "tag": "string",
+      "context": "string"
+    }
+  ]
+}
+```
+
+New (optional fields `systemMetadata` and `headers`):
+
+```json
+{
+  "value": {
+    "tags": [
+      {
+        "tag": "string",
+        "context": "string"
+      }
+    ]
+  },
+  "systemMetadata": {},
+  "headers": {}
+}
+```
 
 ### Potential Downtime
 
@@ -32,6 +65,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   No loss of functionality expected unless explicitly mentioned in Breaking Changes.
 
 ### Other Notable Changes
+- #10498 - Tableau ingestion can now be configured to ingest multiple sites at once and add the sites as containers. The feature is currently only available for Tableau Server.
 
 ## 0.13.3
 

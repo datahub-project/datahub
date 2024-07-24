@@ -1,7 +1,9 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.source_common import ALL_ENV_TYPES
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -21,6 +23,8 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -103,6 +107,13 @@ class DataJob:
     def generate_mcp(
         self, materialize_iolets: bool = True
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        env: Optional[str] = None
+        if self.flow_urn.cluster in ALL_ENV_TYPES:
+            env = self.flow_urn.cluster
+        else:
+            logger.warning(
+                f"cluster {self.flow_urn.cluster} is not a valid environment type so Environment filter won't work."
+            )
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataJobInfoClass(
@@ -111,6 +122,7 @@ class DataJob:
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
+                env=env,
             ),
         )
         yield mcp

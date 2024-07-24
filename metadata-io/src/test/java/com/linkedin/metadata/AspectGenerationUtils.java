@@ -6,6 +6,7 @@ import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.identity.CorpUserInfo;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class AspectGenerationUtils {
 
@@ -30,17 +32,27 @@ public class AspectGenerationUtils {
   }
 
   @Nonnull
+  public static SystemMetadata createSystemMetadata(long nextAspectVersion) {
+    return createSystemMetadata(
+        1625792689, "run-123", "run-123", String.valueOf(nextAspectVersion));
+  }
+
+  @Nonnull
   public static SystemMetadata createSystemMetadata(long lastObserved, @Nonnull String runId) {
-    return createSystemMetadata(lastObserved, runId, runId);
+    return createSystemMetadata(lastObserved, runId, runId, null);
   }
 
   @Nonnull
   public static SystemMetadata createSystemMetadata(
-      long lastObserved, @Nonnull String runId, @Nonnull String lastRunId) {
+      long lastObserved,
+      @Nonnull String runId,
+      @Nonnull String lastRunId,
+      @Nullable String version) {
     SystemMetadata metadata = new SystemMetadata();
     metadata.setLastObserved(lastObserved);
     metadata.setRunId(runId);
     metadata.setLastRunId(lastRunId);
+    metadata.setVersion(version, SetMode.IGNORE_NULL);
     return metadata;
   }
 

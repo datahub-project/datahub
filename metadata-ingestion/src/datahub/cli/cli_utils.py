@@ -13,11 +13,17 @@ from deprecated import deprecated
 from requests.models import Response
 from requests.sessions import Session
 
+import datahub
 from datahub.cli import config_utils
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.metadata.schema_classes import _Aspect
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
+from datahub.metadata.schema_classes import SystemMetadataClass, _Aspect
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
@@ -623,6 +629,9 @@ def _ensure_valid_gms_url_acryl_cloud(url: str) -> str:
         url = url.replace("http://", "https://")
     if url.endswith("acryl.io"):
         url = f"{url}/gms"
+    elif url.endswith("acryl.io/"):
+        url = f"{url}gms"
+
     return url
 
 
@@ -689,3 +698,18 @@ def generate_access_token(
     return token_name, response.json().get("data", {}).get("createAccessToken", {}).get(
         "accessToken", None
     )
+
+
+def ensure_has_system_metadata(
+    event: Union[
+        MetadataChangeProposal, MetadataChangeProposalWrapper, MetadataChangeEvent
+    ]
+) -> None:
+    if event.systemMetadata is None:
+        event.systemMetadata = SystemMetadataClass()
+    metadata = event.systemMetadata
+    if metadata.properties is None:
+        metadata.properties = {}
+    props = metadata.properties
+    props["clientId"] = datahub.__package_name__
+    props["clientVersion"] = datahub.__version__
