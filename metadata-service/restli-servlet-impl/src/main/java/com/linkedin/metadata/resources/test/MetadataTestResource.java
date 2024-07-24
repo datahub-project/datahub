@@ -89,7 +89,8 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
             }
 
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_EVALUATE, List.of()), _authorizer, auth, true);
 
             if (tests == null) {
             return _testEngine.evaluateTests(opContext,
@@ -137,7 +138,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
             }
 
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_EVALUATE, List.of()), _authorizer, auth, true);
 
 
             BatchedTestResults results = new BatchedTestResults().setResults(new TestResultsMap());
@@ -185,7 +186,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
         }
 
         final OperationContext opContext = OperationContext.asSession(
-                systemOperationContext, RequestContext.builder().buildRestli(ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+                systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_EVALUATE, List.of()), _authorizer, auth, true);
 
         TestResultsMap testResultsMap = new TestResultsMap();
           _testEngine.evaluateSingleTest(opContext, testUrn,

@@ -2,15 +2,17 @@ import json
 import logging
 import pathlib
 import sys
-from typing import Any, Dict, cast
+from typing import Any, Dict, List, cast
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
 from requests.adapters import ConnectionError
+from tableauserverclient import Server
 from tableauserverclient.models import (
     DatasourceItem,
     ProjectItem,
+    SiteItem,
     ViewItem,
     WorkbookItem,
 )
@@ -18,7 +20,12 @@ from tableauserverclient.models import (
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.tableau import TableauConfig, TableauSource
+from datahub.ingestion.source.tableau import (
+    TableauConfig,
+    TableauSiteSource,
+    TableauSource,
+    TableauSourceReport,
+)
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
     TableauUpstreamReference,
@@ -124,6 +131,25 @@ def side_effect_project_data(*arg, **kwargs):
     return [project1, project2, project3, project4], mock_pagination
 
 
+def side_effect_site_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    site1: SiteItem = SiteItem(name="Acryl", content_url="acryl")
+    site1._id = "190a6a5c-63ed-4de1-8045-site1"
+    site1.state = "Active"
+
+    site2: SiteItem = SiteItem(name="Site 2", content_url="site2")
+    site2._id = "190a6a5c-63ed-4de1-8045-site2"
+    site2.state = "Active"
+
+    site3: SiteItem = SiteItem(name="Site 3", content_url="site3")
+    site3._id = "190a6a5c-63ed-4de1-8045-site3"
+    site3.state = "Suspended"
+
+    return [site1, site2, site3], mock_pagination
+
+
 def side_effect_datasource_data(*arg, **kwargs):
     mock_pagination = mock.MagicMock()
     mock_pagination.total_available = None
@@ -199,6 +225,48 @@ def side_effect_datasource_get_by_id(id, *arg, **kwargs):
             return ds
 
 
+def side_effect_site_get_by_id(id, *arg, **kwargs):
+    sites, _ = side_effect_site_data()
+    for site in sites:
+        if site._id == id:
+            return site
+
+
+def mock_sdk_client(
+    side_effect_query_metadata_response: List[dict],
+    datasources_side_effect: List[dict],
+    sign_out_side_effect: List[dict],
+) -> mock.MagicMock:
+
+    mock_client = mock.Mock()
+    mocked_metadata = mock.Mock()
+    mocked_metadata.query.side_effect = side_effect_query_metadata_response
+    mock_client.metadata = mocked_metadata
+
+    mock_client.auth = mock.Mock()
+    mock_client.site_id = "190a6a5c-63ed-4de1-8045-site1"
+    mock_client.views = mock.Mock()
+    mock_client.projects = mock.Mock()
+    mock_client.sites = mock.Mock()
+
+    mock_client.projects.get.side_effect = side_effect_project_data
+    mock_client.sites.get.side_effect = side_effect_site_data
+    mock_client.sites.get_by_id.side_effect = side_effect_site_get_by_id
+
+    mock_client.datasources = mock.Mock()
+    mock_client.datasources.get.side_effect = datasources_side_effect
+    mock_client.datasources.get_by_id.side_effect = side_effect_datasource_get_by_id
+
+    mock_client.workbooks = mock.Mock()
+    mock_client.workbooks.get.side_effect = side_effect_workbook_data
+
+    mock_client.views.get.side_effect = side_effect_usage_stat
+    mock_client.auth.sign_in.return_value = None
+    mock_client.auth.sign_out.side_effect = sign_out_side_effect
+
+    return mock_client
+
+
 def tableau_ingest_common(
     pytestconfig,
     tmp_path,
@@ -218,25 +286,11 @@ def tableau_ingest_common(
         mock_checkpoint.return_value = mock_datahub_graph
 
         with mock.patch("datahub.ingestion.source.tableau.Server") as mock_sdk:
-            mock_client = mock.Mock()
-            mocked_metadata = mock.Mock()
-            mocked_metadata.query.side_effect = side_effect_query_metadata_response
-            mock_client.metadata = mocked_metadata
-            mock_client.auth = mock.Mock()
-            mock_client.views = mock.Mock()
-            mock_client.projects = mock.Mock()
-            mock_client.projects.get.side_effect = side_effect_project_data
-            mock_client.datasources = mock.Mock()
-            mock_client.datasources.get.side_effect = datasources_side_effect
-            mock_client.datasources.get_by_id.side_effect = (
-                side_effect_datasource_get_by_id
+            mock_sdk.return_value = mock_sdk_client(
+                side_effect_query_metadata_response=side_effect_query_metadata_response,
+                datasources_side_effect=datasources_side_effect,
+                sign_out_side_effect=sign_out_side_effect,
             )
-            mock_client.workbooks = mock.Mock()
-            mock_client.workbooks.get.side_effect = side_effect_workbook_data
-            mock_client.views.get.side_effect = side_effect_usage_stat
-            mock_client.auth.sign_in.return_value = None
-            mock_client.auth.sign_out.side_effect = sign_out_side_effect
-            mock_sdk.return_value = mock_client
             mock_sdk._auth_token = "ABC"
 
             pipeline = Pipeline.create(
@@ -375,7 +429,7 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
         output_file_name,
         mock_datahub_graph,
         pipeline_config=new_config,
-        pipeline_name="test_project_pattern",
+        pipeline_name="test_tableau_ingest",
     )
 
 
@@ -676,6 +730,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
+        pipeline_name="test_tableau_ingest",
     )
 
     checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
@@ -689,6 +744,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         golden_file_deleted_name,
         output_file_deleted_name,
         mock_datahub_graph,
+        pipeline_name="test_tableau_ingest",
     )
     checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
 
@@ -891,9 +947,16 @@ def test_tableau_unsupported_csql():
         "user_source": "user_source",
     }
 
-    source = TableauSource(config=config, ctx=context)
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteItem(name="Site 1", content_url="site1"),
+        report=TableauSourceReport(),
+        server=Server("https://test-tableau-server.com"),
+    )
 
-    lineage = source._create_lineage_from_unsupported_csql(
+    lineage = site_source._create_lineage_from_unsupported_csql(
         csql_urn=csql_urn,
         csql={
             "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
@@ -914,7 +977,7 @@ def test_tableau_unsupported_csql():
     )
 
     # With database as None
-    lineage = source._create_lineage_from_unsupported_csql(
+    lineage = site_source._create_lineage_from_unsupported_csql(
         csql_urn=csql_urn,
         csql={
             "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM my_bigquery_project.invent_dw.UserDetail ) source_user WHERE rank_ = 1",
@@ -955,3 +1018,155 @@ def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph)
         pipeline_name="test_tableau_ingest",
         datasources_side_effect=ValueError("project_id must be defined."),
     )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_mces_multiple_sites.json"
+    golden_file_name: str = "tableau_multiple_sites_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "add_site_container": True,
+        "ingest_multiple_sites": True,
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_multiple_site_ingestion",
+        pipeline_config=new_pipeline_config,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_mces_ingest_sites_as_container.json"
+    golden_file_name: str = "tableau_sites_as_container_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "add_site_container": True,
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_multiple_site_ingestion",
+        pipeline_config=new_pipeline_config,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_site_name_pattern_mces.json"
+    golden_file_name: str = "tableau_site_name_pattern_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["ingest_multiple_sites"] = True
+    new_config["add_site_container"] = True
+    new_config["site_name_pattern"] = {"allow": ["^Site.*$"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_site_name_pattern_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
+
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        with mock.patch("datahub.ingestion.source.tableau.Server") as mock_sdk:
+            mock_sdk.return_value = mock_sdk_client(
+                side_effect_query_metadata_response=[
+                    read_response(pytestconfig, "permission_mode_switched_error.json")
+                ],
+                sign_out_side_effect=[{}],
+                datasources_side_effect=[{}],
+            )
+
+            reporter = TableauSourceReport()
+            tableau_source = TableauSiteSource(
+                platform="tableau",
+                config=mock.MagicMock(),
+                ctx=mock.MagicMock(),
+                site=mock.MagicMock(),
+                server=mock_sdk.return_value,
+                report=reporter,
+            )
+
+            tableau_source.get_connection_object_page(
+                query=mock.MagicMock(),
+                connection_type=mock.MagicMock(),
+                query_filter=mock.MagicMock(),
+                retries_remaining=1,
+            )
+
+            warnings = list(reporter.warnings)
+
+            assert len(warnings) == 1
+
+            assert warnings[0].title == "Derived Permission Error"
+
+            assert warnings[0].message == (
+                "Turn on your derived permissions. See for details "
+                "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error"
+            )

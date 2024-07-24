@@ -362,8 +362,13 @@ class DataHubListener:
 
         # Render templates in a copy of the task instance.
         # This is necessary to get the correct operator args in the extractors.
-        task_instance = copy.deepcopy(task_instance)
-        task_instance.render_templates()
+        try:
+            task_instance = copy.deepcopy(task_instance)
+            task_instance.render_templates()
+        except Exception as e:
+            logger.info(
+                f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
+            )
 
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
@@ -536,14 +541,27 @@ class DataHubListener:
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
 
+        event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+            entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
+        )
+        self.emitter.emit(event)
+
+        for task in dag.tasks:
+            task_urn = builder.make_data_job_urn_with_flow(
+                str(dataflow.urn), task.task_id
+            )
+            event = MetadataChangeProposalWrapper(
+                entityUrn=task_urn, aspect=StatusClass(removed=False)
+            )
+            self.emitter.emit(event)
+
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
 
-            event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+            event = MetadataChangeProposalWrapper(
                 entityUrn=tag_urn, aspect=StatusClass(removed=False)
             )
-
             self.emitter.emit(event)
 
         browse_path_v2_event: MetadataChangeProposalWrapper = (

@@ -229,7 +229,7 @@ class DataHubGraph(DatahubRestEmitter):
     def _make_rest_sink_config(self) -> "DatahubRestSinkConfig":
         from datahub.ingestion.sink.datahub_rest import (
             DatahubRestSinkConfig,
-            SyncOrAsync,
+            RestSinkMode,
         )
 
         # This is a bit convoluted - this DataHubGraph class is a subclass of DatahubRestEmitter,
@@ -237,7 +237,7 @@ class DataHubGraph(DatahubRestEmitter):
         # TODO: We should refactor out the multithreading functionality of the sink
         # into a separate class that can be used by both the sink and the graph client
         # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
-        return DatahubRestSinkConfig(**self.config.dict(), mode=SyncOrAsync.ASYNC)
+        return DatahubRestSinkConfig(**self.config.dict(), mode=RestSinkMode.ASYNC)
 
     @contextlib.contextmanager
     def make_rest_sink(
@@ -268,14 +268,10 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> None:
         """Emit all items in the iterable using multiple threads."""
 
+        # The context manager also ensures that we raise an error if a failure occurs.
         with self.make_rest_sink(run_id=run_id) as sink:
             for item in items:
                 sink.emit_async(item)
-        if sink.report.failures:
-            raise OperationalError(
-                f"Failed to emit {len(sink.report.failures)} records",
-                info=sink.report.as_obj(),
-            )
 
     def get_aspect(
         self,
@@ -1400,6 +1396,7 @@ class DataHubGraph(DatahubRestEmitter):
         env: str = DEFAULT_ENV,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
+        default_dialect: Optional[str] = None,
     ) -> "SqlParsingResult":
         from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
@@ -1413,6 +1410,7 @@ class DataHubGraph(DatahubRestEmitter):
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            default_dialect=default_dialect,
         )
 
     def create_tag(self, tag_name: str) -> str:
@@ -1436,6 +1434,20 @@ class DataHubGraph(DatahubRestEmitter):
 
         # return urn
         return res["createTag"]
+
+    def remove_tag(self, tag_urn: str, resource_urn: str) -> bool:
+        graph_query = f"""
+            mutation removeTag {{
+                removeTag(
+                input: {{
+                    tagUrn: "{tag_urn}",
+                    resourceUrn: "{resource_urn}"
+                    }})
+            }}
+        """
+
+        res = self.execute_graphql(query=graph_query)
+        return res["removeTag"]
 
     def _assertion_result_shared(self) -> str:
         fragment: str = """

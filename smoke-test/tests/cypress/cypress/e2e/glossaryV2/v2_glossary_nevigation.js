@@ -97,7 +97,7 @@ describe("glossary sidebar navigation test", () => {
 
     // Switch between terms and ensure the "Properties" tab is active
     cy.clickOptionWithText(glossaryTerm);
-    cy.get(".anticon-unordered-list ").click({ force: true });
+    cy.get('[data-node-key="Properties"]').click({ force: true });
     cy.get('[data-node-key="Properties"] .ant-tabs-tab-btn').should(
       "have.attr",
       "aria-selected",

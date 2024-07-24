@@ -1,12 +1,12 @@
 import pytest
 
 import datahub.ingestion.source.tableau_constant as c
-from datahub.ingestion.source.tableau import TableauSource
+from datahub.ingestion.source.tableau import TableauSiteSource
 from datahub.ingestion.source.tableau_common import get_filter_pages, make_filter
 
 
 def test_tableau_source_unescapes_lt():
-    res = TableauSource._clean_tableau_query_parameters(
+    res = TableauSiteSource._clean_tableau_query_parameters(
         "select * from t where c1 << 135"
     )
 
@@ -14,7 +14,7 @@ def test_tableau_source_unescapes_lt():
 
 
 def test_tableau_source_unescapes_gt():
-    res = TableauSource._clean_tableau_query_parameters(
+    res = TableauSiteSource._clean_tableau_query_parameters(
         "select * from t where c1 >> 135"
     )
 
@@ -22,7 +22,7 @@ def test_tableau_source_unescapes_gt():
 
 
 def test_tableau_source_unescapes_gte():
-    res = TableauSource._clean_tableau_query_parameters(
+    res = TableauSiteSource._clean_tableau_query_parameters(
         "select * from t where c1 >>= 135"
     )
 
@@ -30,7 +30,7 @@ def test_tableau_source_unescapes_gte():
 
 
 def test_tableau_source_unescapeslgte():
-    res = TableauSource._clean_tableau_query_parameters(
+    res = TableauSiteSource._clean_tableau_query_parameters(
         "select * from t where c1 <<= 135"
     )
 
@@ -38,7 +38,7 @@ def test_tableau_source_unescapeslgte():
 
 
 def test_tableau_source_doesnt_touch_not_escaped():
-    res = TableauSource._clean_tableau_query_parameters(
+    res = TableauSiteSource._clean_tableau_query_parameters(
         "select * from t where c1 < 135 and c2 > 15"
     )
 
@@ -70,7 +70,7 @@ TABLEAU_PARAMS = [
 @pytest.mark.parametrize("p", TABLEAU_PARAMS)
 def test_tableau_source_cleanups_tableau_parameters_in_equi_predicates(p):
     assert (
-        TableauSource._clean_tableau_query_parameters(
+        TableauSiteSource._clean_tableau_query_parameters(
             f"select * from t where c1 = {p} and c2 = {p} and c3 = 7"
         )
         == "select * from t where c1 = 1 and c2 = 1 and c3 = 7"
@@ -80,7 +80,7 @@ def test_tableau_source_cleanups_tableau_parameters_in_equi_predicates(p):
 @pytest.mark.parametrize("p", TABLEAU_PARAMS)
 def test_tableau_source_cleanups_tableau_parameters_in_lt_gt_predicates(p):
     assert (
-        TableauSource._clean_tableau_query_parameters(
+        TableauSiteSource._clean_tableau_query_parameters(
             f"select * from t where c1 << {p} and c2<<{p} and c3 >> {p} and c4>>{p} or {p} >> c1 and {p}>>c2 and {p} << c3 and {p}<<c4"
         )
         == "select * from t where c1 < 1 and c2<1 and c3 > 1 and c4>1 or 1 > c1 and 1>c2 and 1 < c3 and 1<c4"
@@ -90,7 +90,7 @@ def test_tableau_source_cleanups_tableau_parameters_in_lt_gt_predicates(p):
 @pytest.mark.parametrize("p", TABLEAU_PARAMS)
 def test_tableau_source_cleanups_tableau_parameters_in_lte_gte_predicates(p):
     assert (
-        TableauSource._clean_tableau_query_parameters(
+        TableauSiteSource._clean_tableau_query_parameters(
             f"select * from t where c1 <<= {p} and c2<<={p} and c3 >>= {p} and c4>>={p} or {p} >>= c1 and {p}>>=c2 and {p} <<= c3 and {p}<<=c4"
         )
         == "select * from t where c1 <= 1 and c2<=1 and c3 >= 1 and c4>=1 or 1 >= c1 and 1>=c2 and 1 <= c3 and 1<=c4"
@@ -100,7 +100,7 @@ def test_tableau_source_cleanups_tableau_parameters_in_lte_gte_predicates(p):
 @pytest.mark.parametrize("p", TABLEAU_PARAMS)
 def test_tableau_source_cleanups_tableau_parameters_in_join_predicate(p):
     assert (
-        TableauSource._clean_tableau_query_parameters(
+        TableauSiteSource._clean_tableau_query_parameters(
             f"select * from t1 inner join t2 on t1.id = t2.id and t2.c21 = {p} and t1.c11 = 123 + {p}"
         )
         == "select * from t1 inner join t2 on t1.id = t2.id and t2.c21 = 1 and t1.c11 = 123 + 1"
@@ -110,7 +110,7 @@ def test_tableau_source_cleanups_tableau_parameters_in_join_predicate(p):
 @pytest.mark.parametrize("p", TABLEAU_PARAMS)
 def test_tableau_source_cleanups_tableau_parameters_in_complex_expressions(p):
     assert (
-        TableauSource._clean_tableau_query_parameters(
+        TableauSiteSource._clean_tableau_query_parameters(
             f"select myudf1(c1, {p}, c2) / myudf2({p}) > ({p} + 3 * {p} * c5) * {p} - c4"
         )
         == "select myudf1(c1, 1, c2) / myudf2(1) > (1 + 3 * 1 * c5) * 1 - c4"
@@ -120,7 +120,7 @@ def test_tableau_source_cleanups_tableau_parameters_in_complex_expressions(p):
 @pytest.mark.parametrize("p", TABLEAU_PARAMS)
 def test_tableau_source_cleanups_tableau_parameters_in_udfs(p):
     assert (
-        TableauSource._clean_tableau_query_parameters(f"select myudf({p}) from t")
+        TableauSiteSource._clean_tableau_query_parameters(f"select myudf({p}) from t")
         == "select myudf(1) from t"
     )
 

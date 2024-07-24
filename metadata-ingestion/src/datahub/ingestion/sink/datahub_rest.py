@@ -7,7 +7,7 @@ import os
 import threading
 import uuid
 from enum import auto
-from typing import Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import (
@@ -16,6 +16,7 @@ from datahub.configuration.common import (
     OperationalError,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
@@ -30,7 +31,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.utilities.advanced_thread_executor import PartitionExecutor
+from datahub.utilities.partition_executor import (
+    BatchPartitionExecutor,
+    PartitionExecutor,
+)
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.server_config_util import set_gms_config
 
@@ -41,17 +45,25 @@ DEFAULT_REST_SINK_MAX_THREADS = int(
 )
 
 
-class SyncOrAsync(ConfigEnum):
+class RestSinkMode(ConfigEnum):
     SYNC = auto()
     ASYNC = auto()
 
+    # Uses the new ingestProposalBatch endpoint. Significantly more efficient than the other modes,
+    # but requires a server version that supports it.
+    # https://github.com/datahub-project/datahub/pull/10706
+    ASYNC_BATCH = auto()
+
 
 class DatahubRestSinkConfig(DatahubClientConfig):
-    mode: SyncOrAsync = SyncOrAsync.ASYNC
+    mode: RestSinkMode = RestSinkMode.ASYNC
 
-    # These only apply in async mode.
+    # These only apply in async modes.
     max_threads: int = DEFAULT_REST_SINK_MAX_THREADS
     max_pending_requests: int = 2000
+
+    # Only applies in async batch mode.
+    max_per_batch: int = 100
 
 
 @dataclasses.dataclass
@@ -111,10 +123,20 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         set_env_variables_override_config(self.config.server, self.config.token)
         logger.debug("Setting gms config")
         set_gms_config(gms_config)
-        self.executor = PartitionExecutor(
-            max_workers=self.config.max_threads,
-            max_pending=self.config.max_pending_requests,
-        )
+
+        self.executor: Union[PartitionExecutor, BatchPartitionExecutor]
+        if self.config.mode == RestSinkMode.ASYNC_BATCH:
+            self.executor = BatchPartitionExecutor(
+                max_workers=self.config.max_threads,
+                max_pending=self.config.max_pending_requests,
+                process_batch=self._emit_batch_wrapper,
+                max_per_batch=self.config.max_per_batch,
+            )
+        else:
+            self.executor = PartitionExecutor(
+                max_workers=self.config.max_threads,
+                max_pending=self.config.max_pending_requests,
+            )
 
     @classmethod
     def _make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
@@ -189,6 +211,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                     self.report.report_warning({"warning": e.message, "info": e.info})
                 write_callback.on_failure(record_envelope, e, e.info)
             else:
+                logger.exception(f"Failure: {e}", exc_info=e)
                 self.report.report_failure({"e": e})
                 write_callback.on_failure(record_envelope, Exception(e), {})
 
@@ -202,6 +225,30 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     ) -> None:
         # TODO: Add timing metrics
         self.emitter.emit(record)
+
+    def _emit_batch_wrapper(
+        self,
+        records: List[
+            Tuple[
+                Union[
+                    MetadataChangeEvent,
+                    MetadataChangeProposal,
+                    MetadataChangeProposalWrapper,
+                ],
+            ]
+        ],
+    ) -> None:
+        events: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]] = []
+        for record in records:
+            event = record[0]
+            if isinstance(event, MetadataChangeEvent):
+                # Unpack MCEs into MCPs.
+                mcps = mcps_from_mce(event)
+                events.extend(mcps)
+            else:
+                events.append(event)
+
+        self.emitter.emit_mcps(events)
 
     def write_record_async(
         self,
@@ -218,11 +265,23 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         # should only have a high value if the sink is actually a bottleneck.
         with self.report.main_thread_blocking_timer:
             record = record_envelope.record
-            if self.config.mode == SyncOrAsync.ASYNC:
+            if self.config.mode == RestSinkMode.ASYNC:
+                assert isinstance(self.executor, PartitionExecutor)
                 partition_key = _get_partition_key(record_envelope)
                 self.executor.submit(
                     partition_key,
                     self._emit_wrapper,
+                    record,
+                    done_callback=functools.partial(
+                        self._write_done_callback, record_envelope, write_callback
+                    ),
+                )
+                self.report.pending_requests += 1
+            elif self.config.mode == RestSinkMode.ASYNC_BATCH:
+                assert isinstance(self.executor, BatchPartitionExecutor)
+                partition_key = _get_partition_key(record_envelope)
+                self.executor.submit(
+                    partition_key,
                     record,
                     done_callback=functools.partial(
                         self._write_done_callback, record_envelope, write_callback
@@ -249,7 +308,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         )
 
     def close(self):
-        self.executor.shutdown()
+        with self.report.main_thread_blocking_timer:
+            self.executor.shutdown()
 
     def __repr__(self) -> str:
         return self.emitter.__repr__()

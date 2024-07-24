@@ -11,13 +11,15 @@ from datahub.ingestion.glossary.classifier import (
     DynamicTypedClassifierConfig,
 )
 from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
-from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryDataset,
     BigQuerySchemaApi,
     BigqueryTable,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
+    BigQuerySchemaGenerator,
 )
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
@@ -39,7 +41,7 @@ def random_email():
 
 @freeze_time(FROZEN_TIME)
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
-@patch.object(BigqueryV2Source, "get_core_table_details")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
 @patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
 @patch.object(BigQueryDataReader, "get_sample_data_for_table")

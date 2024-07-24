@@ -37,11 +37,12 @@
         "GET_ANALYTICS_PRIVILEGE",
         "CREATE_BUSINESS_ATTRIBUTE",
         "MANAGE_BUSINESS_ATTRIBUTE",
+        "MANAGE_STRUCTURED_PROPERTIES",
+        "MANAGE_DOCUMENTATION_FORMS",
         "CREATE_CONSTRAINTS",
         "MANAGE_CONNECTIONS",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_MONITORS",
-        "MANAGE_STRUCTURED_PROPERTIES"
+        "MANAGE_MONITORS"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants all platform privileges to root user.",
@@ -234,11 +235,10 @@
         "GET_ANALYTICS_PRIVILEGE",
         "CREATE_BUSINESS_ATTRIBUTE",
         "MANAGE_BUSINESS_ATTRIBUTE",
-        "APPLY_RETENTION_PRIVILEGE",
-        "MANAGE_CONNECTIONS",
+        "MANAGE_STRUCTURED_PROPERTIES",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_MONITORS",
-        "MANAGE_STRUCTURED_PROPERTIES"
+        "MANAGE_CONNECTIONS",
+        "MANAGE_MONITORS"
       ],
       "displayName":"Admins - Platform Policy",
       "description":"Admins have all platform privileges.",
@@ -336,11 +336,11 @@
         "MANAGE_GLOSSARIES",
         "MANAGE_TAGS",
         "MANAGE_BUSINESS_ATTRIBUTE",
+        "MANAGE_STRUCTURED_PROPERTIES",
+        "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_TESTS",
         "CREATE_CONSTRAINTS",
-        "MANAGE_DOCUMENTATION_FORMS",
-        "VIEW_METADATA_PROPOSALS",
-        "MANAGE_STRUCTURED_PROPERTIES"
+        "VIEW_METADATA_PROPOSALS"
       ],
       "displayName":"Editors - Platform Policy",
       "description":"Editors can manage ingestion and view analytics.",

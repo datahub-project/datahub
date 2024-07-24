@@ -389,7 +389,7 @@ public class StructuredPropertiesValidatorTest {
             .collect(Collectors.toList());
 
     Assert.assertEquals(exceptions.size(), 1, "Expected rejected mutation of immutable property.");
-    Assert.assertEquals(exceptions.get(0).getExceptionKey().getKey(), TEST_DATASET_URN);
+    Assert.assertEquals(exceptions.get(0).getAspectGroup().getKey(), TEST_DATASET_URN);
     Assert.assertTrue(
         exceptions.get(0).getMessage().contains("Cannot mutate an immutable property"));
   }
@@ -484,7 +484,7 @@ public class StructuredPropertiesValidatorTest {
             .collect(Collectors.toList());
 
     Assert.assertEquals(exceptions.size(), 1, "Expected rejected delete of immutable property.");
-    Assert.assertEquals(exceptions.get(0).getExceptionKey().getKey(), TEST_DATASET_URN);
+    Assert.assertEquals(exceptions.get(0).getAspectGroup().getKey(), TEST_DATASET_URN);
     Assert.assertTrue(
         exceptions.get(0).getMessage().contains("Cannot delete an immutable property"));
   }

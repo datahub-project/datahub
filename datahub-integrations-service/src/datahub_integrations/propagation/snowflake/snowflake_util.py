@@ -15,7 +15,7 @@
 import logging
 
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.source.snowflake.snowflake_config import BaseSnowflakeConfig
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeConfig
 from datahub.metadata._urns.urn_defs import (
     DatasetUrn,
     GlossaryTermUrn,
@@ -42,8 +42,8 @@ def is_snowflake_urn(urn: str) -> bool:
 
 
 class SnowflakeTagHelper(Closeable):
-    def __init__(self, config: BaseSnowflakeConfig):
-        self.config: BaseSnowflakeConfig = config
+    def __init__(self, config: SnowflakeConfig):
+        self.config: SnowflakeConfig = config
         url = self.config.get_sql_alchemy_url()
         self.engine = create_engine(url, **self.config.get_options())
 

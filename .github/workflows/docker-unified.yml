@@ -131,7 +131,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Run lint on smoke test
         if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         run: |
@@ -150,7 +150,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -219,7 +219,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -288,7 +288,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -357,7 +357,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -426,7 +426,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -683,7 +683,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build codegen
@@ -777,7 +777,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build codegen
@@ -864,11 +864,11 @@ jobs:
       - id: set-matrix
         run: |
           if [ '${{ needs.setup.outputs.frontend_only }}' == 'true' ]; then
-             echo 'matrix=["cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2"]' >> $GITHUB_OUTPUT
+             echo 'matrix=["cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2", "cypress_saas_suite3"]' >> $GITHUB_OUTPUT
           elif [ '${{ needs.setup.outputs.ingestion_only }}' == 'true' ]; then
              echo 'matrix=["no_cypress_suite0","no_cypress_suite1"]' >> $GITHUB_OUTPUT
           elif [ '${{ needs.setup.outputs.backend_change }}' == 'true' ]; then
-             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2"]' >> $GITHUB_OUTPUT
+             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2","cypress_saas_suite3"]' >> $GITHUB_OUTPUT
           else
              echo 'matrix=[]' >> $GITHUB_OUTPUT
           fi
@@ -910,7 +910,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"

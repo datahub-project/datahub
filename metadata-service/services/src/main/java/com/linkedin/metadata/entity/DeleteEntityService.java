@@ -595,7 +595,7 @@ public class DeleteEntityService {
                       new ConjunctiveCriterion().setAnd(completedFormsArray),
                       new ConjunctiveCriterion().setAnd(metadataTestSourceArray)));
       ScrollResult scrollResult =
-          _searchService.scroll(
+          _searchService.structuredScroll(
               opContext,
               ImmutableList.of(
                   "dataset",
@@ -617,12 +617,12 @@ public class DeleteEntityService {
                   "schemaField",
                   "dataProduct",
                   "test"),
+              "*",
               filter,
               null,
-              dryRun ? 1 : BATCH_SIZE, // need to pass in 1 for count otherwise get index error
               scrollId,
               "5m",
-              null);
+              dryRun ? 1 : BATCH_SIZE); // need to pass in 1 for count otherwise get index error
       if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
         return result;
       }

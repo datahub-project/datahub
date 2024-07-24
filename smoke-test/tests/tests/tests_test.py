@@ -149,7 +149,6 @@ def test_update_test(frontend_session, wait_for_healthchecks):
     test_name = "new name"
     test_category = "new category"
     test_description = "new description"
-    test_description = "new description"
 
     # Update Test
     update_test_json = {

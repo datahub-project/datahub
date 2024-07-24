@@ -25,8 +25,9 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
-import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
-import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
+import io.datahubproject.openapi.v2.models.BatchGetUrnRequestV2;
+import io.datahubproject.openapi.v2.models.BatchGetUrnResponseV2;
+import io.datahubproject.openapi.v2.models.GenericAspectV2;
 import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -85,8 +86,8 @@ public class ServiceTestUtils {
       throws Exception {
     OpenApiClient mockClient =
         Mockito.mock(OpenApiClient.class, Mockito.withSettings().verboseLogging());
-    BatchGetUrnRequest batchGetUrnRequest =
-        BatchGetUrnRequest.builder()
+    BatchGetUrnRequestV2 batchGetUrnRequest =
+        BatchGetUrnRequestV2.builder()
             .urns(List.of(TEST_ENTITY_URN_1.toString(), TEST_ENTITY_URN_2.toString()))
             .aspectNames(Collections.singletonList(aspectName))
             .withSystemMetadata(true)
@@ -114,8 +115,10 @@ public class ServiceTestUtils {
       entities = Collections.emptyList();
     }
 
-    BatchGetUrnResponse batchGetUrnResponse =
-        BatchGetUrnResponse.builder().entities(entities).build();
+    BatchGetUrnResponseV2<GenericAspectV2, GenericEntityV2> batchGetUrnResponse =
+        BatchGetUrnResponseV2.<GenericAspectV2, GenericEntityV2>builder()
+            .entities(entities)
+            .build();
     Mockito.when(
             mockClient.getBatchUrns(
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Iterable
 from unittest import mock
 
 import pytest
@@ -24,7 +25,7 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
 @pytest.fixture
-def stateful_source(mock_datahub_graph: DataHubGraph) -> SnowflakeV2Source:
+def stateful_source(mock_datahub_graph: DataHubGraph) -> Iterable[SnowflakeV2Source]:
     pipeline_name = "test_redundant_run_lineage"
     run_id = "test_redundant_run"
     ctx = PipelineContext(
@@ -43,8 +44,9 @@ def stateful_source(mock_datahub_graph: DataHubGraph) -> SnowflakeV2Source:
             ),
         ),
     )
-    source = SnowflakeV2Source(ctx=ctx, config=config)
-    return source
+
+    with mock.patch("snowflake.connector.connect"):
+        yield SnowflakeV2Source(ctx=ctx, config=config)
 
 
 def test_redundant_run_job_ids(stateful_source: SnowflakeV2Source) -> None:

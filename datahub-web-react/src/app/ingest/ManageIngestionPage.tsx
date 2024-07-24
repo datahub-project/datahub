@@ -2,6 +2,8 @@ import { Tabs, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { IngestionSourceList } from './source/IngestionSourceList';
+import { useAppConfig } from '../useAppConfig';
+import { useUserContext } from '../context/useUserContext';
 import { SecretsList } from './secret/SecretsList';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import {
@@ -50,7 +52,13 @@ export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
      */
-    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
+    const me = useUserContext();
+    const { config } = useAppConfig();
+    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
+    const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
+    const defaultTab = showIngestionTab ? TabType.Sources : TabType.Secrets;
+    const [selectedTab, setSelectedTab] = useState<TabType>(defaultTab);
 
     const onClickTab = (newTab: string) => {
         setSelectedTab(TabType[newTab]);
@@ -60,14 +68,14 @@ export const ManageIngestionPage = () => {
         <PageContainer>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Ingestion</PageTitle>
+                <PageTitle level={3}>Manage Data Sources</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    Create, schedule, and run DataHub ingestion sources.
+                    Configure and schedule syncs to import data from your data sources
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
-                <Tab key={TabType.Sources} tab={TabType.Sources} />
-                <Tab key={TabType.Secrets} tab={TabType.Secrets} />
+                {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
+                {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
             </StyledTabs>
             <ListContainer>{selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}</ListContainer>
         </PageContainer>

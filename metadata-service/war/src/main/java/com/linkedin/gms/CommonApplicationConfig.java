@@ -37,6 +37,7 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
       "com.linkedin.gms.factory.timeseries",
+      "com.linkedin.gms.factory.plugins"
     })
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
 @Configuration

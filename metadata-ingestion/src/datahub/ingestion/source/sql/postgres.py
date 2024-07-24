@@ -276,3 +276,19 @@ class PostgresSource(SQLAlchemySource):
             return f"{self.config.database}.{regular}"
         current_database = self.get_db_name(inspector)
         return f"{current_database}.{regular}"
+
+    def add_profile_metadata(self, inspector: Inspector) -> None:
+        try:
+            with inspector.engine.connect() as conn:
+                for row in conn.execute(
+                    """SELECT table_catalog, table_schema, table_name, pg_table_size('"' || table_catalog || '"."' || table_schema || '"."' || table_name || '"') AS table_size FROM information_schema.TABLES"""
+                ):
+                    self.profile_metadata_info.dataset_name_to_storage_bytes[
+                        self.get_identifier(
+                            schema=row.table_schema,
+                            entity=row.table_name,
+                            inspector=inspector,
+                        )
+                    ] = row.table_size
+        except Exception as e:
+            logger.error(f"failed to fetch profile metadata: {e}")

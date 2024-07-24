@@ -16,6 +16,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -64,6 +65,7 @@ public class MetadataTestsController {
   @PostMapping(path = "/explainTest", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Explain Test Execution")
   public ResponseEntity<String> explainTestExecution(
+      HttpServletRequest request,
       @Parameter(
               name = "testJson",
               required = true,
@@ -89,7 +91,12 @@ public class MetadataTestsController {
     }
     OperationContext opContext =
         systemOperationContext.asSession(
-            RequestContext.builder().buildOpenapi("explainTest", Collections.emptyList()),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    request,
+                    "explainTest",
+                    Collections.emptyList()),
             authorizerChain,
             authentication);
     TestDefinition testDefinition = testEngine.getParser().deserialize(DUMMY_TEST_URN, testJson);

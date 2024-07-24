@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { blue } from '@ant-design/colors';
-import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 import { ANTD_GRAY } from '../../../constants';
 import { useDataNotCombinedWithSiblings, useEntityData } from '../../../EntityContext';
 import { SidebarHeader } from './SidebarHeader';
@@ -11,6 +10,7 @@ import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSibl
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { EmbeddedListSearchModal } from '../../../components/styled/search/EmbeddedListSearchModal';
 import { UnionType } from '../../../../../search/utils/constants';
+import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
 
 const EntityListContainer = styled.div`
     display: flex;
@@ -46,7 +46,7 @@ export const SidebarSiblingsSection = () => {
         return <></>;
     }
 
-    // showSeparateSiblings disables the combined view, but with this flag in we show siblings in the sidebar to navigate to them
+    // showSeparateSiblings disables the combined view, but with this flag on we show siblings in the sidebar to navigate to them
     if (!showSeparateSiblings && isHideSiblingMode) {
         return (
             <div>

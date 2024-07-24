@@ -1,3 +1,3 @@
 package io.datahubproject.openapi.models;
 
-public interface GenericEntityScrollResult<T extends GenericEntity> {}
+public interface GenericEntityScrollResult<A extends GenericAspect, T extends GenericEntity<A>> {}

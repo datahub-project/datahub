@@ -238,6 +238,10 @@ public class AssertionMapperTest {
     if (input.hasSource()) {
       verifySource(input.getSource(), output.getInfo().getSource());
     }
+
+    if (input.hasCustomAssertion()) {
+      verifyCustomAssertion(input.getCustomAssertion(), output.getInfo().getCustomAssertion());
+    }
   }
 
   private void verifyDatasetAssertion(

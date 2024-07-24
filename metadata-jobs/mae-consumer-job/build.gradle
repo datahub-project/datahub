@@ -35,6 +35,7 @@ dependencies {
     implementation externalDependency.sentryLogback
 
     testImplementation project(':metadata-dao-impl:kafka-producer')
+    testImplementation project(':metadata-jobs:pe-consumer')
     testImplementation externalDependency.springBootTest
     testImplementation externalDependency.mockito
     testImplementation externalDependency.testng

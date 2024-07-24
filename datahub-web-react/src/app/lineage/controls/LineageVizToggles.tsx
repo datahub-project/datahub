@@ -3,12 +3,12 @@ import { Switch, Tooltip } from 'antd';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
-import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { navigateToLineageUrl } from '../utils/navigateToLineageUrl';
 import { useIsSeparateSiblingsMode } from '../../entity/shared/siblingUtils';
 import { useIsShowColumnsMode } from '../utils/useIsShowColumnsMode';
+import { useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
 
 const ControlDiv = styled.div`
     display: flex;

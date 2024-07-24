@@ -35,10 +35,12 @@ import org.springframework.context.annotation.FilterType;
       "io.datahubproject.metadata.jobs.common.health.kafka",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.timeseries",
+      "com.linkedin.gms.factory.assertion",
       "com.linkedin.gms.factory.integration",
       "com.linkedin.gms.factory.subscription",
       "com.linkedin.gms.factory.settings",
-      "com.linkedin.gms.factory.test.openapi"
+      "com.linkedin.gms.factory.test.openapi",
+      "com.linkedin.gms.factory.plugins"
     },
     excludeFilters = {
       @ComponentScan.Filter(
