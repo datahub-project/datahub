@@ -29,7 +29,7 @@ export type FontColorOptions = MiscColorOptions | ColorOptions;
 export type BorderRadiusOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
 // Box shadow types
-export type BoxShadowOptions = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'inner' | 'outline' | 'none';
+export type BoxShadowOptions = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'inner' | 'outline' | 'dropdown' | 'none';
 
 // Spacing types
 export type SpacingOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | '3xl' | '4xl';

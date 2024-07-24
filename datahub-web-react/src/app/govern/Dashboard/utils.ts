@@ -3,6 +3,11 @@ import { scaleOrdinal } from '@visx/scale';
 import dayjs from 'dayjs';
 import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../../dataviz/constants';
 
+export const DocumentationTabs = {
+    ANALYTICS: 'analytics',
+    FORMS: 'forms',
+};
+
 // Status Ordinal Scale
 export const statusOrdinalScale = scaleOrdinal({
     domain: ['Not Started', 'In Progress', 'Completed'],

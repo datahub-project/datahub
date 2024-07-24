@@ -1,11 +1,14 @@
 import React from 'react';
 import { Skeleton } from 'antd';
 import styled from 'styled-components';
+import { useHistory } from 'react-router';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { EntityType } from '../../../../types.generated';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
 import { HorizontalListSkeletons } from '../../../homeV2/content/HorizontalListSkeletons';
 import FormCard from './FormCard';
+import { StyledButton } from '../../../shared/share/v2/styledComponents';
+import { PageRoutes } from '../../../../conf/Global';
 
 const Container = styled.div`
     display: flex;
@@ -51,6 +54,7 @@ const SkeletonContainer = styled.div`
 `;
 
 const FormsTab = () => {
+    const history = useHistory();
     const inputs = {
         types: [EntityType.Form],
         query: '*',
@@ -74,6 +78,13 @@ const FormsTab = () => {
             <FormsSection>
                 <SectionHeader>
                     <HeaderText>All Forms</HeaderText>
+                    <StyledButton
+                        $color={REDESIGN_COLORS.TITLE_PURPLE}
+                        $type="filled"
+                        onClick={() => history.push(PageRoutes.NEW_FORM)}
+                    >
+                        Create Form
+                    </StyledButton>
                 </SectionHeader>
                 {isLoading ? (
                     <SkeletonContainer>
