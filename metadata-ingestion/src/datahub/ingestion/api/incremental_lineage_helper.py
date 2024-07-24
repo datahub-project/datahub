@@ -86,13 +86,13 @@ def convert_dashboard_info_to_patch(
         patch_builder.set_description(aspect.description)
 
     if aspect.charts:
-        patch_builder.set_charts(aspect.charts)
+        patch_builder.add_charts(aspect.charts)
 
     if aspect.dashboardUrl:
         patch_builder.set_dashboard_url(aspect.dashboardUrl)
 
     if aspect.datasets:
-        patch_builder.set_datasets(aspect.datasets)
+        patch_builder.add_datasets(aspect.datasets)
 
     if aspect.access:
         patch_builder.set_access(aspect.access)

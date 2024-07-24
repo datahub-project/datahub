@@ -1734,11 +1734,13 @@
             },
             {
                 "op": "add",
-                "path": "/charts",
-                "value": [
-                    "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
-                    "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)"
-                ]
+                "path": "/charts/urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+                "value": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)"
+            },
+            {
+                "op": "add",
+                "path": "/charts/urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+                "value": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)"
             },
             {
                 "op": "add",
@@ -2949,21 +2951,28 @@
         "json": [
             {
                 "op": "add",
-                "path": "/charts",
-                "value": [
-                    "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection)",
-                    "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection1)"
-                ]
-            },
-            {
-                "op": "add",
-                "path": "/dashboardUrl",
-                "value": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715"
+                "path": "/title",
+                "value": "SalesMarketing"
             },
             {
                 "op": "add",
                 "path": "/description",
                 "value": "Acryl sales marketing report"
+            },
+            {
+                "op": "add",
+                "path": "/charts/urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection)",
+                "value": "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection)"
+            },
+            {
+                "op": "add",
+                "path": "/charts/urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection1)",
+                "value": "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection1)"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715"
             },
             {
                 "op": "add",
@@ -2978,11 +2987,6 @@
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
-            },
-            {
-                "op": "add",
-                "path": "/title",
-                "value": "SalesMarketing"
             }
         ]
     },

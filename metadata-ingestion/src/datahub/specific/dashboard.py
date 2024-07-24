@@ -450,25 +450,27 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             )
         return self
 
-    def set_charts(self, charts: Optional[List[str]]) -> "DashboardPatchBuilder":
-        if charts:
-            self._add_patch(
-                DashboardInfo.ASPECT_NAME,
-                "add",
-                path="/charts",
-                value=charts,
-            )
+    def add_charts(self, chart_urns: Optional[List[str]]) -> "DashboardPatchBuilder":
+        if chart_urns:
+            for urn in chart_urns:
+                self._add_patch(
+                    aspect_name=DashboardInfo.ASPECT_NAME,
+                    op="add",
+                    path=f"/charts/{urn}",
+                    value=urn
+                )
 
         return self
 
-    def set_datasets(self, datasets: Optional[List[str]]) -> "DashboardPatchBuilder":
-        if datasets:
-            self._add_patch(
-                DashboardInfo.ASPECT_NAME,
-                "add",
-                path="/datasets",
-                value=datasets,
-            )
+    def add_datasets(self, dataset_urns: Optional[List[str]]) -> "DashboardPatchBuilder":
+        if dataset_urns:
+            for urn in dataset_urns:
+                self._add_patch(
+                    aspect_name=DashboardInfo.ASPECT_NAME,
+                    op="add",
+                    path=f"/datasets/{urn}",
+                    value=urn,
+                )
 
         return self
 

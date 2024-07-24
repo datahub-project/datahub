@@ -1382,7 +1382,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             DashboardInfoClass
         ] = work_unit.get_aspect_of_type(DashboardInfoClass)
 
-        if dashboard_info_aspect:
+        if dashboard_info_aspect and self.source_config.patch_metadata:
             return convert_dashboard_info_to_patch(
                 work_unit.get_urn(),
                 dashboard_info_aspect,
