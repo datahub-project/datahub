@@ -457,12 +457,14 @@ class DashboardPatchBuilder(MetadataPatchProposal):
                     aspect_name=DashboardInfo.ASPECT_NAME,
                     op="add",
                     path=f"/charts/{urn}",
-                    value=urn
+                    value=urn,
                 )
 
         return self
 
-    def add_datasets(self, dataset_urns: Optional[List[str]]) -> "DashboardPatchBuilder":
+    def add_datasets(
+        self, dataset_urns: Optional[List[str]]
+    ) -> "DashboardPatchBuilder":
         if dataset_urns:
             for urn in dataset_urns:
                 self._add_patch(

@@ -51,6 +51,20 @@ def convert_chart_info_to_patch(
         for inputEdge in aspect.inputEdges:
             patch_builder.add_input_edge(inputEdge)
 
+    patch_builder.set_chart_url(aspect.chartUrl).set_external_url(
+        aspect.externalUrl
+    ).set_type(aspect.type).set_title(aspect.title).set_access(
+        aspect.access
+    ).set_last_modified(
+        aspect.lastModified
+    ).set_last_refreshed(
+        aspect.lastRefreshed
+    ).set_description(
+        aspect.description
+    ).add_inputs(
+        aspect.inputs
+    )
+
     values = patch_builder.build()
     if values:
         mcp = next(iter(values))

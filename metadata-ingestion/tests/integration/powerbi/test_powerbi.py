@@ -728,6 +728,7 @@ def test_powerbi_ingest_patch_disabled(
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
+
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
