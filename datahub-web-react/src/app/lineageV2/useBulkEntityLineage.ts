@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useGetBulkEntityLineageV2Query } from '../../graphql/lineage.generated';
-import { LineageDirection, Status } from '../../types.generated';
+import { LineageDirection } from '../../types.generated';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
 import usePrevious from '../shared/usePrevious';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
@@ -79,7 +79,6 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             if (node) {
                 node.entity = entity;
                 node.rawEntity = rawEntity;
-                node.isSoftDeleted = entity.status?.removed;
                 changed = true;
 
                 // TODO: Remove once using bulk edges query
@@ -123,10 +122,6 @@ function processEdge(
     const { adjacencyList, nodes, edges } = context;
 
     if (relationship.entity && !isQuery(relationship.entity)) {
-        if ('status' in relationship.entity && (relationship.entity.status as Status | undefined)?.removed) {
-            return;
-        }
-
         if (node.fetchStatus[direction] !== FetchStatus.UNNEEDED) {
             // Add nodes that should be in the graph
             // TODO: Bust search across lineage cache?
