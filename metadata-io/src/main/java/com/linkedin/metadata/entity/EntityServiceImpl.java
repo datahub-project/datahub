@@ -2177,7 +2177,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   // key aspect is always returned, make sure to only consider the status aspect
                   statusResult.getOrDefault(urn, List.of()).stream()
                       .filter(
-                        aspect -> STATUS_ASPECT_NAME.equalsIgnoreCase(aspect.schema().getName()))
+                          aspect -> STATUS_ASPECT_NAME.equalsIgnoreCase(aspect.schema().getName()))
                       .noneMatch(aspect -> ((Status) aspect).isRemoved()))
           .collect(Collectors.toSet());
     }
