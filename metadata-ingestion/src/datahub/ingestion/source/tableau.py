@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
@@ -1038,6 +1039,30 @@ class TableauSiteSource:
                     )
 
             else:
+                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30 second
+                # timeout error. It doesn't reliably happen, so retrying a couple times makes sense.
+                if all(
+                    error.get("message")
+                    == "Execution canceled because timeout of 30000 millis was reached"
+                    for error in errors
+                ):
+                    # If it was only a timeout error, we can retry.
+                    if retries_remaining <= 0:
+                        raise
+                    logger.info(
+                        f"Query {connection_type} received a 30 second timeout error - will retry in a few seconds"
+                    )
+                    # This is a pretty dumb backoff mechanism, but it's good enough for now.
+                    time.sleep(60 / retries_remaining)
+                    return self.get_connection_object_page(
+                        query,
+                        connection_type,
+                        query_filter,
+                        count,
+                        offset,
+                        retry_on_auth_error=False,
+                        retries_remaining=retries_remaining - 1,
+                    )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
         connection_object = query_data.get(c.DATA, {}).get(connection_type, {})
