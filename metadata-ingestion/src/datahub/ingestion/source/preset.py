@@ -33,7 +33,7 @@ from datahub.ingestion.source.superset import SupersetSource
 logger = logging.getLogger(__name__)
 class PresetConfig(StatefulIngestionConfigBase, ConfigModel):
     manager_uri: str = Field(
-        default="https://api.app.preset.io/", description="Preset.io API URL"
+        default="https://api.app.preset.io", description="Preset.io API URL"
     )
     connect_uri: str = Field(default=None, description="Preset workspace URL.")
     display_uri: Optional[str] = Field(
