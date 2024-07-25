@@ -113,6 +113,11 @@ classification_lib = {
     "numpy<2",
 }
 
+dbt_common = {
+    *sqlglot_lib,
+    "more_itertools",
+}
+
 sql_common = (
     {
         # Required for all SQL sources.
@@ -352,8 +357,8 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests"} | sqlglot_lib | aws_common,
-    "dbt-cloud": {"requests"} | sqlglot_lib,
+    "dbt": {"requests"} | dbt_common | aws_common,
+    "dbt-cloud": {"requests"} | dbt_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
