@@ -680,7 +680,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         pattern = "DatabaseList"
         if self.source_config.ignore_resource_links:
-            # exclude records that contain TargetDatabase struct key to ignore resource links
+            # exclude resource links by using a JMESPath conditional query against the TargetDatabase struct key
             pattern += "[?!TargetDatabase]"
 
         for database in paginator_response.search(pattern):
@@ -701,8 +701,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
         for table in paginator_response.search("TableList"):
             # if resource links are detected, re-use database names from the current catalog
-            # otherwise, external names are used instead of aliased ones when creating full table names later
-            # Note: use an explicit source_config check but it is useless actually (filtering has been done)
+            # otherwise external resource names are picked out instead of aliased ones
+            # This will cause an incoherent situation when creating full table names later
+            # Note: use an explicit source_config check but it is useless actually (filtering has already been done)
             if (
                 not self.source_config.ignore_resource_links
                 and "TargetDatabase" in database
