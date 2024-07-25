@@ -113,12 +113,19 @@ public class OpenLineageToDataHub {
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
           dataset.getFacets().getSymlinks().getIdentifiers()) {
         if (symlink.getType().equals("TABLE")) {
-          if (symlink.getNamespace().startsWith("aws:glue:")) {
+          // Before OpenLineage 0.17.1 the namespace started with "aws:glue:" and after that it was
+          // changed to :arn:aws:glue:"
+          if (symlink.getNamespace().startsWith("aws:glue:")
+              || symlink.getNamespace().startsWith("arn:aws:glue:")) {
             namespace = "glue";
           } else {
             namespace = mappingConfig.getHivePlatformAlias();
           }
-          datasetName = symlink.getName();
+          if (symlink.getName().startsWith("table/")) {
+            datasetName = symlink.getName().replaceFirst("table/", "").replace("/", ".");
+          } else {
+            datasetName = symlink.getName();
+          }
         }
       }
       Optional<DatasetUrn> symlinkedUrn =
@@ -761,10 +768,7 @@ public class OpenLineageToDataHub {
     }
 
     for (OpenLineage.InputDataset input :
-        event.getInputs().stream()
-            .filter(input -> input.getFacets() != null)
-            .distinct()
-            .collect(Collectors.toList())) {
+        event.getInputs().stream().distinct().collect(Collectors.toList())) {
       Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(input, datahubConf);
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
@@ -791,10 +795,7 @@ public class OpenLineageToDataHub {
     }
 
     for (OpenLineage.OutputDataset output :
-        event.getOutputs().stream()
-            .filter(input -> input.getFacets() != null)
-            .distinct()
-            .collect(Collectors.toList())) {
+        event.getOutputs().stream().distinct().collect(Collectors.toList())) {
       Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(output, datahubConf);
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
