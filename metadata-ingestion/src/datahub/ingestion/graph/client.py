@@ -176,6 +176,7 @@ class DataHubGraph(DatahubRestEmitter):
         """Get the public-facing base url of the frontend
 
         This url can be used to construct links to the frontend. The url will not include a trailing slash.
+        Note: Only supported with Acryl Cloud.
         """
 
         if not self.server_config:
