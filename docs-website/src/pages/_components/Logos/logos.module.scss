@@ -53,6 +53,7 @@
     .swiper-wrapper {
       display: flex;
       align-items: center;
+      margin-bottom: 1rem;
       .swiper-slide {
         display: flex;
         justify-content: center;
@@ -117,4 +118,13 @@
   &.small {
     padding: 10px;
   }
+}
+
+.buttonContainer {
+    text-align: center;
+    margin: 2rem;
+}
+
+.swiper-pagination {
+  margin-top: 1rem;
 }

@@ -142,7 +142,7 @@ module.exports = {
             },
             {
               href: "/docs/what-is-datahub/customer-stories",
-              label: "Customer Stories",
+              label: "Adoption Stories",
             },
             {
               href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg",

@@ -9,6 +9,8 @@ import Features from "./_components/Features";
 import { Section, PromoSection } from "./_components/Section";
 import { PlatformLogos } from "./_components/Logos";
 import RoundedImage from "./_components/RoundedImage";
+import { CompanyLogos } from "./_components/Logos";
+import QuickstartContent from "./_components/QuickstartContent";
 
 const example_recipe = `
 source:
@@ -37,6 +39,10 @@ function Home() {
       description="DataHub is a data discovery application built on an extensible data catalog that helps you tame the complexity of diverse data ecosystems."
     >
       <Hero />
+      <div style={{ backgroundColor: 'var(--ifm-background-surface-color)' }}>
+        <CompanyLogos />
+      </div>
+      <QuickstartContent />
       <Features />
       <Section>
         <div className="container">
