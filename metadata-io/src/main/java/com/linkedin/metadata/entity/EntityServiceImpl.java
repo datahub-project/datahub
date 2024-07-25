@@ -1224,10 +1224,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Emit timeseries MCLs
     // TODO: Assuming custom unvalidated aspects are non-timeseries.
     //  Might need better handling with mutator occurring before this
-    List<Pair<ChangeItemImpl, Optional<Pair<Future<?>, Boolean>>>> timeseriesResults =
+    List<Pair<MCPItem, Optional<Pair<Future<?>, Boolean>>>> timeseriesResults =
         aspectsBatch.getItems().stream()
             .filter(item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
-            .map(item -> (ChangeItemImpl) item)
+            .map(item -> (MCPItem) item)
             .map(
                 item ->
                     Pair.of(
@@ -1258,7 +1258,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     }
                   });
 
-              ChangeItemImpl request = result.getFirst();
+              MCPItem request = result.getFirst();
               return IngestResult.builder()
                   .urn(request.getUrn())
                   .request(request)
