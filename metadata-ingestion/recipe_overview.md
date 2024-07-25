@@ -115,7 +115,7 @@ source:
       connect_args:
         __DATAHUB_TO_FILE_ssl_key: '${secret}' # use this for secrets that you need to mount to a file
         # this will get converted into
-        ssl_key: /tmp/path/to/file # where file contains the contents of ${secret}
+        # ssl_key: /tmp/path/to/file # where file contains the contents of ${secret}
    ...
 ```
 
