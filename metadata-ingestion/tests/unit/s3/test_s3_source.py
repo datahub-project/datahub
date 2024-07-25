@@ -109,9 +109,7 @@ def test_container_generation_without_folders():
         assert isinstance(x.metadata, MetadataChangeProposalWrapper)
         return x.metadata.aspectName == "containerProperties"
 
-    container_properties:List = list(
-        filter(container_properties_filter, mcps)
-    )
+    container_properties: List = list(filter(container_properties_filter, mcps))
     assert len(container_properties) == 1
     assert container_properties[0].metadata.aspect.customProperties == {
         "bucket_name": "my-bucket",
@@ -130,9 +128,7 @@ def test_container_generation_with_folder():
         assert isinstance(x.metadata, MetadataChangeProposalWrapper)
         return x.metadata.aspectName == "containerProperties"
 
-    container_properties:List = list(
-        filter(container_properties_filter, mcps)
-    )
+    container_properties: List = list(filter(container_properties_filter, mcps))
     assert len(container_properties) == 2
     assert container_properties[0].metadata.aspect.customProperties == {
         "bucket_name": "my-bucket",
@@ -156,10 +152,8 @@ def test_container_generation_with_multiple_folders():
         assert isinstance(x.metadata, MetadataChangeProposalWrapper)
         return x.metadata.aspectName == "containerProperties"
 
-    container_properties:List = list(
-        filter(container_properties_filter, mcps)
-    )
-    
+    container_properties: List = list(filter(container_properties_filter, mcps))
+
     assert len(container_properties) == 3
     assert container_properties[0].metadata.aspect.customProperties == {
         "bucket_name": "my-bucket",
