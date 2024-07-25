@@ -64,15 +64,6 @@ class BigQueryBaseConfig(ConfigModel):
         description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
     )
 
-    project_ids: List[str] = Field(
-        default_factory=list,
-        description=(
-            "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
-            "don't want to give project resourcemanager.projects.list to your service account. "
-            "Overrides `project_id_pattern`."
-        ),
-    )
-
     @validator("sharded_table_pattern")
     def sharded_table_pattern_is_a_valid_regexp(cls, v):
         try:
@@ -209,6 +200,14 @@ class BigQueryConnectionConfig(ConfigModel):
 
 
 class BigQueryFilterConfig(SQLFilterConfig):
+    project_ids: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
+            "don't want to give project resourcemanager.projects.list to your service account. "
+            "Overrides `project_id_pattern`."
+        ),
+    )
 
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -285,7 +284,12 @@ class BigQueryFilterConfig(SQLFilterConfig):
 class BigQueryIdentifierConfig(
     PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
 ):
-    pass
+    include_data_platform_instance: bool = Field(
+        default=False,
+        description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
+        " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
+        " because the project id is represented as the top-level container.",
+    )
 
 
 class BigQueryV2Config(
@@ -332,13 +336,6 @@ class BigQueryV2Config(
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate BigQuery Console url to Datasets/Tables",
-    )
-
-    include_data_platform_instance: bool = Field(
-        default=False,
-        description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
-        " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
-        " because the project id is represented as the top-level container.",
     )
 
     include_table_snapshots: Optional[bool] = Field(

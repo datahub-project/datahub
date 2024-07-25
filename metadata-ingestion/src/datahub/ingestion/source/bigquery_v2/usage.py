@@ -26,7 +26,6 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
 )
-from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
@@ -715,12 +714,14 @@ class BigQueryUsageExtractor:
         affected_datasets = []
         if event.query_event and event.query_event.referencedTables:
             for table in event.query_event.referencedTables:
-                affected_datasets.append(table.to_urn(self.config.env))
+                affected_datasets.append(
+                    self.identifiers.gen_dataset_urn_from_raw_ref(table)
+                )
 
         operation_aspect = OperationClass(
             timestampMillis=reported_time,
             lastUpdatedTimestamp=operational_meta.last_updated_timestamp,
-            actor=make_user_urn(operational_meta.actor_email.split("@")[0]),
+            actor=self.identifiers.gen_user_urn(operational_meta.actor_email),
             operationType=operational_meta.statement_type,
             customOperationType=operational_meta.custom_type,
             affectedDatasets=affected_datasets,
@@ -734,7 +735,7 @@ class BigQueryUsageExtractor:
                 operation_aspect.numAffectedRows = event.query_event.numAffectedRows
 
         return MetadataChangeProposalWrapper(
-            entityUrn=destination_table.to_urn(env=self.config.env),
+            entityUrn=self.identifiers.gen_dataset_urn_from_raw_ref(destination_table),
             aspect=operation_aspect,
         ).as_workunit()
 

@@ -7,7 +7,6 @@ from typing import Any, ClassVar, Dict, List, Optional, Pattern, Tuple, Union
 
 from dateutil import parser
 
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.utilities.parsing_util import (
     get_first_missing_key,
     get_first_missing_key_any,
@@ -211,13 +210,6 @@ class BigQueryTableRef:
         # Handle partitioned and sharded tables.
         return BigQueryTableRef(
             BigqueryTableIdentifier.from_string_name(sanitized_table)
-        )
-
-    def to_urn(self, env: str) -> str:
-        return make_dataset_urn(
-            "bigquery",
-            f"{self.table_identifier.project_id}.{self.table_identifier.dataset}.{self.table_identifier.table}",
-            env,
         )
 
     def __str__(self) -> str:

@@ -15,7 +15,6 @@ from google.cloud.bigquery.table import (
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryBaseConfig
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQuerySchemaApiPerfReport,
@@ -610,22 +609,22 @@ def query_project_list(
     for project in projects:
         if filters.filter_config.project_id_pattern.allowed(project.id):
             yield project
-        # TODO: suppport reporting dropped projects for queries extractor report
-        # else:
-        #    report.report_dropped(project.id)
+        else:
+            logger.debug(
+                f"Ignoring project {project.id} as it's not allowed by project_id_pattern"
+            )
 
 
 def get_projects(
-    config: BigQueryBaseConfig,
     schema_api: BigQuerySchemaApi,
     report: SourceReport,
     filters: BigQueryFilter,
 ) -> List[BigqueryProject]:
     logger.info("Getting projects")
-    if config.project_ids:
+    if filters.filter_config.project_ids:
         return [
             BigqueryProject(id=project_id, name=project_id)
-            for project_id in config.project_ids
+            for project_id in filters.filter_config.project_ids
         ]
     else:
         return list(

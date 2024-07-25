@@ -490,6 +490,7 @@ class SqlParsingAggregator(Closeable):
                 default_schema=item.default_schema,
                 session_id=item.session_id,
                 query_timestamp=item.timestamp,
+                user=CorpUserUrn.from_string(item.user) if item.user else None,
             )
         else:
             raise ValueError(f"Cannot add unknown item type: {type(item)}")

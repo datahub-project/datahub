@@ -1,6 +1,13 @@
+from typing import Optional
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
-from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn,
+    make_user_urn,
+)
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
@@ -53,6 +60,19 @@ class BigQueryIdentifierBuilder:
             use_raw_name=True,
         )
 
+    def gen_user_urn(self, user_email: str) -> str:
+        return make_user_urn(user_email.split("@")[0])
+
+    def make_data_platform_urn(self) -> str:
+        return make_data_platform_urn(self.platform)
+
+    def make_dataplatform_instance_urn(self, project_id: str) -> Optional[str]:
+        return (
+            make_dataplatform_instance_urn(self.platform, project_id)
+            if self.identifier_config.include_data_platform_instance
+            else None
+        )
+
 
 class BigQueryFilter:
     def __init__(
@@ -65,7 +85,7 @@ class BigQueryFilter:
         return AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN).allowed(
             str(table_id)
         ) and (
-            self.filter_config.project_id_pattern.allowed(table_id.project_id)
+            self.is_project_allowed(table_id.project_id)
             and is_schema_allowed(
                 self.filter_config.dataset_pattern,
                 table_id.dataset,
@@ -74,3 +94,8 @@ class BigQueryFilter:
             )
             and self.filter_config.table_pattern.allowed(str(table_id))
         )  # TODO: use view_pattern ?
+
+    def is_project_allowed(self, project_id: str) -> bool:
+        if self.filter_config.project_ids:
+            return project_id in self.filter_config.project_ids
+        return self.filter_config.project_id_pattern.allowed(project_id)

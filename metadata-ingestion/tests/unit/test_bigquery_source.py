@@ -181,7 +181,6 @@ def test_get_projects_with_project_ids(get_bq_client_mock):
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
     assert get_projects(
-        source.config,
         source.bq_schema_extractor.schema_api,
         source.report,
         source.filters,
@@ -196,7 +195,6 @@ def test_get_projects_with_project_ids(get_bq_client_mock):
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test2"))
     assert get_projects(
-        source.config,
         source.bq_schema_extractor.schema_api,
         source.report,
         source.filters,
@@ -219,7 +217,6 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     projects = get_projects(
-        source.config,
         source.bq_schema_extractor.schema_api,
         source.report,
         source.filters,
@@ -287,7 +284,6 @@ def test_get_projects_with_single_project_id(get_bq_client_mock):
     config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
     assert get_projects(
-        source.config,
         source.bq_schema_extractor.schema_api,
         source.report,
         source.filters,
@@ -324,7 +320,6 @@ def test_get_projects_by_list(get_bq_client_mock):
     config = BigQueryV2Config.parse_obj({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
     assert get_projects(
-        source.config,
         source.bq_schema_extractor.schema_api,
         source.report,
         source.filters,
@@ -350,7 +345,6 @@ def test_get_projects_filter_by_pattern(get_bq_client_mock, get_projects_mock):
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     projects = get_projects(
-        source.config,
         source.bq_schema_extractor.schema_api,
         source.report,
         source.filters,
@@ -370,7 +364,6 @@ def test_get_projects_list_empty(get_bq_client_mock, get_projects_mock):
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     projects = get_projects(
-        source.config,
         source.bq_schema_extractor.schema_api,
         source.report,
         source.filters,
@@ -396,7 +389,6 @@ def test_get_projects_list_failure(
     caplog.clear()
     with caplog.at_level(logging.ERROR):
         projects = get_projects(
-            source.config,
             source.bq_schema_extractor.schema_api,
             source.report,
             source.filters,
@@ -417,7 +409,6 @@ def test_get_projects_list_fully_filtered(get_projects_mock, get_bq_client_mock)
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     projects = get_projects(
-        source.config,
         source.bq_schema_extractor.schema_api,
         source.report,
         source.filters,

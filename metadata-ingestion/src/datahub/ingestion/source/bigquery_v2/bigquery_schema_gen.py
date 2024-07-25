@@ -6,11 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
-from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataplatform_instance_urn,
-    make_tag_urn,
-)
+from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -170,7 +166,6 @@ class BigQuerySchemaGenerator:
         self.sql_parser_schema_resolver = sql_parser_schema_resolver
         self.profiler = profiler
         self.identifiers = identifiers
-        self.platform: str = "bigquery"
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -206,12 +201,8 @@ class BigQuerySchemaGenerator:
         self, dataset_urn: str, project_id: str
     ) -> MetadataWorkUnit:
         aspect = DataPlatformInstanceClass(
-            platform=make_data_platform_urn(self.platform),
-            instance=(
-                make_dataplatform_instance_urn(self.platform, project_id)
-                if self.config.include_data_platform_instance
-                else None
-            ),
+            platform=self.identifiers.make_data_platform_urn(),
+            instance=self.identifiers.make_dataplatform_instance_urn(project_id),
         )
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=aspect
@@ -221,7 +212,7 @@ class BigQuerySchemaGenerator:
         return BigQueryDatasetKey(
             project_id=db_name,
             dataset_id=schema,
-            platform=self.platform,
+            platform=self.identifiers.platform,
             env=self.config.env,
             backcompat_env_as_instance=True,
         )
@@ -229,7 +220,7 @@ class BigQuerySchemaGenerator:
     def gen_project_id_key(self, database: str) -> ContainerKey:
         return ProjectIdKey(
             project_id=database,
-            platform=self.platform,
+            platform=self.identifiers.platform,
             env=self.config.env,
             backcompat_env_as_instance=True,
         )
@@ -955,7 +946,7 @@ class BigQuerySchemaGenerator:
     ) -> MetadataWorkUnit:
         schema_metadata = SchemaMetadata(
             schemaName=str(dataset_name),
-            platform=make_data_platform_urn(self.platform),
+            platform=self.identifiers.make_data_platform_urn(),
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),

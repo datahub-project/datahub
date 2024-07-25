@@ -11,7 +11,6 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.emitter.mce_builder import make_user_urn
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
@@ -39,6 +38,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +104,7 @@ class BigQueryQueriesExtractorReport(Report):
     query_log_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
     audit_log_load_timer: PerfTimer = field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
+    num_queries_by_project: TopKDict[str, int] = field(default_factory=int_top_k_dict)
 
 
 class BigQueryQueriesExtractor:
@@ -203,9 +204,10 @@ class BigQueryQueriesExtractor:
 
             with self.report.query_log_fetch_timer:
                 for project in get_projects(
-                    self.config, self.schema_api, self.structured_report, self.filters
+                    self.schema_api, self.structured_report, self.filters
                 ):
                     for entry in self.fetch_query_log(project):
+                        self.report.num_queries_by_project[project.id] += 1
                         queries.append(entry)
 
         with self.report.audit_log_load_timer:
@@ -229,7 +231,6 @@ class BigQueryQueriesExtractor:
                 region=region,
                 start_time=self.config.window.start_time,
                 end_time=self.config.window.end_time,
-                # TODO: filters: deny users based on config
             )
 
             with self.structured_report.report_exc(
@@ -266,7 +267,12 @@ class BigQueryQueriesExtractor:
             query=row["query"],
             session_id=row["session_id"],
             timestamp=row["creation_time"],
-            user=make_user_urn(row["user_email"]) if row["user_email"] else None,
+            # TODO: Move user urn generation to BigQueryIdentifierBuilder
+            user=(
+                self.identifiers.gen_user_urn(row["user_email"])
+                if row["user_email"]
+                else None
+            ),
             default_db=row["project_id"],
             default_schema=None,
         )

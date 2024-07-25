@@ -234,7 +234,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         projects = get_projects(
-            self.config,
             self.bq_schema_extractor.schema_api,
             self.report,
             self.filters,
