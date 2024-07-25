@@ -1,5 +1,5 @@
 # This script checks the shadow jar to ensure that we only have allowed classes being exposed through the jar
-libName=datahub-client
+libName=datahub-spark-lineage
 jarishFile=$(find build/libs -name "${libName}*.jar" -exec ls -1rt "{}" +;)
 jarFiles=$(echo "$jarishFile" | grep -v sources | grep -v javadoc | tail -n 1)
 for jarFile in ${jarFiles}; do
@@ -13,11 +13,11 @@ jar -tvf $jarFile |\
       grep -v "pegasus/" |\
       grep -v "legacyPegasusSchemas/" |\
       grep -v " com/$" |\
+      grep -v "git.properties" |\
       grep -v " org/$" |\
       grep -v " io/$" |\
       grep -v "io/micrometer/" |\
       grep -v "git.properties" |\
-      #grep -v "org/springframework" |\
       grep -v "org/aopalliance" |\
       grep -v "javax/" |\
       grep -v "io/swagger" |\
@@ -36,9 +36,9 @@ jar -tvf $jarFile |\
       grep -v "darwin" |\
       grep -v "MetadataChangeProposal.avsc" |\
       grep -v "aix" |\
-      grep -v "com/sun/"
-      grep -v "mozilla"
-      grep -v "VersionInfo.java"
+      grep -v "library.properties" |\
+      grep -v "rootdoc.txt" |\
+      grep -v "VersionInfo.java" |\
       grep -v "mime.types"
 
 
