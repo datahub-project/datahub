@@ -25,10 +25,7 @@ from datahub.ingestion.api.sink import (
     WriteCallback,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.client import (
-    DatahubClientConfig,
-    set_env_variables_override_config,
-)
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -122,7 +119,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         )
         self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
-        set_env_variables_override_config(self.config.server, self.config.token)
         logger.debug("Setting gms config")
         set_gms_config(gms_config)
 

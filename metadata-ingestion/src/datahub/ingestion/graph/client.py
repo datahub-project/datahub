@@ -1788,13 +1788,6 @@ class DatahubConfig(BaseModel):
 config_override: Dict = {}
 
 
-def set_env_variables_override_config(url: str, token: Optional[str]) -> None:
-    """Should be used to override the config when using rest emitter"""
-    config_override[ENV_METADATA_HOST_URL] = url
-    if token is not None:
-        config_override[ENV_METADATA_TOKEN] = token
-
-
 def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
     host = os.environ.get(ENV_METADATA_HOST)
     port = os.environ.get(ENV_METADATA_PORT)
