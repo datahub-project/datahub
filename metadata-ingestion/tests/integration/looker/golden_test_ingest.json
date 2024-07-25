@@ -220,7 +220,8 @@
                     "urn": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7"
                 },
                 {
-                    "id": "foo"
+                    "id": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)",
+                    "urn": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)"
                 }
             ]
         }
@@ -416,7 +417,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "entityUrn": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
@@ -796,22 +797,6 @@
                     }
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {
