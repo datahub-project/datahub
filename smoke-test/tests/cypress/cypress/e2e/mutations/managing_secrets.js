@@ -8,12 +8,6 @@ const ingestion_source_name = `ingestion source ${number}`;
 
 describe("managing secrets for ingestion creation", () => {
   it("create a secret, create ingestion source using a secret, remove a secret", () => {
-    Cypress.on("uncaught:exception", (err, runnable) => {
-      // returning false here prevents Cypress from
-      // failing the test
-      return false;
-    });
-
     // Navigate to the manage ingestion page → secrets
     cy.loginWithCredentials();
     cy.goToIngestionPage();
