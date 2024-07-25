@@ -11,4 +11,4 @@ def validate_cron_schedule(cron_schedule: str) -> None:
     try:
         croniter(cron_schedule)
     except Exception as e:
-        raise ValueError(f"Invalid cron schedule `{cron_schedule}`: {e}")
+        raise ValueError(f"Invalid cron schedule `{cron_schedule}`: {e}") from e
