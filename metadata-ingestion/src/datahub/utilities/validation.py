@@ -10,6 +10,5 @@ def validate_timezone(time_zone: str) -> None:
 def validate_cron_schedule(cron_schedule: str) -> None:
     try:
         croniter(cron_schedule)
-        return True
     except Exception as e:
         raise ValueError(f"Invalid cron schedule `{cron_schedule}`: {e}")
