@@ -65,6 +65,7 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, instanceName,
         <DetailsContainer>
             <DetailRow>
                 <StyledTooltip
+                    showArrow={false}
                     title={<SyncedOrSharedTooltip type={type} />}
                     color={REDESIGN_COLORS.TOOLTIP_BACKGROUND}
                     overlayInnerStyle={{ width: 300, padding: 10 }}
@@ -76,7 +77,7 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, instanceName,
                 </StyledTooltip>
 
                 <SyncedSharedText>{labelText} </SyncedSharedText>
-                <Tooltip title={toLocalDateString(time)}>
+                <Tooltip showArrow={false} title={toLocalDateString(time)}>
                     <RelativeTime relativeTimeColor={getRelativeTimeColor(time)}>
                         {toRelativeTimeString(time)}
                     </RelativeTime>

@@ -53,19 +53,15 @@ export default function ChartSummaryTab(): JSX.Element | null {
 
             <SummaryAboutSection />
 
-            {(entityData?.platform?.urn === TABLEAU_URN || entityData?.platform?.urn === LOOKER_URN) &&
-                entityData?.externalUrl && (
-                    <>
-                        <StyledDivider />
-
-                        {entityData?.platform?.urn === TABLEAU_URN && (
-                            <TableauEmbed externalUrl={entityData.externalUrl} />
-                        )}
-                        {entityData?.platform?.urn === LOOKER_URN && (
-                            <EmbedPreview externalUrl={entityData.externalUrl} />
-                        )}
-                    </>
-                )}
+            {entityData?.platform?.urn === TABLEAU_URN && entityData?.externalUrl && (
+                <>
+                    <StyledDivider />
+                    {entityData?.platform?.urn === TABLEAU_URN && <TableauEmbed externalUrl={entityData.externalUrl} />}
+                </>
+            )}
+            {entityData?.platform?.urn === LOOKER_URN && entityData.embed?.renderUrl && (
+                <EmbedPreview embedUrl={entityData.embed?.renderUrl} />
+            )}
         </SummaryTabWrapper>
     );
 }

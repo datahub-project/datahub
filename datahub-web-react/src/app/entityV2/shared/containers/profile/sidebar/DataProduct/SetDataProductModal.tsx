@@ -1,6 +1,8 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import Modal from 'antd/lib/modal/Modal';
-import { Button, Select, Spin, message } from 'antd';
+import { Button, Empty, Select, Spin, message } from 'antd';
+import { getModalDomContainer } from '@src/utils/focus';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -158,6 +160,7 @@ export default function SetDataProductModal({
             title={titleOverride || 'Set Data Product'}
             open
             onCancel={onModalClose}
+            getContainer={getModalDomContainer}
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
@@ -182,7 +185,13 @@ export default function SetDataProductModal({
                 ref={inputEl}
                 value={selectValue}
                 options={loading ? [loadingOption] : options}
-                notFoundContent={showResults ? undefined : null}
+                notFoundContent={
+                    <Empty
+                        description="No Data Products Found"
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        style={{ color: ANTD_GRAY[7] }}
+                    />
+                }
             />
         </Modal>
     );

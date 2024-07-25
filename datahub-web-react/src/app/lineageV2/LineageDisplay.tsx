@@ -99,6 +99,14 @@ function useFitView(loaded: boolean) {
     const [, displayVersionNodes] = displayVersion;
 
     useEffect(() => {
+        if (!loaded) return () => {};
+        const timeout = setTimeout(() => fitView({ duration: 1000, maxZoom: 2 }), 1000);
+        return () => {
+            clearTimeout(timeout);
+        };
+    }, [loaded, fitView]);
+
+    useEffect(() => {
         if (!loaded || !displayVersionNodes.length) return () => {};
         const timeout = setTimeout(
             () =>

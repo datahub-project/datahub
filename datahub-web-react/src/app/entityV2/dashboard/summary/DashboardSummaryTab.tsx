@@ -25,7 +25,7 @@ export default function DashboardSummaryTab(): JSX.Element | null {
             {entityData?.embed?.renderUrl && (
                 <>
                     <StyledDivider />
-                    <EmbedPreview externalUrl={entityData?.embed?.renderUrl} />
+                    <EmbedPreview embedUrl={entityData?.embed?.renderUrl} />
                 </>
             )}
         </SummaryTabWrapper>

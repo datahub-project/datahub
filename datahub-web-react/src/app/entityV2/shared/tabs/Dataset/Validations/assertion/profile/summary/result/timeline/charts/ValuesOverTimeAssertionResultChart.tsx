@@ -133,6 +133,9 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             ? duplicateDataPointsAcrossBufferedTimeRange(dataPoints[0], 2 * INTERVAL_TO_MS[DateInterval.Minute])
             : dataPoints;
 
+    const distance = Math.max(...yScale.domain()) - Math.min(...yScale.domain());
+    const skipRounding = distance <= 2;
+
     /* NOTE: the nodes in an svg that are first will have a lower z-index at paint-time */
     return (
         <>
@@ -146,7 +149,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         tickStroke={ANTD_GRAY[9]}
                         tickLength={4}
                         numTicks={NUM_TICKS_AXIS_LEFT}
-                        tickFormat={(v) => truncateNumberForDisplay(v.valueOf())}
+                        tickFormat={(v) => truncateNumberForDisplay(v.valueOf(), skipRounding)}
                         tickLabelProps={{
                             fill: ANTD_GRAY[9],
                             fontSize: 11,

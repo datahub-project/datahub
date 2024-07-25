@@ -62,7 +62,7 @@ export default function useUsageStatsRenderer(
                         <LineageDisabledIcon height={20} width={20} />
                     </Icon> */}
 
-                <Tooltip placement="top" title={!fieldProfile ? 'No column statistics' : ''}>
+                <Tooltip placement="top" title={!fieldProfile ? 'No column statistics' : 'Has column statistics'}>
                     <IconWrapper hasStats={!!fieldProfile} isFieldSelected={isFieldSelected}>
                         <QueryStatsOutlinedIcon />
                     </IconWrapper>

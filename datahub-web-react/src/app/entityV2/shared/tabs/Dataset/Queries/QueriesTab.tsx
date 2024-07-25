@@ -1,3 +1,4 @@
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import styled from 'styled-components/macro';
 import React, { useEffect, useState } from 'react';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
@@ -126,7 +127,7 @@ export default function QueriesTab() {
 
     return (
         <>
-            <Content $backgroundColor={showLoading || showEmptyView ? 'white' : '#f4f5f7'}>
+            <Content $backgroundColor={showLoading || showEmptyView ? 'white' : REDESIGN_COLORS.BACKGROUND}>
                 {showLoading && <Loading />}
                 {!showLoading && (
                     <>

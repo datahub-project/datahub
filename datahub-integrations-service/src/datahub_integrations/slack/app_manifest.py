@@ -25,11 +25,11 @@ if USE_SOCKET_MODE:
 slack_bot_scopes = [
     # Required for slash commands / shortcuts.
     "commands",
-    # Required to get @Acryl messages and send messages as @Acryl.
+    # Required to get @DataHub messages and send messages as @DataHub.
     "app_mentions:read",
     "chat:write",
     "chat:write.public",
-    # When sending messages, we want to use a custom icon_url so that we can display the Acryl logo.
+    # When sending messages, we want to use a custom icon_url so that we can display the DataHub Cloud logo.
     "chat:write.customize",
     # Required to see conversation details + read messages.
     "channels:history",
@@ -62,35 +62,42 @@ def get_slack_app_manifest() -> str:
             "minor_version": 1,
         },
         "display_information": {
-            "name": "Acryl DataHub",
+            "name": "DataHub Cloud",
             "background_color": "#142f39",
             # The short tagline shows up in the app hover cards.
             "description": "A modern approach to data discovery and metadata management",
             # The long description appears on the app install page and the about app details page in Slack.
             "long_description": (
-                "The Acryl Data integration for Slack allows you to receive real-time "
+                "The DataHub Cloud integration for Slack allows you to receive real-time "
                 "notifications about changes to your data, unfurl links in both Slack "
-                "and Acryl, and to search across your data from within Slack."
+                "and DataHub, and to search across your data from within Slack."
             ),
         },
         "features": {
-            "bot_user": {"display_name": "Acryl", "always_online": True},
+            "bot_user": {"display_name": "DataHub", "always_online": True},
             "shortcuts": [
                 {
                     "name": "Add as documentation",
                     "type": "message",
                     "callback_id": "attach_to_asset",
-                    "description": "Add a given message/thread as documentation for an asset in Acryl",
+                    "description": "Add a given message/thread as documentation for an asset in DataHub",
                 }
             ],
             "slash_commands": [
                 {
                     "command": "/acryl" if not USE_SOCKET_MODE else "/acryl-dev",
                     "url": f"{DATAHUB_FRONTEND_URL}/integrations/slack/commands",
-                    "description": "Search across your Acryl instance",
+                    "description": "Search across your DataHub instance",
                     "usage_hint": "search [query] | get [entity-urn]",
                     "should_escape": False,
-                }
+                },
+                {
+                    "command": "/datahub" if not USE_SOCKET_MODE else "/datahub-dev",
+                    "url": f"{DATAHUB_FRONTEND_URL}/integrations/slack/commands",
+                    "description": "Search across your DataHub instance",
+                    "usage_hint": "search [query] | get [entity-urn]",
+                    "should_escape": False,
+                },
             ],
             "unfurl_domains": [
                 (

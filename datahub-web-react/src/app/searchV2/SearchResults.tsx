@@ -123,6 +123,7 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
         overflow-x: hidden;        
         overflow-y: auto;
     `}
+    margin: 4px 12px 4px 0px;
 `;
 
 const CustomSwitch = styled.div`
@@ -282,7 +283,7 @@ export const SearchResults = ({
                                                             isActive={isFullViewCard}
                                                             onClick={() => setIsFullViewCard(true)}
                                                         >
-                                                            <Tooltip title="Full Card View">
+                                                            <Tooltip showArrow={false} title="Full Card View">
                                                                 <ViewDayOutlinedIcon
                                                                     style={{
                                                                         fontSize: '16px',
@@ -294,7 +295,7 @@ export const SearchResults = ({
                                                             isActive={!isFullViewCard}
                                                             onClick={() => setIsFullViewCard(false)}
                                                         >
-                                                            <Tooltip title="Compact Card View">
+                                                            <Tooltip showArrow={false} title="Compact Card View">
                                                                 <ViewHeadlineOutlinedIcon
                                                                     style={{
                                                                         fontSize: '16px',

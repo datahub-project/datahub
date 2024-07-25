@@ -1,3 +1,4 @@
+import { QueryEntity } from '@app/entity/query/QueryEntity';
 import EntityRegistry from './entity/EntityRegistry';
 import { DashboardEntity } from './entity/dashboard/DashboardEntity';
 import { ChartEntity } from './entity/chart/ChartEntity';
@@ -52,5 +53,6 @@ export default function buildEntityRegistry() {
     registry.register(new RestrictedEntity());
     registry.register(new BusinessAttributeEntity());
     registry.register(new SchemaFieldPropertiesEntity());
+    registry.register(new QueryEntity());
     return registry;
 }

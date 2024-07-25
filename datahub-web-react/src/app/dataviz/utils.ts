@@ -29,11 +29,12 @@ function roundToPrecision(n: number, precision: number) {
  * ie. 24044 -> 24k
  * @param n
  */
-export const truncateNumberForDisplay = (n: number): string => {
+export const truncateNumberForDisplay = (n: number, skipRounding?: boolean): string => {
     let base = Math.floor(Math.log(Math.abs(n)) / Math.log(1000));
     const suffix = NUMERICAL_ABBREVIATIONS[Math.min(NUMERICAL_ABBREVIATIONS.length - 1, base - 1)];
     base = NUMERICAL_ABBREVIATIONS.indexOf(suffix) + 1;
-    return suffix ? roundToPrecision(n / 1000 ** base, 0) + suffix : `${Math.round(n)}`;
+    const roundedNumber = skipRounding ? n : Math.round(n);
+    return suffix ? roundToPrecision(n / 1000 ** base, 0) + suffix : `${roundedNumber}`;
 };
 
 // Number Abbreviations

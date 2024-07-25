@@ -23,7 +23,7 @@ const ResultList = styled(List)`
         margin-top: 8px;
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
-        padding: 0px 16px;
+        padding: 0px 12px 0px 16px;
         border-radius: 0px;
     }
 `;

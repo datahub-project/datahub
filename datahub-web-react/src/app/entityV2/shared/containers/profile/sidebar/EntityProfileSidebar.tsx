@@ -16,7 +16,6 @@ export const StyledEntitySidebarContainer = styled.div<{
 }>`
     flex: 1;
     overflow: auto;
-
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 56px; max-width: 56px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
@@ -32,6 +31,7 @@ export const StyledEntitySidebarContainer = styled.div<{
 export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean }>`
     background-color: #ffffff;
     box-shadow: ${(props) => (props.isCard ? '0px 0px 5px rgba(0, 0, 0, 0.08)' : 'none')};
+    margin: 2px;
     border-radius: ${(props) => (props.isCard ? '8px' : 'none')};
     border: none;
     overflow: hidden;

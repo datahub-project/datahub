@@ -1889,11 +1889,15 @@ public class GmsGraphQLEngine {
                 "platforms",
                 new LoadableTypeBatchResolver<>(
                     dataPlatformType,
-                    (env) ->
-                        ((CorpUserEditableProperties) env.getSource())
-                            .getPlatforms().stream()
-                                .map(DataPlatform::getUrn)
-                                .collect(Collectors.toList()))));
+                    (env) -> {
+                      CorpUserEditableProperties properties = env.getSource();
+                      if (properties.getPlatforms() == null) {
+                        return Collections.emptyList();
+                      }
+                      return properties.getPlatforms().stream()
+                          .map(DataPlatform::getUrn)
+                          .collect(Collectors.toList());
+                    })));
   }
 
   /**
