@@ -106,7 +106,7 @@ export function LastExecutionColumn(time: any) {
 }
 
 export function ScheduleColumn(schedule: any, record: any) {
-    let tooltip = '';
+    let tooltip: string;
     try {
         tooltip = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${record.timezone})`;
     } catch (e) {

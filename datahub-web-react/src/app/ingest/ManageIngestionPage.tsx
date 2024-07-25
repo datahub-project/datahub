@@ -55,8 +55,7 @@ export const ManageIngestionPage = () => {
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
-    const defaultTab = showSecretsTab ? TabType.Secrets : TabType.Sources;
-    const [selectedTab, setSelectedTab] = useState<TabType>(defaultTab);
+    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
