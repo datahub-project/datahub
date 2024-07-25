@@ -30,6 +30,15 @@ RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
+# Install JRE in the prod image
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends openjdk-17-jre-headless && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set JAVA_HOME environment variable
+RUN ln -svT "/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)" /usr/lib/jvm/default-jvm
+ENV JAVA_HOME=/usr/lib/jvm/default-jvm
+
 USER datahub
 RUN uv pip install --no-cache -e .
 
@@ -38,12 +47,6 @@ RUN uv pip install --no-cache -e .
 
 ## Production Image Built From Build Image
 FROM build as prod-install
-
-# Install OpenJDK 17 in the prod image
-RUN apt-get update && apt-get install -y openjdk-17-jdk
-
-# Set JAVA_HOME environment variable
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 USER datahub
 
