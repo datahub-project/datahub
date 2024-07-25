@@ -926,6 +926,8 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> Iterable[dict]:
         """Fetch all results that match all of the given filters.
 
+        Note: Only supported with Acryl Cloud.
+
         Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
         Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
         The same goes for the env filter.
@@ -990,6 +992,10 @@ class DataHubGraph(DatahubRestEmitter):
                     searchResults {
                         entity {
                             urn
+                        }
+                        extraProperties {
+                            name
+                            value
                         }
                     }
                 }
