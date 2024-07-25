@@ -416,13 +416,5 @@ export const CompanyLogos = () => (
         </SwiperSlide>
       ))}
     </Swiper>
-    <div className={clsx(styles.buttonContainer)}>
-    <Link
-      className="button button--secondary button--md"
-      to={useBaseUrl("docs/what-is-datahub/customer-stories")}
-    >
-      Check Out Adoption Stories →
-    </Link>
-  </div>
   </div>
 );

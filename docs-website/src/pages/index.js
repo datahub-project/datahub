@@ -3,7 +3,7 @@ import Layout from "@theme/Layout";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import CodeBlock from "@theme/CodeBlock";
-
+import useBaseUrl from "@docusaurus/useBaseUrl";
 import Hero from "./_components/Hero";
 import Features from "./_components/Features";
 import { Section, PromoSection } from "./_components/Section";
@@ -41,6 +41,14 @@ function Home() {
       <Hero />
       <div style={{ backgroundColor: 'var(--ifm-background-surface-color)' }}>
         <CompanyLogos />
+        <div style={{ textAlign: "center", margin: "1rem" }}>
+        <Link
+          className="button button--secondary button--md"
+          to={useBaseUrl("docs/what-is-datahub/customer-stories")}
+        >
+          Check Out Adoption Stories →
+        </Link>
+      </div>
       </div>
       <QuickstartContent />
       <Features />
