@@ -8,11 +8,11 @@ import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
 import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
-import { AcrylAssertions } from './AcrylAssertions';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
+import { AcrylAssertionList } from './NewAcrylAssertions';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -64,12 +64,12 @@ export const AcrylValidationsTab = () => {
             title: (
                 <>
                     <FileProtectOutlined />
-                    <TabTitle>Assertions ({totalAssertions})</TabTitle>
+                    <TabTitle>List ({totalAssertions})</TabTitle>
                 </>
             ),
             path: TabPaths.ASSERTIONS,
             disabled: false, // Always keep the assertions tab clickable in saas.
-            content: <AcrylAssertions />,
+            content: <AcrylAssertionList />,
         },
     ];
 
