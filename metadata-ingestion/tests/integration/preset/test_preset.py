@@ -12,7 +12,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-FROZEN_TIME = "2020-04-14 07:00:00"
+FROZEN_TIME = "2024-07-10 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
@@ -26,6 +26,14 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 "access_token": "test_token",
             }},
         },
+        "mock://mock-domain.preset.io/version": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                'ci': {'built_at': 'Tue Jul  10 00:00:00 UTC 2024', 'build_num': '1', 'triggered_by': 'Not triggered by a user'},
+                'git': {'branch': '4.0.1.6', 'sha': 'test_sha', 'sha_superset': 'test_sha_superset', 'release_name': 'test_release_name'},
+                'chart_version': '1.16.1', 'start_time': '2024-07-10 00:00:00', 'mt_deployment': True}
+        },
         "mock://mock-domain.preset.io/api/v1/dashboard/": {
             "method": "GET",
             "status_code": 200,
@@ -37,7 +45,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "changed_by": {
                             "username": "test_username_1",
                         },
-                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_1",
                         "url": "/dashboard/test_dashboard_url_1",
                         "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
@@ -59,7 +67,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "changed_by": {
                             "username": "test_username_2",
                         },
-                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_2",
                         "url": "/dashboard/test_dashboard_url_2",
                         "position_json": '{"CHART-test-3": {"meta": { "chartId": "12" }}, "CHART-test-4": {"meta": { "chartId": "13" }}}',
@@ -87,7 +95,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "changed_by": {
                             "username": "test_username_1",
                         },
-                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_1",
                         "viz_type": "box_plot",
                         "url": "/explore/test_chart_url_10",
@@ -99,7 +107,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "changed_by": {
                             "username": "test_username_1",
                         },
-                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_2",
                         "viz_type": "pie",
                         "url": "/explore/test_chart_url_11",
@@ -111,7 +119,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "changed_by": {
                             "username": "test_username_2",
                         },
-                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_3",
                         "viz_type": "treemap",
                         "url": "/explore/test_chart_url_12",
@@ -123,7 +131,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "changed_by": {
                             "username": "test_username_2",
                         },
-                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "slice_name": "test_chart_title_4",
                         "viz_type": "histogram",
                         "url": "/explore/test_chart_url_13",
@@ -258,7 +266,7 @@ def test_preset_stateful_ingest(
                         "changed_by": {
                             "username": "test_username_1",
                         },
-                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "changed_on_utc": "2024-07-10T07:00:00.000000+0000",
                         "dashboard_title": "test_dashboard_title_1",
                         "url": "/dashboard/test_dashboard_url_1",
                         "position_json": '{"CHART-test-1": {"meta": { "chartId": "10" }}, "CHART-test-2": {"meta": { "chartId": "11" }}}',
