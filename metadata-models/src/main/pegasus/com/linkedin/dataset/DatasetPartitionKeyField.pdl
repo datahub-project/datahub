@@ -1,0 +1,16 @@
+namespace com.linkedin.dataset
+
+/**
+ * Defines how the data is partitioned
+ */
+record DatasetPartitionKeyField {
+    /**
+     * The reference to the column in the dataset schema that is part of the partition key.
+     */
+    fieldPath: string
+
+    /**
+    * An optional function applied to the fieldPath in order to derive the partition key part.
+    */
+    transformer: optional string
+}

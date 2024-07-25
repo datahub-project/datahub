@@ -1,0 +1,19 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.timeseries.PartitionSpec
+import com.linkedin.common.AuditStamp
+
+/**
+ * Defines how the data is partitioned
+ */
+record DatasetPartition includes PartitionSpec {
+    /**
+     * The created time for a given partition.
+     */
+    created: optional AuditStamp
+
+    /**
+     * The last modified / touched time for a given partition.
+     */
+    lastModified: optional AuditStamp
+}
