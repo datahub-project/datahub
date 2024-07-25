@@ -1810,7 +1810,9 @@ def load_client_config() -> DatahubClientConfig:
     try:
         ensure_datahub_config()
         client_config_dict = config_utils.get_client_config()
-        datahub_config : DatahubClientConfig = DatahubConfig.parse_obj(client_config_dict).gms
+        datahub_config: DatahubClientConfig = DatahubConfig.parse_obj(
+            client_config_dict
+        ).gms
     except ValidationError as e:
         click.echo(
             f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
@@ -1820,11 +1822,12 @@ def load_client_config() -> DatahubClientConfig:
 
     # Override gms & token configs if specified.
     if len(config_override.keys()) > 0:
-        datahub_config.server = config_override.get(ENV_METADATA_HOST_URL)
+        datahub_config.server = str(config_override.get(ENV_METADATA_HOST_URL))
         datahub_config.token = config_override.get(ENV_METADATA_TOKEN)
     elif config_utils.should_skip_config():
         gms_host_env, gms_token_env = get_details_from_env()
-        datahub_config.server = gms_host_env
+        if gms_host_env:
+            datahub_config.server = gms_host_env
         datahub_config.token = gms_token_env
 
     return datahub_config
