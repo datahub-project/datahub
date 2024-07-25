@@ -1,6 +1,6 @@
 # This is an example file for testing and likely never makes sense to use on a prod instance, for anyone utilizing this feature the config map in helm should be leveraged to configure their own file
 entities:
-  - entity: dataset # entity name, included underneath are all customized aspect mappings that apply to this entity, for customizations that apply to all entities use "common"
+  - entity: dataset # entity name, included underneath are all customized aspect mappings that apply to this entity
     aspects:
       - aspect: editableSchemaMetadata
         fields:
@@ -14,7 +14,7 @@ entities:
             operation: "ADD_STRUCTURED_PROPERTY"
             config:
               structuredProperty: io.acryl.corpuser.internalId
-  - entity: corpuser # entity name, included underneath are all customized aspect mappings that apply to this entity, for customizations that apply to all entities use "common"
+  - entity: corpuser # entity name, included underneath are all customized aspect mappings that apply to this entity
     aspects:
       - aspect: corpUserInfo
         fields:
