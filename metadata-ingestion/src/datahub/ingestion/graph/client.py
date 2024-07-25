@@ -1810,8 +1810,7 @@ def load_client_config() -> DatahubClientConfig:
     try:
         ensure_datahub_config()
         client_config_dict = config_utils.get_client_config()
-        datahub_config = DatahubConfig.parse_obj(client_config_dict).gms
-        return datahub_config
+        datahub_config : DatahubClientConfig = DatahubConfig.parse_obj(client_config_dict).gms
     except ValidationError as e:
         click.echo(
             f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
@@ -1819,20 +1818,16 @@ def load_client_config() -> DatahubClientConfig:
         click.echo(e, err=True)
         sys.exit(1)
 
-    # If config does not exist, create a default one.
-    if not datahub_config:
-        config = DatahubClientConfig()
-
     # Override gms & token configs if specified.
     if len(config_override.keys()) > 0:
-        config.gms_host = config_override.get(ENV_METADATA_HOST_URL)
-        config.token = config_override.get(ENV_METADATA_TOKEN)
+        datahub_config.server = config_override.get(ENV_METADATA_HOST_URL)
+        datahub_config.token = config_override.get(ENV_METADATA_TOKEN)
     elif config_utils.should_skip_config():
         gms_host_env, gms_token_env = get_details_from_env()
-        config.gms_host = gms_host_env
-        config.token = gms_token_env
+        datahub_config.server = gms_host_env
+        datahub_config.token = gms_token_env
 
-    return config
+    return datahub_config
 
 
 def ensure_datahub_config() -> None:
