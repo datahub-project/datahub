@@ -141,7 +141,7 @@ module.exports = {
               label: "YouTube",
             },
             {
-              href: "/docs/what-is-datahub/customer-stories",
+              href: "/adoption-stories",
               label: "Adoption Stories",
             },
             {

@@ -44,7 +44,7 @@ function Home() {
         <div style={{ textAlign: "center", margin: "1rem" }}>
           <Link
             className="button button--secondary button--md"
-            to={useBaseUrl("docs/what-is-datahub/customer-stories")}
+            to={useBaseUrl("adoption-stories")}
           >
             Check Out Adoption Stories →
           </Link>

@@ -31,7 +31,10 @@ function AdoptionStoriesListPageContent() {
           <div className="hero__content">
             <div>
               <h1 className="hero__title">DataHub Adoption Stories</h1>
-              <p className="hero__subtitle">Meet the DataHub users who have shared their stories with us.</p>
+              <p className="hero__subtitle">Meet the DataHub users who have shared their stories with us.
+              <br />
+              Check our more stories on <a href="https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi" style={{ color: "black" }}>DataHub Youtube</a>.
+              </p>
             </div>
           </div>
           <div className={styles.filterBar}>

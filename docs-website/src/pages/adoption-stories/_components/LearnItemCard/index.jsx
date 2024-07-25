@@ -8,7 +8,7 @@ export default function LearnItemCard({ company }) {
     <div className={clsx("col col--4", styles.featureCol)}>
       <div className={clsx("card", styles.card)}>
         <div className={styles.card_image}>
-          <img src={company.imageUrl} alt={company.name} />
+          <img src="/img/learn/use-case-data-freshness.png" alt={company.name} />
         </div>
         <div className={clsx("card__body", styles.featureBody)}>
           <div>{company.description}</div>
