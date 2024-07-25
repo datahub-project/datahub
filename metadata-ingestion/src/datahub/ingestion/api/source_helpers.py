@@ -37,6 +37,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, TagUrn, Urn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import telemetry
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns, lowercase_dataset_urns
 
@@ -172,13 +173,18 @@ def auto_materialize_referenced_tags_terms(
         yield wu
 
     for urn in sorted(referenced_tags - tags_with_aspects):
-        urn_tp = Urn.from_string(urn)
-        assert isinstance(urn_tp, (TagUrn, GlossaryTermUrn))
+        try:
+            urn_tp = Urn.from_string(urn)
+            assert isinstance(urn_tp, (TagUrn, GlossaryTermUrn))
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=urn_tp.to_key_aspect(),
-        ).as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=urn_tp.to_key_aspect(),
+            ).as_workunit()
+        except InvalidUrnError:
+            logger.info(
+                f"Source produced an invalid urn, so no key aspect will be generated: {urn}"
+            )
 
 
 def auto_lowercase_urns(

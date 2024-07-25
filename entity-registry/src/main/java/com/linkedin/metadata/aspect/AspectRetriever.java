@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
@@ -30,6 +31,23 @@ public interface AspectRetriever {
    */
   @Nonnull
   Map<Urn, Map<String, Aspect>> getLatestAspectObjects(Set<Urn> urns, Set<String> aspectNames);
+
+  @Nullable
+  default SystemAspect getLatestSystemAspect(
+      @Nonnull final Urn urn, @Nonnull final String aspectName) {
+    return getLatestSystemAspects(ImmutableMap.of(urn, ImmutableSet.of(aspectName)))
+        .getOrDefault(urn, Collections.emptyMap())
+        .get(aspectName);
+  }
+
+  /**
+   * Returns for each URN, the map of aspectName to Aspect
+   *
+   * @param urnAspectNames urns and aspect names to fetch
+   * @return urn to aspect name and values
+   */
+  @Nonnull
+  Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(Map<Urn, Set<String>> urnAspectNames);
 
   @Nonnull
   default Map<Urn, Boolean> entityExists(Set<Urn> urns) {

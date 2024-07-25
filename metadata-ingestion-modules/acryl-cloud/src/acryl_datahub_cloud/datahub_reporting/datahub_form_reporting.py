@@ -333,7 +333,7 @@ class DataHubFormReportingData(FormData):
                             question_completed_date=None,
                             snapshot_date=self.snapshot_date,
                         )
-                for prompt_id, prompt_reponse_time in [
+                for prompt_id, prompt_response_time in [
                     (p, p_response_time)
                     for (p, p_response_time) in zip(
                         search_row.incompleteFormsCompletedPromptIds,
@@ -359,8 +359,9 @@ class DataHubFormReportingData(FormData):
                             ),
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.COMPLETED,
-                            # TODO: This needs to fixed in upstream but to make the build green I have to ignore this
-                            question_completed_date=prompt_reponse_time,  # type: ignore
+                            question_completed_date=datetime.utcfromtimestamp(
+                                float(prompt_response_time)
+                            ),
                             snapshot_date=self.snapshot_date,
                         )
             complete_forms = (
@@ -424,7 +425,7 @@ class DataHubFormReportingData(FormData):
                             question_completed_date=None,
                             snapshot_date=self.snapshot_date,
                         )
-                for prompt_id, prompt_reponse_time in [
+                for prompt_id, prompt_response_time in [
                     (p, p_response_time)
                     for (p, p_response_time) in zip(
                         search_row.completedFormsCompletedPromptIds,
@@ -452,8 +453,9 @@ class DataHubFormReportingData(FormData):
                             ),
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.COMPLETED,
-                            # TODO: This needs to fixed in upstream but to make the build green I have to ignore this
-                            question_completed_date=prompt_reponse_time,  # type: ignore
+                            question_completed_date=datetime.utcfromtimestamp(
+                                float(prompt_response_time)
+                            ),
                             snapshot_date=self.snapshot_date,
                         )
 

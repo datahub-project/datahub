@@ -107,7 +107,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
     return RestliUtil.toTask(
-      () ->  Utils.restoreIndices(systemOperationContext,
+      () ->  Utils.restoreIndices(systemOperationContext, getContext(),
                   aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService),
         MetricRegistry.name(this.getClass(), "restoreIndices"));
   }
@@ -202,7 +202,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get index sizes.");
           }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
 
             TimeseriesIndicesSizesResult result = new TimeseriesIndicesSizesResult();
           result.setIndexSizes(
@@ -232,7 +232,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to truncate timeseries index");
     }
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli("executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
 
     if (forceDeleteByQuery != null && forceDeleteByQuery.equals(forceReindex)) {
       return "please only set forceReindex OR forceDeleteByQuery flags";

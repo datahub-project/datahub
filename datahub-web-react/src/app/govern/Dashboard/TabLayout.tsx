@@ -1,7 +1,7 @@
-import React from 'react';
-
+import React, { useEffect, useState } from 'react';
 import { Tabs, Typography } from 'antd';
 import styled from 'styled-components';
+import { useHistory, useLocation } from 'react-router';
 import { useUserContext } from '../../context/useUserContext';
 import { Layout, Header } from './components';
 import FormsTab from './Forms/FormsTab';
@@ -53,15 +53,51 @@ export const PageHeading = styled(Typography.Text)`
     color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
 `;
 
+const documentationTabs = [
+    {
+        name: 'Analytics',
+        key: 'analytics',
+        component: <AnalyticsTab />,
+    },
+    {
+        name: 'Forms',
+        key: 'forms',
+        component: <FormsTab />,
+    },
+];
+
 export const TabLayout = () => {
     const { platformPrivileges } = useUserContext();
     const { config } = useAppConfig();
     const { formCreationEnabled } = config.featureFlags;
     const isThemeV2 = useIsThemeV2();
-
-    if (!platformPrivileges?.manageDocumentationForms) return <MissingPermissions />;
+    const history = useHistory();
+    const location = useLocation();
 
     const { TabPane } = Tabs;
+
+    const searchParams = new URLSearchParams(location.search);
+
+    // Get the current documentationTab parameter
+    const initialTab = searchParams.get('documentationTab') || '';
+
+    const [currentTab, setCurrentTab] = useState(
+        documentationTabs.some((tab) => tab.key === initialTab) ? initialTab : 'analytics',
+    );
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        params.set('documentationTab', currentTab);
+
+        // Update the URL without reloading the page
+        history.replace({ search: params.toString() });
+    }, [currentTab, history, location.search]);
+
+    const handleTabChange = (tab) => {
+        setCurrentTab(tab);
+    };
+
+    if (!platformPrivileges?.manageDocumentationForms) return <MissingPermissions />;
 
     // Render the dashboard
     return (
@@ -70,13 +106,14 @@ export const TabLayout = () => {
                 <PageHeading>Documentation</PageHeading>
             </Header>
             {formCreationEnabled ? (
-                <StyledTabs defaultActiveKey="1" isThemeV2={isThemeV2}>
-                    <TabPane tab="Analytics" key="1">
-                        <AnalyticsTab />
-                    </TabPane>
-                    <TabPane tab="Forms" key="2">
-                        <FormsTab />
-                    </TabPane>
+                <StyledTabs activeKey={currentTab} isThemeV2={isThemeV2} onChange={handleTabChange}>
+                    {documentationTabs.map((tab) => {
+                        return (
+                            <TabPane tab={tab.name} key={tab.key}>
+                                {tab.component}
+                            </TabPane>
+                        );
+                    })}
                 </StyledTabs>
             ) : (
                 <AnalyticsTab />

@@ -14,6 +14,7 @@ LINEAGE_EXTRACTION = "Lineage Extraction"
 USAGE_EXTRACTION_INGESTION = "Usage Extraction Ingestion"
 USAGE_EXTRACTION_OPERATIONAL_STATS = "Usage Extraction Operational Stats"
 USAGE_EXTRACTION_USAGE_AGGREGATION = "Usage Extraction Usage Aggregation"
+QUERIES_EXTRACTION = "Queries Extraction"
 PROFILING = "Profiling"
 
 

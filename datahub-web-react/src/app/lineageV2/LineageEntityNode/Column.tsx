@@ -1,6 +1,6 @@
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Tooltip } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import React, { useContext, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
@@ -12,7 +12,6 @@ import analytics from '../../analytics/analytics';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { generateSchemaFieldUrn } from '../../entityV2/shared/tabs/Lineage/utils';
 import { CompactFieldIconWithTooltip } from '../../sharedV2/icons/CompactFieldIcon';
-import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { createColumnRef, HOVER_COLOR, LineageDisplayContext, onClickPreventSelect, SELECT_COLOR } from '../common';
 import { LineageDisplayColumn } from './useDisplayedColumns';
 
@@ -133,7 +132,7 @@ export default function Column({ urn, entityType, fieldPath, highlighted, hasLin
                     <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
                 </TypeWrapper>
             )}
-            <OverflowTitle title={columnName} placement="right" />
+            <Typography.Text ellipsis={{ tooltip: { showArrow: false } }}>{columnName}</Typography.Text>
             {config.featureFlags.schemaFieldCLLEnabled && hasLineage && (
                 <ColumnLinkWrapper
                     to={`${entityRegistry.getEntityUrl(EntityType.SchemaField, schemaFieldUrn)}/Lineage`}

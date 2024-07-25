@@ -1,6 +1,6 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useGetBulkEntityLineageV2Query } from '../../graphql/lineage.generated';
-import { LineageDirection, Status } from '../../types.generated';
+import { LineageDirection } from '../../types.generated';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
 import usePrevious from '../shared/usePrevious';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
@@ -18,22 +18,37 @@ import {
 import { FetchedEntityV2Relationship } from './types';
 import { addQueryNodes, entityNodeDefault, pruneDuplicateEdges } from './useSearchAcrossLineage';
 
+const BATCH_SIZE = 10;
+
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
-    const { nodes, edges, adjacencyList, setDataVersion, setDisplayVersion } = useContext(LineageNodesContext);
+    const { nodes, edges, adjacencyList, dataVersion, setDataVersion, setDisplayVersion } =
+        useContext(LineageNodesContext);
     shownUrns.sort();
     const prevShownUrns = usePrevious(shownUrns);
-    const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
+
+    const [memoizedShownUrns, setMemoizedShownUrns] = useState<string[]>([]);
     useEffect(() => {
         // TODO: Implement string[] equality?
         if (JSON.stringify(prevShownUrns) !== JSON.stringify(shownUrns)) {
-            setUrnsToFetch(
-                shownUrns.filter((urn) => {
+            setMemoizedShownUrns(shownUrns);
+        }
+    }, [prevShownUrns, shownUrns]);
+
+    const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
+    useEffect(() => {
+        setUrnsToFetch((oldUrnsToFetch) => {
+            const newUrnsToFetch = memoizedShownUrns
+                .filter((urn) => {
                     const node = nodes.get(urn);
                     return !node?.entity;
-                }),
-            );
-        }
-    }, [nodes, prevShownUrns, shownUrns]);
+                })
+                .slice(0, BATCH_SIZE);
+            if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
+                return newUrnsToFetch;
+            }
+            return oldUrnsToFetch;
+        });
+    }, [nodes, dataVersion, memoizedShownUrns]);
 
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
@@ -64,7 +79,6 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             if (node) {
                 node.entity = entity;
                 node.rawEntity = rawEntity;
-                node.isSoftDeleted = entity.status?.removed;
                 changed = true;
 
                 // TODO: Remove once using bulk edges query
@@ -108,11 +122,7 @@ function processEdge(
     const { adjacencyList, nodes, edges } = context;
 
     if (relationship.entity && !isQuery(relationship.entity)) {
-        if ('status' in relationship.entity && (relationship.entity.status as Status | undefined)?.removed) {
-            return;
-        }
-
-        if ([FetchStatus.COMPLETE, FetchStatus.LOADING].includes(node.fetchStatus[direction])) {
+        if (node.fetchStatus[direction] !== FetchStatus.UNNEEDED) {
             // Add nodes that should be in the graph
             // TODO: Bust search across lineage cache?
             setDefault(

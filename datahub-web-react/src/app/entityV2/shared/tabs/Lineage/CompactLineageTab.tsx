@@ -94,9 +94,6 @@ const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
 const Results = styled.div`
     flex: 1;
     overflow: auto;
-    .ant-list {
-        background-color: white !important;
-    }
 `;
 
 enum LevelFilterType {

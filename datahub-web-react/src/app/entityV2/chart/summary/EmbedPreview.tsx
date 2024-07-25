@@ -13,16 +13,16 @@ const StyledIframe = styled.iframe`
 `;
 
 interface Props {
-    externalUrl: string;
+    embedUrl: string;
 }
 
-export default function EmbedPreview({ externalUrl }: Props) {
+export default function EmbedPreview({ embedUrl }: Props) {
     return (
         <Wrapper>
             <SummaryTabHeaderWrapper>
                 <SummaryTabHeaderTitle icon={<HeaderIcon />} title="Preview" />
             </SummaryTabHeaderWrapper>
-            <StyledIframe src={externalUrl} frameBorder={0} />
+            <StyledIframe src={embedUrl} frameBorder={0} />
         </Wrapper>
     );
 }

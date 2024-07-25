@@ -200,7 +200,7 @@ function getChildrenToFilter(
         if (!children?.size && !isQuery(node)) childrenToFilter.add(node.urn);
         children?.forEach((childUrn) => {
             const child = nodes.get(childUrn);
-            if (!child || seen.has(childUrn) || child.isSoftDeleted) return;
+            if (!child || seen.has(childUrn) || child.entity?.status?.removed) return;
 
             if (isTransformational(child)) {
                 queue.push(child);

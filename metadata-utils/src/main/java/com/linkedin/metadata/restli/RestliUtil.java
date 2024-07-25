@@ -80,6 +80,11 @@ public class RestliUtil {
   }
 
   @Nonnull
+  public static RestLiServiceException nonExceptionResourceNotFound() {
+    return new NonExceptionHttpErrorResponse(HttpStatus.S_404_NOT_FOUND);
+  }
+
+  @Nonnull
   public static RestLiServiceException resourceNotFoundException(@Nullable String message) {
     return new RestLiServiceException(HttpStatus.S_404_NOT_FOUND, message);
   }

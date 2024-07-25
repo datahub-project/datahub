@@ -1,4 +1,5 @@
 import { ArrowLeftOutlined, ArrowRightOutlined, MoreOutlined } from '@ant-design/icons';
+import Colors from '@components/theme/foundations/colors';
 import { Button, Dropdown, Menu, Popover } from 'antd';
 import styled from 'styled-components';
 import React, { useCallback, useContext, useState } from 'react';
@@ -13,6 +14,21 @@ const UNAUTHORIZED_TEXT = "You aren't authorized to edit lineage for this entity
 const DOWNSTREAM_DISABLED_TEXT = 'Make this entity your home to make downstream edits.';
 const UPSTREAM_DISABLED_TEXT = 'Make this entity your home to make upstream edits.';
 
+const Wrapper = styled.div`
+    border-radius: 4px;
+    position: absolute;
+    right: 3px;
+    top: 4px;
+
+    :hover {
+        color: ${Colors.violet[500]};
+    }
+`;
+
+const StyledIcon = styled(MoreOutlined)`
+    background: transparent;
+`;
+
 const StyledMenuItem = styled(Menu.Item)`
     padding: 0;
 `;
@@ -22,16 +38,15 @@ const MenuItemContent = styled.div`
 `;
 
 const StyledButton = styled(Button)`
-    border: none;
-    padding: 0px;
     height: min-content;
-    background: white;
-    margin-top: -2px;
-    margin-right: -4px;
-    max-height: 14px;
-    &:hover {
-        background: white;
-    }
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    transition: none;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     .ant-dropdown {
         top: 20px !important;
@@ -61,7 +76,7 @@ export default function ManageLineageMenu({ node, refetch }: Props) {
     }
 
     function handleMenuClick(e: React.MouseEvent<HTMLElement, MouseEvent>) {
-        e.stopPropagation();
+        onClickPreventSelect(e);
         if (isMenuVisible) {
             setDisplayedMenuNode(null);
         } else {
@@ -82,8 +97,8 @@ export default function ManageLineageMenu({ node, refetch }: Props) {
     if (!isManualLineageSupported) return null;
 
     return (
-        <>
-            <StyledButton onClick={(e) => onClickPreventSelect(e) && handleMenuClick(e)} type="text">
+        <Wrapper>
+            <StyledButton onClick={handleMenuClick} type="text">
                 <Dropdown
                     open={isMenuVisible}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
@@ -130,7 +145,7 @@ export default function ManageLineageMenu({ node, refetch }: Props) {
                         </Menu>
                     }
                 >
-                    <MoreOutlined style={{ fontSize: 'inherit' }} />
+                    <StyledIcon style={{ fontSize: 'inherit' }} />
                 </Dropdown>
             </StyledButton>
             {isModalVisible && (
@@ -141,7 +156,7 @@ export default function ManageLineageMenu({ node, refetch }: Props) {
                     refetch={refetch[lineageDirection]}
                 />
             )}
-        </>
+        </Wrapper>
     );
 }
 

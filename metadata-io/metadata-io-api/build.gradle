@@ -8,4 +8,11 @@ dependencies {
   implementation project(':metadata-utils')
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
+
+  testImplementation(externalDependency.testng)
+  testImplementation(externalDependency.mockito)
+  testImplementation(testFixtures(project(":entity-registry")))
+  testImplementation project(':metadata-operation-context')
+  testImplementation externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
 }

@@ -356,7 +356,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
                 throw new RuntimeException(e);
               }
               String allowedEntityName = getValueTypeId(typeUrn);
-              if (typeValue.getEntityType().equals(allowedEntityName)) {
+              if (typeValue.getEntityType().equalsIgnoreCase(allowedEntityName)) {
                 matchedAny = true;
               }
             }

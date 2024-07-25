@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography, Image } from 'antd';
-import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container, Entity } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
@@ -13,6 +12,7 @@ import {
     StyledTooltip,
 } from './ParentNodesView';
 import ParentEntities from '../../../../../../search/filters/ParentEntities';
+import { useIsShowSeparateSiblingsEnabled } from '../../../../../../useAppConfig';
 
 export const LogoIcon = styled.span`
     display: flex;
@@ -119,7 +119,7 @@ function PlatformContentView(props: Props) {
                         <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
                     )}
                     {showSiblingPlatformLogos &&
-                        [...new Set(platformLogoUrls)].slice(0, 2).map((platformLogoUrlsEntry) => (
+                        platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
                             <>
                                 <PreviewImage preview={false} src={platformLogoUrlsEntry || ''} alt={platformName} />
                             </>
@@ -127,7 +127,7 @@ function PlatformContentView(props: Props) {
                 </LogoIcon>
             )}
             <PlatformText>
-                {showSiblingPlatformNames ? [...new Set(platformNames)].join(' & ') : platformName}
+                {showSiblingPlatformNames ? platformNames.join(' & ') : platformName}
                 {(directParentContainer || instanceId) && <StyledRightOutlined data-testid="right-arrow" />}
             </PlatformText>
             {instanceId && (

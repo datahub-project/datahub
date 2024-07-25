@@ -200,12 +200,24 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         "settingsV2",
         "queryV2",
     }
+    cypress_saas_suite3_specs = {
+        "assertionsV2",
+        "auto_completeV2",
+        "containersV2",
+        "domainV2",
+        "mutationsV2",
+        "operrationsV2",
+        "ownershipV2",
+        "schema_blameV2",
+    }
     rest_specs.difference_update(set(cypress_saas_suite1_specs))
     rest_specs.difference_update(set(cypress_saas_suite2_specs))
+    rest_specs.difference_update(set(cypress_saas_suite3_specs))
     strategy_spec_map = {
         "cypress_suite1": cypress_suite1_specs,
         "cypress_saas_suite1": cypress_saas_suite1_specs,
         "cypress_saas_suite2": cypress_saas_suite2_specs,
+        "cypress_saas_suite3": cypress_saas_suite3_specs,
         "cypress_rest": rest_specs,
     }
     print(f"test strategy is {test_strategy}")

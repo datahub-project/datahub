@@ -41,6 +41,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -105,7 +106,8 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
                     String.format("/v2/metadata_test/test/%s/evaluate", TEST_URN))
                 .content(testBody)
                 .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON))
+                .accept(MediaType.APPLICATION_JSON)
+                .session(new MockHttpSession()))
         .andExpect(status().is2xxSuccessful())
         .andExpect(MockMvcResultMatchers.jsonPath("$.test").value(TEST_URN.toString()))
         .andExpect(MockMvcResultMatchers.jsonPath("$.testName").value("HasTags"))

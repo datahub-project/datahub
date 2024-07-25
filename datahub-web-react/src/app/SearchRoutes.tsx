@@ -37,6 +37,7 @@ import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomai
 import { TaskCenter } from './taskCenter/TaskCenter';
 import { GovernDashboard } from './govern/Dashboard/Dashboard';
 import { useUserContext } from './context/useUserContext';
+import NewForm from './govern/Dashboard/Forms/NewForm';
 
 /**
  * Container for all searchable page routes
@@ -101,8 +102,9 @@ export const SearchRoutes = (): JSX.Element => {
                     />
                 )}
                 {includeGovernDashboard && (
-                    <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
+                    <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
                 )}
+                {includeGovernDashboard && <Route path={PageRoutes.NEW_FORM} render={() => <NewForm />} />}
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
                 <Route

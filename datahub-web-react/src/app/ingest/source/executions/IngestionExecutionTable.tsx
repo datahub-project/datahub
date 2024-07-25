@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { StyledTable } from '../../../entity/shared/components/styled/StyledTable';
 import { ExecutionRequest } from '../../../../types.generated';
 import { ButtonsColumn, SourceColumn, StatusColumn, TimeColumn } from './IngestionExecutionTableColumns';
-import { SUCCESS } from '../utils';
+import { SUCCESS, getIngestionSourceStatus } from '../utils';
 import { formatDuration } from '../../../shared/formatDuration';
 import { SearchCfg } from '../../../../conf';
 
@@ -112,7 +112,7 @@ export default function IngestionExecutionTable({
         requestedAt: execution.input?.requestedAt,
         executedAt: execution.result?.startTimeMs,
         duration: execution.result?.durationMs,
-        status: execution.result?.status,
+        status: getIngestionSourceStatus(execution.result),
         showRollback: mostRecentSuccessfulExecution && execution?.urn === mostRecentSuccessfulExecution?.urn,
     }));
 

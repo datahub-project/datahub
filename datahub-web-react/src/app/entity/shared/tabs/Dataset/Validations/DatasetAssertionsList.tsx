@@ -57,6 +57,12 @@ const DataContractLogo = styled(AuditOutlined)`
     color: ${REDESIGN_COLORS.BLUE};
 `;
 
+const AssertionDescriptionContainer = styled.div`
+    display: flex;
+    justify-content: right;
+    align-items: center;
+`;
+
 type Props = {
     assertions: Array<Assertion>;
     onDelete?: (urn: string) => void;
@@ -162,11 +168,17 @@ export const DatasetAssertionsList = ({
                                 </Tag>
                             </Tooltip>
                         </div>
-                        <DatasetAssertionDescription
-                            description={description}
-                            assertionInfo={record.datasetAssertionInfo}
-                            lastEvaluation={record.lastEvaluation}
-                        />
+                        {record.datasetAssertionInfo ? (
+                            <DatasetAssertionDescription
+                                description={description}
+                                assertionInfo={record.datasetAssertionInfo}
+                                lastEvaluation={record.lastEvaluation}
+                            />
+                        ) : (
+                            <AssertionDescriptionContainer>
+                                {description ?? 'No description provided'}
+                            </AssertionDescriptionContainer>
+                        )}
                         {(isPartOfContract && entityData?.urn && (
                             <Tooltip
                                 title={

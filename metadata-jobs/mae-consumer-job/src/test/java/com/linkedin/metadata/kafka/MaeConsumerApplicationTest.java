@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.event.PlatformEventProcessor;
 import com.datahub.event.hook.BusinessAttributeUpdateHook;
 import com.datahub.event.hook.NotificationSinkHook;
 import com.datahub.event.hook.PlatformEventHook;
@@ -32,7 +33,8 @@ import org.testng.annotations.Test;
 
 @ActiveProfiles("test")
 @SpringBootTest(
-    classes = {MaeConsumerApplication.class, MaeConsumerApplicationTestConfiguration.class})
+    classes = {MaeConsumerApplication.class, MaeConsumerApplicationTestConfiguration.class},
+    properties = "PE_CONSUMER_ENABLED=true")
 public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private KafkaHealthIndicator kafkaHealthIndicator;
@@ -45,10 +47,13 @@ public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests
 
   @Autowired private List<PlatformEventHook> platformEventHooks;
 
+  @Autowired private PlatformEventProcessor platformEventProcessor;
+
   @Test
   public void testMaeConsumerAutoWiring() {
     assertNotNull(kafkaHealthIndicator);
     assertNotNull(formService);
+    assertNotNull(platformEventProcessor);
   }
 
   @Test

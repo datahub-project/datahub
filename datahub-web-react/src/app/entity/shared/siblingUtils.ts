@@ -2,7 +2,6 @@ import merge from 'deepmerge';
 import { keyBy, unionBy, values } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
-import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 import {
     Dataset,
     Entity,
@@ -15,6 +14,7 @@ import {
     SiblingProperties,
 } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
+import { useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {

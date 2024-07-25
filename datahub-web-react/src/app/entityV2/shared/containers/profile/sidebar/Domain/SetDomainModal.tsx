@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Empty } from 'antd';
+import { getModalDomContainer } from '@src/utils/focus';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
@@ -166,6 +167,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <Form component={false}>
                 <Form.Item>

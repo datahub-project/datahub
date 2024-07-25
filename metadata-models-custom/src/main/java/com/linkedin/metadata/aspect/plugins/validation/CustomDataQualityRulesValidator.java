@@ -26,8 +26,7 @@ public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
               DataQualityRules rules = new DataQualityRules(item.getRecordTemplate().data());
               // Enforce at least 1 rule
               return rules.getRules().isEmpty()
-                  ? new AspectValidationException(
-                      item.getUrn(), item.getAspectName(), "At least one rule is required.")
+                  ? AspectValidationException.forItem(item, "At least one rule is required.")
                   : null;
             })
         .filter(Objects::nonNull);
@@ -56,9 +55,8 @@ public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
                           if (!newFieldTypeMap
                               .getOrDefault(oldRule.getField(), oldRule.getType())
                               .equals(oldRule.getType())) {
-                            return new AspectValidationException(
-                                changeMCP.getUrn(),
-                                changeMCP.getAspectName(),
+                            return AspectValidationException.forItem(
+                                changeMCP,
                                 String.format(
                                     "Field type mismatch. Field: %s Old: %s New: %s",
                                     oldRule.getField(),

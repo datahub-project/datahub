@@ -88,9 +88,9 @@ describe("glossaryTerm", () => {
     elementVisibility();
     cy.clickOptionWithSpecificClass(".anticon-filter", 0);
     cy.waitTextVisible("Filter");
-    cy.get(
-      'input.ant-checkbox-input[data-testid^="facet-tags-urn:li:tag:"]',
-    ).click();
+    cy.get('input.ant-checkbox-input[data-testid^="facet-tags-urn:li:tag:"]')
+      .first()
+      .click();
     cy.mouseHoverOnFirstElement(".ant-tag");
     invokeTextFromElement(".ant-tooltip-inner").then((assetText) => {
       cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
@@ -108,9 +108,9 @@ describe("glossaryTerm", () => {
     elementVisibility();
     applyAdvancedSearchFilter("Tag", "Cypress");
     elementVisibility();
-    enterKeyInSearchBox("Baz Chart 1");
+    enterKeyInSearchBox("Baz Dashboard");
     elementVisibility();
-    cy.contains("Baz Chart 1").should("exist");
+    cy.contains("Baz Dashboard").should("exist");
     deleteGlossary("Deleted Glossary Term!");
   });
 });

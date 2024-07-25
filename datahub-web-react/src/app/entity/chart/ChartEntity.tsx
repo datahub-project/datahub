@@ -29,6 +29,7 @@ import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { ChartQueryTab } from './ChartQueryTab';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -116,6 +117,14 @@ export class ChartEntity implements Entity<Chart> {
                 component: ChartStatsSummarySubHeader,
             }}
             tabs={[
+                {
+                    name: 'Query',
+                    component: ChartQueryTab,
+                    display: {
+                        visible: (_, chart: GetChartQuery) => (chart?.chart?.query?.rawQuery && true) || false,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.query?.rawQuery && true) || false,
+                    },
+                },
                 {
                     name: 'Documentation',
                     component: DocumentationTab,

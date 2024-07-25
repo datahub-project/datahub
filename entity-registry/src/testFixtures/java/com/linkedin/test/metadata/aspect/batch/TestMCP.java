@@ -20,7 +20,10 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -119,10 +122,22 @@ public class TestMCP implements ChangeMCP {
   private MetadataChangeProposal metadataChangeProposal;
   @Setter private SystemAspect previousSystemAspect;
   @Setter private long nextAspectVersion;
+  @Setter private Map<String, String> headers;
 
   @Nonnull
   @Override
   public SystemAspect getSystemAspect(@Nullable Long nextAspectVersion) {
     return null;
+  }
+
+  @Override
+  public Map<String, String> getHeaders() {
+    return Optional.ofNullable(metadataChangeProposal)
+        .filter(MetadataChangeProposal::hasHeaders)
+        .map(
+            mcp ->
+                mcp.getHeaders().entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
+        .orElse(headers);
   }
 }

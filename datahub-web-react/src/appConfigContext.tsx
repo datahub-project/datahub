@@ -87,6 +87,7 @@ export const DEFAULT_APP_CONFIG = {
         enabled: false,
         lineageEnabled: false,
         dataContractsEnabled: false,
+        showSeparateSiblings: false,
     },
 };
 

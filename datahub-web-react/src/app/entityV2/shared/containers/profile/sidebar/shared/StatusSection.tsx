@@ -88,7 +88,10 @@ const StatusSection = () => {
 
     const lastIngested = entityData?.lastIngested;
     const platform = entityData?.siblingPlatforms?.[0] || entityData?.platform;
-    const platformName = getPlatformName(entityData);
+    const rootSiblingPlatformName = getPlatformName(entityData);
+    const baseEntityPlatformName = entityData?.platform
+        ? entityRegistry.getDisplayName(EntityType.DataPlatform, entityData?.platform)
+        : null;
 
     const source = dataset?.assetOrigin?.resolvedSourceDetails;
     const sourceInstance =
@@ -131,7 +134,13 @@ const StatusSection = () => {
                 </>
             )}
             {!!lastUpdated && entityType === EntityType.Dataset && (
-                <TimeProperty labelText="Last Updated:" time={lastUpdated} />
+                <TimeProperty
+                    labelText="Last Updated:"
+                    time={lastUpdated}
+                    titleTip={`Time when the asset was last modified ${
+                        baseEntityPlatformName ? `in ${baseEntityPlatformName}` : null
+                    }`}
+                />
             )}
             {isDeprecated && (
                 <StyledCollapse
@@ -164,7 +173,7 @@ const StatusSection = () => {
                 <SyncedOrShared
                     labelText="Synced:"
                     time={lastIngested}
-                    platformName={platformName}
+                    platformName={rootSiblingPlatformName}
                     platform={platform}
                     type={ActionType.SYNC}
                 />

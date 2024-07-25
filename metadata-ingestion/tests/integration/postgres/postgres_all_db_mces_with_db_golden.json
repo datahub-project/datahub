@@ -832,7 +832,8 @@
                 {
                     "fieldPath": "metadata_json"
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {

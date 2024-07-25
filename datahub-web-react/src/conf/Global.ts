@@ -24,6 +24,7 @@ export enum PageRoutes {
     INGESTION = '/ingestion',
     SETTINGS = '/settings',
     GOVERN_DASHBOARD = '/govern/dashboard',
+    NEW_FORM = '/govern/dashboard/new-form',
     DOMAINS = '/domains',
     DOMAIN = '/domain',
     GLOSSARY = '/glossary',

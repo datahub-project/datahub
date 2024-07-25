@@ -50,6 +50,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -730,6 +731,8 @@ public class FormService extends BaseService {
                     "Failed to retrieve form %s for entity %s. Skipping form assignment",
                     formUrn, entityUrn),
                 e);
+            // added due to test case expecting this
+            throw new RuntimeException(e);
           }
         });
     return results;

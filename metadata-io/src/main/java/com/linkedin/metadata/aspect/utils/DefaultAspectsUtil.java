@@ -12,6 +12,7 @@ import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.EntityResponse;
@@ -29,6 +30,7 @@ import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
@@ -348,7 +350,14 @@ public class DefaultAspectsUtil {
 
     // Set fields determined from original
     if (templateItem.getSystemMetadata() != null) {
-      proposal.setSystemMetadata(templateItem.getSystemMetadata());
+      SystemMetadata systemMetadata = null;
+      try {
+        systemMetadata = new SystemMetadata(templateItem.getSystemMetadata().copy().data());
+      } catch (CloneNotSupportedException e) {
+        throw new RuntimeException(e);
+      }
+      systemMetadata.setVersion(null, SetMode.REMOVE_IF_NULL);
+      proposal.setSystemMetadata(systemMetadata);
     }
     if (templateItem.getUrn() != null) {
       proposal.setEntityUrn(templateItem.getUrn());

@@ -69,8 +69,7 @@ public class HdfsPathDataset extends SparkDataset {
 
           String rawName = getRawNameFromUri(pathUri, pathSpec.getPathSpecList());
           if (rawName != null) {
-            String platformInstance =
-                pathSpec.platformInstance.orElseGet(datahubConf::getCommonDatasetPlatformInstance);
+            String platformInstance = pathSpec.platformInstance.orElse(null);
             FabricType fabricType = datahubConf.getFabricType();
             return new HdfsPathDataset(
                 platform, getDatasetName(rawName), platformInstance, fabricType, rawName);

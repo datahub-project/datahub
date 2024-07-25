@@ -82,10 +82,10 @@ export class QueryEntity implements Entity<Query> {
         };
     };
 
-    renderEmbeddedProfile = (_: string) => <span>hi</span>;
+    renderEmbeddedProfile = (_: string) => <></>;
 
     renderPreview = () => {
-        return <>hi</>;
+        return <></>;
     };
 
     renderSearch = () => {

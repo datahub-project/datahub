@@ -31,6 +31,10 @@ const LastRunSection = styled.div`
     gap: 5px;
 `;
 
+const TypographyContainer = styled.div`
+    word-wrap: break-word;
+`;
+
 const StyledLastRunText = styled(Typography.Text)`
     font-size: 10px;
     display: flex;
@@ -373,14 +377,14 @@ export const DatasetAssertionDescription = ({ description, assertionInfo, lastEv
                                 </StyledLastRunText>
                             </LastRunSection>
                         )}
-                        <div>
+                        <TypographyContainer>
                             <Typography.Text strong>type</Typography.Text>: {nativeType || 'N/A'}
                             {nativeParameters?.map((parameter) => (
                                 <div key={parameter.key}>
                                     <Typography.Text strong>{parameter.key}</Typography.Text>: {parameter.value}
                                 </div>
                             ))}
-                        </div>
+                        </TypographyContainer>
                     </AssertionDetailsContainer>
                 </>
             }

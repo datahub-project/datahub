@@ -25,7 +25,7 @@ public abstract class MCPSideEffect extends PluginSpec
       Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     return applyMCPSideEffect(
         changeMCPS.stream()
-            .filter(item -> shouldApply(item.getChangeType(), item.getUrn(), item.getAspectSpec()))
+            .filter(item -> shouldApply(item.getChangeType(), item.getUrn(), item.getAspectName()))
             .collect(Collectors.toList()),
         retrieverContext);
   }
@@ -41,7 +41,7 @@ public abstract class MCPSideEffect extends PluginSpec
       Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
     return postMCPSideEffect(
         mclItems.stream()
-            .filter(item -> shouldApply(item.getChangeType(), item.getUrn(), item.getAspectSpec()))
+            .filter(item -> shouldApply(item.getChangeType(), item.getUrn(), item.getAspectName()))
             .collect(Collectors.toList()),
         retrieverContext);
   }
