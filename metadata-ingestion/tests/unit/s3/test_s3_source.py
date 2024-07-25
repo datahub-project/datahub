@@ -5,7 +5,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.source import partitioned_folder_comparator
-from datahub.metadata._schema_classes import MetadataChangeEventClass
 
 
 def test_partition_comparator_numeric_folder_name():
