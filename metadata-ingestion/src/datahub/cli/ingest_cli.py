@@ -427,7 +427,9 @@ def mcps(path: str) -> None:
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
-    session, gms_host = cli_utils.get_session_and_host()
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
 
     url = f"{gms_host}/runs?action=list"
 
@@ -476,7 +478,9 @@ def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
     """Describe a provided ingestion run to datahub"""
-    session, gms_host = cli_utils.get_session_and_host()
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
 
     url = f"{gms_host}/runs?action=describe"
 
@@ -524,8 +528,7 @@ def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:
     """Rollback a provided ingestion run to datahub"""
-
-    cli_utils.test_connectivity_complain_exit("ingest")
+    client = get_default_graph()
 
     if not force and not dry_run:
         click.confirm(
@@ -541,7 +544,9 @@ def rollback(
         aspects_affected,
         unsafe_entity_count,
         unsafe_entities,
-    ) = cli_utils.post_rollback_endpoint(payload_obj, "/runs?action=rollback")
+    ) = cli_utils.post_rollback_endpoint(
+        client._session, client.config.server, payload_obj, "/runs?action=rollback"
+    )
 
     click.echo(
         "Rolling back deletes the entities created by a run and reverts the updated aspects"

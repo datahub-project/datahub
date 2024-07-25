@@ -1,12 +1,17 @@
 import logging
 import uuid
-from typing import Dict, Iterable, List
+from typing import Iterable, List
 
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.cli import cli_utils
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import (
+    DataHubGraph,
+    RelatedEntity,
+    get_default_graph,
+)
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ContainerClass,
@@ -238,8 +243,13 @@ def clone_aspect(
     run_id: str = str(uuid.uuid4()),
     dry_run: bool = False,
 ) -> Iterable[MetadataChangeProposalWrapper]:
+    client = get_default_graph()
     aspect_map = cli_utils.get_aspects_for_entity(
-        entity_urn=src_urn, aspects=aspect_names, typed=True
+        client._session,
+        client.config.server,
+        entity_urn=src_urn,
+        aspects=aspect_names,
+        typed=True,
     )
 
     if aspect_names is not None:
@@ -263,10 +273,11 @@ def clone_aspect(
                 log.debug(f"did not find aspect {a} in response, continuing...")
 
 
-def get_incoming_relationships(urn: str) -> Iterable[Dict]:
-    yield from cli_utils.get_incoming_relationships(
-        urn,
-        types=[
+def get_incoming_relationships(urn: str) -> Iterable[RelatedEntity]:
+    client = get_default_graph()
+    yield from client.get_related_entities(
+        entity_urn=urn,
+        relationship_types=[
             "DownstreamOf",
             "Consumes",
             "Produces",
@@ -274,13 +285,15 @@ def get_incoming_relationships(urn: str) -> Iterable[Dict]:
             "DerivedFrom",
             "IsPartOf",
         ],
+        direction=DataHubGraph.RelationshipDirection.INCOMING,
     )
 
 
-def get_outgoing_relationships(urn: str) -> Iterable[Dict]:
-    yield from cli_utils.get_outgoing_relationships(
-        urn,
-        types=[
+def get_outgoing_relationships(urn: str) -> Iterable[RelatedEntity]:
+    client = get_default_graph()
+    yield from client.get_related_entities(
+        entity_urn=urn,
+        relationship_types=[
             "DownstreamOf",
             "Consumes",
             "Produces",
@@ -288,4 +301,5 @@ def get_outgoing_relationships(urn: str) -> Iterable[Dict]:
             "DerivedFrom",
             "IsPartOf",
         ],
+        direction=DataHubGraph.RelationshipDirection.OUTGOING,
     )

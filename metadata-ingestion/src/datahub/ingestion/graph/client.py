@@ -3,6 +3,8 @@ import enum
 import functools
 import json
 import logging
+import os
+import sys
 import textwrap
 import time
 from dataclasses import dataclass
@@ -22,12 +24,13 @@ from typing import (
     Union,
 )
 
+import click
 from avro.schema import RecordSchema
 from deprecated import deprecated
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from requests.models import HTTPError
 
-from datahub.cli.cli_utils import get_url_and_token
+from datahub.cli import config_utils
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
@@ -86,6 +89,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
+
+ENV_METADATA_HOST_URL = "DATAHUB_GMS_URL"
+ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
+ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
+ENV_METADATA_PORT = "DATAHUB_GMS_PORT"
+ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
 
 
 class DatahubClientConfig(ConfigModel):
@@ -170,6 +179,22 @@ class DataHubGraph(DatahubRestEmitter):
         except Exception as e:
             self.server_id = _MISSING_SERVER_ID
             logger.debug(f"Failed to get server id due to {e}")
+
+    @property
+    def frontend_base_url(self) -> str:
+        """Get the public-facing base url of the frontend
+
+        This url can be used to construct links to the frontend. The url will not include a trailing slash.
+        Note: Only supported with Acryl Cloud.
+        """
+
+        if not self.server_config:
+            self.test_connection()
+
+        base_url = self.server_config.get("baseUrl")
+        if not base_url:
+            raise ValueError("baseUrl not found in server config")
+        return base_url
 
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
@@ -567,6 +592,9 @@ class DataHubGraph(DatahubRestEmitter):
     def _aspect_count_endpoint(self):
         return f"{self.config.server}/aspects?action=getCount"
 
+    # def _session(self) -> Session:
+    #    return super()._session
+
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
 
@@ -812,6 +840,7 @@ class DataHubGraph(DatahubRestEmitter):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[SearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -841,7 +870,13 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Env filter.
         orFilters = generate_filter(
-            platform, platform_instance, env, container, status, extraFilters
+            platform,
+            platform_instance,
+            env,
+            container,
+            status,
+            extraFilters,
+            extra_or_filters=extra_or_filters,
         )
 
         graphql_query = textwrap.dedent(
@@ -884,6 +919,137 @@ class DataHubGraph(DatahubRestEmitter):
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
+
+    def get_results_by_filter(
+        self,
+        *,
+        entity_types: Optional[List[str]] = None,
+        platform: Optional[str] = None,
+        platform_instance: Optional[str] = None,
+        env: Optional[str] = None,
+        query: Optional[str] = None,
+        container: Optional[str] = None,
+        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
+        batch_size: int = 10000,
+        extra_and_filters: Optional[List[SearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
+        extra_source_fields: Optional[List[str]] = None,
+        skip_cache: bool = False,
+    ) -> Iterable[dict]:
+        """Fetch all results that match all of the given filters.
+
+        Note: Only supported with Acryl Cloud.
+
+        Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
+        Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
+        The same goes for the env filter.
+
+        :param entity_types: List of entity types to include. If None, all entity types will be returned.
+        :param platform: Platform to filter on. If None, all platforms will be returned.
+        :param platform_instance: Platform instance to filter on. If None, all platform instances will be returned.
+        :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+        :param query: Query string to filter on. If None, all entities will be returned.
+        :param container: A container urn that entities must be within.
+            This works recursively, so it will include entities within sub-containers as well.
+            If None, all entities will be returned.
+            Note that this requires browsePathV2 aspects (added in 0.10.4+).
+        :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
+        :param extra_and_filters: Additional filters to apply. If specified, the
+            results will match all of the filters.
+        :param extra_or_filters: Additional filters to apply. If specified, the
+            results will match any of the filters.
+
+        :return: An iterable of urns that match the filters.
+        """
+
+        types = self._get_types(entity_types)
+
+        # Add the query default of * if no query is specified.
+        query = query or "*"
+
+        or_filters_final = generate_filter(
+            platform,
+            platform_instance,
+            env,
+            container,
+            status,
+            extra_and_filters,
+            extra_or_filters,
+        )
+        graphql_query = textwrap.dedent(
+            """
+            query scrollUrnsWithFilters(
+                $types: [EntityType!],
+                $query: String!,
+                $orFilters: [AndFilterInput!],
+                $batchSize: Int!,
+                $scrollId: String,
+                $skipCache: Boolean!,
+                $fetchExtraFields: [String!]) {
+
+                scrollAcrossEntities(input: {
+                    query: $query,
+                    count: $batchSize,
+                    scrollId: $scrollId,
+                    types: $types,
+                    orFilters: $orFilters,
+                    searchFlags: {
+                        skipHighlighting: true
+                        skipAggregates: true
+                        skipCache: $skipCache
+                        fetchExtraFields: $fetchExtraFields
+                    }
+                }) {
+                    nextScrollId
+                    searchResults {
+                        entity {
+                            urn
+                        }
+                        extraProperties {
+                            name
+                            value
+                        }
+                    }
+                }
+            }
+            """
+        )
+
+        variables = {
+            "types": types,
+            "query": query,
+            "orFilters": or_filters_final,
+            "batchSize": batch_size,
+            "skipCache": "true" if skip_cache else "false",
+            "fetchExtraFields": extra_source_fields,
+        }
+
+        for result in self._scroll_across_entities_results(graphql_query, variables):
+            yield result
+
+    def _scroll_across_entities_results(
+        self, graphql_query: str, variables_orig: dict
+    ) -> Iterable[dict]:
+        variables = variables_orig.copy()
+        first_iter = True
+        scroll_id: Optional[str] = None
+        while first_iter or scroll_id:
+            first_iter = False
+            variables["scrollId"] = scroll_id
+
+            response = self.execute_graphql(
+                graphql_query,
+                variables=variables,
+            )
+            data = response["scrollAcrossEntities"]
+            scroll_id = data["nextScrollId"]
+            for entry in data["searchResults"]:
+                yield entry
+
+            if scroll_id:
+                logger.debug(
+                    f"Scrolling to next scrollAcrossEntities page: {scroll_id}"
+                )
 
     def _scroll_across_entities(
         self, graphql_query: str, variables_orig: dict
@@ -1609,7 +1775,88 @@ class DataHubGraph(DatahubRestEmitter):
 
 
 def get_default_graph() -> DataHubGraph:
-    (url, token) = get_url_and_token()
-    graph = DataHubGraph(DatahubClientConfig(server=url, token=token))
+    graph_config = load_client_config()
+    graph = DataHubGraph(graph_config)
     graph.test_connection()
     return graph
+
+
+class DatahubConfig(BaseModel):
+    gms: DatahubClientConfig
+
+
+config_override: Dict = {}
+
+
+def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
+    host = os.environ.get(ENV_METADATA_HOST)
+    port = os.environ.get(ENV_METADATA_PORT)
+    token = os.environ.get(ENV_METADATA_TOKEN)
+    protocol = os.environ.get(ENV_METADATA_PROTOCOL, "http")
+    url = os.environ.get(ENV_METADATA_HOST_URL)
+    if port is not None:
+        url = f"{protocol}://{host}:{port}"
+        return url, token
+    # The reason for using host as URL is backward compatibility
+    # If port is not being used we assume someone is using host env var as URL
+    if url is None and host is not None:
+        logger.warning(
+            f"Do not use {ENV_METADATA_HOST} as URL. Use {ENV_METADATA_HOST_URL} instead"
+        )
+    return url or host, token
+
+
+def load_client_config() -> DatahubClientConfig:
+    try:
+        ensure_datahub_config()
+        client_config_dict = config_utils.get_client_config()
+        datahub_config: DatahubClientConfig = DatahubConfig.parse_obj(
+            client_config_dict
+        ).gms
+    except ValidationError as e:
+        click.echo(
+            f"Received error, please check your {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}"
+        )
+        click.echo(e, err=True)
+        sys.exit(1)
+
+    # Override gms & token configs if specified.
+    if len(config_override.keys()) > 0:
+        datahub_config.server = str(config_override.get(ENV_METADATA_HOST_URL))
+        datahub_config.token = config_override.get(ENV_METADATA_TOKEN)
+    elif config_utils.should_skip_config():
+        gms_host_env, gms_token_env = get_details_from_env()
+        if gms_host_env:
+            datahub_config.server = gms_host_env
+        datahub_config.token = gms_token_env
+
+    return datahub_config
+
+
+def ensure_datahub_config() -> None:
+    if not os.path.isfile(config_utils.DATAHUB_CONFIG_PATH):
+        click.secho(
+            f"No {config_utils.CONDENSED_DATAHUB_CONFIG_PATH} file found, generating one for you...",
+            bold=True,
+        )
+        write_gms_config(config_utils.DEFAULT_GMS_HOST, None)
+
+
+def write_gms_config(
+    host: str, token: Optional[str], merge_with_previous: bool = True
+) -> None:
+    config = DatahubConfig(gms=DatahubClientConfig(server=host, token=token))
+    if merge_with_previous:
+        try:
+            previous_config = config_utils.get_client_config()
+            assert isinstance(previous_config, dict)
+        except Exception as e:
+            # ok to fail on this
+            previous_config = {}
+            logger.debug(
+                f"Failed to retrieve config from file {config_utils.DATAHUB_CONFIG_PATH}: {e}. This isn't fatal."
+            )
+        config_dict = {**previous_config, **config.dict()}
+    else:
+        config_dict = config.dict()
+    config_utils.persist_datahub_config(config_dict)
