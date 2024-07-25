@@ -205,7 +205,7 @@ source: ...
 datahub ingest deploy -c deployment_recipe.yml
 ```
 
-This can be particularly useful when you want all recipes should be stored in version control.
+This is particularly useful when you want all recipes to be stored in version control.
 
 ```shell
 # Deploy every yml recipe in a directory
