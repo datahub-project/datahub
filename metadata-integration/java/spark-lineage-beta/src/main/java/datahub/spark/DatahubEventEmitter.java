@@ -39,6 +39,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -53,6 +55,7 @@ public class DatahubEventEmitter extends EventEmitter {
   private final List<DatahubJob> _datahubJobs = new LinkedList<>();
   private final Map<String, MetadataChangeProposalWrapper> schemaMap = new HashMap<>();
   private SparkLineageConf datahubConf;
+  private static final int DEFAULT_TIMEOUT_SEC = 10;
 
   private final EventFormatter eventFormatter = new EventFormatter();
 
@@ -386,8 +389,8 @@ public class DatahubEventEmitter extends EventEmitter {
           .forEach(
               future -> {
                 try {
-                  log.info(future.get().toString());
-                } catch (InterruptedException | ExecutionException e) {
+                  log.info(future.get(DEFAULT_TIMEOUT_SEC, TimeUnit.SECONDS).toString());
+                } catch (InterruptedException | ExecutionException | TimeoutException e) {
                   // log error, but don't impact thread
                   log.error("Failed to emit metadata to DataHub", e);
                 }
