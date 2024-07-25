@@ -22,13 +22,14 @@ from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_fie
 SchemaInfo = Dict[str, str]
 
 
-class GraphQLSchemaField(TypedDict):
+class OpenAPISchemaField(TypedDict):
     fieldPath: str
     nativeDataType: str
+    # note that there's other fields here that we don't care about
 
 
-class GraphQLSchemaMetadata(TypedDict):
-    fields: List[GraphQLSchemaField]
+class OpenAPISchemaMetadata(TypedDict):
+    fields: List[OpenAPISchemaField]
 
 
 class SchemaResolverInterface(Protocol):
@@ -167,10 +168,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
 
-    def add_graphql_schema_metadata(
-        self, urn: str, schema_metadata: GraphQLSchemaMetadata
+    def add_openapi_schema_metadata(
+        self, urn: str, schema_metadata: OpenAPISchemaMetadata
     ) -> None:
-        schema_info = self.convert_graphql_schema_metadata_to_info(schema_metadata)
+        schema_info = self.convert_openapi_schema_metadata_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
 
     def with_temp_tables(
@@ -221,8 +222,8 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         }
 
     @classmethod
-    def convert_graphql_schema_metadata_to_info(
-        cls, schema: GraphQLSchemaMetadata
+    def convert_openapi_schema_metadata_to_info(
+        cls, schema: OpenAPISchemaMetadata
     ) -> SchemaInfo:
         return {
             get_simple_field_path_from_v2_field_path(field["fieldPath"]): (
