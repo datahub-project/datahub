@@ -1278,7 +1278,7 @@ public class AssertionService extends BaseService {
     try {
       this.entityClient.ingestProposal(
           opContext,
-          AspectUtils.buildMetadataChangeProposal(
+          AspectUtils.buildSynchronousMetadataChangeProposal(
               assertionUrn, Constants.ASSERTION_RUN_EVENT_ASPECT_NAME, assertionRunEvent),
           false);
     } catch (Exception e) {
