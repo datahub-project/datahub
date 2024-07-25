@@ -79,6 +79,8 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
 
     useAvoidIntersectionsOften(id, 52);
 
+    const numerator = numShown ?? shown.size;
+    const denominator = total ?? contents.length;
     return (
         <NodeWrapper>
             <ExtraCard className="extra-card" bottom={-3} />
@@ -87,8 +89,8 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             <CustomHandle type="source" position={Position.Right} isConnectable={false} />
             <TitleWrapper>
                 <Title>
-                    <TitleCount>{numShown ?? shown.size}</TitleCount> of{' '}
-                    <TitleCount>{total ?? contents.length}</TitleCount> shown
+                    <TitleCount>{Math.min(numerator, denominator)}</TitleCount> of{' '}
+                    <TitleCount>{denominator}</TitleCount> shown
                 </Title>
                 {limit < contents.length && <ShowMoreButton id={id} data={data} />}
             </TitleWrapper>
