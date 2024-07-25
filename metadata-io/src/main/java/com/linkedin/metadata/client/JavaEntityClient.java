@@ -766,7 +766,8 @@ public class JavaEntityClient implements EntityClient {
     AspectsBatch batch =
         AspectsBatchImpl.builder()
             .mcps(
-                List.of(metadataChangeProposal), auditStamp, opContext.getRetrieverContext().get())
+                List.of(metadataChangeProposal), auditStamp, opContext.getRetrieverContext().get(),
+                opContext.getValidationContext().isAlternateValidation())
             .build();
 
     Optional<IngestResult> one =
