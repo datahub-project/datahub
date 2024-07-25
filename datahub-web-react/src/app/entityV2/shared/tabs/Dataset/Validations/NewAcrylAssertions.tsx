@@ -23,25 +23,9 @@ import { combineEntityDataWithSiblings } from '../../../../../entity/shared/sibl
 import { AcrylAssertionsSummaryLoading } from './AcrylAssertionsSummaryLoading';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../constants';
-import {
-    AssertionInfo,
-    AssertionRunStatus,
-    AssertionType,
-    CronSchedule,
-    DatasetAssertionInfo,
-    FreshnessAssertionInfo,
-    SchemaAssertionInfo,
-    VolumeAssertionInfo,
-} from '@src/types.generated';
+import { AssertionInfo, AssertionRunStatus } from '@src/types.generated';
 import { useBuildAssertionDescriptionLabels } from './assertion/profile/summary/utils';
-import {
-    getAggregationPlainText,
-    getDatasetAssertionPlainTextDescription,
-    getFreshnessAssertionPlainTextDescription,
-    getOperatorPlainText,
-    getSchemaAssertionPlainTextDescription,
-    getVolumeAssertionPlainTextDescription,
-} from './assertionPlainTextUtils';
+import { getPlainTextDescriptionFromAssertion } from './assertionPlainTextUtils';
 
 export const StyledTable = styled(Table)`
     max-width: none;
@@ -78,7 +62,6 @@ export const StyledTable = styled(Table)`
 // {getAggregationText(scope, aggregation, fields)}{' '}
 // {getOperatorText(operator, parameters || undefined, nativeType || undefined)}
 
-
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
@@ -104,10 +87,8 @@ export const AcrylAssertionList = () => {
     const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
         tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
 
-    const AssertionTableRow = ({ description }: { description?: string }) => {
-        console.log('description>>>', description);
-
-        return <div>{description}</div>;
+    const AssertionTableRow = ({ descriptionHTML }: { descriptionHTML?: string }) => {
+        return <div>{descriptionHTML}</div>;
     };
 
     const assertionsTableCols = [
@@ -118,7 +99,7 @@ export const AcrylAssertionList = () => {
             render: (_, record: any) => {
                 return (
                     <AssertionTableRow
-                        description={record.description}
+                        descriptionHTML={record.descriptionHTML}
                         // assertion={record.assertion}
                         // monitor={record.monitor}
                         // contract={contract}
@@ -134,11 +115,12 @@ export const AcrylAssertionList = () => {
         const monitor =
             (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0].entity;
 
-        const { primaryLabel, primaryLabelRef } = useBuildAssertionDescriptionLabels(assertion.info, monitor) || {
+        const { primaryLabel } = useBuildAssertionDescriptionLabels(assertion.info, monitor) || {
             primaryLabel: null,
             primaryLabelRef: null,
         };
-        const description = getPlainDescriptionFromAssertion(assertion.info, monitor); //primaryLabelRef.current?.innerText;
+        const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
+        console.log('description>>>', description);
 
         return {
             // for rendering need below data mapping
@@ -146,7 +128,7 @@ export const AcrylAssertionList = () => {
             lastUpdated: assertion.info?.lastUpdated || new Date(),
             tags: assertion.tags,
             descriptionHTML: primaryLabel,
-            description: primaryLabel,
+            description,
 
             // for operation need below data mapping
             urn: assertion.urn,
@@ -180,17 +162,6 @@ export const AcrylAssertionList = () => {
             locale={{
                 emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
-            // onRow={(record) => {
-            //     return {
-            //         onClick: (_) => {
-            //             if (showSelect) {
-            //                 onSelect?.(record.urn as string);
-            //             } else {
-            //                 setFocusAssertionUrn(record.urn);
-            //             }
-            //         },
-            //     };
-            // }}
             showHeader={false}
             pagination={false}
         />

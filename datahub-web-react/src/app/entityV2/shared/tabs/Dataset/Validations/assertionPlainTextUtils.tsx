@@ -282,8 +282,12 @@ export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAsse
 
 const getCronAsLabel = (cronSchedule: CronSchedule) => {
     const { cron, timezone } = cronSchedule;
+    if (!cron) {
+        return '';
+    }
     return `${cronstrue.toString(cron).toLocaleLowerCase().replace('at', '')} (${timezone})`;
 };
+
 const createCronText = (cronSchedule: CronSchedule) => {
     return `between cron windows scheduled at ${getCronAsLabel(cronSchedule)}`;
 };
@@ -352,11 +356,11 @@ export const getPlainTextDescriptionFromAssertion = (
             );
             break;
         case AssertionType.Freshness:
-        // primaryLabel = getFreshnessAssertionPlainTextDescription(
-        //     assertionInfo.freshnessAssertion as FreshnessAssertionInfo,
-        //     monitorSchedule as CronSchedule,
-        // );
-        // break;
+            primaryLabel = getFreshnessAssertionPlainTextDescription(
+                assertionInfo.freshnessAssertion as FreshnessAssertionInfo,
+                monitorSchedule as CronSchedule,
+            );
+            break;
         case AssertionType.Volume:
             primaryLabel = getVolumeAssertionPlainTextDescription(assertionInfo.volumeAssertion as VolumeAssertionInfo);
             break;

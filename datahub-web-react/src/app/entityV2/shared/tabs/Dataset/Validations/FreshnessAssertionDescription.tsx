@@ -17,6 +17,9 @@ type Props = {
 
 const getCronAsLabel = (cronSchedule: CronSchedule) => {
     const { cron, timezone } = cronSchedule;
+    if (!cron) {
+        return '';
+    }
     return `${cronstrue.toString(cron).toLocaleLowerCase().replace('at', '')} (${timezone})`;
 };
 const createCronText = (cronSchedule: CronSchedule) => {
