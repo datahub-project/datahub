@@ -5,7 +5,7 @@ import KeyboardArrowRightOutlinedIcon from '@mui/icons-material/KeyboardArrowRig
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { getSubTypeIcon } from '../entityV2/shared/components/subtypes';
 import { BrowsePathV2, Dataset, EntityType, Maybe } from '../../types.generated';
-import { capitalizeFirstLetter } from '../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import { IconStyleType } from '../entityV2/Entity';
 import ContainerLink from './SearchCardBrowsePathContainerLink';
@@ -84,9 +84,9 @@ function StaticSearchCardBrowsePath({ browsePaths, entityType, type, isCompactVi
     return (
         <PlatformContentWrapper>
             {/* This always renders */}
-            <PlatformText $maxWidth={150} $isCompactView={isCompactView} title={capitalizeFirstLetter(type)}>
+            <PlatformText $maxWidth={150} $isCompactView={isCompactView} title={capitalizeFirstLetterOnly(type)}>
                 {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
-                <PlatFormTitle>{capitalizeFirstLetter(type)}</PlatFormTitle>
+                <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
                 {(paths.length > 0 || parentEntity) && divider}
             </PlatformText>
             {/* For parentEntity type */}

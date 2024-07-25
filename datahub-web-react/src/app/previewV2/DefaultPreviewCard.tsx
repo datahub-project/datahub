@@ -157,6 +157,12 @@ const Documentation = styled.div`
     margin-top: 8px;
 `;
 
+const LeftContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+`;
+
 export default function DefaultPreviewCard({
     name,
     urn,
@@ -242,18 +248,35 @@ export default function DefaultPreviewCard({
             {isFullViewCard ? (
                 <>
                     <RowContainer alignment="self-start">
-                        {isIconPresent ? (
-                            <ColoredBackgroundPlatformIconGroup
-                                platformName={platform}
-                                platformLogoUrl={logoUrl}
-                                platformNames={platforms}
-                                platformLogoUrls={logoUrls}
-                                isOutputPort={isOutputPort}
-                                icon={entityIcon}
-                            />
-                        ) : (
-                            <div />
-                        )}
+                        <LeftContainer>
+                            {isIconPresent ? (
+                                <ColoredBackgroundPlatformIconGroup
+                                    platformName={platform}
+                                    platformLogoUrl={logoUrl}
+                                    platformNames={platforms}
+                                    platformLogoUrls={logoUrls}
+                                    isOutputPort={isOutputPort}
+                                    icon={entityIcon}
+                                />
+                            ) : (
+                                <div />
+                            )}
+                            <HeaderContainer>
+                                <EntityHeader
+                                    name={name}
+                                    onClick={onClick}
+                                    previewType={previewType}
+                                    titleSizePx={titleSizePx}
+                                    url={url}
+                                    urn={urn}
+                                    deprecation={deprecation}
+                                    health={health}
+                                    degree={degree}
+                                    connectionName={previewData?.name}
+                                />
+                            </HeaderContainer>
+                        </LeftContainer>
+
                         <ActionsAndStatusSection>
                             <ActionsSection>
                                 {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
@@ -279,22 +302,7 @@ export default function DefaultPreviewCard({
                             </ActionsSection>
                         </ActionsAndStatusSection>
                     </RowContainer>
-                    <RowContainer>
-                        <HeaderContainer>
-                            <EntityHeader
-                                name={name}
-                                onClick={onClick}
-                                previewType={previewType}
-                                titleSizePx={titleSizePx}
-                                url={url}
-                                urn={urn}
-                                deprecation={deprecation}
-                                health={health}
-                                degree={degree}
-                                connectionName={previewData?.name}
-                            />
-                        </HeaderContainer>
-                    </RowContainer>
+
                     {entityType === EntityType.GlossaryTerm && (
                         <RowContainer>
                             <Documentation>{description}</Documentation>

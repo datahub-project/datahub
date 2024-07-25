@@ -11,7 +11,7 @@ import {
     StyledTooltip,
 } from '../entityV2/shared/containers/profile/header/PlatformContent/ParentNodesView';
 import ParentEntities from '../searchV2/filters/ParentEntities';
-import { capitalizeFirstLetter } from '../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import ContainerLink from './SearchCardBrowsePathContainerLink';
 import { IconStyleType, PreviewType } from '../entityV2/Entity';
@@ -131,10 +131,10 @@ function SearchCardBrowsePath(props: Props) {
             <PlatformText
                 $maxWidth={entityTitleWidth}
                 $isCompactView={isCompactView}
-                title={capitalizeFirstLetter(type)}
+                title={capitalizeFirstLetterOnly(type)}
             >
                 {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
-                <PlatFormTitle>{capitalizeFirstLetter(type)}</PlatFormTitle>
+                <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
                 {(!!instanceId || !!parentContainers?.length || !!parentEntities?.length) && divider}
             </PlatformText>
 
