@@ -53,6 +53,8 @@ framework_common = {
     "jsonref",
     "jsonschema",
     "ruamel.yaml",
+    "pytz",
+    "croniter",
 }
 
 pydantic_no_v2 = {
@@ -519,6 +521,7 @@ mypy_stubs = {
     "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
+    "types-croniter",
     "sqlalchemy2-stubs",
 }
 

@@ -22,6 +22,7 @@ from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.validation import validate_cron_schedule, validate_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -270,6 +271,14 @@ def deploy(
     The urn of the ingestion source will be based on the name parameter in the format:
     urn:li:dataHubIngestionSource:<name>
     """
+
+    if schedule:
+        try:
+            validate_cron_schedule(schedule)
+            validate_timezone(time_zone)
+        except Exception as e:
+            click.secho(str(e), fg="red", err=True)
+            sys.exit(1)
 
     datahub_graph = get_default_graph()
 
