@@ -594,19 +594,21 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         }
         type_str = dashboard_element.type
         if not type_str:
-            self.reporter.report_warning(
+            self.reporter.info(
                 title="Unrecognized Chart Type",
-                message=f"Chart type {type_str} is not recognized. Setting to None",
-                context=f"Dashboard Id: {dashboard_element.id}",
+                message="Chart is missing a chart type.",
+                context=f"Chart Id: {dashboard_element.id}",
+                log=False,
             )
             return None
         try:
             chart_type = type_mapping[type_str]
         except KeyError:
-            self.reporter.report_warning(
+            self.reporter.info(
                 title="Unrecognized Chart Type",
                 message=f"Chart type {type_str} is not recognized. Setting to None",
-                context=f"Dashboard Id: {dashboard_element.id}",
+                context=f"Chart Id: {dashboard_element.id}",
+                log=False,
             )
             chart_type = None
 
