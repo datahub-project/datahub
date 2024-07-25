@@ -21,7 +21,6 @@ export const Switch = ({
     isSquare = switchDefaults.isSquare,
     isChecked = switchDefaults.isChecked,
     isDisabled = switchDefaults.isDisabled,
-    isIntermediate = switchDefaults.isIntermediate,
     isRequired = switchDefaults.isRequired,
     ...props
 }: SwitchProps) => {

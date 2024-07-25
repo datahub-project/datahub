@@ -213,7 +213,9 @@ export const SlackSinkSettingsSection = ({
                                         </a>
                                     </>
                                 ) : (
-                                    <>If this is a private channel, ensure the Acryl Slack bot has been added to it.</>
+                                    <>
+                                        If this is a private channel, ensure the DataHub Slack bot has been added to it.
+                                    </>
                                 )}
                             </HelperText>
                         ) : (

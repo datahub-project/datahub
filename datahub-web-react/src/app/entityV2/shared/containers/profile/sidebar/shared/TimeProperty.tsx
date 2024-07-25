@@ -24,14 +24,14 @@ interface Props {
 }
 
 const TimeProperty = ({ labelText, time, titleTip }: Props) => {
-    const time = moment(time).format('hh:mm A');
+    const timeFormatted = moment(time).format('hh:mm A');
     return (
         <PropertyContainer>
             <Tooltip showArrow={false} title={titleTip}>
                 <LabelText>{labelText}</LabelText>
             </Tooltip>
             {!!time && (
-                <Tooltip showArrow={false} title={`${toLocalDateString(time)} at ${time}`}>
+                <Tooltip showArrow={false} title={`${toLocalDateString(time)} at ${timeFormatted}`}>
                     <UpdatedTime>{toRelativeTimeString(time)}</UpdatedTime>
                 </Tooltip>
             )}

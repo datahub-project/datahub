@@ -49,7 +49,7 @@ export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDis
         position: 'relative',
 
         backgroundColor: colors.gray[100],
-        padding: `${parseInt(spacing.xxsm) + 2}px`,
+        padding: `${parseInt(spacing.xxsm, 10) + 2}px`,
         transition: `${transition.duration.slow} all`,
     },
 );
