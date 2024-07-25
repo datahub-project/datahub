@@ -1,15 +1,16 @@
 import { Layout } from 'antd';
-import React from 'react';
-import { Route, Switch } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Route, Switch, useHistory, useLocation } from 'react-router-dom';
 import DataHubTitle from './DataHubTitle';
 import AcrylRoutes from './AcrylRoutes';
 import { HomePage } from './home/HomePage';
 import { HomePage as HomePageV2 } from './homeV2/HomePage';
 import { SearchRoutes } from './SearchRoutes';
 import EmbedRoutes from './EmbedRoutes';
-import { AcrylPageRoutes, PageRoutes } from '../conf/Global';
+import { AcrylPageRoutes, NEW_ROUTE_MAP, PageRoutes } from '../conf/Global';
 import { useIsThemeV2 } from './useIsThemeV2';
 import { OnboardingContextProvider } from './onboarding/OnboardingContextProvider';
+import { getRedirectUrl } from '../conf/utils';
 
 /**
  * Container for all views behind an authentication wall.
@@ -17,6 +18,16 @@ import { OnboardingContextProvider } from './onboarding/OnboardingContextProvide
 export const ProtectedRoutes = (): JSX.Element => {
     const isThemeV2 = useIsThemeV2();
     const FinalHomePage = isThemeV2 ? HomePageV2 : HomePage;
+
+    const location = useLocation();
+    const history = useHistory();
+
+    useEffect(() => {
+        if (location.pathname.indexOf('/Validation') !== -1) {
+            history.replace(getRedirectUrl(NEW_ROUTE_MAP));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location]);
 
     return (
         <OnboardingContextProvider>
