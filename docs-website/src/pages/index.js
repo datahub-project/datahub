@@ -39,16 +39,16 @@ function Home() {
       description="DataHub is a data discovery application built on an extensible data catalog that helps you tame the complexity of diverse data ecosystems."
     >
       <Hero />
-      <div style={{ backgroundColor: 'var(--ifm-background-surface-color)' }}>
+      <div style={{ backgroundColor: "var(--ifm-background-surface-color)" }}>
         <CompanyLogos />
         <div style={{ textAlign: "center", margin: "1rem" }}>
-        <Link
-          className="button button--secondary button--md"
-          to={useBaseUrl("docs/what-is-datahub/customer-stories")}
-        >
-          Check Out Adoption Stories →
-        </Link>
-      </div>
+          <Link
+            className="button button--secondary button--md"
+            to={useBaseUrl("docs/what-is-datahub/customer-stories")}
+          >
+            Check Out Adoption Stories →
+          </Link>
+        </div>
       </div>
       <QuickstartContent />
       <Features />
