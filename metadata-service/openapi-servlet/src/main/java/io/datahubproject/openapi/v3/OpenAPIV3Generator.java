@@ -82,6 +82,20 @@ public class OpenAPIV3Generator {
         "SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
     components.addSchemas("AspectPatch", buildAspectPatchSchema());
+    components.addSchemas(
+        "BatchGetRequestBody",
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .description("Request body for batch get aspects.")
+            .properties(
+                Map.of(
+                    "headers",
+                    new Schema<>()
+                        .type(TYPE_OBJECT)
+                        .additionalProperties(new Schema<>().type(TYPE_STRING))
+                        .description("System headers for the operation.")
+                        .nullable(true)))
+            .nullable(true));
     entityRegistry
         .getAspectSpecs()
         .values()
@@ -533,12 +547,12 @@ public class OpenAPIV3Generator {
                           String $ref = schema.get$ref();
                           boolean isNameRequired = requiredNames.contains(name);
                           if ($ref != null && !isNameRequired) {
-                            // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+                            // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
                             // object to allow the
                             // property to be marked as nullable
                             schema.setType(TYPE_OBJECT);
                             schema.set$ref(null);
-                            schema.setAllOf(List.of(new Schema().$ref($ref)));
+                            schema.setAnyOf(List.of(new Schema().$ref($ref)));
                           }
                           schema.setNullable(!isNameRequired);
                         });
@@ -564,7 +578,7 @@ public class OpenAPIV3Generator {
         "systemMetadata",
         new Schema<>()
             .type(TYPE_OBJECT)
-            .allOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
             .description("System metadata for the aspect.")
             .nullable(true));
     return result;
@@ -581,7 +595,7 @@ public class OpenAPIV3Generator {
         "systemMetadata",
         new Schema<>()
             .type(TYPE_OBJECT)
-            .allOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
             .description("System metadata for the aspect.")
             .nullable(true));
 
@@ -645,28 +659,19 @@ public class OpenAPIV3Generator {
   private static Schema buildEntityBatchGetRequestSchema(
       final EntitySpec entity, Set<String> aspectNames) {
 
-    final Schema stringTypeSchema = new Schema<>();
-    stringTypeSchema.setType(TYPE_STRING);
-    final Map<String, Schema> headers =
-        Map.of(
-            "headers",
-            new Schema<>()
-                .type(TYPE_OBJECT)
-                .additionalProperties(stringTypeSchema)
-                .description("System headers for the operation.")
-                .nullable(true));
-
     final Map<String, Schema> properties =
         entity.getAspectSpecMap().entrySet().stream()
             .filter(a -> aspectNames.contains(a.getValue().getName()))
             .collect(
                 Collectors.toMap(
-                    Map.Entry::getKey, a -> new Schema().type(TYPE_OBJECT).properties(headers)));
+                    Map.Entry::getKey,
+                    a -> new Schema().$ref("#/components/schemas/BatchGetRequestBody")));
     properties.put(
         PROPERTY_URN,
         new Schema<>().type(TYPE_STRING).description("Unique id for " + entity.getName()));
 
-    properties.put(entity.getKeyAspectName(), new Schema().type(TYPE_OBJECT).properties(headers));
+    properties.put(
+        entity.getKeyAspectName(), new Schema().$ref("#/components/schemas/BatchGetRequestBody"));
 
     return new Schema<>()
         .type(TYPE_OBJECT)
@@ -676,7 +681,7 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
-    // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+    // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
     // object to allow the
     // property to be marked as nullable
     final Schema result = new Schema<>();
@@ -692,7 +697,7 @@ public class OpenAPIV3Generator {
       internalRef =
           String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
-    result.setAllOf(List.of(new Schema().$ref(internalRef)));
+    result.setAnyOf(List.of(new Schema().$ref(internalRef)));
     return result;
   }
 

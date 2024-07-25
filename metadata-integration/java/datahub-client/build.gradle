@@ -21,13 +21,15 @@ dependencies {
     exclude group: "org.apache.avro"
   }
   implementation externalDependency.avro
+  implementation externalDependency.httpClient
+
   constraints {
     implementation('commons-collections:commons-collections:3.2.2') {
       because 'Vulnerability Issue'
     }
   }
 
-  compileOnly externalDependency.httpClient
+  implementation externalDependency.awsS3
   implementation externalDependency.jacksonDataBind
   runtimeOnly externalDependency.jna
 
@@ -41,7 +43,6 @@ dependencies {
   testImplementation externalDependency.mockServer
   testImplementation externalDependency.mockServerClient
   testImplementation externalDependency.testContainers
-  testImplementation externalDependency.httpClient
   testRuntimeOnly externalDependency.logbackClassic
 }
 
@@ -105,6 +106,8 @@ shadowJar {
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
   relocate 'org.xerial.snappy', 'datahub.shaded.org.xerial.snappy'
   relocate 'org.apache.kafka', 'datahub.shaded.org.apache.kafka'
+  relocate 'org.apache.http', 'datahub.shaded.org.apache.http'
+  relocate 'software.amazon.awssdk', 'datahub.shaded.software.amazon.awssdk'
   relocate 'io.confluent', 'datahub.shaded.io.confluent'
   relocate 'org.apache.zookeeper', 'datahub.shaded.org.apache.zookeeper'
   relocate 'org.apache.yetus', 'datahub.shaded.org.apache.yetus'
@@ -121,7 +124,9 @@ shadowJar {
   relocate 'org.eclipse.parsson', 'datahub.shaded.parsson'
   relocate 'jakarta.json', 'datahub.shaded.json'
   relocate 'io.netty', 'datahub.shaded.io.netty'
-
+  relocate 'org.apache.hc', 'datahub.shaded.org.apache.hc'
+  relocate 'org.reactivestreams', 'datahub.shaded.org.reactivestreams'
+  relocate 'software.amazon.eventstream', 'datahub.shaded.software.amazon.eventstream'
   finalizedBy checkShadowJar
 }
 
