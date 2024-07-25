@@ -93,7 +93,7 @@ This environment variable substitution should be used to mask sensitive informat
 ### Loading Sensitive Data as Files in Recipes
 
 
-Some sources (e.g. kafka, bigquery, mysql) require paths to files on a local file system. This doesn't work for UI ingestion, where the container needs to be totally self-sufficient. To add files to ingestion processes as part of the necessary configuration DataHub offers a directive `__DATAHUB_TO_FILE_` which allows recipes to load content as files.
+Some sources (e.g. kafka, bigquery, mysql) require paths to files on a local file system. This doesn't work for UI ingestion, where the recipe needs to be totally self-sufficient. To add files to ingestion processes as part of the necessary configuration, DataHub offers a directive `__DATAHUB_TO_FILE_` which allows recipes to set the contents of files.
 
 The syntax for this directive is: `__DATAHUB_TO_FILE_<property>: <value>` which will get turned into `<property>: <path to file containing value>`. Note that value can be specified inline or using an env var/secret.
 
