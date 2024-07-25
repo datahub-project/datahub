@@ -78,7 +78,7 @@ export const Name = styled.div`
 `;
 
 export const TitleRole = styled.div`
-    font-size: 10px;
+    font-size: 12px;
     line-height: 18px;
     color: ${ANTD_GRAY_V2['11']};
     text-align: left;

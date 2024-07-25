@@ -29,7 +29,7 @@ const TimeProperty = ({ labelText, time, titleTip }: Props) => {
                 <LabelText>{labelText}</LabelText>
             </Tooltip>
             {!!time && (
-                <Tooltip title={toLocalDateString(time)}>
+                <Tooltip showArrow={false} title={toLocalDateString(time)}>
                     <UpdatedTime>{toRelativeTimeString(time)}</UpdatedTime>
                 </Tooltip>
             )}

@@ -283,7 +283,7 @@ export const SearchResults = ({
                                                             isActive={isFullViewCard}
                                                             onClick={() => setIsFullViewCard(true)}
                                                         >
-                                                            <Tooltip title="Full Card View">
+                                                            <Tooltip showArrow={false} title="Full Card View">
                                                                 <ViewDayOutlinedIcon
                                                                     style={{
                                                                         fontSize: '16px',
@@ -295,7 +295,7 @@ export const SearchResults = ({
                                                             isActive={!isFullViewCard}
                                                             onClick={() => setIsFullViewCard(false)}
                                                         >
-                                                            <Tooltip title="Compact Card View">
+                                                            <Tooltip showArrow={false} title="Compact Card View">
                                                                 <ViewHeadlineOutlinedIcon
                                                                     style={{
                                                                         fontSize: '16px',
