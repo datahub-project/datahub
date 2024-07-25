@@ -7,7 +7,7 @@ import styles from "./styles.module.scss";
 
 import customerStoriesIndexes from "../../../customerStoriesIndexes.json";
 
-function BlogListPageContent() {
+function AdoptionStoriesListPageContent() {
   const companies = (customerStoriesIndexes?.companies || []).filter((company) => company.link);
   const [activeFilters, setActiveFilters] = useState([]);
   const categories = ["B2B & B2C", "Financial & Fintech", "E-Commerce", "And More"];
@@ -59,10 +59,8 @@ function BlogListPageContent() {
   );
 }
 
-export default function BlogListPage() {
+export default function AdoptionStoriesListPage() {
   return (
-    <HtmlClassNameProvider className={clsx(ThemeClassNames.wrapper.blogPages, ThemeClassNames.page.blogListPage)}>
-      <BlogListPageContent />
-    </HtmlClassNameProvider>
+      <AdoptionStoriesListPageContent />
   );
 }
