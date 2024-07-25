@@ -171,6 +171,21 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = _MISSING_SERVER_ID
             logger.debug(f"Failed to get server id due to {e}")
 
+    @property
+    def frontend_base_url(self) -> str:
+        """Get the public-facing base url of the frontend
+
+        This url can be used to construct links to the frontend. The url will not include a trailing slash.
+        """
+
+        if not self.server_config:
+            self.test_connection()
+
+        base_url = self.server_config.get("baseUrl")
+        if not base_url:
+            raise ValueError("baseUrl not found in server config")
+        return base_url
+
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
         return cls(
@@ -812,6 +827,7 @@ class DataHubGraph(DatahubRestEmitter):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[SearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -841,7 +857,13 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Env filter.
         orFilters = generate_filter(
-            platform, platform_instance, env, container, status, extraFilters
+            platform,
+            platform_instance,
+            env,
+            container,
+            status,
+            extraFilters,
+            extra_or_filters=extra_or_filters,
         )
 
         graphql_query = textwrap.dedent(
@@ -884,6 +906,131 @@ class DataHubGraph(DatahubRestEmitter):
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
+
+    def get_results_by_filter(
+        self,
+        *,
+        entity_types: Optional[List[str]] = None,
+        platform: Optional[str] = None,
+        platform_instance: Optional[str] = None,
+        env: Optional[str] = None,
+        query: Optional[str] = None,
+        container: Optional[str] = None,
+        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
+        batch_size: int = 10000,
+        extra_and_filters: Optional[List[SearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
+        extra_source_fields: Optional[List[str]] = None,
+        skip_cache: bool = False,
+    ) -> Iterable[dict]:
+        """Fetch all results that match all of the given filters.
+
+        Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
+        Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
+        The same goes for the env filter.
+
+        :param entity_types: List of entity types to include. If None, all entity types will be returned.
+        :param platform: Platform to filter on. If None, all platforms will be returned.
+        :param platform_instance: Platform instance to filter on. If None, all platform instances will be returned.
+        :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+        :param query: Query string to filter on. If None, all entities will be returned.
+        :param container: A container urn that entities must be within.
+            This works recursively, so it will include entities within sub-containers as well.
+            If None, all entities will be returned.
+            Note that this requires browsePathV2 aspects (added in 0.10.4+).
+        :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
+        :param extra_and_filters: Additional filters to apply. If specified, the
+            results will match all of the filters.
+        :param extra_or_filters: Additional filters to apply. If specified, the
+            results will match any of the filters.
+
+        :return: An iterable of urns that match the filters.
+        """
+
+        types = self._get_types(entity_types)
+
+        # Add the query default of * if no query is specified.
+        query = query or "*"
+
+        or_filters_final = generate_filter(
+            platform,
+            platform_instance,
+            env,
+            container,
+            status,
+            extra_and_filters,
+            extra_or_filters,
+        )
+        graphql_query = textwrap.dedent(
+            """
+            query scrollUrnsWithFilters(
+                $types: [EntityType!],
+                $query: String!,
+                $orFilters: [AndFilterInput!],
+                $batchSize: Int!,
+                $scrollId: String,
+                $skipCache: Boolean!,
+                $fetchExtraFields: [String!]) {
+
+                scrollAcrossEntities(input: {
+                    query: $query,
+                    count: $batchSize,
+                    scrollId: $scrollId,
+                    types: $types,
+                    orFilters: $orFilters,
+                    searchFlags: {
+                        skipHighlighting: true
+                        skipAggregates: true
+                        skipCache: $skipCache
+                        fetchExtraFields: $fetchExtraFields
+                    }
+                }) {
+                    nextScrollId
+                    searchResults {
+                        entity {
+                            urn
+                        }
+                    }
+                }
+            }
+            """
+        )
+
+        variables = {
+            "types": types,
+            "query": query,
+            "orFilters": or_filters_final,
+            "batchSize": batch_size,
+            "skipCache": "true" if skip_cache else "false",
+            "fetchExtraFields": extra_source_fields,
+        }
+
+        for result in self._scroll_across_entities_results(graphql_query, variables):
+            yield result
+
+    def _scroll_across_entities_results(
+        self, graphql_query: str, variables_orig: dict
+    ) -> Iterable[dict]:
+        variables = variables_orig.copy()
+        first_iter = True
+        scroll_id: Optional[str] = None
+        while first_iter or scroll_id:
+            first_iter = False
+            variables["scrollId"] = scroll_id
+
+            response = self.execute_graphql(
+                graphql_query,
+                variables=variables,
+            )
+            data = response["scrollAcrossEntities"]
+            scroll_id = data["nextScrollId"]
+            for entry in data["searchResults"]:
+                yield entry
+
+            if scroll_id:
+                logger.debug(
+                    f"Scrolling to next scrollAcrossEntities page: {scroll_id}"
+                )
 
     def _scroll_across_entities(
         self, graphql_query: str, variables_orig: dict
