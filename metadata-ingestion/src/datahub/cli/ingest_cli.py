@@ -310,46 +310,37 @@ def deploy(
     if deploy_options_raw is not None:
         deploy_options = DeployOptions.parse_obj(deploy_options_raw)
 
-        logger.info(f"Using {repr(deploy_options)}")
-
-        if urn:
+        if name:
+            logger.info(f"Overriding deployment name {deploy_options.name} with {name}")
+            deploy_options.name = name
+    else:
+        if not name:
             raise click.UsageError(
-                "Cannot specify both --urn and deployment field in config"
+                "Either --name must be set or deployment_name specified in the config"
             )
-        elif name:
-            raise click.UsageError(
-                "Cannot specify both --name and deployment field in config"
-            )
-        else:
-            logger.info(
-                "The deployment field is set in the recipe, any CLI args will be ignored"
-            )
+        deploy_options = DeployOptions(name=name)
 
+    # Use remaining CLI args to override deploy_options
+    if description:
+        deploy_options.description = description
+    if schedule:
+        deploy_options.schedule = schedule
+    if time_zone:
+        deploy_options.time_zone = time_zone
+    if cli_version:
+        deploy_options.cli_version = cli_version
+    if executor_id:
+        deploy_options.executor_id = executor_id
+
+    logger.info(f"Using {repr(deploy_options)}")
+
+    if deploy_options.description:
+        logger.warning("Description was set, but it is not shown anywhere in the UI")
+
+    if not urn:
         # When urn/name is not specified, we will generate a unique urn based on the deployment name.
         urn = _make_ingestion_urn(deploy_options.name)
-        logger.info(f"Will create or update a recipe with urn: {urn}")
-    elif name:
-        if not urn:
-            # When the urn is not specified, generate an urn based on the name.
-            urn = _make_ingestion_urn(name)
-            logger.info(
-                f"No urn was explicitly specified, will create or update the recipe with urn: {urn}"
-            )
-
-        deploy_options = DeployOptions(
-            name=name,
-            description=description,
-            schedule=schedule,
-            time_zone=time_zone,
-            cli_version=cli_version,
-            executor_id=executor_id,
-        )
-
-        logger.info(f"Using {repr(deploy_options)}")
-    else:  # neither deployment_name nor name is set
-        raise click.UsageError(
-            "Either --name must be set or deployment_name specified in the config"
-        )
+        logger.info(f"Using recipe urn: {urn}")
 
     # Invariant - at this point, both urn and deploy_options are set.
 
@@ -400,7 +391,7 @@ def deploy(
     response = datahub_graph.execute_graphql(graphql_query, variables=variables)
 
     click.echo(
-        f"✅ Successfully wrote data ingestion source metadata for recipe {name}:"
+        f"✅ Successfully wrote data ingestion source metadata for recipe {deploy_options.name}:"
     )
     click.echo(response)
 

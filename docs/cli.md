@@ -203,7 +203,6 @@ source: ...
 
 ```shell
 datahub ingest deploy -c deployment_recipe.yml
-# Note that when deployment options are specified in the recipe, all other CLI options are ignored.
 ```
 
 This can be particularly useful when you want all recipes should be stored in version control.
