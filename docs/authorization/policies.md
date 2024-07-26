@@ -105,7 +105,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Manage Monitors[^2]                           | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.                                                                        |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-[^2]: Managed DataHub only
+[^2]: DataHub Cloud only
 
 ##### Common metadata privileges
 These privileges are to view & modify any entity within DataHub.
@@ -146,7 +146,7 @@ These privileges are to view & modify any entity within DataHub.
 | Share Entity[^2]                    | Allow actor to share an entity with another Acryl instance.                                |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
-[^2]: Managed DataHub only
+[^2]: DataHub Cloud only
 
 ##### Specific entity-level privileges
 These privileges are not generalizable.

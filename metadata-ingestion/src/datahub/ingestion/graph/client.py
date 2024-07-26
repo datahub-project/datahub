@@ -185,7 +185,7 @@ class DataHubGraph(DatahubRestEmitter):
         """Get the public-facing base url of the frontend
 
         This url can be used to construct links to the frontend. The url will not include a trailing slash.
-        Note: Only supported with Acryl Cloud.
+        Note: Only supported with DataHub Cloud.
         """
 
         if not self.server_config:
@@ -632,7 +632,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_connection_json(self, urn: str) -> Optional[dict]:
         """Retrieve a connection config.
 
-        This is only supported with Acryl Cloud.
+        This is only supported with DataHub Cloud.
 
         Args:
             urn: The urn of the connection.
@@ -677,7 +677,7 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> None:
         """Set a connection config.
 
-        This is only supported with Acryl Cloud.
+        This is only supported with DataHub Cloud.
 
         Args:
             urn: The urn of the connection.
@@ -938,7 +938,7 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> Iterable[dict]:
         """Fetch all results that match all of the given filters.
 
-        Note: Only supported with Acryl Cloud.
+        Note: Only supported with DataHub Cloud.
 
         Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
         Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.

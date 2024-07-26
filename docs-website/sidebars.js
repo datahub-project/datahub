@@ -200,7 +200,7 @@ module.exports = {
       ],
     },
     {
-      label: "Managed DataHub",
+      label: "DataHub Cloud",
       type: "category",
       collapsed: true,
       link: {
@@ -280,7 +280,7 @@ module.exports = {
           className: "saasOnly",
         },
         {
-          "Managed DataHub Release History": [
+          "DataHub Cloud Release History": [
             "docs/managed-datahub/release-notes/v_0_3_3",
             "docs/managed-datahub/release-notes/v_0_3_2",
             "docs/managed-datahub/release-notes/v_0_3_1",

@@ -73,9 +73,9 @@ in DataHub.
 
 ### Role Privileges
 
-#### Self-Hosted DataHub and Managed DataHub
+#### Self-Hosted DataHub and DataHub Cloud
 
-These privileges are common to both Self-Hosted DataHub and Managed DataHub.
+These privileges are common to both Self-Hosted DataHub and DataHub Cloud.
 
 ##### Platform Privileges
 
@@ -146,9 +146,9 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | Explain ElasticSearch Query API    | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to use the Operations API explain endpoint.                                          |
 | Produce Platform Event API         | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to produce Platform Events using the API.                                            |
 
-#### Managed DataHub
+#### DataHub Cloud
 
-These privileges are only relevant to Managed DataHub.
+These privileges are only relevant to DataHub Cloud.
 
 ##### Platform Privileges
 

@@ -68,7 +68,7 @@ For more information and examples on configuring recipes, please refer to [Recip
 
 
 ### Using Recipes with Authentication
-In Acryl DataHub deployments, only the `datahub-rest` sink is supported, which simply means that metadata will be pushed to the REST endpoints exposed by your DataHub instance. The required configurations for this sink are
+In DataHub Cloud deployments, only the `datahub-rest` sink is supported, which simply means that metadata will be pushed to the REST endpoints exposed by your DataHub instance. The required configurations for this sink are
 
 1. **server**: the location of the REST API exposed by your instance of DataHub
 2. **token**: a unique API key used to authenticate requests to your instance's REST API
@@ -85,7 +85,7 @@ The token can be retrieved by logging in as admin. You can go to Settings page a
 
 :::info Secure Your API Key
 Please keep Your API key secure & avoid sharing it. 
-If you are on Acryl Cloud and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.
+If you are on DataHub Cloud and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.
 :::
 
 
