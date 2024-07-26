@@ -244,8 +244,8 @@ class BigQueryQueriesExtractor:
                 resp = self.connection.query(query_log_query)
 
                 for i, row in enumerate(resp):
-                    if i % 1000 == 0:
-                        logger.info(f"Processed {i} query log rows")
+                    if i > 0 and i % 1000 == 0:
+                        logger.info(f"Processed {i} query log rows so far")
 
                     try:
                         entry = self._parse_audit_log_row(row)
