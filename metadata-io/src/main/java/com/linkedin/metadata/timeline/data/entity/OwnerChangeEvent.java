@@ -42,7 +42,7 @@ public class OwnerChangeEvent extends ChangeEvent {
 
   private static ImmutableMap<String, Object> buildParameters(
       Urn ownerUrn, OwnershipType ownerType, Urn ownerTypeUrn) {
-    var builder =
+    ImmutableMap.Builder<String, Object> builder =
         new ImmutableMap.Builder<String, Object>()
             .put("ownerUrn", ownerUrn.toString())
             .put("ownerType", ownerType.toString());
