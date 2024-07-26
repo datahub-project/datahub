@@ -31,7 +31,10 @@ from tableauserverclient import (
     SiteItem,
     TableauAuth,
 )
-from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
+from tableauserverclient.server.endpoint.exceptions import (
+    NonXMLResponseError,
+    NotSignedInError,
+)
 from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
@@ -966,7 +969,13 @@ class TableauSiteSource:
             query_data = query_metadata(
                 self.server, query, connection_type, count, offset, query_filter
             )
-        except NonXMLResponseError:
+        except (
+            # On earlier versions of the tableauserverclient, the NonXMLResponseError
+            # was thrown when reauthentication was needed. We'll keep both exceptions
+            # around for now, but can remove this in the future.
+            NonXMLResponseError,
+            NotSignedInError,
+        ):
             if not retry_on_auth_error:
                 raise
 
@@ -1049,11 +1058,16 @@ class TableauSiteSource:
                     # If it was only a timeout error, we can retry.
                     if retries_remaining <= 0:
                         raise
-                    logger.info(
-                        f"Query {connection_type} received a 30 second timeout error - will retry in a few seconds"
-                    )
+
                     # This is a pretty dumb backoff mechanism, but it's good enough for now.
-                    time.sleep(60 / retries_remaining)
+                    backoff_time = min(
+                        (self.config.max_retries - retries_remaining + 1) ** 2, 60
+                    )
+                    logger.info(
+                        f"Query {connection_type} received a 30 second timeout error - will retry in {backoff_time} seconds. "
+                        f"Retries remaining: {retries_remaining}"
+                    )
+                    time.sleep(backoff_time)
                     return self.get_connection_object_page(
                         query,
                         connection_type,
