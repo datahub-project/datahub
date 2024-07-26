@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import auto
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import more_itertools
 import pydantic
 from pydantic import root_validator, validator
 from pydantic.fields import Field
@@ -1309,8 +1310,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspect=self._make_data_platform_instance_aspect(),
                 ).as_workunit()
 
+                standalone_aspects, snapshot_aspects = more_itertools.partition(
+                    (
+                        lambda aspect: mce_builder.can_add_aspect_to_snapshot(
+                            DatasetSnapshot, type(aspect)
+                        )
+                    ),
+                    aspects,
+                )
+                for aspect in standalone_aspects:
+                    # The domains aspect, and some others, may not support being added to the snapshot.
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=node_datahub_urn,
+                        aspect=aspect,
+                    ).as_workunit()
+
                 dataset_snapshot = DatasetSnapshot(
-                    urn=node_datahub_urn, aspects=aspects
+                    urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
@@ -1587,6 +1603,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             and self.config.enable_meta_mapping
         ):
             aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
+
+        # add meta domains aspect
+        if meta_aspects.get(Constants.ADD_DOMAIN_OPERATION):
+            aspects.append(meta_aspects.get(Constants.ADD_DOMAIN_OPERATION))
 
         # add meta links aspect
         meta_links_aspect = meta_aspects.get(Constants.ADD_DOC_LINK_OPERATION)
