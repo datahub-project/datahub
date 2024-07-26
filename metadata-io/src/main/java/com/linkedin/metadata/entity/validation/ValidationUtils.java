@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity.validation;
 
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
+
 import com.codahale.metrics.Timer;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -225,6 +227,7 @@ public class ValidationUtils {
                 entityService,
                 true,
                 false)
+            .filter((rel) -> !rel.getEntity().getEntityType().equals(QUERY_ENTITY_NAME))
             .collect(Collectors.toCollection(LineageRelationshipArray::new));
 
     validatedEntityLineageResult.setFiltered(
