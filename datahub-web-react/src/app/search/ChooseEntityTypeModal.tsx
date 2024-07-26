@@ -16,6 +16,10 @@ export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title
     const entityRegistry = useEntityRegistry();
     const entityTypes = entityRegistry.getSearchEntityTypes();
 
+    entityTypes.sort((a, b) => {
+        return entityRegistry.getCollectionName(a).localeCompare(entityRegistry.getCollectionName(b));
+    });
+
     const [stagedValues, setStagedValues] = useState(defaultValues || []);
 
     const addEntityType = (newType) => {
@@ -54,6 +58,10 @@ export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title
                     label: entityRegistry.getCollectionName(stagedEntityType as EntityType),
                 }))}
                 dropdownMatchSelectWidth={false}
+                filterOption={(input, option) =>
+                    (option?.children?.toString() || '').toLocaleLowerCase().includes(input.toLocaleLowerCase()) ||
+                    (option?.value?.toString() || '').toLocaleLowerCase().includes(input.toLocaleLowerCase())
+                }
             >
                 {entityTypes.map((type) => (
                     <Option key={type} value={type}>

@@ -15,6 +15,7 @@ import { Preview } from './preview/Preview';
 import { PageRoutes } from '../../../conf/Global';
 import BusinessAttributeRelatedEntity from './profile/BusinessAttributeRelatedEntity';
 import { BusinessAttributeDataTypeSection } from './profile/BusinessAttributeDataTypeSection';
+import { useAppConfig } from '../../useAppConfig';
 
 /**
  *  Definition of datahub Business Attribute Entity
@@ -65,7 +66,10 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
 
     isLineageEnabled = () => false;
 
-    isSearchEnabled = () => true;
+    isSearchEnabled = () => {
+        const appConfig = useAppConfig();
+        return appConfig.config.featureFlags.businessAttributeEntityEnabled;
+    };
 
     getOverridePropertiesFromEntity = (data: BusinessAttribute) => {
         return {

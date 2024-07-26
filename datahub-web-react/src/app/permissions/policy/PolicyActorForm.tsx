@@ -266,6 +266,14 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                                         </Tag>
                                     );
                                 }}
+                                filterOption={(input, option) =>
+                                    (option?.children?.toString() || '')
+                                        .toLocaleLowerCase()
+                                        .includes(input.toLocaleLowerCase()) ||
+                                    (option?.value?.toString() || '')
+                                        .toLocaleLowerCase()
+                                        .includes(input.toLocaleLowerCase())
+                                }
                             >
                                 {ownershipTypes.map((resOwnershipType) => {
                                     return (
