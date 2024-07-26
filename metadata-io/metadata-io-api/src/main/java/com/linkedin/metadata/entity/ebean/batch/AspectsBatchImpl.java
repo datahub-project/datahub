@@ -93,8 +93,9 @@ public class AspectsBatchImpl implements AspectsBatch {
 
     LinkedList<ChangeMCP> newItems =
         applyMCPSideEffects(upsertBatchItems).collect(Collectors.toCollection(LinkedList::new));
-    Map<String, Set<String>> newUrnAspectNames = getNewUrnAspectsMap(getUrnAspectsMap(), newItems);
     upsertBatchItems.addAll(newItems);
+    Map<String, Set<String>> newUrnAspectNames =
+        getNewUrnAspectsMap(getUrnAspectsMap(), upsertBatchItems);
 
     return Pair.of(newUrnAspectNames, upsertBatchItems);
   }
