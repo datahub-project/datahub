@@ -33,7 +33,7 @@ describe("create and manage freshness assertion", () => {
     cy.wait(3000);
     cy.handleIntroducePage();
     cy.goToDataset(datasetUrn, datasetName);
-    cy.openEntityTab("Validation");
+    cy.openEntityTab("Quality");
     cy.waitTextVisible("No assertions have run");
     cy.get("#create-assertion-btn-main").click();
     cy.waitTextVisible("New Assertion Monitor");

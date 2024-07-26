@@ -36,7 +36,7 @@ describe("create and manage volume assertion", () => {
     cy.wait(2000);
     cy.handleIntroducePage();
     cy.goToDataset(datasetUrn, datasetName);
-    cy.openEntityTab("Validation");
+    cy.openEntityTab("Quality");
     cy.waitTextVisible("No assertions have run");
     enableButtonWithId("#create-assertion-btn-main");
     cy.get("#create-assertion-btn-main").click();

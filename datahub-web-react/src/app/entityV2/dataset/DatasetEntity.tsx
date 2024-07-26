@@ -58,6 +58,8 @@ import { SidebarTitleActionType, getDataProduct, isOutputPort, getDatasetLastUpd
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
+import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
+import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -202,9 +204,23 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Validation',
+                    name: 'Quality',
                     component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                     icon: CheckCircleOutlined,
+                },
+                {
+                    name: 'Governance',
+                    icon: () => (
+                        <span
+                            style={{
+                                marginRight: 6,
+                                verticalAlign: '-0.2em',
+                            }}
+                        >
+                            <GovernMenuIcon width={16} height={16} fill="currentColor" />
+                        </span>
+                    ),
+                    component: GovernanceTab,
                 },
                 {
                     name: 'Runs', // TODO: Rename this to DatasetRunsTab.

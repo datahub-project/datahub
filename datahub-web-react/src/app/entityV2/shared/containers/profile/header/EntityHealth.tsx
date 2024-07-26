@@ -41,5 +41,5 @@ export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement, noLi
 
     if (!unhealthy && !healthy) return null;
     if (noLink) return body;
-    return <Link to={`${baseUrl}/Validation`}>{body}</Link>;
+    return <Link to={`${baseUrl}/Quality`}>{body}</Link>;
 };

@@ -2,9 +2,8 @@ import React, { useEffect } from 'react';
 import { Button, Tooltip } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { AuditOutlined, FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
+import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
-import { AcrylTestResults } from './AcrylTestResults';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
@@ -28,8 +27,7 @@ const TabButton = styled(Button)<{ selected: boolean }>`
 `;
 
 enum TabPaths {
-    ASSERTIONS = 'Assertions',
-    TESTS = 'Tests',
+    ASSERTIONS = 'List',
     DATA_CONTRACT = 'Data Contract',
 }
 
@@ -47,10 +45,6 @@ export const AcrylValidationsTab = () => {
     const appConfig = useAppConfig();
 
     const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
-
-    const passingTests = (entityData as any)?.testResults?.passing || [];
-    const failingTests = (entityData as any)?.testResults?.failing || [];
-    const totalTests = failingTests.length + passingTests.length;
     const combinedData = isHideSiblingMode ? assertionsData : combineEntityDataWithSiblings(assertionsData);
     const totalAssertions = combinedData?.dataset?.assertions?.assertions?.length || 0;
 
@@ -78,17 +72,6 @@ export const AcrylValidationsTab = () => {
             path: TabPaths.ASSERTIONS,
             disabled: false, // Always keep the assertions tab clickable in saas.
             content: <AcrylAssertions />,
-        },
-        {
-            title: (
-                <>
-                    <FileDoneOutlined />
-                    <TabTitle>Tests ({totalTests})</TabTitle>
-                </>
-            ),
-            path: TabPaths.TESTS,
-            disabled: totalTests === 0,
-            content: <AcrylTestResults urn={urn} />,
         },
     ];
 
