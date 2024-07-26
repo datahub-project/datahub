@@ -90,6 +90,42 @@ class TestPipeline:
         "datahub.ingestion.graph.client.DataHubGraph.get_config",
         return_value={"noCode": True},
     )
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-internal-server:8080"),
+    )
+    @patch(
+        "datahub.cli.config_utils.get_system_auth",
+        return_value="Basic user:pass",
+    )
+    def test_configure_without_sink_use_system_auth(
+        self, mock_emitter, mock_graph, mock_load_client_config, mock_get_system_auth
+    ):
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        # assert that the default sink is a DatahubRestSink
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink.config.server == "http://fake-internal-server:8080"
+        assert pipeline.sink.config.token is None
+        assert (
+            pipeline.sink.emitter._session.headers["Authorization"] == "Basic user:pass"
+        )
+
+    @freeze_time(FROZEN_TIME)
+    @patch(
+        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        return_value={"noCode": True},
+    )
     def test_configure_with_rest_sink_initializes_graph(
         self, mock_source, mock_test_connection
     ):

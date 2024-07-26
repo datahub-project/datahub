@@ -10,8 +10,8 @@ from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
+import datahub.cli.config_utils as config_utils
 from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url
-from datahub.cli.config_utils import get_system_auth
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -93,7 +93,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             # in as part of this constructor.
             # It works because everything goes through here. The DatahubGraph inherits from the
             # rest emitter, and the rest sink uses the rest emitter under the hood.
-            system_auth = get_system_auth()
+            system_auth = config_utils.get_system_auth()
             if system_auth is not None:
                 self._session.headers.update({"Authorization": system_auth})
 
