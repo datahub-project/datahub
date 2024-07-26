@@ -26,11 +26,10 @@ extend type Mutation {
   """
   upsertActionPipeline(urn: String!, input: UpdateActionPipelineInput!): String
 
-  # TODO: Not implemented yet.
-  # """
-  # Delete an existing action pipeline
-  # """
-  # deleteActionPipeline(urn: String!): String
+  """
+  Delete an existing action pipeline
+  """
+  deleteActionPipeline(urn: String!): String
 
   """
   Create a request to execute an action pipeline
@@ -53,6 +52,7 @@ extend type Mutation {
   Rollback an existing action pipeline execution
   """
   rollbackActionPipeline(urn: String!): String
+
 }
 
 """
