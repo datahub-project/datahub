@@ -15,6 +15,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    DomainsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     OwnerClass,
@@ -70,6 +71,8 @@ class Constants:
     ADD_TERM_OPERATION = "add_term"
     ADD_TERMS_OPERATION = "add_terms"
     ADD_OWNER_OPERATION = "add_owner"
+    ADD_DOMAIN_OPERATION = "add_domain"
+
     OPERATION = "operation"
     OPERATION_CONFIG = "config"
     TAG = "tag"
@@ -94,9 +97,15 @@ class _MappingOwner(ConfigModel):
 
 
 class _DatahubProps(ConfigModel):
-    owners: List[Union[str, _MappingOwner]]
+    tags: Optional[List[str]] = None
+    terms: Optional[List[str]] = None
+    owners: Optional[List[Union[str, _MappingOwner]]] = None
+    domain: Optional[str] = None
 
     def make_owner_category_list(self) -> List[Dict]:
+        if self.owners is None:
+            return []
+
         res = []
         for owner in self.owners:
             if isinstance(owner, str):
@@ -176,26 +185,29 @@ class OperationProcessor:
         # Process the special "datahub" property, which supports tags, terms, and owners.
         operations_map: Dict[str, list] = {}
         try:
-            datahub_prop = raw_props.get("datahub")
-            if datahub_prop and isinstance(datahub_prop, dict):
-                if datahub_prop.get("tags"):
+            raw_datahub_prop = raw_props.get("datahub")
+            if raw_datahub_prop:
+                datahub_prop = _DatahubProps.parse_obj_allow_extras(raw_datahub_prop)
+                if datahub_prop.tags:
                     # Note that tags get converted to urns later because we need to support the tag prefix.
-                    tags = datahub_prop["tags"]
                     operations_map.setdefault(Constants.ADD_TAG_OPERATION, []).extend(
-                        tags
+                        datahub_prop.tags
                     )
 
-                if datahub_prop.get("terms"):
-                    terms = datahub_prop["terms"]
+                if datahub_prop.terms:
                     operations_map.setdefault(Constants.ADD_TERM_OPERATION, []).extend(
-                        mce_builder.make_term_urn(term) for term in terms
+                        mce_builder.make_term_urn(term) for term in datahub_prop.terms
                     )
 
-                if datahub_prop.get("owners"):
-                    owners = _DatahubProps.parse_obj_allow_extras(datahub_prop)
+                if datahub_prop.owners:
                     operations_map.setdefault(Constants.ADD_OWNER_OPERATION, []).extend(
-                        owners.make_owner_category_list()
+                        datahub_prop.make_owner_category_list()
                     )
+
+                if datahub_prop.domain:
+                    operations_map.setdefault(
+                        Constants.ADD_DOMAIN_OPERATION, []
+                    ).append(mce_builder.make_domain_urn(datahub_prop.domain))
         except Exception as e:
             logger.error(f"Error while processing datahub property: {e}")
 
@@ -298,6 +310,15 @@ class OperationProcessor:
                 sorted(set(operation_map[Constants.ADD_TERM_OPERATION]))
             )
             aspect_map[Constants.ADD_TERM_OPERATION] = term_aspect
+
+        if Constants.ADD_DOMAIN_OPERATION in operation_map:
+            domain_aspect = DomainsClass(
+                domains=[
+                    mce_builder.make_domain_urn(domain)
+                    for domain in operation_map[Constants.ADD_DOMAIN_OPERATION]
+                ]
+            )
+            aspect_map[Constants.ADD_DOMAIN_OPERATION] = domain_aspect
 
         if Constants.ADD_DOC_LINK_OPERATION in operation_map:
             try:

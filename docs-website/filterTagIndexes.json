@@ -562,7 +562,7 @@
       }
     },
     {
-      "Path": "docs/metadata-integration/java/spark-lineage-beta",
+      "Path": "docs/metadata-integration/java/acryl-spark-lineage",
       "imgPath": "img/logos/platforms/spark.svg",
       "Title": "Spark",
       "Description": "Spark is a data processing tool that enables fast and efficient processing of large-scale data sets using distributed computing.",

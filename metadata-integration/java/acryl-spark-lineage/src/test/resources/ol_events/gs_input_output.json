@@ -1,0 +1,62 @@
+{
+  "eventTime": "2024-07-23T14:42:58.176Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "COMPLETE",
+  "run": {
+    "runId": "0190e00b-80a0-7902-829f-10faa3197778",
+    "facets": {
+      "parent": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ParentRunFacet.json#/$defs/ParentRunFacet",
+        "run": {
+          "runId": "0190e00b-80a0-7902-829f-10faa3197778"
+        },
+        "job": {
+          "namespace": "default",
+          "name": "my-job"
+        }
+      },
+      "processing_engine": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "version": "3.3.4",
+        "name": "spark",
+        "openlineageAdapterVersion": "3.3.2_2.12"
+      },
+      "spark_properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "properties": {
+          "spark.master": "spark://my-spark-master:7077",
+          "spark.app.name": "mySparkApp"
+        }
+      }
+    }
+  },
+  "job": {
+    "namespace": "default",
+    "name": "my_job",
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.16.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-2/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "processingType": "BATCH",
+        "integration": "SPARK",
+        "jobType": "RDD_JOB"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "namespace": "gs://my-gs-input-bucket",
+      "name": "/path/to/my-input-file.csv"
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "gs://my-gs-output-bucket",
+      "name": "/path/to/my-output-file.csv"
+    }
+  ]
+}

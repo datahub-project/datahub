@@ -13,11 +13,7 @@ from datahub.cli.cli_utils import (
     generate_access_token,
     make_shim_command,
 )
-from datahub.cli.config_utils import (
-    DATAHUB_CONFIG_PATH,
-    get_boolean_env_variable,
-    write_gms_config,
-)
+from datahub.cli.config_utils import DATAHUB_CONFIG_PATH, get_boolean_env_variable
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
 from datahub.cli.exists_cli import exists
@@ -37,7 +33,7 @@ from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.client import get_default_graph, write_gms_config
 from datahub.telemetry import telemetry
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.logging_manager import configure_logging

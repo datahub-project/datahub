@@ -54,7 +54,7 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '12.16.1'
   ext.googleJavaFormatVersion = '1.18.1'
-  ext.openLineageVersion = '1.16.0'
+  ext.openLineageVersion = '1.19.0'
   ext.logbackClassicJava8 = '1.2.12'
 
   ext.docker_registry = 'acryldata'
@@ -111,6 +111,7 @@ project.ext.externalDependency = [
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.3',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.17',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.0.3',
+    'awsS3': 'software.amazon.awssdk:s3:2.26.21',
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.13',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.2',
     'awsRds':'software.amazon.awssdk:rds:2.18.24',

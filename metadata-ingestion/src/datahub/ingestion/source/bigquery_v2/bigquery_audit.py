@@ -80,8 +80,8 @@ class BigqueryTableIdentifier:
 
     @classmethod
     def from_string_name(cls, table: str) -> "BigqueryTableIdentifier":
-        parts = table.split(".")
-        # If the table name contains dollar sign, it is a referrence to a partitioned table and we have to strip it
+        parts = table.split(".", maxsplit=2)
+        # If the table name contains dollar sign, it is a reference to a partitioned table and we have to strip it
         table = parts[2].split("$", 1)[0]
         return cls(parts[0], parts[1], table)
 

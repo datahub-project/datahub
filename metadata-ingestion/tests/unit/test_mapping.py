@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub.metadata.schema_classes import (
+    DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     InstitutionalMemoryClass,
@@ -366,6 +367,7 @@ def test_operation_processor_datahub_props():
                     "owner_type": "urn:li:ownershipType:steward",
                 },
             ],
+            "domain": "domain1",
         }
     }
 
@@ -396,3 +398,6 @@ def test_operation_processor_datahub_props():
     assert [
         term_association.urn for term_association in aspect_map["add_term"].terms
     ] == ["urn:li:glossaryTerm:term1", "urn:li:glossaryTerm:term2"]
+
+    assert isinstance(aspect_map["add_domain"], DomainsClass)
+    assert aspect_map["add_domain"].domains == ["urn:li:domain:domain1"]
