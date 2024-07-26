@@ -1,11 +1,19 @@
 import React from 'react';
-import { FormHeaderContainer, HeaderText, SubText } from './styledComponents';
+import { Text } from '@components';
+import { FormColorIcon, FormHeaderContainer, FormHeaderText } from './styledComponents';
 
 const FormHeader = () => {
     return (
         <FormHeaderContainer>
-            <HeaderText>Form name</HeaderText>
-            <SubText>Description</SubText>
+            <FormColorIcon />
+            <FormHeaderText>
+                <Text color="white" size="lg" weight="black">
+                    Form name
+                </Text>
+                <Text color="white" size="md" weight="light">
+                    Description
+                </Text>
+            </FormHeaderText>
         </FormHeaderContainer>
     );
 };

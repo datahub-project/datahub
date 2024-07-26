@@ -7,3 +7,4 @@ export * from './components/Heading';
 export * from './components/Icon';
 export * from './components/Text';
 export * from './components/Input';
+export * from './components/TextArea';

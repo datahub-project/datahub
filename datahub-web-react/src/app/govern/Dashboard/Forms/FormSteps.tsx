@@ -1,21 +1,35 @@
-import React from 'react';
-import { Text } from '@components';
+import React, { useContext } from 'react';
 import { formSteps } from './formUtils';
-import { FormStepsContainer, FlexBox } from './styledComponents';
+import {
+    FormStepsContainer,
+    FlexBox,
+    StepContainer,
+    StepNumber,
+    StepName,
+    StepsDivider,
+    StepIndicator,
+} from './styledComponents';
+import ManageFormContext from './ManageFormContext';
+import ActiveStep from '../../../../images/active-form-step.svg?react';
+import InactiveStep from '../../../../images/inactive-form-step.svg?react';
 
 const FormSteps = () => {
+    const { currentStep } = useContext(ManageFormContext);
     return (
         <FormStepsContainer>
             {formSteps.map((formStep) => {
+                const isActiveStep = formStep.number === currentStep;
                 return (
-                    <FlexBox>
-                        <Text color="gray" size="md">
-                            STEP {formStep.number}
-                        </Text>
-                        <Text color="violet" size="xl" weight="bold">
-                            {formStep.name}
-                        </Text>
-                    </FlexBox>
+                    <StepContainer>
+                        <StepIndicator>
+                            {isActiveStep ? <ActiveStep /> : <InactiveStep />}
+                            {formStep.number < formSteps.length && <StepsDivider />}
+                        </StepIndicator>
+                        <FlexBox>
+                            <StepNumber>STEP {formStep.number} </StepNumber>
+                            <StepName isActiveStep={isActiveStep}>{formStep.name}</StepName>
+                        </FlexBox>
+                    </StepContainer>
                 );
             })}
         </FormStepsContainer>
