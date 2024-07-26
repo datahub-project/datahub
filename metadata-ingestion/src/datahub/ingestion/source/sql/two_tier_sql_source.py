@@ -110,24 +110,50 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         # Sanity check that we don't try to generate schema containers for 2 tier databases.
         raise NotImplementedError
 
-    def get_inspectors(self):
-        # This method can be overridden in the case that you want to dynamically
-        # run on multiple databases.
+
+def get_inspectors(self):
+    # This method can be overridden in the case that you want to dynamically
+    # run on multiple databases.
+    try:
         url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
+        logger.debug(f"SQLAlchemy URL constructed: {url}")
+
+        # Create engine
         engine = create_engine(url, **self.config.options)
+        logger.debug("SQLAlchemy engine created successfully")
+
         with engine.connect() as conn:
+            logger.debug(f"Successfully connected to database using URL: {url}")
             inspector = inspect(conn)
+            logger.debug("Inspector object created")
+
             if self.config.database and self.config.database != "":
                 databases = [self.config.database]
+                logger.debug(f"Using specified database: {self.config.database}")
             else:
                 databases = inspector.get_schema_names()
+                logger.debug(f"Databases found: {databases}")
+
             for db in databases:
+                logger.debug(f"Evaluating database: {db}")
                 if self.config.database_pattern.allowed(db):
+                    logger.debug(f"Database {db} allowed by pattern")
                     url = self.config.get_sql_alchemy_url(current_db=db)
+                    logger.debug(f"SQLAlchemy URL for current database {db}: {url}")
+
+                    # Create new engine for the specific database
                     with create_engine(url, **self.config.options).connect() as conn:
+                        logger.debug(
+                            f"Successfully connected to database {db} using URL: {url}"
+                        )
                         inspector = inspect(conn)
+                        logger.debug(f"Inspector object created for database: {db}")
                         yield inspector
+                else:
+                    logger.debug(f"Database {db} not allowed by pattern")
+    except Exception as e:
+        logger.error(f"Error in get_inspectors: {e}")
+        raise
 
     def gen_schema_containers(
         self,
