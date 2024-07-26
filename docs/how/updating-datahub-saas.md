@@ -61,6 +61,8 @@ size of 50. This is typical in metadata tests.
 separate siblings when fetching lineage data in search results by default.
 Typically this is false, but for Apple, we need this to be set to true.
 
+`ALTERNATE_MCP_VALIDATION` (default: false) - Enables an alternate MCP validation pathway for when we have MCPs we want to validate only after applying a mutation hook
+
 #### Sharing
 
 `FEAT_SHARE_EXTRA_ASPECTS` (default: empty) - Set this env variable for integrations service to

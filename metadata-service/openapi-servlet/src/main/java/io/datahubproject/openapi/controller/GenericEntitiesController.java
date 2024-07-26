@@ -770,13 +770,14 @@ public abstract class GenericEntitiesController<
    *
    * @return
    */
+  @Nullable
   protected static AspectSpec lookupAspectSpec(EntitySpec entitySpec, String aspectName) {
     return entitySpec.getAspectSpec(aspectName) != null
         ? entitySpec.getAspectSpec(aspectName)
         : entitySpec.getAspectSpecs().stream()
             .filter(aspec -> aspec.getName().toLowerCase().equals(aspectName))
             .findFirst()
-            .get();
+            .orElse(null);
   }
 
   protected static Urn validatedUrn(String urn) throws InvalidUrnException {

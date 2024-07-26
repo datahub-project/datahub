@@ -428,7 +428,7 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final Urn urn,
       @Nonnull String entityName,
       @Nonnull String aspectName,
-      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final AspectSpec aspectSpec,
       @Nullable final RecordTemplate oldAspectValue,
       @Nullable final RecordTemplate newAspectValue,
       @Nullable final SystemMetadata oldSystemMetadata,

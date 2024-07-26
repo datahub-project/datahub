@@ -31,6 +31,7 @@ import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,6 +59,8 @@ public class TestOperationContexts {
           .build();
 
   private static EntityRegistry defaultEntityRegistryInstance;
+  private static ValidationContext defaultValidationContext =
+      ValidationContext.builder().alternateValidation(false).build();
 
   public static EntityRegistry defaultEntityRegistry() {
     if (defaultEntityRegistryInstance == null) {
@@ -114,6 +117,11 @@ public class TestOperationContexts {
     return systemContextNoSearchAuthorization(null, null, null);
   }
 
+  public static OperationContext systemContextNoValidate() {
+    return systemContextNoSearchAuthorization(
+        null, null, null, () -> ValidationContext.builder().alternateValidation(true).build());
+  }
+
   public static OperationContext systemContextNoSearchAuthorization(
       @Nullable EntityRegistry entityRegistry, @Nullable IndexConvention indexConvention) {
     return systemContextNoSearchAuthorization(() -> entityRegistry, null, () -> indexConvention);
@@ -160,7 +168,25 @@ public class TestOperationContexts {
         entityRegistrySupplier,
         retrieverContextSupplier,
         indexConventionSupplier,
+        null,
         null);
+  }
+
+  public static OperationContext systemContextNoSearchAuthorization(
+      @Nullable Supplier<EntityRegistry> entityRegistrySupplier,
+      @Nullable Supplier<RetrieverContext> retrieverContextSupplier,
+      @Nullable Supplier<IndexConvention> indexConventionSupplier,
+      @Nullable Supplier<ValidationContext> environmentContextSupplier) {
+
+    return systemContext(
+        null,
+        null,
+        null,
+        entityRegistrySupplier,
+        retrieverContextSupplier,
+        indexConventionSupplier,
+        null,
+        environmentContextSupplier);
   }
 
   public static OperationContext systemContext(
@@ -170,7 +196,8 @@ public class TestOperationContexts {
       @Nullable Supplier<EntityRegistry> entityRegistrySupplier,
       @Nullable Supplier<RetrieverContext> retrieverContextSupplier,
       @Nullable Supplier<IndexConvention> indexConventionSupplier,
-      @Nullable Consumer<OperationContext> postConstruct) {
+      @Nullable Consumer<OperationContext> postConstruct,
+      @Nullable Supplier<ValidationContext> environmentContextSupplier) {
 
     OperationContextConfig config =
         Optional.ofNullable(configSupplier).map(Supplier::get).orElse(DEFAULT_OPCONTEXT_CONFIG);
@@ -196,6 +223,11 @@ public class TestOperationContexts {
     ServicesRegistryContext servicesRegistryContext =
         Optional.ofNullable(servicesRegistrySupplier).orElse(() -> null).get();
 
+    ValidationContext validationContext =
+        Optional.ofNullable(environmentContextSupplier)
+            .map(Supplier::get)
+            .orElse(defaultValidationContext);
+
     OperationContext operationContext =
         OperationContext.asSystem(
             config,
@@ -203,7 +235,8 @@ public class TestOperationContexts {
             entityRegistry,
             servicesRegistryContext,
             indexConvention,
-            retrieverContext);
+            retrieverContext,
+            validationContext);
 
     if (postConstruct != null) {
       postConstruct.accept(operationContext);
