@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterable, Optional
 
 from pydantic import Field
@@ -35,6 +35,9 @@ logger = logging.getLogger(__name__)
 class BigQueryQueriesSourceReport(SourceReport):
     window: Optional[BaseTimeWindowConfig] = None
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
+    schema_api_perf: BigQuerySchemaApiPerfReport = field(
+        default_factory=BigQuerySchemaApiPerfReport
+    )
 
 
 class BigQueryQueriesSourceConfig(
@@ -58,9 +61,7 @@ class BigQueryQueriesSource(Source):
 
         self.queries_extractor = BigQueryQueriesExtractor(
             connection=self.connection,
-            schema_api=BigQuerySchemaApi(
-                BigQuerySchemaApiPerfReport(), self.connection
-            ),
+            schema_api=BigQuerySchemaApi(self.report.schema_api_perf, self.connection),
             config=self.config,
             structured_report=self.report,
             filters=self.filters,
