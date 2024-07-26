@@ -5,14 +5,14 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 ## Verifying the Slack Integration is working
-First and foremost, we recommend to use the 'Send a test notification' feature to verify whether the issue is with the integration setup, slack's systems, or DataHub. The modal will provide a rich description of an error if there is one.
+First and foremost, we recommend using the 'Send a test notification' feature to verify whether the issue is with the integration setup, slack's systems, or DataHub. The modal will provide a rich description of an error if there is one.
 You can access this feature either by going to the Notifications page in your settings, or a subscription drawer.
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_7.png"/>
 </p>
 
 ## Test notification failed with 'Re-Connect DataHub to Slack'
-There's several reasons why sending a test notification would fail. The description in the modal should give you insights as to what's broken and what you can do to resolve this issue.
+There are several reasons why sending a test notification would fail. The description in the modal should give you insights as to what's broken and what you can do to resolve this issue.
 If you're seeing a message that recommends the DataHub admin to re-connect Slack to DataHub, you may want to try the following options:
 
 ### Refresh the existing app installation (Recommended)
@@ -59,9 +59,9 @@ If you'd like support in getting a list of the private channels that are subscri
 
 
 ## Test notification works, but not receiving notifications
-There's a few reasons why you may not receive notifications when you'd expect.
+There are a few reasons why you may not receive notifications when you'd expect.
 
-### 1. Actors do not receive notifications for their actions.
+### 1. Actors do not receive notifications for their actions
 If you've subscribed to an entity, and then performed an action (i.e., raised an incident or added a tag), you will not be notified about your own action.
 
 ### 2. There is an issue with DataHub's systems
