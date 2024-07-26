@@ -27,7 +27,7 @@ from deprecated import deprecated
 from pydantic import BaseModel
 from requests.models import HTTPError
 
-import datahub.cli.config_utils as config_utils
+from datahub.cli import config_utils
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
