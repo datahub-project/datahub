@@ -334,7 +334,6 @@ def deploy(
     variables: dict = {
         "urn": urn,
         "name": deploy_options.name,
-        "description": deploy_options.description,
         "type": pipeline_config["source"]["type"],
         "recipe": json.dumps(pipeline_config),
         "executorId": deploy_options.executor_id,
@@ -353,7 +352,6 @@ def deploy(
         mutation updateIngestionSource(
             $urn: String!,
             $name: String!,
-            $description: String,
             $type: String!,
             $schedule: UpdateIngestionSourceScheduleInput,
             $recipe: String!,
@@ -362,7 +360,6 @@ def deploy(
 
             updateIngestionSource(urn: $urn, input: {
                 name: $name,
-                description: $description,
                 type: $type,
                 schedule: $schedule,
                 config: {
