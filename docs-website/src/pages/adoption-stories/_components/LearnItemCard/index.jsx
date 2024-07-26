@@ -8,11 +8,10 @@ export default function LearnItemCard({ company }) {
     <div className={clsx("col col--4", styles.featureCol)}>
       <div className={clsx("card", styles.card)}>
         <div className={styles.card_image}>
-          <img src="/img/learn/use-case-data-freshness.png" alt={company.name} />
+          <img src={`/img/adoption-stories/adoption-stories-${company.slug}.png`} alt={company.name} />
         </div>
         <div className={clsx("card__body", styles.featureBody)}>
-          <div>{company.description}</div>
-        </div>
+          <div dangerouslySetInnerHTML={{ __html: company.description }} />        </div>
         <div className={styles.card_button}>
           <Link className="button button--secondary button--md" href={company.link} target="_blank">
             Discover {company.name}'s Story

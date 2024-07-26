@@ -10,7 +10,7 @@ import customerStoriesIndexes from "../../../customerStoriesIndexes.json";
 function AdoptionStoriesListPageContent() {
   const companies = (customerStoriesIndexes?.companies || []).filter((company) => company.link);
   const [activeFilters, setActiveFilters] = useState([]);
-  const categories = ["B2B & B2C", "Financial & Fintech", "E-Commerce", "And More"];
+  const categories = ["B2B & B2C", "E-Commerce", "Financial & Fintech", "And More"];
 
   const filteredItems = activeFilters.length
     ? companies.filter((company) => activeFilters.includes(company.category))
