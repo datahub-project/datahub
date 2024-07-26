@@ -14,6 +14,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Type,
     Union,
     cast,
 )
@@ -31,10 +32,7 @@ from tableauserverclient import (
     SiteItem,
     TableauAuth,
 )
-from tableauserverclient.server.endpoint.exceptions import (
-    NonXMLResponseError,
-    NotSignedInError,
-)
+from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
@@ -161,6 +159,19 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+try:
+    # On earlier versions of the tableauserverclient, the NonXMLResponseError
+    # was thrown when reauthentication was needed. We'll keep both exceptions
+    # around for now, but can remove this in the future.
+    from tableauserverclient.server.endpoint.exceptions import NotSignedInError
+
+    REAUTHENTICATE_ERRORS: Tuple[Type[Exception], ...] = (
+        NotSignedInError,
+        NonXMLResponseError,
+    )
+except ImportError:
+    REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -969,13 +980,7 @@ class TableauSiteSource:
             query_data = query_metadata(
                 self.server, query, connection_type, count, offset, query_filter
             )
-        except (
-            # On earlier versions of the tableauserverclient, the NonXMLResponseError
-            # was thrown when reauthentication was needed. We'll keep both exceptions
-            # around for now, but can remove this in the future.
-            NonXMLResponseError,
-            NotSignedInError,
-        ):
+        except REAUTHENTICATE_ERRORS:
             if not retry_on_auth_error:
                 raise
 
