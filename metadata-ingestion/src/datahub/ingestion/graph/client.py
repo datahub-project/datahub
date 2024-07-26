@@ -1133,6 +1133,7 @@ class DataHubGraph(DatahubRestEmitter):
         query: str,
         variables: Optional[Dict] = None,
         operation_name: Optional[str] = None,
+        format_exception: bool = True,
     ) -> Dict:
         url = f"{self.config.server}/api/graphql"
 
@@ -1149,7 +1150,10 @@ class DataHubGraph(DatahubRestEmitter):
         )
         result = self._post_generic(url, body)
         if result.get("errors"):
-            raise GraphError(f"Error executing graphql query: {result['errors']}")
+            if format_exception:
+                raise GraphError(f"Error executing graphql query: {result['errors']}")
+            else:
+                raise GraphError(result["errors"])
 
         return result["data"]
 

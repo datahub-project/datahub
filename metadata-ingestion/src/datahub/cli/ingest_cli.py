@@ -16,6 +16,7 @@ from tabulate import tabulate
 import datahub as datahub_package
 from datahub.cli import cli_utils
 from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
+from datahub.configuration.common import GraphError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.connection import ConnectionManager
@@ -293,7 +294,6 @@ def deploy(
         variables["schedule"] = {"interval": schedule, "timezone": time_zone}
 
     if urn:
-
         graphql_query: str = textwrap.dedent(
             """
             mutation updateIngestionSource(
@@ -344,7 +344,20 @@ def deploy(
             """
         )
 
-    response = datahub_graph.execute_graphql(graphql_query, variables=variables)
+    try:
+        response = datahub_graph.execute_graphql(
+            graphql_query, variables=variables, format_exception=False
+        )
+    except GraphError as graph_error:
+        try:
+            error = json.loads(str(graph_error).replace('"', '\\"').replace("'", '"'))
+            click.secho(error[0]["message"], fg="red", err=True)
+        except Exception as e:
+            print(e)
+            click.secho(
+                f"Could not create ingestion source:\n{graph_error}", fg="red", err=True
+            )
+        sys.exit(1)
 
     click.echo(
         f"✅ Successfully wrote data ingestion source metadata for recipe {name}:"
