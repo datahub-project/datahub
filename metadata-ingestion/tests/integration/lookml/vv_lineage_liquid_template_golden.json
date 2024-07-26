@@ -302,7 +302,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT\n      employee_id,\n      employee_name,\n      \n        prod_core.data.r_metric_summary_v2\n      ,\n      employee_income\n    FROM source_table\n    WHERE\n        source_table.region='ap-south-1'",
+            "viewLogic": "SELECT\n      employee_id,\n      employee_name,\n      {% if dw_eff_dt_date._is_selected or finance_dw_eff_dt_date._is_selected %}\n        prod_core.data.r_metric_summary_v2\n      {% elsif dw_eff_dt_week._is_selected or finance_dw_eff_dt_week._is_selected %}\n        prod_core.data.r_metric_summary_v3\n      {% else %}\n        'default_table' as source\n      {% endif %},\n      employee_income\n    FROM source_table\n    WHERE\n        {% condition source_region %} source_table.region {% endcondition %}",
             "viewLanguage": "sql"
         }
     },
@@ -1301,6 +1301,433 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "view: latest_account_holder_notes_base {\n  filter: note_date_window {\n    description: \"Date window in which to look for notes\"\n    default_value: \"90 days ago for 90 days\"\n    datatype: date\n    type: date\n  }\n\n  dimension: account_number {\n    hidden: yes\n  }\n\n  dimension: account_in_engage {\n    hidden: yes\n  }\n\n  dimension_group: latest_am_note {\n    type: time\n    timeframes: [date, week, month, year]\n    convert_tz: no\n    datatype: timestamp\n    sql: ${TABLE}.latest_time_created ;;\n  }\n\n  dimension: interaction_type {\n    type: string\n    sql: ${TABLE}.interaction_type ;;\n  }\n\n  dimension: did {\n    hidden: yes\n    type: string\n    sql: ${TABLE}.did ;;\n  }\n}\n\nview: latest_account_holder_notes {\n  extends: [latest_account_holder_notes_base]\n  derived_table: {\n    sql: WITH notes AS (\n      SELECT account_id,\n        time_created,\n        operator_id\n      FROM `at-meta-platform-dev`.rds_performance.fct_notes\n      WHERE DATE(time_created) < CURRENT_DATE()\n      {% if note_date_window._is_filtered %}\n        AND {% condition note_date_window %} DATE (time_created) {% endcondition %}\n      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}\n        AND {% condition customer_performance_retailer.snapshot_date %} DATE(time_created) {% endcondition %}\n      {% else %}\n        AND DATE(time_created) >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n      AND medium NOT IN ('PORTAL', 'Trade Marketing')\n      AND medium IS NOT NULL\n      AND account_id IS NOT NULL\n    ),\n\n    squad AS (\n      SELECT DISTINCT squad,\n        LOWER(primary_sales_person.am_username) AS am_username,\n        account_number,\n        snapshot_date,\n        did\n      FROM `at-yp-fin-emp-product-dev.finance_customer_and_product.odp_dim_dealer`\n      WHERE snapshot_date < CURRENT_DATE()\n      {% if note_date_window._is_filtered %}\n        AND {% condition note_date_window %} DATE (snapshot_date) {% endcondition %}\n      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}\n        AND {% condition customer_performance_retailer.snapshot_date %} DATE(snapshot_date) {% endcondition %}\n      {% else %}\n        AND snapshot_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n    ),\n\n    notes_with_squad AS (\n      SELECT *,\n        CASE\n          WHEN operator_id = am_username THEN 'AM'\n          WHEN regexp_contains(am_username, 'vacant') THEN 'Vacant'\n          WHEN regexp_contains(am_username, 'squad') THEN am_username\n          ELSE 'Other'\n        END AS interaction_type\n      FROM notes n\n      LEFT JOIN squad s ON n.account_id = s.account_number\n      AND DATE(n.time_created) = s.snapshot_date\n    ),\n\n    notes_with_acc_numbered AS (\n      SELECT account_id,\n        time_created,\n        operator_id,\n        am_username,\n        squad,\n        interaction_type,\n        did,\n        ROW_NUMBER() OVER(PARTITION BY account_id ORDER BY time_created DESC) AS rn\n      FROM notes_with_squad\n      WHERE interaction_type NOT IN ('Other')\n    )\n\n    SELECT\n      account_id,\n      time_created AS latest_time_created,\n      interaction_type,\n      did\n    FROM notes_with_acc_numbered\n    WHERE rn = 1 ;;\n  }\n}\n",
+            "viewLanguage": "lookml"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/Develop/lkml_samples/"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD)",
+                                "type": "VIEW"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),account_number)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),account_number)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),account_in_engage)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),account_in_engage)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),interaction_type)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),interaction_type)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),did)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),did)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),latest_time_created)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),latest_am_note)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "latest_account_holder_notes_base",
+                        "platform": "urn:li:dataPlatform:looker",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "account_number",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "account_in_engage",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "interaction_type",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "did",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "latest_am_note",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "time",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:Temporal"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "looker.file.path": "finance_notes.view.lkml",
+                            "looker.model": "data"
+                        },
+                        "name": "latest_account_holder_notes_base",
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "WITH notes AS (\n      SELECT account_id,\n        time_created,\n        operator_id\n      FROM `at-meta-platform-dev`.rds_performance.fct_notes\n      WHERE DATE(time_created) < CURRENT_DATE()\n      {% if note_date_window._is_filtered %}\n        AND {% condition note_date_window %} DATE (time_created) {% endcondition %}\n      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}\n        AND {% condition customer_performance_retailer.snapshot_date %} DATE(time_created) {% endcondition %}\n      {% else %}\n        AND DATE(time_created) >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n      AND medium NOT IN ('PORTAL', 'Trade Marketing')\n      AND medium IS NOT NULL\n      AND account_id IS NOT NULL\n    ),\n\n    squad AS (\n      SELECT DISTINCT squad,\n        LOWER(primary_sales_person.am_username) AS am_username,\n        account_number,\n        snapshot_date,\n        did\n      FROM `at-yp-fin-emp-product-dev.finance_customer_and_product.odp_dim_dealer`\n      WHERE snapshot_date < CURRENT_DATE()\n      {% if note_date_window._is_filtered %}\n        AND {% condition note_date_window %} DATE (snapshot_date) {% endcondition %}\n      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}\n        AND {% condition customer_performance_retailer.snapshot_date %} DATE(snapshot_date) {% endcondition %}\n      {% else %}\n        AND snapshot_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n    ),\n\n    notes_with_squad AS (\n      SELECT *,\n        CASE\n          WHEN operator_id = am_username THEN 'AM'\n          WHEN regexp_contains(am_username, 'vacant') THEN 'Vacant'\n          WHEN regexp_contains(am_username, 'squad') THEN am_username\n          ELSE 'Other'\n        END AS interaction_type\n      FROM notes n\n      LEFT JOIN squad s ON n.account_id = s.account_number\n      AND DATE(n.time_created) = s.snapshot_date\n    ),\n\n    notes_with_acc_numbered AS (\n      SELECT account_id,\n        time_created,\n        operator_id,\n        am_username,\n        squad,\n        interaction_type,\n        did,\n        ROW_NUMBER() OVER(PARTITION BY account_id ORDER BY time_created DESC) AS rn\n      FROM notes_with_squad\n      WHERE interaction_type NOT IN ('Other')\n    )\n\n    SELECT\n      account_id,\n      time_created AS latest_time_created,\n      interaction_type,\n      did\n    FROM notes_with_acc_numbered\n    WHERE rn = 1",
+            "viewLanguage": "sql"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/Develop/lkml_samples/"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "looker.file.path": "finance_notes.view.lkml",
+                            "looker.model": "data"
+                        },
+                        "name": "latest_account_holder_notes",
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:Dimension",
     "changeType": "UPSERT",
@@ -1324,6 +1751,22 @@
     "aspect": {
         "json": {
             "name": "Measure"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Temporal",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Temporal"
         }
     },
     "systemMetadata": {

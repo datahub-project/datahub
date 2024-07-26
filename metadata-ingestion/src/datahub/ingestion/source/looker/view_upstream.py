@@ -259,7 +259,7 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
             return None
 
         spr = create_lineage_sql_parsed_result(
-            query=self.view_context.sql(),
+            query=self.view_context.datahub_transformed_sql(),
             default_schema=self.view_context.view_connection.default_schema,
             default_db=self.view_context.view_connection.default_db,
             platform=self.view_context.view_connection.platform,
@@ -478,9 +478,9 @@ class RegularViewUpstream(AbstractViewUpstream):
 
     def __get_upstream_dataset_urn(self) -> Urn:
         # In regular case view's upstream dataset is either same as view-name or mentioned in "sql_table_name" field
-        # view_context.sql_table_name() handle this condition to return dataset name
+        # view_context.datahub_transformed_sql_table_name() handle this condition to return dataset name
         qualified_table_name: str = _generate_fully_qualified_name(
-            sql_table_name=self.view_context.sql_table_name(),
+            sql_table_name=self.view_context.datahub_transformed_sql_table_name(),
             connection_def=self.view_context.view_connection,
             reporter=self.view_context.reporter,
         )
@@ -532,10 +532,10 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
         )
 
     def __get_upstream_dataset_urn(self) -> List[Urn]:
-        # In this case view_context.sql_table_name() refers to derived view name
+        # In this case view_context.datahub_transformed_sql_table_name() refers to derived view name
         looker_view_id = get_derived_looker_view_id(
             qualified_table_name=_generate_fully_qualified_name(
-                self.view_context.sql_table_name(),
+                self.view_context.datahub_transformed_sql_table_name(),
                 self.view_context.view_connection,
                 self.view_context.reporter,
             ),
