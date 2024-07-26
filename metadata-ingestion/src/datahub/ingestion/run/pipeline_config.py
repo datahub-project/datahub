@@ -1,14 +1,12 @@
 import datetime
 import logging
-import os
 import uuid
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, validator
 
-from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
-from datahub.ingestion.graph.client import DatahubClientConfig, load_client_config
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
@@ -102,34 +100,6 @@ class PipelineConfig(ConfigModel):
         else:
             assert v is not None
             return v
-
-    @root_validator(pre=True)
-    def default_sink_is_datahub_rest(cls, values: Dict[str, Any]) -> Any:
-        if "sink" not in values:
-            config = load_client_config()
-            # update this
-            default_sink_config = {
-                "type": "datahub-rest",
-                "config": config.dict(exclude_defaults=True),
-            }
-            # resolve env variables if present
-            default_sink_config = config_loader.resolve_env_variables(
-                default_sink_config, environ=os.environ
-            )
-            values["sink"] = default_sink_config
-
-        return values
-
-    @validator("datahub_api", always=True)
-    def datahub_api_should_use_rest_sink_as_default(
-        cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
-    ) -> Optional[DatahubClientConfig]:
-        if v is None and "sink" in values and hasattr(values["sink"], "type"):
-            sink_type = values["sink"].type
-            if sink_type == "datahub-rest":
-                sink_config = values["sink"].config
-                v = DatahubClientConfig.parse_obj_allow_extras(sink_config)
-        return v
 
     @classmethod
     def from_dict(
