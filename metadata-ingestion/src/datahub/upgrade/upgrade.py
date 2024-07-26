@@ -12,7 +12,8 @@ from pydantic import BaseModel
 from termcolor import colored
 
 from datahub import __version__
-from datahub.ingestion.graph.client import DataHubGraph, load_client_config
+from datahub.cli.config_utils import load_client_config
+from datahub.ingestion.graph.client import DataHubGraph
 
 log = logging.getLogger(__name__)
 
