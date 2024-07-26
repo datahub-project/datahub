@@ -291,6 +291,11 @@ class BigQueryIdentifierConfig(
         " because the project id is represented as the top-level container.",
     )
 
+    enable_legacy_sharded_table_support: bool = Field(
+        default=True,
+        description="Use the legacy sharded table urn suffix added.",
+    )
+
 
 class BigQueryV2Config(
     BigQueryConnectionConfig,
@@ -395,11 +400,6 @@ class BigQueryV2Config(
     extract_lineage_from_catalog: bool = Field(
         default=False,
         description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/concepts/about-data-lineage",
-    )
-
-    enable_legacy_sharded_table_support: bool = Field(
-        default=True,
-        description="Use the legacy sharded table urn suffix added.",
     )
 
     extract_policy_tags_from_catalog: bool = Field(

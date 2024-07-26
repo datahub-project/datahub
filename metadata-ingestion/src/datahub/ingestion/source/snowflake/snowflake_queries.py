@@ -219,7 +219,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                     queries.append(entry)
 
         with self.report.audit_log_load_timer:
-            for query in queries:
+            for i, query in enumerate(queries):
+                if i % 1000 == 0:
+                    logger.info(f"Added {i} query log entries to SQL aggregator")
                 self.aggregator.add(query)
 
         yield from auto_workunit(self.aggregator.gen_metadata())

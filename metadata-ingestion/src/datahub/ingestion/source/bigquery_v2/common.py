@@ -36,6 +36,8 @@ class BigQueryIdentifierBuilder:
         structured_reporter: SourceReport,
     ) -> None:
         self.identifier_config = identifier_config
+        if self.identifier_config.enable_legacy_sharded_table_support:
+            BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
         self.structured_reporter = structured_reporter
 
     def gen_dataset_urn(
