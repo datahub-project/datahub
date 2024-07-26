@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 from pydantic.fields import Field
@@ -15,14 +14,6 @@ class GlueProfilingConfig(ConfigModel):
     profile_table_level_only: bool = Field(
         default=False,
         description="Whether to perform profiling at table-level only, or include column-level profiling as well.",
-    )
-    # The default of (5 * cpu_count) is adopted from the default max_workers
-    # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
-    # task, it may make sense to increase this default value in the future.
-    # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
-    max_workers: int = Field(
-        default=5 * (os.cpu_count() or 4),
-        description="Number of worker threads to use for profiling. Set to 1 to disable.",
     )
     row_count: Optional[str] = Field(
         default=None,

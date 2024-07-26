@@ -686,24 +686,14 @@ def test_glue_ingest_include_column_lineage(
     )
 
 
-@pytest.mark.parametrize(
-    "platform_instance, mce_file, mce_golden_file",
-    [
-        (None, "glue_mces.json", "glue_mces_golden_profiling.json"),
-    ],
-)
 @freeze_time(FROZEN_TIME)
 def test_glue_ingest_with_profiling(
     tmp_path: Path,
     pytestconfig: PytestConfig,
-    platform_instance: str,
-    mce_file: str,
-    mce_golden_file: str,
 ) -> None:
-    glue_source_instance = glue_source_with_profiling(
-        platform_instance=platform_instance
-    )
-
+    glue_source_instance = glue_source_with_profiling()
+    mce_file = "glue_mces.json"
+    mce_golden_file = "glue_mces_golden_profiling.json"
     with Stubber(glue_source_instance.glue_client) as glue_stubber:
         glue_stubber.add_response("get_databases", get_databases_response_profiling, {})
 

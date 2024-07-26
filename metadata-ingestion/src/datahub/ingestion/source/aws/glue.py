@@ -2,7 +2,6 @@ import datetime
 import json
 import logging
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
@@ -948,22 +947,21 @@ class GlueSource(StatefulIngestionSourceBase):
                 partitions = response["Partitions"]
                 partition_keys = [k["Name"] for k in partition_keys]
 
-                with ThreadPoolExecutor(
-                    max_workers=self.source_config.profiling.max_workers
-                ) as executor:
-                    futures = [
-                        executor.submit(
-                            self._create_partition_profile_mcp, mce, partition_keys, p
-                        )
-                        for p in partitions
-                    ]
-                    for future in as_completed(futures):
-                        try:
-                            result = future.result()
-                            if result:
-                                yield result
-                        except Exception as e:
-                            logger.error(f"Error profiling partition: {e}")
+                for p in partitions:
+                    table_stats = p.get("Parameters", {})
+                    column_stats = p["StorageDescriptor"]["Columns"]
+
+                    # only support single partition key
+                    partition_spec = str({partition_keys[0]: p["Values"][0]})
+
+                    if self.source_config.profiling.partition_patterns.allowed(
+                        partition_spec
+                    ):
+                        yield self._create_profile_mcp(
+                            mce, table_stats, column_stats, partition_spec
+                        ).as_workunit()
+                    else:
+                        continue
             else:
                 # ingest data profile without partition
                 table_stats = response["Table"]["Parameters"]
@@ -971,21 +969,6 @@ class GlueSource(StatefulIngestionSourceBase):
                 yield self._create_profile_mcp(
                     mce, table_stats, column_stats
                 ).as_workunit()
-
-    def _create_partition_profile_mcp(
-        self,
-        mce: MetadataChangeEventClass,
-        partition_keys: List[str],
-        partition: Dict[str, Any],
-    ) -> Optional[MetadataWorkUnit]:
-        table_stats = partition.get("Parameters", {})
-        column_stats = partition["StorageDescriptor"]["Columns"]
-        partition_spec = str({partition_keys[0]: partition["Values"][0]})
-        if self.source_config.profiling.partition_patterns.allowed(partition_spec):
-            return self._create_profile_mcp(
-                mce, table_stats, column_stats, partition_spec
-            ).as_workunit()
-        return None
 
     def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
