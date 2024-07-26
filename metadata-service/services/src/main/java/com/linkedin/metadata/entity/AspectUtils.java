@@ -67,7 +67,7 @@ public class AspectUtils {
   /**
    * Build an MCP that is processed in a fully synchronous manner.
    *
-   * This means that the secondary storage will be updated synchronously with the primary
+   * <p>This means that the secondary storage will be updated synchronously with the primary
    * storage, without waiting on the MCL kafka topic / eventual consistency.
    */
   public static MetadataChangeProposal buildSynchronousMetadataChangeProposal(
