@@ -74,13 +74,13 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
 
   @Nonnull private Map<String, StructuredPropertyDefinition> structuredPropertyMappings;
 
-  private static String DATA_TYPE_URN_PREFIX = "urn:li:datatype:datahub.";
+  private static String DATA_TYPE_URN_PREFIX = "urn:li:dataType:datahub.";
   private static String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:datahub.";
   private static String STRUCTURED_PROPERTY_FIELD = "structuredProperty";
 
-  private static Urn STRING_DATA_TYPE_URN = UrnUtils.getUrn("urn:li:datatype:datahub.string");
-  private static Urn NUMBER_DATA_TYPE_URN = UrnUtils.getUrn("urn:li:datatype:datahub.number");
-  private static Urn URN_DATA_TYPE_URN = UrnUtils.getUrn("urn:li:datatype:datahub.urn");
+  private static Urn STRING_DATA_TYPE_URN = UrnUtils.getUrn("urn:li:dataType:datahub.string");
+  private static Urn NUMBER_DATA_TYPE_URN = UrnUtils.getUrn("urn:li:dataType:datahub.number");
+  private static Urn URN_DATA_TYPE_URN = UrnUtils.getUrn("urn:li:dataType:datahub.urn");
 
   private static String EDITABLE_SCHEMA_FIELD_INFO = "editableSchemaFieldInfo";
   private static String SCHEMA_FIELDS = "fields";
