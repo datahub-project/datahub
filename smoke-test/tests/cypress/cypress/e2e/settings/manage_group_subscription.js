@@ -81,11 +81,11 @@ describe("group subscription test", () => {
     cy.get(".ant-tree-checkbox").click({ multiple: true });
 
     // Slack
-    cy.clickOptionWithTestId("alternative-slack-radio");
+    cy.get('[data-testid="slack-channel-edit-button"]').click();
     cy.enterTextInTestId("alternative-slack-member-id", test_id);
 
     // Email
-    cy.clickOptionWithTestId("alternative-email-radio");
+    cy.get('[data-testid="email-channel-edit-button"]').click();
     cy.enterTextInTestId("alternative-email", test_email);
 
     cy.clickOptionWithTestId("subscribe-button");

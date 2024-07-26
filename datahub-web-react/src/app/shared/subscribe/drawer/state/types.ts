@@ -8,6 +8,23 @@ export const ChannelSelections = {
 
 export type ChannelSelection = (typeof ChannelSelections)[keyof typeof ChannelSelections];
 
+export type SlackState = {
+    enabled: boolean;
+    channelSelection: ChannelSelection;
+    subscription: {
+        channel?: string;
+        saveAsDefault: boolean;
+    };
+};
+
+export type EmailState = {
+    enabled: boolean;
+    channelSelection: ChannelSelection;
+    subscription: {
+        channel?: string;
+        saveAsDefault: boolean;
+    };
+};
 export type State = {
     edited: boolean;
     isPersonal: boolean;
@@ -27,22 +44,8 @@ export type State = {
     };
     subscribeToUpstream: boolean;
     notificationSinkTypes: Array<NotificationSinkType>;
-    slack: {
-        enabled: boolean;
-        channelSelection: ChannelSelection;
-        subscription: {
-            channel?: string;
-            saveAsDefault: boolean;
-        };
-    };
-    email: {
-        enabled: boolean;
-        channelSelection: ChannelSelection;
-        subscription: {
-            channel?: string;
-            saveAsDefault: boolean;
-        };
-    };
+    slack: SlackState;
+    email: EmailState;
 };
 
 export type InitializeActionPayload = {
@@ -67,6 +70,8 @@ export const ActionTypes = {
     SET_SLACK_CHANNEL_SELECTION: 'SET_SLACK_CHANNEL_SELECTION',
     SET_SLACK_SUBSCRIPTION_CHANNEL: 'SET_SLACK_SUBSCRIPTION_CHANNEL',
     SET_SLACK_SAVE_AS_DEFAULT: 'SET_SLACK_SAVE_AS_DEFAULT',
+    SET_SLACK_OBJECT: 'SET_SLACK_OBJECT',
+    SET_EMAIL_OBJECT: 'SET_EMAIL_OBJECT',
     SET_EMAIL_ENABLED: 'SET_EMAIL_ENABLED',
     SET_EMAIL_CHANNEL_SELECTION: 'SET_EMAIL_CHANNEL_SELECTION',
     SET_EMAIL_SUBSCRIPTION_CHANNEL: 'SET_EMAIL_SUBSCRIPTION_CHANNEL',
@@ -82,6 +87,8 @@ export type Action =
     | { type: typeof ActionTypes.SET_SLACK_ENABLED; payload: boolean }
     | { type: typeof ActionTypes.SET_SLACK_CHANNEL_SELECTION; payload: ChannelSelection }
     | { type: typeof ActionTypes.SET_SLACK_SUBSCRIPTION_CHANNEL; payload: string }
+    | { type: typeof ActionTypes.SET_SLACK_OBJECT; payload: SlackState }
+    | { type: typeof ActionTypes.SET_EMAIL_OBJECT; payload: EmailState }
     | { type: typeof ActionTypes.SET_SLACK_SAVE_AS_DEFAULT; payload: boolean }
     | { type: typeof ActionTypes.SET_EMAIL_ENABLED; payload: boolean }
     | { type: typeof ActionTypes.SET_EMAIL_CHANNEL_SELECTION; payload: ChannelSelection }

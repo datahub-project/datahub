@@ -137,6 +137,7 @@ export const EmailSinkSettingsSection = ({
                     {sinkSupported ? supportedSinkDescription : unsupportedSinkDescription}
                     {sinkEnabled && inputValue && !editing && (
                         <>
+                            <br />
                             <strong>{inputValue}</strong>
                             <SinkEditButton type="link" onClick={() => setIsEditing(true)}>
                                 <EditDescription strong>edit</EditDescription>

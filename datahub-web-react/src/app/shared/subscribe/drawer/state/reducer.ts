@@ -192,6 +192,14 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
+        /** set whole slack object */
+        case ActionTypes.SET_SLACK_OBJECT: {
+            return {
+                ...state,
+                edited: true,
+                slack: action.payload,
+            };
+        }
         /** Email-specific reducers */
         case ActionTypes.SET_EMAIL_ENABLED: {
             const newNotificationSinkTypes = uniq(
@@ -252,6 +260,14 @@ export const reducer = (state: State, action: Action): State => {
                         saveAsDefault: action.payload,
                     },
                 },
+            };
+        }
+        /** set whole email object */
+        case ActionTypes.SET_EMAIL_OBJECT: {
+            return {
+                ...state,
+                edited: true,
+                email: action.payload,
             };
         }
         case ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM: {

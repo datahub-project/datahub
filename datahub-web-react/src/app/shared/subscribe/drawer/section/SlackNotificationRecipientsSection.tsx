@@ -1,23 +1,10 @@
-import React, { useEffect, useRef } from 'react';
-import {
-    Alert,
-    Checkbox,
-    Form,
-    Input,
-    InputRef,
-    Radio,
-    RadioChangeEvent,
-    Space,
-    Switch,
-    Tooltip,
-    Typography,
-} from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Form, Input, InputRef, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
-import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { useForm } from 'antd/lib/form/Form';
 import { trim } from 'lodash';
 import { Link } from 'react-router-dom';
-import { InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
+import { EditTwoTone, MoreOutlined } from '@ant-design/icons';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
@@ -27,7 +14,7 @@ import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.gener
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
 import { isSinkEnabled } from '../../../../settings/utils';
 import useDrawerActions from '../state/actions';
-import { ChannelSelections } from '../state/types';
+import { ChannelSelections, SlackState } from '../state/types';
 import {
     selectShouldShowUpdateSlackSettingsWarning,
     useDrawerSelector,
@@ -50,7 +37,7 @@ const StyledSwitch = styled(Switch)`
     margin-right: 8px;
 `;
 
-const StyledRadioGroup = styled(Radio.Group)`
+const StyledSlackSection = styled.div`
     padding-left: ${LEFT_PADDING}px;
     margin-top: 8px;
 `;
@@ -74,7 +61,7 @@ const DisabledText = styled(Typography.Text)`
 `;
 
 const MemberIdInstructionText = styled(Typography.Paragraph)`
-    margin-left: ${LEFT_PADDING + 24}px;
+    margin-left: ${LEFT_PADDING}px;
     margin-top: 6px;
     margin-bottom: 0px !important;
 `;
@@ -89,19 +76,6 @@ const StyledInput = styled(Input)`
     border-color: ${ANTD_GRAY[8]};
 `;
 
-const StyledCheckbox = styled(Checkbox)`
-    margin-left: ${LEFT_PADDING + 24}px;
-    margin-top: 8px;
-    border: 0.3px solid #ffffff;
-`;
-
-const SaveAsDefaultText = styled(Typography.Text)`
-    font-family: 'Mulish', sans-serif;
-    font-size: 14px;
-    line-height: 22px;
-    font-weight: 400;
-`;
-
 const UseDefaultText = styled(Typography.Text)`
     font-size: 14px;
 `;
@@ -109,13 +83,27 @@ const UseDefaultText = styled(Typography.Text)`
 const SettingsSlackChannel = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 700;
+    margin-left: 5px;
+`;
+
+// const BorderLessButton = styled(Typography.Text)<{ $isPrimary?: boolean }>`
+//     color: ${(props) => (props.$isPrimary ? REDESIGN_COLORS.BLUE : REDESIGN_COLORS.RED_NORMAL)};
+//     margin-left: 10px;
+//     font-size: 14px;
+//     cursor: pointer;
+// `;
+
+const EditText = styled.span`
+    margin-left: 10px;
+    color: ${REDESIGN_COLORS.BLUE};
+    cursor: pointer;
 `;
 
 const StyledAlert = styled(Alert)`
     margin: 8px 0 0 ${LEFT_PADDING}px;
 `;
 const TestNotificationButtonWrapper = styled.div`
-    margin-left: ${LEFT_PADDING + 24}px;
+    margin-left: ${LEFT_PADDING}px;
 `;
 
 export default function SlackNotificationRecipientSection() {
@@ -128,11 +116,11 @@ export default function SlackNotificationRecipientSection() {
     const isPersonal = useDrawerSelector(selectIsPersonal);
     const settingsSlackChannel = useDrawerSelector(selectSlackSettingsChannel);
     const shouldShowUpdateSlackSettingsWarning = useDrawerSelector(selectShouldShowUpdateSlackSettingsWarning);
-
-    const [isSettingsChannelSelected, isSubscriptionChannelSelected] = [
-        slack.channelSelection === ChannelSelections.SETTINGS,
-        slack.channelSelection === ChannelSelections.SUBSCRIPTION,
-    ];
+    const [isSlackEditing, setIsSlackEditing] = useState(false);
+    const [previousSlackChannelName, setPreviousSlackChannelName] = useState({ isUpdated: false, text: '' });
+    const [slackChannelName, setSlackChannelName] = useState('');
+    const [slackInputPlaceholder, setSlackInputPlaceholder] = useState('');
+    const [isSubscriptionChannelSelected] = [slack.channelSelection === ChannelSelections.SUBSCRIPTION];
 
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -141,22 +129,34 @@ export default function SlackNotificationRecipientSection() {
     );
     const slackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
-    const slackInputPlaceholder = isPersonal ? 'Alternate Slack Member ID' : '#my-team-channel';
-
     useEffect(() => {
         form.setFieldsValue({ slackFormValue: slack.subscription.channel });
     }, [form, slack.subscription.channel]);
 
+    const updateSlackInState = (channelName: string) => {
+        const slackData: SlackState = {
+            enabled: true,
+            channelSelection: 'SETTINGS',
+            subscription: {
+                saveAsDefault: true,
+                channel: channelName,
+            },
+        };
+        actions.setWholeSlackObject(slackData);
+    };
+
     useEffect(() => {
-        if (slack.enabled && isSubscriptionChannelSelected) channelInputRef.current?.focus();
+        if (slack.enabled && isSubscriptionChannelSelected) {
+            updateSlackInState(settingsSlackChannel || '');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isSubscriptionChannelSelected, slack.enabled]);
 
     const onChangeSlackSwitch = (checked: boolean) => {
         actions.setSlackEnabled(checked);
-    };
-
-    const onChangeSlackRadioGroup = ({ target: { value } }: RadioChangeEvent) => {
-        actions.setSlackChannelSelection(value);
+        if (checked && !settingsSlackChannel) {
+            setIsSlackEditing(true);
+        }
     };
 
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,51 +165,76 @@ export default function SlackNotificationRecipientSection() {
             // trim # from string and add only one # in front
             channelName = '#'.concat(trim(value, '#'));
         }
-        actions.setSlackSubscriptionChannel(channelName);
+        setSlackChannelName(channelName);
+        updateSlackInState(channelName);
     };
 
-    const onChangeSaveAsDefaultCheckbox = ({ target: { checked } }: CheckboxChangeEvent) => {
-        actions.setSlackSaveAsDefault(checked);
-    };
+    useEffect(() => {
+        if (!settingsSlackChannel && isPersonal) {
+            setSlackInputPlaceholder('Set Slack Member ID');
+        } else if (settingsSlackChannel && isPersonal) {
+            setSlackInputPlaceholder('Update Slack Member ID');
+        } else {
+            setSlackInputPlaceholder('#my-team-channel');
+        }
+        setSlackChannelName(settingsSlackChannel ?? '');
+        if (!previousSlackChannelName.isUpdated && settingsSlackChannel) {
+            setPreviousSlackChannelName({ isUpdated: true, text: settingsSlackChannel ?? '' });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [settingsSlackChannel]);
+
     const isAdminAccess = me?.platformPrivileges?.manageGlobalSettings || false;
+
+    // const handleRevertChannelName = () => {
+    //     setSlackChannelName(previousSlackChannelName.text);
+    //     updateSlackInState(previousSlackChannelName.text);
+    //     setIsSlackEditing(false);
+    // };
 
     const renderSlackSink = () => {
         let slackSinkHtml = (
-            <StyledRadioGroup
-                disabled={!slack.enabled || !slackSinkSupported}
-                value={slack.channelSelection}
-                onChange={onChangeSlackRadioGroup}
-            >
+            <StyledSlackSection>
                 <Space direction="vertical">
-                    {settingsSlackChannel && (
-                        <Radio value={ChannelSelections.SETTINGS}>
-                            <UseDefaultText>
-                                Use default: <SettingsSlackChannel>{settingsSlackChannel}</SettingsSlackChannel>
-                            </UseDefaultText>
-                        </Radio>
+                    {slackSinkSupported && !isSlackEditing ? (
+                        <UseDefaultText>
+                            To:&nbsp;
+                            <>
+                                <SettingsSlackChannel style={{ opacity: slackChannelName ? 1 : 0.3 }}>
+                                    {slackChannelName || (isPersonal ? 'Member ID' : '#slack-channel')}
+                                </SettingsSlackChannel>
+                                <EditText
+                                    data-testid="slack-channel-edit-button"
+                                    onClick={() => setIsSlackEditing(true)}
+                                >
+                                    <EditTwoTone style={{ marginRight: 3 }} /> Edit
+                                </EditText>
+                            </>
+                        </UseDefaultText>
+                    ) : (
+                        <>
+                            <Form form={form}>
+                                <StyledFormItem name="slackFormValue">
+                                    <UseDefaultText>
+                                        To:&nbsp;
+                                        <StyledInput
+                                            size="small"
+                                            ref={channelInputRef}
+                                            placeholder={slackInputPlaceholder}
+                                            data-testid="alternative-slack-member-id"
+                                            disabled={!slack.enabled || !slackSinkSupported}
+                                            value={slackChannelName}
+                                            onChange={onChangeChannelInput}
+                                            status={!slackChannelName ? 'error' : undefined}
+                                        />
+                                        {/* <BorderLessButton onClick={handleRevertChannelName}>Revert</BorderLessButton> */}
+                                    </UseDefaultText>
+                                </StyledFormItem>
+                            </Form>
+                        </>
                     )}
-                    <Radio value={ChannelSelections.SUBSCRIPTION} data-testid="alternative-slack-radio">
-                        <Form form={form}>
-                            <StyledFormItem name="slackFormValue">
-                                <StyledInput
-                                    size="small"
-                                    ref={channelInputRef}
-                                    placeholder={slackInputPlaceholder}
-                                    data-testid="alternative-slack-member-id"
-                                    disabled={!slack.enabled || !slackSinkSupported || isSettingsChannelSelected}
-                                    value={slack.subscription.channel}
-                                    onChange={onChangeChannelInput}
-                                    status={
-                                        isSubscriptionChannelSelected && !slack.subscription.channel
-                                            ? 'error'
-                                            : undefined
-                                    }
-                                />
-                            </StyledFormItem>
-                        </Form>
-                    </Radio>
                 </Space>
-            </StyledRadioGroup>
+            </StyledSlackSection>
         );
         if (!slackSinkSupported) {
             slackSinkHtml = isAdminAccess ? (
@@ -248,20 +273,8 @@ export default function SlackNotificationRecipientSection() {
                 />
             )}
             {renderSlackSink()}
-            {isSubscriptionChannelSelected && slackSinkSupported && (
+            {isSlackEditing && slackSinkSupported && (
                 <>
-                    <StyledCheckbox
-                        disabled={!slack.enabled || !slackSinkSupported}
-                        checked={slack.subscription.saveAsDefault}
-                        onChange={onChangeSaveAsDefaultCheckbox}
-                    >
-                        <SaveAsDefaultText>
-                            Save as default{' '}
-                            <Tooltip title="You can manage defaults under the 'Settings' page > 'My Notifications' tab">
-                                <InfoCircleOutlined />
-                            </Tooltip>
-                        </SaveAsDefaultText>
-                    </StyledCheckbox>
                     <MemberIdInstructionText>
                         {isPersonal ? (
                             <>
@@ -286,21 +299,14 @@ export default function SlackNotificationRecipientSection() {
                     <TestNotificationButton
                         integration="slack"
                         connectionUrn={SLACK_CONNECTION_URN}
-                        hidden={!(isSubscriptionChannelSelected ? slack.subscription.channel : settingsSlackChannel)}
+                        hidden={!slack.subscription.channel}
                         destinationSettings={
                             isPersonal
                                 ? {
-                                      userHandle:
-                                          (isSubscriptionChannelSelected
-                                              ? slack.subscription.channel
-                                              : settingsSlackChannel) || '',
+                                      userHandle: slack.subscription.channel || '',
                                   }
                                 : {
-                                      channels: [
-                                          (isSubscriptionChannelSelected
-                                              ? slack.subscription.channel
-                                              : settingsSlackChannel) || '',
-                                      ],
+                                      channels: [slack.subscription.channel || ''],
                                   }
                         }
                     />
