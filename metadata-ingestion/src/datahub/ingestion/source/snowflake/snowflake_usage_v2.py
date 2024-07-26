@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
 
@@ -20,7 +20,11 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeCommonMixin,
+    SnowflakeFilter,
+    SnowflakeIdentifierBuilder,
+)
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
@@ -112,13 +116,14 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
         connection: SnowflakeConnection,
-        dataset_urn_builder: Callable[[str], str],
+        filter: SnowflakeFilter,
+        identifiers: SnowflakeIdentifierBuilder,
         redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler],
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
-        self.dataset_urn_builder = dataset_urn_builder
-        self.logger = logger
+        self.filter = filter
+        self.identifiers = identifiers
         self.connection = connection
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
@@ -171,7 +176,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                     bucket_duration=self.config.bucket_duration,
                 ),
                 dataset_urns={
-                    self.dataset_urn_builder(dataset_identifier)
+                    self.identifiers.gen_dataset_urn(dataset_identifier)
                     for dataset_identifier in discovered_datasets
                 },
             )
@@ -232,7 +237,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         logger.debug(f"Processing usage row number {results.rownumber}")
                         logger.debug(self.report.usage_aggregation.as_string())
 
-                    if not self.is_dataset_pattern_allowed(
+                    if not self.filter.is_dataset_pattern_allowed(
                         row["OBJECT_NAME"],
                         row["OBJECT_DOMAIN"],
                     ):
@@ -242,7 +247,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         continue
 
                     dataset_identifier = (
-                        self.get_dataset_identifier_from_qualified_name(
+                        self.identifiers.get_dataset_identifier_from_qualified_name(
                             row["OBJECT_NAME"]
                         )
                     )
@@ -279,7 +284,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 fieldCounts=self._map_field_counts(row["FIELD_COUNTS"]),
             )
             return MetadataChangeProposalWrapper(
-                entityUrn=self.dataset_urn_builder(dataset_identifier), aspect=stats
+                entityUrn=self.identifiers.gen_dataset_urn(dataset_identifier),
+                aspect=stats,
             ).as_workunit()
         except Exception as e:
             logger.debug(
@@ -356,7 +362,9 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             return sorted(
                 [
                     DatasetFieldUsageCounts(
-                        fieldPath=self.snowflake_identifier(field_count["col"]),
+                        fieldPath=self.identifiers.snowflake_identifier(
+                            field_count["col"]
+                        ),
                         count=field_count["total"],
                     )
                     for field_count in field_counts
@@ -454,8 +462,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             for obj in event.objects_modified:
                 resource = obj.objectName
 
-                dataset_identifier = self.get_dataset_identifier_from_qualified_name(
-                    resource
+                dataset_identifier = (
+                    self.identifiers.get_dataset_identifier_from_qualified_name(
+                        resource
+                    )
                 )
 
                 if dataset_identifier not in discovered_datasets:
@@ -476,7 +486,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                     ),
                 )
                 mcp = MetadataChangeProposalWrapper(
-                    entityUrn=self.dataset_urn_builder(dataset_identifier),
+                    entityUrn=self.identifiers.gen_dataset_urn(dataset_identifier),
                     aspect=operation_aspect,
                 )
                 wu = MetadataWorkUnit(
@@ -561,7 +571,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
     def _is_object_valid(self, obj: Dict[str, Any]) -> bool:
         if self._is_unsupported_object_accessed(
             obj
-        ) or not self.is_dataset_pattern_allowed(
+        ) or not self.filter.is_dataset_pattern_allowed(
             obj.get("objectName"), obj.get("objectDomain")
         ):
             return False

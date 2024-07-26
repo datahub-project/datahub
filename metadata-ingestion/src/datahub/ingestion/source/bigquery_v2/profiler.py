@@ -227,8 +227,9 @@ WHERE
 
         if partition is None and bq_table.partition_info:
             self.report.report_warning(
-                "profile skipped as partitioned table is empty or partition id or type was invalid",
-                profile_request.pretty_name,
+                title="Profile skipped for partitioned table",
+                message="profile skipped as partitioned table is empty or partition id or type was invalid",
+                context=profile_request.pretty_name,
             )
             return None
         if (

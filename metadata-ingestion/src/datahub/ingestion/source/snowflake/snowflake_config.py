@@ -131,6 +131,7 @@ class SnowflakeIdentifierConfig(
     # Changing default value here.
     convert_urns_to_lowercase: bool = Field(
         default=True,
+        description="Whether to convert dataset urns to lowercase.",
     )
 
 
@@ -181,6 +182,11 @@ class SnowflakeV2Config(
         description="If enabled, populates the snowflake usage statistics. Requires appropriate grants given to the role.",
     )
 
+    include_view_definitions: bool = Field(
+        default=True,
+        description="If enabled, populates the ingested views' definitions.",
+    )
+
     include_technical_schema: bool = Field(
         default=True,
         description="If enabled, populates the snowflake technical schema and descriptions.",
@@ -205,8 +211,13 @@ class SnowflakeV2Config(
         description="Populates view->view and table->view column lineage using DataHub's sql parser.",
     )
 
-    lazy_schema_resolver: bool = Field(
+    use_queries_v2: bool = Field(
         default=False,
+        description="If enabled, uses the new queries extractor to extract queries from snowflake.",
+    )
+
+    lazy_schema_resolver: bool = Field(
+        default=True,
         description="If enabled, uses lazy schema resolver to resolve schemas for tables and views. "
         "This is useful if you have a large number of schemas and want to avoid bulk fetching the schema for each table/view.",
     )
