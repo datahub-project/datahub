@@ -112,7 +112,8 @@ def load_client_config() -> DatahubClientConfig:
 def _ensure_datahub_config() -> None:
     if not os.path.isfile(DATAHUB_CONFIG_PATH):
         raise MissingConfigError(
-            f"No {CONDENSED_DATAHUB_CONFIG_PATH} file found. Run `datahub init` to create one."
+            f"No {CONDENSED_DATAHUB_CONFIG_PATH} file found, and no configuration was found in environment variables. "
+            f"Run `datahub init` to create a {CONDENSED_DATAHUB_CONFIG_PATH} file."
         )
 
 
