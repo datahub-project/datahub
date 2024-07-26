@@ -85,6 +85,7 @@ public class SearchDocumentTransformerTest {
     assertEquals(parsedJson.get("feature2").asInt(), 1);
     JsonNode browsePathV2 = (JsonNode) parsedJson.get("browsePathV2");
     assertEquals(browsePathV2.asText(), "␟levelOne␟levelTwo");
+    assertEquals(parsedJson.get("esObjectField").get("key3").asText(), "");
   }
 
   @Test
