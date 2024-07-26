@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
@@ -188,11 +188,13 @@ class DataHubFormReportingData(FormData):
         assert forms, f"Forms aspect not found for {search_row.urn}"
         for incomplete_form in forms.incompleteForms:
             form_assigned_dates[incomplete_form.urn] = datetime.fromtimestamp(
-                incomplete_form.created.time / 1000 if incomplete_form.created else 0
+                incomplete_form.created.time / 1000 if incomplete_form.created else 0,
+                tz=timezone.utc,
             ).date()
         for completed_form in forms.completedForms:
             form_assigned_dates[completed_form.urn] = datetime.fromtimestamp(
-                completed_form.created.time / 1000 if completed_form.created else 0
+                completed_form.created.time / 1000 if completed_form.created else 0,
+                tz=timezone.utc,
             ).date()
         return form_assigned_dates
 
@@ -218,7 +220,8 @@ class DataHubFormReportingData(FormData):
             sorted_dates = sorted(completed_prompts_map.values())
             if sorted_dates:
                 form_completion_dates[form] = datetime.fromtimestamp(
-                    int(sorted(completed_prompts_map.values())[-1]) / 1000
+                    int(sorted(completed_prompts_map.values())[-1]) / 1000,
+                    tz=timezone.utc,
                 ).date()
             else:
                 logger.warning(
@@ -359,8 +362,8 @@ class DataHubFormReportingData(FormData):
                             ),
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.COMPLETED,
-                            question_completed_date=datetime.utcfromtimestamp(
-                                float(prompt_response_time)
+                            question_completed_date=datetime.fromtimestamp(
+                                float(prompt_response_time) / 1000, tz=timezone.utc
                             ),
                             snapshot_date=self.snapshot_date,
                         )
@@ -453,8 +456,8 @@ class DataHubFormReportingData(FormData):
                             ),
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.COMPLETED,
-                            question_completed_date=datetime.utcfromtimestamp(
-                                float(prompt_response_time)
+                            question_completed_date=datetime.fromtimestamp(
+                                float(prompt_response_time) / 1000, tz=timezone.utc
                             ),
                             snapshot_date=self.snapshot_date,
                         )
