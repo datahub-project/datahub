@@ -3,6 +3,7 @@ import cronstrue from 'cronstrue';
 
 import {
     AssertionInfo,
+    AssertionRunStatus,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameters,
@@ -22,7 +23,6 @@ import {
     SchemaFieldRef,
     VolumeAssertionInfo,
 } from '@src/types.generated';
-import { getFormattedParameterValue } from './assertionUtils';
 import {
     getIsRowCountChange,
     getOperatorDescription,
@@ -30,13 +30,17 @@ import {
     getValueChangeTypeDescription,
     getVolumeTypeDescription,
     getVolumeTypeInfo,
-} from './utils';
+} from '../utils';
 import {
     getFieldDescription,
     getFieldOperatorDescription,
     getFieldParametersDescription,
     getFieldTransformDescription,
-} from './fieldDescriptionUtils';
+} from '../fieldDescriptionUtils';
+
+import { getFormattedParameterValue } from '../assertionUtils';
+import { AssertionWithMonitorDetails } from '../acrylUtils';
+import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 
 /**
  * Returns the React Component to render for the aggregation portion of the Assertion Description
@@ -374,4 +378,51 @@ export const getPlainTextDescriptionFromAssertion = (
             break;
     }
     return primaryLabel;
+};
+
+/** return assertion table data from assertions */
+export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]): any[] => {
+    const assertionsTableData = assertions.map((assertion) => {
+        const monitor =
+            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0].entity;
+
+        // const { primaryLabel, primaryPainTextLabel } = useBuildAssertionDescriptionLabels(assertion.info, monitor);
+        const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(
+            assertion.info as AssertionInfo,
+            monitor as CronSchedule,
+        );
+        return {
+            // for rendering need below data mapping
+            type: assertion.info?.type,
+            lastUpdated: assertion.info?.lastUpdated,
+            tags: assertion.tags,
+            // descriptionHTML will dynamically at run time as we are using custom hooks because of that we cannot call it here
+            descriptionHTML: null,
+
+            description: primaryPainTextLabel,
+
+            // for operation need below data mapping
+            urn: assertion.urn,
+            platform: assertion.platform,
+            lastEvaluation:
+                assertion.runEvents?.runEvents?.length &&
+                assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
+                assertion.runEvents.runEvents[0],
+            lastEvaluationTimeMs:
+                assertion.runEvents?.runEvents?.length && assertion.runEvents.runEvents[0].timestampMillis,
+            lastEvaluationResult:
+                assertion.runEvents?.runEvents?.length &&
+                assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
+                assertion.runEvents.runEvents[0].result?.type,
+            lastEvaluationUrl:
+                assertion.runEvents?.runEvents?.length &&
+                assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
+                assertion.runEvents.runEvents[0].result?.externalUrl,
+            assertion,
+            monitor:
+                (assertion as any).monitor?.relationships?.length &&
+                (assertion as any).monitor?.relationships[0].entity,
+        };
+    });
+    return assertionsTableData;
 };
