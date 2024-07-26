@@ -20,12 +20,10 @@ import { AssertionGroupTable } from './AssertionGroupTable';
 import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
 import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
-import { AcrylAssertionsSummaryLoading } from './AcrylAssertionsSummaryLoading';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../constants';
-import { AssertionInfo, AssertionRunStatus } from '@src/types.generated';
+import { AssertionRunStatus } from '@src/types.generated';
 import { useBuildAssertionDescriptionLabels } from './assertion/profile/summary/utils';
-import { getPlainTextDescriptionFromAssertion } from './assertionPlainTextUtils';
 
 export const StyledTable = styled(Table)`
     max-width: none;
@@ -58,6 +56,9 @@ export const StyledTable = styled(Table)`
         background-color: ${ANTD_GRAY[4]};
     }
 `;
+const StyledAssertionNameContainer = styled.div`
+    display: flex;
+`;
 
 // {getAggregationText(scope, aggregation, fields)}{' '}
 // {getOperatorText(operator, parameters || undefined, nativeType || undefined)}
@@ -87,26 +88,45 @@ export const AcrylAssertionList = () => {
     const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
         tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
 
-    const AssertionTableRow = ({ descriptionHTML }: { descriptionHTML?: string }) => {
-        return <div>{descriptionHTML}</div>;
+    const AssertionName = ({ descriptionHTML }: { descriptionHTML?: JSX.Element }) => {
+        return <StyledAssertionNameContainer>{descriptionHTML}</StyledAssertionNameContainer>;
     };
 
     const assertionsTableCols = [
         {
-            title: '',
+            title: 'Name',
             dataIndex: '',
             key: '',
             render: (_, record: any) => {
-                return (
-                    <AssertionTableRow
-                        descriptionHTML={record.descriptionHTML}
-                        // assertion={record.assertion}
-                        // monitor={record.monitor}
-                        // contract={contract}
-                        // lastEvaluation={record.lastEvaluation}
-                        // onViewAssertionDetails={() => setFocusAssertionUrn(record.urn)}
-                    />
-                );
+                return <AssertionName descriptionHTML={record.descriptionHTML} />;
+            },
+            width: '50%',
+        },
+        {
+            title: 'Last Updated',
+            dataIndex: '',
+            key: '',
+            render: (_, record: any) => {
+                return <div>Last Updated</div>;
+            },
+            width: '17%',
+        },
+        {
+            title: 'Tags',
+            dataIndex: '',
+            key: 'tags',
+            width: '17%',
+            render: (tags?: string[]) => {
+                return <div> Tags {tags?.toString()} </div>;
+            },
+        },
+        {
+            title: '',
+            dataIndex: '',
+            key: '',
+            width: '16%',
+            render: () => {
+                return <div> Actions </div>;
             },
         },
     ];
@@ -115,20 +135,14 @@ export const AcrylAssertionList = () => {
         const monitor =
             (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0].entity;
 
-        const { primaryLabel } = useBuildAssertionDescriptionLabels(assertion.info, monitor) || {
-            primaryLabel: null,
-            primaryLabelRef: null,
-        };
-        const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
-        console.log('description>>>', description);
-
+        const { primaryLabel, primaryPainTextLabel } = useBuildAssertionDescriptionLabels(assertion.info, monitor);
         return {
             // for rendering need below data mapping
             type: assertion.info?.type,
-            lastUpdated: assertion.info?.lastUpdated || new Date(),
+            lastUpdated: assertion.info?.lastUpdated,
             tags: assertion.tags,
             descriptionHTML: primaryLabel,
-            description,
+            description: primaryPainTextLabel,
 
             // for operation need below data mapping
             urn: assertion.urn,

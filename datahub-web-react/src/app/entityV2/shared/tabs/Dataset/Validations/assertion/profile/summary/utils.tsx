@@ -22,6 +22,7 @@ import { SchemaAssertionDescription } from '../../../SchemaAssertionDescription'
 import { useEntityRegistry } from '../../../../../../../../useEntityRegistry';
 import { useGetUserQuery } from '../../../../../../../../../graphql/user.generated';
 import { ANTD_GRAY_V2 } from '../../../../../../constants';
+import { getPlainTextDescriptionFromAssertion } from '../../../assertionPlainTextUtils';
 
 /**
  * Returns a text element describing the given assertion
@@ -182,9 +183,16 @@ export const useBuildAssertionDescriptionLabels = (
 ): {
     primaryLabel: JSX.Element;
     secondaryLabel: JSX.Element | null;
+    primaryPainTextLabel: string;
 } => {
     // ------- Primary label with assertion description ------ //
     const primaryLabel = useBuildPrimaryLabel(assertionInfo, monitorSchedule);
+
+    // get plain text description from the assertion
+    const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(
+        assertionInfo as AssertionInfo,
+        monitorSchedule as CronSchedule,
+    );
 
     // ----------- Try displaying secondary label showing creator/updater context ------------ //
     const secondaryLabel = useBuildSecondaryLabel(assertionInfo);
@@ -192,5 +200,6 @@ export const useBuildAssertionDescriptionLabels = (
     return {
         primaryLabel,
         secondaryLabel,
+        primaryPainTextLabel,
     };
 };
