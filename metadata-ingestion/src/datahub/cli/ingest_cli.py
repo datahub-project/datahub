@@ -380,8 +380,7 @@ def deploy(
         try:
             error = json.loads(str(graph_error).replace('"', '\\"').replace("'", '"'))
             click.secho(error[0]["message"], fg="red", err=True)
-        except Exception as e:
-            print(e)
+        except Exception:
             click.secho(
                 f"Could not create ingestion source:\n{graph_error}", fg="red", err=True
             )
