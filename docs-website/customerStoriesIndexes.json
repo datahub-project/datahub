@@ -53,7 +53,29 @@
       "linkType": "video",
       "tagline": "Coursera's DataHub Journey",
       "category": "B2B & B2C",
-      "description": "Coursera discusses how DataHub helps them streamline data management processes, improve data discovery, and enhance data governance, ensuring better learning experiences for their users."
+      "description": "<i>“DataHub aligns with our needs [for] data documentation, a unified search experience, lineage information, and additional metadata. We are also very impressed with the vibrant and supportive community.”</i>"
+    },
+    {
+      "name": "Wolt",
+      "slug": "wolt",
+      "imageUrl": "/img/logos/companies/wolt.png",
+      "imageSize": "default",
+      "link": "https://blog.datahubproject.io/humans-of-datahub-fredrik-sannholm-d673b1877f2b",
+      "linkType": "blog",
+      "tagline": "Wolt's DataHub Integration",
+      "category": "E-Commerce",
+      "description": "<i>“[DataHub] has made our legal team very happy with being able to keep track of our sensitive data [to answer questions like] Where’s it going? How’s it being processed? Where’s it ending up? Which third party tool or API’s are we sending it to and why? Who is responsible for this integration?”</i>"
+    },
+    {
+      "name": "Adevinta",
+      "slug": "adevinta",
+      "imageUrl": "/img/logos/companies/adevinta.png",
+      "imageSize": "medium",
+      "link": "https://medium.com/@adevinta/building-the-data-catalogue-the-beginning-of-a-journey-d64e828f955c",
+      "linkType": "blog",
+      "tagline": "Building the data catalogue",
+      "category": "E-Commerce",
+      "description": "<i>“DataHub allows us to solve the data discovery problem, which was a big challenge in our organization, and now we are solving it.”</i>"
     },
     {
       "name": "Zynga",
@@ -100,17 +122,6 @@
       "description": "Saxo Bank illustrates their use of DataHub in financial data management, enhancing transparency and compliance across their operations."
     },
     {
-      "name": "Adevinta",
-      "slug": "adevinta",
-      "imageUrl": "/img/logos/companies/adevinta.png",
-      "imageSize": "medium",
-      "link": "https://www.youtube.com/watch?v=u9DRa_5uPIM",
-      "linkType": "video",
-      "tagline": "Adevinta's Data Management with DataHub",
-      "category": "E-Commerce",
-      "description": "Adevinta showcases their implementation of DataHub, focusing on its role in streamlining data processes and supporting e-commerce growth."
-    },
-    {
       "name": "Grofers",
       "slug": "grofers",
       "imageUrl": "/img/logos/companies/grofers.png",
@@ -120,17 +131,6 @@
       "tagline": "Grofers' Success with DataHub",
       "category": "E-Commerce",
       "description": "Grofers details how DataHub aids their data governance and analytics, enhancing their ability to serve customers effectively."
-    },
-    {
-      "name": "Wolt",
-      "slug": "wolt",
-      "imageUrl": "/img/logos/companies/wolt.png",
-      "imageSize": "default",
-      "link": "https://www.youtube.com/watch?v=D8XsfoZuwt0&t=75s",
-      "linkType": "video",
-      "tagline": "Wolt's DataHub Integration",
-      "category": "E-Commerce",
-      "description": "Wolt explains the benefits of integrating DataHub into their data systems, improving delivery logistics and customer satisfaction."
     },
     {
       "name": "Viasat",
