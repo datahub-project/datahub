@@ -6,7 +6,7 @@ import styles from "./styles.module.scss";
 export default function LearnItemCard({ company }) {
   return (
     <div className={clsx("col col--4", styles.featureCol)}>
-      <div className={clsx("card", styles.card)}>
+      <div className={clsx("card", styles.card)} id={company.slug}>
         <div className={styles.card_image}>
           <img src={`/img/adoption-stories/adoption-stories-${company.slug}.png`} alt={company.name} />
         </div>

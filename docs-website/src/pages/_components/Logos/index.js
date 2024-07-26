@@ -172,9 +172,7 @@ export const CompanyLogos = () => (
         <SwiperSlide key={idx}>
           {company.link ? (
             <a
-              href={company.link}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={`/adoption-stories#${company.slug}`}
             >
               <img
                 src={useBaseUrl(company.imageUrl)}
