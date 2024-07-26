@@ -257,7 +257,6 @@ public class DatahubSparkListener extends SparkListener {
       this.appContext.setDatabricksTags(databricksTags.orElse(null));
     }
 
-    log.info("Datahub configuration: {}", datahubConf.root().render());
     Optional<DatahubEmitterConfig> emitterConfig = initializeEmitter(datahubConf);
     SparkLineageConf sparkLineageConf =
         SparkLineageConf.toSparkLineageConf(datahubConf, appContext, emitterConfig.orElse(null));
