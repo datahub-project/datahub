@@ -27,7 +27,7 @@ from deprecated import deprecated
 from pydantic import BaseModel
 from requests.models import HTTPError
 
-from datahub.cli.config_utils import load_client_config
+import datahub.cli.config_utils as config_utils
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
@@ -1753,7 +1753,7 @@ class DataHubGraph(DatahubRestEmitter):
 
 
 def get_default_graph() -> DataHubGraph:
-    graph_config = load_client_config()
+    graph_config = config_utils.load_client_config()
     graph = DataHubGraph(graph_config)
     graph.test_connection()
     return graph

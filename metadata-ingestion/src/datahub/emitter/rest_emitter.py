@@ -88,6 +88,11 @@ class DataHubRestEmitter(Closeable, Emitter):
         if token:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
         else:
+            # HACK: When no token is provided but system auth env variables are set, we use them.
+            # Ideally this should simply get passed in as config, instead of being sneakily injected
+            # in as part of this constructor.
+            # It works because everything goes through here. The DatahubGraph inherits from the
+            # rest emitter, and the rest sink uses the rest emitter under the hood.
             system_auth = get_system_auth()
             if system_auth is not None:
                 self._session.headers.update({"Authorization": system_auth})
