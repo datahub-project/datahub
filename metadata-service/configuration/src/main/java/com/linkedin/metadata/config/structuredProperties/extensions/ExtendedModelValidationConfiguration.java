@@ -18,11 +18,11 @@ import lombok.extern.slf4j.Slf4j;
 @JsonDeserialize(
     builder =
         ExtendedModelValidationConfiguration.ExtendedModelValidationConfigurationBuilder.class)
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class ExtendedModelValidationConfiguration {
   List<EntityConfiguration> entities;
   List<StructuredPropertyConfiguration> structuredProperties;
 
   @JsonPOJOBuilder(withPrefix = "")
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public static class ExtendedModelValidationConfigurationBuilder {}
 }
