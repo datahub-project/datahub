@@ -9,7 +9,7 @@ Close communication is not only welcomed, but highly encouraged. For all questio
 
 Before you go further, you'll need to have a DataHub instance provisioned. The Acryl integrations team will provide you the following once it has been deployed:
 
-1. The URL for your Acryl instance (https://your-domain-name.acryl.io)
+1. The URL for your DataHub Cloud instance (https://your-domain-name.acryl.io)
 2. Admin account credentials for logging into the DataHub UI
 
 Once you have these, you're ready to go.

@@ -178,7 +178,7 @@ These privileges are only relevant to DataHub Cloud.
 | Manage Group Notification Settings    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage notification settings for a group.                                       |
 | Manage Group Subscriptions            | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage subscriptions for a group.                                               |
 | Manage Data Contract Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                           |
-| Share Entity                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another Acryl instance.                                    |
+| Share Entity                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another DataHub Cloud instance.                                    |
 
 ## Additional Resources
 
