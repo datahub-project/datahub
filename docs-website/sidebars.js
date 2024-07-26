@@ -447,7 +447,7 @@ module.exports = {
     },
     {
       "Advanced Guides": [
-         "docs/how/delete-metadata",
+        "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
         "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
         "docs/how/backup-datahub",
@@ -1182,7 +1182,7 @@ module.exports = {
     },
     {
       "Advanced Guides": [
-         "docs/how/delete-metadata",
+        "docs/how/delete-metadata",
         {
           type: "doc",
           id: "docs/managed-datahub/integrations/aws-privatelink",
