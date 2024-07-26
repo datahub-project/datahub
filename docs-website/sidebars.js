@@ -214,16 +214,11 @@ module.exports = {
       ],
     },
     {
-      Integrations: [
+      Notifications: [
         {
+          label: "Subscriptions & Notifications",
           type: "doc",
-          id: "docs/managed-datahub/integrations/aws-privatelink",
-          label: "AWS PrivateLink Intergration",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          id: "docs/managed-datahub/subscription-and-notification",
           className: "saasOnly",
         },
         {
@@ -452,7 +447,7 @@ module.exports = {
     },
     {
       "Advanced Guides": [
-        "docs/how/delete-metadata",
+         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
         "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
         "docs/how/backup-datahub",
@@ -463,6 +458,17 @@ module.exports = {
         "docs/how/kafka-config",
         "docs/advanced/no-code-upgrade",
         "docs/how/jattach-guide",
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/aws-privatelink",
+          label: "AWS PrivateLink Intergration",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          className: "saasOnly",
+        },
       ],
     },
     {
@@ -742,7 +748,7 @@ module.exports = {
       ],
     },
     {
-      "API & SDK Guides": [
+      Guides: [
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
@@ -854,19 +860,19 @@ module.exports = {
   acrylSidebar: [
     {
       type: "html",
-      value: "<div>Acryl Cloud</div>",
+      value: "<div>Overview</div>",
       defaultStyle: true,
     },
     {
       type: "doc",
       id: "docs/managed-datahub/managed-datahub-overview",
-      label: "Why Acryl Cloud?",
+      label: "Why DataHub Cloud?",
     },
     "docs/what-is-datahub/customer-stories",
     {
       type: "doc",
       id: "docs/managed-datahub/welcome-acryl",
-      label: "Getting Started With Acryl Cloud",
+      label: "Getting Started With DataHub Cloud",
     },
     {
       type: "html",
@@ -1029,12 +1035,6 @@ module.exports = {
           id: "docs/incidents/incidents",
         },
         {
-          label: "Subscriptions & Notifications",
-          type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
-          className: "saasOnly",
-        },
-        {
           label: "Sync Status", // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
           type: "doc",
           id: "docs/sync-status",
@@ -1042,16 +1042,11 @@ module.exports = {
       ],
     },
     {
-      Integrations: [
+      Notifications: [
         {
+          label: "Subscriptions & Notifications",
           type: "doc",
-          id: "docs/managed-datahub/integrations/aws-privatelink",
-          label: "AWS PrivateLink Intergration",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          id: "docs/managed-datahub/subscription-and-notification",
           className: "saasOnly",
         },
         {
@@ -1187,7 +1182,18 @@ module.exports = {
     },
     {
       "Advanced Guides": [
-        "docs/how/delete-metadata",
+         "docs/how/delete-metadata",
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/aws-privatelink",
+          label: "AWS PrivateLink Intergration",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          className: "saasOnly",
+        },
         {
           type: "doc",
           id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
@@ -1445,7 +1451,7 @@ module.exports = {
       ],
     },
     {
-      "API & SDK Guides": [
+      Guides: [
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",

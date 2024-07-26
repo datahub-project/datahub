@@ -71,17 +71,23 @@ module.exports = {
       },
       items: [
         {
+          type: "dropdown",
+          label: "Docs",
+          position: "right",
+          items: [
+          {
           type: "docSidebar",
           sidebarId: "overviewSidebar",
           label: "DataHub",
-          position: "right",
         },
         {
           type: "docSidebar",
           sidebarId: "acrylSidebar",
-          label: "Acryl Cloud",
-          position: "right",
+          label: "DataHub Cloud",
         },
+          ]
+        },
+
         {
           to: "/learn",
           activeBasePath: "learn",
