@@ -1869,7 +1869,9 @@ public class GmsGraphQLEngine {
         "CorpGroup",
         typeWiring ->
             typeWiring
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
