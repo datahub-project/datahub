@@ -217,7 +217,6 @@ def _make_ingestion_urn(name: str) -> str:
 
 class DeployOptions(ConfigModel):
     name: str
-    description: Optional[str] = None
     schedule: Optional[str] = None
     time_zone: str = "UTC"
     cli_version: Optional[str] = None
@@ -232,12 +231,6 @@ class DeployOptions(ConfigModel):
     "--name",
     type=str,
     help="Recipe Name",
-)
-@click.option(
-    "--description",
-    type=str,
-    help="Recipe description",
-    required=False,
 )
 @click.option(
     "-c",
@@ -282,7 +275,6 @@ class DeployOptions(ConfigModel):
 )
 def deploy(
     name: Optional[str],
-    description: Optional[str],
     config: str,
     urn: Optional[str],
     executor_id: str,
@@ -321,8 +313,6 @@ def deploy(
         deploy_options = DeployOptions(name=name)
 
     # Use remaining CLI args to override deploy_options
-    if description:
-        deploy_options.description = description
     if schedule:
         deploy_options.schedule = schedule
     if time_zone:
@@ -333,9 +323,6 @@ def deploy(
         deploy_options.executor_id = executor_id
 
     logger.info(f"Using {repr(deploy_options)}")
-
-    if deploy_options.description:
-        logger.warning("Description was set, but it is not shown anywhere in the UI")
 
     if not urn:
         # When urn/name is not specified, we will generate a unique urn based on the deployment name.
