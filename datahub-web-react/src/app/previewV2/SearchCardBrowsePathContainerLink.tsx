@@ -2,7 +2,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Container, Dashboard, Dataset } from '../../types.generated';
+import { Entity } from '@types';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import SearchCardBrowsePathContainerIcon from './SearchCardBrowsePathContainerIcon';
@@ -41,7 +41,7 @@ const StyledLink = styled(Link)`
 `;
 
 interface Props {
-    container: Maybe<Container> | Maybe<Dashboard> | Maybe<Dataset>;
+    container: Maybe<Entity>;
 }
 
 function ContainerLink(props: Props) {
@@ -57,7 +57,7 @@ function ContainerLink(props: Props) {
     return (
         <Path>
             <StyledLink to={containerUrl} data-testid="container" {...linkProps}>
-                <SearchCardBrowsePathContainerIcon container={props.container} />
+                <SearchCardBrowsePathContainerIcon container={container} />
                 <ContainerText title={containerName}>{containerName}</ContainerText>
             </StyledLink>
         </Path>

@@ -216,11 +216,19 @@ export default class EntityRegistry {
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
         if (!genericEntityProperties || !entity.getLineageVizConfig) return null;
 
+        const reversedBrowsePath = genericEntityProperties.browsePathV2?.path.slice();
+        reversedBrowsePath?.reverse();
+        const parents = genericEntityProperties?.parentContainers?.containers.length
+            ? genericEntityProperties?.parentContainers?.containers
+                  ?.map((p) => this.getGenericEntityProperties(p.type, p))
+                  .filter((p): p is GenericEntityProperties => !!p)
+            : reversedBrowsePath
+                  ?.map((p) => (p.entity ? this.getGenericEntityProperties(p.entity.type, p.entity) : { name: p.name }))
+                  .filter((p): p is GenericEntityProperties => !!p);
+
         return {
             // Parents defined above `entity.getLineageVizConfig` so it can be overridden
-            parents: genericEntityProperties?.parentContainers?.containers
-                .map((container) => this.getGenericEntityProperties(container.type, container))
-                .filter((p): p is GenericEntityProperties => !!p),
+            parents,
             ...entity.getLineageVizConfig(data),
             fineGrainedLineages:
                 genericEntityProperties?.fineGrainedLineages ||

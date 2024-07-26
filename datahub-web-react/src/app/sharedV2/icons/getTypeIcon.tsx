@@ -26,6 +26,7 @@ export default function getTypeIcon(
             <StyledTooltip
                 title={capitalizeFirstLetterOnly(subtype) || entityRegistry.getEntityName(type)}
                 mouseEnterDelay={0.3}
+                showArrow={false}
             >
                 {icon}
             </StyledTooltip>

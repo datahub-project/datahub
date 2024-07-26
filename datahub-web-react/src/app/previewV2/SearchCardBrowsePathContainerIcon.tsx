@@ -2,7 +2,7 @@ import { FolderOpenOutlined } from '@ant-design/icons';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { Container, Dashboard, Dataset } from '../../types.generated';
+import { Entity } from '@types';
 import { getSubTypeIcon } from '../entityV2/shared/components/subtypes';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import { IconStyleType } from '../entityV2/Entity';
@@ -12,6 +12,7 @@ const IconWrapper = styled.span`
     svg {
         height: 12px;
     }
+
     margin-right: 6px;
 `;
 
@@ -22,21 +23,20 @@ const DefaultIcon = styled(FolderOpenOutlined)`
 `;
 
 interface Props {
-    container: Maybe<Container> | Maybe<Dashboard> | Maybe<Dataset>;
+    container: Maybe<Entity>;
 }
 
 function ContainerIcon({ container }: Props) {
     const entityRegistry = useEntityRegistryV2();
     if (!container) return null;
-    const subType = container?.subTypes?.typeNames?.[0].toLowerCase();
-    const type = container?.type;
 
-    return (
-        <IconWrapper>
-            {(subType && getSubTypeIcon(subType)) ||
-                entityRegistry.getIcon(type, 16, IconStyleType.ACCENT, '#8d95b1') || <DefaultIcon />}
-        </IconWrapper>
-    );
+    const genericEntity = entityRegistry.getGenericEntityProperties(container.type, container);
+
+    const subType = genericEntity?.subTypes?.typeNames?.[0].toLowerCase();
+    const icon = getSubTypeIcon(subType) ||
+        entityRegistry.getIcon(container.type, 16, IconStyleType.ACCENT, '#8d95b1') || <DefaultIcon />;
+
+    return <IconWrapper>{icon}</IconWrapper>;
 }
 
 export default ContainerIcon;

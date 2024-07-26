@@ -20,6 +20,10 @@ const ContainerPathWrapper = styled.div`
     max-height: 12px;
 `;
 
+const EmptyContainer = styled.div`
+    height: 8px;
+`;
+
 // TODO: Put ellipsis on last item correctly
 const ContainerEntry = styled(MatchTextSizeWrapper)<{ numItems?: number; isLast: boolean }>`
     align-items: center;
@@ -31,7 +35,7 @@ const ContainerEntry = styled(MatchTextSizeWrapper)<{ numItems?: number; isLast:
 
 const ContainerText = styled(Typography.Text)`
     color: inherit;
-    margin: 0 4px;
+    margin-left: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -56,7 +60,7 @@ export default function ContainerPath({ parents, className }: Props) {
     const containers = parents?.slice(0, 1);
 
     if (!containers?.length) {
-        return null;
+        return <EmptyContainer />;
     }
 
     return (
@@ -71,7 +75,11 @@ export default function ContainerPath({ parents, className }: Props) {
                     {i > 0 && <VerticalDivider margin={4} />}
                     <ContainerIconBase container={container} />
                     <ContainerText ellipsis={{ tooltip: { showArrow: false } }}>
-                        {entityRegistry.getDisplayName(container.type, container)}
+                        {/*
+                            Browse paths with no entity are stored as { name: ... }, with no type.
+                            Entity registry will return empty string display name for undefined type.
+                         */}
+                        {entityRegistry.getDisplayName(container.type, container) || container.name}
                     </ContainerText>
                 </ContainerEntry>
             ))}
