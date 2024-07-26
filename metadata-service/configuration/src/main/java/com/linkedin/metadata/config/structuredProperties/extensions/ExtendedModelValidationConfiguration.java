@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config.structuredProperties.extensions;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import java.util.List;
@@ -17,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @JsonDeserialize(
     builder =
         ExtendedModelValidationConfiguration.ExtendedModelValidationConfigurationBuilder.class)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ExtendedModelValidationConfiguration {
   List<EntityConfiguration> entities;
   List<StructuredPropertyConfiguration> structuredProperties;
