@@ -27,17 +27,29 @@ public class OwnerChangeEvent extends ChangeEvent {
       SemanticChangeType semVerChange,
       String description,
       Urn ownerUrn,
-      OwnershipType ownerType) {
+      OwnershipType ownerType,
+      Urn ownerTypeUrn) {
     super(
         entityUrn,
         category,
         operation,
         modifier,
-        ImmutableMap.of(
-            "ownerUrn", ownerUrn.toString(),
-            "ownerType", ownerType.toString()),
+        buildParameters(ownerUrn, ownerType, ownerTypeUrn),
         auditStamp,
         semVerChange,
         description);
+  }
+
+  private static ImmutableMap<String, Object> buildParameters(
+      Urn ownerUrn, OwnershipType ownerType, Urn ownerTypeUrn) {
+    ImmutableMap.Builder<String, Object> builder =
+        new ImmutableMap.Builder<String, Object>()
+            .put("ownerUrn", ownerUrn.toString())
+            .put("ownerType", ownerType.toString());
+    if (ownerTypeUrn != null) {
+      builder.put("ownerTypeUrn", ownerTypeUrn.toString());
+    }
+
+    return builder.build();
   }
 }
