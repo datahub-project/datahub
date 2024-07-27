@@ -27,7 +27,7 @@ class ConditionNode(Node):
     def render_to_output(self, context: Context, buffer: TextIO) -> Optional[bool]:
         # This implementation will make sure that sql parse work correctly if looker condition tag
         # is used in lookml sql field
-        buffer.write("1=1")
+        buffer.write(f"{self.sql_or_lookml_reference}='dummy_value'")
 
         return True
 

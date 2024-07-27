@@ -1302,7 +1302,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1320,13 +1320,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "view: latest_account_holder_notes_base {\n  filter: note_date_window {\n    description: \"Date window in which to look for notes\"\n    default_value: \"90 days ago for 90 days\"\n    datatype: date\n    type: date\n  }\n\n  dimension: account_number {\n    hidden: yes\n  }\n\n  dimension: account_in_engage {\n    hidden: yes\n  }\n\n  dimension_group: latest_am_note {\n    type: time\n    timeframes: [date, week, month, year]\n    convert_tz: no\n    datatype: timestamp\n    sql: ${TABLE}.latest_time_created ;;\n  }\n\n  dimension: interaction_type {\n    type: string\n    sql: ${TABLE}.interaction_type ;;\n  }\n\n  dimension: did {\n    hidden: yes\n    type: string\n    sql: ${TABLE}.did ;;\n  }\n}\n\nview: latest_account_holder_notes {\n  extends: [latest_account_holder_notes_base]\n  derived_table: {\n    sql: WITH notes AS (\n      SELECT account_id,\n        time_created,\n        operator_id\n      FROM `at-meta-platform-dev`.rds_performance.fct_notes\n      WHERE DATE(time_created) < CURRENT_DATE()\n      {% if note_date_window._is_filtered %}\n        AND {% condition note_date_window %} DATE (time_created) {% endcondition %}\n      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}\n        AND {% condition customer_performance_retailer.snapshot_date %} DATE(time_created) {% endcondition %}\n      {% else %}\n        AND DATE(time_created) >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n      AND medium NOT IN ('PORTAL', 'Trade Marketing')\n      AND medium IS NOT NULL\n      AND account_id IS NOT NULL\n    ),\n\n    squad AS (\n      SELECT DISTINCT squad,\n        LOWER(primary_sales_person.am_username) AS am_username,\n        account_number,\n        snapshot_date,\n        did\n      FROM `at-yp-fin-emp-product-dev.finance_customer_and_product.odp_dim_dealer`\n      WHERE snapshot_date < CURRENT_DATE()\n      {% if note_date_window._is_filtered %}\n        AND {% condition note_date_window %} DATE (snapshot_date) {% endcondition %}\n      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}\n        AND {% condition customer_performance_retailer.snapshot_date %} DATE(snapshot_date) {% endcondition %}\n      {% else %}\n        AND snapshot_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n    ),\n\n    notes_with_squad AS (\n      SELECT *,\n        CASE\n          WHEN operator_id = am_username THEN 'AM'\n          WHEN regexp_contains(am_username, 'vacant') THEN 'Vacant'\n          WHEN regexp_contains(am_username, 'squad') THEN am_username\n          ELSE 'Other'\n        END AS interaction_type\n      FROM notes n\n      LEFT JOIN squad s ON n.account_id = s.account_number\n      AND DATE(n.time_created) = s.snapshot_date\n    ),\n\n    notes_with_acc_numbered AS (\n      SELECT account_id,\n        time_created,\n        operator_id,\n        am_username,\n        squad,\n        interaction_type,\n        did,\n        ROW_NUMBER() OVER(PARTITION BY account_id ORDER BY time_created DESC) AS rn\n      FROM notes_with_squad\n      WHERE interaction_type NOT IN ('Other')\n    )\n\n    SELECT\n      account_id,\n      time_created AS latest_time_created,\n      interaction_type,\n      did\n    FROM notes_with_acc_numbered\n    WHERE rn = 1 ;;\n  }\n}\n",
+            "viewLogic": "view: last_ptr_holder_fake_notes_base {\n  filter: finance_date_range {\n    default_value: \"60 days ago for 60 days\"\n    datatype: date\n    type: date\n  }\n\n  dimension: acc_number {\n    hidden: yes\n  }\n\n  dimension: fnc_in_engage {\n    hidden: yes\n  }\n\n  dimension_group: last_finance_fake_notes {\n    type: time\n    timeframes: [date, week, month, year]\n    convert_tz: no\n    datatype: timestamp\n    sql: ${TABLE}.last_timestamp_created ;;\n  }\n\n  dimension: fake_type {\n    type: string\n    sql: ${TABLE}.fake_type ;;\n  }\n\n  dimension: fid {\n    hidden: yes\n    type: string\n    sql: ${TABLE}.fid ;;\n  }\n}\n\nview: last_ptr_holder_fake_notes {\n  extends: [last_ptr_holder_fake_notes_base]\n  derived_table: {\n    sql: WITH fake_notes AS (\n      SELECT foo_id,\n        created_on_date,\n        opt_id\n      FROM `at-meta-platform-dev`.db_testing.finance_quotes\n      WHERE DATE(created_on_date) < CURRENT_DATE()\n      {% if finance_date_range._is_filtered %}\n        AND {% condition finance_date_range %} DATE (created_on_date) {% endcondition %}\n      {% elsif employee_testing_rpt.snapshot_timestamp._is_filtered %}\n        AND {% condition employee_testing_rpt.snapshot_timestamp %} DATE(created_on_date) {% endcondition %}\n      {% else %}\n        AND DATE(created_on_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n      AND medium NOT IN ('WINDOW', 'Foo Sale')\n      AND medium IS NOT NULL\n      AND foo_id IS NOT NULL\n    ),\n\n    abc AS (\n      SELECT DISTINCT abc,\n        LOWER(primary_sales_person.cus_name) AS cus_name,\n        acc_number,\n        snapshot_timestamp,\n        fid\n      FROM `at-yp-fin-emp-product-dev.finance_customer_and_product.odp_dim_dealer`\n      WHERE snapshot_timestamp < CURRENT_DATE()\n      {% if finance_date_range._is_filtered %}\n        AND {% condition finance_date_range %} DATE (snapshot_timestamp) {% endcondition %}\n      {% elsif employee_testing_rpt.snapshot_timestamp._is_filtered %}\n        AND {% condition employee_testing_rpt.snapshot_timestamp %} DATE(snapshot_timestamp) {% endcondition %}\n      {% else %}\n        AND snapshot_timestamp >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n    ),\n\n    fns_with_abc AS (\n      SELECT *,\n        CASE\n          WHEN opt_id = cus_name THEN 'AM'\n          WHEN regexp_contains(cus_name, 'foo') THEN 'foo'\n          WHEN regexp_contains(cus_name, 'abc') THEN cus_name\n          ELSE 'Other'\n        END AS fake_type\n      FROM fake_notes n\n      LEFT JOIN abc s ON n.foo_id = s.acc_number\n      AND DATE(n.created_on_date) = s.snapshot_timestamp\n    ),\n\n    fake_notes_with_acc_numbered AS (\n      SELECT foo_id,\n        created_on_date,\n        opt_id,\n        cus_name,\n        abc,\n        fake_type,\n        fid,\n        ROW_NUMBER() OVER(PARTITION BY foo_id ORDER BY created_on_date DESC) AS rn\n      FROM fns_with_abc\n      WHERE fake_type NOT IN ('Other')\n    )\n\n    SELECT\n      foo_id,\n      created_on_date AS last_timestamp_created,\n      fake_type,\n      fid\n    FROM fake_notes_with_acc_numbered\n    WHERE rn = 1 ;;\n  }\n}\n",
             "viewLanguage": "lookml"
         }
     },
@@ -1338,7 +1338,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1355,7 +1355,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
@@ -1377,7 +1377,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,..last_ptr_holder_fake_notes_base,PROD)",
                                 "type": "VIEW"
                             }
                         ],
@@ -1385,55 +1385,55 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),account_number)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..last_ptr_holder_fake_notes_base,PROD),acc_number)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),account_number)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD),acc_number)"
                                 ],
                                 "confidenceScore": 1.0
                             },
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),account_in_engage)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..last_ptr_holder_fake_notes_base,PROD),fnc_in_engage)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),account_in_engage)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD),fnc_in_engage)"
                                 ],
                                 "confidenceScore": 1.0
                             },
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),interaction_type)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..last_ptr_holder_fake_notes_base,PROD),fake_type)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),interaction_type)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD),fake_type)"
                                 ],
                                 "confidenceScore": 1.0
                             },
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),did)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..last_ptr_holder_fake_notes_base,PROD),fid)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),did)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD),fid)"
                                 ],
                                 "confidenceScore": 1.0
                             },
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..latest_account_holder_notes_base,PROD),latest_time_created)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..last_ptr_holder_fake_notes_base,PROD),last_timestamp_created)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD),latest_am_note)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD),last_finance_fake_notes)"
                                 ],
                                 "confidenceScore": 1.0
                             }
@@ -1442,7 +1442,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "latest_account_holder_notes_base",
+                        "schemaName": "last_ptr_holder_fake_notes_base",
                         "platform": "urn:li:dataPlatform:looker",
                         "version": 0,
                         "created": {
@@ -1461,7 +1461,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "account_number",
+                                "fieldPath": "acc_number",
                                 "nullable": false,
                                 "description": "",
                                 "label": "",
@@ -1482,7 +1482,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "account_in_engage",
+                                "fieldPath": "fnc_in_engage",
                                 "nullable": false,
                                 "description": "",
                                 "label": "",
@@ -1503,7 +1503,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "interaction_type",
+                                "fieldPath": "fake_type",
                                 "nullable": false,
                                 "description": "",
                                 "label": "",
@@ -1524,7 +1524,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "did",
+                                "fieldPath": "fid",
                                 "nullable": false,
                                 "description": "",
                                 "label": "",
@@ -1545,7 +1545,7 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "latest_am_note",
+                                "fieldPath": "last_finance_fake_notes",
                                 "nullable": false,
                                 "description": "",
                                 "label": "",
@@ -1578,7 +1578,7 @@
                             "looker.file.path": "finance_notes.view.lkml",
                             "looker.model": "data"
                         },
-                        "name": "latest_account_holder_notes_base",
+                        "name": "last_ptr_holder_fake_notes_base",
                         "tags": []
                     }
                 }
@@ -1593,7 +1593,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes_base,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes_base,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1617,7 +1617,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1635,13 +1635,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "WITH notes AS (\n      SELECT account_id,\n        time_created,\n        operator_id\n      FROM `at-meta-platform-dev`.rds_performance.fct_notes\n      WHERE DATE(time_created) < CURRENT_DATE()\n      {% if note_date_window._is_filtered %}\n        AND {% condition note_date_window %} DATE (time_created) {% endcondition %}\n      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}\n        AND {% condition customer_performance_retailer.snapshot_date %} DATE(time_created) {% endcondition %}\n      {% else %}\n        AND DATE(time_created) >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n      AND medium NOT IN ('PORTAL', 'Trade Marketing')\n      AND medium IS NOT NULL\n      AND account_id IS NOT NULL\n    ),\n\n    squad AS (\n      SELECT DISTINCT squad,\n        LOWER(primary_sales_person.am_username) AS am_username,\n        account_number,\n        snapshot_date,\n        did\n      FROM `at-yp-fin-emp-product-dev.finance_customer_and_product.odp_dim_dealer`\n      WHERE snapshot_date < CURRENT_DATE()\n      {% if note_date_window._is_filtered %}\n        AND {% condition note_date_window %} DATE (snapshot_date) {% endcondition %}\n      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}\n        AND {% condition customer_performance_retailer.snapshot_date %} DATE(snapshot_date) {% endcondition %}\n      {% else %}\n        AND snapshot_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n    ),\n\n    notes_with_squad AS (\n      SELECT *,\n        CASE\n          WHEN operator_id = am_username THEN 'AM'\n          WHEN regexp_contains(am_username, 'vacant') THEN 'Vacant'\n          WHEN regexp_contains(am_username, 'squad') THEN am_username\n          ELSE 'Other'\n        END AS interaction_type\n      FROM notes n\n      LEFT JOIN squad s ON n.account_id = s.account_number\n      AND DATE(n.time_created) = s.snapshot_date\n    ),\n\n    notes_with_acc_numbered AS (\n      SELECT account_id,\n        time_created,\n        operator_id,\n        am_username,\n        squad,\n        interaction_type,\n        did,\n        ROW_NUMBER() OVER(PARTITION BY account_id ORDER BY time_created DESC) AS rn\n      FROM notes_with_squad\n      WHERE interaction_type NOT IN ('Other')\n    )\n\n    SELECT\n      account_id,\n      time_created AS latest_time_created,\n      interaction_type,\n      did\n    FROM notes_with_acc_numbered\n    WHERE rn = 1",
+            "viewLogic": "WITH fake_notes AS (\n      SELECT foo_id,\n        created_on_date,\n        opt_id\n      FROM `at-meta-platform-dev`.db_testing.finance_quotes\n      WHERE DATE(created_on_date) < CURRENT_DATE()\n      {% if finance_date_range._is_filtered %}\n        AND {% condition finance_date_range %} DATE (created_on_date) {% endcondition %}\n      {% elsif employee_testing_rpt.snapshot_timestamp._is_filtered %}\n        AND {% condition employee_testing_rpt.snapshot_timestamp %} DATE(created_on_date) {% endcondition %}\n      {% else %}\n        AND DATE(created_on_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n      AND medium NOT IN ('WINDOW', 'Foo Sale')\n      AND medium IS NOT NULL\n      AND foo_id IS NOT NULL\n    ),\n\n    abc AS (\n      SELECT DISTINCT abc,\n        LOWER(primary_sales_person.cus_name) AS cus_name,\n        acc_number,\n        snapshot_timestamp,\n        fid\n      FROM `at-yp-fin-emp-product-dev.finance_customer_and_product.odp_dim_dealer`\n      WHERE snapshot_timestamp < CURRENT_DATE()\n      {% if finance_date_range._is_filtered %}\n        AND {% condition finance_date_range %} DATE (snapshot_timestamp) {% endcondition %}\n      {% elsif employee_testing_rpt.snapshot_timestamp._is_filtered %}\n        AND {% condition employee_testing_rpt.snapshot_timestamp %} DATE(snapshot_timestamp) {% endcondition %}\n      {% else %}\n        AND snapshot_timestamp >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)\n      {% endif %}\n    ),\n\n    fns_with_abc AS (\n      SELECT *,\n        CASE\n          WHEN opt_id = cus_name THEN 'AM'\n          WHEN regexp_contains(cus_name, 'foo') THEN 'foo'\n          WHEN regexp_contains(cus_name, 'abc') THEN cus_name\n          ELSE 'Other'\n        END AS fake_type\n      FROM fake_notes n\n      LEFT JOIN abc s ON n.foo_id = s.acc_number\n      AND DATE(n.created_on_date) = s.snapshot_timestamp\n    ),\n\n    fake_notes_with_acc_numbered AS (\n      SELECT foo_id,\n        created_on_date,\n        opt_id,\n        cus_name,\n        abc,\n        fake_type,\n        fid,\n        ROW_NUMBER() OVER(PARTITION BY foo_id ORDER BY created_on_date DESC) AS rn\n      FROM fns_with_abc\n      WHERE fake_type NOT IN ('Other')\n    )\n\n    SELECT\n      foo_id,\n      created_on_date AS last_timestamp_created,\n      fake_type,\n      fid\n    FROM fake_notes_with_acc_numbered\n    WHERE rn = 1",
             "viewLanguage": "sql"
         }
     },
@@ -1653,7 +1653,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1670,7 +1670,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
@@ -1690,7 +1690,7 @@
                             "looker.file.path": "finance_notes.view.lkml",
                             "looker.model": "data"
                         },
-                        "name": "latest_account_holder_notes",
+                        "name": "last_ptr_holder_fake_notes",
                         "tags": []
                     }
                 }
@@ -1705,7 +1705,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.latest_account_holder_notes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.last_ptr_holder_fake_notes,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {

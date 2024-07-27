@@ -1,109 +1,108 @@
-view: latest_account_holder_notes_base {
-  filter: note_date_window {
-    description: "Date window in which to look for notes"
-    default_value: "90 days ago for 90 days"
+view: last_ptr_holder_fake_notes_base {
+  filter: finance_date_range {
+    default_value: "60 days ago for 60 days"
     datatype: date
     type: date
   }
 
-  dimension: account_number {
+  dimension: acc_number {
     hidden: yes
   }
 
-  dimension: account_in_engage {
+  dimension: fnc_in_engage {
     hidden: yes
   }
 
-  dimension_group: latest_am_note {
+  dimension_group: last_finance_fake_notes {
     type: time
     timeframes: [date, week, month, year]
     convert_tz: no
     datatype: timestamp
-    sql: ${TABLE}.latest_time_created ;;
+    sql: ${TABLE}.last_timestamp_created ;;
   }
 
-  dimension: interaction_type {
+  dimension: fake_type {
     type: string
-    sql: ${TABLE}.interaction_type ;;
+    sql: ${TABLE}.fake_type ;;
   }
 
-  dimension: did {
+  dimension: fid {
     hidden: yes
     type: string
-    sql: ${TABLE}.did ;;
+    sql: ${TABLE}.fid ;;
   }
 }
 
-view: latest_account_holder_notes {
-  extends: [latest_account_holder_notes_base]
+view: last_ptr_holder_fake_notes {
+  extends: [last_ptr_holder_fake_notes_base]
   derived_table: {
-    sql: WITH notes AS (
-      SELECT account_id,
-        time_created,
-        operator_id
-      FROM `at-meta-platform-dev`.rds_performance.fct_notes
-      WHERE DATE(time_created) < CURRENT_DATE()
-      {% if note_date_window._is_filtered %}
-        AND {% condition note_date_window %} DATE (time_created) {% endcondition %}
-      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}
-        AND {% condition customer_performance_retailer.snapshot_date %} DATE(time_created) {% endcondition %}
+    sql: WITH fake_notes AS (
+      SELECT foo_id,
+        created_on_date,
+        opt_id
+      FROM `at-meta-platform-dev`.db_testing.finance_quotes
+      WHERE DATE(created_on_date) < CURRENT_DATE()
+      {% if finance_date_range._is_filtered %}
+        AND {% condition finance_date_range %} DATE (created_on_date) {% endcondition %}
+      {% elsif employee_testing_rpt.snapshot_timestamp._is_filtered %}
+        AND {% condition employee_testing_rpt.snapshot_timestamp %} DATE(created_on_date) {% endcondition %}
       {% else %}
-        AND DATE(time_created) >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+        AND DATE(created_on_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
       {% endif %}
-      AND medium NOT IN ('PORTAL', 'Trade Marketing')
+      AND medium NOT IN ('WINDOW', 'Foo Sale')
       AND medium IS NOT NULL
-      AND account_id IS NOT NULL
+      AND foo_id IS NOT NULL
     ),
 
-    squad AS (
-      SELECT DISTINCT squad,
-        LOWER(primary_sales_person.am_username) AS am_username,
-        account_number,
-        snapshot_date,
-        did
+    abc AS (
+      SELECT DISTINCT abc,
+        LOWER(primary_sales_person.cus_name) AS cus_name,
+        acc_number,
+        snapshot_timestamp,
+        fid
       FROM `at-yp-fin-emp-product-dev.finance_customer_and_product.odp_dim_dealer`
-      WHERE snapshot_date < CURRENT_DATE()
-      {% if note_date_window._is_filtered %}
-        AND {% condition note_date_window %} DATE (snapshot_date) {% endcondition %}
-      {% elsif customer_performance_retailer.snapshot_date._is_filtered %}
-        AND {% condition customer_performance_retailer.snapshot_date %} DATE(snapshot_date) {% endcondition %}
+      WHERE snapshot_timestamp < CURRENT_DATE()
+      {% if finance_date_range._is_filtered %}
+        AND {% condition finance_date_range %} DATE (snapshot_timestamp) {% endcondition %}
+      {% elsif employee_testing_rpt.snapshot_timestamp._is_filtered %}
+        AND {% condition employee_testing_rpt.snapshot_timestamp %} DATE(snapshot_timestamp) {% endcondition %}
       {% else %}
-        AND snapshot_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+        AND snapshot_timestamp >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
       {% endif %}
     ),
 
-    notes_with_squad AS (
+    fns_with_abc AS (
       SELECT *,
         CASE
-          WHEN operator_id = am_username THEN 'AM'
-          WHEN regexp_contains(am_username, 'vacant') THEN 'Vacant'
-          WHEN regexp_contains(am_username, 'squad') THEN am_username
+          WHEN opt_id = cus_name THEN 'AM'
+          WHEN regexp_contains(cus_name, 'foo') THEN 'foo'
+          WHEN regexp_contains(cus_name, 'abc') THEN cus_name
           ELSE 'Other'
-        END AS interaction_type
-      FROM notes n
-      LEFT JOIN squad s ON n.account_id = s.account_number
-      AND DATE(n.time_created) = s.snapshot_date
+        END AS fake_type
+      FROM fake_notes n
+      LEFT JOIN abc s ON n.foo_id = s.acc_number
+      AND DATE(n.created_on_date) = s.snapshot_timestamp
     ),
 
-    notes_with_acc_numbered AS (
-      SELECT account_id,
-        time_created,
-        operator_id,
-        am_username,
-        squad,
-        interaction_type,
-        did,
-        ROW_NUMBER() OVER(PARTITION BY account_id ORDER BY time_created DESC) AS rn
-      FROM notes_with_squad
-      WHERE interaction_type NOT IN ('Other')
+    fake_notes_with_acc_numbered AS (
+      SELECT foo_id,
+        created_on_date,
+        opt_id,
+        cus_name,
+        abc,
+        fake_type,
+        fid,
+        ROW_NUMBER() OVER(PARTITION BY foo_id ORDER BY created_on_date DESC) AS rn
+      FROM fns_with_abc
+      WHERE fake_type NOT IN ('Other')
     )
 
     SELECT
-      account_id,
-      time_created AS latest_time_created,
-      interaction_type,
-      did
-    FROM notes_with_acc_numbered
+      foo_id,
+      created_on_date AS last_timestamp_created,
+      fake_type,
+      fid
+    FROM fake_notes_with_acc_numbered
     WHERE rn = 1 ;;
   }
 }
