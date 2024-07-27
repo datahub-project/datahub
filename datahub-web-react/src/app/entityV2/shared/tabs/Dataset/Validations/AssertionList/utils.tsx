@@ -3,6 +3,7 @@ import cronstrue from 'cronstrue';
 
 import {
     AssertionInfo,
+    AssertionResultType,
     AssertionRunStatus,
     AssertionStdAggregation,
     AssertionStdOperator,
@@ -39,7 +40,7 @@ import {
 } from '../fieldDescriptionUtils';
 
 import { getFormattedParameterValue } from '../assertionUtils';
-import { AssertionWithMonitorDetails } from '../acrylUtils';
+import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 
 /**
@@ -380,49 +381,83 @@ export const getPlainTextDescriptionFromAssertion = (
     return primaryLabel;
 };
 
-/** return assertion table data from assertions */
-export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]): any[] => {
-    const assertionsTableData = assertions.map((assertion) => {
-        const monitor =
-            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0].entity;
+// Generate Assertion
+const getAssertionSummaryByStatus = (assertions, status) => {
+    const typeToAssertions = assertions
+        .filter((assertion) => assertion.info?.type)
+        .reduce((map, assertion) => {
+            const assertionType = assertion?.info?.customAssertion?.type || assertion?.info?.type || 'Unknown';
+            map[assertionType] = (map[assertionType] || 0) + 1;
+            return map;
+        }, {});
 
-        // const { primaryLabel, primaryPainTextLabel } = useBuildAssertionDescriptionLabels(assertion.info, monitor);
-        const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(
-            assertion.info as AssertionInfo,
-            monitor as CronSchedule,
-        );
+    return {
+        status,
+        assertions,
+        summary: typeToAssertions,
+    };
+};
+
+// Generate Assertion Group By Status
+const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]) => {
+    const STATUSES = [AssertionResultType.Success, AssertionResultType.Failure];
+
+    const assertionGroup: any[] = [];
+
+    STATUSES.forEach((status) => {
+        const filteredAssertions = assertions.filter((assertion) => {
+            const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+            const resultType = mostRecentRun?.result?.type;
+            return assertion.info?.type && resultType === status;
+        });
+        const typeToAssertions = filteredAssertions.reduce((map, assertion) => {
+            const assertionType = assertion?.info?.customAssertion?.type || assertion?.info?.type || 'Unknown';
+            map[assertionType] = (map[assertionType] || 0) + 1;
+            return map;
+        }, {});
+        assertionGroup.push({
+            name: status,
+            assertions: filteredAssertions,
+            summary: typeToAssertions,
+        });
+    });
+
+    return assertionGroup;
+};
+
+/** return assertion table data from assertions */
+export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]) => {
+    const assertionRawData: any = { allAssertions: [], groupBy: { type: [], status: [] } };
+
+    const assertionsTableData = assertions.map((assertion) => {
+        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+
+        const monitor = assertion.monitor?.relationships?.[0]?.entity;
+        const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
+
         return {
-            // for rendering need below data mapping
             type: assertion.info?.type,
             lastUpdated: assertion.info?.lastUpdated,
             tags: assertion.tags,
-            // descriptionHTML will dynamically at run time as we are using custom hooks because of that we cannot call it here
             descriptionHTML: null,
-
             description: primaryPainTextLabel,
-
-            // for operation need below data mapping
             urn: assertion.urn,
             platform: assertion.platform,
-            lastEvaluation:
-                assertion.runEvents?.runEvents?.length &&
-                assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
-                assertion.runEvents.runEvents[0],
-            lastEvaluationTimeMs:
-                assertion.runEvents?.runEvents?.length && assertion.runEvents.runEvents[0].timestampMillis,
-            lastEvaluationResult:
-                assertion.runEvents?.runEvents?.length &&
-                assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
-                assertion.runEvents.runEvents[0].result?.type,
+            lastEvaluation: mostRecentRun?.status === AssertionRunStatus.Complete && mostRecentRun,
+            lastEvaluationTimeMs: mostRecentRun?.timestampMillis,
+            lastEvaluationResult: mostRecentRun?.status === AssertionRunStatus.Complete && mostRecentRun?.result?.type,
             lastEvaluationUrl:
-                assertion.runEvents?.runEvents?.length &&
-                assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
-                assertion.runEvents.runEvents[0].result?.externalUrl,
+                mostRecentRun?.status === AssertionRunStatus.Complete && mostRecentRun?.result?.externalUrl,
             assertion,
-            monitor:
-                (assertion as any).monitor?.relationships?.length &&
-                (assertion as any).monitor?.relationships[0].entity,
+            monitor,
         };
     });
+
+    assertionRawData.allAssertions = assertionsTableData;
+    assertionRawData.groupBy.type = createAssertionGroups(assertions);
+    assertionRawData.groupBy.status = generateAssertionGroupByStatus(assertions);
+
+    console.log('assertionRawData>>', assertionRawData);
+
     return assertionsTableData;
 };
