@@ -106,7 +106,13 @@ export function LastExecutionColumn(time: any) {
 }
 
 export function ScheduleColumn(schedule: any, record: any) {
-    const tooltip = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${record.timezone})`;
+    let tooltip: string;
+    try {
+        tooltip = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${record.timezone})`;
+    } catch (e) {
+        tooltip = 'Invalid cron schedule';
+        console.debug('Error parsing cron schedule', e);
+    }
     return (
         <Tooltip title={tooltip || 'Not scheduled'}>
             <Typography.Text code>{schedule || 'None'}</Typography.Text>
