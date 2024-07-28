@@ -46,7 +46,12 @@ def aspect(urn: str, aspect: str, aspect_data: str) -> None:
         aspect_data, allow_stdin=True, resolve_env_vars=False, process_directives=False
     )
 
+    client = get_default_graph()
+
+    # TODO: Replace with client.emit, requires figuring out the correct subsclass of _Aspect to create from the data
     status = post_entity(
+        client._session,
+        client.config.server,
         urn=urn,
         aspect_name=aspect,
         entity_type=entity_type,

@@ -1267,6 +1267,11 @@ input RelationshipsInput {
   The number of results to be returned
   """
   count: Int
+
+  """
+  Whether to include soft-deleted, related, entities
+  """
+  includeSoftDelete: Boolean = true
 }
 
 """
@@ -8183,6 +8188,11 @@ type Deprecation {
     The user who will be credited for modifying this deprecation content
     """
     actor: String
+
+    """
+    The hydrated user who will be credited for modifying this deprecation content
+    """
+    actorEntity: Entity
 }
 
 """

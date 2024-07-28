@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import auto
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import more_itertools
 import pydantic
 from pydantic import root_validator, validator
 from pydantic.fields import Field
@@ -1309,8 +1310,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspect=self._make_data_platform_instance_aspect(),
                 ).as_workunit()
 
+                standalone_aspects, snapshot_aspects = more_itertools.partition(
+                    (
+                        lambda aspect: mce_builder.can_add_aspect_to_snapshot(
+                            DatasetSnapshot, type(aspect)
+                        )
+                    ),
+                    aspects,
+                )
+                for aspect in standalone_aspects:
+                    # The domains aspect, and some others, may not support being added to the snapshot.
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=node_datahub_urn,
+                        aspect=aspect,
+                    ).as_workunit()
+
                 dataset_snapshot = DatasetSnapshot(
-                    urn=node_datahub_urn, aspects=aspects
+                    urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
@@ -1483,7 +1499,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             transformed_tag_list = self.get_transformed_tags_by_prefix(
                 tag_aspect.tags,
                 mce.proposedSnapshot.urn,
-                mce_builder.make_tag_urn(self.config.tag_prefix),
+                tag_prefix=self.config.tag_prefix,
             )
             tag_aspect.tags = transformed_tag_list
 
@@ -1587,6 +1603,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             and self.config.enable_meta_mapping
         ):
             aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
+
+        # add meta domains aspect
+        if meta_aspects.get(Constants.ADD_DOMAIN_OPERATION):
+            aspects.append(meta_aspects.get(Constants.ADD_DOMAIN_OPERATION))
 
         # add meta links aspect
         meta_links_aspect = meta_aspects.get(Constants.ADD_DOC_LINK_OPERATION)
@@ -1874,16 +1894,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         new_tags: List[TagAssociationClass],
         entity_urn: str,
-        tags_prefix_filter: str,
+        tag_prefix: str,
     ) -> List[TagAssociationClass]:
         tag_set = {new_tag.tag for new_tag in new_tags}
 
         if self.ctx.graph:
             existing_tags_class = self.ctx.graph.get_tags(entity_urn)
             if existing_tags_class and existing_tags_class.tags:
-                for exiting_tag in existing_tags_class.tags:
-                    if not exiting_tag.tag.startswith(tags_prefix_filter):
-                        tag_set.add(exiting_tag.tag)
+                for existing_tag in existing_tags_class.tags:
+                    if tag_prefix and existing_tag.tag.startswith(
+                        mce_builder.make_tag_urn(tag_prefix)
+                    ):
+                        continue
+                    tag_set.add(existing_tag.tag)
         return [TagAssociationClass(tag) for tag in sorted(tag_set)]
 
     # This method attempts to read-modify and return the glossary terms of a dataset.

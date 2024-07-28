@@ -250,6 +250,7 @@ public class RestEmitter implements Emitter {
 
           @Override
           public void failed(Exception ex) {
+            responseLatch.countDown();
             if (callback != null) {
               try {
                 callback.onFailure(ex);
@@ -261,6 +262,7 @@ public class RestEmitter implements Emitter {
 
           @Override
           public void cancelled() {
+            responseLatch.countDown();
             if (callback != null) {
               try {
                 callback.onFailure(new RuntimeException("Cancelled"));
@@ -344,6 +346,7 @@ public class RestEmitter implements Emitter {
 
           @Override
           public void failed(Exception ex) {
+            responseLatch.countDown();
             if (callback != null) {
               try {
                 callback.onFailure(ex);
@@ -355,6 +358,7 @@ public class RestEmitter implements Emitter {
 
           @Override
           public void cancelled() {
+            responseLatch.countDown();
             if (callback != null) {
               try {
                 callback.onFailure(new RuntimeException("Cancelled"));

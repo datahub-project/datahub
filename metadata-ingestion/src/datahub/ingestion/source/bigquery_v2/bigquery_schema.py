@@ -24,6 +24,7 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryTableType,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -154,7 +155,7 @@ class BigQuerySchemaApi:
         resp = self.bq_client.query(query)
         return resp.result()
 
-    def get_projects(self) -> List[BigqueryProject]:
+    def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
                 f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
@@ -162,34 +163,50 @@ class BigQuerySchemaApi:
             self.report.num_list_projects_retry_request += 1
             return True
 
+        page_token = None
+        projects: List[BigqueryProject] = []
         with self.report.list_projects:
-            try:
-                # Bigquery API has limit in calling project.list request i.e. 2 request per second.
-                # https://cloud.google.com/bigquery/quotas#api_request_quotas
-                # Whenever this limit reached an exception occur with msg
-                # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
-                # Hence, added the api request retry of 15 min.
-                # We already tried adding rate_limit externally, proving max_result and page_size
-                # to restrict the request calls inside list_project but issue still occured.
-                projects_iterator = self.bq_client.list_projects(
-                    retry=retry.Retry(
-                        predicate=_should_retry, initial=10, maximum=180, timeout=900
+            while True:
+                try:
+                    self.report.num_list_projects_api_requests += 1
+                    # Bigquery API has limit in calling project.list request i.e. 2 request per second.
+                    # https://cloud.google.com/bigquery/quotas#api_request_quotas
+                    # Whenever this limit reached an exception occur with msg
+                    # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
+                    # Hence, added the api request retry of 15 min.
+                    # We already tried adding rate_limit externally, proving max_result and page_size
+                    # to restrict the request calls inside list_project but issue still occured.
+                    projects_iterator = self.bq_client.list_projects(
+                        max_results=max_results_per_page,
+                        page_token=page_token,
+                        timeout=900,
+                        retry=retry.Retry(
+                            predicate=_should_retry,
+                            initial=10,
+                            maximum=180,
+                            multiplier=4,
+                            timeout=900,
+                        ),
                     )
-                )
-                projects: List[BigqueryProject] = [
-                    BigqueryProject(id=p.project_id, name=p.friendly_name)
-                    for p in projects_iterator
-                ]
-                self.report.num_list_projects = len(projects)
-                return projects
-            except Exception as e:
-                logger.error(f"Error getting projects. {e}", exc_info=True)
-                return []
+                    _projects: List[BigqueryProject] = [
+                        BigqueryProject(id=p.project_id, name=p.friendly_name)
+                        for p in projects_iterator
+                    ]
+                    projects.extend(_projects)
+                    self.report.num_listed_projects = len(projects)
+                    page_token = projects_iterator.next_page_token
+                    if not page_token:
+                        break
+                except Exception as e:
+                    logger.error(f"Error getting projects. {e}", exc_info=True)
+                    return []
+        return projects
 
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
         with self.report.list_datasets:
+            self.report.num_list_datasets_api_requests += 1
             datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
             return [
                 BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets
@@ -222,50 +239,42 @@ class BigQuerySchemaApi:
     def list_tables(
         self, dataset_name: str, project_id: str
     ) -> Iterator[TableListItem]:
-        with self.report.list_tables as current_timer:
+        with PerfTimer() as current_timer:
             for table in self.bq_client.list_tables(f"{project_id}.{dataset_name}"):
                 with current_timer.pause():
                     yield table
+            self.report.num_list_tables_api_requests += 1
+            self.report.list_tables_sec += current_timer.elapsed_seconds()
 
     def get_tables_for_dataset(
         self,
         project_id: str,
         dataset_name: str,
         tables: Dict[str, TableListItem],
+        report: BigQueryV2Report,
         with_data_read_permission: bool = False,
-        report: Optional[BigQueryV2Report] = None,
     ) -> Iterator[BigqueryTable]:
-        with self.report.get_tables_for_dataset as current_timer:
+        with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables.keys())
 
             if with_data_read_permission:
-                # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
-                # and skip the others. Sharded tables are tables with suffix _20220102
-                cur = self.get_query_result(
-                    BigqueryQuery.tables_for_dataset.format(
-                        project_id=project_id,
-                        dataset_name=dataset_name,
-                        table_filter=(
-                            f" and t.table_name in ({filter_clause})"
-                            if filter_clause
-                            else ""
-                        ),
-                    ),
-                )
+                query_template = BigqueryQuery.tables_for_dataset
             else:
-                # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
-                # and skip the others. Sharded tables are tables with suffix _20220102
-                cur = self.get_query_result(
-                    BigqueryQuery.tables_for_dataset_without_partition_data.format(
-                        project_id=project_id,
-                        dataset_name=dataset_name,
-                        table_filter=(
-                            f" and t.table_name in ({filter_clause})"
-                            if filter_clause
-                            else ""
-                        ),
+                query_template = BigqueryQuery.tables_for_dataset_without_partition_data
+
+            # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
+            # and skip the others. Sharded tables are tables with suffix _20220102
+            cur = self.get_query_result(
+                query_template.format(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    table_filter=(
+                        f" and t.table_name in ({filter_clause})"
+                        if filter_clause
+                        else ""
                     ),
-                )
+                ),
+            )
 
             for table in cur:
                 try:
@@ -275,15 +284,14 @@ class BigQuerySchemaApi:
                         )
                 except Exception as e:
                     table_name = f"{project_id}.{dataset_name}.{table.table_name}"
-                    logger.warning(
-                        f"Error while processing table {table_name}",
-                        exc_info=True,
+                    report.warning(
+                        title="Failed to process table",
+                        message="Error encountered while processing table",
+                        context=table_name,
+                        exc=e,
                     )
-                    if report:
-                        report.report_warning(
-                            "metadata-extraction",
-                            f"Failed to get table {table_name}: {e}",
-                        )
+            self.report.num_get_tables_for_dataset_api_requests += 1
+            self.report.get_tables_for_dataset_sec += current_timer.elapsed_seconds()
 
     @staticmethod
     def _make_bigquery_table(
@@ -332,7 +340,7 @@ class BigQuerySchemaApi:
         has_data_read: bool,
         report: BigQueryV2Report,
     ) -> Iterator[BigqueryView]:
-        with self.report.get_views_for_dataset as current_timer:
+        with PerfTimer() as current_timer:
             if has_data_read:
                 # If profiling is enabled
                 cur = self.get_query_result(
@@ -353,14 +361,14 @@ class BigQuerySchemaApi:
                         yield BigQuerySchemaApi._make_bigquery_view(table)
                 except Exception as e:
                     view_name = f"{project_id}.{dataset_name}.{table.table_name}"
-                    logger.warning(
-                        f"Error while processing view {view_name}",
-                        exc_info=True,
+                    report.warning(
+                        title="Failed to process view",
+                        message="Error encountered while processing view",
+                        context=view_name,
+                        exc=e,
                     )
-                    report.report_warning(
-                        "metadata-extraction",
-                        f"Failed to get view {view_name}: {e}",
-                    )
+            self.report.num_get_views_for_dataset_api_requests += 1
+            self.report.get_views_for_dataset_sec += current_timer.elapsed_seconds()
 
     @staticmethod
     def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
@@ -416,22 +424,18 @@ class BigQuerySchemaApi:
                         )
                     yield policy_tag.display_name
                 except Exception as e:
-                    logger.warning(
-                        f"Unexpected error when retrieving policy tag {policy_tag_name} for column {column_name} in table {table_name}: {e}",
-                        exc_info=True,
-                    )
-                    report.report_warning(
-                        "metadata-extraction",
-                        f"Failed to retrieve policy tag {policy_tag_name} for column {column_name} in table {table_name} due to unexpected error: {e}",
+                    report.warning(
+                        title="Failed to retrieve policy tag",
+                        message="Unexpected error when retrieving policy tag for column",
+                        context=f"policy tag {policy_tag_name} for column {column_name} in table {table_ref}",
+                        exc=e,
                     )
         except Exception as e:
-            logger.error(
-                f"Unexpected error retrieving schema for table {table_name} in dataset {dataset_name}, project {project_id}: {e}",
-                exc_info=True,
-            )
-            report.report_warning(
-                "metadata-extraction",
-                f"Failed to retrieve schema for table {table_name} in dataset {dataset_name}, project {project_id} due to unexpected error: {e}",
+            report.warning(
+                title="Failed to retrieve policy tag for table",
+                message="Unexpected error retrieving policy tag for table",
+                context=table_ref,
+                exc=e,
             )
 
     def get_columns_for_dataset(
@@ -445,7 +449,7 @@ class BigQuerySchemaApi:
         rate_limiter: Optional[RateLimiter] = None,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
-        with self.report.get_columns_for_dataset:
+        with PerfTimer() as timer:
             try:
                 cur = self.get_query_result(
                     (
@@ -461,89 +465,57 @@ class BigQuerySchemaApi:
                     ),
                 )
             except Exception as e:
-                logger.warning(f"Columns for dataset query failed with exception: {e}")
-                # Error - Information schema query returned too much data.
-                # Please repeat query with more selective predicates.
+                report.warning(
+                    title="Failed to retrieve columns for dataset",
+                    message="Query to get columns for dataset failed with exception",
+                    context=f"{project_id}.{dataset_name}",
+                    exc=e,
+                )
                 return None
 
             last_seen_table: str = ""
             for column in cur:
-                if (
-                    column_limit
-                    and column.table_name in columns
-                    and len(columns[column.table_name]) >= column_limit
-                ):
-                    if last_seen_table != column.table_name:
-                        logger.warning(
-                            f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
-                        )
-                        last_seen_table = column.table_name
-                else:
-                    columns[column.table_name].append(
-                        BigqueryColumn(
-                            name=column.column_name,
-                            ordinal_position=column.ordinal_position,
-                            field_path=column.field_path,
-                            is_nullable=column.is_nullable == "YES",
-                            data_type=column.data_type,
-                            comment=column.comment,
-                            is_partition_column=column.is_partitioning_column == "YES",
-                            cluster_column_position=column.clustering_ordinal_position,
-                            policy_tags=(
-                                list(
-                                    self.get_policy_tags_for_column(
-                                        project_id,
-                                        dataset_name,
-                                        column.table_name,
-                                        column.column_name,
-                                        report,
-                                        rate_limiter,
+                with timer.pause():
+                    if (
+                        column_limit
+                        and column.table_name in columns
+                        and len(columns[column.table_name]) >= column_limit
+                    ):
+                        if last_seen_table != column.table_name:
+                            logger.warning(
+                                f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                            )
+                            last_seen_table = column.table_name
+                    else:
+                        columns[column.table_name].append(
+                            BigqueryColumn(
+                                name=column.column_name,
+                                ordinal_position=column.ordinal_position,
+                                field_path=column.field_path,
+                                is_nullable=column.is_nullable == "YES",
+                                data_type=column.data_type,
+                                comment=column.comment,
+                                is_partition_column=column.is_partitioning_column
+                                == "YES",
+                                cluster_column_position=column.clustering_ordinal_position,
+                                policy_tags=(
+                                    list(
+                                        self.get_policy_tags_for_column(
+                                            project_id,
+                                            dataset_name,
+                                            column.table_name,
+                                            column.column_name,
+                                            report,
+                                            rate_limiter,
+                                        )
                                     )
-                                )
-                                if extract_policy_tags_from_catalog
-                                else []
-                            ),
+                                    if extract_policy_tags_from_catalog
+                                    else []
+                                ),
+                            )
                         )
-                    )
-
-        return columns
-
-    # This is not used anywhere
-    def get_columns_for_table(
-        self,
-        table_identifier: BigqueryTableIdentifier,
-        column_limit: Optional[int],
-    ) -> List[BigqueryColumn]:
-        cur = self.get_query_result(
-            BigqueryQuery.columns_for_table.format(table_identifier=table_identifier),
-        )
-
-        columns: List[BigqueryColumn] = []
-        last_seen_table: str = ""
-        for column in cur:
-            if (
-                column_limit
-                and column.table_name in columns
-                and len(columns[column.table_name]) >= column_limit
-            ):
-                if last_seen_table != column.table_name:
-                    logger.warning(
-                        f"{table_identifier.project_id}.{table_identifier.dataset}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
-                    )
-            else:
-                columns.append(
-                    BigqueryColumn(
-                        name=column.column_name,
-                        ordinal_position=column.ordinal_position,
-                        is_nullable=column.is_nullable == "YES",
-                        field_path=column.field_path,
-                        data_type=column.data_type,
-                        comment=column.comment,
-                        is_partition_column=column.is_partitioning_column == "YES",
-                        cluster_column_position=column.clustering_ordinal_position,
-                    )
-                )
-            last_seen_table = column.table_name
+            self.report.num_get_columns_for_dataset_api_requests += 1
+            self.report.get_columns_for_dataset_sec += timer.elapsed_seconds()
 
         return columns
 
@@ -554,7 +526,7 @@ class BigQuerySchemaApi:
         has_data_read: bool,
         report: BigQueryV2Report,
     ) -> Iterator[BigqueryTableSnapshot]:
-        with self.report.get_snapshots_for_dataset as current_timer:
+        with PerfTimer() as current_timer:
             if has_data_read:
                 # If profiling is enabled
                 cur = self.get_query_result(
@@ -575,14 +547,14 @@ class BigQuerySchemaApi:
                         yield BigQuerySchemaApi._make_bigquery_table_snapshot(table)
                 except Exception as e:
                     snapshot_name = f"{project_id}.{dataset_name}.{table.table_name}"
-                    logger.warning(
-                        f"Error while processing view {snapshot_name}",
-                        exc_info=True,
-                    )
                     report.report_warning(
-                        "metadata-extraction",
-                        f"Failed to get view {snapshot_name}: {e}",
+                        title="Failed to process snapshot",
+                        message="Error encountered while processing snapshot",
+                        context=snapshot_name,
+                        exc=e,
                     )
+            self.report.num_get_snapshots_for_dataset_api_requests += 1
+            self.report.get_snapshots_for_dataset_sec += current_timer.elapsed_seconds()
 
     @staticmethod
     def _make_bigquery_table_snapshot(snapshot: bigquery.Row) -> BigqueryTableSnapshot:

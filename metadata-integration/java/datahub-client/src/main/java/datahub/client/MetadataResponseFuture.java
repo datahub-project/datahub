@@ -69,7 +69,7 @@ public class MetadataResponseFuture implements Future<MetadataWriteResponse> {
       return mapper.map(response);
     } else {
       // We wait for the callback to fill this out
-      responseLatch.await();
+      responseLatch.await(timeout, unit);
       return responseReference.get();
     }
   }

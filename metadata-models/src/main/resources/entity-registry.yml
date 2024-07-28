@@ -504,6 +504,7 @@ entities:
     aspects:
       - queryProperties
       - querySubjects
+      - queryUsageStatistics
       - status
       - dataPlatformInstance
       - subTypes
@@ -619,6 +620,18 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
+    - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
+        - DELETE
+        - UPSERT
+        - UPDATE
+        - PATCH
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: '*'
   mcpSideEffects:
     - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
       packageScan:
@@ -652,3 +665,9 @@ plugins:
           aspectName: 'schemaMetadata'
         - entityName: '*'
           aspectName: 'editableSchemaMetadata'
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins

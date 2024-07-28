@@ -2,7 +2,7 @@ import json
 import os
 
 import pytest
-from datahub.cli.cli_utils import get_aspects_for_entity, get_session_and_host
+from datahub.cli.cli_utils import get_aspects_for_entity
 
 from tests.utils import (
     delete_urns_from_file,
@@ -38,14 +38,24 @@ def test_setup():
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
 
-    session, gms_host = get_session_and_host()
+    client = get_datahub_graph()
+    session = client._session
+    gms_host = client.config.server
 
     try:
         assert "institutionalMemory" not in get_aspects_for_entity(
-            entity_urn=dataset_urn, aspects=["institutionalMemory"], typed=False
+            session,
+            gms_host,
+            entity_urn=dataset_urn,
+            aspects=["institutionalMemory"],
+            typed=False,
         )
         assert "editableDatasetProperties" not in get_aspects_for_entity(
-            entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
+            session,
+            gms_host,
+            entity_urn=dataset_urn,
+            aspects=["editableDatasetProperties"],
+            typed=False,
         )
     except Exception as e:
         delete_urns_from_file("tests/delete/cli_test_data.json")
@@ -56,7 +66,11 @@ def test_setup():
     ).config.run_id
 
     assert "institutionalMemory" in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["institutionalMemory"], typed=False
+        session,
+        gms_host,
+        entity_urn=dataset_urn,
+        aspects=["institutionalMemory"],
+        typed=False,
     )
 
     yield
@@ -71,10 +85,18 @@ def test_setup():
     wait_for_writes_to_sync()
 
     assert "institutionalMemory" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["institutionalMemory"], typed=False
+        session,
+        gms_host,
+        entity_urn=dataset_urn,
+        aspects=["institutionalMemory"],
+        typed=False,
     )
     assert "editableDatasetProperties" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
+        session,
+        gms_host,
+        entity_urn=dataset_urn,
+        aspects=["editableDatasetProperties"],
+        typed=False,
     )
 
 

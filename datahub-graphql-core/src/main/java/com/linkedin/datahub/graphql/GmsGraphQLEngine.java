@@ -59,6 +59,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
+import com.linkedin.datahub.graphql.generated.Deprecation;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
@@ -172,8 +173,11 @@ import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
+import com.linkedin.datahub.graphql.resolvers.form.CreateFormResolver;
+import com.linkedin.datahub.graphql.resolvers.form.DeleteFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.IsFormAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.form.SubmitFormPromptResolver;
+import com.linkedin.datahub.graphql.resolvers.form.UpdateFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.VerifyFormResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.AddRelatedTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryNodeResolver;
@@ -285,6 +289,9 @@ import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsR
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.CreateStructuredPropertyResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.RemoveStructuredPropertiesResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpdateStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
@@ -782,6 +789,7 @@ public class GmsGraphQLEngine {
     configureBusinessAttributeResolver(builder);
     configureBusinessAttributeAssociationResolver(builder);
     configureConnectionResolvers(builder);
+    configureDeprecationResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -1316,10 +1324,23 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "upsertStructuredProperties",
                   new UpsertStructuredPropertiesResolver(this.entityClient))
+              .dataFetcher(
+                  "removeStructuredProperties",
+                  new RemoveStructuredPropertiesResolver(this.entityClient))
+              .dataFetcher(
+                  "createStructuredProperty",
+                  new CreateStructuredPropertyResolver(this.entityClient))
+              .dataFetcher(
+                  "updateStructuredProperty",
+                  new UpdateStructuredPropertyResolver(this.entityClient))
               .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
               .dataFetcher(
                   "updateIncidentStatus",
-                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService));
+                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "createForm", new CreateFormResolver(this.entityClient, this.formService))
+              .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
+              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient));
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(
@@ -1848,7 +1869,9 @@ public class GmsGraphQLEngine {
         "CorpGroup",
         typeWiring ->
             typeWiring
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
@@ -3142,5 +3165,15 @@ public class GmsGraphQLEngine {
                           ? connection.getPlatform().getUrn()
                           : null;
                     })));
+  }
+
+  private void configureDeprecationResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Deprecation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "actorEntity",
+                new EntityTypeResolver(
+                    entityTypes, (env) -> ((Deprecation) env.getSource()).getActorEntity())));
   }
 }
