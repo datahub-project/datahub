@@ -15,7 +15,7 @@ from datahub.cli import config_utils
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
-from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -166,10 +166,11 @@ def post_entity(
     aspect_value: Dict,
     cached_session_host: Optional[Tuple[Session, str]] = None,
     is_async: Optional[str] = "false",
+    system_metadata: Union[None, SystemMetadataClass] = None,
 ) -> int:
     endpoint: str = "/aspects/?action=ingestProposal"
 
-    proposal = {
+    proposal: dict[str, Any] = {
         "proposal": {
             "entityType": entity_type,
             "entityUrn": urn,
@@ -182,6 +183,12 @@ def post_entity(
         },
         "async": is_async,
     }
+
+    if system_metadata is not None:
+        proposal["proposal"]["systemMetadata"] = json.dumps(
+            pre_json_transform(system_metadata.to_obj())
+        )
+
     payload = json.dumps(proposal)
     url = gms_host + endpoint
     curl_command = make_curl_command(session, "POST", url, payload)
