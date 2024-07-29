@@ -1,18 +1,12 @@
 import React from 'react';
+
 import type { Meta, StoryObj } from '@storybook/react';
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+
 import { GridList } from '@components/.docs/mdx-components';
-import styled from 'styled-components';
+
 import { Select, selectDefaults } from './Select';
 import { SelectSizeOptions } from './types';
-
-const SelectContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    & > div {
-        flex-direction: column;
-    }
-`;
 
 // Auto Docs
 const meta: Meta = {
@@ -22,8 +16,9 @@ const meta: Meta = {
     // Display Properties
     parameters: {
         layout: 'centered',
+        badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
-            subtitle: 'Select component allows users to select one or multiple options from a dropdown list.',
+            subtitle: 'This component allows users to select one or multiple input options from a dropdown list.',
         },
     },
 
@@ -161,10 +156,10 @@ export const sandbox: Story = {
     ),
 };
 
-const sizes: SelectSizeOptions[] = ['sm', 'md', 'lg'];
+const sizeOptions: SelectSizeOptions[] = ['sm', 'md', 'lg'];
 
 export const states = () => (
-    <GridList>
+    <GridList isVertical>
         <>
             <Select options={[{ label: 'Default', value: 'default' }]} label="Default" value="default" />
             <Select
@@ -184,74 +179,52 @@ export const states = () => (
 );
 
 export const withSearch = () => (
-    <div
-        style={{
-            display: 'flex',
-            height: '250px',
-            alignItems: 'baseline',
-            justifyContent: 'center',
-            margin: '20px',
-        }}
-    >
+    <Select
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Select with Search"
+        showSearch
+        value="2"
+    />
+);
+
+export const sizes = () => (
+    <GridList isVertical>
+        {sizeOptions.map((size, index) => (
+            <Select
+                key={`select-${size}`}
+                options={[
+                    { label: 'Option 1', value: '1' },
+                    { label: 'Option 2', value: '2' },
+                    { label: 'Option 3', value: '3' },
+                ]}
+                label={`Select - Font Size: ${size}, Width: ${255 + 50 * index}px`}
+                value="3"
+                onCancel={() => alert('Cancel clicked')}
+                onUpdate={(selectedValues) => alert(`Update clicked with values: ${selectedValues}`)}
+                size={size}
+                width={255 + 50 * index}
+            />
+        ))}
+    </GridList>
+);
+
+export const footerActions = () => (
+    <GridList isVertical>
         <Select
             options={[
                 { label: 'Option 1', value: '1' },
                 { label: 'Option 2', value: '2' },
                 { label: 'Option 3', value: '3' },
             ]}
-            label="Select with Search"
-            showSearch
-            value="2"
+            label="Select with Footer Actions"
+            value="3"
+            onCancel={() => alert('Cancel clicked')}
+            onUpdate={(selectedValues) => alert(`Update clicked with values: ${selectedValues}`)}
+            size="md"
         />
-    </div>
-);
-
-export const fontSizesAndWidths = () => (
-    <SelectContainer>
-        <GridList>
-            {sizes.map((size, index) => (
-                <Select
-                    key={`select-${size}`}
-                    options={[
-                        { label: 'Option 1', value: '1' },
-                        { label: 'Option 2', value: '2' },
-                        { label: 'Option 3', value: '3' },
-                    ]}
-                    label={`Select - Font Size: ${size}, Width: ${255 + 50 * index}px`}
-                    value="3"
-                    onCancel={() => alert('Cancel clicked')}
-                    onUpdate={(selectedValues) => alert(`Update clicked with values: ${selectedValues}`)}
-                    size={size}
-                    width={255 + 50 * index}
-                />
-            ))}
-        </GridList>
-    </SelectContainer>
-);
-
-export const footerActions = () => (
-    <div
-        style={{
-            display: 'flex',
-            height: '250px',
-            alignItems: 'baseline',
-            justifyContent: 'center',
-            margin: '20px',
-        }}
-    >
-        <GridList>
-            <Select
-                options={[
-                    { label: 'Option 1', value: '1' },
-                    { label: 'Option 2', value: '2' },
-                    { label: 'Option 3', value: '3' },
-                ]}
-                label="Select with Footer Actions"
-                value="3"
-                onCancel={() => alert('Cancel clicked')}
-                onUpdate={(selectedValues) => alert(`Update clicked with values: ${selectedValues}`)}
-                size="md"
-            />
-        </GridList>
-    </div>
+    </GridList>
 );

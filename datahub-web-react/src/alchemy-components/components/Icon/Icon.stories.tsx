@@ -13,6 +13,7 @@ const meta = {
     // Display Properties
     parameters: {
         layout: 'centered',
+        badges: ['productionReady'],
         docs: {
             subtitle: 'A singular component for rendering the icons used throughout the application.',
             description: {

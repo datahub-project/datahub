@@ -1,19 +1,27 @@
 import React from 'react';
+
 import type { Meta, StoryObj } from '@storybook/react';
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+
 import { GridList } from '@components/.docs/mdx-components';
-import { Input, inputDefaults } from './Input';
 import { AVAILABLE_ICONS } from '../Icon';
+
+import { Input, inputDefaults } from './Input';
 
 const meta = {
     title: 'Forms / Input',
     component: Input,
+
     // Display Properties
     parameters: {
         layout: 'centered',
+        badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
-            subtitle: 'Input is a component that is used to get user input in a text field.',
+            subtitle: 'A component that is used to get user input in a single line field.',
         },
     },
+
+    // Component-level argTypes
     argTypes: {
         label: {
             description: 'Label for the Input.',
@@ -151,9 +159,9 @@ export const status = () => (
 
 export const states = () => (
     <GridList width="400px" isVertical>
-        <Input label="Disabled Input" isDisabled />
-        <Input label="Readonly Input" isReadOnly />
-        <Input label="Required Input" isRequired />
-        <Input label="Password Input" isPassword />
+        <Input label="Disabled" isDisabled />
+        <Input label="Readonly" isReadOnly />
+        <Input label="Required" isRequired />
+        <Input label="Password" isPassword />
     </GridList>
 );

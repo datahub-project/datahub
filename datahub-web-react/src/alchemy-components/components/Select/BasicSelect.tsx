@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+
 import { Button, Icon } from '@components';
+
 import {
     SelectBase,
     OptionList,
@@ -17,6 +19,7 @@ import {
     Placeholder,
     ActionButtonsContainer,
 } from './components';
+
 import { SelectProps, SelectOption, ActionButtonsProps, SelectLabelDisplayProps } from './types';
 import { getFooterButtonSize } from './utils';
 
@@ -46,7 +49,7 @@ const SelectActionButtons = ({
             {selectedValue && !isDisabled && !isReadOnly && (
                 <StyledClearButton icon="Close" isCircle onClick={handleClearSelection} size={fontSize} />
             )}
-            <Icon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size={fontSize} />
+            <Icon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="xl" color="gray" />
         </ActionButtonsContainer>
     );
 };
@@ -142,6 +145,7 @@ export const BasicSelect = ({
                 isDisabled={isDisabled}
                 isReadOnly={isReadOnly}
                 isRequired={isRequired}
+                isOpen={isOpen}
                 onClick={handleSelectClick}
                 fontSize={size}
                 {...props}
@@ -162,12 +166,12 @@ export const BasicSelect = ({
                         <SearchInputContainer>
                             <SearchInput
                                 type="text"
-                                placeholder="Search..."
+                                placeholder="Search…"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 fontSize={size || 'md'}
                             />
-                            <SearchIcon icon="Search" size={size} />
+                            <SearchIcon icon="Search" size={size} color="gray" />
                         </SearchInputContainer>
                     )}
                     <OptionList>

@@ -1,8 +1,14 @@
 import styled from 'styled-components';
 
 import theme, { borders, colors, radius, spacing, typography } from '@components/theme';
-
 import { getStatusColors } from '@components/theme/utils';
+
+import {
+    INPUT_MAX_HEIGHT,
+    formLabelTextStyles,
+    inputValueTextStyles,
+    inputPlaceholderTextStyles,
+} from '../commonStyles';
 
 import type { InputProps } from './types';
 
@@ -25,14 +31,16 @@ export const InputWrapper = styled.div({
 });
 
 export const InputContainer = styled.div(
-    ({ isSuccess, warning, isDisabled, isInvalid }: InputProps) => ({
+    ({ isSuccess, warning, isDisabled, isInvalid, isPassword }: InputProps) => ({
         border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
         backgroundColor: isDisabled ? colors.gray[100] : colors.white,
+        paddingRight: spacing.md,
     }),
     {
         ...defaultFlexStyles,
         width: '100%',
-        padding: `${spacing.sm} ${spacing.xsm}`,
+        maxHeight: INPUT_MAX_HEIGHT,
+        overflow: 'hidden',
         borderRadius: radius.md,
         flex: 1,
         color: colors.gray[400], // 1st icon color
@@ -45,13 +53,17 @@ export const InputContainer = styled.div(
 );
 
 export const InputField = styled.input({
-    padding: spacing.none,
+    padding: `${spacing.sm} ${spacing.md}`,
+    lineHeight: typography.lineHeights.normal,
+    maxHeight: INPUT_MAX_HEIGHT,
     border: borders.none,
-    margin: `0 ${spacing.xsm}`,
     width: '100%',
 
+    // Shared common input text styles
+    ...inputValueTextStyles(),
+
     '&::placeholder': {
-        color: colors.gray[400],
+        ...inputPlaceholderTextStyles,
     },
 
     '&:focus': {
@@ -64,11 +76,9 @@ export const Required = styled.span({
 });
 
 export const Label = styled.div({
-    marginBottom: spacing.xxsm,
-    fontWeight: typography.fontWeights.normal,
-    fontSize: typography.fontSizes.md,
+    ...formLabelTextStyles,
+    marginBottom: spacing.xsm,
     textAlign: 'left',
-    color: colors.gray[600],
 });
 
 export const ErrorMessage = styled.div({

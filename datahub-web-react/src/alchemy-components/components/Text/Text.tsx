@@ -6,8 +6,8 @@ import { P, Div, Span } from './components';
 export const textDefaults: TextProps = {
     type: 'p',
     color: 'inherit',
-    size: undefined,
-    weight: 'light',
+    size: 'md',
+    weight: 'normal',
 };
 
 export const Text = ({

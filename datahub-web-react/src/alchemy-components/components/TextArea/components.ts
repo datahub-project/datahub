@@ -2,8 +2,14 @@ import styled from 'styled-components';
 
 import theme, { colors, radius, borders, spacing, typography, sizes } from '@components/theme';
 import { getStatusColors } from '@components/theme/utils';
+
 import { Icon, IconNames } from '../Icon';
+
+import { formLabelTextStyles, inputValueTextStyles, inputPlaceholderTextStyles } from '../commonStyles';
+
 import { TextAreaProps } from './types';
+
+const minHeight = '100px';
 
 const defaultFlexStyles = {
     display: 'flex',
@@ -24,6 +30,8 @@ export const TextAreaWrapper = styled.div({
 
 export const StyledIcon = styled(Icon)({
     minWidth: '16px',
+    paddingLeft: spacing.sm,
+    marginTop: spacing.sm,
 });
 
 export const TextAreaContainer = styled.div(
@@ -35,10 +43,9 @@ export const TextAreaContainer = styled.div(
         ...defaultFlexStyles,
         position: 'relative',
         minWidth: '160px',
-        minHeight: '64px',
+        minHeight,
         width: sizes.full,
         borderRadius: radius.md,
-        padding: spacing.xsm,
         flex: 1,
         color: colors.gray[400], // first icon color
 
@@ -50,27 +57,32 @@ export const TextAreaContainer = styled.div(
 );
 
 export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon }) => ({
-    padding: spacing.none,
+    padding: `${spacing.sm} ${spacing.md}`,
+    borderRadius: radius.md,
     border: borders.none,
-    minWidth: icon ? '89% !important' : '-webkit-fill-available !important',
-    minHeight: '64px',
-    fontFamily: typography.fonts.body,
+    width: '100%',
+    minHeight,
+
+    ...inputValueTextStyles(),
+
+    // Account for icon placement
+    ...(icon && {
+        paddingLeft: spacing.xsm,
+    }),
 
     '&:focus': {
         outline: 'none',
     },
 
     '&::placeholder': {
-        color: colors.gray[400],
+        ...inputPlaceholderTextStyles,
     },
 }));
 
 export const Label = styled.div({
+    ...formLabelTextStyles,
     marginBottom: spacing.xxsm,
-    fontWeight: typography.fontWeights.normal,
-    fontSize: typography.fontSizes.md,
     textAlign: 'left',
-    color: colors.gray[600],
 });
 
 export const Required = styled.span({
@@ -89,6 +101,6 @@ export const WarningMessage = styled.div({
 
 export const StyledStatusIcon = styled(Icon)({
     position: 'absolute',
-    top: spacing.xsm,
-    right: spacing.xxsm,
+    top: spacing.sm,
+    right: spacing.sm,
 });

@@ -1,19 +1,28 @@
 import React from 'react';
+
 import type { Meta, StoryObj } from '@storybook/react';
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+
 import { GridList } from '@components/.docs/mdx-components';
+
 import { TextArea, textAreaDefaults } from './TextArea';
 import { AVAILABLE_ICONS } from '../Icon';
 
+// Auto Docs
 const meta = {
     title: 'Forms / Text Area',
     component: TextArea,
+
     // Display Properties
     parameters: {
         layout: 'centered',
+        badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
-            subtitle: 'TextArea is a component that is used to get user input in a text area field.',
+            subtitle: 'A component that is used to get user input in a text area field.',
         },
     },
+
+    // Component-level argTypes
     argTypes: {
         label: {
             description: 'Label for the TextArea.',
@@ -108,6 +117,8 @@ const meta = {
             },
         },
     },
+
+    // Define defaults
     args: {
         label: textAreaDefaults.label,
         placeholder: textAreaDefaults.placeholder,

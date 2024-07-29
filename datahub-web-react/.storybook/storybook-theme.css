@@ -1,31 +1,63 @@
 /* Storybook Theme CSS Overrides */
 
+/* Regular */
+@font-face {
+	font-family: 'Mulish';
+	font-style: normal;
+	font-weight: 400;
+	src: url('../src/fonts/Mulish-Regular.ttf') format('truetype');
+}
+
+/* Medium */
+@font-face {
+	font-family: 'Mulish';
+	font-style: normal;
+	font-weight: 500;
+	src: url('../src/fonts/Mulish-Medium.ttf') format('truetype');
+}
+
+/* SemiBold */
+@font-face {
+	font-family: 'Mulish';
+	font-style: normal;
+	font-weight: 600;
+	src: url('../src/fonts/Mulish-SemiBold.ttf') format('truetype');
+}
+
+/* Bold */
+@font-face {
+	font-family: 'Mulish';
+	font-style: normal;
+	font-weight: 700;
+	src: url('../src/fonts/Mulish-Bold.ttf') format('truetype');
+}
+
 body {
 	font-family: 'Mulish', sans-serif !important;
 }
 
 ::-webkit-scrollbar {
-    height: 8px;
-    width: 8px;
+	height: 8px;
+	width: 8px;
 }
 
 *::-webkit-scrollbar-track {
-    background: rgba(193, 196, 208, 0);
-    border-radius: 10px;
+	background: rgba(193, 196, 208, 0);
+	border-radius: 10px;
 }
 
 *::-webkit-scrollbar-thumb {
-    background: rgba(193, 196, 208, 0);
-    border-radius: 10px;
-    transition: 0.3s;
+	background: rgba(193, 196, 208, 0);
+	border-radius: 10px;
+	transition: 0.3s;
 }
 
 *:hover::-webkit-scrollbar-track {
-    background: rgba(193, 196, 208, 0.3);
+	background: rgba(193, 196, 208, 0.3);
 }
 
 *:hover::-webkit-scrollbar-thumb {
-    background: rgba(193, 196, 208, 0.8);
+	background: rgba(193, 196, 208, 0.8);
 }
 
 .sbdocs-wrapper {

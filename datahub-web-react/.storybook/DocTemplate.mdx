@@ -1,5 +1,8 @@
 import React from 'react';
 
+import { ThemeProvider } from 'styled-components';
+import { GlobalStyle } from './styledComponents';
+
 import { Meta, Title, Subtitle, Description, Primary, Controls, Stories } from '@storybook/blocks';
 import { CodeBlock } from '../src/alchemy-components/.docs/mdx-components';
 
@@ -11,25 +14,29 @@ import { CodeBlock } from '../src/alchemy-components/.docs/mdx-components';
 
 <Meta isTemplate />
 
-<Title />
+<ThemeProvider theme={{}}>
+	<GlobalStyle />
 
-<Subtitle />
+	<Title />
 
-<div className="docsDescription">
-	<Description />
-</div>
+	<Subtitle />
 
-<br />
+	<div className="docsDescription">
+		<Description />
+	</div>
 
-### Import
+	<br />
 
-<CodeBlock />
+	### Import
 
-<br/>
+	<CodeBlock />
 
-### Customize
+	<br/>
 
-<Primary />
-<Controls />
+	### Customize
 
-<Stories />
+	<Primary />
+	<Controls />
+
+	<Stories />
+</ThemeProvider>

@@ -1,19 +1,27 @@
 import React from 'react';
+
 import type { Meta, StoryObj } from '@storybook/react';
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+
 import { GridList } from '@components/.docs/mdx-components';
+
 import { Switch, switchDefaults } from './Switch';
 import { AVAILABLE_ICONS } from '../Icon';
 
 const meta = {
     title: 'Forms / Switch',
     component: Switch,
+
     // Display Properties
     parameters: {
         layout: 'centered',
+        badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
-            subtitle: 'Switch is a component that is used to get user input in the state of a toggle.',
+            subtitle: 'A component that is used to get user input in the state of a toggle.',
         },
     },
+
+    // Component-level argTypes
     argTypes: {
         label: {
             description: 'Label for the Switch.',
@@ -22,6 +30,16 @@ const meta = {
             },
             control: {
                 type: 'text',
+            },
+        },
+        labelPosition: {
+            description: 'The position of the label relative to the Switch.',
+            options: ['left', 'top'],
+            table: {
+                defaultValue: { summary: switchDefaults.labelPosition },
+            },
+            control: {
+                type: 'select',
             },
         },
         icon: {
@@ -82,15 +100,6 @@ const meta = {
                 type: 'boolean',
             },
         },
-        isIntermediate: {
-            description: '',
-            table: {
-                defaultValue: { summary: switchDefaults?.isIntermediate?.toString() },
-            },
-            control: {
-                type: 'boolean',
-            },
-        },
         isRequired: {
             description: 'Whether the Switch is a required field.',
             table: {
@@ -101,15 +110,17 @@ const meta = {
             },
         },
     },
+
+    // Define defaults
     args: {
         label: switchDefaults.label,
+        labelPosition: switchDefaults.labelPosition,
         icon: switchDefaults.icon,
         colorScheme: switchDefaults.colorScheme,
         size: switchDefaults.size,
         isSquare: switchDefaults.isSquare,
         isChecked: switchDefaults.isChecked,
         isDisabled: switchDefaults.isDisabled,
-        isIntermediate: switchDefaults.isIntermediate,
         isRequired: switchDefaults.isRequired,
     },
 } satisfies Meta<typeof Switch>;
@@ -124,35 +135,35 @@ export const sandbox: Story = {
 };
 
 export const sizes = () => (
-    <GridList>
-        <Switch label="Small Switch" size="sm" />
-        <Switch label="Medium Switch" size="md" />
-        <Switch label="Large Switch" size="lg" />
-        <Switch label="XLarge Switch" size="xl" />
+    <GridList isVertical>
+        <Switch label="Small" size="sm" />
+        <Switch label="Medium" size="md" />
+        <Switch label="Large" size="lg" />
+        <Switch label="XLarge" size="xl" />
     </GridList>
 );
 
 export const colors = () => (
-    <GridList>
-        <Switch label="Default Switch" isChecked colorScheme="violet" />
-        <Switch label="Green Switch" isChecked colorScheme="green" />
-        <Switch label="Red Switch" isChecked colorScheme="red" />
-        <Switch label="Blue Switch" isChecked colorScheme="blue" />
-        <Switch label="Gray Switch" isChecked colorScheme="gray" />
+    <GridList isVertical>
+        <Switch label="Default" isChecked colorScheme="violet" />
+        <Switch label="Green" isChecked colorScheme="green" />
+        <Switch label="Red" isChecked colorScheme="red" />
+        <Switch label="Blue" isChecked colorScheme="blue" />
+        <Switch label="Gray" isChecked colorScheme="gray" />
     </GridList>
 );
 
 export const states = () => (
-    <GridList>
-        <Switch label="Disabled Switch" isDisabled />
-        <Switch label="Required Switch" isRequired />
-        <Switch label="Switch with Icon" icon="Add" />
+    <GridList isVertical>
+        <Switch label="Disabled" isDisabled />
+        <Switch label="Required" isRequired />
+        <Switch label="with Icon" icon="Add" />
     </GridList>
 );
 
 export const types = () => (
     <GridList width="400px">
-        <Switch label="Default Switch" />
-        <Switch label="Square Switch" isSquare />
+        <Switch label="Default" />
+        <Switch label="Square" isSquare />
     </GridList>
 );
