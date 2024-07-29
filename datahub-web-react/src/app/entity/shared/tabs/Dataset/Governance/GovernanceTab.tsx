@@ -2,14 +2,12 @@ import React, { useEffect } from 'react';
 import { Button } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
+import { FileDoneOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
-import { Assertions } from './Assertions';
+import { TestResults } from './TestResults';
 import TabToolbar from '../../../components/styled/TabToolbar';
-import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
-import { useAppConfig } from '../../../../../useAppConfig';
-import { DataContractTab } from './contract/DataContractTab';
+import { useGetValidationsTab } from '../Validations/useGetValidationsTab';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -21,22 +19,22 @@ const TabButton = styled(Button)<{ selected: boolean }>`
 `;
 
 enum TabPaths {
-    ASSERTIONS = 'List',
-    DATA_CONTRACT = 'Data Contract',
+    TESTS = 'Tests',
 }
 
-const DEFAULT_TAB = TabPaths.ASSERTIONS;
+const DEFAULT_TAB = TabPaths.TESTS;
 
 /**
- * Component used for rendering the Entity Validations Tab.
+ * Component used for rendering the Entity Governance Tab.
  */
-export const ValidationsTab = () => {
+export const GovernanceTab = () => {
     const { entityData } = useEntityData();
     const history = useHistory();
     const { pathname } = useLocation();
-    const appConfig = useAppConfig();
 
-    const totalAssertions = (entityData as any)?.assertions?.total;
+    const passingTests = (entityData as any)?.testResults?.passing || [];
+    const maybeFailingTests = (entityData as any)?.testResults?.failing || [];
+    const totalTests = maybeFailingTests.length + passingTests.length;
 
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
 
@@ -55,31 +53,15 @@ export const ValidationsTab = () => {
         {
             title: (
                 <>
-                    <FileProtectOutlined />
-                    <TabTitle>Assertions ({totalAssertions})</TabTitle>
+                    <FileDoneOutlined />
+                    <TabTitle>Tests ({totalTests})</TabTitle>
                 </>
             ),
-            path: TabPaths.ASSERTIONS,
-            disabled: totalAssertions === 0,
-            content: <Assertions />,
+            path: TabPaths.TESTS,
+            disabled: totalTests === 0,
+            content: <TestResults passing={passingTests} failing={maybeFailingTests} />,
         },
     ];
-
-    if (appConfig.config.featureFlags?.dataContractsEnabled) {
-        // If contracts feature is enabled, add to list.
-        tabs.push({
-            title: (
-                <>
-                    <AuditOutlined />
-
-                    <TabTitle>Data Contract</TabTitle>
-                </>
-            ),
-            path: TabPaths.DATA_CONTRACT,
-            content: <DataContractTab />,
-            disabled: false,
-        });
-    }
 
     return (
         <>

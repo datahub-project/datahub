@@ -16,7 +16,7 @@ from tabulate import tabulate
 import datahub as datahub_package
 from datahub.cli import cli_utils
 from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, GraphError
 from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.graph.client import get_default_graph
@@ -372,7 +372,19 @@ def deploy(
         """
     )
 
-    response = datahub_graph.execute_graphql(graphql_query, variables=variables)
+    try:
+        response = datahub_graph.execute_graphql(
+            graphql_query, variables=variables, format_exception=False
+        )
+    except GraphError as graph_error:
+        try:
+            error = json.loads(str(graph_error).replace('"', '\\"').replace("'", '"'))
+            click.secho(error[0]["message"], fg="red", err=True)
+        except Exception:
+            click.secho(
+                f"Could not create ingestion source:\n{graph_error}", fg="red", err=True
+            )
+        sys.exit(1)
 
     click.echo(
         f"✅ Successfully wrote data ingestion source metadata for recipe {deploy_options.name}:"
