@@ -394,13 +394,22 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
+        try:
+            url = self.config.get_sql_alchemy_url()
+            logger.debug(f"SQLAlchemy URL constructed: {url}")
 
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
-        with engine.connect() as conn:
-            inspector = inspect(conn)
-            yield inspector
+            # Create engine
+            engine = create_engine(url, **self.config.options)
+            logger.debug("SQLAlchemy engine created successfully")
+
+            with engine.connect() as conn:
+                logger.debug(f"Successfully connected to database using URL: {url}")
+                inspector = inspect(conn)
+                logger.debug("Inspector object created")
+                yield inspector
+        except Exception as e:
+            logger.error(f"Error in get_inspectors: {e}")
+            raise
 
     def get_db_name(self, inspector: Inspector) -> str:
         engine = inspector.engine
