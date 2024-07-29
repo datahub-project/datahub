@@ -1,6 +1,7 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=54.0.0", "wheel", "pip>=21.0.0"]
+# setuptools needs to be less than 72.0.0 to because of an issue with click-default-group==1.2.2 -> https://stackoverflow.com/questions/78806100/no-module-named-setuptools-command-test
+requires = ["setuptools>=54.0.0,<72.0.0", "wheel", "pip>=21.0.0"]
 
 [tool.black]
 extend-exclude = '''
