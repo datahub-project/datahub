@@ -5,6 +5,7 @@ data-state/
 junit.*.xml
 generated/
 clients/java/src/
+/lockfiles/
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python

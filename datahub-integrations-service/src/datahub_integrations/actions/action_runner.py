@@ -104,8 +104,8 @@ def main() -> None:
         allow_remote=False,
         resolve_env_vars=True,
     )
+    # logger.info(f"Loaded config: {recipe}")
 
-    logger.info(f"Loaded config: {recipe}")
     # Initialize the pipeline.
     pipeline: Pipeline = Pipeline.create(recipe)
 

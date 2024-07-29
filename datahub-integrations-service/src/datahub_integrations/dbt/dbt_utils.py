@@ -1,18 +1,21 @@
 import contextlib
+import enum
+import functools
 import itertools
 import json
 import pathlib
 import random
 import string
 from io import StringIO
-from typing import Iterator, List, Optional, TypeVar
+from typing import Any, Iterator, List, Optional, TypeVar
 
 import anyio
 import yaml
+from datahub.configuration.common import ConfigEnum
 from datahub.utilities.ordered_set import OrderedSet
 from datahub.utilities.yaml_sync_utils import YamlFileUpdater
 from loguru import logger
-from ruamel.yaml.comments import CommentedMap
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from datahub_integrations.dispatch.runner import (
     VENV_NO_DATAHUB,
@@ -27,6 +30,8 @@ _FAKE_DBT_PROFILES = yaml.safe_load(
     StringIO((pathlib.Path(__file__).parent / "fake_dbt_profiles.yml").read_text())
 )
 _DEFAULT_DBT_PLATFORM = "postgres"
+
+_PARSED_YAML_CACHE_SIZE = 2000
 
 _D = TypeVar("_D", bound=dict)
 
@@ -43,17 +48,36 @@ def get_where_name_matches(doc: list[_D], name: str) -> Optional[_D]:
 
 
 class DbtProject:
+    def __init__(self, dbt_dir: pathlib.Path):
+        self.dbt_dir = dbt_dir
+
+    def read_dbt_project_yml(self) -> dict:
+        with pathlib.Path(self.dbt_dir / "dbt_project.yml").open() as f:
+            dbt_project = yaml.safe_load(f)
+
+        return dbt_project
+
+    def read_dbt_project_name(self) -> str:
+        project_yml = self.read_dbt_project_yml()
+        return project_yml["name"]
+
+
+class AdvancedDbtProject(DbtProject):
+    # This creates a venv and uses `dbt ls` to locate nodes. It's mainly useful
+    # when a project has created new nodes that haven't yet been ingested into Datahub.
+
     def __init__(
         self,
         dbt_dir: pathlib.Path,
         base_temp_dir: pathlib.Path,
         target_platform: Optional[str] = None,
     ):
-        self.dbt_dir = dbt_dir
+        super().__init__(dbt_dir)
+
         self.target_platform = target_platform
         self.base_temp_dir = base_temp_dir
-        self.temp_profiles_dir = base_temp_dir / "profiles"
-        self.temp_profiles_dir.mkdir(exist_ok=True)
+        self._temp_profiles_dir = base_temp_dir / "profiles"
+        self._temp_profiles_dir.mkdir(exist_ok=True)
 
         # On init, we setup the venv and install dbt / other things as required.
         log_holder = LogHolder(echo_to_stdout_prefix="", max_log_lines=None)
@@ -61,8 +85,8 @@ class DbtProject:
         self._venv = self._make_dbt_runner()
         self._dbt_executable = self._venv.command("dbt")
 
-        self.run_dbt("--version")
-        self.run_dbt("deps")
+        self._run_dbt("--version")
+        self._run_dbt("deps")
 
     def read_dbt_project_yml(self) -> dict:
         with pathlib.Path(self.dbt_dir / "dbt_project.yml").open() as f:
@@ -83,7 +107,7 @@ class DbtProject:
         profile_contents = {self._read_dbt_profile_name(): profile_inner_config}
 
         random_suffix = "".join(random.choices(string.ascii_lowercase, k=8))
-        profile_dir = self.temp_profiles_dir / f"{target_platform}_{random_suffix}"
+        profile_dir = self._temp_profiles_dir / f"{target_platform}_{random_suffix}"
         profile_dir.mkdir(exist_ok=True)
         profile_file = profile_dir / "profiles.yml"
         with profile_file.open("w") as f:
@@ -141,7 +165,7 @@ class DbtProject:
                 )
             )
 
-    def run_dbt(self, *args: str, echo_stdout: bool = True) -> str:
+    def _run_dbt(self, *args: str, echo_stdout: bool = True) -> str:
         # TODO: This makes the assumption that the dbt command will not exceed the
         # line length limits of the log holder.
 
@@ -164,17 +188,8 @@ class DbtProject:
 
         return self._runner.logs.get_logs(skip_lines=1)
 
-
-class DbtFileLocator:
-    def __init__(self, dbt_project: DbtProject):
-        self.dbt_project = dbt_project
-
-    @property
-    def dbt_dir(self) -> pathlib.Path:
-        return self.dbt_project.dbt_dir
-
     def _get_dbt_metadata(self) -> List[dict]:
-        res = self.dbt_project.run_dbt("ls", "--output", "json", echo_stdout=False)
+        res = self._run_dbt("ls", "--output", "json", echo_stdout=False)
 
         nodes = []
         for line in res.splitlines():
@@ -187,9 +202,52 @@ class DbtFileLocator:
 
         return nodes
 
+    def get_original_file_path(self, dbt_unique_id: str) -> str:
+        nodes = self._get_dbt_metadata()
+        node = get_where_field_matches(nodes, "unique_id", dbt_unique_id)
+        if not node:
+            raise ValueError(f"Unable to find node {dbt_unique_id}")
+        return node["original_file_path"]
+
+
+class DbtIncorrectProjectError(ValueError):
+    pass
+
+
+class YmlFileCreationMode(ConfigEnum):
+    # There's different conventions with dbt on how yml files should be maintained.
+    # See https://discourse.getdbt.com/t/advantages-of-one-monolithic-schema-yml-file-vs-multiple/5240
+
+    DIRECTORY_SCHEMA_YML = enum.auto()
+    """Add a schema.yml file to each directory, containing all the models in that directory."""
+
+    YML_PER_MODEL = enum.auto()
+    """Add a <model_name>.yml file next to the model SQL."""
+
+
+DEFAULT_YML_FILE_CREATION_MODE = YmlFileCreationMode.DIRECTORY_SCHEMA_YML
+
+
+class LocatorError(Exception):
+    pass
+
+
+class DbtFileLocator:
+    def __init__(
+        self,
+        dbt_project: DbtProject,
+        yml_file_creation_mode: YmlFileCreationMode = DEFAULT_YML_FILE_CREATION_MODE,
+    ):
+        self.dbt_project = dbt_project
+        self.yml_file_creation_mode = yml_file_creation_mode
+
+    @property
+    def dbt_dir(self) -> pathlib.Path:
+        return self.dbt_project.dbt_dir
+
     def _list_dbt_yml_files_ordered(self) -> List[pathlib.Path]:
         dbt_project = self.dbt_project.read_dbt_project_yml()
-        yml_paths = OrderedSet(
+        yml_paths = OrderedSet[str](
             itertools.chain(
                 dbt_project["model-paths"],
                 dbt_project["snapshot-paths"],
@@ -199,7 +257,7 @@ class DbtFileLocator:
             ),
         )
 
-        yml_files = []
+        yml_files: List[pathlib.Path] = []
         for model_path in yml_paths:
             yml_files.extend((self.dbt_dir / model_path).glob("**/*.yml"))
 
@@ -212,16 +270,14 @@ class DbtFileLocator:
         self, doc: CommentedMap, dbt_source_unique_id: str
     ) -> CommentedMap:
         _source, _proj, source_name, table_name = dbt_source_unique_id.split(".")
-        # TODO What happens if proj is not the same as the dbt project name?
-
         sources = doc["sources"]
         source_set = get_where_name_matches(sources, source_name)
         if not source_set:
-            raise ValueError(f"Unable to find source {source_name}")
+            raise LocatorError(f"Unable to find source {source_name}")
 
         table = get_where_name_matches(source_set["tables"], table_name)
         if not table:
-            raise ValueError(f"Unable to find table {table_name}")
+            raise LocatorError(f"Unable to find table {table_name}")
 
         return table
 
@@ -229,20 +285,38 @@ class DbtFileLocator:
     def get_node_type(cls, dbt_unique_id: str) -> str:
         return dbt_unique_id.split(".")[0]
 
+    @classmethod
+    def get_node_project_name(cls, dbt_unique_id: str) -> str:
+        return dbt_unique_id.split(".")[1]
+
+    @staticmethod
+    @functools.lru_cache(maxsize=_PARSED_YAML_CACHE_SIZE)
+    def _load_yml_contents(yml_contents: str) -> Any:
+        return yaml.safe_load(StringIO(yml_contents))
+
+        # TODO: We could get significant performance gains by using an alternative YAML parser.
+        # However, many of the parser available (rapidyaml, zaml) don't have pre-built wheels.
+        # The ryaml project has wheels, but I'm not sure we want to rely on something with
+        # such low usage.
+        # import ryaml
+        # return ryaml.loads(yml_contents)
+
     @contextlib.contextmanager
-    def get_dbt_yml_config_for_unique_id(
-        self, dbt_unique_id: str
+    def get_dbt_yml_config(
+        self, dbt_unique_id: str, original_file_path: str
     ) -> Iterator[CommentedMap]:
-        nodes = self._get_dbt_metadata()
-        node = get_where_field_matches(nodes, "unique_id", dbt_unique_id)
-        if not node:
-            raise ValueError(f"Unable to find node {dbt_unique_id}")
+        project_name = self.dbt_project.read_dbt_project_name()
+        node_project_name = self.get_node_project_name(dbt_unique_id)
+        if project_name != node_project_name:
+            raise DbtIncorrectProjectError(
+                f"Node {dbt_unique_id} is in project {node_project_name}, but we are working on {project_name}"
+            )
 
         node_type = self.get_node_type(dbt_unique_id)
         plural_node_type = f"{node_type}s"
 
         if node_type == "source":
-            yml_file = self.dbt_dir / node["original_file_path"]
+            yml_file = self.dbt_dir / original_file_path
 
             with YamlFileUpdater(yml_file) as doc:
                 table = self._get_source_table_by_id(doc, dbt_unique_id)
@@ -250,31 +324,41 @@ class DbtFileLocator:
 
         elif node_type in {"model", "seed", "snapshot"}:
             # For models, the original_file_path points at the .sql file.
-            # We need to find the highest-level .yml file that contains this model.
-
-            # FIXME: model unique IDs can be multipart, so this doesn't work fully.
-            # In particular, it breaks down when the model is in a subdirectory.
-            model_name = dbt_unique_id.split(".")[-1]
+            # We need to find the deepest-nested .yml file that contains this model.
+            # Most unique IDs look like this:
+            #   model.project.model_name
+            # However, dbt versioned models look have an extra component:
+            #   model.project.model_name.v1
+            # This logic handles both cases correctly.
+            model_name = dbt_unique_id.split(".")[2]
 
             yml_file = None
             for candidate_yml_file in self._list_dbt_yml_files_ordered():
-                with candidate_yml_file.open() as f:
-                    doc = yaml.safe_load(f)
+                candidate_doc = self._load_yml_contents(candidate_yml_file.read_text())
 
-                if doc and plural_node_type in doc:
-                    model = get_where_name_matches(doc[plural_node_type], model_name)
+                if candidate_doc and plural_node_type in candidate_doc:
+                    model = get_where_name_matches(
+                        candidate_doc[plural_node_type], model_name
+                    )
                     if model:
                         yml_file = candidate_yml_file
                         break
 
-            # If no such yml file exists, we'll add one called "schema.yml" in the
-            # same directory as the sql.
-            # As per https://discourse.getdbt.com/t/advantages-of-one-monolithic-schema-yml-file-vs-multiple/5240
-            # it seems like one yml per directory is the generally accepted standard.
             if not yml_file:
-                model_path: pathlib.Path = self.dbt_dir / node["original_file_path"]
+                model_path: pathlib.Path = self.dbt_dir / original_file_path
                 model_dir = model_path.parent
-                yml_file = model_dir / "schema.yml"
+
+                if self.yml_file_creation_mode == YmlFileCreationMode.YML_PER_MODEL:
+                    yml_file = model_dir / "schema.yml"
+                elif (
+                    self.yml_file_creation_mode
+                    == YmlFileCreationMode.DIRECTORY_SCHEMA_YML
+                ):
+                    yml_file = model_dir / f"{model_name}.yml"
+                else:
+                    raise ValueError(
+                        f"Unknown yaml file creation mode: {self.yml_file_creation_mode}"
+                    )
 
                 # Create the file.
                 yml_file.write_text(f"{plural_node_type}: []\n")
@@ -289,46 +373,46 @@ class DbtFileLocator:
 
                 yield model
         else:
-            raise ValueError(f"Unknown dbt node type: unique ID {dbt_unique_id}")
+            raise LocatorError(f"Unsupported dbt node type: unique ID {dbt_unique_id}")
 
 
 _DBT_TAG_NORMAL_TYPES = {"model", "snapshot"}
 _DBT_TAG_TOP_LEVEL_TYPES = {"source", "exposure"}
 
 
-def locate_tags(dbt_unique_id: str, doc: CommentedMap) -> List[str]:
+def locate_tags(dbt_unique_id: str, doc: CommentedMap) -> CommentedSeq:
     node_type = DbtFileLocator.get_node_type(dbt_unique_id)
     if node_type in _DBT_TAG_TOP_LEVEL_TYPES:
-        tags = doc.setdefault("tags", [])
+        tags = doc.setdefault("tags", CommentedSeq())
         if isinstance(doc["tags"], str):
-            doc["tags"] = [doc["tags"]]
+            doc["tags"] = CommentedSeq([doc["tags"]])
             tags = doc["tags"]
         return tags
     elif node_type in _DBT_TAG_NORMAL_TYPES:
         config = doc.setdefault("config", {})
-        tags = config.setdefault("tags", [])
+        tags = config.setdefault("tags", CommentedSeq())
         if isinstance(config["tags"], str):
-            config["tags"] = [config["tags"]]
+            config["tags"] = CommentedSeq([config["tags"]])
             tags = config["tags"]
         return tags
     else:
-        raise NotImplementedError(f"We don't support tags on {node_type} yet")
+        raise LocatorError(f"We don't support tags on {node_type} yet")
 
 
 _DBT_META_CONFIG_TYPES = {"model", "seed", "snapshot", "source"}
 
 
-def locate_meta(dbt_unique_id: str, doc: CommentedMap) -> dict:
+def locate_meta(dbt_unique_id: str, doc: CommentedMap) -> CommentedMap:
     node_type = DbtFileLocator.get_node_type(dbt_unique_id)
     if node_type in _DBT_META_CONFIG_TYPES:
-        config = doc.setdefault("config", {})
-        meta = config.setdefault("meta", {})
+        config = doc.setdefault("config", CommentedMap())
+        meta = config.setdefault("meta", CommentedMap())
         return meta
     else:
-        raise NotImplementedError(f"We don't support meta on {node_type} yet")
+        raise LocatorError(f"We don't support meta on {node_type} yet")
 
 
-def locate_datahub_meta(dbt_unique_id: str, doc: CommentedMap) -> dict:
+def locate_datahub_meta(dbt_unique_id: str, doc: CommentedMap) -> CommentedMap:
     meta = locate_meta(dbt_unique_id, doc)
-    datahub = meta.setdefault("datahub", {})
+    datahub = meta.setdefault("datahub", CommentedMap())
     return datahub
