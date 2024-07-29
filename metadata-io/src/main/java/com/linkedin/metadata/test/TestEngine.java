@@ -1069,6 +1069,7 @@ public class TestEngine {
     log.info("BatchTestRunResult post eval: {}", batchTestRunResults.get(testUrn));
     // (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
+      // here
       log.info(
           "Mode: {}: Writing {} results to DataHub for test {}",
           mode,

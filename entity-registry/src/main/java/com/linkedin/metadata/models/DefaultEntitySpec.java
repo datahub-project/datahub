@@ -26,6 +26,7 @@ public class DefaultEntitySpec implements EntitySpec {
   private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
   private List<SearchableRefFieldSpec> _searchableRefFieldSpecs;
   private Map<PathSpec, String> searchableFieldPathMap;
+  private Map<String, List<PathSpec>> fieldPathToSearchableFieldMap;
 
   public DefaultEntitySpec(
       @Nonnull final Collection<AspectSpec> aspectSpecs,
@@ -129,5 +130,14 @@ public class DefaultEntitySpec implements EntitySpec {
     }
 
     return searchableFieldPathMap;
+  }
+
+  @Override
+  public Map<String, List<PathSpec>> getSearchableFieldsToPathSpecsMap() {
+    if (fieldPathToSearchableFieldMap == null) {
+      fieldPathToSearchableFieldMap = EntitySpec.super.getSearchableFieldsToPathSpecsMap();
+    }
+
+    return fieldPathToSearchableFieldMap;
   }
 }

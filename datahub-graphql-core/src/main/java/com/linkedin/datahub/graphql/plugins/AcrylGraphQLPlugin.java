@@ -66,6 +66,7 @@ import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.DataContractResultResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
+import com.linkedin.datahub.graphql.resolvers.form.AsyncBatchSubmitFormPromptResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchSubmitFormPromptResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchVerifyFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.FormAnalyticsConfigResolver;
@@ -410,6 +411,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "suggestDescription", new SuggestDescriptionResolver(this.integrationsService))
                 .dataFetcher(
                     "batchSubmitFormPrompt", new BatchSubmitFormPromptResolver(this.formService))
+                .dataFetcher(
+                    "asyncBatchSubmitFormPrompt",
+                    new AsyncBatchSubmitFormPromptResolver(this.formService, this.entityClient))
                 .dataFetcher(
                     "batchVerifyForm",
                     new BatchVerifyFormResolver(this.formService, this.groupService))
