@@ -11,7 +11,7 @@ export default function LearnItemCard({ company }) {
           <img src={`/img/adoption-stories/adoption-stories-${company.slug}.png`} alt={company.name} />
         </div>
         <div className={clsx("card__body", styles.featureBody)}>
-          <div dangerouslySetInnerHTML={{ __html: company.description }} />        </div>
+          <div dangerouslySetInnerHTML={{ __html: company.description }} /></div>
         <div className={styles.card_button}>
           <Link className="button button--secondary button--md" href={company.link} target="_blank">
             Discover {company.name}'s Story
