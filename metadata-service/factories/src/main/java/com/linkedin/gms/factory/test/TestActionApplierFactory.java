@@ -12,6 +12,7 @@ import com.linkedin.metadata.test.action.domain.SetDomainAction;
 import com.linkedin.metadata.test.action.domain.UnsetDomainAction;
 import com.linkedin.metadata.test.action.form.AssignFormAction;
 import com.linkedin.metadata.test.action.form.SetFormPromptIncompleteAction;
+import com.linkedin.metadata.test.action.form.SubmitFormPromptAction;
 import com.linkedin.metadata.test.action.form.UnassignFormAction;
 import com.linkedin.metadata.test.action.owner.AddOwnersAction;
 import com.linkedin.metadata.test.action.owner.RemoveOwnersAction;
@@ -61,6 +62,7 @@ public class TestActionApplierFactory {
     appliers.add(new AssignFormAction(formService));
     appliers.add(new UnassignFormAction(formService));
     appliers.add(new SetFormPromptIncompleteAction(formService));
+    appliers.add(new SubmitFormPromptAction(formService));
     return new ActionApplier(appliers);
   }
 }
