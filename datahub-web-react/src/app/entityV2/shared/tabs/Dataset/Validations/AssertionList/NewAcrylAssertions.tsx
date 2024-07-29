@@ -10,7 +10,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../../constants';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { AssertionRunStatus } from '@src/types.generated';
-import { transformAssertionData } from './utils';
+import { getFilteredTransformedAssertionData, transformAssertionData } from './utils';
 
 export const StyledTable = styled(Table)`
     max-width: none;
@@ -47,6 +47,30 @@ const StyledAssertionNameContainer = styled.div`
     display: flex;
 `;
 
+export type IFilter = {
+    sortBy: string;
+    groupBy: string;
+    filterCriteria: {
+        searchText: string;
+        status: string[];
+        type: string[];
+        tags: string[];
+        columns: string[];
+    };
+};
+
+const dummyFilterObject: IFilter = {
+    sortBy: '',
+    groupBy: 'status',
+    filterCriteria: {
+        searchText: 'UNIQUE_PERCENTAGE',
+        status: [AssertionRunStatus.Complete],
+        type: ['FIELD'],
+        tags: [],
+        columns: [],
+    },
+};
+
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
@@ -54,9 +78,10 @@ export const AcrylAssertionList = () => {
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const [visibleAssertions, setVisibleAssertions] = useState<any[]>([]);
-    const [allAssertions, setAllAssertions] = useState<any[]>([]);
-
+    const [visibleAssertions, setVisibleAssertions] = useState<any>({ allAssertions: [] });
+    const [allAssertionsData, setAllAssertionsData] = useState<any>({ allAssertions: [] });
+    const [filter, setFilter] = useState<IFilter>({ ...dummyFilterObject });
+    const [assertionMonitorData, setAssertionMonitorData] = useState<any[]>([]);
     const { data } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
@@ -66,10 +91,19 @@ export const AcrylAssertionList = () => {
         const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
         const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
             tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
+        setAssertionMonitorData(assertionsWithMonitorsDetails);
         const transformedAssertions = transformAssertionData(assertionsWithMonitorsDetails);
         setVisibleAssertions(transformedAssertions);
-        setAllAssertions(transformedAssertions);
+        setAllAssertionsData(transformedAssertions);
+        setTimeout(() => {
+            setFilter({ ...dummyFilterObject });
+        }, 5000);
     }, [data]);
+
+    useEffect(() => {
+        const filteredAssertionData = getFilteredTransformedAssertionData(assertionMonitorData, filter);
+        setVisibleAssertions(filteredAssertionData);
+    }, [filter]);
 
     const AssertionName = ({ record }: any) => {
         const { primaryLabel } = useBuildAssertionDescriptionLabels(record.assertion.info, record.monitor);
@@ -118,7 +152,7 @@ export const AcrylAssertionList = () => {
     return (
         <StyledTable
             columns={assertionsTableCols}
-            dataSource={visibleAssertions}
+            dataSource={visibleAssertions.allAssertions || []}
             rowKey="urn"
             locale={{
                 emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,

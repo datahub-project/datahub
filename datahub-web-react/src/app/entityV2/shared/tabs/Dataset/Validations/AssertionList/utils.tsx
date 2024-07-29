@@ -42,6 +42,7 @@ import {
 import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
+import { IFilter } from './NewAcrylAssertions';
 
 /**
  * Returns the React Component to render for the aggregation portion of the Assertion Description
@@ -381,26 +382,14 @@ export const getPlainTextDescriptionFromAssertion = (
     return primaryLabel;
 };
 
-// Generate Assertion
-const getAssertionSummaryByStatus = (assertions, status) => {
-    const typeToAssertions = assertions
-        .filter((assertion) => assertion.info?.type)
-        .reduce((map, assertion) => {
-            const assertionType = assertion?.info?.customAssertion?.type || assertion?.info?.type || 'Unknown';
-            map[assertionType] = (map[assertionType] || 0) + 1;
-            return map;
-        }, {});
-
-    return {
-        status,
-        assertions,
-        summary: typeToAssertions,
-    };
-};
-
 // Generate Assertion Group By Status
 const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]) => {
-    const STATUSES = [AssertionResultType.Success, AssertionResultType.Failure];
+    const STATUSES = [
+        AssertionResultType.Success,
+        AssertionResultType.Failure,
+        AssertionResultType.Error,
+        AssertionResultType.Init,
+    ];
 
     const assertionGroup: any[] = [];
 
@@ -429,7 +418,53 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
 export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]) => {
     const assertionRawData: any = { allAssertions: [], groupBy: { type: [], status: [] } };
 
-    const assertionsTableData = assertions.map((assertion) => {
+    const assertionsTableData = mapAssertionData(assertions);
+
+    assertionRawData.allAssertions = assertionsTableData;
+    assertionRawData.groupBy.type = createAssertionGroups(assertions);
+    assertionRawData.groupBy.status = generateAssertionGroupByStatus(assertions);
+
+    console.log('assertionRawData>>', assertionRawData);
+
+    return assertionRawData;
+};
+
+/** return assertion table data from assertions */
+export const getFilteredTransformedAssertionData = (assertions: AssertionWithMonitorDetails[], filter: IFilter) => {
+    debugger;
+    console.log('assertions>>>', assertions, filter);
+
+    const assertionRawData: any = { allAssertions: [], groupBy: { type: [], status: [] } };
+    const filteredAssertions = assertions.filter((assertion: AssertionWithMonitorDetails) => {
+        const { searchText, type, status } = filter.filterCriteria;
+        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+        const monitor = assertion.monitor?.relationships?.[0]?.entity;
+        const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
+
+        if (searchText && description.indexOf(searchText) == -1) {
+            return false;
+        }
+        if (type.length > 0 && !type.includes(assertion.info?.type || '')) {
+            return false;
+        }
+        if (status.length > 0 && !status.includes(mostRecentRun?.status || '')) {
+            return false;
+        }
+        return true;
+    });
+    const assertionsTableData = mapAssertionData(filteredAssertions);
+
+    assertionRawData.allAssertions = assertionsTableData;
+    assertionRawData.groupBy.type = createAssertionGroups(filteredAssertions);
+    assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
+
+    console.log('assertionRawData2>>', assertionRawData);
+
+    return assertionRawData;
+};
+// "Field level UNIQUE_PERCENTAGE metric assertion for field coat_type"
+const mapAssertionData = (assertions: AssertionWithMonitorDetails[]) => {
+    return assertions.map((assertion) => {
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
 
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
@@ -450,14 +485,7 @@ export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]
                 mostRecentRun?.status === AssertionRunStatus.Complete && mostRecentRun?.result?.externalUrl,
             assertion,
             monitor,
+            status: mostRecentRun?.status,
         };
     });
-
-    assertionRawData.allAssertions = assertionsTableData;
-    assertionRawData.groupBy.type = createAssertionGroups(assertions);
-    assertionRawData.groupBy.status = generateAssertionGroupByStatus(assertions);
-
-    console.log('assertionRawData>>', assertionRawData);
-
-    return assertionsTableData;
 };
