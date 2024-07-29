@@ -23,7 +23,7 @@ def get_frontend_session():
 
 
 def login_as(username: str, password: str):
-    return cli_utils.get_session_login_as(
+    return cli_utils.get_frontend_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
     )
 

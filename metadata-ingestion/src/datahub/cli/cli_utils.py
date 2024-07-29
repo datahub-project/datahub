@@ -1,7 +1,5 @@
 import json
 import logging
-import os
-import os.path
 import typing
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -25,9 +23,6 @@ from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
 
-ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
-ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
-
 # TODO: Many of the methods in this file duplicate logic that already lives
 # in the DataHubGraph client. We should refactor this to use the client instead.
 # For the methods that aren't duplicates, that logic should be moved to the client.
@@ -35,14 +30,6 @@ ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
     return next((el for el in ls if el is not None and el.strip() != ""), None)
-
-
-def get_system_auth() -> Optional[str]:
-    system_client_id = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_ID)
-    system_client_secret = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_SECRET)
-    if system_client_id is not None and system_client_secret is not None:
-        return f"Basic {system_client_id}:{system_client_secret}"
-    return None
 
 
 def parse_run_restli_response(response: requests.Response) -> dict:
@@ -317,20 +304,16 @@ def make_shim_command(name: str, suggestion: str) -> click.Command:
     return command
 
 
-def get_session_login_as(
+def get_frontend_session_login_as(
     username: str, password: str, frontend_url: str
 ) -> requests.Session:
     session = requests.Session()
     headers = {
         "Content-Type": "application/json",
     }
-    system_auth = get_system_auth()
-    if system_auth is not None:
-        session.headers.update({"Authorization": system_auth})
-    else:
-        data = '{"username":"' + username + '", "password":"' + password + '"}'
-        response = session.post(f"{frontend_url}/logIn", headers=headers, data=data)
-        response.raise_for_status()
+    data = '{"username":"' + username + '", "password":"' + password + '"}'
+    response = session.post(f"{frontend_url}/logIn", headers=headers, data=data)
+    response.raise_for_status()
     return session
 
 
@@ -374,7 +357,7 @@ def generate_access_token(
     validity: str = "ONE_HOUR",
 ) -> Tuple[str, str]:
     frontend_url = guess_frontend_url_from_gms_url(gms_url)
-    session = get_session_login_as(
+    session = get_frontend_session_login_as(
         username=username,
         password=password,
         frontend_url=frontend_url,
