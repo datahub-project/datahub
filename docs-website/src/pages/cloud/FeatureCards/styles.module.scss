@@ -1,0 +1,16 @@
+.title {
+  display: flex;
+  align-items: center;  
+  margin: 2rem;
+
+  .icon {
+    width: 4rem;
+    height: 4rem;
+    margin-right: 1rem;  
+  }
+
+  .titleText {
+    font-size: 2rem;
+    font-weight: 600;
+  }
+}
