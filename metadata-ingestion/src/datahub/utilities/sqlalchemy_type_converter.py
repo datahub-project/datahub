@@ -257,7 +257,7 @@ def get_native_data_type_for_sqlalchemy_type(
     try:
         return column_type.compile(dialect=inspector.dialect)
     except Exception as e:
-        logger.warning(
+        logger.debug(
             f"Unable to compile sqlalchemy type {column_type} the error was: {e}"
         )
 
