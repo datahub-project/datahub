@@ -172,16 +172,23 @@ class BigQueryQueriesExtractor:
         return path
 
     def is_temp_table(self, name: str) -> bool:
-        return BigqueryTableIdentifier.from_string_name(name).dataset.startswith(
-            self.config.temp_table_dataset_prefix
-        )
-
-    def is_allowed_table(self, name: str) -> bool:
-        table_id = BigqueryTableIdentifier.from_string_name(name)
-        if self.discovered_tables and str(table_id) not in self.discovered_tables:
+        try:
+            return BigqueryTableIdentifier.from_string_name(name).dataset.startswith(
+                self.config.temp_table_dataset_prefix
+            )
+        except Exception:
+            logger.warning(f"Error parsing table name {name} ")
             return False
 
-        return self.filters.is_allowed(table_id)
+    def is_allowed_table(self, name: str) -> bool:
+        try:
+            table_id = BigqueryTableIdentifier.from_string_name(name)
+            if self.discovered_tables and str(table_id) not in self.discovered_tables:
+                return False
+            return self.filters.is_allowed(table_id)
+        except Exception:
+            logger.warning(f"Error parsing table name {name} ")
+            return False
 
     def get_workunits_internal(
         self,
