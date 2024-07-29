@@ -552,7 +552,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_entity_semityped(
         self, entity_urn: str, aspects: Optional[List[str]] = None
     ) -> AspectBag:
-        """Get (all) non-timeseries aspects for an entity (experimental).
+        """Get (all) non-timeseries aspects for an entity.
 
         This method is called "semityped" because it returns aspects as a dictionary of
         properly typed objects. While the returned dictionary is constrained using a TypedDict,
@@ -562,7 +562,7 @@ class DataHubGraph(DatahubRestEmitter):
         something, even if the entity doesn't actually exist in DataHub.
 
         :param entity_urn: The urn of the entity
-        :param Optional[List[str]] aspects: Optional list of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
+        :param aspects: Optional list of aspect names being requested (e.g. ["schemaMetadata", "datasetProperties"])
         :returns: A dictionary of aspect name to aspect value. If an aspect is not found, it will
             not be present in the dictionary. The entity's key aspect will always be present.
         """
