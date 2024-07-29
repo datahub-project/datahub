@@ -325,9 +325,9 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
+                    run_results_paths=[str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    )],
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -428,9 +428,9 @@ def test_dbt_tests_only_assertions(
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
+                    run_results_paths=[str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    )],
                     entities_enabled=DBTEntitiesEnabled(
                         test_results=EmitDirective.ONLY
                     ),
@@ -504,9 +504,9 @@ def test_dbt_only_test_definitions_and_results(
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
+                    run_results_paths=[str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    )],
                     entities_enabled=DBTEntitiesEnabled(
                         sources=EmitDirective.NO,
                         seeds=EmitDirective.NO,

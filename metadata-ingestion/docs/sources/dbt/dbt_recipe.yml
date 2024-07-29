@@ -6,7 +6,8 @@ source:
     manifest_path: "${DBT_PROJECT_ROOT}/target/manifest_file.json"
     catalog_path: "${DBT_PROJECT_ROOT}/target/catalog_file.json"
     sources_path: "${DBT_PROJECT_ROOT}/target/sources_file.json" # optional for freshness
-    test_results_path: "${DBT_PROJECT_ROOT}/target/run_results.json" # optional for recording dbt test results after running dbt test
+    run_results_paths:
+      - "${DBT_PROJECT_ROOT}/target/run_results.json" # optional for recording dbt test results after running dbt test
 
     # Options
     target_platform: "my_target_platform_id" # e.g. bigquery/postgres/etc.
