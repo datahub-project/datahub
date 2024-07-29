@@ -83,16 +83,19 @@ class ExecutionRequestManager:
         fetcher_id: str,
         execution_request_schedule: ExecutionRequestSchedule,
     ) -> None:
-        self.scheduled_execution_requests[fetcher_id][
-            execution_request_schedule.execution_request.exec_id
-        ] = execution_request_schedule.execution_request
-        self.scheduler.remove_execution_request(
-            execution_request_schedule.execution_request
-        )
-        self.scheduler.add_execution_request(
-            execution_request_schedule.execution_request,
-            execution_request_schedule.schedule,
-        )
+        try:
+            self.scheduled_execution_requests[fetcher_id][
+                execution_request_schedule.execution_request.exec_id
+            ] = execution_request_schedule.execution_request
+            self.scheduler.remove_execution_request(
+                execution_request_schedule.execution_request
+            )
+            self.scheduler.add_execution_request(
+                execution_request_schedule.execution_request,
+                execution_request_schedule.schedule,
+            )
+        except Exception as e:
+            logger.error(f"Scheduler: failed to add/update execution request: {e}")
 
     def unschedule_deleted_execution_requests(self, fetcher_id: str) -> None:
         scheduled_urns = [

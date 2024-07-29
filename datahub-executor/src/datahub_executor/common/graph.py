@@ -1,4 +1,3 @@
-import datetime
 import logging
 from typing import Any, Dict, List
 
@@ -91,10 +90,7 @@ class DataHubExecutorGraph(DataHubGraph):
         )
         execution_request_id = key_aspect.get("value", {}).get("id")
         execution_request_status = result_aspect.get("value", {}).get("status")
-        last_observed = datetime.datetime.fromtimestamp(
-            result_aspect.get("systemMetadata", {}).get("lastObserved", 0) / 1000,
-            tz=datetime.timezone.utc,
-        )
+        last_observed = result_aspect.get("systemMetadata", {}).get("lastObserved", 0)
 
         ers = ExecutionRequestStatus.parse_obj(
             {

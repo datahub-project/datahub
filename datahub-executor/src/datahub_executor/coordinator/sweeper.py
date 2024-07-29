@@ -21,15 +21,24 @@ class SweeperJob:
 
         try:
             running_ingestions = self.graph.get_running_ingestions()
-            if len(running_ingestions) == 0:
-                logger.info("Sweeper: no running ingestions found.")
+            ingestions_processed = 0
 
             for ingestion in running_ingestions:
+                if ingestion.last_observed == 0:
+                    logger.warning(
+                        f"Sweeper: unable to process ingestion {ingestion.execution_request_id}, last_observed timestamp is 0."
+                    )
+                    continue
+
                 time_diff = (
                     datetime.datetime.now(tz=datetime.timezone.utc)
-                    - ingestion.last_observed
-                ).seconds
+                    - datetime.datetime.fromtimestamp(
+                        ingestion.last_observed / 1000, tz=datetime.timezone.utc
+                    )
+                ).total_seconds()
+
                 if time_diff > DATAHUB_EXECUTOR_SWEEPER_ABORT_THRESHOLD:
+                    ingestions_processed = ingestions_processed + 1
                     logger.info(
                         f"Sweeper: ingestion {ingestion.execution_request_id} is stale for {time_diff} seconds, going to abort."
                     )
@@ -46,5 +55,9 @@ class SweeperJob:
                     self.graph.cancel_ingestion_execution(
                         ingestion.ingestion_source_urn, ingestion.execution_request_urn
                     )
+
+            logger.info(
+                f"Sweeper: done processing ingestions. Total ingestions processed: {ingestions_processed}."
+            )
         except Exception as e:
             logger.error(f"Sweeper: error while cancelling stale jobs: {e}")
