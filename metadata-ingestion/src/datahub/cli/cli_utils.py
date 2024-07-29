@@ -170,7 +170,7 @@ def post_entity(
 ) -> int:
     endpoint: str = "/aspects/?action=ingestProposal"
 
-    proposal: dict[str, Any] = {
+    proposal: Dict[str, Any] = {
         "proposal": {
             "entityType": entity_type,
             "entityUrn": urn,
