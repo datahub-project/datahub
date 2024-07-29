@@ -17,6 +17,16 @@ extend type Query {
     Requires the 'Manage Global Views' Platform Privilege.
     """
     globalViewsSettings: GlobalViewsSettings
+
+    """
+    Fetch the global settings related to the docs propagation feature.
+    """
+    docPropagationSettings: DocPropagationSettings
+
+	"""
+	Fetch the global Action Settings related to the Actions feature.
+	"""
+	actionSettings: ActionSettings
 }
 
 extend type Mutation {
@@ -25,6 +35,16 @@ extend type Mutation {
   Requires the 'Manage Global Views' Platform Privilege.
   """
   updateGlobalViewsSettings(input: UpdateGlobalViewsSettingsInput!): Boolean!
+
+  """
+  Update the doc propagation settings.
+  """
+  updateDocPropagationSettings(input: UpdateDocPropagationSettingsInput!): Boolean!
+
+  """
+  Update the global Action Settings related to the Actions feature.
+  """
+  updateActionSettings(input: UpdateActionSettingsInput!): Boolean!
 }
 
 """
@@ -524,4 +544,44 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Input required to update Action Settings.
+"""
+input UpdateActionSettingsInput {
+  """
+  The default column propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
+}
+
+"""
+Global (platform-level) settings related to the Actions feature
+"""
+type ActionSettings {
+"""
+  The default column propagation setting for the platform.
+  """
+  docColumnPropagation: String
+}
+
+"""
+Input required to update doc propagation settings.
+"""
+input UpdateDocPropagationSettingsInput {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
+}
+
+"""
+Global (platform-level) settings related to the doc propagation feature
+"""
+type DocPropagationSettings {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
 }

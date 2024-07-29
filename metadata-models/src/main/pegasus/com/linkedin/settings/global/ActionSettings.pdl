@@ -1,0 +1,11 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Automation Action Settings
+ */
+record ActionSettings {
+  /**
+   * Doc Column Propagation
+   */
+  docColumnPropagation: boolean
+}

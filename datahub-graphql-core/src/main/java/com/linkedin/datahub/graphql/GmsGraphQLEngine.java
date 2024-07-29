@@ -284,6 +284,8 @@ import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
@@ -1087,8 +1089,10 @@ public class GmsGraphQLEngine {
                     new BrowseV2Resolver(this.entityClient, this.viewService, this.formService))
                 .dataFetcher("businessAttribute", getResolver(businessAttributeType))
                 .dataFetcher(
-                    "listBusinessAttributes",
-                    new ListBusinessAttributesResolver(this.entityClient)));
+                    "listBusinessAttributes", new ListBusinessAttributesResolver(this.entityClient))
+                .dataFetcher(
+                    "docPropagationSettings",
+                    new DocPropagationSettingsResolver(this.settingsService)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -1340,7 +1344,11 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
               .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
-              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient));
+              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
+              .dataFetcher(
+                  "updateDocPropagationSettings",
+                  new UpdateDocPropagationSettingsResolver(this.settingsService));
+
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(
