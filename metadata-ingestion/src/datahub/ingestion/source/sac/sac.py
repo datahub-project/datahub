@@ -66,7 +66,6 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     BrowsePathsV2Class,
     ChangeAuditStampsClass,
-    ChangeTypeClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
@@ -196,24 +195,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report = SACSourceReport()
 
-        self.session = OAuth2Session(
-            client_id=self.config.client_id,
-            client_secret=self.config.client_secret.get_secret_value(),
-            token_endpoint=config.token_url,
-            token_endpoint_auth_method="client_secret_post",
-            grant_type="client_credentials",
-        )
-
-        self.session.register_compliance_hook(
-            "protected_request", _add_sap_sac_custom_auth_header
-        )
-        self.session.fetch_token()
-
-        self.client = pyodata.Client(
-            url=f"{self.config.tenant_url}/api/v1",
-            connection=self.session,
-            config=pyodata.v2.model.Config(retain_null=True),
-        )
+        self.session, self.client = SACSource.get_sac_connection(self.config)
 
     def close(self) -> None:
         self.session.close()
@@ -231,36 +213,20 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         try:
             config = SACSourceConfig.parse_obj(config_dict)
 
-            session = OAuth2Session(
-                client_id=config.client_id,
-                client_secret=config.client_secret.get_secret_value(),
-                token_endpoint=config.token_url,
-                token_endpoint_auth_method="client_secret_post",
-                grant_type="client_credentials",
-            )
+            # when creating the pyodata.Client, the metadata is automatically parsed and validated
+            session, _ = SACSource.get_sac_connection(config)
 
-            session.register_compliance_hook(
-                "protected_request", _add_sap_sac_custom_auth_header
-            )
-            session.fetch_token()
-
-            response = session.get(url=f"{config.tenant_url}/api/v1/$metadata")
-            response.raise_for_status()
-
+            # test the Data Import Service Service separately here, because it requires specific properties when configuring the OAuth client
             response = session.get(url=f"{config.tenant_url}/api/v1/dataimport/models")
             response.raise_for_status()
 
-            test_report.basic_connectivity = CapabilityReport(capable=True)
+            session.close()
 
+            test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
-            logger.error(f"Failed to test connection due to {e}", exc_info=e)
-            if test_report.basic_connectivity is None:
-                test_report.basic_connectivity = CapabilityReport(
-                    capable=False, failure_reason=f"{e}"
-                )
-            else:
-                test_report.internal_failure = True
-                test_report.internal_failure_reason = f"{e}"
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=f"{e}"
+            )
 
         return test_report
 
@@ -281,64 +247,6 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             resources = self.get_resources()
 
             for resource in resources:
-                dashboard_urn = make_dashboard_urn(
-                    platform=self.platform,
-                    name=resource.resource_id,
-                    platform_instance=self.config.platform_instance,
-                )
-
-                if resource.ancestor_path:
-                    mcp = MetadataChangeProposalWrapper(
-                        entityType="dashboard",
-                        changeType=ChangeTypeClass.UPSERT,
-                        entityUrn=dashboard_urn,
-                        aspectName="browsePaths",
-                        aspect=BrowsePathsClass(
-                            paths=[
-                                f"/{self.platform}/{resource.ancestor_path}",
-                            ],
-                        ),
-                    )
-
-                    yield MetadataWorkUnit(
-                        id=f"dashboard-browse-paths-{dashboard_urn}", mcp=mcp
-                    )
-
-                    mcp = MetadataChangeProposalWrapper(
-                        entityType="dashboard",
-                        changeType=ChangeTypeClass.UPSERT,
-                        entityUrn=dashboard_urn,
-                        aspectName="browsePathsV2",
-                        aspect=BrowsePathsV2Class(
-                            path=[
-                                BrowsePathEntryClass(id=folder_name)
-                                for folder_name in resource.ancestor_path.split("/")
-                            ],
-                        ),
-                    )
-
-                    yield MetadataWorkUnit(
-                        id=f"dashboard-browse-paths-v2-{dashboard_urn}", mcp=mcp
-                    )
-
-                if self.config.platform_instance is not None:
-                    mcp = MetadataChangeProposalWrapper(
-                        entityType="dashboard",
-                        changeType=ChangeTypeClass.UPSERT,
-                        entityUrn=dashboard_urn,
-                        aspectName="dataPlatformInstance",
-                        aspect=DataPlatformInstanceClass(
-                            platform=make_data_platform_urn(self.platform),
-                            instance=make_dataplatform_instance_urn(
-                                self.platform, self.config.platform_instance
-                            ),
-                        ),
-                    )
-
-                    yield MetadataWorkUnit(
-                        id=f"dashboard-data-platform-instance-{dashboard_urn}", mcp=mcp
-                    )
-
                 datasets = []
 
                 for resource_model in resource.resource_models:
@@ -359,73 +267,110 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
                     yield from self.get_model_workunits(dataset_urn, resource_model)
 
-                mcp = MetadataChangeProposalWrapper(
-                    entityType="dashboard",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dashboard_urn,
-                    aspectName="dashboardInfo",
-                    aspect=DashboardInfoClass(
-                        title=resource.name,
-                        description=resource.description,
-                        lastModified=ChangeAuditStampsClass(
-                            created=AuditStampClass(
-                                time=round(resource.created_time.timestamp() * 1000),
-                                actor=make_user_urn(resource.created_by)
-                                if resource.created_by
-                                else "urn:li:corpuser:unknown",
-                            ),
-                            lastModified=AuditStampClass(
-                                time=round(resource.modified_time.timestamp() * 1000),
-                                actor=make_user_urn(resource.modified_by)
-                                if resource.modified_by
-                                else "urn:li:corpuser:unknown",
-                            ),
-                        ),
-                        customProperties={
-                            "resourceType": resource.resource_type,
-                            "resourceSubtype": resource.resource_subtype,
-                            "storyId": resource.story_id,
-                            "isMobile": str(resource.is_mobile),
-                        },
-                        datasets=sorted(datasets) if datasets else None,
-                        externalUrl=f"{self.config.tenant_url}{resource.open_url}",
-                    ),
-                )
-
-                yield MetadataWorkUnit(id=f"dashboard-info-{dashboard_urn}", mcp=mcp)
-
-                type_name: Optional[str] = None
-                if resource.resource_subtype == "":
-                    type_name = BIAssetSubTypes.SAC_STORY
-                elif resource.resource_subtype == "APPLICATION":
-                    type_name = BIAssetSubTypes.SAC_APPLICATION
-
-                if type_name:
-                    mcp = MetadataChangeProposalWrapper(
-                        entityType="dashboard",
-                        changeType=ChangeTypeClass.UPSERT,
-                        entityUrn=dashboard_urn,
-                        aspectName="subTypes",
-                        aspect=SubTypesClass(
-                            typeNames=[type_name],
-                        ),
-                    )
-
-                    yield MetadataWorkUnit(
-                        id=f"dashboard-subtype-{dashboard_urn}", mcp=mcp
-                    )
+                yield from self.get_resource_workunits(resource, datasets)
 
     def get_report(self) -> SACSourceReport:
         return self.report
+
+    def get_resource_workunits(
+        self, resource: Resource, datasets: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        dashboard_urn = make_dashboard_urn(
+            platform=self.platform,
+            name=resource.resource_id,
+            platform_instance=self.config.platform_instance,
+        )
+
+        if resource.ancestor_path:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=BrowsePathsClass(
+                    paths=[
+                        f"/{self.platform}/{resource.ancestor_path}",
+                    ],
+                ),
+            )
+
+            yield mcp.as_workunit()
+
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=BrowsePathsV2Class(
+                    path=[
+                        BrowsePathEntryClass(id=folder_name)
+                        for folder_name in resource.ancestor_path.split("/")
+                    ],
+                ),
+            )
+
+            yield mcp.as_workunit()
+
+        if self.config.platform_instance is not None:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
+                    ),
+                ),
+            )
+
+            yield mcp.as_workunit()
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
+            aspect=DashboardInfoClass(
+                title=resource.name,
+                description=resource.description,
+                lastModified=ChangeAuditStampsClass(
+                    created=AuditStampClass(
+                        time=round(resource.created_time.timestamp() * 1000),
+                        actor=make_user_urn(resource.created_by)
+                        if resource.created_by
+                        else "urn:li:corpuser:unknown",
+                    ),
+                    lastModified=AuditStampClass(
+                        time=round(resource.modified_time.timestamp() * 1000),
+                        actor=make_user_urn(resource.modified_by)
+                        if resource.modified_by
+                        else "urn:li:corpuser:unknown",
+                    ),
+                ),
+                customProperties={
+                    "resourceType": resource.resource_type,
+                    "resourceSubtype": resource.resource_subtype,
+                    "storyId": resource.story_id,
+                    "isMobile": str(resource.is_mobile),
+                },
+                datasets=sorted(datasets) if datasets else None,
+                externalUrl=f"{self.config.tenant_url}{resource.open_url}",
+            ),
+        )
+
+        yield mcp.as_workunit()
+
+        type_name: Optional[str] = None
+        if resource.resource_subtype == "":
+            type_name = BIAssetSubTypes.SAC_STORY
+        elif resource.resource_subtype == "APPLICATION":
+            type_name = BIAssetSubTypes.SAC_APPLICATION
+
+        if type_name:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
+                aspect=SubTypesClass(
+                    typeNames=[type_name],
+                ),
+            )
+
+            yield mcp.as_workunit()
 
     def get_model_workunits(
         self, dataset_urn: str, model: ResourceModel
     ) -> Iterable[MetadataWorkUnit]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="datasetProperties",
             aspect=DatasetPropertiesClass(
                 name=model.name,
                 description=model.description,
@@ -438,7 +383,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             ),
         )
 
-        yield MetadataWorkUnit(id=f"dataset-properties-{dataset_urn}", mcp=mcp)
+        yield mcp.as_workunit()
 
         if model.is_import:
             primary_fields: List[str] = []
@@ -446,22 +391,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             columns = self.get_import_data_model_columns(model_id=model.model_id)
             for column in columns:
-                native_data_type = column.data_type
-                if column.data_type == "decimal":
-                    native_data_type = (
-                        f"{column.data_type}({column.precision}, {column.scale})"
-                    )
-                elif column.data_type == "int32":
-                    native_data_type = f"{column.data_type}({column.precision})"
-                elif column.max_length is not None:
-                    native_data_type = f"{column.data_type}({column.max_length})"
 
                 schema_field = SchemaFieldClass(
                     fieldPath=column.name,
-                    type=self.get_schema_field_data_type(
-                        column.property_type, column.data_type
-                    ),
-                    nativeDataType=native_data_type,
+                    type=self.get_schema_field_data_type(column),
+                    nativeDataType=self.get_schema_field_native_data_type(column),
                     description=column.description,
                     isPartOfKey=column.is_key,
                 )
@@ -472,10 +406,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     primary_fields.append(column.name)
 
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="schemaMetadata",
                 aspect=SchemaMetadataClass(
                     schemaName=model.model_id,
                     platform=make_data_platform_urn(self.platform),
@@ -487,9 +418,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
 
-            yield MetadataWorkUnit(
-                id=f"dataset-upstream-lineage-{dataset_urn}", mcp=mcp
-            )
+            yield mcp.as_workunit()
 
         if model.system_type in ("BW", "HANA") and model.external_id is not None:
             upstream_dataset_name: Optional[str] = None
@@ -525,6 +454,10 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     platform_instance = model.connection_id
                     env = DEFAULT_ENV
 
+                    logger.info(
+                        f"No connection mapping found for connection with id {model.connection_id}, connection id will be used as platform instance"
+                    )
+
                 upstream_dataset_urn = make_dataset_urn_with_platform_instance(
                     platform=platform,
                     name=upstream_dataset_name,
@@ -534,26 +467,16 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
                 if upstream_dataset_urn not in self.ingested_upstream_dataset_keys:
                     mcp = MetadataChangeProposalWrapper(
-                        entityType="dataset",
-                        changeType=ChangeTypeClass.UPSERT,
                         entityUrn=upstream_dataset_urn,
-                        aspectName="datasetKey",
                         aspect=dataset_urn_to_key(upstream_dataset_urn),
                     )
 
-                    yield MetadataWorkUnit(
-                        id=f"dataset-key-{upstream_dataset_urn}",
-                        mcp=mcp,
-                        is_primary_source=False,
-                    )
+                    yield mcp.as_workunit(is_primary_source=False)
 
                     self.ingested_upstream_dataset_keys.add(upstream_dataset_urn)
 
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=dataset_urn,
-                    aspectName="upstreamLineage",
                     aspect=UpstreamLineageClass(
                         upstreams=[
                             UpstreamClass(
@@ -564,37 +487,26 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     ),
                 )
 
-                yield MetadataWorkUnit(
-                    id=f"dataset-upstream-lineage-{dataset_urn}", mcp=mcp
-                )
+                yield mcp.as_workunit()
             else:
-                logger.warning(
-                    f"Unknown upstream dataset for model with id {model.namespace}:{model.model_id} and external id {model.external_id}"
-                )
                 self.report.report_warning(
                     "unknown-upstream-dataset",
                     f"Unknown upstream dataset for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
                 )
         elif model.system_type is not None:
-            logger.warning(
-                f"Unknown system type {model.system_type} for model with id {model.namespace}:{model.model_id} and external id {model.external_id}"
-            )
             self.report.report_warning(
                 "unknown-system-type",
                 f"Unknown system type {model.system_type} for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
             )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="status",
             aspect=StatusClass(
                 removed=False,
             ),
         )
 
-        yield MetadataWorkUnit(id=f"dataset-status-{dataset_urn}", mcp=mcp)
+        yield mcp.as_workunit()
 
         if model.external_id and model.connection_id and model.system_type:
             type_name = DatasetSubTypes.SAC_LIVE_DATA_MODEL
@@ -604,31 +516,48 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             type_name = DatasetSubTypes.SAC_MODEL
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(
                 typeNames=[type_name],
             ),
         )
 
-        yield MetadataWorkUnit(id=f"dataset-subtype-{dataset_urn}", mcp=mcp)
+        yield mcp.as_workunit()
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="dataPlatformInstance",
             aspect=DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
                 instance=self.config.platform_instance,
             ),
         )
 
-        yield MetadataWorkUnit(
-            id=f"dataset-data-platform-instance-{dataset_urn}", mcp=mcp
+        yield mcp.as_workunit()
+
+    @staticmethod
+    def get_sac_connection(
+        config: SACSourceConfig,
+    ) -> Tuple[OAuth2Session, pyodata.Client]:
+        session = OAuth2Session(
+            client_id=config.client_id,
+            client_secret=config.client_secret.get_secret_value(),
+            token_endpoint=config.token_url,
+            token_endpoint_auth_method="client_secret_post",
+            grant_type="client_credentials",
         )
+
+        session.register_compliance_hook(
+            "protected_request", _add_sap_sac_custom_auth_header
+        )
+        session.fetch_token()
+
+        client = pyodata.Client(
+            url=f"{config.tenant_url}/api/v1",
+            connection=session,
+            config=pyodata.v2.model.Config(retain_null=True),
+        )
+
+        return session, client
 
     def get_resources(self) -> Iterable[Resource]:
         import_data_model_ids = self.get_import_data_model_ids()
@@ -787,18 +716,33 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         return f"{schema}.{view}"
 
     def get_schema_field_data_type(
-        self, property_type: str, data_type: str
+        self, column: ImportDataModelColumn
     ) -> SchemaFieldDataTypeClass:
-        if property_type == "DATE":
+        if column.property_type == "DATE":
             return SchemaFieldDataTypeClass(type=DateTypeClass())
         else:
-            if data_type == "string":
+            if column.data_type == "string":
                 return SchemaFieldDataTypeClass(type=StringTypeClass())
-            elif data_type in ("decimal", "int32"):
+            elif column.data_type in ("decimal", "int32"):
                 return SchemaFieldDataTypeClass(type=NumberTypeClass())
             else:
-                logger.warning(f"Unknown data type {data_type} found")
+                self.report.report_warning(
+                    "unknown-data-type",
+                    f"Unknown data type {column.data_type} found",
+                )
+
                 return SchemaFieldDataTypeClass(type=NullTypeClass())
+
+    def get_schema_field_native_data_type(self, column: ImportDataModelColumn) -> str:
+        native_data_type = column.data_type
+        if column.data_type == "decimal":
+            native_data_type = f"{column.data_type}({column.precision}, {column.scale})"
+        elif column.data_type == "int32":
+            native_data_type = f"{column.data_type}({column.precision})"
+        elif column.max_length is not None:
+            native_data_type = f"{column.data_type}({column.max_length})"
+
+        return native_data_type
 
 
 def _add_sap_sac_custom_auth_header(

@@ -9,7 +9,7 @@
 
 2. Maintain connection mappings (optional):
 
-To map individual connections in SAP Analytics Cloud to platforms, platform instances or environments the `connection_mapping` configuration can be used within the recipe:
+To map individual connections in SAP Analytics Cloud to platforms, platform instances and environments, the `connection_mapping` configuration can be used within the recipe:
 
 ```yaml
 connection_mapping:
@@ -23,7 +23,7 @@ connection_mapping:
         env: PROD
 ```
 
-The key in the connection mapping is the technical name of the connection resp. its id.
+The key in the connection mapping dictionary represents the name of the connection created in SAP Analytics Cloud.
 
 ## Concept mapping
 
