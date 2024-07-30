@@ -126,9 +126,9 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             logger.debug("done listing drivers")
             # Check if 'ODBC Driver 18 for SQL Server' is in the list of available drivers
             if "ODBC Driver 18 for SQL Server" in available_drivers:
-                print("ODBC Driver 18 for SQL Server is installed.")
+                logger.debug("ODBC Driver 18 for SQL Server is installed.")
             else:
-                print("ODBC Driver 18 for SQL Server is not installed.")
+                logger.debug("ODBC Driver 18 for SQL Server is not installed.")
 
             self.scheme = "mssql+pyodbc"
 
@@ -142,7 +142,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         )
         if self.use_odbc:
             uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
-            print(f"uri={uri}")
+            logger.debug(f"uri={uri}")
         return uri
 
     @property
