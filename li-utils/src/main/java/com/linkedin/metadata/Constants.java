@@ -147,6 +147,8 @@ public class Constants {
   public static final String EDITABLE_DATASET_PROPERTIES_ASPECT_NAME = "editableDatasetProperties";
   public static final String DATASET_DEPRECATION_ASPECT_NAME = "datasetDeprecation";
   public static final String DATASET_UPSTREAM_LINEAGE_ASPECT_NAME = "datasetUpstreamLineage";
+  public static final String DATASET_DATA_ACCESS_POLICY_SETTING_ASPECT_NAME = "dataAccessPolicySetting";
+  public static final String DATASET_DATA_ACCESS_CONFIGURATION_ASPECT_NAME = "dataAccessConfiguration";
   public static final String UPSTREAM_LINEAGE_ASPECT_NAME = "upstreamLineage";
   public static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
@@ -159,6 +161,14 @@ public class Constants {
   public static final String FINE_GRAINED_LINEAGE_DATASET_TYPE = "DATASET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_SET_TYPE = "FIELD_SET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_TYPE = "FIELD";
+
+  // Data Access
+  public static final String DATA_ACCESS_KEY_ASPECT_NAME = "dataAccessKey";
+  public static final String DATA_ACCESS_ENTITY_NAME = "dataAccess";
+  public static final String DATA_ACCESS_STATUS_INFO_ASPECT_NAME = "dataAccessStatusInfo";
+  public static final String DATA_ACCESS_PROPERTIES_ASPECT_NAME = "dataAccessProperties";
+  public static final String DATA_ACCESS_PARTIES_ASPECT_NAME = "dataAccessParties";
+  public static final String DATA_ACCESS_LIFE_CYCLE_ASPECT_NAME = "dataAccessLifeCycle";
 
   // Chart
   public static final String CHART_KEY_ASPECT_NAME = "chartKey";
