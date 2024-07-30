@@ -4,7 +4,9 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-## Verifying the Slack Integration is working
+This document provides troubleshooting guidance for the Slack integration. For more details on setting up the Slack integration, [click here](./saas-slack-setup.md).
+
+## Prerequisites - Testing the Slack Integration
 First and foremost, we recommend using the 'Send a test notification' feature to verify whether the issue is with the integration setup, slack's systems, or DataHub. The modal will provide a rich description of an error if there is one.
 You can access this feature either by going to the Notifications page in your settings, or a subscription drawer.
 <p align="center">
