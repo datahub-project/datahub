@@ -16,7 +16,9 @@ from tabulate import tabulate
 import datahub as datahub_package
 from datahub.cli import cli_utils
 from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
+from datahub.configuration.common import ConfigModel, GraphError
 from datahub.configuration.config_loader import load_config_file
+from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
@@ -204,6 +206,23 @@ def run(
     # don't raise SystemExit if there's no error
 
 
+def _make_ingestion_urn(name: str) -> str:
+    guid = datahub_guid(
+        {
+            "name": name,
+        }
+    )
+    return f"urn:li:dataHubIngestionSource:deploy-{guid}"
+
+
+class DeployOptions(ConfigModel):
+    name: str
+    schedule: Optional[str] = None
+    time_zone: str = "UTC"
+    cli_version: Optional[str] = None
+    executor_id: str = "default"
+
+
 @ingest.command()
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
@@ -212,7 +231,6 @@ def run(
     "--name",
     type=str,
     help="Recipe Name",
-    required=True,
 )
 @click.option(
     "-c",
@@ -224,7 +242,7 @@ def run(
 @click.option(
     "--urn",
     type=str,
-    help="Urn of recipe to update. Creates recipe if provided urn does not exist",
+    help="Urn of recipe to update. If not specified here or in the recipe's pipeline_name, this will create a new ingestion source.",
     required=False,
 )
 @click.option(
@@ -256,7 +274,7 @@ def run(
     default="UTC",
 )
 def deploy(
-    name: str,
+    name: Optional[str],
     config: str,
     urn: Optional[str],
     executor_id: str,
@@ -280,74 +298,96 @@ def deploy(
         resolve_env_vars=False,
     )
 
+    deploy_options_raw = pipeline_config.pop("deployment", None)
+    if deploy_options_raw is not None:
+        deploy_options = DeployOptions.parse_obj(deploy_options_raw)
+
+        if name:
+            logger.info(f"Overriding deployment name {deploy_options.name} with {name}")
+            deploy_options.name = name
+    else:
+        if not name:
+            raise click.UsageError(
+                "Either --name must be set or deployment_name specified in the config"
+            )
+        deploy_options = DeployOptions(name=name)
+
+    # Use remaining CLI args to override deploy_options
+    if schedule:
+        deploy_options.schedule = schedule
+    if time_zone:
+        deploy_options.time_zone = time_zone
+    if cli_version:
+        deploy_options.cli_version = cli_version
+    if executor_id:
+        deploy_options.executor_id = executor_id
+
+    logger.info(f"Using {repr(deploy_options)}")
+
+    if not urn:
+        # When urn/name is not specified, we will generate a unique urn based on the deployment name.
+        urn = _make_ingestion_urn(deploy_options.name)
+        logger.info(f"Using recipe urn: {urn}")
+
+    # Invariant - at this point, both urn and deploy_options are set.
+
     variables: dict = {
         "urn": urn,
-        "name": name,
+        "name": deploy_options.name,
         "type": pipeline_config["source"]["type"],
         "recipe": json.dumps(pipeline_config),
-        "executorId": executor_id,
-        "version": cli_version,
+        "executorId": deploy_options.executor_id,
+        "version": deploy_options.cli_version,
     }
 
-    if schedule is not None:
-        variables["schedule"] = {"interval": schedule, "timezone": time_zone}
+    if deploy_options.schedule is not None:
+        variables["schedule"] = {
+            "interval": deploy_options.schedule,
+            "timezone": deploy_options.time_zone,
+        }
 
-    if urn:
+    # The updateIngestionSource endpoint can actually do upserts as well.
+    graphql_query: str = textwrap.dedent(
+        """
+        mutation updateIngestionSource(
+            $urn: String!,
+            $name: String!,
+            $type: String!,
+            $schedule: UpdateIngestionSourceScheduleInput,
+            $recipe: String!,
+            $executorId: String!
+            $version: String) {
 
-        graphql_query: str = textwrap.dedent(
-            """
-            mutation updateIngestionSource(
-                $urn: String!,
-                $name: String!,
-                $type: String!,
-                $schedule: UpdateIngestionSourceScheduleInput,
-                $recipe: String!,
-                $executorId: String!
-                $version: String) {
+            updateIngestionSource(urn: $urn, input: {
+                name: $name,
+                type: $type,
+                schedule: $schedule,
+                config: {
+                    recipe: $recipe,
+                    executorId: $executorId,
+                    version: $version,
+                }
+            })
+        }
+        """
+    )
 
-                updateIngestionSource(urn: $urn, input: {
-                    name: $name,
-                    type: $type,
-                    schedule: $schedule,
-                    config: {
-                        recipe: $recipe,
-                        executorId: $executorId,
-                        version: $version,
-                    }
-                })
-            }
-            """
+    try:
+        response = datahub_graph.execute_graphql(
+            graphql_query, variables=variables, format_exception=False
         )
-    else:
-        logger.info("No URN specified recipe urn, will create a new recipe.")
-        graphql_query = textwrap.dedent(
-            """
-            mutation createIngestionSource(
-                $name: String!,
-                $type: String!,
-                $schedule: UpdateIngestionSourceScheduleInput,
-                $recipe: String!,
-                $executorId: String!,
-                $version: String) {
-
-                createIngestionSource(input: {
-                    name: $name,
-                    type: $type,
-                    schedule: $schedule,
-                    config: {
-                        recipe: $recipe,
-                        executorId: $executorId,
-                        version: $version,
-                    }
-                })
-            }
-            """
-        )
-
-    response = datahub_graph.execute_graphql(graphql_query, variables=variables)
+    except GraphError as graph_error:
+        try:
+            error = json.loads(str(graph_error).replace('"', '\\"').replace("'", '"'))
+            click.secho(error[0]["message"], fg="red", err=True)
+        except Exception:
+            click.secho(
+                f"Could not create ingestion source:\n{graph_error}", fg="red", err=True
+            )
+        sys.exit(1)
 
     click.echo(
-        f"✅ Successfully wrote data ingestion source metadata for recipe {name}:"
+        f"✅ Successfully wrote data ingestion source metadata for recipe {deploy_options.name}:"
     )
     click.echo(response)
 
@@ -427,7 +467,9 @@ def mcps(path: str) -> None:
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
-    session, gms_host = cli_utils.get_session_and_host()
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
 
     url = f"{gms_host}/runs?action=list"
 
@@ -476,7 +518,9 @@ def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
     """Describe a provided ingestion run to datahub"""
-    session, gms_host = cli_utils.get_session_and_host()
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
 
     url = f"{gms_host}/runs?action=describe"
 
@@ -524,8 +568,7 @@ def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:
     """Rollback a provided ingestion run to datahub"""
-
-    cli_utils.test_connectivity_complain_exit("ingest")
+    client = get_default_graph()
 
     if not force and not dry_run:
         click.confirm(
@@ -541,7 +584,9 @@ def rollback(
         aspects_affected,
         unsafe_entity_count,
         unsafe_entities,
-    ) = cli_utils.post_rollback_endpoint(payload_obj, "/runs?action=rollback")
+    ) = cli_utils.post_rollback_endpoint(
+        client._session, client.config.server, payload_obj, "/runs?action=rollback"
+    )
 
     click.echo(
         "Rolling back deletes the entities created by a run and reverts the updated aspects"

@@ -71,7 +71,7 @@ After creating a filter, you can choose whether results should or should not mat
 
 ### Results
 
-Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In Managed DataHub, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
+Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In DataHub Cloud, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
 
 With better metadata comes better results. Learn more about ingestion technical metadata in the [metadata ingestion](../../metadata-ingestion/README.md) guide.
 

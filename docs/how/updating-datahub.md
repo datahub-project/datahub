@@ -55,6 +55,19 @@ New (optional fields `systemMetadata` and `headers`):
   "headers": {}
 }
 ```
+- #10858 Profiling configuration for Glue source has been updated.
+
+Previously, the configuration was:
+```yaml
+profiling: {}
+```
+
+Now, it needs to be:
+
+```yaml
+profiling:
+  enabled: true
+```
 
 ### Potential Downtime
 
@@ -66,6 +79,8 @@ New (optional fields `systemMetadata` and `headers`):
 
 ### Other Notable Changes
 - #10498 - Tableau ingestion can now be configured to ingest multiple sites at once and add the sites as containers. The feature is currently only available for Tableau Server.
+- #10466 - Extends configuration in `~/.datahubenv` to match `DatahubClientConfig` object definition. See full configuration in https://datahubproject.io/docs/python-sdk/clients/. The CLI should now respect the updated configurations specified in `~/.datahubenv` across its functions and utilities. This means that for systems where ssl certification is disabled, setting `disable_ssl_verification: true` in `~./datahubenv` will apply to all CLI calls.
+- #11002 - We will not auto-generate a `~/.datahubenv` file. You must either run `datahub init` to create that file, or set environment variables so that the config is loaded.
 
 ## 0.13.3
 
