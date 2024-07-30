@@ -164,7 +164,9 @@ try:
     # On earlier versions of the tableauserverclient, the NonXMLResponseError
     # was thrown when reauthentication was needed. We'll keep both exceptions
     # around for now, but can remove this in the future.
-    from tableauserverclient.server.endpoint.exceptions import NotSignedInError
+    from tableauserverclient.server.endpoint.exceptions import (
+        NotSignedInError,  # type: ignore
+    )
 
     REAUTHENTICATE_ERRORS: Tuple[Type[Exception], ...] = (
         NotSignedInError,
