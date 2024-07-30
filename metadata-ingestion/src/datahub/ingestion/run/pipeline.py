@@ -252,6 +252,9 @@ class Pipeline:
             )
 
         if self.config.sink is None:
+            logger.info(
+                "No sink configured, attempting to use the default datahub-rest sink."
+            )
             with _add_init_error_context("configure the default rest sink"):
                 self.sink_type = "datahub-rest"
                 self.sink = _make_default_rest_sink(self.ctx)
