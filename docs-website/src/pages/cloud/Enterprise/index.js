@@ -1,21 +1,21 @@
 import React from "react";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
-import styles from "./features.module.scss";
+import styles from "./styles.module.scss";
 
 
 const featuresContent = [
   {
     title: "99.5% Uptime SLA",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+    description: "We’ll focus on keeping DataHub running, so you can focus on the things that really matter."
   },
   {
-    title: "In-VPC Metadata Ingestion",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+    title: "In-VPC Ingestion & Check execution",
+    description: "So your actual data never leaves your network."
   },
   {
     title: "SOC-2 Compliance",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+    description: "An incredibly high level of security you can trust."
   },
 ];
 

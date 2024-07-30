@@ -5,7 +5,7 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Features from "./Enterprise";
 import { Section, PromoSection } from "../_components/Section";
 import { useColorMode } from "@docusaurus/theme-common";
-import { CompanyLogos } from "./CompanyLogos";
+import ScrollingCustomers from "./CompanyLogos";
 import clsx from "clsx";
 import styles from "./styles.module.scss";
 import useBaseUrl from "@docusaurus/useBaseUrl";
@@ -34,8 +34,9 @@ function Home() {
           <div className="hero__content">
             <div>
               <h1 className="hero__title">Try DataHub Cloud</h1>
-              <div className="hero__subtitle">
-                DataHub as a Managed Service with additional capabilities.
+              <div className={clsx("hero__subtitle", styles.hero__subtitle)}>
+                Introducing DataHub as a Managed Service
+                <div style={{ fontWeight: "600"}}>with Data Observability and Data Governance built-in.</div>
                 <div className={styles.learnMore}>
                   <a href="/">
                     Learn More  →
@@ -52,13 +53,11 @@ function Home() {
           </div>
         </div>
       </header>
-      <CompanyLogos />
+      <ScrollingCustomers />
       <div className={clsx(styles.bgSection)}>
         <UnifiedTabs />
       </div>
-      <Section>
-        <FeatureCards/>
-      </Section>
+      <FeatureCards/>
       <div className={clsx(styles.bgSection)}>
         <Section>
           <Features />
@@ -68,7 +67,8 @@ function Home() {
         <div className="container">
           <div className="hero__content">
             <div>
-              <h1 className="hero__title">Get Started With <br /> DataHub Cloud Today.</h1>
+              <h1 className="hero__title">See a demo, get your free trial.</h1>
+              <div className={clsx(styles.hero__secondtitle)}>Data Discovery, Data Quality and Data Governance unified.</div>
 
               <Link className="button button--primary button--md" to="/">
                 Book Demo
@@ -78,7 +78,7 @@ function Home() {
               </Link>
               <hr style={{margin: "3rem"}}/>
               <div className="hero__subtitle">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam commodo ultricies semper. <a href="/">View Cloud Docs.</a>
+                An extension of the DataHub Core project.  <a href="/">View Cloud Docs.</a>
               </div>
             </div>
           </div>

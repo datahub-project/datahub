@@ -1,5 +1,6 @@
 .bgSection {
-  background-image: url('../../../static/img/cloud-bg.png') !important;
+  background-color: #FAFAFA !important;
+  // background-image: url('../../../static/img/cloud-bg.png') !important;
   }
 
 .hero {
@@ -7,6 +8,17 @@
       .button {
         margin-right: 1rem;
       }
+    }
+
+    .hero__secondtitle {
+      font-size: 2rem;
+      font-weight: 300;
+      margin-bottom: 2rem;
+
+    }
+
+    .hero__subtitle {
+      margin-bottom: 1.5rem;
     }
 
     .buttonLightBlue {
@@ -21,6 +33,7 @@
     .learnMore {
         font-size: 1rem;
         font-weight: 600;
+        margin-top: 0.5rem;
     }
   }
   

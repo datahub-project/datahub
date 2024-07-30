@@ -4,7 +4,7 @@
 }
 
 .title {
-  font-size: 2rem;
+  font-size: 36px;
   font-weight: 500;
   margin-bottom: 2rem;
   text-align: center;
@@ -38,7 +38,8 @@
   background: white;
   border-radius: 1rem;
   overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+  margin: 2rem 4rem;
 }
 
 .tabs {
@@ -70,7 +71,7 @@
   
   .tabTitle {
     font-size: 1.5rem;
-    font-weight: bold;
+    font-weight: 700;
     margin-left: 1rem;
     flex-grow: 1;
     text-align: left;
@@ -99,6 +100,13 @@
   padding: 10px;
   margin-top: 5px;
   text-align: left;
+  max-width: 20rem;
+
+  .learnMore {
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 23px;
+  }
 
 }
 

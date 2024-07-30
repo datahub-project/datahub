@@ -1,16 +1,97 @@
+.container {
+  padding: 20px;
+}
+
+
+.row--padded {
+  padding: 20px 0;
+}
+
+
+.titleContainer {
+  display: flex;
+}
+
+
+.cardGroup {
+  display: ruby;
+}
+
 .title {
   display: flex;
-  align-items: center;  
+  align-items: center;
   margin: 2rem;
 
   .icon {
     width: 4rem;
     height: 4rem;
-    margin-right: 1rem;  
+    margin-right: 1rem;
   }
 
   .titleText {
-    font-size: 2rem;
-    font-weight: 600;
+    font-size: 32px;
+    font-weight: 700;
   }
+}
+
+.card {
+  background: white;
+  padding: 40px;
+  margin: 0;
+
+  .sectionTitle {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 33px;
+  }
+
+  .benefitIcon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .moreBenefits {
+    font-family: Manrope;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 30px;
+    text-align: left;
+    color: rgba(24, 144, 255, 1);
+  }
+
+  .featureList {
+    display: grid;
+    margin-top: 1rem;
+    font-weight: 400;
+    font-size: 20px;
+    text-align: left;
+    line-height: 27px;
+  }
+
+  .exploreButton {
+    margin-top: 24px;
+  }
+}
+
+.cloudBenefitCard {
+  border-radius: 16px;
+  border: 2px solid rgba(24, 144, 255, 1);
+  box-shadow: 0px 4px 25px 0px rgba(24, 144, 255, 0.25);
+  background: linear-gradient(180deg, #ffffff 27%, #e4f7ff 87%);
+  min-width: 543px;
+}
+
+.coreBenefitCard {
+  border-radius: 16px;
+  border: 1px solid rgba(227, 227, 227, 1);
+  min-width: 451px;
+}
+
+.cloudBenefit {
+  color: rgba(24, 144, 255, 1);
+
+}
+
+.reversedRow {
+  flex-direction: row-reverse;
 }

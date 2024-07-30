@@ -9,21 +9,21 @@ const TabbedComponent = () => {
   const tabs = [
     {
       title: 'Data Discovery',
-      description: 'Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet.',
+      description: 'All the search and discovery features of DataHub Core you already love, enhanced.',
       icon: "/img/assets/data-discovery.svg",
       link: "/",
       image: '/path/to/image1.png',
     },
     {
       title: 'Data Observability',
-      description: 'Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet.',
+      description: 'Detect, resolve, and prevent data quality issues before they impact your business. Unify data health signals from all your data quality tools, including dbt tests and more.',
       icon: "/img/assets/data-ob.svg",
       link: "/",
       image: '/path/to/image2.png',
     },
     {
       title: 'Data Governance',
-      description: 'Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet.',
+      description: 'Powerful Automations, Reporting and Organizational tools to help you govern effectively.',
       icon: "/img/assets/data-governance.svg",
       link: "/",
       image: '/path/to/image3.png',
@@ -32,7 +32,7 @@ const TabbedComponent = () => {
 
   return (
     <div className={clsx(styles.tabbedComponent)}>
-      <div className={clsx(styles.title)}>One unified experience</div>
+      <div className={clsx(styles.title)}>One platform to rule them all</div>
       <div className={clsx(styles.container, 'shadow--tl')}>
         <div className={clsx(styles.tabs)}>
           {tabs.map((tab, index) => (

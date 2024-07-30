@@ -1,22 +1,52 @@
-import React from "react";
-import useBaseUrl from "@docusaurus/useBaseUrl";
+import React, { useEffect, useRef } from 'react';
+import Link from '@docusaurus/Link';
+import componentSpacing from './componentSpacing';
+import styles from './logos.module.scss';
+import customersData from './customersData.json';
+import clsx from 'clsx';
 
-import styles from "./logos.module.scss";
+const ScrollingCustomers = ({ noOverlay = true, spacing, ...rest }) => {
+  const customers = customersData.customers;
+  const duplicatedLogos = [...customers, ...customers, ...customers];
+  const scrollingRef = useRef(null);
 
+  useEffect(() => {
+    if (scrollingRef.current) {
+      scrollingRef.current.style.setProperty('--customers-length', customers.length);
+    }
+  }, [customers.length]);
 
-const companyIndexes = require("../../../../adoptionStoriesIndexes.json");
-const companies = companyIndexes.companies;
-
-
-
-export const CompanyLogos = () => (
-  <div className={styles.marquee}>
-    <div>
-      {[...companies, ...companies].map((logo, idx) => (
-        <img src={useBaseUrl(logo.imageUrl)} alt={logo.name} title={logo.name} key={idx} className={styles.platformLogo} />
-      ))}
+  return (
+    <div
+      className={clsx(styles.scrollingCustomers, {
+        [styles.noOverlay]: noOverlay,
+        [componentSpacing(spacing)]: spacing,
+      })}
+      {...rest}
+    >
+      <div
+        className={clsx(styles.animateScrollingCustomers, styles.scrollingCustomers__inner)}
+        ref={scrollingRef}
+      >
+        {duplicatedLogos.map((customer, index) => (
+          <Link
+            key={`item-${index}`}
+            to={customer.link.href}
+            target={customer.link.blank ? '_blank' : '_self'}
+            rel={customer.link.blank ? 'noopener noreferrer' : ''}
+            style={{ minWidth: 'max-content', padding: '0 1.25rem' }}
+          >
+            <img
+              src={customer.logo.asset._ref}
+              alt={customer.logo.alt}
+              className={styles.logoItem}
+              style={{ minWidth: 'max-content', color: 'black' }}
+            />
+          </Link>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-export default CompanyLogos;
+export default ScrollingCustomers;
