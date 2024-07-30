@@ -25,6 +25,11 @@
   font-weight: 400;
   color: var(--ifm-color-primary);
 
+  &:hover {
+    text-decoration: none;
+    font-weight: 600;
+  }
+
 }
 
 @media (max-width: 767px) {

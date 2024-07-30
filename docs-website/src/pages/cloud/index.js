@@ -3,13 +3,10 @@ import Layout from "@theme/Layout";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Enterprise from "./Enterprise";
-import { Section, PromoSection } from "../_components/Section";
-import { useColorMode } from "@docusaurus/theme-common";
+import { Section } from "../_components/Section";
 import ScrollingCustomers from "./CompanyLogos";
 import clsx from "clsx";
 import styles from "./styles.module.scss";
-import useBaseUrl from "@docusaurus/useBaseUrl";
-import { QuestionCircleOutlined } from "@ant-design/icons";
 import UnifiedTabs from "./UnifiedTabs";
 import FeatureCards from "./FeatureCards";
 
@@ -38,7 +35,7 @@ function Home() {
                 Introducing DataHub as a Managed Service
                 <div style={{ fontWeight: "500"}}>with Data Observability and Data Governance built-in.</div>
                 <div className={styles.learnMore}>
-                  <a href="https://acryldata.io" target="_blank">
+                  <a className={styles.link} href="https://acryldata.io" target="_blank">
                     Learn More  →
                   </a>
                 </div>
@@ -78,7 +75,9 @@ function Home() {
               </Link>
               <hr style={{margin: "3rem"}}/>
               <div className="hero__subtitle">
-                An extension of the DataHub Core project.<br/><a href="/docs/managed-datahub/managed-datahub-overview">View Cloud Docs.</a>
+                An extension of the DataHub Core project.<br/>
+                <a className={clsx(styles.link)} href="/docs/managed-datahub/managed-datahub-overview">View Cloud Docs.
+                </a>
               </div>
             </div>
           </div>

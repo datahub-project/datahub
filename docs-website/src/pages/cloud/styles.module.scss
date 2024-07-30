@@ -1,6 +1,12 @@
+.link {
+  &:hover {
+    text-decoration: none;
+    font-weight: 600;
+  }
+}
+
 .bgSection {
   background-color: #FAFAFA !important;
-  // background-image: url('../../../static/img/cloud-bg.png') !important;
   }
 
 .hero {
@@ -39,6 +45,7 @@
         font-size: 1.25rem;
         font-weight: 600;
         margin-top: 0.5rem;
+
     }
   }
   

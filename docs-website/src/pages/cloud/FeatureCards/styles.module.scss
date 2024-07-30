@@ -63,6 +63,11 @@
   line-height: 30px;
   text-align: left;
   color: rgba(24, 144, 255, 1);
+
+  &:hover {
+    text-decoration: none;
+    font-weight: 600;
+  }
 }
 
 .featureList {

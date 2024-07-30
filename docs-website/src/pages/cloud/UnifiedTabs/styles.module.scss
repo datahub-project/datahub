@@ -118,6 +118,10 @@
     font-weight: 600;
     font-size: 15px;
     line-height: 23px;
+
+    &:hover {
+      text-decoration: none;
+    }
   }
 }
 
