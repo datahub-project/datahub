@@ -1,9 +1,9 @@
 .container {
-  padding: 20px;
+  padding: 48px 20px;
 }
 
-.row--padded {
-  padding: 20px 0;
+.rowItem {
+  justify-content: center;
 }
 
 .cardGroup {
@@ -53,12 +53,13 @@
 .benefitIcon {
   width: 32px;
   height: 32px;
+  align-items: center;
 }
 
 .moreBenefits {
   font-family: Manrope;
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 30px;
   text-align: left;
   color: rgba(24, 144, 255, 1);
@@ -94,16 +95,44 @@
   z-index: 1;
   position: relative;
   margin-top: 14rem;
-  margin-left: -20px;
-  padding-left: 50px;
+  margin-left: -48px;
+  padding-left: 72px;
+}
+
+.reversedRow .coreBenefitCard {
+  margin-left: auto!important;
+  padding-left: auto!important;
+  margin-right: -48px;
+  padding-right: 72px;
+}
+
+.coreBenefitCard h3 {
+  margin-bottom: 2rem;
+}
+.coreBenefit {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 1rem;
 }
 
 .cloudBenefit {
   color: rgba(24, 144, 255, 1);
+  margin-bottom: 1rem;
+}
+.cloudBenefitLink {
+  display: flex;
+  flex-direction: row;
+}
+.cloudBenefitLinkText {
+  display: block;
 }
 
 .reversedRow {
   flex-direction: row-reverse;
+}
+
+.reversedRow .title {
+  justify-content: flex-end;
 }
 
 @media (max-width: 768px) {

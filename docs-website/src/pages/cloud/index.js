@@ -2,7 +2,7 @@ import React from "react";
 import Layout from "@theme/Layout";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
-import Features from "./Enterprise";
+import Enterprise from "./Enterprise";
 import { Section, PromoSection } from "../_components/Section";
 import { useColorMode } from "@docusaurus/theme-common";
 import ScrollingCustomers from "./CompanyLogos";
@@ -43,10 +43,10 @@ function Home() {
                   </a>
                 </div>
               </div>
-              <Link className="button button--primary button--lg" to="/">
+              <Link className="button button--primary button--lg" to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
                 Book Demo
               </Link>
-              <Link className={clsx(styles.buttonLightBlue, "button  button--secondary button--lg")} to="/">
+              <Link className={clsx(styles.buttonLightBlue, "button  button--secondary button--lg")} to="https://www.acryldata.io/tour">
                 Product Tour
               </Link>
             </div>
@@ -60,25 +60,25 @@ function Home() {
       <FeatureCards/>
       <div className={clsx(styles.bgSection)}>
         <Section>
-          <Features />
+          <Enterprise />
         </Section>
       </div>
       <div className={clsx("hero", styles.hero)}>
         <div className="container">
           <div className="hero__content">
             <div>
-              <h1 className="hero__title">See a demo, get your free trial.</h1>
+              <h1 className="hero__title">Get your free trial.</h1>
               <div className={clsx(styles.hero__secondtitle)}>Data Discovery, Data Quality and Data Governance unified.</div>
 
-              <Link className="button button--primary button--md" to="/">
+              <Link className="button button--primary button--lg" to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
                 Book Demo
               </Link>
-              <Link className={clsx(styles.buttonLightBlue, "button button--secondary button--md")} to="/">
+              <Link className={clsx(styles.buttonLightBlue, "button button--secondary button--lg")} to="https://www.acryldata.io/tour">
                 Product Tour
               </Link>
               <hr style={{margin: "3rem"}}/>
               <div className="hero__subtitle">
-                An extension of the DataHub Core project.  <a href="/">View Cloud Docs.</a>
+                An extension of the DataHub Core project.  <a href="/docs/managed-datahub/managed-datahub-overview">View Cloud Docs.</a>
               </div>
             </div>
           </div>

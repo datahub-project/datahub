@@ -11,21 +11,21 @@ const TabbedComponent = () => {
       title: 'Data Discovery',
       description: 'All the search and discovery features of DataHub Core you already love, enhanced.',
       icon: "/img/assets/data-discovery.svg",
-      link: "/",
+      link: "https://www.acryldata.io/acryl-datahub",
       image: '/path/to/image1.png',
     },
     {
       title: 'Data Observability',
       description: 'Detect, resolve, and prevent data quality issues before they impact your business. Unify data health signals from all your data quality tools, including dbt tests and more.',
       icon: "/img/assets/data-ob.svg",
-      link: "/",
+      link: "https://www.acryldata.io/observe",
       image: '/path/to/image2.png',
     },
     {
       title: 'Data Governance',
       description: 'Powerful Automations, Reporting and Organizational tools to help you govern effectively.',
       icon: "/img/assets/data-governance.svg",
-      link: "/",
+      link: "https://www.acryldata.io/acryl-datahub#governance",
       image: '/path/to/image3.png',
     },
   ];
@@ -55,14 +55,14 @@ const TabbedComponent = () => {
               </div>
               {activeTab === index && (
                 <div className={clsx(styles.imageContainer, styles.mobileImageContainer)}>
-                  <img src={tabs[activeTab].image} alt={tabs[activeTab].title} className={clsx(styles.tabImage)} />
+                  <div style={{ backgroundImage: `url(${tabs[activeTab].image})` }} alt={tabs[activeTab].title} className={clsx(styles.tabImage)} />
                 </div>
               )}
             </React.Fragment>
           ))}
         </div>
         <div className={clsx(styles.imageContainer, styles.webImageContainer)}>
-          <img src={tabs[activeTab].image} alt={tabs[activeTab].title} className={clsx(styles.tabImage)} />
+          <div style={{ backgroundImage: `url(${tabs[activeTab].image})` }} alt={tabs[activeTab].title} className={clsx(styles.tabImage)} />
         </div>
       </div>
     </div>

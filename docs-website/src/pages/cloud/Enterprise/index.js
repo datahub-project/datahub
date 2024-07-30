@@ -30,17 +30,17 @@ const Feature = ({ title, description }) => {
 
 const Features = () =>
   featuresContent?.length > 0 ? (
-    <div style={{ padding: "2vh 6vh" }}>
-      <div className={"container"} style={{ width: "90%"}}>
+    <div className={clsx(styles.container)}>
+      <div className={clsx(styles.wrapper)}>
         <div className={clsx(styles.title)}>Enterprise Ready</div>
         <div className="row">
           {featuresContent.map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}
         </div>
-        <div className={clsx(styles.moreBenefits)}>
-          +4 Benefits
-        </div>
+        <a href="http://localhost:3000/docs/managed-datahub/managed-datahub-overview#enterprise-grade" target="_blank" className={clsx(styles.moreBenefits)}>
+          +4 benefits
+        </a>
       </div>
     </div>
   ) : null;
