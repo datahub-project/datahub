@@ -1179,7 +1179,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # Save the column lineage.
             if self.config.include_column_lineage and sql_result:
                 # We save the raw info here. We use this for supporting `prefer_sql_parser_lineage`.
-                if depends_on_ephemeral_models:
+                if not depends_on_ephemeral_models:
                     node.raw_sql_parsing_result = sql_result
 
                 # We use this for error reporting. However, we only want to report errors
@@ -1847,7 +1847,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
 
             cll = None
-            if self.config.prefer_sql_parser_lineage:
+            if self.config.prefer_sql_parser_lineage and node.raw_sql_parsing_result:
                 sql_parsing_result = node.raw_sql_parsing_result
                 if sql_parsing_result and not sql_parsing_result.debug_info.table_error:
                     # If we have some table lineage from SQL parsing, use that.
@@ -1870,10 +1870,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                         node_urn, column_lineage.downstream.column
                                     )
                                 ],
+                                confidenceScore=sql_parsing_result.debug_info.confidence,
                             )
                         )
 
             else:
+                if self.config.prefer_sql_parser_lineage:
+                    if node.upstream_cll:
+                        self.report.report_warning(
+                            "SQL parser lineage is not available for this node, falling back to dbt-based column lineage.",
+                            context=node.dbt_name,
+                        )
+                    else:
+                        # SQL parsing failed entirely, which is already reported above.
+                        pass
+
                 cll = [
                     FineGrainedLineage(
                         upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,

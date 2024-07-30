@@ -225,7 +225,7 @@ class DbtTestConfig:
             sources_file="sample_dbt_sources_2.json",
             run_results_files=["sample_dbt_run_results_2.json"],
             source_config_modifiers={
-                # "prefer_sql_parser_lineage": True,
+                "prefer_sql_parser_lineage": True,
                 "skip_sources_in_lineage": True,
                 "entities_enabled": {"sources": "NO"},
             },
