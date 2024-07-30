@@ -1,6 +1,11 @@
 package datahub.protobuf.visitors.field;
 
-import com.linkedin.common.*;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTermAssociation;
+import com.linkedin.common.GlossaryTermAssociationArray;
+import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.tag.TagProperties;
