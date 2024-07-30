@@ -31,7 +31,7 @@ export const InputWrapper = styled.div({
 });
 
 export const InputContainer = styled.div(
-    ({ isSuccess, warning, isDisabled, isInvalid, isPassword }: InputProps) => ({
+    ({ isSuccess, warning, isDisabled, isInvalid }: InputProps) => ({
         border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
         backgroundColor: isDisabled ? colors.gray[100] : colors.white,
         paddingRight: spacing.md,

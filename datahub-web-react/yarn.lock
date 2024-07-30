@@ -2681,6 +2681,11 @@
   resolved "https://registry.yarnpkg.com/@fontsource/mulish/-/mulish-5.0.18.tgz#45526fa22f5f8551c7586b05e19b3a6d8e09042a"
   integrity sha512-vcJcdhJpd10NLsWq5Op6++zEs5UhnVf1BdjvN1Uv+jOGmYD/PFTE/V8IxN1FO/jNY4x27gMdRy2mTMXU+ST6Kw==
 
+"@geometricpanda/storybook-addon-badges@^2.0.2":
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/@geometricpanda/storybook-addon-badges/-/storybook-addon-badges-2.0.2.tgz#03df7e4048e09b720a45836ed1136c64c639e3f3"
+  integrity sha512-RlJvQcSSXwwrN+ABc+2s1UDatWSUsba9TPX/TyNVyobuZZPvu+Bx1d2HVDCIVtXwhlrSvgVB2yr+nVa18edOgw==
+
 "@graphql-codegen/add@^2.0.2":
   version "2.0.2"
   resolved "https://registry.yarnpkg.com/@graphql-codegen/add/-/add-2.0.2.tgz#4acbb95be9ebb859a3cebfe7132fdf49ffe06dd8"

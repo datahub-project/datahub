@@ -111,7 +111,7 @@ const FormFooter = () => {
                 {nextStep && (
                     <>
                         <NextStepText>Next Step</NextStepText>
-                        <Text color="violet" size="md" weight="black">
+                        <Text color="violet" size="md" weight="bold">
                             {nextStep?.name}
                         </Text>
                     </>

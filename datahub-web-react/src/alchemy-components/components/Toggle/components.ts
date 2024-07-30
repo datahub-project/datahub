@@ -62,7 +62,6 @@ export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDis
         backgroundColor: colors.gray[100],
         padding: spacing.xxsm,
         transition: `${transition.duration.normal} all`,
-        transition: `${transition.duration.slow} all`,
     },
 );
 

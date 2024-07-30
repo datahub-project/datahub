@@ -27,9 +27,10 @@ from datahub_integrations.graphql.subscription import (
     DELETE_SUBSCRIPTION,
 )
 from datahub_integrations.slack.app_manifest import (
+    create_app_with_manifest,
     get_slack_app_manifest,
     slack_bot_scopes,
-    upsert_app_with_manifest,
+    update_app_with_manifest,
 )
 from datahub_integrations.slack.command.router import handle_command
 from datahub_integrations.slack.command.search import search
@@ -94,9 +95,29 @@ def reload_slack_credentials() -> None:
 def install_slack_app() -> RedirectResponse:
     config = slack_config.reload()
 
-    # Create / update the Slack app manifest before attempting to install.
+    # Create the Slack app manifest before attempting to install.
     manifest = get_slack_app_manifest()
-    config = upsert_app_with_manifest(config, manifest)
+    config = create_app_with_manifest(config, manifest)
+    slack_config.save_config(config)
+    assert config.app_details, "App details should be present after provisioning."
+
+    # Generate the OAuth URL and redirect to it.
+    authorize_url_generator = get_oauth_url_generator(config)
+    state = _state_store.issue()
+
+    url = authorize_url_generator.generate(state=state)
+    logger.debug(f"Redirecting to {url}")
+
+    return RedirectResponse(url=url)
+
+
+@public_router.get("/slack/refresh-installation")
+def refresh_slack_app() -> RedirectResponse:
+    config = slack_config.reload()
+
+    # Update the Slack app manifest before attempting to install.
+    manifest = get_slack_app_manifest()
+    config = update_app_with_manifest(config, manifest)
     slack_config.save_config(config)
     assert config.app_details, "App details should be present after provisioning."
 

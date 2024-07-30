@@ -297,7 +297,7 @@ export const SearchResults = ({
                                         onClickExploreAll={onClickExploreAll}
                                         onClickClearFilters={onClickClearFilters}
                                         setAreAllEntitiesSelected={setAreAllEntitiesSelected}
-                                        />
+                                    />
                                     {totalResults > 0 && (
                                         <PaginationControlContainer id="search-pagination">
                                             <Pagination

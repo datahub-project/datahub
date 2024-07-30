@@ -1,6 +1,7 @@
 import { SlackConnection } from './types';
 
 export const SLACK_INSTALL_REDIRECT_PATH = '/integrations/slack/install';
+export const SLACK_REFRESH_INSTALLATION_REDIRECT_PATH = '/integrations/slack/refresh-installation';
 
 /**
  * Decodes the Slack Configuration JSON to a well-formed object.
@@ -12,6 +13,7 @@ export const decodeSlackConnection = (rawJson: string): SlackConnection | null =
         signingSecret: parsedJson.app_details?.signing_secret,
         appConfigToken: parsedJson.app_config_tokens?.access_token,
         appConfigRefreshToken: parsedJson.app_config_tokens?.refresh_token,
+        appId: parsedJson.app_details?.app_id,
         json: parsedJson,
     };
 };
@@ -20,20 +22,28 @@ export const decodeSlackConnection = (rawJson: string): SlackConnection | null =
  * Encodes the Slack Configuration object to JSON.
  */
 export const encodeSlackConnection = (config: SlackConnection): string => {
-    const appDetails =
+    let appDetails =
         typeof config.json === 'object' && 'app_details' in config.json ? config.json.app_details : undefined;
+    if (config.appId) {
+        if (!appDetails) {
+            appDetails = {};
+        }
+        appDetails.app_id = config.appId;
+    }
+    if (config.signingSecret) {
+        if (!appDetails) {
+            appDetails = {};
+        }
+        appDetails.signing_secret = config.signingSecret;
+    }
+
     const jsonObject = {
         ...config.json,
         app_config_tokens: {
             access_token: config.appConfigToken,
             refresh_token: config.appConfigRefreshToken,
         },
-        app_details: config.signingSecret
-            ? {
-                  ...appDetails,
-                  signing_secret: config.signingSecret,
-              }
-            : appDetails,
+        app_details: appDetails,
         bot_token: config.botToken,
     };
     return JSON.stringify(jsonObject);
@@ -44,4 +54,11 @@ export const encodeSlackConnection = (config: SlackConnection): string => {
  */
 export const redirectToSlackInstall = () => {
     window.location.replace(SLACK_INSTALL_REDIRECT_PATH);
+};
+
+/**
+ * Performs a hard browser redirect to the Slack refresh-installation link.
+ */
+export const redirectToSlackRefreshInstallation = () => {
+    window.location.replace(SLACK_REFRESH_INSTALLATION_REDIRECT_PATH);
 };

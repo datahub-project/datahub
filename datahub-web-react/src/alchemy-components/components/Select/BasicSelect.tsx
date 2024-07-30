@@ -169,7 +169,7 @@ export const BasicSelect = ({
                                 placeholder="Search…"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                fontSize={size || 'md'}
+                                style={{ fontSize: size || 'md' }}
                             />
                             <SearchIcon icon="Search" size={size} color="gray" />
                         </SearchInputContainer>

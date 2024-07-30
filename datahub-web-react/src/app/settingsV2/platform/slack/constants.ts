@@ -1,12 +1,15 @@
+import { SlackConnection } from './types';
+
 export const DEFAULT_SETTINGS = {
     defaultChannelName: undefined,
     botToken: undefined,
 };
 
-export const DEFAULT_CONNECTION = {
+export const DEFAULT_CONNECTION: SlackConnection = {
     botToken: undefined,
     appConfigToken: undefined,
     appConfigRefreshToken: undefined,
+    appId: undefined,
 };
 
 export const SLACK_CONNECTION_ID = '__system_slack-0';

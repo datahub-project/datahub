@@ -123,6 +123,9 @@ export const DEFAULT_CONTEXT = {
         handlePromptSubmission: (_: string, __: string[]) => null,
         handleUndoPromptSubmission: (_: string, __: string[]) => null,
         handleBulkVerifySubmission: (_: string[]) => null,
+        activeTasks: [],
+        completeTasks: [],
+        handleAsyncBatchSubmit: (_: string) => {},
     },
     search: {
         results: {},
