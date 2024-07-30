@@ -26,15 +26,14 @@ const data = {
       title: "Data Governance",
       icon: "/img/assets/data-governance.svg",
       cloudBenefits: [
-        { text: "Governance policies →", link: "/" },
-        { text: "Compliance automation →", link: "/" },
-        { text: "Role-based access control →", link: "/" },
-        { text: "Data masking →", link: "/" },
-        { text: "Audit logging →", link: "/" },
+        { text: "Human-assisted asset certification workflows →", link: "/" },
+        { text: "Automations to enforce governance standards →", link: "/" },
+        { text: "End-to-end glossary management workflows →", link: "/" },
+        { text: "Ownership management workflows →", link: "/" },
       ],
       coreBenefits: [
-        { text: "Data catalog"},
-        { text: "Metadata management"},
+        { text: "Shift-left governance"},
+        { text: "Business glossaries"},
       ],
       hiddenCoreBenefits: "+1 Benefit",
     },
@@ -42,15 +41,15 @@ const data = {
       title: "Data Observability",
       icon: "/img/assets/data-ob.svg",
       cloudBenefits: [
-        { text: "Real-time monitoring →", link: "/" },
-        { text: "Anomaly detection →", link: "/" },
-        { text: "Alerting and notifications →", link: "/" },
-        { text: "Data quality checks →", link: "/" },
-        { text: "Root cause analysis →", link: "/" },
+        { text: "Continue data quality monitors →", link: "/" },
+        { text: "End-to-end data incident tracking & management →", link: "/" },
+        { text: "AI-Driven anomaly detection →", link: "/" },
+        { text: "Executive Data Health Dashboard →", link: "/" },
+        { text: "On-demand data quality evaluation via APIs & UI →", link: "/" },
       ],
       coreBenefits: [
-        { text: "Historical data tracking"},
-        { text: "Dashboards and reporting" },
+        { text: "Surface data quality results"},
+        { text: "Create and manage data contracts" },
       ],
       hiddenCoreBenefits: "+1 Benefit",
     },
@@ -66,8 +65,10 @@ const Features = () => (
           [styles.reversedRow]: sectionIndex % 2 === 1,
         })}
       >
-        <div className={clsx(styles.cardGroup)}> 
-          <div className={clsx("col col--6")}>
+        <div className={clsx(styles.cardGroup, {
+          [styles.cardGroupInverse]: section.title === "Data Governance"
+        })}>
+          <div className={clsx("col col--6", styles.cloudCard)}>
             <div className={clsx(styles.titleContainer)}>
               <div className={clsx(styles.title)}>
                 <img
@@ -97,16 +98,18 @@ const Features = () => (
               </Link> 
             </div>
           </div>
-          <div className={clsx("col col--4", styles.card, styles.coreBenefitCard)}>
-          <h3>{`In addition to DataHub Core`}</h3>
-          <div className={clsx(styles.featureList)}>
-            {section.coreBenefits.map((benefit, index) => (
-              <div key={index} className={clsx(styles.coreBenefit)}>
-                <CheckCircleOutlined className={clsx(styles.benefitIcon)} /> {benefit.text}
+          <div className={clsx("col col--6", styles.coreCard)}>
+            <div className={clsx(styles.card, styles.coreBenefitCard)}>
+              <h3>{`In addition to DataHub Core`}</h3>
+              <div className={clsx(styles.featureList)}>
+                {section.coreBenefits.map((benefit, index) => (
+                  <div key={index} className={clsx(styles.coreBenefit)}>
+                    <CheckCircleOutlined className={clsx(styles.benefitIcon)} /> {benefit.text}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className={clsx(styles.moreBenefits)}>{section.hiddenCoreBenefits}</div>
+              <div className={clsx(styles.moreBenefits)}>{section.hiddenCoreBenefits}</div>
+            </div>
           </div>
         </div>
       </div>

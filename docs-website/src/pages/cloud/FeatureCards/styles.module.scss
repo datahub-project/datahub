@@ -2,19 +2,28 @@
   padding: 20px;
 }
 
-
 .row--padded {
   padding: 20px 0;
 }
-
 
 .titleContainer {
   display: flex;
 }
 
-
 .cardGroup {
-  display: ruby;
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.cardGroupInverse {
+  flex-direction: row-reverse;
+
+  .coreBenefitCard{
+    margin-left: 15rem;
+  }
 }
 
 .title {
@@ -79,19 +88,47 @@
   box-shadow: 0px 4px 25px 0px rgba(24, 144, 255, 0.25);
   background: linear-gradient(180deg, #ffffff 27%, #e4f7ff 87%);
   min-width: 543px;
+  z-index: 2;
+  position: relative;
 }
 
 .coreBenefitCard {
   border-radius: 16px;
   border: 1px solid rgba(227, 227, 227, 1);
   min-width: 451px;
+  z-index: 1;
+  position: relative;
+  margin-top: 14rem;
+  margin-left: -20px;
+  padding-left: 50px;
 }
 
 .cloudBenefit {
   color: rgba(24, 144, 255, 1);
-
 }
 
 .reversedRow {
   flex-direction: row-reverse;
+}
+
+@media (max-width: 768px) {
+  .cardGroup {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cardGroupInverse {
+    flex-direction: column;
+  }
+
+  .cloudBenefitCard, .coreBenefitCard {
+    min-width: 100%;
+    margin-top: 20px;
+  }
+
+  .coreBenefitCard {
+    margin-top: -40px;
+    margin-left: 0 !important;
+    padding-top: 5rem;
+  }
 }
