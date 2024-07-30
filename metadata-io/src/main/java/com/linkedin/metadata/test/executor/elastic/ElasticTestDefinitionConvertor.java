@@ -1,6 +1,7 @@
 package com.linkedin.metadata.test.executor.elastic;
 
 import com.linkedin.data.schema.PathSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.test.definition.TestDefinition;
 import com.linkedin.metadata.test.definition.operator.Operand;
@@ -11,7 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 
 @Slf4j
 public class ElasticTestDefinitionConvertor {
@@ -23,22 +26,38 @@ public class ElasticTestDefinitionConvertor {
   }
 
   public boolean canSelect(TestDefinition testDefinition) {
-    for (String entityType : testDefinition.getOn().getEntityTypes()) {
-      if (testDefinition.getOn().getConditions() == null) {
-        continue;
-      }
-      Set<TestQuery> queries =
-          Predicate.extractQueriesForPredicate(testDefinition.getOn().getConditions());
-      Map<PathSpec, String> fieldPaths =
-          entityRegistry.getEntitySpec(entityType).getSearchableFieldPathMap();
-      if (isSearchable(queries, fieldPaths)) {
-        log.warn(
-            "Unable to select for queries: {}, available fieldPaths: {} for entity {}",
-            queries,
-            fieldPaths,
-            entityType);
-        return false;
-      }
+    if (testDefinition.getOn().getConditions() == null) {
+      return true;
+    }
+
+    List<EntitySpec> entitySpecs = new ArrayList<>();
+    testDefinition
+        .getOn()
+        .getEntityTypes()
+        .forEach(entityType -> entitySpecs.add(entityRegistry.getEntitySpec(entityType)));
+    final Map<PathSpec, String> searchableFieldPaths =
+        entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getSearchableFieldPathMap().entrySet().stream())
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (s1, s2) -> {
+                      if (!StringUtils.equals(s1, s2)) {
+                        log.error("Merging values {} and {}, field paths should be unique", s1, s2);
+                      }
+                      return s1;
+                    }));
+
+    Set<TestQuery> queries =
+        Predicate.extractQueriesForPredicate(testDefinition.getOn().getConditions());
+    if (isSearchable(queries, searchableFieldPaths)) {
+      log.warn(
+          "Unable to select for queries: {}, available fieldPaths: {} for entity types {}",
+          queries,
+          searchableFieldPaths,
+          testDefinition.getOn().getEntityTypes());
+      return false;
     }
     return true;
   }
