@@ -890,7 +890,7 @@ type Mutation {
     """
     Creates a filter for a form to apply it to certain entities. Entities that match this filter will have
     a given form applied to them.
-    This feature is ONLY supported in Acryl DataHub.
+    This feature is ONLY supported in DataHub Cloud.
     """
     createDynamicFormAssignment(input: CreateDynamicFormAssignmentInput!): Boolean
 
