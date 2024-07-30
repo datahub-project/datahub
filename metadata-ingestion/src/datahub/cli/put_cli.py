@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 import click
 from click_default_group import DefaultGroup
@@ -36,10 +36,15 @@ def put() -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("-a", "--aspect", required=True, type=str)
 @click.option("-d", "--aspect-data", required=True, type=str)
-@click.option("--run-id", type=str, help="Run ID into which we should log the aspect.")
+@click.option(
+    "--run-id",
+    type=str,
+    required=False,
+    help="Run ID into which we should log the aspect.",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def aspect(urn: str, aspect: str, aspect_data: str, run_id: str) -> None:
+def aspect(urn: str, aspect: str, aspect_data: str, run_id: Optional[str]) -> None:
     """Update a single aspect of an entity"""
 
     entity_type = guess_entity_type(urn)
@@ -49,6 +54,10 @@ def aspect(urn: str, aspect: str, aspect_data: str, run_id: str) -> None:
 
     client = get_default_graph()
 
+    system_metadata: Union[None, SystemMetadataClass] = None
+    if run_id:
+        system_metadata = SystemMetadataClass(runId=run_id)
+
     # TODO: Replace with client.emit, requires figuring out the correct subsclass of _Aspect to create from the data
     status = post_entity(
         client._session,
@@ -57,7 +66,7 @@ def aspect(urn: str, aspect: str, aspect_data: str, run_id: str) -> None:
         aspect_name=aspect,
         entity_type=entity_type,
         aspect_value=aspect_obj,
-        system_metadata=SystemMetadataClass(runId=run_id),
+        system_metadata=system_metadata,
     )
     click.secho(f"Update succeeded with status {status}", fg="green")
 
