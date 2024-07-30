@@ -91,7 +91,7 @@ Some companies use manual methods to track data terminology and manage access re
 
 ### Our Solution
 
-Acryl DataHub offers comprehensive features designed to support the authoring of a unified business glossary for your organization:
+DataHub Cloud offers comprehensive features designed to support the authoring of a unified business glossary for your organization:
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/glossary-terms/business-glossary-center.png"/>
