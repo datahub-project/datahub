@@ -117,6 +117,19 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             # Ensure that the import is available.
             import pyodbc  # noqa: F401
 
+            logger.debug("pyodbc is available")
+            # Attempt to list available drivers
+            available_drivers = pyodbc.drivers()
+            logger.debug("Available ODBC drivers:")
+            for driver in available_drivers:
+                logger.debug(driver)
+            logger.debug("done listing drivers")
+            # Check if 'ODBC Driver 18 for SQL Server' is in the list of available drivers
+            if "ODBC Driver 18 for SQL Server" in available_drivers:
+                print("ODBC Driver 18 for SQL Server is installed.")
+            else:
+                print("ODBC Driver 18 for SQL Server is not installed.")
+
             self.scheme = "mssql+pyodbc"
 
         uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
@@ -129,6 +142,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         )
         if self.use_odbc:
             uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
+            print(f"uri={uri}")
         return uri
 
     @property
