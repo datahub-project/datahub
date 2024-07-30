@@ -12,21 +12,21 @@ const TabbedComponent = () => {
       description: 'All the search and discovery features of DataHub Core you already love, enhanced.',
       icon: "/img/assets/data-discovery.svg",
       link: "https://www.acryldata.io/acryl-datahub",
-      image: 'https://cdn.sanity.io/files/cqo9wkgf/production/4e97a9b91534b4b81080a62e05747a76cfd6f598.webm',
+      image: 'https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/demo/discovery.webm',
     },
     {
       title: 'Data Observability',
       description: 'Detect, resolve, and prevent data quality issues before they impact your business. Unify data health signals from all your data quality tools, including dbt tests and more.',
       icon: "/img/assets/data-ob.svg",
       link: "https://www.acryldata.io/observe",
-      image: '/path/to/image2.png',
+      image: 'https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/demo/observe.webm',
     },
     {
       title: 'Data Governance',
-      description: 'Powerful Automations, Reporting and Organizational tools to help you govern effectively.',
+      description: 'Powerful Automation, Reporting and Organizational tools to help you govern effectively.',
       icon: "/img/assets/data-governance.svg",
       link: "https://www.acryldata.io/acryl-datahub#governance",
-      image: 'https://cdn.sanity.io/images/cqo9wkgf/production/a99fe9d9bd6f8feb019bf7badc12948e2fd7319e-1878x1056.png?w=3840&q=75&fit=clip&auto=format',
+      image: 'https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/demo/governance.webm',
     },
   ];
 
