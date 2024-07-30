@@ -134,8 +134,10 @@
 .tabImage {
   width: 100%;
   height: 100%;
-  display: block;
+  display: flex;
   padding: 4px;
+  align-items: center;
+  justify-content: center;
 }
 .tabImage video {
   max-height: 100%;
