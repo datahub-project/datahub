@@ -55,6 +55,19 @@ New (optional fields `systemMetadata` and `headers`):
   "headers": {}
 }
 ```
+- #10858 Profiling configuration for Glue source has been updated.
+
+Previously, the configuration was:
+```yaml
+profiling: {}
+```
+
+Now, it needs to be:
+
+```yaml
+profiling:
+  enabled: true
+```
 
 ### Potential Downtime
 
