@@ -1,31 +1,19 @@
 package datahub.protobuf.model;
 
-import com.google.protobuf.DescriptorProtos.DescriptorProto;
-import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
-import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
-import com.google.protobuf.DescriptorProtos.OneofDescriptorProto;
-import com.google.protobuf.DescriptorProtos.SourceCodeInfo;
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.DescriptorProtos.*;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.schema.ArrayType;
-import com.linkedin.schema.BooleanType;
-import com.linkedin.schema.BytesType;
-import com.linkedin.schema.EnumType;
-import com.linkedin.schema.FixedType;
-import com.linkedin.schema.NumberType;
-import com.linkedin.schema.RecordType;
-import com.linkedin.schema.SchemaFieldDataType;
-import com.linkedin.schema.StringType;
+import com.linkedin.schema.*;
 import datahub.protobuf.ProtobufUtils;
 import datahub.protobuf.visitors.ProtobufModelVisitor;
 import datahub.protobuf.visitors.VisitContext;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Builder(toBuilder = true)
 @Getter
@@ -329,5 +317,64 @@ public class ProtobufField implements ProtobufElement {
   @Override
   public int hashCode() {
     return fullName().hashCode();
+  }
+
+  public boolean isEnum() {
+    return getFieldProto().getType() == DescriptorProtos.FieldDescriptorProto.Type.TYPE_ENUM;
+  }
+
+  public Optional<DescriptorProtos.EnumDescriptorProto> getEnumDescriptor() {
+    if (!isEnum()) {
+      return Optional.empty();
+    }
+
+    String enumTypeName = getFieldProto().getTypeName();
+    String shortEnumTypeName = enumTypeName.substring(enumTypeName.lastIndexOf('.') + 1);
+
+    return getProtobufMessage().fileProto().getEnumTypeList().stream()
+        .filter(enumType -> enumType.getName().equals(shortEnumTypeName))
+        .findFirst();
+  }
+
+  public List<DescriptorProtos.EnumValueDescriptorProto> getEnumValues() {
+    return getEnumDescriptor()
+        .map(DescriptorProtos.EnumDescriptorProto::getValueList)
+        .orElse(Collections.emptyList());
+  }
+
+  public Map<String, String> getEnumValuesWithComments() {
+    Optional<DescriptorProtos.EnumDescriptorProto> enumProtoOpt = getEnumDescriptor();
+    if (enumProtoOpt.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    DescriptorProtos.EnumDescriptorProto enumProto = enumProtoOpt.get();
+    Map<String, String> valueComments = new LinkedHashMap<>();
+    List<DescriptorProtos.EnumValueDescriptorProto> values = enumProto.getValueList();
+    List<DescriptorProtos.SourceCodeInfo.Location> locations = getProtobufMessage().fileProto().getSourceCodeInfo().getLocationList();
+
+    int enumIndex = getProtobufMessage().fileProto().getEnumTypeList().indexOf(enumProto);
+
+    for (int i = 0; i < values.size(); i++) {
+      DescriptorProtos.EnumValueDescriptorProto value = values.get(i);
+      int finalI = i;
+      String comment = locations.stream()
+          .filter(loc -> isEnumValueLocation(loc, enumIndex, finalI))
+          .findFirst()
+          .map(ProtobufUtils::collapseLocationComments)
+          .orElse("");
+
+      valueComments.put(value.getName(), comment);
+    }
+
+    return valueComments;
+  }
+
+  private boolean isEnumValueLocation(DescriptorProtos.SourceCodeInfo.Location location, int enumIndex, int valueIndex) {
+    return location.getPathCount() > 3 &&
+        location.getPath(0) == DescriptorProtos.FileDescriptorProto.ENUM_TYPE_FIELD_NUMBER &&
+        location.getPath(1) == enumIndex &&
+        location.getPath(2) == DescriptorProtos.EnumDescriptorProto.VALUE_FIELD_NUMBER &&
+        location.getPath(3) == valueIndex;
   }
 }
