@@ -43,10 +43,12 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.BatchTestRunEvent;
 import com.linkedin.test.BatchTestRunResult;
 import com.linkedin.test.BatchTestRunStatus;
+import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestResult;
 import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
+import com.linkedin.test.TestSourceType;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
@@ -94,6 +96,7 @@ public class TestEngine {
   // Not concurrent data structure because writes are always against the entire
   // thing.
   private final Map<Urn, TestDefinition> _testCache = new HashMap<>();
+  private final Map<Urn, TestInfo> _testInfoCache = new HashMap<>();
   // Maps entity type to list of tests that target the entity type
   // Not concurrent data structure because writes are always against the entire
   // thing.
@@ -176,6 +179,7 @@ public class TestEngine {
             testFetcher,
             testDefinitionParser,
             _testCache,
+            _testInfoCache,
             _testPerEntityTypeCache,
             cacheReadWriteLock.writeLock());
 
@@ -376,7 +380,7 @@ public class TestEngine {
 
     // Step 3 (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      batchIngestResults(results, mode, partial, batchedTestRunResults, null);
+      batchIngestResults(results, mode, partial, batchedTestRunResults, null, true);
       batchApplyActions(opContext, results);
     }
 
@@ -652,81 +656,85 @@ public class TestEngine {
       EvaluationMode mode,
       boolean partial,
       @Nonnull Map<Urn, BatchTestRunResult> batchTestRunResults,
-      @Nullable Map<Urn, TestResults> previousResults) {
-    final Stream<MetadataChangeProposal> mcps;
+      @Nullable Map<Urn, TestResults> previousResults,
+      boolean shouldWriteAssetResults) {
+    Stream<MetadataChangeProposal> mcps = Stream.empty();
     Stream<MetadataChangeProposal> removalMcps = Stream.empty();
 
-    if (partial) {
-      if (previousResults != null) {
-        // For the entities that were ONLY present in the previous results, we need to remove
-        // the test results. For entities that are common, the test result update will automatically
-        // remove
-        // the old test results.
-        Set<Urn> onlyInPrevious =
-            previousResults.keySet().stream()
-                .filter(urn -> !testResults.containsKey(urn))
-                .collect(Collectors.toSet());
-        log.info("Only in previous: {}", onlyInPrevious);
-        removalMcps =
-            onlyInPrevious.stream()
+    if (shouldWriteAssetResults) {
+      if (partial) {
+        if (previousResults != null) {
+          // For the entities that were ONLY present in the previous results, we need to remove
+          // the test results. For entities that are common, the test result update will
+          // automatically
+          // remove
+          // the old test results.
+          Set<Urn> onlyInPrevious =
+              previousResults.keySet().stream()
+                  .filter(urn -> !testResults.containsKey(urn))
+                  .collect(Collectors.toSet());
+          log.info("Only in previous: {}", onlyInPrevious);
+          removalMcps =
+              onlyInPrevious.stream()
+                  .map(
+                      urn -> {
+                        final TestResultsPatchBuilder builder =
+                            new TestResultsPatchBuilder().urn(urn);
+                        previousResults
+                            .get(urn)
+                            .getPassing()
+                            .forEach(
+                                testResult ->
+                                    builder.removePassing(testResult.getTest(), testResult));
+                        previousResults
+                            .get(urn)
+                            .getFailing()
+                            .forEach(
+                                testResult ->
+                                    builder.removeFailing(testResult.getTest(), testResult));
+                        return builder.build();
+                      });
+        }
+
+        mcps =
+            testResults.entrySet().stream()
                 .map(
-                    urn -> {
+                    entry -> {
                       final TestResultsPatchBuilder builder =
-                          new TestResultsPatchBuilder().urn(urn);
-                      previousResults
-                          .get(urn)
-                          .getPassing()
-                          .forEach(
-                              testResult ->
-                                  builder.removePassing(testResult.getTest(), testResult));
-                      previousResults
-                          .get(urn)
-                          .getFailing()
-                          .forEach(
-                              testResult ->
-                                  builder.removeFailing(testResult.getTest(), testResult));
-                      return builder.build();
+                          new TestResultsPatchBuilder().urn(entry.getKey());
+                      if (previousResults != null && previousResults.containsKey(entry.getKey())) {
+                        TestResults finalTestResults =
+                            new TestResults()
+                                .setPassing(
+                                    computeUpdated(
+                                        previousResults.get(entry.getKey()).getPassing(),
+                                        entry.getValue().getPassing()))
+                                .setFailing(
+                                    computeUpdated(
+                                        previousResults.get(entry.getKey()).getFailing(),
+                                        entry.getValue().getFailing()));
+                        builder.updateTestResults(finalTestResults);
+                      } else {
+                        builder.updateTestResults(entry.getValue());
+                      }
+                      return builder;
+                    })
+                .filter(TestResultsPatchBuilder::hasPatchOperations)
+                .map(TestResultsPatchBuilder::build);
+      } else {
+        mcps =
+            testResults.entrySet().stream()
+                .map(
+                    entry -> {
+                      final MetadataChangeProposal proposal = new MetadataChangeProposal();
+                      proposal.setEntityUrn(entry.getKey());
+                      proposal.setEntityType(entry.getKey().getEntityType());
+                      proposal.setAspectName(Constants.TEST_RESULTS_ASPECT_NAME);
+                      proposal.setAspect(GenericRecordUtils.serializeAspect(entry.getValue()));
+                      proposal.setChangeType(ChangeType.UPSERT);
+                      return proposal;
                     });
       }
-
-      mcps =
-          testResults.entrySet().stream()
-              .map(
-                  entry -> {
-                    final TestResultsPatchBuilder builder =
-                        new TestResultsPatchBuilder().urn(entry.getKey());
-                    if (previousResults != null && previousResults.containsKey(entry.getKey())) {
-                      TestResults finalTestResults =
-                          new TestResults()
-                              .setPassing(
-                                  computeUpdated(
-                                      previousResults.get(entry.getKey()).getPassing(),
-                                      entry.getValue().getPassing()))
-                              .setFailing(
-                                  computeUpdated(
-                                      previousResults.get(entry.getKey()).getFailing(),
-                                      entry.getValue().getFailing()));
-                      builder.updateTestResults(finalTestResults);
-                    } else {
-                      builder.updateTestResults(entry.getValue());
-                    }
-                    return builder;
-                  })
-              .filter(TestResultsPatchBuilder::hasPatchOperations)
-              .map(TestResultsPatchBuilder::build);
-    } else {
-      mcps =
-          testResults.entrySet().stream()
-              .map(
-                  entry -> {
-                    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-                    proposal.setEntityUrn(entry.getKey());
-                    proposal.setEntityType(entry.getKey().getEntityType());
-                    proposal.setAspectName(Constants.TEST_RESULTS_ASPECT_NAME);
-                    proposal.setAspect(GenericRecordUtils.serializeAspect(entry.getValue()));
-                    proposal.setChangeType(ChangeType.UPSERT);
-                    return proposal;
-                  });
     }
 
     if (!testResults.isEmpty()) {
@@ -1005,9 +1013,11 @@ public class TestEngine {
     log.info("Evaluating single test {} with mode {}", testUrn, mode);
     this.refreshSingleTest(testUrn);
     final TestDefinition testDefinition;
+    final TestInfo testInfo;
     cacheReadLock.lock();
     try {
       testDefinition = _testCache.get(testUrn);
+      testInfo = _testInfoCache.get(testUrn);
     } finally {
       // To unlock the acquired read thread
       cacheReadLock.unlock();
@@ -1069,13 +1079,18 @@ public class TestEngine {
     log.info("BatchTestRunResult post eval: {}", batchTestRunResults.get(testUrn));
     // (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      // here
+      // skip writing asset results if the source type is bulk form submission
+      boolean shouldSkipAssetResults =
+          testInfo != null
+              && testInfo.getSource() != null
+              && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
       log.info(
           "Mode: {}: Writing {} results to DataHub for test {}",
           mode,
           results.keySet().size(),
           testUrn);
-      batchIngestResults(results, mode, true, batchTestRunResults, oldResults);
+      batchIngestResults(
+          results, mode, true, batchTestRunResults, oldResults, !shouldSkipAssetResults);
       log.info(
           "Mode {}: Applying {} results to DataHub for test {}",
           mode,
@@ -1212,6 +1227,7 @@ public class TestEngine {
     private final TestFetcher _testFetcher;
     private final TestDefinitionParser _testDefinitionParser;
     private final Map<Urn, TestDefinition> _testCache;
+    private final Map<Urn, TestInfo> _testInfoCache;
     private final Map<String, Set<TestDefinition>> _testPerEntityTypeCache;
     private final Lock cacheWriteLock;
 
@@ -1220,6 +1236,7 @@ public class TestEngine {
       try {
         // Populate new cache and swap.
         Map<Urn, TestDefinition> newTestCache = new HashMap<>();
+        Map<Urn, TestInfo> newTestInfoCache = new HashMap<>();
         Map<String, Set<TestDefinition>> newTestPerEntityCache = new HashMap<>();
 
         int start = 0;
@@ -1231,7 +1248,8 @@ public class TestEngine {
             final TestFetcher.TestFetchResult testFetchResult =
                 _testFetcher.fetch(systemOpContext, start, count);
 
-            addTestsToCache(newTestCache, newTestPerEntityCache, testFetchResult.getTests());
+            addTestsToCache(
+                newTestCache, newTestInfoCache, newTestPerEntityCache, testFetchResult.getTests());
 
             total = testFetchResult.getTotal();
             start = start + count;
@@ -1249,6 +1267,8 @@ public class TestEngine {
         try {
           _testCache.clear();
           _testCache.putAll(newTestCache);
+          _testInfoCache.clear();
+          _testInfoCache.putAll(newTestInfoCache);
           _testPerEntityTypeCache.clear();
           _testPerEntityTypeCache.putAll(newTestPerEntityCache);
         } finally {
@@ -1267,7 +1287,8 @@ public class TestEngine {
       TestFetcher.TestFetchResult testDefinitions = _testFetcher.fetchOne(systemOpContext, testUrn);
       this.cacheWriteLock.lock();
       try {
-        addTestsToCache(_testCache, _testPerEntityTypeCache, testDefinitions.getTests());
+        addTestsToCache(
+            _testCache, _testInfoCache, _testPerEntityTypeCache, testDefinitions.getTests());
       } finally {
         // To unlock the acquired read thread
         cacheWriteLock.unlock();
@@ -1276,13 +1297,15 @@ public class TestEngine {
 
     private void addTestsToCache(
         final Map<Urn, TestDefinition> testCache,
+        final Map<Urn, TestInfo> testInfoCache,
         final Map<String, Set<TestDefinition>> testPerEntityTypeCache,
         final List<TestFetcher.Test> tests) {
-      tests.forEach(test -> addTestToCache(testCache, testPerEntityTypeCache, test));
+      tests.forEach(test -> addTestToCache(testCache, testInfoCache, testPerEntityTypeCache, test));
     }
 
     private void addTestToCache(
         final Map<Urn, TestDefinition> testCache,
+        final Map<Urn, TestInfo> testInfoCache,
         final Map<String, Set<TestDefinition>> cache,
         final TestFetcher.Test test) {
       TestDefinition testDefinition;
@@ -1298,6 +1321,9 @@ public class TestEngine {
         return;
       }
       testCache.put(test.getUrn(), testDefinition);
+
+      testInfoCache.put(test.getUrn(), test.getTestInfo());
+
       for (String entityType : testDefinition.getOn().getEntityTypes()) {
         Set<TestDefinition> existingTestsForEntityType =
             cache.getOrDefault(entityType, new HashSet<>());
