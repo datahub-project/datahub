@@ -133,8 +133,6 @@ def resolve_liquid_variable_in_view_dict(
                 text=view["derived_table"]["sql"], liquid_variable=liquid_variable
             )  # keeping original sql as is, so that on UI sql will be shown same is it is visible on looker portal
 
-            view["derived_table"][
-                "datahub_transformed_sql"
-            ] = _complete_in_complete_sql(
+            view["derived_table"]["datahub_transformed_sql"] = _complete_incomplete_sql(
                 raw_view=view, sql=view["derived_table"]["datahub_transformed_sql"]
             )
