@@ -54,7 +54,7 @@ Some companies try to align metric definitions through emails and meetings. Whil
 
 ### Our Solution
 
-Acryl DataHub offers comprehensive features designed to tackle the challenges of defining and standardizing business metrics:
+DataHub Cloud offers comprehensive features designed to tackle the challenges of defining and standardizing business metrics:
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/glossary-terms/business-glossary-center.png"/>

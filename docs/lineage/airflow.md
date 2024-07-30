@@ -45,7 +45,7 @@ Set up a DataHub connection in Airflow, either via command line or the Airflow U
 airflow connections add  --conn-type 'datahub-rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080' --conn-password '<optional datahub auth token>'
 ```
 
-If you are using hosted Acryl Datahub then please use `https://YOUR_PREFIX.acryl.io/gms` as the `--conn-host` parameter.
+If you are using DataHub Cloud then please use `https://YOUR_PREFIX.acryl.io/gms` as the `--conn-host` parameter.
 
 #### Airflow UI
 

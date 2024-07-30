@@ -200,7 +200,7 @@ module.exports = {
       ],
     },
     {
-      label: "Managed DataHub",
+      label: "DataHub Cloud",
       type: "category",
       collapsed: true,
       link: {
@@ -254,6 +254,11 @@ module.exports = {
               id: "docs/managed-datahub/slack/saas-slack-app",
               className: "saasOnly",
             },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+              className: "saasOnly",
+            },
           ],
         },
         {
@@ -280,7 +285,7 @@ module.exports = {
           className: "saasOnly",
         },
         {
-          "Managed DataHub Release History": [
+          "DataHub Cloud Release History": [
             "docs/managed-datahub/release-notes/v_0_3_4",
             "docs/managed-datahub/release-notes/v_0_3_3",
             "docs/managed-datahub/release-notes/v_0_3_2",
