@@ -32,7 +32,7 @@ Additionally, you need to have the following tools installed according to the me
 <Tabs>
 <TabItem value="CLI" label="CLI" default>
 
-Install the relevant CLI version. Forms are available as of CLI version `0.13.1`. The corresponding SaaS release version is `v0.2.16.5`
+Install the relevant CLI version. Forms are available as of CLI version `0.13.1`. The corresponding DataHub Cloud release version is `v0.2.16.5`
 Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
 
 - Run `datahub init` to update the instance you want to load into.
