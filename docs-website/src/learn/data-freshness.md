@@ -91,7 +91,7 @@ DataHub offers comprehensive features designed to tackle data freshness challeng
 </p>
 
 
-**Freshness Monitoring & Alerting:** Automatically detect and alert when data freshness issues occur, to ensure timely updates by proactively monitoring key datasets for updates. Check out [Assertions](https://datahubproject.io/docs/managed-datahub/observe/assertions) and [Freshness Assertions](https://datahubproject.io/docs/managed-datahub/observe/freshness-assertions), Available in **Acryl Managed DataHub Only.**
+**Freshness Monitoring & Alerting:** Automatically detect and alert when data freshness issues occur, to ensure timely updates by proactively monitoring key datasets for updates. Check out [Assertions](https://datahubproject.io/docs/managed-datahub/observe/assertions) and [Freshness Assertions](https://datahubproject.io/docs/managed-datahub/observe/freshness-assertions), Available in **DataHub Cloud Only.**
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/freshness-assertions.png"/>

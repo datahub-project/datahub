@@ -469,7 +469,7 @@ type FeatureFlagsConfig {
   platformBrowseV2: Boolean!
 
   """
-  Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
+  Whether we should show CTAs in the UI related to moving to DataHub Cloud by Acryl.
   """
   showAcrylInfo: Boolean!
   """
