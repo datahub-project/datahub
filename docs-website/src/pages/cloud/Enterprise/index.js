@@ -10,11 +10,11 @@ const featuresContent = [
     description: "We’ll focus on keeping DataHub running, so you can focus on the things that really matter."
   },
   {
-    title: "In-VPC Ingestion & Check execution",
+    title: "In-VPC Ingestion and<br/>Data Quality evaluation",
     description: "So your actual data never leaves your network."
   },
   {
-    title: "SOC-2 Compliance",
+    title: "SOC-2 Compliant",
     description: "An incredibly high level of security you can trust."
   },
 ];
@@ -22,7 +22,7 @@ const featuresContent = [
 const Feature = ({ title, description }) => {
   return (
     <div className={clsx(styles.feature, "col col--4")}>
-      <h2>{title}</h2>
+      <h2 dangerouslySetInnerHTML={{ __html: title }}></h2>
       <p>{description}</p>
     </div>
   );
