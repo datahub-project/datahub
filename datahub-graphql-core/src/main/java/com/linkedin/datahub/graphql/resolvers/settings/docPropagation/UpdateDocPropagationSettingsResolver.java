@@ -47,8 +47,7 @@ public class UpdateDocPropagationSettingsResolver
               final DocPropagationFeatureSettings newDocPropagationSettings =
                   newGlobalSettings.hasDocPropagation()
                       ? newGlobalSettings.getDocPropagation()
-                      : new DocPropagationFeatureSettings()
-                          .setEnabled(true);
+                      : new DocPropagationFeatureSettings().setEnabled(true);
 
               // Next, patch the actions settings.
               updateDocPropagationSettings(newDocPropagationSettings, input);
