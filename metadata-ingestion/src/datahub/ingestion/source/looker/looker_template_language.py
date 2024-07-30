@@ -95,7 +95,7 @@ def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
     return text
 
 
-def _complete_in_complete_sql(raw_view: dict, sql: str) -> str:
+def _complete_incomplete_sql(raw_view: dict, sql: str) -> str:
 
     # Looker supports sql fragments that omit the SELECT and FROM parts of the query
     # Add those in if we detect that it is missing
