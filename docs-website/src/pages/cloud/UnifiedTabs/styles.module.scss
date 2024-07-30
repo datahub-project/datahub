@@ -9,51 +9,53 @@
   margin-bottom: 2rem;
   text-align: center;
   position: relative;
-}
+  padding: 0 10px; // Added padding to avoid text disturbance
 
-.title:before {
-  content: " ";
-  height: 2px;
-  width: 200px;
-  background: #ced4da;
-  display: block;
-  position: absolute;
-  top: 50%;
-  left: 0;
-}
+  &:before, &:after {
+    content: " ";
+    height: 2px;
+    width: 200px;
+    background: #ced4da;
+    display: block;
+    position: absolute;
+    top: 50%;
+  }
 
-.title:after {
-  content: " ";
-  height: 2px;
-  width: 200px;
-  background: #ced4da;
-  display: block;
-  position: absolute;
-  top: 50%;
-  right: 0;
+  &:before {
+    left: 0;
+  }
+
+  &:after {
+    right: 0;
+  }
 }
 
 .container {
   display: flex;
+  flex-direction: column; // Changed to column for mobile view
   background: white;
   border-radius: 1rem;
   overflow: hidden;
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
-  margin: 2rem 4rem;
+  margin: 2rem 5rem;
 }
 
 .tabs {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  margin-right: 20px;
 }
 
 .tab {
   align-items: center;
-  margin: 1rem;
-  padding: 1rem;
+  margin: 0;
+  padding: 1.5rem;
   border-bottom: 1px solid #e0e0e0;
+  position: relative;
+
+  &.activeTab {
+    border-bottom: none;
+  }
 }
 
 .tabButton {
@@ -81,19 +83,17 @@
     width: 2.3rem;
     height: 2.3rem;
   }
-
-  
 }
 
 .arrow {
   margin-left: auto;
   transition: transform 0.2s;
+  color: black;
 }
 
 .upsideDown {
   transform: rotate(180deg);
 }
-
 
 .dropdown {
   background-color: #ffffff;
@@ -107,18 +107,40 @@
     font-size: 15px;
     line-height: 23px;
   }
-
 }
 
 .imageContainer {
-  flex-grow: 1;
-  display: flex;
+  display: none;
   justify-content: center;
   align-items: center;
   background-color: #ffffff;
+  margin: 1rem 0; // Added margin for spacing
 }
 
 .imageContainer img {
   max-width: 100%;
   height: auto;
+}
+
+.mobileImageContainer {
+  @media (max-width: 767px) {
+    display: flex;
+  }
+}
+
+.webImageContainer {
+  @media (min-width: 768px) {
+    display: flex;
+    flex-grow: 1;
+  }
+}
+
+@media (min-width: 768px) {
+  .container {
+    flex-direction: row; // Change back to row for larger screens
+  }
+
+  .imageContainer {
+    margin: 0; // Reset margin for larger screens
+  }
 }
