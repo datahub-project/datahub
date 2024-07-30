@@ -26,27 +26,27 @@ function Home() {
 
   return !siteConfig.customFields.isSaas ? (
     <Layout
-      title={siteConfig.tagline}
-      description="DataHub is a data discovery application built on an extensible data catalog that helps you tame the complexity of diverse data ecosystems."
+      title={'DataHub Cloud - Unify Data Observability, Governance and Discovery'}
+      description="DataHub cloud is Managed DataHub with Data Observability and Data Governance built-in."
     >
       <header className={clsx("hero", styles.hero)}>
         <div className="container">
           <div className="hero__content">
             <div>
-              <h1 className="hero__title">Try DataHub Cloud</h1>
+              <h1 className={clsx("hero__title", styles.hero__title)}>Try DataHub Cloud</h1>
               <div className={clsx("hero__subtitle", styles.hero__subtitle)}>
                 Introducing DataHub as a Managed Service
-                <div style={{ fontWeight: "600"}}>with Data Observability and Data Governance built-in.</div>
+                <div style={{ fontWeight: "500"}}>with Data Observability and Data Governance built-in.</div>
                 <div className={styles.learnMore}>
-                  <a href="/">
+                  <a href="https://acryldata.io" target="_blank">
                     Learn More  →
                   </a>
                 </div>
               </div>
-              <Link className="button button--primary button--md" to="/">
+              <Link className="button button--primary button--lg" to="/">
                 Book Demo
               </Link>
-              <Link className={clsx(styles.buttonLightBlue, "button  button--secondary button--md")} to="/">
+              <Link className={clsx(styles.buttonLightBlue, "button  button--secondary button--lg")} to="/">
                 Product Tour
               </Link>
             </div>

@@ -38,7 +38,6 @@ const ScrollingCustomers = ({ noOverlay = true, spacing, ...rest }) => {
               src={customer.logo.asset._ref}
               alt={customer.logo.alt}
               className={styles.logoItem}
-              style={{ minWidth: 'max-content', color: 'black' }}
             />
           </Link>
         ))}

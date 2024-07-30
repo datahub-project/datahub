@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UpOutlined } from '@ant-design/icons';
+import { CaretUpFilled } from '@ant-design/icons';
 import styles from './styles.module.scss';
 import clsx from 'clsx';
 
@@ -32,8 +32,8 @@ const TabbedComponent = () => {
 
   return (
     <div className={clsx(styles.tabbedComponent)}>
-      <div className={clsx(styles.title)}>One platform to rule them all</div>
-      <div className={clsx(styles.container, 'shadow--tl')}>
+      <div className={clsx(styles.title)}><span>One platform to rule them all</span></div>
+      <div className={clsx(styles.container, 'shadow--lw')}>
         <div className={clsx(styles.tabs)}>
           {tabs.map((tab, index) => (
             <React.Fragment key={index}>
@@ -44,12 +44,12 @@ const TabbedComponent = () => {
                 >
                   <img className={clsx(styles.icon)} src={tab.icon} alt={`${tab.title} icon`} />
                   <div className={clsx(styles.tabTitle)}>{tab.title}</div>
-                  <div className={clsx(styles.arrow, { [styles.upsideDown]: activeTab === index })}><UpOutlined/></div>
+                  <div className={clsx(styles.arrow, { [styles.upsideDown]: activeTab === index })}><CaretUpFilled/></div>
                 </button>
                 {activeTab === index && (
                   <div className={clsx(styles.dropdown)}>
                     <p>{tab.description}</p>
-                    <a className={clsx(styles.learnMore)} href={tab.link}>Learn More →</a>
+                    <a className={clsx(styles.learnMore)} href={tab.link} target='_blank'>Learn More →</a>
                   </div>
                 )}
               </div>
