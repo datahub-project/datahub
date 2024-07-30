@@ -58,6 +58,7 @@ import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.test.MetadataTestClient;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.ExecutorService;
@@ -258,6 +259,10 @@ public class GraphQLEngineFactory {
   @Qualifier("assertionService")
   private AssertionService assertionService;
 
+  @Autowired
+  @Qualifier("metadataTestClient")
+  private MetadataTestClient metadataTestClient;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -330,6 +335,7 @@ public class GraphQLEngineFactory {
     args.setDataContractService(_dataContractService);
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
+    args.setMetadataTestClient(metadataTestClient);
     return new GmsGraphQLEngine(args).builder().build();
   }
 

@@ -28,6 +28,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.util.MetadataTestServiceUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.test.MetadataTestClient;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestSource;
@@ -48,11 +49,16 @@ public class AsyncBatchSubmitFormPromptResolver
 
   private final FormService _formService;
   private final EntityClient _entityClient;
+  private final MetadataTestClient _metadataTestClient;
 
   public AsyncBatchSubmitFormPromptResolver(
-      @Nonnull final FormService formService, @Nonnull final EntityClient entityClient) {
+      @Nonnull final FormService formService,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final MetadataTestClient metadataTestClient) {
     _formService = Objects.requireNonNull(formService, "formService must not be null");
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
+    _metadataTestClient =
+        Objects.requireNonNull(metadataTestClient, "metadataTestClient must not be null");
   }
 
   @Override
@@ -94,6 +100,9 @@ public class AsyncBatchSubmitFormPromptResolver
                     key, TEST_ENTITY_NAME, TEST_INFO_ASPECT_NAME, testInfo);
             String taskUrn =
                 _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+
+            // evaluate the test right away
+            runTest(context, taskUrn);
 
             AsyncBatchSubmitFormPromptResponse response = new AsyncBatchSubmitFormPromptResponse();
             response.setTaskUrn(taskUrn);
@@ -220,5 +229,23 @@ public class AsyncBatchSubmitFormPromptResolver
         SearchUtils.getFormFilter(
             context.getOperationContext(), input.getFormFilter(), _formService);
     return formFilter != null ? SearchUtils.combineFilters(inputFilter, formFilter) : inputFilter;
+  }
+
+  /*
+   * Async evaluate the test - but don't block returning this resolver for better UI feedback
+   */
+  private void runTest(QueryContext context, String taskUrn) {
+    CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            _metadataTestClient.evaluateSingleTest(
+                UrnUtils.getUrn(taskUrn), true, context.getAuthentication());
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to evaluate bulk form response task with urn %s", taskUrn),
+                e);
+          }
+          return null;
+        });
   }
 }

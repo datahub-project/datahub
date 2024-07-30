@@ -21,11 +21,14 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.BatchedTestResults;
 import com.linkedin.test.MetadataTestClient;
+import com.linkedin.test.TestInfo;
+import com.linkedin.test.TestSourceType;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Objects;
 import java.util.Set;
@@ -185,6 +188,11 @@ public class MetadataTestHook implements MetadataChangeLogHook {
 
   @Override
   public void invoke(@NotNull MetadataChangeLog event) throws Exception {
+    // we don't want this hook to run and create side effects if it is a form submission test
+    if (isBulkFormSubmissionTest(event)) {
+      return;
+    }
+
     // Check if this is a new or updated Metadata Test
     if (this._isOnTestChangeEnabled
         && event.getChangeType() == ChangeType.UPSERT
@@ -247,6 +255,15 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     _urnObserverCache.put(
         EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec()),
         System.currentTimeMillis());
+  }
+
+  private boolean isBulkFormSubmissionTest(@Nonnull MetadataChangeLog event) {
+    TestInfo testInfo =
+        GenericRecordUtils.deserializeAspect(
+            event.getAspect().getValue(), event.getAspect().getContentType(), TestInfo.class);
+
+    return testInfo.getSource() != null
+        && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
   }
 
   @VisibleForTesting

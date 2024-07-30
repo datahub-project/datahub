@@ -20,6 +20,7 @@ import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.test.MetadataTestClient;
 import graphql.com.google.common.collect.ImmutableList;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -58,8 +59,9 @@ public class AsyncBatchSubmitFormPromptResolverTest {
   public void testGetSuccess() throws Exception {
     FormService mockFormService = initMockFormService(true);
     EntityClient mockClient = initMockClient();
+    MetadataTestClient mockTestClient = Mockito.mock(MetadataTestClient.class);
     AsyncBatchSubmitFormPromptResolver resolver =
-        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient);
+        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient, mockTestClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -81,8 +83,9 @@ public class AsyncBatchSubmitFormPromptResolverTest {
   public void testGetInvalidInputStructuredProp() throws Exception {
     FormService mockFormService = initMockFormService(true);
     EntityClient mockClient = initMockClient();
+    MetadataTestClient mockTestClient = Mockito.mock(MetadataTestClient.class);
     AsyncBatchSubmitFormPromptResolver resolver =
-        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient);
+        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient, mockTestClient);
 
     // null structured properties params with structured prop input
     final SubmitFormPromptInput promptInput =
@@ -120,8 +123,9 @@ public class AsyncBatchSubmitFormPromptResolverTest {
   public void testGetInvalidInputOwnership() throws Exception {
     FormService mockFormService = initMockFormService(true);
     EntityClient mockClient = initMockClient();
+    MetadataTestClient mockTestClient = Mockito.mock(MetadataTestClient.class);
     AsyncBatchSubmitFormPromptResolver resolver =
-        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient);
+        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient, mockTestClient);
 
     // null ownership params with ownership input
     final SubmitFormPromptInput promptInput =
@@ -153,8 +157,9 @@ public class AsyncBatchSubmitFormPromptResolverTest {
   public void testThrowsError() throws Exception {
     FormService mockFormService = initMockFormService(false);
     EntityClient mockClient = initMockClient();
+    MetadataTestClient mockTestClient = Mockito.mock(MetadataTestClient.class);
     AsyncBatchSubmitFormPromptResolver resolver =
-        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient);
+        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient, mockTestClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();

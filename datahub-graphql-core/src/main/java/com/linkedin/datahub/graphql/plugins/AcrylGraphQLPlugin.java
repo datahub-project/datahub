@@ -151,6 +151,7 @@ import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.test.MetadataTestClient;
 import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.ArrayList;
@@ -188,6 +189,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private ShareService shareService;
   private FormService formService;
   private TimeseriesAspectService timeseriesAspectService;
+  private MetadataTestClient metadataTestClient;
 
   // Config
   private ExecutorConfiguration executorConfiguration;
@@ -231,6 +233,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.testEngine = args.getTestEngine();
     this.shareService = args.getShareService();
     this.formService = args.getFormService();
+    this.metadataTestClient = args.getMetadataTestClient();
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
@@ -413,7 +416,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "batchSubmitFormPrompt", new BatchSubmitFormPromptResolver(this.formService))
                 .dataFetcher(
                     "asyncBatchSubmitFormPrompt",
-                    new AsyncBatchSubmitFormPromptResolver(this.formService, this.entityClient))
+                    new AsyncBatchSubmitFormPromptResolver(
+                        this.formService, this.entityClient, this.metadataTestClient))
                 .dataFetcher(
                     "batchVerifyForm",
                     new BatchVerifyFormResolver(this.formService, this.groupService))

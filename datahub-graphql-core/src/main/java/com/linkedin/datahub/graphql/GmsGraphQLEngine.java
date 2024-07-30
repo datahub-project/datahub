@@ -389,6 +389,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.test.MetadataTestClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -429,6 +430,7 @@ public class GmsGraphQLEngine {
   private final SystemEntityClient systemEntityClient;
   private final UsageStatsJavaClient usageClient;
   private final SiblingGraphService siblingGraphService;
+  private final MetadataTestClient metadataTestClient;
 
   private final EntityService entityService;
   private final AnalyticsService analyticsService;
@@ -550,6 +552,7 @@ public class GmsGraphQLEngine {
     this.graphClient = args.graphClient;
     this.usageClient = args.usageClient;
     this.siblingGraphService = args.siblingGraphService;
+    this.metadataTestClient = args.metadataTestClient;
 
     this.analyticsService = args.analyticsService;
     this.entityService = args.entityService;
