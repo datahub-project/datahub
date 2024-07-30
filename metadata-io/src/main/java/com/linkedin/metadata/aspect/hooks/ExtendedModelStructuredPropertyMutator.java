@@ -100,7 +100,12 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
                 .className(ExtendedModelStructuredPropertyMutator.class.getName())
                 .enabled(extensionsEnabled)
                 .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT"))
-                .supportedEntityAspectNames(entityAspectNames)
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName("*")
+                            .aspectName("*")
+                            .build()))
                 .build())
         .setAspectFieldMappings(aspectFieldMappings)
         .setStructuredPropertyMappings(structuredPropertyMappings);
