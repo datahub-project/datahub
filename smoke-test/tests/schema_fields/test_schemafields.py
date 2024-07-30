@@ -6,10 +6,7 @@ from random import randint
 
 import datahub.metadata.schema_classes as models
 import pytest
-from datahub.emitter.mce_builder import (
-    make_dataset_urn,
-    make_schema_field_urn,
-)
+from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
