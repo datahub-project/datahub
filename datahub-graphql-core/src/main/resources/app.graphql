@@ -22,11 +22,6 @@ extend type Query {
     Fetch the global settings related to the docs propagation feature.
     """
     docPropagationSettings: DocPropagationSettings
-
-	"""
-	Fetch the global Action Settings related to the Actions feature.
-	"""
-	actionSettings: ActionSettings
 }
 
 extend type Mutation {
@@ -40,11 +35,6 @@ extend type Mutation {
   Update the doc propagation settings.
   """
   updateDocPropagationSettings(input: UpdateDocPropagationSettingsInput!): Boolean!
-
-  """
-  Update the global Action Settings related to the Actions feature.
-  """
-  updateActionSettings(input: UpdateActionSettingsInput!): Boolean!
 }
 
 """
@@ -544,26 +534,6 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
-}
-
-"""
-Input required to update Action Settings.
-"""
-input UpdateActionSettingsInput {
-  """
-  The default column propagation setting for the platform.
-  """
-  docColumnPropagation: Boolean
-}
-
-"""
-Global (platform-level) settings related to the Actions feature
-"""
-type ActionSettings {
-"""
-  The default column propagation setting for the platform.
-  """
-  docColumnPropagation: String
 }
 
 """
