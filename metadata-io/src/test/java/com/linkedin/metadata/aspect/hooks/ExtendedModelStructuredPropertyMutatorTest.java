@@ -156,12 +156,15 @@ public class ExtendedModelStructuredPropertyMutatorTest {
                 .build());
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
+    boolean shouldApply = test.shouldApply(ChangeType.UPSERT, TEST_DATASET_URN, GLOBAL_TAGS_ASPECT_NAME);
 
     assertEquals(result.size(), 1);
     assertEquals(
         result.get(0).getAspect(DatasetProperties.class),
         new DatasetProperties()
             .setCustomProperties(new StringMap(Map.of("prop1", "fakeprop", "prop2", "pikachu"))));
+    // Check that non-existing aspects in config resolve as should apply because of forced wildcard config
+    assertTrue(shouldApply);
   }
 
   @Test
