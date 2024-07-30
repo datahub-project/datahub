@@ -54,6 +54,9 @@ mutation runTestDefinition($urn: String!, $test: TestDefinitionInput!) {
 
 query getTestResultsSummary($urn: String!) {
     test(urn: $urn) {
+        urn
+        type
+        name
         ...testResultsSummaryFields
     }
 }

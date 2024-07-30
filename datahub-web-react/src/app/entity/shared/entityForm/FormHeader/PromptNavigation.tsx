@@ -31,7 +31,7 @@ const RightColumn = styled.div`
 export default function PromptNavigation() {
     const {
         form: { isVerificationType },
-        submission: { handlePromptSubmission, handleUndoPromptSubmission },
+        submission: { handlePromptSubmission, handleUndoPromptSubmission, handleAsyncBatchSubmit },
         prompt: { prompts, prompt, promptIndex, setSelectedPromptId },
         entity: {
             selectedEntities,
@@ -121,7 +121,7 @@ export default function PromptNavigation() {
                 },
             },
         })
-            .then(() => {
+            .then((result) => {
                 analytics.event({
                     type: EventType.CompleteDocRequestPrompt,
                     source: DocRequestView.ByAsset,
@@ -143,6 +143,9 @@ export default function PromptNavigation() {
                 setSelectedEntities([]);
                 setAreAllEntitiesSelected(false);
                 onSuccess();
+                if (result.data?.asyncBatchSubmitFormPrompt.taskUrn) {
+                    handleAsyncBatchSubmit(result.data?.asyncBatchSubmitFormPrompt.taskUrn);
+                }
             })
             .catch(() => {
                 message.destroy();

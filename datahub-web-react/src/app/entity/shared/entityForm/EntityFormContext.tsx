@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 
-import { AndFilterInput, Entity, Form, FormFilter, FormPrompt, SearchResult } from '../../../../types.generated';
+import { AndFilterInput, Entity, Form, FormFilter, FormPrompt, SearchResult, Test } from '../../../../types.generated';
 import { EntityAndType, GenericEntityProperties } from '../types';
 import { SearchForEntitiesByFormQuery } from '../../../../graphql/form.generated';
 
@@ -29,6 +29,9 @@ export type EntityFormContextType = {
         handlePromptSubmission: (promptId: string, entityUrns: string[]) => void;
         handleUndoPromptSubmission: (promptId: string, entityUrns: string[]) => void;
         handleBulkVerifySubmission: (entityUrns: string[]) => void;
+        activeTasks: Test[];
+        completeTasks: Test[];
+        handleAsyncBatchSubmit: (taskUrn: string) => void;
     };
     search: {
         results: SearchForEntitiesByFormQuery;

@@ -26,6 +26,7 @@ import usePrevious from '../../../shared/usePrevious';
 import BulkVerifyPromptModal from './BulkVerifyPromptModal';
 
 import { useIsThemeV2 } from '../../../useIsThemeV2';
+import ActiveTasks from './ActiveTasks';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;
@@ -168,6 +169,7 @@ export default function FormByQuestion({ closeModal }: Props) {
                     isVisible={isVerifyModalVisible}
                     closeModal={() => setIsVerifyModalVisible(false)}
                 />
+                <ActiveTasks />
             </FormByQuestionWrapper>
         );
     }
@@ -226,6 +228,7 @@ export default function FormByQuestion({ closeModal }: Props) {
                 />
             )}
             <BulkVerifyPromptModal isVisible={isVerifyModalVisible} closeModal={() => setIsVerifyModalVisible(false)} />
+            <ActiveTasks />
         </FormByQuestionWrapper>
     );
 }
