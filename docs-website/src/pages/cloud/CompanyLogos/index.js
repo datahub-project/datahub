@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import Link from '@docusaurus/Link';
-import componentSpacing from './componentSpacing';
 import styles from './logos.module.scss';
 import customersData from './customersData.json';
 import clsx from 'clsx';
@@ -20,7 +19,6 @@ const ScrollingCustomers = ({ noOverlay = true, spacing, ...rest }) => {
     <div
       className={clsx(styles.scrollingCustomers, {
         [styles.noOverlay]: noOverlay,
-        [componentSpacing(spacing)]: spacing,
       })}
       {...rest}
     >
