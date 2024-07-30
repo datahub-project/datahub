@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHub Action Pipeline
+ */
+@Aspect = {
+  "name": "dataHubActionKey"
+}
+record DataHubActionKey {
+  /**
+   * A unique id for the Action, either generated or provided
+   */
+  id: string
+}
