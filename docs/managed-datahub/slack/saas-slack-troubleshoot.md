@@ -61,9 +61,9 @@ If you'd like support in getting a list of the private channels that are subscri
 ## Test notification works, but not receiving notifications
 There are a few reasons why you may not receive notifications when you'd expect.
 
-### 1. Actors do not receive notifications for their actions
+### Actors do not receive notifications for their actions
 If you've subscribed to an entity, and then performed an action (i.e., raised an incident or added a tag), you will not be notified about your own action.
 
-### 2. There is an issue with DataHub's systems
+### There is an issue with DataHub's systems
 If sending a test notification works, and you've verified that none of the above cases apply, then you should contact your DataHub Customer Success rep to help troubleshoot and resolve the issue. 
 

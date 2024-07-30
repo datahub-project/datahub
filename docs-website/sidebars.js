@@ -251,12 +251,12 @@ module.exports = {
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+              id: "docs/managed-datahub/slack/saas-slack-app",
               className: "saasOnly",
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-app",
+              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
               className: "saasOnly",
             },
           ],
