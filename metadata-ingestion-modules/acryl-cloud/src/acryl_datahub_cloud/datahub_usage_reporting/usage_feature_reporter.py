@@ -967,24 +967,10 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     ) -> polars.LazyFrame:
         #  Getting top users
 
-        top_users = lf.explode("userCounts").unnest("userCounts")
-
-        # We need to add the dummy lazyframe to overcome the polars.concat_list issue if the lazyframe is empty
-        # -> https://github.com/pola-rs/polars/issues/16519
-        dummy_lf = polars.LazyFrame(
-            {
-                "timestampMillis": [1234],
-                "urn": [None],
-                "platform": [None],
-                "eventGranularity": [None],
-                "user": [None],
-            }
-        )
-        top_users = top_users.update(
-            dummy_lf,
-            left_on=["timestampMillis"],
-            right_on=["timestampMillis"],
-            how="full",
+        top_users = (
+            lf.explode("userCounts")
+            .unnest("userCounts")
+            .filter(polars.col("user").is_not_null())
         )
 
         top_users = (
