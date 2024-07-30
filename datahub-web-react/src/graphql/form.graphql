@@ -11,6 +11,12 @@ mutation batchSubmitFormPrompt($input: BatchSubmitFormPromptInput!) {
     batchSubmitFormPrompt(input: $input)
 }
 
+mutation asyncBatchSubmitFormPrompt($input: AsyncBatchSubmitFormPromptInput!) {
+    asyncBatchSubmitFormPrompt(input: $input) {
+        taskUrn
+    }
+}
+
 mutation verifyForm($input: VerifyFormInput!) {
     verifyForm(input: $input)
 }

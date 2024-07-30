@@ -1,4 +1,4 @@
-import { Button, Checkbox, Modal, Typography } from 'antd';
+import { Button, Checkbox, Modal, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';
@@ -28,14 +28,24 @@ const StyledCheckbox = styled(Checkbox)`
     padding-bottom: 0px;
 `;
 
+const StyledButton = styled(Button)`
+    margin-left: 8px;
+    color: ${(props) => props.theme.styles['primary-color']};
+`;
+
+const MAX_BULK_SELECT_COUNT = 10000;
+
 type Props = {
     isSelectAll: boolean;
+    totalResults?: number;
     selectedEntities?: EntityAndType[];
     showCancel?: boolean;
     showActions?: boolean;
     onChangeSelectAll: (selected: boolean) => void;
     onCancel?: () => void;
     refetch?: () => void;
+    areAllEntitiesSelected?: boolean;
+    setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
 };
 
 /**
@@ -45,12 +55,15 @@ type Props = {
  */
 export const SearchSelectBar = ({
     isSelectAll,
+    totalResults = 0,
     selectedEntities = [],
     showCancel = true,
     showActions = true,
     onChangeSelectAll,
     onCancel,
     refetch,
+    areAllEntitiesSelected,
+    setAreAllEntitiesSelected,
 }: Props) => {
     const { isInFormContext } = useEntityFormContext();
     const selectedEntityCount = selectedEntities.length;
@@ -76,19 +89,52 @@ export const SearchSelectBar = ({
         <>
             <CheckboxContainer>
                 <StyledCheckbox
-                    checked={isSelectAll}
-                    onChange={(e) => onChangeSelectAll(e.target.checked as boolean)}
+                    checked={isSelectAll || areAllEntitiesSelected}
+                    onChange={(e) => {
+                        onChangeSelectAll(e.target.checked as boolean);
+                        setAreAllEntitiesSelected?.(false);
+                    }}
                 />
                 <Typography.Text strong type="secondary">
-                    {selectedEntityCount} selected
+                    {areAllEntitiesSelected ? (
+                        <>All {totalResults} assets selected</>
+                    ) : (
+                        <>{selectedEntityCount} selected</>
+                    )}
                 </Typography.Text>
+                {!areAllEntitiesSelected && isSelectAll && selectedEntityCount < totalResults && (
+                    <Tooltip
+                        title={
+                            totalResults >= MAX_BULK_SELECT_COUNT ? 'Cannot select more than 10,000 assets' : undefined
+                        }
+                    >
+                        <StyledButton
+                            type="text"
+                            disabled={totalResults >= MAX_BULK_SELECT_COUNT}
+                            onClick={() => setAreAllEntitiesSelected?.(true)}
+                        >
+                            Select all {totalResults} assets
+                        </StyledButton>
+                    </Tooltip>
+                )}
+                {areAllEntitiesSelected && (
+                    <StyledButton
+                        type="text"
+                        onClick={() => {
+                            onChangeSelectAll(false);
+                            setAreAllEntitiesSelected?.(false);
+                        }}
+                    >
+                        Clear selection
+                    </StyledButton>
+                )}
             </CheckboxContainer>
             {!isInFormContext && (
                 <ActionsContainer>
                     {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
                     {showCancel && (
                         <CancelButton onClick={onClickCancel} type="link">
-                            Close
+                            Done
                         </CancelButton>
                     )}
                 </ActionsContainer>

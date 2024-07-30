@@ -45,7 +45,7 @@ public class ElasticTestDefinitionConvertor {
 
   private static boolean isSearchable(Set<TestQuery> queries, Map<PathSpec, String> fieldPaths) {
     return !queries.stream()
-        .filter(q -> !q.getQuery().equals("_entityType"))
+        .filter(q -> !q.getQuery().equals("_entityType") && !q.getQuery().equals("urn"))
         .map(TestQuery::getQueryParts)
         .map(PathSpec::new)
         .allMatch(fieldPaths::containsKey);

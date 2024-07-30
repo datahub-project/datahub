@@ -79,6 +79,10 @@ public class MetadataTestServiceUtils {
     if (criterion.getField().equals("_entityType") || criterion.getField().equals("entityType")) {
       return convertCriterionToTestCondition(criterion, "_entityType");
     }
+    // everyone has an urn field
+    if (criterion.getField().equals("urn")) {
+      return convertCriterionToTestCondition(criterion, "urn");
+    }
 
     if (searchableFieldsToPathSpecs != null) {
       final List<PathSpec> pathSpecs =

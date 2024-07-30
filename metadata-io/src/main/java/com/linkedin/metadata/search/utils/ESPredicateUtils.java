@@ -379,6 +379,10 @@ public class ESPredicateUtils {
     if (queryParts.size() == 1 && INDEX_VIRTUAL_FIELD.equals(queryParts.get(0))) {
       return ES_INDEX_FIELD;
     }
+    // Handle urn mapping
+    if (queryParts.size() == 1 && URN_FIELD.equals(queryParts.get(0))) {
+      return URN_FIELD;
+    }
     // If field is already resolved to a searchable field, just use it
     if (searchableFieldTypes.containsKey(query.getQuery().getQuery())) {
       return query.getQuery().getQuery();

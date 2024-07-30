@@ -50,7 +50,13 @@ export default function FormByQuestion({ closeModal }: Props) {
             setNumResultsPerPage,
         },
         filter: { setFormResponsesFilters },
-        entity: { selectedEntities, setSelectedEntities, setNumSubmittedEntities },
+        entity: {
+            selectedEntities,
+            setSelectedEntities,
+            setNumSubmittedEntities,
+            areAllEntitiesSelected,
+            setAreAllEntitiesSelected,
+        },
         states: {
             byQuestion: { showVerifyCTA },
         },
@@ -82,6 +88,7 @@ export default function FormByQuestion({ closeModal }: Props) {
     const clearAllFilters = () => {
         setFormResponsesFilters([]);
         setSelectedEntities([]);
+        setAreAllEntitiesSelected(false);
         onChangeFilters([]);
     };
 
@@ -153,6 +160,8 @@ export default function FormByQuestion({ closeModal }: Props) {
                     showCustomSection={resultItemCount === 0}
                     onClickExploreAll={clearAllFilters}
                     onClickClearFilters={clearAllFilters}
+                    areAllEntitiesSelected={areAllEntitiesSelected}
+                    setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                     shouldHideSuggestions
                 />
                 <BulkVerifyPromptModal
@@ -211,6 +220,8 @@ export default function FormByQuestion({ closeModal }: Props) {
                     setSelectedEntities={setSelectedEntities}
                     onChangeSelectAll={onChangeSelectAll}
                     refetch={refetch}
+                    areAllEntitiesSelected={areAllEntitiesSelected}
+                    setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                     isSelectMode
                 />
             )}

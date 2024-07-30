@@ -314,6 +314,7 @@ export const useEntityFormDataFactory = (
         loading,
         filter: {
             formFilter,
+            orFilters: combinedFilters,
             formResponsesFilters,
             setFormResponsesFilters,
         },

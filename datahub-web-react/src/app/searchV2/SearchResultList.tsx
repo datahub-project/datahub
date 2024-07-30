@@ -136,6 +136,7 @@ type Props = {
     setHighlightedIndex: (val: number | null) => void;
     previewType?: PreviewType;
     onCardClick?: (any: any) => any;
+    setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
 };
 
 export const SearchResultList = ({
@@ -151,6 +152,7 @@ export const SearchResultList = ({
     setHighlightedIndex,
     previewType,
     onCardClick,
+    setAreAllEntitiesSelected,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -206,6 +208,7 @@ export const SearchResultList = ({
             setSelectedEntities?.([...selectedEntities, selectedEntity]);
         } else {
             setSelectedEntities?.(selectedEntities?.filter((entity) => entity.urn !== selectedEntity.urn) || []);
+            setAreAllEntitiesSelected?.(false);
         }
     };
 

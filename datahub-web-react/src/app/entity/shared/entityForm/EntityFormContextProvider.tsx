@@ -31,6 +31,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     const [selectedEntity, setSelectedEntity] = useState<Entity | undefined>(entityData as Entity);
     const [selectedPromptId, setSelectedPromptId] = useState<string>();
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
+    const [areAllEntitiesSelected, setAreAllEntitiesSelected] = useState(false);
     const [submittedEntities, setSubmittedEntities] = useState<EntityAndType[]>([]); // used for optimistic render
     const [numSubmittedEntities, setNumSubmittedEntities] = useState<number>(0);
     const [shouldClearFilters, setShouldClearFilters] = useState<boolean>(false);
@@ -215,6 +216,8 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         // Selected Entities
         selectedEntities,
         setSelectedEntities,
+        areAllEntitiesSelected,
+        setAreAllEntitiesSelected,
 
         // Selected Entity
         selectedEntity,
