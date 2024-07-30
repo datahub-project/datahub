@@ -973,6 +973,112 @@ tables_lineage_1 = [
 get_tables_lineage_response_1 = {"TableList": tables_lineage_1}
 
 
+get_databases_response_profiling = {
+    "DatabaseList": [
+        {
+            "Name": "flights-database-profiling",
+            "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+            "CreateTableDefaultPermissions": [
+                {
+                    "Principal": {
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                    },
+                    "Permissions": ["ALL"],
+                }
+            ],
+            "CatalogId": "123412341234",
+            "LocationUri": "s3://test-bucket/test-prefix",
+            "Parameters": {"param1": "value1", "param2": "value2"},
+        },
+    ]
+}
+
+tables_profiling_1 = [
+    {
+        "Name": "avro-profiling",
+        "DatabaseName": "flights-database-profiling",
+        "Owner": "owner",
+        "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "Retention": 0,
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "yr",
+                    "Type": "int",
+                    "Comment": "test comment",
+                    "Parameters": {
+                        "unique_proportion": "2",
+                        "min": "1",
+                        "median": "2",
+                        "max": "10",
+                        "mean": "1",
+                        "null_proportion": "11",
+                        "unique_count": "1",
+                        "stdev": "3",
+                        "null_count": "0",
+                    },
+                },
+                {"Name": "flightdate", "Type": "string"},
+                {"Name": "uniquecarrier", "Type": "string"},
+                {"Name": "airlineid", "Type": "int"},
+                {"Name": "carrier", "Type": "string"},
+                {"Name": "flightnum", "Type": "string"},
+                {"Name": "origin", "Type": "string"},
+            ],
+            "Location": "s3://crawler-public-us-west-2/flight/avro/",
+            "InputFormat": "org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat",
+            "OutputFormat": "org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat",
+            "Compressed": False,
+            "NumberOfBuckets": -1,
+            "SerdeInfo": {
+                "SerializationLibrary": "org.apache.hadoop.hive.serde2.avro.AvroSerDe",
+                "Parameters": {
+                    "avro.schema.literal": '{"type":"record","name":"flights_avro_subset","namespace":"default","fields":[{"name":"yr","type":["null","int"],"default":null},{"name":"flightdate","type":["null","string"],"default":null},{"name":"uniquecarrier","type":["null","string"],"default":null},{"name":"airlineid","type":["null","int"],"default":null},{"name":"carrier","type":["null","string"],"default":null},{"name":"flightnum","type":["null","string"],"default":null},{"name":"origin","type":["null","string"],"default":null},{"name":"dest","type":["null","string"],"default":null},{"name":"depdelay","type":["null","int"],"default":null},{"name":"carrierdelay","type":["null","int"],"default":null},{"name":"weatherdelay","type":["null","int"],"default":null}]}',
+                    "serialization.format": "1",
+                },
+            },
+            "BucketColumns": [],
+            "SortColumns": [],
+            "Parameters": {
+                "CrawlerSchemaDeserializerVersion": "1.0",
+                "CrawlerSchemaSerializerVersion": "1.0",
+                "UPDATED_BY_CRAWLER": "flights-crawler",
+                "averageRecordSize": "55",
+                "avro.schema.literal": '{"type":"record","name":"flights_avro_subset","namespace":"default","fields":[{"name":"yr","type":["null","int"],"default":null},{"name":"flightdate","type":["null","string"],"default":null},{"name":"uniquecarrier","type":["null","string"],"default":null},{"name":"airlineid","type":["null","int"],"default":null},{"name":"carrier","type":["null","string"],"default":null},{"name":"flightnum","type":["null","string"],"default":null},{"name":"origin","type":["null","string"],"default":null},{"name":"dest","type":["null","string"],"default":null},{"name":"depdelay","type":["null","int"],"default":null},{"name":"carrierdelay","type":["null","int"],"default":null},{"name":"weatherdelay","type":["null","int"],"default":null}]}',
+                "classification": "avro",
+                "compressionType": "none",
+                "objectCount": "30",
+                "recordCount": "169222196",
+                "sizeKey": "9503351413",
+                "typeOfData": "file",
+            },
+            "StoredAsSubDirectories": False,
+        },
+        "PartitionKeys": [],
+        "TableType": "EXTERNAL_TABLE",
+        "Parameters": {
+            "CrawlerSchemaDeserializerVersion": "1.0",
+            "CrawlerSchemaSerializerVersion": "1.0",
+            "UPDATED_BY_CRAWLER": "flights-crawler",
+            "averageRecordSize": "55",
+            "avro.schema.literal": '{"type":"record","name":"flights_avro_subset","namespace":"default","fields":[{"name":"yr","type":["null","int"],"default":null},{"name":"flightdate","type":["null","string"],"default":null},{"name":"uniquecarrier","type":["null","string"],"default":null},{"name":"airlineid","type":["null","int"],"default":null},{"name":"carrier","type":["null","string"],"default":null},{"name":"flightnum","type":["null","string"],"default":null},{"name":"origin","type":["null","string"],"default":null},{"name":"dest","type":["null","string"],"default":null},{"name":"depdelay","type":["null","int"],"default":null},{"name":"carrierdelay","type":["null","int"],"default":null},{"name":"weatherdelay","type":["null","int"],"default":null}]}',
+            "classification": "avro",
+            "compressionType": "none",
+            "objectCount": "30",
+            "recordCount": "169222196",
+            "sizeKey": "9503351413",
+            "typeOfData": "file",
+        },
+        "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole-flights-crawler/AWS-Crawler",
+        "IsRegisteredWithLakeFormation": False,
+        "CatalogId": "123412341234",
+    }
+]
+get_tables_response_profiling_1 = {"TableList": tables_profiling_1}
+
+
 def mock_get_object_response(raw_body: str) -> Dict[str, Any]:
     """
     Mock s3 client get_object() response object.

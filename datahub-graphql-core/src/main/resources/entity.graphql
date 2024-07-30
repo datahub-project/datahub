@@ -1267,6 +1267,11 @@ input RelationshipsInput {
   The number of results to be returned
   """
   count: Int
+
+  """
+  Whether to include soft-deleted, related, entities
+  """
+  includeSoftDelete: Boolean = true
 }
 
 """
