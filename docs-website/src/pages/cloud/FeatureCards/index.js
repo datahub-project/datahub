@@ -7,7 +7,7 @@ import { CheckCircleOutlined } from "@ant-design/icons";
 const data = {
   sections: [
     {
-      title: "Search and Discovery",
+      title: "Data Discovery",
       icon: "/img/assets/data-discovery.svg",
       cloudPageLink: "https://www.acryldata.io/acryl-datahub",
       cloudBenefits: [

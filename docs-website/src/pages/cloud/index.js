@@ -64,7 +64,7 @@ function Home() {
         </Section>
       </div>
       <div className={clsx("hero", styles.hero)}>
-        <div className="container">
+        <div className="container" style={{ paddingTop: '12vh', paddingBottom: '12vh' }}>
           <div className="hero__content">
             <div>
               <h1 className="hero__title">Get your free trial.</h1>
@@ -78,7 +78,7 @@ function Home() {
               </Link>
               <hr style={{margin: "3rem"}}/>
               <div className="hero__subtitle">
-                An extension of the DataHub Core project.  <a href="/docs/managed-datahub/managed-datahub-overview">View Cloud Docs.</a>
+                An extension of the DataHub Core project.<br/><a href="/docs/managed-datahub/managed-datahub-overview">View Cloud Docs.</a>
               </div>
             </div>
           </div>
