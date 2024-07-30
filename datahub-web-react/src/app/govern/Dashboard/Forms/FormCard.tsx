@@ -1,8 +1,11 @@
-import { Typography } from 'antd';
+import { Dropdown, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useHistory } from 'react-router';
+import { Icon } from '@components';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
+import { MenuItem } from './styledComponents';
 
 const FormName = styled(Typography.Text)`
     font-size: 14px;
@@ -71,6 +74,7 @@ const CardContainer = styled.div`
 
 interface Props {
     formData: {
+        urn: string;
         formInfo: {
             name: string;
             description: string;
@@ -79,10 +83,32 @@ interface Props {
 }
 
 const FormCard = ({ formData }: Props) => {
+    const history = useHistory();
+
+    const items = [
+        {
+            key: '0',
+            label: (
+                <MenuItem onClick={() => history.push(`/govern/dashboard/edit-form/${formData.urn}`)}>
+                    <Icon icon="EditNote" /> Edit
+                </MenuItem>
+            ),
+        },
+        {
+            key: '1',
+            label: (
+                <MenuItem>
+                    <Icon icon="Delete" /> Delete
+                </MenuItem>
+            ),
+        },
+    ];
     return (
         <CardContainer>
             <OptionsDropdown>
-                <StyledMoreIcon />
+                <Dropdown menu={{ items }}>
+                    <StyledMoreIcon />
+                </Dropdown>
             </OptionsDropdown>
             <Thumbnail />
             <FormContent>

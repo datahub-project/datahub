@@ -1,18 +1,16 @@
-import React from 'react';
-import { Text } from '@components';
-import { FormColorIcon, FormHeaderContainer, FormHeaderText } from './styledComponents';
+import React, { useContext } from 'react';
+import { FormColorIcon, FormDescription, FormHeaderContainer, FormHeaderText, FormName } from './styledComponents';
+import ManageFormContext from './ManageFormContext';
 
 const FormHeader = () => {
+    const { formValues } = useContext(ManageFormContext);
+
     return (
         <FormHeaderContainer>
             <FormColorIcon />
             <FormHeaderText>
-                <Text color="white" size="lg" weight="black">
-                    Form name
-                </Text>
-                <Text color="white" size="md" weight="light">
-                    Description
-                </Text>
+                <FormName $width="65%">{formValues.formName || 'Form Name'}</FormName>
+                <FormDescription $width="80%">{formValues.formDescription || 'Description'}</FormDescription>
             </FormHeaderText>
         </FormHeaderContainer>
     );

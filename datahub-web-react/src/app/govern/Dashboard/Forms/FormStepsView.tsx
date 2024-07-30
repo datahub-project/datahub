@@ -1,5 +1,4 @@
 import React, { useContext } from 'react';
-import { formSteps } from './formUtils';
 import {
     FormStepsContainer,
     FlexBox,
@@ -12,8 +11,9 @@ import {
 import ManageFormContext from './ManageFormContext';
 import ActiveStep from '../../../../images/active-form-step.svg?react';
 import InactiveStep from '../../../../images/inactive-form-step.svg?react';
+import { formSteps } from './formSteps';
 
-const FormSteps = () => {
+const FormStepsView = () => {
     const { currentStep } = useContext(ManageFormContext);
     return (
         <FormStepsContainer>
@@ -36,4 +36,4 @@ const FormSteps = () => {
     );
 };
 
-export default FormSteps;
+export default FormStepsView;

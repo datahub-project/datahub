@@ -71,3 +71,15 @@ query getFormsForActor($input: GetFormsForActorInput) {
         }
     }
 }
+
+mutation createForm($input: CreateFormInput!) {
+    createForm(input: $input) {
+        ...formFields
+    }
+}
+
+mutation updateForm($input: UpdateFormInput!) {
+    updateForm(input: $input) {
+        ...formFields
+    }
+}

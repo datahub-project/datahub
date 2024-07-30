@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { FlexBox, FormContentContainer, StepDescription, StepNameHeading } from './styledComponents';
 import ManageFormContext from './ManageFormContext';
-import { formSteps } from './formUtils';
+import { formSteps } from './formSteps';
 
 const FormContent = () => {
     const { currentStep } = useContext(ManageFormContext);

@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Spin, Typography } from 'antd';
 import styled from 'styled-components';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { colors } from '../../../../alchemy-components';
@@ -99,6 +99,10 @@ export const Body = styled.div`
     flex: 1;
     background-color: white;
     border-radius: 8px;
+
+    .ant-spin-nested-loading {
+        height: 100%;
+    }
 `;
 
 export const FormContentContainer = styled.div`
@@ -121,9 +125,12 @@ export const FormHeaderText = styled.div`
     display: flex;
     flex-direction: column;
     gap: 2px;
+    max-width: 800px;
+    width: 100%;
 
-    p {
+    span {
         line-height: normal;
+        color: ${REDESIGN_COLORS.WHITE};
     }
 `;
 
@@ -172,7 +179,6 @@ export const StepDescription = styled(Typography.Text)`
 export const FormFieldsContainer = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 28px;
     max-width: 400px;
 `;
 
@@ -182,4 +188,33 @@ export const NextStepText = styled(Typography.Text)`
     opacity: 0.6;
     color: ${REDESIGN_COLORS.GREY_300};
     line-height: normal;
+`;
+
+export const MenuItem = styled.div`
+    display: flex;
+    gap: 5px;
+    padding: 2px 20px 2px 4px;
+    color: ${REDESIGN_COLORS.BODY_TEXT_GREY};
+`;
+
+export const StyledSpin = styled(Spin)`
+    max-height: 100% !important;
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+`;
+
+export const TruncatedText = styled(Typography.Text)<{ $width: string }>`
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: ${(props) => props.$width};
+`;
+
+export const FormName = styled(TruncatedText)`
+    font-size: 16px;
+    font-weight: 700;
+`;
+
+export const FormDescription = styled(TruncatedText)`
+    font-size: 14px;
+    font-weight: 400;
 `;
