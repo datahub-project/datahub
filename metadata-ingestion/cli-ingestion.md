@@ -61,14 +61,14 @@ The **source** configuration block defines where to extract metadata from. This 
 
 The **sink** configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](sink_overview.md) documentation.
 
-To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your Acryl instance's domain suffixed by the path `/gms`, as shown below.
+To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your DataHub Cloud instance's domain suffixed by the path `/gms`, as shown below.
 A complete example of a DataHub recipe file, which reads from MySQL and writes into a DataHub instance:
 
 For more information and examples on configuring recipes, please refer to [Recipes](recipe_overview.md).
 
 
 ### Using Recipes with Authentication
-In Acryl DataHub deployments, only the `datahub-rest` sink is supported, which simply means that metadata will be pushed to the REST endpoints exposed by your DataHub instance. The required configurations for this sink are
+In DataHub Cloud deployments, only the `datahub-rest` sink is supported, which simply means that metadata will be pushed to the REST endpoints exposed by your DataHub instance. The required configurations for this sink are
 
 1. **server**: the location of the REST API exposed by your instance of DataHub
 2. **token**: a unique API key used to authenticate requests to your instance's REST API
@@ -85,7 +85,7 @@ The token can be retrieved by logging in as admin. You can go to Settings page a
 
 :::info Secure Your API Key
 Please keep Your API key secure & avoid sharing it. 
-If you are on Acryl Cloud and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.
+If you are on DataHub Cloud and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.
 :::
 
 

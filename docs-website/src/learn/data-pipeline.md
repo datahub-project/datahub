@@ -61,7 +61,7 @@ Some companies resort to manual debugging or use communication tools like Slack 
 
 ### Our Solution
 
-Acryl DataHub offers comprehensive features designed to optimize data pipelines:
+DataHub Cloud offers comprehensive features designed to optimize data pipelines:
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-pipeline/lineage-tracking.png"/>
