@@ -41,6 +41,8 @@ slack_bot_scopes = [
     "mpim:history",
     "mpim:read",
     "metadata.message:read",
+    # Required to get workspace ID and create links to user profiles
+    "team:read",
     # Allows the bot to join a public channel when someone configures notifications to be sent to one
     "channels:join",
     # Required to unfurl links.
