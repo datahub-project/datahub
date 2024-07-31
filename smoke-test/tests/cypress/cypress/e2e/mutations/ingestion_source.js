@@ -11,6 +11,7 @@ describe("ingestion source creation flow", () => {
     // Go to ingestion page, create a snowflake source
     cy.loginWithCredentials();
     cy.goToIngestionPage();
+    cy.clickOptionWithId('[data-node-key="Sources"]');
     cy.clickOptionWithTestId("create-ingestion-source-button");
     cy.clickOptionWithText("Snowflake");
     cy.waitTextVisible("Snowflake Details");

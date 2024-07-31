@@ -126,7 +126,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Run lint on smoke test
         if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         run: |
@@ -145,7 +145,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -209,7 +209,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -273,7 +273,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -337,7 +337,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -401,7 +401,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
@@ -643,7 +643,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build codegen
@@ -730,7 +730,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build codegen
@@ -857,7 +857,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
@@ -1024,18 +1024,18 @@ jobs:
           docker logs datahub-datahub-frontend-react-1 >& frontend-${{ matrix.test_strategy }}.log || true
           docker logs datahub-upgrade-1 >& upgrade-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: docker logs
           path: "*.log"
       - name: Upload screenshots
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}
           path: smoke-test/tests/cypress/cypress/screenshots/
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Test Results (smoke tests) ${{ matrix.test_strategy }}

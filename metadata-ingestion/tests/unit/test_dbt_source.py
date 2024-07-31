@@ -148,7 +148,7 @@ def test_dbt_source_patching_tags():
         ["new_non_dbt", "dbt:new_dbt"]
     )
     transformed_tags = source.get_transformed_tags_by_prefix(
-        new_tag_aspect.tags, "urn:li:dataset:dummy", "urn:li:tag:dbt:"
+        new_tag_aspect.tags, "urn:li:dataset:dummy", "dbt:"
     )
     expected_tags = {
         "urn:li:tag:new_non_dbt",
@@ -224,6 +224,32 @@ def test_dbt_config_skip_sources_in_lineage():
     }
     config = DBTCoreConfig.parse_obj(config_dict)
     assert config.skip_sources_in_lineage is True
+
+
+def test_dbt_config_prefer_sql_parser_lineage():
+    with pytest.raises(
+        ValidationError,
+        match="prefer_sql_parser_lineage.*requires.*skip_sources_in_lineage",
+    ):
+        config_dict = {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "dummy_platform",
+            "prefer_sql_parser_lineage": True,
+        }
+        config = DBTCoreConfig.parse_obj(config_dict)
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "skip_sources_in_lineage": True,
+        "entities_enabled": {"sources": "NO"},
+        "prefer_sql_parser_lineage": True,
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.skip_sources_in_lineage is True
+    assert config.prefer_sql_parser_lineage is True
 
 
 def test_dbt_s3_config():

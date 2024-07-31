@@ -252,6 +252,9 @@ class Pipeline:
             )
 
         if self.config.sink is None:
+            logger.info(
+                "No sink configured, attempting to use the default datahub-rest sink."
+            )
             with _add_init_error_context("configure the default rest sink"):
                 self.sink_type = "datahub-rest"
                 self.sink = _make_default_rest_sink(self.ctx)
@@ -379,13 +382,19 @@ class Pipeline:
         for reporter in self.reporters:
             try:
                 reporter.on_completion(
-                    status="CANCELLED"
-                    if self.final_status == PipelineStatus.CANCELLED
-                    else "FAILURE"
-                    if self.has_failures()
-                    else "SUCCESS"
-                    if self.final_status == PipelineStatus.COMPLETED
-                    else "UNKNOWN",
+                    status=(
+                        "CANCELLED"
+                        if self.final_status == PipelineStatus.CANCELLED
+                        else (
+                            "FAILURE"
+                            if self.has_failures()
+                            else (
+                                "SUCCESS"
+                                if self.final_status == PipelineStatus.COMPLETED
+                                else "UNKNOWN"
+                            )
+                        )
+                    ),
                     report=self._get_structured_report(),
                     ctx=self.ctx,
                 )
@@ -425,7 +434,7 @@ class Pipeline:
             return True
         return False
 
-    def run(self) -> None:
+    def run(self) -> None:  # noqa: C901
         with contextlib.ExitStack() as stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
@@ -435,6 +444,8 @@ class Pipeline:
                         f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
                     )
                 )
+
+            stack.enter_context(self.sink)
 
             self.final_status = PipelineStatus.UNKNOWN
             self._notify_reporters_on_ingestion_start()
@@ -460,7 +471,17 @@ class Pipeline:
                     if not self.dry_run:
                         self.sink.handle_work_unit_start(wu)
                     try:
-                        record_envelopes = self.extractor.get_records(wu)
+                        # Most of this code is meant to be fully stream-based instead of generating all records into memory.
+                        # However, the extractor in particular will never generate a particularly large list. We want the
+                        # exception reporting to be associated with the source, and not the transformer. As such, we
+                        # need to materialize the generator returned by get_records().
+                        record_envelopes = list(self.extractor.get_records(wu))
+                    except Exception as e:
+                        self.source.get_report().failure(
+                            "Source produced bad metadata", context=wu.id, exc=e
+                        )
+                        continue
+                    try:
                         for record_envelope in self.transform(record_envelopes):
                             if not self.dry_run:
                                 try:
@@ -482,9 +503,9 @@ class Pipeline:
                         )
                         # TODO: Transformer errors should cause the pipeline to fail.
 
-                    self.extractor.close()
                     if not self.dry_run:
                         self.sink.handle_work_unit_end(wu)
+                self.extractor.close()
                 self.source.close()
                 # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
                 for record_envelope in self.transform(
@@ -517,8 +538,6 @@ class Pipeline:
                     callback.close()  # type: ignore
 
                 self._notify_reporters_on_ingestion_completion()
-
-                self.sink.close()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """

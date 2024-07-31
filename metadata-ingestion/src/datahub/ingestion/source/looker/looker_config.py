@@ -256,7 +256,7 @@ class LookerDashboardSourceConfig(
         "ingest dashboards in the Shared folder space.",
     )
     max_threads: int = Field(
-        os.cpu_count() or 40,
+        default_factory=lambda: os.cpu_count() or 40,
         description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
     )
     external_base_url: Optional[str] = Field(
@@ -286,11 +286,16 @@ class LookerDashboardSourceConfig(
     )
     extract_independent_looks: bool = Field(
         False,
-        description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion should also be enabled.",
+        description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion "
+        "should also be enabled.",
     )
     emit_used_explores_only: bool = Field(
         True,
         description="When enabled, only explores that are used by a Dashboard/Look will be ingested.",
+    )
+    include_platform_instance_in_urns: bool = Field(
+        False,
+        description="When enabled, platform instance will be added in dashboard and chart urn.",
     )
 
     @validator("external_base_url", pre=True, always=True)

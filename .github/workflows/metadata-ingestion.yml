@@ -51,7 +51,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v4
         with:
@@ -83,7 +83,7 @@ jobs:
           df -hl
           docker image ls
           docker system df
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Test Results (metadata ingestion ${{ matrix.python-version }})
           path: |
@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}

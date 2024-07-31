@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import logging
 from abc import ABCMeta, abstractmethod
@@ -10,6 +11,7 @@ from typing import (
     Dict,
     Generic,
     Iterable,
+    Iterator,
     List,
     Optional,
     Sequence,
@@ -44,6 +46,8 @@ from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
 logger = logging.getLogger(__name__)
+
+_MAX_CONTEXT_STRING_LENGTH = 300
 
 
 class SourceCapability(Enum):
@@ -95,6 +99,7 @@ class StructuredLogs(Report):
         context: Optional[str] = None,
         exc: Optional[BaseException] = None,
         log: bool = False,
+        stacklevel: int = 1,
     ) -> None:
         """
         Report a user-facing warning for the ingestion run.
@@ -107,12 +112,18 @@ class StructuredLogs(Report):
             exc: The exception associated with the event. We'll show the stack trace when in debug mode.
         """
 
-        stacklevel = 2
+        # One for this method, and one for the containing report_* call.
+        stacklevel = stacklevel + 2
 
         log_key = f"{title}-{message}"
         entries = self._entries[level]
 
+        if context and len(context) > _MAX_CONTEXT_STRING_LENGTH:
+            context = f"{context[:_MAX_CONTEXT_STRING_LENGTH]} ..."
+
         log_content = f"{message} => {context}" if context else message
+        if title:
+            log_content = f"{title}: {log_content}"
         if exc:
             log_content += f"{log_content}: {exc}"
 
@@ -126,7 +137,10 @@ class StructuredLogs(Report):
                 )
 
             # Add the simple exception details to the context.
-            context = f"{context}: {exc}"
+            if context:
+                context = f"{context} {type(exc)}: {exc}"
+            else:
+                context = f"{type(exc)}: {exc}"
         elif log:
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 
@@ -250,9 +264,10 @@ class SourceReport(Report):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=False
+            StructuredLogLevel.ERROR, message, title, context, exc, log=log
         )
 
     def failure(
@@ -261,9 +276,10 @@ class SourceReport(Report):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=True
+            StructuredLogLevel.ERROR, message, title, context, exc, log=log
         )
 
     def info(
@@ -272,10 +288,29 @@ class SourceReport(Report):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.INFO, message, title, context, exc, log=True
+            StructuredLogLevel.INFO, message, title, context, exc, log=log
         )
+
+    @contextlib.contextmanager
+    def report_exc(
+        self,
+        message: LiteralString,
+        title: Optional[LiteralString] = None,
+        context: Optional[str] = None,
+        level: StructuredLogLevel = StructuredLogLevel.ERROR,
+    ) -> Iterator[None]:
+        # Convenience method that helps avoid boilerplate try/except blocks.
+        # TODO: I'm not super happy with the naming here - it's not obvious that this
+        # suppresses the exception in addition to reporting it.
+        try:
+            yield
+        except Exception as exc:
+            self._structured_logs.report_log(
+                level, message=message, title=title, context=context, exc=exc
+            )
 
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()

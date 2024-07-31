@@ -1,10 +1,6 @@
-import concurrent.futures
 import itertools
 import logging
-import queue
 from typing import Dict, Iterable, List, Optional, Union
-
-from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
@@ -14,6 +10,7 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
@@ -32,6 +29,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -49,11 +50,10 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
 from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeCommonProtocol,
-    SnowflakeConnectionMixin,
-    SnowflakePermissionError,
-    SnowflakeQueryMixin,
+    SnowflakeFilter,
+    SnowflakeIdentifierBuilder,
+    SnowflakeStructuredReportMixin,
+    SnowsightUrlBuilder,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -98,6 +98,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -140,29 +141,30 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 }
 
 
-class SnowflakeSchemaGenerator(
-    SnowflakeQueryMixin,
-    SnowflakeConnectionMixin,
-    SnowflakeCommonMixin,
-    SnowflakeCommonProtocol,
-):
+class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
+    platform = "snowflake"
+
     def __init__(
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
         connection: SnowflakeConnection,
+        filters: SnowflakeFilter,
+        identifiers: SnowflakeIdentifierBuilder,
         domain_registry: Optional[DomainRegistry],
         profiler: Optional[SnowflakeProfiler],
         aggregator: Optional[SqlParsingAggregator],
-        snowsight_base_url: Optional[str],
+        snowsight_url_builder: Optional[SnowsightUrlBuilder],
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
         self.connection: SnowflakeConnection = connection
-        self.logger = logger
+        self.filters: SnowflakeFilter = filters
+        self.identifiers: SnowflakeIdentifierBuilder = identifiers
 
-        self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary()
-        self.data_dictionary.set_connection(self.connection)
+        self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary(
+            connection=self.connection
+        )
         self.report.data_dictionary_cache = self.data_dictionary
 
         self.domain_registry: Optional[DomainRegistry] = domain_registry
@@ -171,7 +173,9 @@ class SnowflakeSchemaGenerator(
             config, self.data_dictionary, self.report
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
-        self.snowsight_base_url: Optional[str] = snowsight_base_url
+        self.snowsight_url_builder: Optional[
+            SnowsightUrlBuilder
+        ] = snowsight_url_builder
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
@@ -180,11 +184,21 @@ class SnowflakeSchemaGenerator(
     def get_connection(self) -> SnowflakeConnection:
         return self.connection
 
+    @property
+    def structured_reporter(self) -> SourceReport:
+        return self.report
+
+    def gen_dataset_urn(self, dataset_identifier: str) -> str:
+        return self.identifiers.gen_dataset_urn(dataset_identifier)
+
+    def snowflake_identifier(self, identifier: str) -> str:
+        return self.identifiers.snowflake_identifier(identifier)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.databases = []
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
-            if not self.config.database_pattern.allowed(database.name):
+            if not self.filters.filter_config.database_pattern.allowed(database.name):
                 self.report.report_dropped(f"{database.name}.*")
             else:
                 self.databases.append(database)
@@ -198,7 +212,10 @@ class SnowflakeSchemaGenerator(
                 yield from self._process_database(snowflake_db)
 
         except SnowflakePermissionError as e:
-            self.report_error(GENERIC_PERMISSION_ERROR_KEY, str(e))
+            self.structured_reporter.failure(
+                GENERIC_PERMISSION_ERROR_KEY,
+                exc=e,
+            )
             return
 
     def get_databases(self) -> Optional[List[SnowflakeDatabase]]:
@@ -207,10 +224,9 @@ class SnowflakeSchemaGenerator(
             # whose information_schema can be queried to start with.
             databases = self.data_dictionary.show_databases()
         except Exception as e:
-            logger.debug(f"Failed to list databases due to error {e}", exc_info=e)
-            self.report_error(
-                "list-databases",
-                f"Failed to list databases due to error {e}",
+            self.structured_reporter.failure(
+                "Failed to list databases",
+                exc=e,
             )
             return None
         else:
@@ -219,7 +235,7 @@ class SnowflakeSchemaGenerator(
             ] = self.get_databases_from_ischema(databases)
 
             if len(ischema_databases) == 0:
-                self.report_error(
+                self.structured_reporter.failure(
                     GENERIC_PERMISSION_ERROR_KEY,
                     "No databases found. Please check permissions.",
                 )
@@ -262,7 +278,7 @@ class SnowflakeSchemaGenerator(
                 # This may happen if REFERENCE_USAGE permissions are set
                 # We can not run show queries on database in such case.
                 # This need not be a failure case.
-                self.report_warning(
+                self.structured_reporter.warning(
                     "Insufficient privileges to operate on database, skipping. Please grant USAGE permissions on database to extract its metadata.",
                     db_name,
                 )
@@ -271,9 +287,8 @@ class SnowflakeSchemaGenerator(
                     f"Failed to use database {db_name} due to error {e}",
                     exc_info=e,
                 )
-                self.report_warning(
-                    "Failed to get schemas for database",
-                    db_name,
+                self.structured_reporter.warning(
+                    "Failed to get schemas for database", db_name, exc=e
                 )
             return
 
@@ -304,41 +319,22 @@ class SnowflakeSchemaGenerator(
         snowflake_db: SnowflakeDatabase,
         db_tables: Dict[str, List[SnowflakeTable]],
     ) -> Iterable[MetadataWorkUnit]:
-        q: "queue.Queue[MetadataWorkUnit]" = queue.Queue(maxsize=100)
-
-        def _process_schema_worker(snowflake_schema: SnowflakeSchema) -> None:
+        def _process_schema_worker(
+            snowflake_schema: SnowflakeSchema,
+        ) -> Iterable[MetadataWorkUnit]:
             for wu in self._process_schema(
                 snowflake_schema, snowflake_db.name, db_tables
             ):
-                q.put(wu)
+                yield wu
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=SCHEMA_PARALLELISM
-        ) as executor:
-            futures = []
-            for snowflake_schema in snowflake_db.schemas:
-                f = executor.submit(_process_schema_worker, snowflake_schema)
-                futures.append(f)
-
-            # Read from the queue and yield the work units until all futures are done.
-            while True:
-                if not q.empty():
-                    while not q.empty():
-                        yield q.get_nowait()
-                else:
-                    try:
-                        yield q.get(timeout=0.2)
-                    except queue.Empty:
-                        pass
-
-                # Filter out the done futures.
-                futures = [f for f in futures if not f.done()]
-                if not futures:
-                    break
-
-        # Yield the remaining work units. This theoretically should not happen, but adding it just in case.
-        while not q.empty():
-            yield q.get_nowait()
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=_process_schema_worker,
+            args_list=[
+                (snowflake_schema,) for snowflake_schema in snowflake_db.schemas
+            ],
+            max_workers=SCHEMA_PARALLELISM,
+        ):
+            yield wu
 
     def fetch_schemas_for_database(
         self, snowflake_db: SnowflakeDatabase, db_name: str
@@ -348,10 +344,10 @@ class SnowflakeSchemaGenerator(
             for schema in self.data_dictionary.get_schemas_for_database(db_name):
                 self.report.report_entity_scanned(schema.name, "schema")
                 if not is_schema_allowed(
-                    self.config.schema_pattern,
+                    self.filters.filter_config.schema_pattern,
                     schema.name,
                     db_name,
-                    self.config.match_fully_qualified_names,
+                    self.filters.filter_config.match_fully_qualified_names,
                 ):
                     self.report.report_dropped(f"{db_name}.{schema.name}.*")
                 else:
@@ -362,17 +358,14 @@ class SnowflakeSchemaGenerator(
                 # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
                 raise SnowflakePermissionError(error_msg) from e.__cause__
             else:
-                logger.debug(
-                    f"Failed to get schemas for database {db_name} due to error {e}",
-                    exc_info=e,
-                )
-                self.report_warning(
+                self.structured_reporter.warning(
                     "Failed to get schemas for database",
                     db_name,
+                    exc=e,
                 )
 
         if not schemas:
-            self.report_warning(
+            self.structured_reporter.warning(
                 "No schemas found in database. If schemas exist, please grant USAGE permissions on them.",
                 db_name,
             )
@@ -427,12 +420,12 @@ class SnowflakeSchemaGenerator(
                 and self.config.parse_view_ddl
             ):
                 for view in views:
-                    view_identifier = self.get_dataset_identifier(
+                    view_identifier = self.identifiers.get_dataset_identifier(
                         view.name, schema_name, db_name
                     )
                     if view.view_definition:
                         self.aggregator.add_view_definition(
-                            view_urn=self.gen_dataset_urn(view_identifier),
+                            view_urn=self.identifiers.gen_dataset_urn(view_identifier),
                             view_definition=view.view_definition,
                             default_db=db_name,
                             default_schema=schema_name,
@@ -447,9 +440,10 @@ class SnowflakeSchemaGenerator(
                 yield from self._process_tag(tag)
 
         if not snowflake_schema.views and not snowflake_schema.tables:
-            self.report_warning(
-                "No tables/views found in schema. If tables exist, please grant REFERENCES or SELECT permissions on them.",
-                f"{db_name}.{schema_name}",
+            self.structured_reporter.warning(
+                title="No tables/views found in schema",
+                message="If tables exist, please grant REFERENCES or SELECT permissions on them.",
+                context=f"{db_name}.{schema_name}",
             )
 
     def fetch_views_for_schema(
@@ -458,11 +452,13 @@ class SnowflakeSchemaGenerator(
         try:
             views: List[SnowflakeView] = []
             for view in self.get_views_for_schema(schema_name, db_name):
-                view_name = self.get_dataset_identifier(view.name, schema_name, db_name)
+                view_name = self.identifiers.get_dataset_identifier(
+                    view.name, schema_name, db_name
+                )
 
                 self.report.report_entity_scanned(view_name, "view")
 
-                if not self.config.view_pattern.allowed(view_name):
+                if not self.filters.filter_config.view_pattern.allowed(view_name):
                     self.report.report_dropped(view_name)
                 else:
                     views.append(view)
@@ -475,13 +471,10 @@ class SnowflakeSchemaGenerator(
 
                 raise SnowflakePermissionError(error_msg) from e.__cause__
             else:
-                logger.debug(
-                    f"Failed to get views for schema {db_name}.{schema_name} due to error {e}",
-                    exc_info=e,
-                )
-                self.report_warning(
+                self.structured_reporter.warning(
                     "Failed to get views for schema",
                     f"{db_name}.{schema_name}",
+                    exc=e,
                 )
                 return []
 
@@ -491,11 +484,13 @@ class SnowflakeSchemaGenerator(
         try:
             tables: List[SnowflakeTable] = []
             for table in self.get_tables_for_schema(schema_name, db_name):
-                table_identifier = self.get_dataset_identifier(
+                table_identifier = self.identifiers.get_dataset_identifier(
                     table.name, schema_name, db_name
                 )
                 self.report.report_entity_scanned(table_identifier)
-                if not self.config.table_pattern.allowed(table_identifier):
+                if not self.filters.filter_config.table_pattern.allowed(
+                    table_identifier
+                ):
                     self.report.report_dropped(table_identifier)
                 else:
                     tables.append(table)
@@ -507,13 +502,10 @@ class SnowflakeSchemaGenerator(
                 error_msg = f"Failed to get tables for schema {db_name}.{schema_name}. Please check permissions."
                 raise SnowflakePermissionError(error_msg) from e.__cause__
             else:
-                logger.debug(
-                    f"Failed to get tables for schema {db_name}.{schema_name} due to error {e}",
-                    exc_info=e,
-                )
-                self.report_warning(
+                self.structured_reporter.warning(
                     "Failed to get tables for schema",
                     f"{db_name}.{schema_name}",
+                    exc=e,
                 )
                 return []
 
@@ -532,7 +524,9 @@ class SnowflakeSchemaGenerator(
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         schema_name = snowflake_schema.name
-        table_identifier = self.get_dataset_identifier(table.name, schema_name, db_name)
+        table_identifier = self.identifiers.get_dataset_identifier(
+            table.name, schema_name, db_name
+        )
 
         try:
             table.columns = self.get_columns_for_table(
@@ -544,11 +538,9 @@ class SnowflakeSchemaGenerator(
                     table.name, schema_name, db_name
                 )
         except Exception as e:
-            logger.debug(
-                f"Failed to get columns for table {table_identifier} due to error {e}",
-                exc_info=e,
+            self.structured_reporter.warning(
+                "Failed to get columns for table", table_identifier, exc=e
             )
-            self.report_warning("Failed to get columns for table", table_identifier)
 
         if self.config.extract_tags != TagOption.skip:
             table.tags = self.tag_extractor.get_tags_on_object(
@@ -581,11 +573,9 @@ class SnowflakeSchemaGenerator(
                 table.name, schema_name, db_name
             )
         except Exception as e:
-            logger.debug(
-                f"Failed to get foreign key for table {table_identifier} due to error {e}",
-                exc_info=e,
+            self.structured_reporter.warning(
+                "Failed to get foreign keys for table", table_identifier, exc=e
             )
-            self.report_warning("Failed to get foreign key for table", table_identifier)
 
     def fetch_pk_for_table(
         self,
@@ -599,11 +589,9 @@ class SnowflakeSchemaGenerator(
                 table.name, schema_name, db_name
             )
         except Exception as e:
-            logger.debug(
-                f"Failed to get primary key for table {table_identifier} due to error {e}",
-                exc_info=e,
+            self.structured_reporter.warning(
+                "Failed to get primary key for table", table_identifier, exc=e
             )
-            self.report_warning("Failed to get primary key for table", table_identifier)
 
     def _process_view(
         self,
@@ -612,7 +600,9 @@ class SnowflakeSchemaGenerator(
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         schema_name = snowflake_schema.name
-        view_name = self.get_dataset_identifier(view.name, schema_name, db_name)
+        view_name = self.identifiers.get_dataset_identifier(
+            view.name, schema_name, db_name
+        )
 
         try:
             view.columns = self.get_columns_for_table(
@@ -623,11 +613,9 @@ class SnowflakeSchemaGenerator(
                     view.name, schema_name, db_name
                 )
         except Exception as e:
-            logger.debug(
-                f"Failed to get columns for view {view_name} due to error {e}",
-                exc_info=e,
+            self.structured_reporter.warning(
+                "Failed to get columns for view", view_name, exc=e
             )
-            self.report_warning("Failed to get columns for view", view_name)
 
         if self.config.extract_tags != TagOption.skip:
             view.tags = self.tag_extractor.get_tags_on_object(
@@ -663,8 +651,10 @@ class SnowflakeSchemaGenerator(
             for tag in table.column_tags[column_name]:
                 yield from self._process_tag(tag)
 
-        dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-        dataset_urn = self.gen_dataset_urn(dataset_name)
+        dataset_name = self.identifiers.get_dataset_identifier(
+            table.name, schema_name, db_name
+        )
+        dataset_urn = self.identifiers.gen_dataset_urn(dataset_name)
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
@@ -739,7 +729,11 @@ class SnowflakeSchemaGenerator(
             view_properties_aspect = ViewProperties(
                 materialized=table.materialized,
                 viewLanguage="SQL",
-                viewLogic=table.view_definition,
+                viewLogic=(
+                    table.view_definition
+                    if self.config.include_view_definitions
+                    else ""
+                ),
             )
 
             yield MetadataChangeProposalWrapper(
@@ -762,17 +756,13 @@ class SnowflakeSchemaGenerator(
             lastModified=(
                 TimeStamp(time=int(table.last_altered.timestamp() * 1000))
                 if table.last_altered is not None
-                else (
-                    TimeStamp(time=int(table.created.timestamp() * 1000))
-                    if table.created is not None
-                    else None
-                )
+                else None
             ),
             description=table.comment,
             qualifiedName=f"{db_name}.{schema_name}.{table.name}",
             customProperties={},
             externalUrl=(
-                self.get_external_url_for_table(
+                self.snowsight_url_builder.get_external_url_for_table(
                     table.name,
                     schema_name,
                     db_name,
@@ -782,7 +772,7 @@ class SnowflakeSchemaGenerator(
                         else SnowflakeObjectDomain.VIEW
                     ),
                 )
-                if self.config.include_external_url
+                if self.snowsight_url_builder
                 else None
             ),
         )
@@ -805,8 +795,10 @@ class SnowflakeSchemaGenerator(
         schema_name: str,
         db_name: str,
     ) -> SchemaMetadata:
-        dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-        dataset_urn = self.gen_dataset_urn(dataset_name)
+        dataset_name = self.identifiers.get_dataset_identifier(
+            table.name, schema_name, db_name
+        )
+        dataset_urn = self.identifiers.gen_dataset_urn(dataset_name)
 
         foreign_keys: Optional[List[ForeignKeyConstraint]] = None
         if isinstance(table, SnowflakeTable) and len(table.foreign_keys) > 0:
@@ -865,7 +857,7 @@ class SnowflakeSchemaGenerator(
         for fk in table.foreign_keys:
             foreign_dataset = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
-                name=self.get_dataset_identifier(
+                name=self.identifiers.get_dataset_identifier(
                     fk.referred_table, fk.referred_schema, fk.referred_database
                 ),
                 env=self.config.env,
@@ -911,8 +903,8 @@ class SnowflakeSchemaGenerator(
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             external_url=(
-                self.get_external_url_for_database(database.name)
-                if self.config.include_external_url
+                self.snowsight_url_builder.get_external_url_for_database(database.name)
+                if self.snowsight_url_builder
                 else None
             ),
             description=database.comment,
@@ -967,8 +959,10 @@ class SnowflakeSchemaGenerator(
             domain_registry=self.domain_registry,
             description=schema.comment,
             external_url=(
-                self.get_external_url_for_schema(schema.name, db_name)
-                if self.config.include_external_url
+                self.snowsight_url_builder.get_external_url_for_schema(
+                    schema.name, db_name
+                )
+                if self.snowsight_url_builder
                 else None
             ),
             created=(
@@ -979,11 +973,7 @@ class SnowflakeSchemaGenerator(
             last_modified=(
                 int(schema.last_altered.timestamp() * 1000)
                 if schema.last_altered is not None
-                else (
-                    int(schema.created.timestamp() * 1000)
-                    if schema.created is not None
-                    else None
-                )
+                else None
             ),
             tags=(
                 [self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
@@ -1048,23 +1038,3 @@ class SnowflakeSchemaGenerator(
 
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name, [])
-
-    # domain is either "view" or "table"
-    def get_external_url_for_table(
-        self, table_name: str, schema_name: str, db_name: str, domain: str
-    ) -> Optional[str]:
-        if self.snowsight_base_url is not None:
-            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
-        return None
-
-    def get_external_url_for_schema(
-        self, schema_name: str, db_name: str
-    ) -> Optional[str]:
-        if self.snowsight_base_url is not None:
-            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
-        return None
-
-    def get_external_url_for_database(self, db_name: str) -> Optional[str]:
-        if self.snowsight_base_url is not None:
-            return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
-        return None

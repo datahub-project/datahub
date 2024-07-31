@@ -11,8 +11,10 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
-from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_config import (
+    LookerCommonConfig,
+    LookerConnectionDefinition,
+)
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,
@@ -121,7 +123,7 @@ class LookMLSourceConfig(
         AllowDenyPattern.allow_all(),
         description="List of regex patterns for LookML views to include in the extraction.",
     )
-    parse_table_names_from_sql: bool = Field(False, description="See note below.")
+    parse_table_names_from_sql: bool = Field(True, description="See note below.")
     sql_parser: str = Field(
         "datahub.utilities.sql_parser.DefaultSQLParser", description="See note below."
     )
