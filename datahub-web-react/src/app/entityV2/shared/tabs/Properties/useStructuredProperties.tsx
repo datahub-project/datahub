@@ -24,7 +24,10 @@ export function mapStructuredPropertyValues(structuredPropertiesEntry: Structure
         }));
 }
 
-function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: StructuredPropertiesEntry) {
+function mapStructuredPropertyToPropertyRow(
+    structuredPropertiesEntry: StructuredPropertiesEntry,
+    associatedUrn: string,
+) {
     const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
     return {
         displayName: displayName || qualifiedName,
@@ -39,6 +42,7 @@ function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: Structure
                       nativeDataType: typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
                   }
                 : undefined,
+        associatedUrn,
     };
 }
 
@@ -46,8 +50,10 @@ function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: Structure
 function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
 
+    const associatedUrn = entityData?.urn || '';
+
     entityData?.structuredProperties?.properties?.forEach((structuredPropertiesEntry) => {
-        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
+        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry, associatedUrn));
     });
 
     return structuredPropertyRows;
@@ -61,7 +67,9 @@ function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericE
     )?.schemaFieldEntity;
 
     schemaFieldEntity?.structuredProperties?.properties?.forEach((structuredPropertiesEntry) => {
-        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
+        structuredPropertyRows.push(
+            mapStructuredPropertyToPropertyRow(structuredPropertiesEntry, schemaFieldEntity.urn),
+        );
     });
 
     return structuredPropertyRows;
