@@ -212,3 +212,29 @@ def test_unquote_and_decode_unicode_escape_seq():
     expected_output = "No escape sequences here"
     result = unquote_and_decode_unicode_escape_seq(input_string)
     assert result == expected_output
+
+    # Test with invalid Unicode escape sequences
+    input_string = '"No escape \\u123 sequences here"'
+    expected_output = "No escape \\u123 sequences here"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that has multiple Unicode escape sequences
+    input_string = '"Hello \\u003cWorld\\u003e \\u003cAgain\\u003e \\u003cAgain\\u003e \\u003cAgain\\u003e"'
+    expected_output = "Hello <World> <Again> <Again> <Again>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that has a Unicode escape sequence at the beginning
+    input_string = '"Hello \\utest"'
+    expected_output = "Hello \\utest"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with special characters
+    input_string = (
+        '"Hello \\u003cWorld\\u003e \\u003cçãâÁÁà|{}()[].,/;\\+=--_*&%$#@!?\\u003e"'
+    )
+    expected_output = "Hello <World> <çãâÁÁà|{}()[].,/;\\+=--_*&%$#@!?>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output

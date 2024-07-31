@@ -974,6 +974,12 @@ fragment entityField on SchemaFieldEntity {
     parent {
         urn
         type
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+        }
     }
     fieldPath
     structuredProperties {

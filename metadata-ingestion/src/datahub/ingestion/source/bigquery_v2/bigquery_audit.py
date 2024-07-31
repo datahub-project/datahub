@@ -80,8 +80,8 @@ class BigqueryTableIdentifier:
 
     @classmethod
     def from_string_name(cls, table: str) -> "BigqueryTableIdentifier":
-        parts = table.split(".")
-        # If the table name contains dollar sign, it is a referrence to a partitioned table and we have to strip it
+        parts = table.split(".", maxsplit=2)
+        # If the table name contains dollar sign, it is a reference to a partitioned table and we have to strip it
         table = parts[2].split("$", 1)[0]
         return cls(parts[0], parts[1], table)
 
@@ -192,7 +192,7 @@ class BigQueryTableRef:
     def from_urn(cls, urn: str) -> "BigQueryTableRef":
         """Raises: ValueError if urn is not a valid BigQuery table URN."""
         dataset_urn = DatasetUrn.create_from_string(urn)
-        split = dataset_urn.get_dataset_name().rsplit(".", 3)
+        split = dataset_urn.name.rsplit(".", 3)
         if len(split) == 3:
             project, dataset, table = split
         else:

@@ -147,7 +147,7 @@ class GEProfilingConfig(ConfigModel):
 
     partition_profiling_enabled: bool = Field(
         default=True,
-        description="Whether to profile partitioned tables. Only BigQuery supports this. "
+        description="Whether to profile partitioned tables. Only BigQuery and Aws Athena supports this. "
         "If enabled, latest partition data is used for profiling.",
     )
     partition_datetime: Optional[datetime.datetime] = Field(

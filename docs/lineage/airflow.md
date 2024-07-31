@@ -45,7 +45,7 @@ Set up a DataHub connection in Airflow, either via command line or the Airflow U
 airflow connections add  --conn-type 'datahub-rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080' --conn-password '<optional datahub auth token>'
 ```
 
-If you are using hosted Acryl Datahub then please use `https://YOUR_PREFIX.acryl.io/gms` as the `--conn-host` parameter.
+If you are using DataHub Cloud then please use `https://YOUR_PREFIX.acryl.io/gms` as the `--conn-host` parameter.
 
 #### Airflow UI
 
@@ -265,6 +265,34 @@ with DAG(
 ```
 - ingest this DAG, and it will remove all the obsolete pipelines and tasks from the Datahub based on the `cluster` value set in the `airflow.cfg`
 
+
+## Get all dataJobs associated with a dataFlow
+
+If you are looking to find all tasks (aka DataJobs) that belong to a specific pipeline (aka DataFlow), you can use the following GraphQL query:
+
+```graphql
+query {
+  dataFlow(urn: "urn:li:dataFlow:(airflow,db_etl,prod)") {
+    childJobs: relationships(
+      input: {
+        types: ["IsPartOf"],
+        direction: INCOMING,
+        start: 0,
+        count: 100
+      }
+    ) {
+      total
+      relationships {
+        entity {
+          ... on DataJob {
+            urn
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 ## Emit Lineage Directly
 

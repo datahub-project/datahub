@@ -34,6 +34,7 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.timeseries",
       "com.linkedin.gms.factory.assertion",
+      "com.linkedin.gms.factory.plugins"
     },
     excludeFilters = {
       @ComponentScan.Filter(
