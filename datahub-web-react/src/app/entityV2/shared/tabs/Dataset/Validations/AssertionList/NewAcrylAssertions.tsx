@@ -11,41 +11,7 @@ import { ANTD_GRAY } from '../../../../constants';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { AssertionRunStatus } from '@src/types.generated';
 import { getFilteredTransformedAssertionData, transformAssertionData } from './utils';
-
-export const StyledTable = styled(Table)`
-    max-width: none;
-    overflow: inherit;
-    height: inherit;
-    &&& .ant-table-thead .ant-table-cell {
-        font-weight: 600;
-        font-size: 12px;
-        color: ${ANTD_GRAY[8]};
-    }
-    &&
-        .ant-table-thead
-        > tr
-        > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
-            [colspan]
-        )::before {
-        border: 1px solid ${ANTD_GRAY[4]};
-    }
-    &&& .ant-table-cell {
-        background-color: transparent;
-    }
-    &&& .acryl-assertions-table-row {
-        cursor: pointer;
-        background-color: ${ANTD_GRAY[2]};
-        :hover {
-            background-color: ${ANTD_GRAY[3]};
-        }
-    }
-    &&& .acryl-selected-assertions-table-row {
-        background-color: ${ANTD_GRAY[4]};
-    }
-`;
-const StyledAssertionNameContainer = styled.div`
-    display: flex;
-`;
+import { AssertionListTable } from './AssertionListTable';
 
 export type IFilter = {
     sortBy: string;
@@ -63,9 +29,9 @@ const dummyFilterObject: IFilter = {
     sortBy: '',
     groupBy: 'status',
     filterCriteria: {
-        searchText: 'UNIQUE_PERCENTAGE',
-        status: [AssertionRunStatus.Complete],
-        type: ['FIELD'],
+        searchText: '',
+        status: [],
+        type: [],
         tags: [],
         columns: [],
     },
@@ -95,9 +61,7 @@ export const AcrylAssertionList = () => {
         const transformedAssertions = transformAssertionData(assertionsWithMonitorsDetails);
         setVisibleAssertions(transformedAssertions);
         setAllAssertionsData(transformedAssertions);
-        setTimeout(() => {
-            setFilter({ ...dummyFilterObject });
-        }, 5000);
+        setFilter({ ...dummyFilterObject });
     }, [data]);
 
     useEffect(() => {
@@ -105,60 +69,5 @@ export const AcrylAssertionList = () => {
         setVisibleAssertions(filteredAssertionData);
     }, [filter]);
 
-    const AssertionName = ({ record }: any) => {
-        const { primaryLabel } = useBuildAssertionDescriptionLabels(record.assertion.info, record.monitor);
-        return <StyledAssertionNameContainer>{primaryLabel}</StyledAssertionNameContainer>;
-    };
-
-    const assertionsTableCols = [
-        {
-            title: 'Name',
-            dataIndex: '',
-            key: '',
-            render: (_, record: any) => {
-                return <AssertionName record={record} />;
-            },
-            width: '50%',
-        },
-        {
-            title: 'Last Updated',
-            dataIndex: '',
-            key: '',
-            render: (_, record: any) => {
-                return <div>Last Updated</div>;
-            },
-            width: '17%',
-        },
-        {
-            title: 'Tags',
-            dataIndex: '',
-            key: 'tags',
-            width: '17%',
-            render: (tags?: string[]) => {
-                return <div> Tags {tags?.toString()} </div>;
-            },
-        },
-        {
-            title: '',
-            dataIndex: '',
-            key: '',
-            width: '16%',
-            render: () => {
-                return <div> Actions </div>;
-            },
-        },
-    ];
-
-    return (
-        <StyledTable
-            columns={assertionsTableCols}
-            dataSource={visibleAssertions.allAssertions || []}
-            rowKey="urn"
-            locale={{
-                emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-            }}
-            showHeader={false}
-            pagination={false}
-        />
-    );
+    return <AssertionListTable dataSource={visibleAssertions.allAssertions || []} />;
 };

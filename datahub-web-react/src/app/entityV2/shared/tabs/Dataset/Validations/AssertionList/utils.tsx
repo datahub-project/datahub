@@ -431,9 +431,6 @@ export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]
 
 /** return assertion table data from assertions */
 export const getFilteredTransformedAssertionData = (assertions: AssertionWithMonitorDetails[], filter: IFilter) => {
-    debugger;
-    console.log('assertions>>>', assertions, filter);
-
     const assertionRawData: any = { allAssertions: [], groupBy: { type: [], status: [] } };
     const filteredAssertions = assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const { searchText, type, status } = filter.filterCriteria;
@@ -473,7 +470,7 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[]) => {
         return {
             type: assertion.info?.type,
             lastUpdated: assertion.info?.lastUpdated,
-            tags: assertion.tags,
+            tags: assertion.tags || ['Important'],
             descriptionHTML: null,
             description: primaryPainTextLabel,
             urn: assertion.urn,
