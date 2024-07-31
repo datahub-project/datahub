@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { CLI_EXECUTOR_ID } from './utils';
+import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
 import {
     LastStatusColumn,
     TypeColumn,
@@ -123,7 +123,7 @@ function IngestionSourceTable({
         lastExecStatus:
             source.executions &&
             source.executions?.executionRequests.length > 0 &&
-            source.executions?.executionRequests[0].result?.status,
+            getIngestionSourceStatus(source.executions?.executionRequests[0].result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
     }));
 

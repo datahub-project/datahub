@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
@@ -37,10 +36,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.MultiMatchQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.*;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -55,16 +51,13 @@ public class AutocompleteRequestHandler {
   private static final Map<EntitySpec, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
-  private final AspectRetriever aspectRetriever;
-
   private final CustomizedQueryHandler customizedQueryHandler;
 
   private final EntitySpec entitySpec;
 
   public AutocompleteRequestHandler(
       @Nonnull EntitySpec entitySpec,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
     this.entitySpec = entitySpec;
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
@@ -90,17 +83,13 @@ public class AutocompleteRequestHandler {
                       set1.addAll(set2);
                       return set1;
                     }));
-    this.aspectRetriever = aspectRetriever;
   }
 
   public static AutocompleteRequestHandler getBuilder(
       @Nonnull EntitySpec entitySpec,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
-        entitySpec,
-        k ->
-            new AutocompleteRequestHandler(entitySpec, customSearchConfiguration, aspectRetriever));
+        entitySpec, k -> new AutocompleteRequestHandler(entitySpec, customSearchConfiguration));
   }
 
   public SearchRequest getSearchRequest(
@@ -118,9 +107,14 @@ public class AutocompleteRequestHandler {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(input).orElse(null);
 
+    BoolQueryBuilder baseQuery = QueryBuilders.boolQuery();
+    baseQuery.minimumShouldMatch(1);
+
     // Initial query with input filters
-    BoolQueryBuilder baseQuery =
-        ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever);
+    BoolQueryBuilder filterQuery =
+        ESUtils.buildFilterQuery(
+            filter, false, searchableFieldTypes, opContext.getAspectRetriever());
+    baseQuery.filter(filterQuery);
 
     // Add autocomplete query
     baseQuery.should(getQuery(opContext.getObjectMapper(), customAutocompleteConfig, input, field));
@@ -215,10 +209,9 @@ public class AutocompleteRequestHandler {
             autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
             autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
           }
-
+          autocompleteQueryBuilder.field(fieldName + ".delimited");
           finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
         });
-
     finalQuery.should(autocompleteQueryBuilder);
     return finalQuery;
   }

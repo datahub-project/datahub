@@ -21,9 +21,14 @@ public class Constants {
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
       STRUCTURED_PROPERTY_MAPPING_FIELD + ".";
+  public static final String STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD = "_versioned";
+  public static final String STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX =
+      String.join(
+          ".", STRUCTURED_PROPERTY_MAPPING_FIELD, STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, "");
 
   // !!!!!!! IMPORTANT !!!!!!!
-  // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
+  // This effectively sets the max aspect size to 16 MB. Used in deserialization
+  // of messages.
   // Without this the limit is
   // whatever Jackson is defaulting to (5 MB currently).
   public static final String MAX_JACKSON_STRING_SIZE = "16000000";
@@ -33,10 +38,12 @@ public class Constants {
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
-  // Forces indexing for no-ops, enabled for restore indices calls. Only considered in the no-op
+  // Forces indexing for no-ops, enabled for restore indices calls. Only
+  // considered in the no-op
   // case
   public static final String FORCE_INDEXING_KEY = "forceIndexing";
-  // Indicates an event source from an application with hooks that have already been processed and
+  // Indicates an event source from an application with hooks that have already
+  // been processed and
   // should not be reprocessed
   public static final String APP_SOURCE = "appSource";
 
@@ -112,6 +119,7 @@ public class Constants {
   public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
+  public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -285,6 +293,7 @@ public class Constants {
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
+  public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
 
   // Tests
   public static final String TEST_ENTITY_NAME = "test";
@@ -341,6 +350,7 @@ public class Constants {
 
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
+  public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";
@@ -357,6 +367,16 @@ public class Constants {
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+
+  // Connection
+  public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
+  public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
+
+  // Data Contracts
+  public static final String DATA_CONTRACT_ENTITY_NAME = "dataContract";
+  public static final String DATA_CONTRACT_PROPERTIES_ASPECT_NAME = "dataContractProperties";
+  public static final String DATA_CONTRACT_KEY_ASPECT_NAME = "dataContractKey";
+  public static final String DATA_CONTRACT_STATUS_ASPECT_NAME = "dataContractStatus";
 
   // Relationships
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";

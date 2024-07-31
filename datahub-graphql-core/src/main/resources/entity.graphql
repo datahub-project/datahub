@@ -890,7 +890,7 @@ type Mutation {
     """
     Creates a filter for a form to apply it to certain entities. Entities that match this filter will have
     a given form applied to them.
-    This feature is ONLY supported in Acryl DataHub.
+    This feature is ONLY supported in DataHub Cloud.
     """
     createDynamicFormAssignment(input: CreateDynamicFormAssignmentInput!): Boolean
 
@@ -1144,6 +1144,11 @@ enum EntityType {
     CUSTOM_OWNERSHIP_TYPE
 
     """
+    A connection to an external source.
+    """
+    DATAHUB_CONNECTION
+
+    """
     A DataHub incident - SaaS only
     """
     INCIDENT
@@ -1152,6 +1157,11 @@ enum EntityType {
     A Role from an organisation
     """
     ROLE
+
+    """
+    A data contract
+    """
+    DATA_CONTRACT
 
     """"
     An structured property on entities
@@ -1257,6 +1267,11 @@ input RelationshipsInput {
   The number of results to be returned
   """
   count: Int
+
+  """
+  Whether to include soft-deleted, related, entities
+  """
+  includeSoftDelete: Boolean = true
 }
 
 """
@@ -3210,6 +3225,11 @@ type SchemaFieldEntity implements Entity {
     Business Attribute associated with the field
     """
     businessAttributes: BusinessAttributes
+
+    """
+    Documentation aspect for this schema field
+    """
+    documentation: Documentation
 }
 
 """
@@ -4129,6 +4149,16 @@ type CorpUserEditableProperties {
     Email address for the user
     """
     email: String
+
+    """
+    User persona, if present
+    """
+    persona: DataHubPersona
+
+    """
+    Platforms commonly used by the user, if present.
+    """
+    platforms: [DataPlatform!]
 }
 
 """
@@ -4179,6 +4209,16 @@ input CorpUserUpdateInput {
     Email address for the user
     """
     email: String
+
+    """
+    The platforms that the user frequently works with
+    """
+    platformUrns: [String!]
+
+    """
+    The user's persona urn"
+    """
+    personaUrn: String
 }
 
 """
@@ -7289,6 +7329,11 @@ type Assertion implements EntityWithRelationships & Entity {
     status: Status
 
     """
+    The standard tags for the Assertion
+    """
+    tags: GlobalTags
+
+    """
     Experimental API.
     For fetching extra aspects that do not have custom UI code yet
     """
@@ -7313,6 +7358,11 @@ type AssertionInfo {
     An optional human-readable description of the assertion
     """
     description: String
+
+    """
+    URL where assertion details are available
+    """
+    externalUrl: String
 }
 
 """
@@ -7390,6 +7440,11 @@ type AssertionRunEvent implements TimeSeriesAspect {
   timestampMillis: Long!
 
   """
+  The time at which the run event was last observed by the DataHub system - ie, when it was reported by external systems
+  """
+  lastObservedMillis: Long
+
+  """
   Urn of assertion which is evaluated
   """
   assertionUrn: String!
@@ -7405,7 +7460,7 @@ type AssertionRunEvent implements TimeSeriesAspect {
   runId: String!
 
   """
-  The status of the assertion run as per this timeseries event.
+  The status of the assertion run as per this timeseries event
   """
   status: AssertionRunStatus!
 
@@ -7470,6 +7525,75 @@ type AssertionResult {
     """
     nativeResults: [StringMapEntry!]
 
+    """
+    Error details, if type is ERROR
+    """
+    error: AssertionResultError
+}
+
+"""
+An error encountered when evaluating an AssertionResult
+"""
+type AssertionResultError {
+    """
+    The type of error encountered
+    """
+    type: AssertionResultErrorType!
+
+    """
+    Additional metadata depending on the type of error
+    """
+    properties: [StringMapEntry!]
+}
+
+"""
+The type of error encountered when evaluating an AssertionResult
+"""
+enum AssertionResultErrorType {
+    """
+    Source is unreachable
+    """
+    SOURCE_CONNECTION_ERROR
+
+    """
+    Source query failed to execute
+    """
+    SOURCE_QUERY_FAILED
+
+    """
+    Invalid parameters were detected
+    """
+    INVALID_PARAMETERS
+
+    """
+    Insufficient data to evaluate assertion
+    """
+    INSUFFICIENT_DATA
+
+    """
+    Event type not supported by the specified source
+    """
+    INVALID_SOURCE_TYPE
+
+    """
+    Platform not supported
+    """
+    UNSUPPORTED_PLATFORM
+
+    """
+    Error while executing a custom SQL assertion
+    """
+    CUSTOM_SQL_ERROR
+
+    """
+    Error while executing a field assertion
+    """
+    FIELD_ASSERTION_ERROR
+
+    """
+    Unknown error
+    """
+    UNKNOWN_ERROR
 }
 
 type BatchSpec {
@@ -7499,6 +7623,11 @@ The result type of an assertion, success or failure.
 """
 enum AssertionResultType {
     """
+    The assertion has not yet been fully evaluated.
+    """
+    INIT
+
+    """
     The assertion succeeded.
     """
     SUCCESS
@@ -7507,6 +7636,11 @@ enum AssertionResultType {
     The assertion failed.
     """
     FAILURE
+
+    """
+    The assertion errored.
+    """
+    ERROR
 }
 
 """
@@ -7634,6 +7768,16 @@ enum AssertionStdOperator {
     EQUAL_TO
 
     """
+    Value being asserted is not equal to value
+    """
+    NOT_EQUAL_TO
+
+    """
+    Value being asserted is null
+    """
+    NULL
+
+    """
     Value being asserted is not null
     """
     NOT_NULL
@@ -7667,6 +7811,16 @@ enum AssertionStdOperator {
     Value being asserted is not in one of the array values.
     """
     NOT_IN
+
+    """
+    Value being asserted is true
+    """
+    IS_TRUE
+
+    """
+    Value being asserted is false
+    """
+    IS_FALSE
 
     """
     Other
@@ -7766,10 +7920,38 @@ enum DatasetAssertionScope {
 }
 
 """
-The top-level assertion type. Currently single Dataset assertions are the only type supported.
+The top-level assertion type.
 """
 enum AssertionType {
+    """
+    A single-dataset assertion.
+    """
     DATASET
+    """
+    An assertion which indicates when a particular operation should occur to an asset.
+    """
+    FRESHNESS
+    """
+    An assertion which indicates how much data should be available for a particular asset.
+    """
+    VOLUME
+    """
+    A raw SQL-statement based assertion.
+    """
+    SQL
+    """
+    A structured assertion targeting a specific column or field of the Dataset.
+    """
+    FIELD
+    """
+    A schema or structural assertion.
+    """
+    DATA_SCHEMA
+
+    """
+    A custom assertion.
+    """
+    CUSTOM
 }
 
 """
@@ -7790,6 +7972,11 @@ type AssertionRunEventsResult {
   The number of succeeded run events
   """
   succeeded: Int!
+
+  """
+  The number of errored run events
+  """
+  errored: Int!
 
   """
   The run events themselves
@@ -8006,6 +8193,11 @@ type Deprecation {
     The user who will be credited for modifying this deprecation content
     """
     actor: String
+
+    """
+    The hydrated user who will be credited for modifying this deprecation content
+    """
+    actorEntity: Entity
 }
 
 """
@@ -11985,6 +12177,7 @@ input CreateDataProductPropertiesInput {
     description: String
 }
 
+
 """
 Input properties required for update a DataProduct
 """
@@ -12148,6 +12341,16 @@ input UpdateOwnershipTypeInput {
     The description of the Custom Ownership Type
     """
     description: String
+}
+
+"""
+A standardized type of a user
+"""
+type DataHubPersona {
+    """
+    The urn of the persona type
+    """
+    urn: String!
 }
 
 """
@@ -12507,4 +12710,19 @@ type ListBusinessAttributesResult {
     The Business Attributes
     """
     businessAttributes: [BusinessAttribute!]!
+}
+
+"""
+A cron schedule
+"""
+type CronSchedule {
+    """
+    A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+    """
+    cron: String!
+
+    """
+    Timezone in which the cron interval applies, e.g. America/Los_Angeles
+    """
+    timezone: String!
 }

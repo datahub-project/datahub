@@ -39,6 +39,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -100,6 +101,7 @@ public class SearchLineageFixtureConfiguration {
             Map.of(),
             true,
             false,
+            false,
             new ElasticSearchConfiguration(),
             gitVersion);
     SettingsBuilder settingsBuilder = new SettingsBuilder(null);
@@ -151,6 +153,7 @@ public class SearchLineageFixtureConfiguration {
         Map.of(),
         true,
         true,
+        false,
         new ElasticSearchConfiguration(),
         gitVersion);
   }
@@ -171,7 +174,7 @@ public class SearchLineageFixtureConfiguration {
             new ESGraphQueryDAO(
                 searchClient, lineageRegistry, indexConvention, getGraphQueryConfiguration()),
             indexBuilder);
-    graphService.configure();
+    graphService.reindexAll(Collections.emptySet());
     return graphService;
   }
 
@@ -222,7 +225,7 @@ public class SearchLineageFixtureConfiguration {
             ranker);
 
     // Build indices
-    indexBuilders.reindexAll();
+    indexBuilders.reindexAll(Collections.emptySet());
 
     return service;
   }

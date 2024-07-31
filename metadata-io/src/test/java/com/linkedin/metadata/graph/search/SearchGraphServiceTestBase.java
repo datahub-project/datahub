@@ -70,8 +70,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @BeforeClass
   public void setup() {
-    _client = buildService(_graphQueryConfiguration.isEnableMultiPathSearch());
-    _client.configure();
+    _client = buildService(_enableMultiPathSearch);
+    _client.reindexAll(Collections.emptySet());
   }
 
   @BeforeMethod
@@ -116,7 +116,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   protected GraphService getGraphService(boolean enableMultiPathSearch) {
     if (enableMultiPathSearch != _graphQueryConfiguration.isEnableMultiPathSearch()) {
       _client = buildService(enableMultiPathSearch);
-      _client.configure();
+      _client.reindexAll(Collections.emptySet());
     }
     return _client;
   }
@@ -414,7 +414,10 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     Assert.assertTrue(Boolean.TRUE.equals(result.getRelationships().get(0).isExplored()));
 
     EntityLineageResult result2 = getUpstreamLineage(dataset2Urn, null, null, 10, 0);
-    Assert.assertTrue(result2.getRelationships().get(0).isExplored() == null);
+    Assert.assertTrue(result2.getRelationships().isEmpty());
+
+    EntityLineageResult result3 = getUpstreamLineage(dataset2Urn, null, null, 10, 1);
+    Assert.assertTrue(result3.getRelationships().get(0).isExplored());
   }
 
   /**

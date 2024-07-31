@@ -1254,6 +1254,7 @@ export const glossaryNode5 = {
 
 export const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',
+    type: EntityType.Tag,
     name: 'abc-sample-tag',
     description: 'sample tag description',
     ownership: {
@@ -1453,10 +1454,10 @@ export const businessAttribute = {
         name: 'TestBusinessAtt-2',
         description: 'lorem upsum updated 12',
         created: {
-            time: 1705857132786
+            time: 1705857132786,
         },
         lastModified: {
-            time: 1705857132786
+            time: 1705857132786,
         },
         glossaryTerms: {
             terms: [
@@ -1465,10 +1466,10 @@ export const businessAttribute = {
                         urn: 'urn:li:glossaryTerm:1',
                         type: EntityType.GlossaryTerm,
                         hierarchicalName: 'SampleHierarchicalName',
-                        name: 'SampleName', 
+                        name: 'SampleName',
                     },
-                    associatedUrn: 'urn:li:businessAttribute:ba1'
-                }
+                    associatedUrn: 'urn:li:businessAttribute:ba1',
+                },
             ],
             __typename: 'GlossaryTerms',
         },
@@ -1483,7 +1484,7 @@ export const businessAttribute = {
                         name: 'abc-sample-tag',
                     },
                     __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                    associatedUrn: 'urn:li:businessAttribute:ba1',
                 },
                 {
                     tag: {
@@ -1493,30 +1494,30 @@ export const businessAttribute = {
                         name: 'TestTag',
                     },
                     __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1'
-                }
-            ]
+                    associatedUrn: 'urn:li:businessAttribute:ba1',
+                },
+            ],
         },
         customProperties: [
             {
                 key: 'prop2',
                 value: 'val2',
                 associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry'
+                __typename: 'CustomPropertiesEntry',
             },
             {
                 key: 'prop1',
                 value: 'val1',
                 associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry'
+                __typename: 'CustomPropertiesEntry',
             },
             {
                 key: 'prop3',
                 value: 'val3',
                 associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry'
-            }
-        ]
+                __typename: 'CustomPropertiesEntry',
+            },
+        ],
     },
     ownership: {
         owners: [
@@ -3617,6 +3618,7 @@ export const mocks = [
                         createTags: true,
                         manageUserCredentials: true,
                         manageGlossaries: true,
+                        viewTests: false,
                         manageTests: true,
                         manageTokens: true,
                         manageSecrets: true,
@@ -3892,6 +3894,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageIngestion: true,
     manageSecrets: true,
     manageTokens: true,
+    viewTests: false,
     manageTests: true,
     manageGlossaries: true,
     manageUserCredentials: true,

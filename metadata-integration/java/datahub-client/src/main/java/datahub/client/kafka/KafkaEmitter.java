@@ -51,6 +51,7 @@ public class KafkaEmitter implements Emitter {
     kafkaConfigProperties.put("schema.registry.url", this.config.getSchemaRegistryUrl());
     kafkaConfigProperties.putAll(config.getSchemaRegistryConfig());
     kafkaConfigProperties.putAll(config.getProducerConfig());
+
     producer = new KafkaProducer<>(kafkaConfigProperties);
     _avroSerializer = new AvroSerializer();
   }

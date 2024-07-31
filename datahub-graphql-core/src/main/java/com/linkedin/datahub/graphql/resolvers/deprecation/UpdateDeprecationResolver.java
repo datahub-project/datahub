@@ -12,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateDeprecationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
@@ -50,7 +51,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
         bindArgument(environment.getArgument("input"), UpdateDeprecationInput.class);
     final Urn entityUrn = Urn.createFromString(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!isAuthorizedToUpdateDeprecationForEntity(context, entityUrn)) {
             throw new AuthorizationException(
@@ -84,7 +85,9 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
                     "Failed to update Deprecation for resource with entity urn %s", entityUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToUpdateDeprecationForEntity(

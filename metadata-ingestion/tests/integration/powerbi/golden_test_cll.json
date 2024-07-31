@@ -483,7 +483,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "let\n    Source = Oracle.Database(\"localhost:1521/salesdb.GSLAB.COM\", [HierarchicalNavigation=true]), HR = Source{[Schema=\"HR\"]}[Data], EMPLOYEES1 = HR{[Name=\"EMPLOYEES\"]}[Data] \n in EMPLOYEES1",
+            "viewLogic": "let\n    Source = Oracle.Database(\"localhost:1521/salesdb.domain.com\", [HierarchicalNavigation=true]), HR = Source{[Schema=\"HR\"]}[Data], EMPLOYEES1 = HR{[Name=\"EMPLOYEES\"]}[Data] \n in EMPLOYEES1",
             "viewLanguage": "m_query"
         }
     },
@@ -898,6 +898,31 @@
             "typeNames": [
                 "PowerBI Dataset Table",
                 "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_ps_cd_retention,PROD)",
+                    "type": "TRANSFORMED"
+                }
             ]
         }
     },

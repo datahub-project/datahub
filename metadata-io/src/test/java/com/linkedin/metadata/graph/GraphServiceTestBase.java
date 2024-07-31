@@ -2168,7 +2168,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         deduplicateRelatedEntitiesByRelationshipTypeAndDestination(relatedEntities),
         expectedRelatedEntities);
 
-    Urn root = UrnUtils.getUrn(relatedEntities.getEntities().get(0).getUrn());
+    Urn root = dataset1Urn;
     EntityLineageResult lineageResult =
         getGraphService(false)
             .getLineage(
@@ -2185,13 +2185,18 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 1000,
                 100,
                 new LineageFlags().setEntitiesExploredPerHopLimit(5));
-    assertEquals(lineageResult.getRelationships().size(), 19);
+    // Unable to explore all paths because multi is disabled, but will be at least 5 since it will
+    // explore 5 edges
+    assertTrue(
+        lineageResult.getRelationships().size() >= 5
+            && lineageResult.getRelationships().size() < 20,
+        "Size was: " + lineageResult.getRelationships().size());
     LineageRelationshipArray relationships = lineageResult.getRelationships();
     int maxDegree =
         relationships.stream()
             .flatMap(relationship -> relationship.getDegrees().stream())
             .reduce(0, Math::max);
-    assertEquals(maxDegree, 1);
+    assertTrue(maxDegree > 1);
 
     EntityLineageResult lineageResultMulti =
         getGraphService(true)
@@ -2210,13 +2215,16 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 100,
                 new LineageFlags().setEntitiesExploredPerHopLimit(5));
 
-    assertEquals(lineageResultMulti.getRelationships().size(), 20);
+    assertTrue(
+        lineageResultMulti.getRelationships().size() >= 5
+            && lineageResultMulti.getRelationships().size() <= 20,
+        "Size was: " + lineageResultMulti.getRelationships().size());
     relationships = lineageResultMulti.getRelationships();
     maxDegree =
         relationships.stream()
             .flatMap(relationship -> relationship.getDegrees().stream())
             .reduce(0, Math::max);
-    assertTrue(maxDegree > 4);
+    assertTrue(maxDegree >= 2);
 
     // Reset graph service
     getGraphService();

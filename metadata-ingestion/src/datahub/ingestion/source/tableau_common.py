@@ -767,7 +767,12 @@ def get_overridden_info(
         ):
             platform_instance = database_hostname_to_platform_instance_map.get(hostname)
 
-    if original_platform in ("athena", "hive", "mysql"):  # Two tier databases
+    if original_platform in (
+        "athena",
+        "hive",
+        "mysql",
+        "teradata",
+    ):  # Two tier databases
         upstream_db = None
 
     return upstream_db, platform_instance, platform, original_platform
