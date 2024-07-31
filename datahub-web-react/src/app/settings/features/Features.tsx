@@ -79,7 +79,7 @@ export const Features = () => {
                     title: 'Asset Level Propagation',
                     description:
                         'Propagate new documentation from upstream to downstream assets based on data lineage relationships.',
-                    isAvailable: false,
+                    isAvailable: true,
                     checked: false,
                 },
             ],
