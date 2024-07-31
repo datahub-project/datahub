@@ -69,5 +69,5 @@ export const AcrylAssertionList = () => {
         setVisibleAssertions(filteredAssertionData);
     }, [filter]);
 
-    return <AssertionListTable dataSource={visibleAssertions.allAssertions || []} />;
+    return <AssertionListTable assertionData={visibleAssertions} filterOptions={filter} />;
 };

@@ -2,6 +2,7 @@ import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { Empty, Table } from 'antd';
 import styled from 'styled-components';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
+import { IFilter } from './NewAcrylAssertions';
 
 export const StyledTable = styled(Table)`
     max-width: none;
@@ -43,11 +44,22 @@ const StyledAssertionNameContainer = styled.div`
 //     dataSource: any[];
 // };
 
-export const AssertionListTable = ({ dataSource }) => {
+export const AssertionListTable = ({
+    assertionData,
+    filterOptions,
+}: {
+    assertionData: any;
+    filterOptions: IFilter;
+}) => {
+    const { groupBy } = filterOptions;
     const AssertionName = ({ record }: any) => {
-        const { primaryLabel } = useBuildAssertionDescriptionLabels(record.assertion.info, record.monitor);
+        const { primaryLabel } = useBuildAssertionDescriptionLabels(
+            groupBy ? record.info : record.assertion.info,
+            groupBy ? record.monitor : record.monitor,
+        );
         return <StyledAssertionNameContainer>{primaryLabel}</StyledAssertionNameContainer>;
     };
+
     const assertionsTableCols = [
         {
             title: 'Name',
@@ -102,10 +114,35 @@ export const AssertionListTable = ({ dataSource }) => {
             },
         },
     ];
+
+    const groupedColumns = [
+        {
+            title: 'Type',
+            dataIndex: '',
+            key: 'type',
+            render: (text, record) => (
+                <span>
+                    {record.type}
+                    <Table
+                        columns={assertionsTableCols}
+                        dataSource={record?.assertions || []}
+                        pagination={false}
+                        rowKey="key"
+                        // onChange={handleChange}
+                    />
+                </span>
+            ),
+        },
+    ];
+    const getGroupData = () => {
+        return (assertionData?.groupBy && assertionData?.groupBy[groupBy]) || [];
+    };
     return (
         <StyledTable
-            columns={assertionsTableCols}
-            dataSource={dataSource || []}
+            // columns={assertionsTableCols}
+            // dataSource={dataSource || []}
+            columns={groupBy ? groupedColumns : assertionsTableCols}
+            dataSource={groupBy ? getGroupData() : assertionData.allAssertions || []}
             rowKey="urn"
             locale={{
                 emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
