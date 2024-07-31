@@ -1,17 +1,21 @@
+import os
 import shutil
 from typing import List
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
-from great_expectations.data_context.data_context.file_data_context import (
-    FileDataContext,
-)
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
-from tests.test_helpers import mce_helpers
-from tests.test_helpers.docker_helpers import wait_for_port
+from datahub.testing.compare_metadata_json import assert_metadata_files_equal
+from freezegun import freeze_time
+from great_expectations.data_context import FileDataContext
+
+from tests.integration.docker_utils import wait_for_port
+
+
+def should_update_golden_file() -> bool:
+    return bool(os.getenv("DATAHUB_GOLDEN_FILE_UPDATE", False))
+
 
 FROZEN_TIME = "2021-12-28 12:00:00"
 
@@ -40,12 +44,11 @@ def test_ge_ingest(
     docker_compose_runner,
     pytestconfig,
     tmp_path,
-    mock_time,
     checkpoint,
     golden_json,
     **kwargs,
 ):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/great-expectations"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration"
 
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "great-expectations"
@@ -66,9 +69,10 @@ def test_ge_ingest(
 
         emitter.write_to_file(tmp_path / "ge_mcps.json")
 
-        mce_helpers.check_golden_file(
-            pytestconfig,
+        assert_metadata_files_equal(
             output_path=tmp_path / "ge_mcps.json",
             golden_path=test_resources_dir / golden_json,
+            copy_output=False,
+            update_golden=should_update_golden_file(),
             ignore_paths=[],
         )
