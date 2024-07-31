@@ -9,7 +9,6 @@ import uuid
 from enum import auto
 from typing import List, Optional, Tuple, Union
 
-from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
@@ -120,7 +119,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         )
         self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
-        set_env_variables_override_config(self.config.server, self.config.token)
         logger.debug("Setting gms config")
         set_gms_config(gms_config)
 

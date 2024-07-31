@@ -6,10 +6,8 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 import datahub.emitter.mce_builder as builder
 import networkx as nx
 import pytest
-from datahub.cli.cli_utils import get_url_and_token
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph  # get_default_graph,
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeAuditStampsClass,
@@ -847,10 +845,7 @@ def test_lineage_via_node(
     )
 
     # Create an emitter to the GMS REST API.
-    (url, token) = get_url_and_token()
-    with DataHubGraph(
-        DatahubClientConfig(server=url, token=token, retry_max_times=0)
-    ) as graph:
+    with get_default_graph() as graph:
         emitter = graph
         # emitter = DataHubConsoleEmitter()
 
@@ -891,14 +886,11 @@ def destination_urn_fixture():
 def ingest_multipath_metadata(
     chart_urn_fixture, intermediates_fixture, destination_urn_fixture
 ):
-    (url, token) = get_url_and_token()
     fake_auditstamp = AuditStampClass(
         time=int(time.time() * 1000),
         actor="urn:li:corpuser:datahub",
     )
-    with DataHubGraph(
-        DatahubClientConfig(server=url, token=token, retry_max_times=0)
-    ) as graph:
+    with get_default_graph() as graph:
         chart_urn = chart_urn_fixture
         intermediates = intermediates_fixture
         destination_urn = destination_urn_fixture

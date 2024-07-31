@@ -1,5 +1,5 @@
 import { Tabs, Typography } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { IngestionSourceList } from './source/IngestionSourceList';
 import { useAppConfig } from '../useAppConfig';
@@ -51,12 +51,18 @@ export const ManageIngestionPage = () => {
      * Determines which view should be visible: ingestion sources or secrets.
      */
     const me = useUserContext();
-    const { config } = useAppConfig();
+    const { config, loaded } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
-    const defaultTab = showIngestionTab ? TabType.Sources : TabType.Secrets;
-    const [selectedTab, setSelectedTab] = useState<TabType>(defaultTab);
+    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
+
+    // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
+    useEffect(() => {
+        if (loaded && me.loaded && !showIngestionTab && selectedTab === TabType.Sources) {
+            setSelectedTab(TabType.Secrets);
+        }
+    }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
     const onClickTab = (newTab: string) => {
         setSelectedTab(TabType[newTab]);

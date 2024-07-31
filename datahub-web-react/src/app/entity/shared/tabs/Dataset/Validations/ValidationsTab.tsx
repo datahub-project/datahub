@@ -2,9 +2,8 @@ import React, { useEffect } from 'react';
 import { Button } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { AuditOutlined, FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
+import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
-import { TestResults } from './TestResults';
 import { Assertions } from './Assertions';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
@@ -22,8 +21,7 @@ const TabButton = styled(Button)<{ selected: boolean }>`
 `;
 
 enum TabPaths {
-    ASSERTIONS = 'Assertions',
-    TESTS = 'Tests',
+    ASSERTIONS = 'List',
     DATA_CONTRACT = 'Data Contract',
 }
 
@@ -39,9 +37,6 @@ export const ValidationsTab = () => {
     const appConfig = useAppConfig();
 
     const totalAssertions = (entityData as any)?.assertions?.total;
-    const passingTests = (entityData as any)?.testResults?.passing || [];
-    const maybeFailingTests = (entityData as any)?.testResults?.failing || [];
-    const totalTests = maybeFailingTests.length + passingTests.length;
 
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
 
@@ -67,17 +62,6 @@ export const ValidationsTab = () => {
             path: TabPaths.ASSERTIONS,
             disabled: totalAssertions === 0,
             content: <Assertions />,
-        },
-        {
-            title: (
-                <>
-                    <FileDoneOutlined />
-                    <TabTitle>Tests ({totalTests})</TabTitle>
-                </>
-            ),
-            path: TabPaths.TESTS,
-            disabled: totalTests === 0,
-            content: <TestResults passing={passingTests} failing={maybeFailingTests} />,
         },
     ];
 
