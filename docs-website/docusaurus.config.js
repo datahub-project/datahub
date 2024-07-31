@@ -77,6 +77,12 @@ module.exports = {
           position: "right",
         },
         {
+          to: "/cloud",
+          activeBasePath: "cloud",
+          label: "Cloud",
+          position: "right",
+        },
+        {
           to: "/learn",
           activeBasePath: "learn",
           label: "Learn",
