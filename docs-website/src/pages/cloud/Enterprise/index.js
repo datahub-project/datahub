@@ -38,7 +38,7 @@ const Features = () =>
             <Feature key={idx} {...props} />
           ))}
         </div>
-        <a href="http://localhost:3000/docs/managed-datahub/managed-datahub-overview#enterprise-grade" target="_blank" className={clsx(styles.moreBenefits)}>
+        <a href="/docs/managed-datahub/managed-datahub-overview#enterprise-grade" target="_blank" className={clsx(styles.moreBenefits)}>
           +4 benefits
         </a>
       </div>
