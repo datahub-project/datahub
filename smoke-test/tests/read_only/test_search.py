@@ -1,8 +1,8 @@
 import pytest
 import requests
+
 from tests.test_result_msg import add_datahub_stats
-from tests.utils import get_frontend_session, get_frontend_url
-from tests.utils import get_gms_url
+from tests.utils import get_frontend_session, get_frontend_url, get_gms_url
 
 BASE_URL_V3 = f"{get_gms_url()}/openapi/v3"
 
@@ -32,6 +32,7 @@ ENTITY_TO_MAP = {
     "glossaryNode": "GLOSSARY_NODE",
     "mlModel": "MLMODEL",
 }
+
 
 def _get_search_result(frontend_session, entity: str):
     json = {
@@ -92,7 +93,6 @@ def _get_search_result(frontend_session, entity: str):
         ("mlModel", "mlModel"),
     ],
 )
-
 def test_search_works(entity_type, api_name):
     frontend_session = get_frontend_session()
     search_result = _get_search_result(frontend_session, entity_type)
@@ -125,7 +125,7 @@ def test_search_works(entity_type, api_name):
     res_data = response.json()
     assert res_data["data"], f"res_data was {res_data}"
     assert res_data["data"][api_name]["urn"] == first_urn, f"res_data was {res_data}"
-    
+
     print(f"Response entity_type {entity_type}")
     print(f"Response first_urn {first_urn}")
 
@@ -141,9 +141,9 @@ def test_search_works(entity_type, api_name):
     print(f"Entity Data for URN {first_urn}: {actual_data}")
 
     # Simulated expected data, ideally this should be obtained from a reliable source
-    expected_data = {
-        "urn": first_urn
-    }
+    expected_data = {"urn": first_urn}
 
     # Validate that the data from OpenAPI matches the expected data
-    assert actual_data["urn"] == expected_data["urn"], f"Mismatch: expected {expected_data}, got {actual_data}"
+    assert (
+        actual_data["urn"] == expected_data["urn"]
+    ), f"Mismatch: expected {expected_data}, got {actual_data}"
