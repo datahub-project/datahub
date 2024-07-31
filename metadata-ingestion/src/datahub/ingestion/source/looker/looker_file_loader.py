@@ -63,7 +63,7 @@ class LookerViewFileLoader:
             self.reporter.failure(
                 title="LKML File Loading Error",
                 message="A lookml file is not present on local storage or GitHub",
-                context=f"file path: ${path}",
+                context=f"file path: {path}",
                 exc=e,
             )
             self.viewfile_cache[path] = None
