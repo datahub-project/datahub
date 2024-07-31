@@ -11,7 +11,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class InputFieldsMapper {
 
@@ -40,9 +39,14 @@ public class InputFieldsMapper {
                   if (field.hasSchemaFieldUrn()) {
                     fieldResult.setSchemaFieldUrn(field.getSchemaFieldUrn().toString());
                     try {
-                      parentUrn = Urn.createFromString(field.getSchemaFieldUrn().getEntityKey().get(0));
+                      parentUrn =
+                          Urn.createFromString(field.getSchemaFieldUrn().getEntityKey().get(0));
                     } catch (URISyntaxException e) {
-                      log.error("Field urn resolution: failed to extract parentUrn successfully from {}. Falling back to {}", field.getSchemaFieldUrn(), entityUrn, e);
+                      log.error(
+                          "Field urn resolution: failed to extract parentUrn successfully from {}. Falling back to {}",
+                          field.getSchemaFieldUrn(),
+                          entityUrn,
+                          e);
                     }
                   }
                   if (field.hasSchemaField()) {
