@@ -20,7 +20,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -33,7 +32,6 @@ import com.linkedin.post.PostType;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.Map;
-import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -120,16 +118,9 @@ public class ListPostsResolverTest {
             ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(POST_URN_STRING)))));
 
     when(_entityClient.search(
-            eq(POST_ENTITY_NAME),
-            any(),
-            eq(null),
-            any(),
-            anyInt(),
-            anyInt(),
-            eq(_authentication),
-            Mockito.eq(new SearchFlags().setFulltext(true))))
+            any(), eq(POST_ENTITY_NAME), any(), eq(null), any(), anyInt(), anyInt()))
         .thenReturn(roleSearchResult);
-    when(_entityClient.batchGetV2(eq(POST_ENTITY_NAME), any(), any(), any()))
+    when(_entityClient.batchGetV2(any(), eq(POST_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     ListPostsResult result = _resolver.get(_dataFetchingEnvironment).join();

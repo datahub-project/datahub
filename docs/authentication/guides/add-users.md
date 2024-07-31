@@ -60,7 +60,7 @@ and many more.
 
 This option is strongly recommended for production deployments of DataHub.
 
-### Managed DataHub
+### DataHub Cloud
 
 Single Sign-On can be configured and enabled by navigating to **Settings** > **SSO** > **OIDC**. Note
 that a user must have the **Manage Platform Settings** [Platform Privilege](../../authorization/access-policies-guide.md)
@@ -134,7 +134,7 @@ For example, to mount a user.props file that is stored on my local filesystem at
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-head}
     .....
     # The new stuff
     volumes:

@@ -1,7 +1,6 @@
 import React from "react";
 import Layout from "@theme/Layout";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
-import { useColorMode } from "@docusaurus/theme-common";
 import Link from "@docusaurus/Link";
 import ChampionQualityCardsSection from "./_components/ChampionQualityCardsSection"
 
@@ -162,11 +161,11 @@ const championSections = [
       {
         name: "Tim Bossenmaier",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/champ-img/imgs/datahub-champions/tim_bossenmaier.jpeg",
-        position: "Data & Software Engineer, Bytefabrik.AI",
+        position: "Data & Software Engineer, Cloudflight",
         bio: (
           <>
             <p>
-            Reliably provided dirxection to Community Members across all support channels in Slack.
+            Reliably provides direction to community members and submitted 5 pull request, including improvements to Athena ingestion (support for nested schemas) and the REST emitter. 
             </p>
           </>
         ),
@@ -174,7 +173,7 @@ const championSections = [
           linkedin: "https://www.linkedin.com/in/tim-bossenmaier/",
           github: "https://github.com/bossenti",
           },
-        location: "Sigmaringen, Germany"
+        location: "Innsbruck, Austria"
         },
       {
         name: "Nikola Kasev",
@@ -352,10 +351,9 @@ const championSections = [
 ];
 
 const HeroImage = (props) => {
-  const { colorMode } = useColorMode();
   return (
     <>
-      <img style={{ marginBottom: "2rem", height: "14rem" }} src={`/img/champions/champions-logo-${colorMode}.png`} alt="DataHub Champions" {...props} />
+      <img style={{ marginBottom: "2rem", height: "14rem" }} src={`/img/champions/champions-logo-light.png`} alt="DataHub Champions" {...props} />
     </>
   );
 };

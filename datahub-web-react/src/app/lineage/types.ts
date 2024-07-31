@@ -3,23 +3,23 @@ import {
     Chart,
     Dashboard,
     DataJob,
+    DataPlatform,
     Dataset,
+    Entity,
     EntityType,
-    MlFeatureTable,
-    MlPrimaryKey,
+    FineGrainedLineage,
+    Health,
+    InputFields,
+    LineageRelationship,
+    Maybe,
     MlFeature,
+    MlFeatureTable,
     MlModel,
     MlModelGroup,
-    Maybe,
-    Status,
-    DataPlatform,
-    FineGrainedLineage,
+    MlPrimaryKey,
     SchemaMetadata,
-    InputFields,
-    Entity,
-    LineageRelationship,
     SiblingProperties,
-    Health,
+    Status,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -57,7 +57,7 @@ export type FetchedEntity = {
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
-    health?: Health[];
+    health?: Maybe<Health[]>;
 };
 
 export type NodeData = {
@@ -81,7 +81,7 @@ export type NodeData = {
     canEditLineage?: boolean;
     upstreamRelationships?: Array<LineageRelationship>;
     downstreamRelationships?: Array<LineageRelationship>;
-    health?: Health[];
+    health?: Maybe<Health[]>;
 };
 
 export type VizNode = {

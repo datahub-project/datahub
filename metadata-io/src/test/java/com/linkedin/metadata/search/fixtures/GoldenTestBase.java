@@ -1,18 +1,28 @@
 package com.linkedin.metadata.search.fixtures;
 
-import static io.datahubproject.test.search.SearchTestUtils.searchAcrossCustomEntities;
+import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 import static org.testng.AssertJUnit.assertNotNull;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.SearchRetry;
+import io.datahubproject.test.search.SearchTestUtils;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -34,10 +44,10 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
           .collect(Collectors.toList());
 
   @Nonnull
-  protected abstract EntityRegistry getEntityRegistry();
+  protected abstract SearchService getSearchService();
 
   @Nonnull
-  protected abstract SearchService getSearchService();
+  protected abstract OperationContext getOperationContext();
 
   @Test
   public void testNameMatchPetProfiles() {
@@ -45,10 +55,13 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
      Searching for "pet profiles" should return "pet_profiles" as the first 2 search results
     */
     assertNotNull(getSearchService());
-    assertNotNull(getEntityRegistry());
+    assertNotNull(getOperationContext().getEntityRegistry());
     SearchResult searchResult =
-        searchAcrossCustomEntities(
-            getSearchService(), "pet profiles", SEARCHABLE_LONGTAIL_ENTITIES);
+        searchAcrossEntities(
+            getOperationContext(),
+            getSearchService(),
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            "pet profiles");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
     Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -64,7 +77,8 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     */
     assertNotNull(getSearchService());
     SearchResult searchResult =
-        searchAcrossEntities(getSearchService(), "pet profile", SEARCHABLE_LONGTAIL_ENTITIES);
+        searchAcrossEntities(
+            getOperationContext(), getSearchService(), SEARCHABLE_LONGTAIL_ENTITIES, "pet profile");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
     Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -73,7 +87,7 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     assertTrue(secondResultUrn.toString().contains("pet_profiles"));
   }
 
-  @Test
+  @Test(retryAnalyzer = SearchRetry.class)
   public void testGlossaryTerms() {
     /*
      Searching for "ReturnRate" should return all tables that have the glossary term applied before
@@ -81,7 +95,8 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     */
     assertNotNull(getSearchService());
     SearchResult searchResult =
-        searchAcrossEntities(getSearchService(), "ReturnRate", SEARCHABLE_LONGTAIL_ENTITIES);
+        searchAcrossEntities(
+            getOperationContext(), getSearchService(), SEARCHABLE_LONGTAIL_ENTITIES, "ReturnRate");
     SearchEntityArray entities = searchResult.getEntities();
     assertTrue(searchResult.getEntities().size() >= 4);
     MatchedFieldArray firstResultMatchedFields = entities.get(0).getMatchedFields();
@@ -104,7 +119,10 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     assertNotNull(getSearchService());
     SearchResult searchResult =
         searchAcrossEntities(
-            getSearchService(), "analytics.pet_details", SEARCHABLE_LONGTAIL_ENTITIES);
+            getOperationContext(),
+            getSearchService(),
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            "analytics.pet_details");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
     Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -124,7 +142,10 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     assertNotNull(getSearchService());
     SearchResult searchResult =
         searchAcrossEntities(
-            getSearchService(), "collaborative actionitems", SEARCHABLE_LONGTAIL_ENTITIES);
+            getOperationContext(),
+            getSearchService(),
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            "collaborative actionitems");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
     Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -149,7 +170,11 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     */
     assertNotNull(getSearchService());
     SearchResult searchResult =
-        searchAcrossEntities(getSearchService(), "customer orders", SEARCHABLE_LONGTAIL_ENTITIES);
+        searchAcrossEntities(
+            getOperationContext(),
+            getSearchService(),
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            "customer orders");
     assertTrue(searchResult.getEntities().size() >= 2);
     Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
 
@@ -167,6 +192,36 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     // Checks that the scores aren't tied so that we are matching on table name more than column
     // name
     assertTrue(firstResultScore > secondResultScore);
+  }
+
+  @Test
+  public void testFilterOnCountField() {
+    assertNotNull(getSearchService());
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("rowCount")
+                                        .setValue("")
+                                        .setValues(new StringArray(ImmutableList.of("68"))))))));
+    SearchResult searchResult =
+        SearchTestUtils.facetAcrossEntities(
+            getOperationContext(),
+            getSearchService(),
+            SEARCHABLE_LONGTAIL_ENTITIES,
+            "*",
+            Collections.singletonList(DATASET_ENTITY_NAME),
+            filter);
+    assertFalse(searchResult.getEntities().isEmpty());
+    Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
+    assertEquals(
+        firstResultUrn.toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.analytics.dogs_in_movies,PROD)");
   }
 
   /*

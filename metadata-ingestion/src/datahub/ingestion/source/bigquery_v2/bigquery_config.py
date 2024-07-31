@@ -1,15 +1,17 @@
 import logging
 import os
 from datetime import timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
-import pydantic
-from google.cloud import bigquery
+from google.cloud import bigquery, datacatalog_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -21,6 +23,10 @@ from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_BQ_SCHEMA_PARALLELISM = int(
+    os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20)
+)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
@@ -64,9 +70,12 @@ class BigQueryConnectionConfig(ConfigModel):
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
-    def get_bigquery_client(config) -> bigquery.Client:
-        client_options = config.extra_client_options
-        return bigquery.Client(config.project_on_behalf, **client_options)
+    def get_bigquery_client(self) -> bigquery.Client:
+        client_options = self.extra_client_options
+        return bigquery.Client(self.project_on_behalf, **client_options)
+
+    def get_policy_tag_manager_client(self) -> datacatalog_v1.PolicyTagManagerClient:
+        return datacatalog_v1.PolicyTagManagerClient()
 
     def make_gcp_logging_client(
         self, project_id: Optional[str] = None
@@ -96,6 +105,7 @@ class BigQueryV2Config(
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    ClassificationSourceConfigMixin,
 ):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -116,12 +126,17 @@ class BigQueryV2Config(
         description="Generate usage statistic",
     )
 
-    capture_table_label_as_tag: bool = Field(
+    capture_table_label_as_tag: Union[bool, AllowDenyPattern] = Field(
         default=False,
         description="Capture BigQuery table labels as DataHub tag",
     )
 
-    capture_dataset_label_as_tag: bool = Field(
+    capture_view_label_as_tag: Union[bool, AllowDenyPattern] = Field(
+        default=False,
+        description="Capture BigQuery view labels as DataHub tag",
+    )
+
+    capture_dataset_label_as_tag: Union[bool, AllowDenyPattern] = Field(
         default=False,
         description="Capture BigQuery dataset labels as DataHub tag",
     )
@@ -148,6 +163,15 @@ class BigQueryV2Config(
         " because the project id is represented as the top-level container.",
     )
 
+    include_table_snapshots: Optional[bool] = Field(
+        default=True, description="Whether table snapshots should be ingested."
+    )
+
+    table_snapshot_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",
@@ -155,14 +179,23 @@ class BigQueryV2Config(
 
     number_of_datasets_process_in_batch: int = Field(
         hidden_from_docs=True,
-        default=500,
+        default=10000,
         description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care.",
     )
 
     number_of_datasets_process_in_batch_if_profiling_enabled: int = Field(
-        default=200,
+        default=1000,
         description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
+
+    use_tables_list_query_v2: bool = Field(
+        default=False,
+        description="List tables using an improved query that extracts partitions and last modified timestamps more accurately. Requires the ability to read table data. Automatically enabled when profiling is enabled.",
+    )
+
+    @property
+    def have_table_data_read_permission(self) -> bool:
+        return self.use_tables_list_query_v2 or self.is_profiling_enabled()
 
     column_limit: int = Field(
         default=300,
@@ -199,20 +232,10 @@ class BigQueryV2Config(
     )
 
     extract_column_lineage: bool = Field(
-        # TODO: Flip this default to True once we support patching column-level lineage.
         default=False,
         description="If enabled, generate column level lineage. "
-        "Requires lineage_use_sql_parser to be enabled. "
-        "This and `incremental_lineage` cannot both be enabled.",
+        "Requires lineage_use_sql_parser to be enabled.",
     )
-
-    @pydantic.validator("extract_column_lineage")
-    def validate_column_lineage(cls, v: bool, values: Dict[str, Any]) -> bool:
-        if v and values.get("incremental_lineage"):
-            raise ValueError(
-                "Cannot enable `extract_column_lineage` and `incremental_lineage` at the same time."
-            )
-        return v
 
     extract_lineage_from_catalog: bool = Field(
         default=False,
@@ -222,6 +245,16 @@ class BigQueryV2Config(
     enable_legacy_sharded_table_support: bool = Field(
         default=True,
         description="Use the legacy sharded table urn suffix added.",
+    )
+
+    extract_policy_tags_from_catalog: bool = Field(
+        default=False,
+        description=(
+            "This flag enables the extraction of policy tags from the Google Data Catalog API. "
+            "When enabled, the extractor will fetch policy tags associated with BigQuery table columns. "
+            "For more information about policy tags and column-level security, refer to the documentation: "
+            "https://cloud.google.com/bigquery/docs/column-level-security-intro"
+        ),
     )
 
     scheme: str = "bigquery"
@@ -278,11 +311,23 @@ class BigQueryV2Config(
         description="Option to exclude empty projects from being ingested.",
     )
 
+    schema_resolution_batch_size: int = Field(
+        default=100,
+        description="The number of tables to process in a batch when resolving schema from DataHub.",
+        hidden_from_schema=True,
+    )
+
+    max_threads_dataset_parallelism: int = Field(
+        default=DEFAULT_BQ_SCHEMA_PARALLELISM,
+        description="Number of worker threads to use to parallelize BigQuery Dataset Metadata Extraction."
+        " Set to 1 to disable.",
+    )
+
     @root_validator(skip_on_failure=True)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        values["options"].setdefault("max_overflow", values["profiling"].max_workers)
+        values["options"].setdefault("max_overflow", -1)
 
         return values
 

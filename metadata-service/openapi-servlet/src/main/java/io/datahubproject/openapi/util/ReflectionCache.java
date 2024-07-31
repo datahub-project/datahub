@@ -134,11 +134,34 @@ public class ReflectionCache {
     return lookupMethod(builderPair.getFirst(), method, parameters);
   }
 
+  /**
+   * Convert class name to the pdl model names. Upper case first letter unless the 3rd character is
+   * upper case. Reverse of {link ReflectionCache.toUpperFirst} i.e. MLModel -> mlModel Dataset ->
+   * dataset DataProduct -> dataProduct
+   *
+   * @param s input string
+   * @return class name
+   */
   public static String toLowerFirst(String s) {
-    return s.substring(0, 1).toLowerCase() + s.substring(1);
+    if (s.length() > 2 && s.substring(2, 3).equals(s.substring(2, 3).toUpperCase())) {
+      return s.substring(0, 2).toLowerCase() + s.substring(2);
+    } else {
+      return s.substring(0, 1).toLowerCase() + s.substring(1);
+    }
   }
 
+  /**
+   * Convert the pdl model names to desired class names. Upper case first letter unless the 3rd
+   * character is upper case. i.e. mlModel -> MLModel dataset -> Dataset dataProduct -> DataProduct
+   *
+   * @param s input string
+   * @return class name
+   */
   public static String toUpperFirst(String s) {
-    return s.substring(0, 1).toUpperCase() + s.substring(1);
+    if (s.length() > 2 && s.substring(2, 3).equals(s.substring(2, 3).toUpperCase())) {
+      return s.substring(0, 2).toUpperCase() + s.substring(2);
+    } else {
+      return s.substring(0, 1).toUpperCase() + s.substring(1);
+    }
   }
 }

@@ -24,6 +24,8 @@ source venv/bin/activate
 
 source ./set-cypress-creds.sh
 
+export DATAHUB_GMS_URL=http://localhost:8080
+
 # no_cypress_suite0, no_cypress_suite1, cypress_suite1, cypress_rest
 if [[ -z "${TEST_STRATEGY}" ]]; then
     pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml

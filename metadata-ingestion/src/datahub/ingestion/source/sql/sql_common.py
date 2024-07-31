@@ -1,4 +1,6 @@
+import contextlib
 import datetime
+import functools
 import logging
 import traceback
 from dataclasses import dataclass, field
@@ -19,7 +21,7 @@ from typing import (
 )
 
 import sqlalchemy.dialects.postgresql.base
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
 from sqlalchemy.exc import ProgrammingError
@@ -35,14 +37,22 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import capability
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
+    SourceCapability,
     TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import (
+    SAMPLE_SIZE_MULTIPLIER,
+    ClassificationHandler,
+    ClassificationReportMixin,
+)
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -57,6 +67,9 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_key,
     get_domain_wu,
     schema_requires_v2,
+)
+from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
+    SqlAlchemyTableDataReader,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -96,17 +109,17 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     ViewPropertiesClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    sqlglot_lineage,
+    view_definition_lineage_helper,
+)
 from datahub.telemetry import telemetry
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
-from datahub.utilities.sqlglot_lineage import (
-    SchemaResolver,
-    SqlParsingResult,
-    sqlglot_lineage,
-    view_definition_lineage_helper,
-)
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -116,11 +129,9 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-MISSING_COLUMN_INFO = "missing column information"
-
 
 @dataclass
-class SQLSourceReport(StaleEntityRemovalSourceReport):
+class SQLSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
     tables_scanned: int = 0
     views_scanned: int = 0
     entities_profiled: int = 0
@@ -304,16 +315,22 @@ class ProfileMetadata:
     dataset_name_to_storage_bytes: Dict[str, int] = field(default_factory=dict)
 
 
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
     def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
-        super(SQLAlchemySource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
         self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
 
+        self.classification_handler = ClassificationHandler(self.config, self.report)
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -369,10 +386,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 capable=False, failure_reason=str(e)
             )
         return test_report
-
-    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason[:100])
-        log.warning(f"{key} => {reason}")
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason[:100])
@@ -508,10 +521,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            partial(
-                auto_incremental_lineage,
-                self.ctx.graph,
-                self.config.incremental_lineage,
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
             ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
@@ -523,6 +534,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options.setdefault("echo", True)
+            # Patch to avoid duplicate logging
+            # Known issue with sqlalchemy https://stackoverflow.com/questions/60804288/pycharm-duplicated-log-for-sqlalchemy-echo-true
+            sqlalchemy_log._add_default_handler = lambda x: None  # type: ignore
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -647,6 +661,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             fk_dict["name"], foreign_fields, source_fields, foreign_dataset
         )
 
+    def make_data_reader(self, inspector: Inspector) -> Optional[DataReader]:
+        """
+        Subclasses can override this with source-specific data reader
+        if source provides clause to pick random sample instead of current
+        limit-based sample
+        """
+        if (
+            self.classification_handler
+            and self.classification_handler.is_classification_enabled()
+        ):
+            return SqlAlchemyTableDataReader.create(inspector)
+
+        return None
+
     def loop_tables(  # noqa: C901
         self,
         inspector: Inspector,
@@ -654,31 +682,48 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
-        try:
-            for table in inspector.get_table_names(schema):
-                dataset_name = self.get_identifier(
-                    schema=schema, entity=table, inspector=inspector
-                )
-
-                if dataset_name not in tables_seen:
-                    tables_seen.add(dataset_name)
-                else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
-                    continue
-
-                self.report.report_entity_scanned(dataset_name, ent_type="table")
-                if not sql_config.table_pattern.allowed(dataset_name):
-                    self.report.report_dropped(dataset_name)
-                    continue
-
-                try:
-                    yield from self._process_table(
-                        dataset_name, inspector, schema, table, sql_config
+        data_reader = self.make_data_reader(inspector)
+        with data_reader or contextlib.nullcontext():
+            try:
+                for table in inspector.get_table_names(schema):
+                    dataset_name = self.get_identifier(
+                        schema=schema, entity=table, inspector=inspector
                     )
-                except Exception as e:
-                    self.warn(logger, f"{schema}.{table}", f"Ingestion error: {e}")
-        except Exception as e:
-            self.error(logger, f"{schema}", f"Tables error: {e}")
+
+                    if dataset_name not in tables_seen:
+                        tables_seen.add(dataset_name)
+                    else:
+                        logger.debug(
+                            f"{dataset_name} has already been seen, skipping..."
+                        )
+                        continue
+
+                    self.report.report_entity_scanned(dataset_name, ent_type="table")
+                    if not sql_config.table_pattern.allowed(dataset_name):
+                        self.report.report_dropped(dataset_name)
+                        continue
+
+                    try:
+                        yield from self._process_table(
+                            dataset_name,
+                            inspector,
+                            schema,
+                            table,
+                            sql_config,
+                            data_reader,
+                        )
+                    except Exception as e:
+                        self.report.warning(
+                            "Error processing table",
+                            context=f"{schema}.{table}",
+                            exc=e,
+                        )
+            except Exception as e:
+                self.report.failure(
+                    "Error processing tables",
+                    context=schema,
+                    exc=e,
+                )
 
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
         pass
@@ -688,6 +733,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[Dict[str, List[str]]]:
         return None
 
+    def get_partitions(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Optional[List[str]]:
+        return None
+
     def _process_table(
         self,
         dataset_name: str,
@@ -695,6 +745,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         table: str,
         sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         columns = self._get_columns(dataset_name, inspector, schema, table)
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -731,9 +782,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         extra_tags = self.get_extra_tags(inspector, schema, table)
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
+        partitions: Optional[List[str]] = self.get_partitions(inspector, schema, table)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         schema_fields = self.get_schema_fields(
-            dataset_name, columns, pk_constraints, tags=extra_tags
+            dataset_name,
+            columns,
+            pk_constraints,
+            tags=extra_tags,
+            partition_keys=partitions,
         )
         schema_metadata = get_schema_metadata(
             self.report,
@@ -744,6 +800,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             foreign_keys,
             schema_fields,
         )
+        self._classify(dataset_name, schema, table, data_reader, schema_metadata)
+
         dataset_snapshot.aspects.append(schema_metadata)
         if self.config.include_view_lineage:
             self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
@@ -772,6 +830,44 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=dataset_urn,
                 domain_config=sql_config.domain,
                 domain_registry=self.domain_registry,
+            )
+
+    def _classify(
+        self,
+        dataset_name: str,
+        schema: str,
+        table: str,
+        data_reader: Optional[DataReader],
+        schema_metadata: SchemaMetadata,
+    ) -> None:
+        try:
+            if (
+                self.classification_handler.is_classification_enabled_for_table(
+                    dataset_name
+                )
+                and data_reader
+                and schema_metadata.fields
+            ):
+                self.classification_handler.classify_schema_fields(
+                    dataset_name,
+                    schema_metadata,
+                    partial(
+                        data_reader.get_sample_data_for_table,
+                        [schema, table],
+                        int(
+                            self.config.classification.sample_size
+                            * SAMPLE_SIZE_MULTIPLIER
+                        ),
+                    ),
+                )
+        except Exception as e:
+            logger.debug(
+                f"Failed to classify table columns for {dataset_name} due to error -> {e}",
+                exc_info=e,
+            )
+            self.report.report_warning(
+                "Failed to classify table columns",
+                dataset_name,
             )
 
     def get_database_properties(
@@ -841,8 +937,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.warn(logger, MISSING_COLUMN_INFO, dataset_name)
+                self.warn(logger, "missing column information", dataset_name)
         except Exception as e:
+            logger.error(traceback.format_exc())
             self.warn(
                 logger,
                 dataset_name,
@@ -871,6 +968,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
         columns: List[dict],
         pk_constraints: Optional[dict] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaField]:
         canonical_schema = []
@@ -879,7 +977,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             if tags:
                 column_tags = tags.get(column["name"], [])
             fields = self.get_schema_fields_for_column(
-                dataset_name, column, pk_constraints, tags=column_tags
+                dataset_name,
+                column,
+                pk_constraints,
+                tags=column_tags,
+                partition_keys=partition_keys,
             )
             canonical_schema.extend(fields)
         return canonical_schema
@@ -889,6 +991,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
         column: dict,
         pk_constraints: Optional[dict] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         gtc: Optional[GlobalTagsClass] = None
@@ -911,6 +1014,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             and column["name"] in pk_constraints.get("constrained_columns", [])
         ):
             field.isPartOfKey = True
+
+        if partition_keys is not None and column["name"] in partition_keys:
+            field.isPartitioningKey = True
+
         return [field]
 
     def loop_views(
@@ -939,9 +1046,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         sql_config=sql_config,
                     )
                 except Exception as e:
-                    self.warn(logger, f"{schema}.{view}", f"Ingestion error: {e}")
+                    self.report.warning(
+                        "Error processing view",
+                        context=f"{schema}.{view}",
+                        exc=e,
+                    )
         except Exception as e:
-            self.error(logger, f"{schema}", f"Views error: {e}")
+            self.report.failure(
+                "Error processing views",
+                context=schema,
+                exc=e,
+            )
 
     def _process_view(
         self,
@@ -1089,6 +1204,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,
+            env=self.config.env,
         )
 
     def get_profile_args(self) -> Dict:
@@ -1175,13 +1291,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 tables_seen.add(dataset_name)
             else:
                 logger.debug(f"{dataset_name} has already been seen, skipping...")
-                continue
-
-            missing_column_info_warn = self.report.warnings.get(MISSING_COLUMN_INFO)
-            if (
-                missing_column_info_warn is not None
-                and dataset_name in missing_column_info_warn
-            ):
                 continue
 
             (partition, custom_sql) = self.generate_partition_profiler_query(

@@ -4,7 +4,6 @@ plugins {
 }
 
 dependencies {
-
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
@@ -12,10 +11,8 @@ dependencies {
   implementation externalDependency.typesafeConfig
   implementation externalDependency.opentracingJdbc
 
-  implementation project(path: ':li-utils')
-  implementation project(path: ':metadata-models')
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
-  implementation externalDependency.httpAsyncClient
+  implementation externalDependency.httpClient
 
   // Tests need a concrete log4j available. Providing it here
   testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'

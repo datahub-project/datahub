@@ -1,5 +1,4 @@
 import subprocess
-import sys
 from typing import Any, Dict, List
 from unittest.mock import patch
 
@@ -15,13 +14,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-pytestmark = [
-    pytest.mark.integration_batch_1,
-    # Skip tests if not on Python 3.8 or higher.
-    pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="Requires python 3.8 or higher"
-    ),
-]
+pytestmark = pytest.mark.integration_batch_1
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
@@ -38,9 +31,7 @@ def remove_docker_image():
 def spark_submit(file_path: str, args: str = "") -> None:
     docker = "docker"
     command = f"{docker} exec spark-iceberg spark-submit {file_path} {args}"
-    ret = subprocess.run(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
 
 
@@ -88,9 +79,8 @@ def test_iceberg_stateful_ingest(
             "type": "iceberg",
             "config": {
                 "catalog": {
-                    "name": "default",
-                    "type": "rest",
-                    "config": {
+                    "default": {
+                        "type": "rest",
                         "uri": "http://localhost:8181",
                         "s3.access-key-id": "admin",
                         "s3.secret-access-key": "password",

@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.auth.AwsRequestSigningApacheInterceptor;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import javax.net.ssl.HostnameVerifier;
@@ -38,13 +37,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.signer.Aws4Signer;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({ElasticsearchSSLContextFactory.class})
 public class RestHighLevelClientFactory {
 

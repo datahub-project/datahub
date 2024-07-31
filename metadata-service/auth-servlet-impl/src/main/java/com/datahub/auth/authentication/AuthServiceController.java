@@ -18,16 +18,17 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
-import jakarta.inject.Inject;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -72,25 +73,33 @@ public class AuthServiceController {
   private static final String USE_NONCE = "useNonce";
   private static final String READ_TIMEOUT = "readTimeout";
   private static final String EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "extractJwtAccessTokenClaims";
+  // Retained for backwards compatibility
   private static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
+  private static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
 
-  @Inject StatelessTokenService _statelessTokenService;
+  @Autowired private StatelessTokenService _statelessTokenService;
 
-  @Inject Authentication _systemAuthentication;
+  @Autowired private Authentication _systemAuthentication;
 
-  @Inject
+  @Autowired
   @Qualifier("configurationProvider")
-  ConfigurationProvider _configProvider;
+  private ConfigurationProvider _configProvider;
 
-  @Inject NativeUserService _nativeUserService;
+  @Autowired private NativeUserService _nativeUserService;
 
-  @Inject EntityService _entityService;
+  @Autowired private EntityService<?> _entityService;
 
-  @Inject SecretService _secretService;
+  @Autowired private SecretService _secretService;
 
-  @Inject InviteTokenService _inviteTokenService;
+  @Autowired private InviteTokenService _inviteTokenService;
 
-  @Inject @Nullable TrackingService _trackingService;
+  @Autowired @Nullable private TrackingService _trackingService;
+
+  @Autowired private ObjectMapper mapper;
+
+  @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   /**
    * Generates a JWT access token for as user UI session, provided a unique "user id" to generate
@@ -109,14 +118,12 @@ public class AuthServiceController {
   CompletableFuture<ResponseEntity<String>> generateSessionTokenForUser(
       final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson = null;
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format(
-              "Failed to parse json while attempting to generate session token %s", jsonStr));
+      log.error("Failed to parse json while attempting to generate session token {}", jsonStr, e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -130,7 +137,7 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
-    log.debug(String.format("Attempting to generate session token for user %s", userId.asText()));
+    log.info("Attempting to generate session token for user {}", userId.asText());
     final String actorId = AuthenticationContext.getAuthentication().getActor().getId();
     return CompletableFuture.supplyAsync(
         () -> {
@@ -138,14 +145,20 @@ public class AuthServiceController {
           if (isAuthorizedToGenerateSessionToken(actorId)) {
             try {
               // 2. Generate a new DataHub JWT
+              final long sessionTokenDurationMs =
+                  _configProvider.getAuthentication().getSessionTokenDurationMs();
               final String token =
                   _statelessTokenService.generateAccessToken(
                       TokenType.SESSION,
                       new Actor(ActorType.USER, userId.asText()),
-                      _configProvider.getAuthentication().getSessionTokenDurationMs());
+                      sessionTokenDurationMs);
+              log.info(
+                  "Successfully generated session token for user: {}, duration: {} ms",
+                  userId.asText(),
+                  sessionTokenDurationMs);
               return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
             } catch (Exception e) {
-              log.error("Failed to generate session token for user", e);
+              log.error("Failed to generate session token for user: {}", userId.asText(), e);
               return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
             }
           }
@@ -175,13 +188,12 @@ public class AuthServiceController {
   @PostMapping(value = "/signUp", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> signUp(final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson;
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format("Failed to parse json while attempting to create native user %s", jsonStr));
+      log.debug("Failed to parse json while attempting to create native user", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -220,23 +232,28 @@ public class AuthServiceController {
     String passwordString = password.asText();
     String inviteTokenString = inviteToken.asText();
     Authentication auth = AuthenticationContext.getAuthentication();
-    log.debug(String.format("Attempting to create native user %s", userUrnString));
+    log.info("Attempting to create native user {}", userUrnString);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
             Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenString);
-            if (!_inviteTokenService.isInviteTokenValid(inviteTokenUrn, auth)) {
-              log.error(String.format("Invalid invite token %s", inviteTokenString));
+            if (!_inviteTokenService.isInviteTokenValid(systemOperationContext, inviteTokenUrn)) {
+              log.error("Invalid invite token {}", inviteTokenString);
               return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
             }
 
             _nativeUserService.createNativeUser(
-                userUrnString, fullNameString, emailString, titleString, passwordString, auth);
+                systemOperationContext,
+                userUrnString,
+                fullNameString,
+                emailString,
+                titleString,
+                passwordString);
             String response = buildSignUpResponse();
+            log.info("Created native user {}", userUrnString);
             return new ResponseEntity<>(response, HttpStatus.OK);
           } catch (Exception e) {
-            log.error(
-                String.format("Failed to create credentials for native user %s", userUrnString), e);
+            log.error("Failed to create credentials for native user {}", userUrnString, e);
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
           }
         });
@@ -260,13 +277,12 @@ public class AuthServiceController {
   CompletableFuture<ResponseEntity<String>> resetNativeUserCredentials(
       final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson;
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format("Failed to parse json while attempting to create native user %s", jsonStr));
+      log.debug("Failed to parse json while attempting to create native user", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -286,17 +302,17 @@ public class AuthServiceController {
     String passwordString = password.asText();
     String resetTokenString = resetToken.asText();
     Authentication auth = AuthenticationContext.getAuthentication();
-    log.debug(String.format("Attempting to reset credentials for native user %s", userUrnString));
+    log.info("Attempting to reset credentials for native user {}", userUrnString);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
             _nativeUserService.resetCorpUserCredentials(
-                userUrnString, passwordString, resetTokenString, auth);
+                systemOperationContext, userUrnString, passwordString, resetTokenString);
             String response = buildResetNativeUserCredentialsResponse();
+            log.info("Reset credentials for native user {}", userUrnString);
             return new ResponseEntity<>(response, HttpStatus.OK);
           } catch (Exception e) {
-            log.error(
-                String.format("Failed to reset credentials for native user %s", userUrnString), e);
+            log.error("Failed to reset credentials for native user {}", userUrnString, e);
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
           }
         });
@@ -319,14 +335,12 @@ public class AuthServiceController {
   CompletableFuture<ResponseEntity<String>> verifyNativeUserCredentials(
       final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson;
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format(
-              "Failed to parse json while attempting to verify native user password %s", jsonStr));
+      log.debug("Failed to parse json while attempting to verify native user password", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -343,17 +357,21 @@ public class AuthServiceController {
 
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
-    log.debug(String.format("Attempting to verify credentials for native user %s", userUrnString));
+    log.info("Attempting to verify credentials for native user {}", userUrnString);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
             boolean doesPasswordMatch =
-                _nativeUserService.doesPasswordMatch(userUrnString, passwordString);
+                _nativeUserService.doesPasswordMatch(
+                    systemOperationContext, userUrnString, passwordString);
             String response = buildVerifyNativeUserPasswordResponse(doesPasswordMatch);
+            log.info(
+                "Verified credentials for native user: {}, result: {}",
+                userUrnString,
+                doesPasswordMatch);
             return new ResponseEntity<>(response, HttpStatus.OK);
           } catch (Exception e) {
-            log.error(
-                String.format("Failed to verify credentials for native user %s", userUrnString), e);
+            log.error("Failed to verify credentials for native user {}", userUrnString, e);
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
           }
         });
@@ -363,14 +381,12 @@ public class AuthServiceController {
   @PostMapping(value = "/track", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> track(final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson;
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format(
-              "Failed to parse json while attempting to track analytics event %s", jsonStr));
+      log.error("Failed to parse json while attempting to track analytics event {}", jsonStr);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -380,7 +396,7 @@ public class AuthServiceController {
         () -> {
           try {
             if (_trackingService != null) {
-              _trackingService.emitAnalyticsEvent(bodyJson);
+              _trackingService.emitAnalyticsEvent(systemOperationContext, bodyJson);
             }
             return new ResponseEntity<>(HttpStatus.OK);
           } catch (Exception e) {
@@ -410,7 +426,9 @@ public class AuthServiceController {
             GlobalSettingsInfo globalSettingsInfo =
                 (GlobalSettingsInfo)
                     _entityService.getLatestAspect(
-                        GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+                        systemOperationContext,
+                        GLOBAL_SETTINGS_URN,
+                        GLOBAL_SETTINGS_INFO_ASPECT_NAME);
             if (globalSettingsInfo == null || !globalSettingsInfo.hasSso()) {
               log.debug("There are no SSO settings available");
               return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -514,8 +532,8 @@ public class AuthServiceController {
     if (oidcSettings.hasExtractJwtAccessTokenClaims()) {
       json.put(EXTRACT_JWT_ACCESS_TOKEN_CLAIMS, oidcSettings.isExtractJwtAccessTokenClaims());
     }
-    if (oidcSettings.hasPreferredJwsAlgorithm()) {
-      json.put(PREFERRED_JWS_ALGORITHM, oidcSettings.getPreferredJwsAlgorithm());
+    if (oidcSettings.hasPreferredJwsAlgorithm2()) {
+      json.put(PREFERRED_JWS_ALGORITHM, oidcSettings.getPreferredJwsAlgorithm2());
     }
   }
 }

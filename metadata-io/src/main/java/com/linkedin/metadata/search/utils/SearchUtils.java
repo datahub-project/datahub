@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
@@ -196,6 +198,36 @@ public class SearchUtils {
     if (!finalSearchFlags.hasSkipCache() || finalSearchFlags.isSkipCache() == null) {
       finalSearchFlags.setSkipCache(defaultFlags.isSkipCache());
     }
+    if (!finalSearchFlags.hasIncludeSoftDeleted()
+        || finalSearchFlags.isIncludeSoftDeleted() == null) {
+      finalSearchFlags.setIncludeSoftDeleted(defaultFlags.isIncludeSoftDeleted());
+    }
+    if (!finalSearchFlags.hasIncludeRestricted()
+        || finalSearchFlags.isIncludeRestricted() == null) {
+      finalSearchFlags.setIncludeRestricted(defaultFlags.isIncludeRestricted());
+    }
+    if ((!finalSearchFlags.hasGroupingSpec() || finalSearchFlags.getGroupingSpec() == null)
+        && (defaultFlags.getGroupingSpec() != null)) {
+      finalSearchFlags.setGroupingSpec(defaultFlags.getGroupingSpec());
+    }
     return finalSearchFlags;
+  }
+
+  /**
+   * Returns true if the search flags contain a grouping spec that requires conversion of schema
+   * field entity to dataset entity.
+   *
+   * @param searchFlags the search flags
+   * @return true if the search flags contain a grouping spec that requires conversion of schema
+   *     field entity to dataset entity.
+   */
+  public static boolean convertSchemaFieldToDataset(@Nullable SearchFlags searchFlags) {
+    return (searchFlags != null)
+        && (searchFlags.getGroupingSpec() != null)
+        && (searchFlags.getGroupingSpec().getGroupingCriteria().stream()
+            .anyMatch(
+                grouping ->
+                    grouping.getBaseEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
+                        && grouping.getGroupingEntityType().equals(DATASET_ENTITY_NAME)));
   }
 }

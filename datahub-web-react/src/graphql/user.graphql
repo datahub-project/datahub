@@ -1,8 +1,10 @@
 query getUser($urn: String!, $groupsCount: Int!) {
     corpUser(urn: $urn) {
         urn
+        type
         username
         isNativeUser
+        exists
         info {
             active
             displayName
@@ -24,8 +26,22 @@ query getUser($urn: String!, $groupsCount: Int!) {
             title
             email
         }
+        privileges {
+            ...entityPrivileges
+        }
         globalTags {
             ...globalTagsFields
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         groups: relationships(
             input: {

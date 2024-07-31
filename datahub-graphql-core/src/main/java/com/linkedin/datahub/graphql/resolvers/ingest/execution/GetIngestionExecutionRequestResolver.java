@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -38,19 +39,19 @@ public class GetIngestionExecutionRequestResolver
 
     if (IngestionAuthUtils.canManageIngestion(context)) {
       final String urnStr = environment.getArgument("urn");
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // Fetch specific execution request
               final Urn urn = Urn.createFromString(urnStr);
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.EXECUTION_REQUEST_ENTITY_NAME,
                       new HashSet<>(ImmutableSet.of(urn)),
                       ImmutableSet.of(
                           Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                          Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
-                      context.getAuthentication());
+                          Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME));
               if (!entities.containsKey(urn)) {
                 // No execution request found
                 throw new DataHubGraphQLException(
@@ -58,11 +59,13 @@ public class GetIngestionExecutionRequestResolver
                     DataHubGraphQLErrorCode.NOT_FOUND);
               }
               // Execution request found
-              return IngestionResolverUtils.mapExecutionRequest(entities.get(urn));
+              return IngestionResolverUtils.mapExecutionRequest(context, entities.get(urn));
             } catch (Exception e) {
               throw new RuntimeException("Failed to retrieve execution request", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

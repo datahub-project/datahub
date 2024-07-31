@@ -6,6 +6,7 @@ import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
 @PublicApi
@@ -15,7 +16,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
   private static final String DEFAULT_ERROR_MESSAGE = "An unknown error occurred.";
 
   @Override
-  public DataFetcherExceptionHandlerResult onException(
+  public CompletableFuture<DataFetcherExceptionHandlerResult> handleException(
       DataFetcherExceptionHandlerParameters handlerParameters) {
     Throwable exception = handlerParameters.getException();
     SourceLocation sourceLocation = handlerParameters.getSourceLocation();
@@ -44,7 +45,8 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       log.error("Failed to execute", exception);
     }
     DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
-    return DataFetcherExceptionHandlerResult.newResult().error(error).build();
+    return CompletableFuture.completedFuture(
+        DataFetcherExceptionHandlerResult.newResult().error(error).build());
   }
 
   <T extends Throwable> T findFirstThrowableCauseOfClass(Throwable throwable, Class<T> clazz) {

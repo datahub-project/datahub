@@ -4,6 +4,7 @@ import warnings
 from abc import ABC
 from typing import Dict, Iterable, Optional, Tuple
 
+from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
@@ -46,12 +47,20 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class OpenApiConfig(ConfigModel):
-    name: str = Field(description="")
-    url: str = Field(description="")
-    swagger_file: str = Field(description="")
-    ignore_endpoints: list = Field(default=[], description="")
-    username: str = Field(default="", description="")
-    password: str = Field(default="", description="")
+    name: str = Field(description="Name of ingestion.")
+    url: str = Field(description="Endpoint URL. e.g. https://example.com")
+    swagger_file: str = Field(
+        description="Route for access to the swagger file. e.g. openapi.json"
+    )
+    ignore_endpoints: list = Field(
+        default=[], description="List of endpoints to ignore during ingestion."
+    )
+    username: str = Field(
+        default="", description="Username used for basic HTTP authentication."
+    )
+    password: str = Field(
+        default="", description="Password used for basic HTTP authentication."
+    )
     proxies: Optional[dict] = Field(
         default=None,
         description="Eg. "
@@ -59,14 +68,38 @@ class OpenApiConfig(ConfigModel):
         "If authentication is required, add it to the proxy url directly e.g. "
         "`http://user:pass@10.10.1.10:3128/`.",
     )
-    forced_examples: dict = Field(default={}, description="")
-    token: Optional[str] = Field(default=None, description="")
-    get_token: dict = Field(default={}, description="")
+    forced_examples: dict = Field(
+        default={},
+        description="If no example is provided for a route, it is possible to create one using forced_example.",
+    )
+    token: Optional[str] = Field(
+        default=None, description="Token for endpoint authentication."
+    )
+    bearer_token: Optional[str] = Field(
+        default=None, description="Bearer token for endpoint authentication."
+    )
+    get_token: dict = Field(
+        default={}, description="Retrieving a token from the endpoint."
+    )
+
+    @validator("bearer_token", always=True)
+    def ensure_only_one_token(
+        cls, bearer_token: Optional[str], values: Dict
+    ) -> Optional[str]:
+        if bearer_token is not None and values.get("token") is not None:
+            raise ValueError("Unable to use 'token' and 'bearer_token' together.")
+        return bearer_token
 
     def get_swagger(self) -> Dict:
-        if self.get_token or self.token is not None:
-            if self.token is not None:
-                ...
+        if self.get_token or self.token or self.bearer_token is not None:
+            if self.token:
+                pass
+            elif self.bearer_token:
+                # TRICKY: To avoid passing a bunch of different token types around, we set the
+                # token's value to the properly formatted bearer token.
+                # TODO: We should just create a requests.Session and set all the auth
+                # details there once, and then use that session for all requests.
+                self.token = f"Bearer {self.bearer_token}"
             else:
                 assert (
                     "url_complement" in self.get_token.keys()
@@ -151,27 +184,40 @@ class APISource(Source, ABC):
         self.report = SourceReport()
         self.url_basepath = ""
 
-    def report_bad_responses(self, status_code: int, key: str) -> None:
+    def report_bad_responses(self, status_code: int, type: str) -> None:
         if status_code == 400:
             self.report.report_warning(
-                key=key, reason="Unknown error for reaching endpoint"
+                title="Failed to Extract Metadata",
+                message="Bad request body when retrieving data from OpenAPI endpoint",
+                context=f"Endpoint Type: {type}, Status Code: {status_code}",
             )
         elif status_code == 403:
-            self.report.report_warning(key=key, reason="Not authorised to get endpoint")
+            self.report.report_warning(
+                title="Unauthorized to Extract Metadata",
+                message="Received unauthorized response when attempting to retrieve data from OpenAPI endpoint",
+                context=f"Endpoint Type: {type}, Status Code: {status_code}",
+            )
         elif status_code == 404:
             self.report.report_warning(
-                key=key,
-                reason="Unable to find an example for endpoint. Please add it to the list of forced examples.",
+                title="Failed to Extract Metadata",
+                message="Unable to find an example for endpoint. Please add it to the list of forced examples.",
+                context=f"Endpoint Type: {type}, Status Code: {status_code}",
             )
         elif status_code == 500:
             self.report.report_warning(
-                key=key, reason="Server error for reaching endpoint"
+                title="Failed to Extract Metadata",
+                message="Received unknown server error from OpenAPI endpoint",
+                context=f"Endpoint Type: {type}, Status Code: {status_code}",
             )
         elif status_code == 504:
-            self.report.report_warning(key=key, reason="Timeout for reaching endpoint")
+            self.report.report_warning(
+                title="Failed to Extract Metadata",
+                message="Timed out when attempting to retrieve data from OpenAPI endpoint",
+                context=f"Endpoint Type: {type}, Status Code: {status_code}",
+            )
         else:
             raise Exception(
-                f"Unable to retrieve endpoint, response code {status_code}, key {key}"
+                f"Unable to retrieve endpoint, response code {status_code}, key {type}"
             )
 
     def init_dataset(
@@ -238,7 +284,7 @@ class APISource(Source, ABC):
             for w in warn_c:
                 w_msg = w.message
                 w_spl = w_msg.args[0].split(" --- ")  # type: ignore
-                self.report.report_warning(key=w_spl[1], reason=w_spl[0])
+                self.report.report_warning(message=w_spl[1], context=w_spl[0])
 
         # here we put a sample from the "listing endpoint". To be used for later guessing of comosed endpoints.
         root_dataset_samples = {}
@@ -260,18 +306,20 @@ class APISource(Source, ABC):
                 yield self.build_wu(dataset_snapshot, dataset_name)
             elif endpoint_dets["method"] != "get":
                 self.report.report_warning(
-                    key=endpoint_k,
-                    reason=f"No example provided for {endpoint_dets['method']}",
+                    title="Failed to Extract Endpoint Metadata",
+                    message=f"No example provided for {endpoint_dets['method']}",
+                    context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                 )
                 continue  # Only test endpoints if they're GETs
             elif (
                 "{" not in endpoint_k
             ):  # if the API does not explicitly require parameters
                 tot_url = clean_url(config.url + self.url_basepath + endpoint_k)
-
                 if config.token:
                     response = request_call(
-                        tot_url, token=config.token, proxies=config.proxies
+                        tot_url,
+                        token=config.token,
+                        proxies=config.proxies,
                     )
                 else:
                     response = request_call(
@@ -285,13 +333,16 @@ class APISource(Source, ABC):
                         response, dataset_name
                     )
                     if not fields2add:
-                        self.report.report_warning(key=endpoint_k, reason="No Fields")
+                        self.report.info(
+                            message="No fields found from endpoint response.",
+                            context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                        )
                     schema_metadata = set_metadata(dataset_name, fields2add)
                     dataset_snapshot.aspects.append(schema_metadata)
 
                     yield self.build_wu(dataset_snapshot, dataset_name)
                 else:
-                    self.report_bad_responses(response.status_code, key=endpoint_k)
+                    self.report_bad_responses(response.status_code, type=endpoint_k)
             else:
                 if endpoint_k not in config.forced_examples.keys():
                     # start guessing...
@@ -299,7 +350,9 @@ class APISource(Source, ABC):
                     tot_url = clean_url(config.url + self.url_basepath + url_guess)
                     if config.token:
                         response = request_call(
-                            tot_url, token=config.token, proxies=config.proxies
+                            tot_url,
+                            token=config.token,
+                            proxies=config.proxies,
                         )
                     else:
                         response = request_call(
@@ -311,15 +364,16 @@ class APISource(Source, ABC):
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)
                         if not fields2add:
-                            self.report.report_warning(
-                                key=endpoint_k, reason="No Fields"
+                            self.report.info(
+                                message="No fields found from endpoint response.",
+                                context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                             )
                         schema_metadata = set_metadata(dataset_name, fields2add)
                         dataset_snapshot.aspects.append(schema_metadata)
 
                         yield self.build_wu(dataset_snapshot, dataset_name)
                     else:
-                        self.report_bad_responses(response.status_code, key=endpoint_k)
+                        self.report_bad_responses(response.status_code, type=endpoint_k)
                 else:
                     composed_url = compose_url_attr(
                         raw_url=endpoint_k, attr_list=config.forced_examples[endpoint_k]
@@ -327,7 +381,9 @@ class APISource(Source, ABC):
                     tot_url = clean_url(config.url + self.url_basepath + composed_url)
                     if config.token:
                         response = request_call(
-                            tot_url, token=config.token, proxies=config.proxies
+                            tot_url,
+                            token=config.token,
+                            proxies=config.proxies,
                         )
                     else:
                         response = request_call(
@@ -339,15 +395,16 @@ class APISource(Source, ABC):
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)
                         if not fields2add:
-                            self.report.report_warning(
-                                key=endpoint_k, reason="No Fields"
+                            self.report.info(
+                                message="No fields found from endpoint response.",
+                                context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                             )
                         schema_metadata = set_metadata(dataset_name, fields2add)
                         dataset_snapshot.aspects.append(schema_metadata)
 
                         yield self.build_wu(dataset_snapshot, dataset_name)
                     else:
-                        self.report_bad_responses(response.status_code, key=endpoint_k)
+                        self.report_bad_responses(response.status_code, type=endpoint_k)
 
     def get_report(self):
         return self.report

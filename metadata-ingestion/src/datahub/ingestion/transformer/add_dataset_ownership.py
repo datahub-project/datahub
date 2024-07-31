@@ -14,8 +14,11 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import (
     DatasetOwnershipTransformer,
 )
-from datahub.metadata._schema_classes import OwnershipTypeClass
-from datahub.metadata.schema_classes import OwnerClass, OwnershipClass
+from datahub.metadata.schema_classes import (
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+)
 
 
 class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
@@ -73,9 +76,11 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
         in_ownership_aspect: Optional[OwnershipClass] = cast(OwnershipClass, aspect)
         out_ownership_aspect: OwnershipClass = OwnershipClass(
             owners=[],
-            lastModified=in_ownership_aspect.lastModified
-            if in_ownership_aspect is not None
-            else None,
+            lastModified=(
+                in_ownership_aspect.lastModified
+                if in_ownership_aspect is not None
+                else None
+            ),
         )
 
         # Check if user want to keep existing ownerships

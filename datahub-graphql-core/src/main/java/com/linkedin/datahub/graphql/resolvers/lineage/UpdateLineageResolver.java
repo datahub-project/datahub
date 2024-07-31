@@ -1,25 +1,25 @@
 package com.linkedin.datahub.graphql.resolvers.lineage;
 
+import static com.datahub.authorization.AuthUtil.buildDisjunctivePrivilegeGroup;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.LineageEdge;
 import com.linkedin.datahub.graphql.generated.UpdateLineageInput;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.LineageService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final LineageService _lineageService;
 
   @Override
@@ -58,11 +58,14 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
     downstreamUrns.addAll(downstreamToUpstreamsToAdd.keySet());
     downstreamUrns.addAll(downstreamToUpstreamsToRemove.keySet());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          final Set<Urn> existingDownstreamUrns =
+              _entityService.exists(context.getOperationContext(), downstreamUrns, true);
+
           // build MCP for every downstreamUrn
           for (Urn downstreamUrn : downstreamUrns) {
-            if (!_entityService.exists(downstreamUrn)) {
+            if (!existingDownstreamUrns.contains(downstreamUrn)) {
               throw new IllegalArgumentException(
                   String.format(
                       "Cannot upsert lineage as downstream urn %s doesn't exist", downstreamUrn));
@@ -83,35 +86,35 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       filterOutDataJobUrns(upstreamUrnsToRemove);
 
                   _lineageService.updateDatasetLineage(
+                      context.getOperationContext(),
                       downstreamUrn,
                       filteredUpstreamUrnsToAdd,
                       filteredUpstreamUrnsToRemove,
-                      actor,
-                      context.getAuthentication());
+                      actor);
                   break;
                 case Constants.CHART_ENTITY_NAME:
                   _lineageService.updateChartLineage(
+                      context.getOperationContext(),
                       downstreamUrn,
                       upstreamUrnsToAdd,
                       upstreamUrnsToRemove,
-                      actor,
-                      context.getAuthentication());
+                      actor);
                   break;
                 case Constants.DASHBOARD_ENTITY_NAME:
                   _lineageService.updateDashboardLineage(
+                      context.getOperationContext(),
                       downstreamUrn,
                       upstreamUrnsToAdd,
                       upstreamUrnsToRemove,
-                      actor,
-                      context.getAuthentication());
+                      actor);
                   break;
                 case Constants.DATA_JOB_ENTITY_NAME:
                   _lineageService.updateDataJobUpstreamLineage(
+                      context.getOperationContext(),
                       downstreamUrn,
                       upstreamUrnsToAdd,
                       upstreamUrnsToRemove,
-                      actor,
-                      context.getAuthentication());
+                      actor);
                   break;
                 default:
               }
@@ -128,9 +131,12 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           upstreamUrns.addAll(upstreamToDownstreamsToAdd.keySet());
           upstreamUrns.addAll(upstreamToDownstreamsToRemove.keySet());
 
+          final Set<Urn> existingUpstreamUrns =
+              _entityService.exists(context.getOperationContext(), upstreamUrns, true);
+
           // build MCP for upstreamUrn if necessary
           for (Urn upstreamUrn : upstreamUrns) {
-            if (!_entityService.exists(upstreamUrn)) {
+            if (!existingUpstreamUrns.contains(upstreamUrn)) {
               throw new IllegalArgumentException(
                   String.format(
                       "Cannot upsert lineage as downstream urn %s doesn't exist", upstreamUrn));
@@ -150,11 +156,11 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                     filterOutDataJobUrns(downstreamUrnsToRemove);
 
                 _lineageService.updateDataJobDownstreamLineage(
+                    context.getOperationContext(),
                     upstreamUrn,
                     filteredDownstreamUrnsToAdd,
                     filteredDownstreamUrnsToRemove,
-                    actor,
-                    context.getAuthentication());
+                    actor);
               }
             } catch (Exception e) {
               throw new RuntimeException(
@@ -163,7 +169,9 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           }
 
           return true;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<Urn> filterOutDataJobUrns(@Nonnull final List<Urn> urns) {
@@ -240,15 +248,9 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
       @Nonnull final QueryContext context,
       @Nonnull final List<LineageEdge> edgesToAdd,
       @Nonnull final List<LineageEdge> edgesToRemove) {
-    final ConjunctivePrivilegeGroup allPrivilegesGroup =
-        new ConjunctivePrivilegeGroup(
-            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+
     DisjunctivePrivilegeGroup editLineagePrivileges =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                allPrivilegesGroup,
-                new ConjunctivePrivilegeGroup(
-                    Collections.singletonList(PoliciesConfig.EDIT_LINEAGE_PRIVILEGE.getType()))));
+        buildDisjunctivePrivilegeGroup(LINEAGE, UPDATE, null);
 
     for (LineageEdge edgeToAdd : edgesToAdd) {
       checkLineageEdgePrivileges(context, edgeToAdd, editLineagePrivileges);

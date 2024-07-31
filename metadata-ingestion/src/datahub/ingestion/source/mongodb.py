@@ -4,7 +4,6 @@ from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
 import bson.timestamp
-import pymongo
 import pymongo.collection
 from packaging import version
 from pydantic import PositiveInt, validator
@@ -72,7 +71,7 @@ logger = logging.getLogger(__name__)
 # See https://docs.mongodb.com/manual/reference/local-database/ and
 # https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
-DENY_DATABASE_LIST = set(["admin", "config", "local"])
+DENY_DATABASE_LIST = {"admin", "config", "local"}
 
 
 class HostingEnvironment(Enum):
@@ -282,7 +281,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
             **self.config.options,
         }
 
-        self.mongo_client = pymongo.MongoClient(self.config.connect_uri, **options)  # type: ignore
+        # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
+        self.mongo_client = MongoClient(self.config.connect_uri, datetime_conversion="DATETIME_AUTO", **options)  # type: ignore
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient
@@ -317,8 +317,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
         try:
             type_string = PYMONGO_TYPE_TO_MONGO_TYPE[field_type]
         except KeyError:
-            self.report.report_warning(
-                collection_name, f"unable to map type {field_type} to metadata schema"
+            self.report.warning(
+                message="Unrecognized column types found",
+                context=f"Collection: {collection_name}, field type {field_type}",
             )
             PYMONGO_TYPE_TO_MONGO_TYPE[field_type] = "unknown"
             type_string = "unknown"
@@ -341,8 +342,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
         TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
-            self.report.report_warning(
-                collection_name, f"unable to map type {field_type} to metadata schema"
+            self.report.warning(
+                message="Unrecognized column type found",
+                context=f"Collection: {collection_name}, field type {field_type}",
             )
             TypeClass = NullTypeClass
 
@@ -394,6 +396,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     customProperties={},
                 )
 
+                schema_metadata: Optional[SchemaMetadata] = None
+
                 if self.config.enableSchemaInference:
                     assert self.config.maxDocumentSize is not None
                     collection_schema = construct_schema_pymongo(
@@ -416,14 +420,10 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     if collection_schema_size > max_schema_size:
                         # downsample the schema, using frequency as the sort key
                         self.report.report_warning(
-                            key=dataset_urn,
-                            reason=f"Downsampling the collection schema because it has {collection_schema_size} fields. Threshold is {max_schema_size}",
+                            title="Too many schema fields",
+                            message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
+                            context=f"Schema Size: {collection_schema_size}, Collection: {dataset_urn}",
                         )
-                        collection_fields = sorted(
-                            collection_schema.values(),
-                            key=lambda x: (x["count"], x["delimited_name"]),
-                            reverse=True,
-                        )[0:max_schema_size]
                         # Add this information to the custom properties so user can know they are looking at downsampled schema
                         dataset_properties.customProperties[
                             "schema.downsampled"
@@ -437,8 +437,12 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     )
                     # append each schema field (sort so output is consistent)
                     for schema_field in sorted(
-                        collection_fields, key=lambda x: x["delimited_name"]
-                    ):
+                        collection_fields,
+                        key=lambda x: (
+                            -x["count"],
+                            x["delimited_name"],
+                        ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
+                    )[0:max_schema_size]:
                         field = SchemaField(
                             fieldPath=schema_field["delimited_name"],
                             nativeDataType=self.get_pymongo_type_string(

@@ -3,14 +3,12 @@ package com.linkedin.gms.factory.auth;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 /**
@@ -19,7 +17,6 @@ import org.springframework.context.annotation.Scope;
  */
 @Configuration
 @ConfigurationProperties
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Data
 public class SystemAuthenticationFactory {
 
@@ -34,8 +31,8 @@ public class SystemAuthenticationFactory {
   @Nonnull
   protected Authentication getInstance() {
     // TODO: Change to service
-    final Actor systemActor = new Actor(ActorType.USER, this.systemClientId);
+    final Actor systemActor = new Actor(ActorType.USER, systemClientId);
     return new Authentication(
-        systemActor, String.format("Basic %s:%s", this.systemClientId, this.systemSecret));
+        systemActor, String.format("Basic %s:%s", systemClientId, systemSecret));
   }
 }

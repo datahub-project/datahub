@@ -33,6 +33,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -74,23 +75,29 @@ public class DomainUtils {
   }
 
   public static void setDomainForResources(
+      @Nonnull OperationContext opContext,
       @Nullable Urn domainUrn,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService)
+      EntityService<?> entityService)
       throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
-      changes.add(buildSetDomainProposal(domainUrn, resource, actor, entityService));
+      changes.add(buildSetDomainProposal(opContext, domainUrn, resource, actor, entityService));
     }
-    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
   private static MetadataChangeProposal buildSetDomainProposal(
-      @Nullable Urn domainUrn, ResourceRefInput resource, Urn actor, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      @Nullable Urn domainUrn,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService) {
     Domains domains =
         (Domains)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resource.getResourceUrn(),
                 Constants.DOMAINS_ASPECT_NAME,
                 entityService,
@@ -104,8 +111,9 @@ public class DomainUtils {
         UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
   }
 
-  public static void validateDomain(Urn domainUrn, EntityService entityService) {
-    if (!entityService.exists(domainUrn)) {
+  public static void validateDomain(
+      @Nonnull OperationContext opContext, Urn domainUrn, EntityService<?> entityService) {
+    if (!entityService.exists(opContext, domainUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to validate Domain with urn %s. Urn does not exist.", domainUrn));
     }
@@ -209,7 +217,7 @@ public class DomainUtils {
     // Limit count to 1 for existence check
     final SearchResult searchResult =
         entityClient.filter(
-            DOMAIN_ENTITY_NAME, parentDomainFilter, null, 0, 1, context.getAuthentication());
+            context.getOperationContext(), DOMAIN_ENTITY_NAME, parentDomainFilter, null, 0, 1);
     return (searchResult.getNumEntities() > 0);
   }
 
@@ -223,7 +231,7 @@ public class DomainUtils {
 
       final SearchResult searchResult =
           entityClient.filter(
-              DOMAIN_ENTITY_NAME, filter, null, 0, 1000, context.getAuthentication());
+              context.getOperationContext(), DOMAIN_ENTITY_NAME, filter, null, 0, 1000);
 
       final Set<Urn> domainUrns =
           searchResult.getEntities().stream()
@@ -231,10 +239,10 @@ public class DomainUtils {
               .collect(Collectors.toSet());
 
       return entityClient.batchGetV2(
+          context.getOperationContext(),
           DOMAIN_ENTITY_NAME,
           domainUrns,
-          Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME),
-          context.getAuthentication());
+          Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException("Failed fetching Domains by name and parent", e);
     }
@@ -274,10 +282,10 @@ public class DomainUtils {
     try {
       final EntityResponse entityResponse =
           entityClient.getV2(
+              context.getOperationContext(),
               DOMAIN_ENTITY_NAME,
               urn,
-              Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(DOMAIN_PROPERTIES_ASPECT_NAME)) {
@@ -285,7 +293,7 @@ public class DomainUtils {
             new DomainProperties(
                 entityResponse.getAspects().get(DOMAIN_PROPERTIES_ASPECT_NAME).getValue().data());
         final Urn parentDomainUrn = getParentDomainSafely(properties);
-        return parentDomainUrn != null ? UrnToEntityMapper.map(parentDomainUrn) : null;
+        return parentDomainUrn != null ? UrnToEntityMapper.map(context, parentDomainUrn) : null;
       }
     } catch (Exception e) {
       throw new RuntimeException(

@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
@@ -58,7 +59,7 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
     final Urn parentNode =
         input.getParentNode() != null ? UrnUtils.getUrn(input.getParentNode()) : null;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (GlossaryUtils.canManageChildrenEntities(context, parentNode, _entityClient)) {
             // Ensure there isn't another glossary term with the same name at this level of the
@@ -72,8 +73,8 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
               key.setName(id);
 
               if (_entityClient.exists(
-                  EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_TERM_ENTITY_NAME),
-                  context.getAuthentication())) {
+                  context.getOperationContext(),
+                  EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_TERM_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Glossary Term already exists!");
               }
 
@@ -85,7 +86,7 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
                       mapGlossaryTermInfo(input));
 
               String glossaryTermUrn =
-                  _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
               OwnerUtils.addCreatorAsOwner(
                   context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);
@@ -105,7 +106,9 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private GlossaryTermInfo mapGlossaryTermInfo(final CreateGlossaryEntityInput input) {
@@ -140,7 +143,7 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
       final Filter filter = buildParentNodeFilter(parentNode);
       final SearchResult searchResult =
           _entityClient.filter(
-              GLOSSARY_TERM_ENTITY_NAME, filter, null, 0, 1000, context.getAuthentication());
+              context.getOperationContext(), GLOSSARY_TERM_ENTITY_NAME, filter, null, 0, 1000);
 
       final List<Urn> termUrns =
           searchResult.getEntities().stream()
@@ -148,10 +151,10 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
               .collect(Collectors.toList());
 
       return _entityClient.batchGetV2(
+          context.getOperationContext(),
           GLOSSARY_TERM_ENTITY_NAME,
           new HashSet<>(termUrns),
-          Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME),
-          context.getAuthentication());
+          Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException("Failed fetching Glossary Terms with the same parent", e);
     }

@@ -2,10 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.ownership;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.UpdateOwnershipTypeInput;
@@ -16,6 +16,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,30 +41,32 @@ public class UpdateOwnershipTypeResolver
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _ownershipTypeService.updateOwnershipType(
+                context.getOperationContext(),
                 urn,
                 input.getName(),
                 input.getDescription(),
-                context.getAuthentication(),
                 System.currentTimeMillis());
             log.info(String.format("Successfully updated Ownership Type %s with urn", urn));
-            return getOwnershipType(urn, context.getAuthentication());
+            return getOwnershipType(context, urn);
           } catch (AuthorizationException e) {
             throw e;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against View with urn %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private OwnershipTypeEntity getOwnershipType(
-      @Nonnull final Urn urn, @Nonnull final Authentication authentication) {
+      @Nullable QueryContext context, @Nonnull final Urn urn) {
     final EntityResponse maybeResponse =
-        _ownershipTypeService.getOwnershipTypeEntityResponse(urn, authentication);
+        _ownershipTypeService.getOwnershipTypeEntityResponse(context.getOperationContext(), urn);
     // If there is no response, there is a problem.
     if (maybeResponse == null) {
       throw new RuntimeException(
@@ -71,6 +74,6 @@ public class UpdateOwnershipTypeResolver
               "Failed to perform update to Ownership Type with urn %s. Failed to find Ownership Type in GMS.",
               urn));
     }
-    return OwnershipTypeMapper.map(maybeResponse);
+    return OwnershipTypeMapper.map(context, maybeResponse);
   }
 }

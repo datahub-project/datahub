@@ -3,15 +3,21 @@ package com.linkedin.datahub.graphql;
 import static graphql.schema.idl.RuntimeWiring.*;
 
 import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler;
+import com.linkedin.datahub.graphql.instrumentation.DataHubFieldComplexityCalculator;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
+import graphql.analysis.MaxQueryComplexityInstrumentation;
+import graphql.analysis.MaxQueryDepthInstrumentation;
+import graphql.execution.instrumentation.ChainedInstrumentation;
+import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.tracing.TracingInstrumentation;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
+import graphql.schema.visibility.NoIntrospectionGraphqlFieldVisibility;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,11 +44,20 @@ public class GraphQLEngine {
 
   private final GraphQL _graphQL;
   private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _dataLoaderSuppliers;
+  private final int graphQLQueryComplexityLimit;
+  private final int graphQLQueryDepthLimit;
+  private final boolean graphQLQueryIntrospectionEnabled;
 
   private GraphQLEngine(
       @Nonnull final List<String> schemas,
       @Nonnull final RuntimeWiring runtimeWiring,
-      @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers) {
+      @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers,
+      @Nonnull final int graphQLQueryComplexityLimit,
+      @Nonnull final int graphQLQueryDepthLimit,
+      @Nonnull final boolean graphQLQueryIntrospectionEnabled) {
+    this.graphQLQueryComplexityLimit = graphQLQueryComplexityLimit;
+    this.graphQLQueryDepthLimit = graphQLQueryDepthLimit;
+    this.graphQLQueryIntrospectionEnabled = graphQLQueryIntrospectionEnabled;
 
     _dataLoaderSuppliers = dataLoaderSuppliers;
 
@@ -63,15 +78,23 @@ public class GraphQLEngine {
     /*
      * Instantiate engine
      */
+    List<Instrumentation> instrumentations = new ArrayList<>(3);
+    instrumentations.add(new TracingInstrumentation());
+    instrumentations.add(new MaxQueryDepthInstrumentation(graphQLQueryDepthLimit));
+    instrumentations.add(
+        new MaxQueryComplexityInstrumentation(
+            graphQLQueryComplexityLimit, new DataHubFieldComplexityCalculator()));
+    ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
     _graphQL =
         new GraphQL.Builder(graphQLSchema)
             .defaultDataFetcherExceptionHandler(new DataHubDataFetcherExceptionHandler())
-            .instrumentation(new TracingInstrumentation())
+            .instrumentation(chainedInstrumentation)
             .build();
   }
 
   public ExecutionResult execute(
       @Nonnull final String query,
+      @Nullable final String operationName,
       @Nullable final Map<String, Object> variables,
       @Nonnull final QueryContext context) {
     /*
@@ -85,6 +108,7 @@ public class GraphQLEngine {
     ExecutionInput executionInput =
         ExecutionInput.newExecutionInput()
             .query(query)
+            .operationName(operationName)
             .variables(variables)
             .dataLoaderRegistry(register)
             .context(context)
@@ -111,6 +135,9 @@ public class GraphQLEngine {
     private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _loaderSuppliers =
         new HashMap<>();
     private final RuntimeWiring.Builder _runtimeWiringBuilder = newRuntimeWiring();
+    private int graphQLQueryComplexityLimit = 2000;
+    private int graphQLQueryDepthLimit = 50;
+    private boolean graphQLQueryIntrospectionEnabled = true;
 
     /**
      * Used to add a schema file containing the GQL types resolved by the engine.
@@ -158,13 +185,37 @@ public class GraphQLEngine {
      * any required data + type resolvers.
      */
     public Builder configureRuntimeWiring(final Consumer<RuntimeWiring.Builder> builderFunc) {
+      if (!this.graphQLQueryIntrospectionEnabled)
+        _runtimeWiringBuilder.fieldVisibility(
+            NoIntrospectionGraphqlFieldVisibility.NO_INTROSPECTION_FIELD_VISIBILITY);
       builderFunc.accept(_runtimeWiringBuilder);
+      return this;
+    }
+
+    public Builder setGraphQLQueryComplexityLimit(final int queryComplexityLimit) {
+      this.graphQLQueryComplexityLimit = queryComplexityLimit;
+      return this;
+    }
+
+    public Builder setGraphQLQueryDepthLimit(final int queryDepthLimit) {
+      this.graphQLQueryDepthLimit = queryDepthLimit;
+      return this;
+    }
+
+    public Builder setGraphQLQueryIntrospectionEnabled(final boolean introspectionEnabled) {
+      this.graphQLQueryIntrospectionEnabled = introspectionEnabled;
       return this;
     }
 
     /** Builds a {@link GraphQLEngine}. */
     public GraphQLEngine build() {
-      return new GraphQLEngine(_schemas, _runtimeWiringBuilder.build(), _loaderSuppliers);
+      return new GraphQLEngine(
+          _schemas,
+          _runtimeWiringBuilder.build(),
+          _loaderSuppliers,
+          graphQLQueryComplexityLimit,
+          graphQLQueryDepthLimit,
+          graphQLQueryIntrospectionEnabled);
     }
   }
 

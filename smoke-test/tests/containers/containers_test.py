@@ -1,7 +1,6 @@
 import pytest
 
-from tests.utils import (delete_urns_from_file, get_frontend_url,
-                         ingest_file_via_rest)
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
 
 
 @pytest.fixture(scope="module", autouse=False)
@@ -21,12 +20,10 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_get_full_container(frontend_session, ingest_cleanup_data):
-
     container_urn = "urn:li:container:SCHEMA"
     container_name = "datahub_schema"
     container_description = "The DataHub schema"
     editable_container_description = "custom description"
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
 
     # Get a full container
     get_container_json = {
@@ -129,7 +126,6 @@ def test_get_full_container(frontend_session, ingest_cleanup_data):
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_get_full_container"])
 def test_get_parent_container(frontend_session, ingest_cleanup_data):
-
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
 
     # Get count of existing secrets
@@ -165,7 +161,6 @@ def test_get_parent_container(frontend_session, ingest_cleanup_data):
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_get_full_container"])
 def test_update_container(frontend_session, ingest_cleanup_data):
-
     container_urn = "urn:li:container:SCHEMA"
 
     new_tag = "urn:li:tag:Test"
@@ -227,7 +222,7 @@ def test_update_container(frontend_session, ingest_cleanup_data):
                 "ownerUrn": new_owner,
                 "resourceUrn": container_urn,
                 "ownerEntityType": "CORP_USER",
-                "ownershipTypeUrn": "urn:li:ownershipType:__system__technical_owner"
+                "ownershipTypeUrn": "urn:li:ownershipType:__system__technical_owner",
             }
         },
     }

@@ -2,10 +2,11 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.LineageEdge;
@@ -16,8 +17,10 @@ import com.linkedin.metadata.service.LineageService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.joda.time.DateTimeUtils;
 import org.mockito.Mockito;
@@ -64,10 +67,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, edgesToRemove);
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_3))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_4))).thenReturn(true);
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -79,8 +80,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, new ArrayList<>());
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(false);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(false);
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> Set.of());
 
     assertThrows(CompletionException.class, () -> resolver.get(_mockEnv).join());
   }
@@ -93,9 +94,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, edgesToRemove);
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(Urn.createFromString(CHART_URN))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -112,10 +112,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, edgesToRemove);
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(Urn.createFromString(DASHBOARD_URN))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(CHART_URN))).thenReturn(true);
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -133,11 +131,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, edgesToRemove);
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(Urn.createFromString(DATAJOB_URN_1))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATAJOB_URN_2))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_3))).thenReturn(true);
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -153,15 +148,13 @@ public class UpdateLineageResolverTest {
 
     QueryContext mockContext = getMockDenyContext();
     UpdateLineageInput input = new UpdateLineageInput(edgesToAdd, edgesToRemove);
-    Mockito.when(_mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(_mockEnv.getArgument(eq("input"))).thenReturn(input);
     Mockito.when(_mockEnv.getContext()).thenReturn(mockContext);
 
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_3))).thenReturn(true);
-    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_4))).thenReturn(true);
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertThrows(AuthorizationException.class, () -> resolver.get(_mockEnv).join());
   }
@@ -169,7 +162,7 @@ public class UpdateLineageResolverTest {
   private void mockInputAndContext(List<LineageEdge> edgesToAdd, List<LineageEdge> edgesToRemove) {
     QueryContext mockContext = getMockAllowContext();
     UpdateLineageInput input = new UpdateLineageInput(edgesToAdd, edgesToRemove);
-    Mockito.when(_mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(_mockEnv.getArgument(eq("input"))).thenReturn(input);
     Mockito.when(_mockEnv.getContext()).thenReturn(mockContext);
   }
 

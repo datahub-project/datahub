@@ -17,6 +17,7 @@ import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
 import java.util.ArrayList;
@@ -39,6 +40,8 @@ public class EntitySpecBuilder {
       new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _searchScoreHandler =
       new PegasusSchemaAnnotationHandlerImpl(SearchScoreAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _searchRefScoreHandler =
+      new PegasusSchemaAnnotationHandlerImpl(SearchableRefAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _relationshipHandler =
       new PegasusSchemaAnnotationHandlerImpl(RelationshipAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _timeseriesFiledAnnotationHandler =
@@ -222,6 +225,7 @@ public class EntitySpecBuilder {
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
+            Collections.emptyList(),
             aspectRecordSchema,
             aspectClass);
       }
@@ -245,12 +249,25 @@ public class EntitySpecBuilder {
               aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
 
+      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchRefResult =
+          SchemaAnnotationProcessor.process(
+              Collections.singletonList(_searchRefScoreHandler),
+              aspectRecordSchema,
+              new SchemaAnnotationProcessor.AnnotationProcessOption());
+
+      // Extract SearchableRef Field Specs
+      final SearchableRefFieldSpecExtractor searchableRefFieldSpecExtractor =
+          new SearchableRefFieldSpecExtractor();
+      final DataSchemaRichContextTraverser searchableRefFieldSpecTraverser =
+          new DataSchemaRichContextTraverser(searchableRefFieldSpecExtractor);
+      searchableRefFieldSpecTraverser.traverse(processedSearchRefResult.getResultSchema());
+
       // Extract SearchScore Field Specs
       final SearchScoreFieldSpecExtractor searchScoreFieldSpecExtractor =
           new SearchScoreFieldSpecExtractor();
-      final DataSchemaRichContextTraverser searcScoreFieldSpecTraverser =
+      final DataSchemaRichContextTraverser searchScoreFieldSpecTraverser =
           new DataSchemaRichContextTraverser(searchScoreFieldSpecExtractor);
-      searcScoreFieldSpecTraverser.traverse(processedSearchScoreResult.getResultSchema());
+      searchScoreFieldSpecTraverser.traverse(processedSearchScoreResult.getResultSchema());
 
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedRelationshipResult =
           SchemaAnnotationProcessor.process(
@@ -289,6 +306,7 @@ public class EntitySpecBuilder {
           relationshipFieldSpecExtractor.getSpecs(),
           timeseriesFieldSpecExtractor.getTimeseriesFieldSpecs(),
           timeseriesFieldSpecExtractor.getTimeseriesFieldCollectionSpecs(),
+          searchableRefFieldSpecExtractor.getSpecs(),
           aspectRecordSchema,
           aspectClass);
     }

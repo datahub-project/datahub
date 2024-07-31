@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -37,16 +38,16 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
 
     if (IngestionAuthUtils.canManageIngestion(context)) {
       final String urnStr = environment.getArgument("urn");
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               final Urn urn = Urn.createFromString(urnStr);
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       new HashSet<>(ImmutableSet.of(urn)),
-                      ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME),
-                      context.getAuthentication());
+                      ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME));
               if (!entities.containsKey(urn)) {
                 // No ingestion source found
                 throw new DataHubGraphQLException(
@@ -58,7 +59,9 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
             } catch (Exception e) {
               throw new RuntimeException("Failed to retrieve ingestion source", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

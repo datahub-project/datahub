@@ -2,7 +2,6 @@ import json
 import logging
 import sys
 import tempfile
-import time
 from json import JSONDecodeError
 from typing import Any, Dict, List, Optional
 
@@ -12,11 +11,8 @@ from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.entrypoints import datahub
 from datahub.metadata.schema_classes import DatasetProfileClass
 
-import requests_wrapper as requests
-from tests.aspect_generators.timeseries.dataset_profile_gen import \
-    gen_dataset_profiles
-from tests.utils import (get_strftime_from_timestamp_millis,
-                         wait_for_writes_to_sync)
+from tests.aspect_generators.timeseries.dataset_profile_gen import gen_dataset_profiles
+from tests.utils import get_strftime_from_timestamp_millis, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 

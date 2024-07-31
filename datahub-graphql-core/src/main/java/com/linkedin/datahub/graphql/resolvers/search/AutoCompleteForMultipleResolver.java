@@ -10,9 +10,9 @@ import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleResults;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
@@ -62,10 +62,16 @@ public class AutoCompleteForMultipleResolver
     final DataHubViewInfo maybeResolvedView =
         (input.getViewUrn() != null)
             ? resolveView(
-                _viewService, UrnUtils.getUrn(input.getViewUrn()), context.getAuthentication())
+                context.getOperationContext(), _viewService, UrnUtils.getUrn(input.getViewUrn()))
             : null;
 
     List<EntityType> types = getEntityTypes(input.getTypes(), maybeResolvedView);
+    types =
+        types != null
+            ? types.stream()
+                .filter(AUTO_COMPLETE_ENTITY_TYPES::contains)
+                .collect(Collectors.toList())
+            : null;
     if (types != null && types.size() > 0) {
       return AutocompleteUtils.batchGetAutocompleteResults(
           types.stream()

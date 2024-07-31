@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -17,7 +18,6 @@ import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.EventAnnotation;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
 import com.linkedin.metadata.models.registry.config.LoadStatus;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.util.Pair;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -76,7 +76,7 @@ public class PluginEntityRegistryLoaderTest {
 
     MergedEntityRegistry configEntityRegistry = new MergedEntityRegistry(baseEntityRegistry);
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY)
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, null)
             .withBaseRegistry(configEntityRegistry)
             .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
@@ -94,6 +94,7 @@ public class PluginEntityRegistryLoaderTest {
     final AspectSpec keyAspectSpec =
         new AspectSpec(
             new AspectAnnotation("datasetKey", false, false, null),
+            Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
@@ -170,7 +171,7 @@ public class PluginEntityRegistryLoaderTest {
 
     MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(getBaseEntityRegistry());
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(BASE_DIRECTORY)
+        new PluginEntityRegistryLoader(BASE_DIRECTORY, 60, null)
             .withBaseRegistry(mergedEntityRegistry)
             .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
@@ -215,7 +216,7 @@ public class PluginEntityRegistryLoaderTest {
     String multiversionPluginDir = "src/test_plugins/";
 
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(multiversionPluginDir)
+        new PluginEntityRegistryLoader(multiversionPluginDir, 60, null)
             .withBaseRegistry(mergedEntityRegistry)
             .start(true);
     Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>

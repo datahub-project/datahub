@@ -93,6 +93,11 @@ class DataLakeSourceConfig(
         "path_spec", "path_specs", lambda path_spec: [path_spec]
     )
 
+    sort_schema_fields: bool = Field(
+        default=False,
+        description="Whether to sort schema fields by fieldPath when inferring schemas.",
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -106,9 +111,9 @@ class DataLakeSourceConfig(
             raise ValueError("path_specs must not be empty")
 
         # Check that all path specs have the same platform.
-        guessed_platforms = set(
+        guessed_platforms = {
             "s3" if path_spec.is_s3 else "file" for path_spec in path_specs
-        )
+        }
         if len(guessed_platforms) > 1:
             raise ValueError(
                 f"Cannot have multiple platforms in path_specs: {guessed_platforms}"

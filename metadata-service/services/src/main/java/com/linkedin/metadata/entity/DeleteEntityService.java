@@ -6,6 +6,11 @@ import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.FormAssociation;
+import com.linkedin.common.FormAssociationArray;
+import com.linkedin.common.FormVerificationAssociation;
+import com.linkedin.common.FormVerificationAssociationArray;
+import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
@@ -15,20 +20,31 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.run.RelatedAspect;
 import com.linkedin.metadata.run.RelatedAspectArray;
+import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +53,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -48,8 +66,10 @@ public class DeleteEntityService {
 
   private final EntityService<?> _entityService;
   private final GraphService _graphService;
+  private final EntitySearchService _searchService;
 
   private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;
+  private static final Integer BATCH_SIZE = 1000;
 
   /**
    * Public endpoint that deletes references to a given urn across DataHub's metadata graph. This is
@@ -61,8 +81,16 @@ public class DeleteEntityService {
    * @return A {@link DeleteReferencesResponse} instance detailing the response of deleting
    *     references to the provided urn.
    */
-  public DeleteReferencesResponse deleteReferencesTo(final Urn urn, final boolean dryRun) {
+  public DeleteReferencesResponse deleteReferencesTo(
+      @Nonnull OperationContext opContext, final Urn urn, final boolean dryRun) {
+    // TODO: update DeleteReferencesResponse to have searchAspects and provide more helpful comment
+    // in CLI
     final DeleteReferencesResponse result = new DeleteReferencesResponse();
+
+    // Delete references for entities referencing the deleted urn with searchables.
+    // Only works for Form deletion for now
+    int totalSearchAssetCount = deleteSearchReferences(opContext, urn, dryRun);
+
     RelatedEntitiesResult relatedEntities =
         _graphService.findRelatedEntities(
             null,
@@ -79,6 +107,7 @@ public class DeleteEntityService {
             .flatMap(
                 relatedEntity ->
                     getRelatedAspectStream(
+                        opContext,
                         urn,
                         UrnUtils.getUrn(relatedEntity.getUrn()),
                         relatedEntity.getRelationshipType()))
@@ -86,7 +115,7 @@ public class DeleteEntityService {
             .collect(Collectors.toList());
 
     result.setRelatedAspects(new RelatedAspectArray(relatedAspects));
-    result.setTotal(relatedEntities.getTotal());
+    result.setTotal(relatedEntities.getTotal() + totalSearchAssetCount);
 
     if (dryRun) {
       return result;
@@ -96,7 +125,7 @@ public class DeleteEntityService {
         processedEntities < relatedEntities.getTotal();
         processedEntities += relatedEntities.getCount()) {
       log.info("Processing batch {} of {} aspects", processedEntities, relatedEntities.getTotal());
-      relatedEntities.getEntities().forEach(entity -> deleteReference(urn, entity));
+      relatedEntities.getEntities().forEach(entity -> deleteReference(opContext, urn, entity));
       if (processedEntities + relatedEntities.getEntities().size() < relatedEntities.getTotal()) {
         sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
         relatedEntities =
@@ -127,8 +156,8 @@ public class DeleteEntityService {
    *     relatedUrn.
    */
   private Stream<RelatedAspect> getRelatedAspectStream(
-      Urn urn, Urn relatedUrn, String relationshipType) {
-    return getAspects(urn, relatedUrn, relationshipType)
+      @Nonnull OperationContext opContext, Urn urn, Urn relatedUrn, String relationshipType) {
+    return getAspects(opContext, urn, relatedUrn, relationshipType)
         .map(
             enrichedAspect -> {
               final RelatedAspect relatedAspect = new RelatedAspect();
@@ -149,10 +178,11 @@ public class DeleteEntityService {
    * @return A stream of {@link EnrichedAspect} instances that have the relationship from urn to
    *     relatedUrn.
    */
-  private Stream<EnrichedAspect> getAspects(Urn urn, Urn relatedUrn, String relationshipType) {
+  private Stream<EnrichedAspect> getAspects(
+      @Nonnull OperationContext opContext, Urn urn, Urn relatedUrn, String relationshipType) {
     final String relatedEntityName = relatedUrn.getEntityType();
     final EntitySpec relatedEntitySpec =
-        _entityService.getEntityRegistry().getEntitySpec(relatedEntityName);
+        opContext.getEntityRegistry().getEntitySpec(relatedEntityName);
     final Map<String, AspectSpec> aspectSpecs =
         getAspectSpecsReferringTo(urn.getEntityType(), relationshipType, relatedEntitySpec);
 
@@ -183,7 +213,7 @@ public class DeleteEntityService {
     }
 
     final List<EnvelopedAspect> aspectList =
-        getAspectsReferringTo(relatedUrn, aspectSpecs).collect(Collectors.toList());
+        getAspectsReferringTo(opContext, relatedUrn, aspectSpecs).collect(Collectors.toList());
 
     // If we have an empty list it means that we have a graph edge that points to some aspect that
     // we can't find in the
@@ -248,10 +278,11 @@ public class DeleteEntityService {
    * @param urn The urn to be found.
    * @param relatedEntity The entity to be modified.
    */
-  private void deleteReference(final Urn urn, final RelatedEntity relatedEntity) {
+  private void deleteReference(
+      @Nonnull OperationContext opContext, final Urn urn, final RelatedEntity relatedEntity) {
     final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
     final String relationshipType = relatedEntity.getRelationshipType();
-    getAspects(urn, relatedUrn, relationshipType)
+    getAspects(opContext, urn, relatedUrn, relationshipType)
         .forEach(
             enrichedAspect -> {
               final String aspectName = enrichedAspect.getName();
@@ -293,10 +324,10 @@ public class DeleteEntityService {
               if (!aspect.equals(updatedAspect.get())) {
                 if (updatedAspect.get() == null) {
                   // Then we should remove the aspect.
-                  deleteAspect(relatedUrn, aspectName, aspect);
+                  deleteAspect(opContext, relatedUrn, aspectName, aspect);
                 } else {
                   // Then we should update the aspect.
-                  updateAspect(relatedUrn, aspectName, aspect, updatedAspect.get());
+                  updateAspect(opContext, relatedUrn, aspectName, aspect, updatedAspect.get());
                 }
               }
             });
@@ -309,9 +340,10 @@ public class DeleteEntityService {
    * @param aspectName the aspect to remove
    * @param prevAspect the old value for the aspect
    */
-  private void deleteAspect(Urn urn, String aspectName, RecordTemplate prevAspect) {
+  private void deleteAspect(
+      @Nonnull OperationContext opContext, Urn urn, String aspectName, RecordTemplate prevAspect) {
     final RollbackResult rollbackResult =
-        _entityService.deleteAspect(urn.toString(), aspectName, new HashMap<>(), true);
+        _entityService.deleteAspect(opContext, urn.toString(), aspectName, new HashMap<>(), true);
     if (rollbackResult == null || rollbackResult.getNewValue() != null) {
       log.error(
           "Failed to delete aspect with references. Before {}, after: null, please check GMS logs"
@@ -334,7 +366,11 @@ public class DeleteEntityService {
    * @param newAspect the new value for the aspect
    */
   private void updateAspect(
-      Urn urn, String aspectName, RecordTemplate prevAspect, RecordTemplate newAspect) {
+      @Nonnull OperationContext opContext,
+      Urn urn,
+      String aspectName,
+      RecordTemplate prevAspect,
+      RecordTemplate newAspect) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setChangeType(ChangeType.UPSERT);
@@ -347,9 +383,9 @@ public class DeleteEntityService {
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
     final IngestResult ingestProposalResult =
-        _entityService.ingestProposal(proposal, auditStamp, false);
+        _entityService.ingestProposal(opContext, proposal, auditStamp, false);
 
-    if (!ingestProposalResult.isSqlCommitted()) {
+    if (ingestProposalResult != null && !ingestProposalResult.isSqlCommitted()) {
       log.error(
           "Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"
               + " logs for more information",
@@ -374,13 +410,16 @@ public class DeleteEntityService {
    *     between `urn` & `relatedUrn`.
    */
   private Stream<EnvelopedAspect> getAspectsReferringTo(
-      final Urn relatedUrn, final Map<String, AspectSpec> aspectSpecs) {
+      @Nonnull OperationContext opContext,
+      final Urn relatedUrn,
+      final Map<String, AspectSpec> aspectSpecs) {
 
     // FIXME: Can we not depend on entity service?
     final EntityResponse entityResponse;
     try {
       entityResponse =
-          _entityService.getEntityV2(relatedUrn.getEntityType(), relatedUrn, aspectSpecs.keySet());
+          _entityService.getEntityV2(
+              opContext, relatedUrn.getEntityType(), relatedUrn, aspectSpecs.keySet());
     } catch (URISyntaxException e) {
       log.error("Unable to retrieve entity data for relatedUrn " + relatedUrn, e);
       return Stream.empty();
@@ -473,6 +512,244 @@ public class DeleteEntityService {
    */
   private void handleError(final DeleteEntityServiceError error) {
     // NO-OP for now.
+  }
+
+  private static class AssetScrollResult {
+    String scrollId;
+    List<Urn> assets;
+    int totalAssetCount;
+  }
+
+  /**
+   * Method that will find references through the search index and clean aspects up. Right now this
+   * only works for deleting Forms entities. Later, we need to extend this for all searchables.
+   */
+  private int deleteSearchReferences(
+      @Nonnull OperationContext opContext, @Nonnull final Urn deletedUrn, final boolean dryRun) {
+    int totalAssetCount = 0;
+    String scrollId = null;
+    do {
+      AssetScrollResult assetScrollResult =
+          getAssetsReferencingUrn(opContext, deletedUrn, scrollId, dryRun);
+      List<Urn> assetsReferencingUrn = assetScrollResult.assets;
+      totalAssetCount += assetScrollResult.totalAssetCount;
+      // if it's a dry run, exit early and stop looping over assets
+      scrollId = dryRun ? null : assetScrollResult.scrollId;
+      if (!dryRun) {
+        assetsReferencingUrn.forEach(
+            assetUrn -> {
+              List<MetadataChangeProposal> mcps =
+                  deleteSearchReferencesForAsset(opContext, assetUrn, deletedUrn);
+              mcps.forEach(
+                  mcp -> _entityService.ingestProposal(opContext, mcp, createAuditStamp(), true));
+            });
+      }
+    } while (scrollId != null);
+    return totalAssetCount;
+  }
+
+  /**
+   * Get all of the asset urns that reference the deleted urn This is hardcoded for forms right now,
+   * we will use a more generic field to work with all searchables later.
+   *
+   * <p>TODO: Use the new referencedUrns index field once that exists
+   */
+  private AssetScrollResult getAssetsReferencingUrn(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn deletedUrn,
+      @Nullable String scrollId,
+      final boolean dryRun) {
+    AssetScrollResult result = new AssetScrollResult();
+    result.scrollId = null;
+    result.totalAssetCount = 0;
+    result.assets = new ArrayList<>();
+
+    if (deletedUrn.getEntityType().equals("form")) {
+      // first, get all entities with this form assigned on it
+      final CriterionArray incompleteFormsArray = new CriterionArray();
+      incompleteFormsArray.add(
+          new Criterion()
+              .setField("incompleteForms")
+              .setValue(deletedUrn.toString())
+              .setCondition(Condition.EQUAL));
+      final CriterionArray completedFormsArray = new CriterionArray();
+      completedFormsArray.add(
+          new Criterion()
+              .setField("completedForms")
+              .setValue(deletedUrn.toString())
+              .setCondition(Condition.EQUAL));
+      // next, get all metadata tests created for this form
+      final CriterionArray metadataTestSourceArray = new CriterionArray();
+      metadataTestSourceArray.add(
+          new Criterion()
+              .setField("sourceEntity")
+              .setValue(deletedUrn.toString())
+              .setCondition(Condition.EQUAL));
+      metadataTestSourceArray.add(
+          new Criterion().setField("sourceType").setValue("FORMS").setCondition(Condition.EQUAL));
+      Filter filter =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion().setAnd(incompleteFormsArray),
+                      new ConjunctiveCriterion().setAnd(completedFormsArray),
+                      new ConjunctiveCriterion().setAnd(metadataTestSourceArray)));
+      ScrollResult scrollResult =
+          _searchService.structuredScroll(
+              opContext,
+              ImmutableList.of(
+                  "dataset",
+                  "dataJob",
+                  "dataFlow",
+                  "chart",
+                  "dashboard",
+                  "corpuser",
+                  "corpGroup",
+                  "domain",
+                  "container",
+                  "glossaryTerm",
+                  "glossaryNode",
+                  "mlModel",
+                  "mlModelGroup",
+                  "mlFeatureTable",
+                  "mlFeature",
+                  "mlPrimaryKey",
+                  "schemaField",
+                  "dataProduct",
+                  "test"),
+              "*",
+              filter,
+              null,
+              scrollId,
+              "5m",
+              dryRun ? 1 : BATCH_SIZE); // need to pass in 1 for count otherwise get index error
+      if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
+        return result;
+      }
+      result.scrollId = scrollResult.getScrollId();
+      result.totalAssetCount = scrollResult.getNumEntities();
+      result.assets =
+          scrollResult.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toList());
+      return result;
+    }
+    return result;
+  }
+
+  /** Get all the aspects that need updating, then loop over and update them */
+  private List<MetadataChangeProposal> deleteSearchReferencesForAsset(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assetUrn,
+      @Nonnull final Urn deletedUrn) {
+    // delete entities that should be deleted first
+    if (shouldDeleteAssetReferencingUrn(assetUrn, deletedUrn)) {
+      _entityService.deleteUrn(opContext, assetUrn);
+    }
+
+    List<MetadataChangeProposal> mcps = new ArrayList<>();
+    List<String> aspectsToUpdate = getAspectsToUpdate(deletedUrn);
+    aspectsToUpdate.forEach(
+        aspectName -> {
+          try {
+            MetadataChangeProposal mcp =
+                updateAspectForSearchReference(opContext, assetUrn, deletedUrn, aspectName);
+            if (mcp != null) {
+              mcps.add(mcp);
+            }
+          } catch (Exception e) {
+            log.error(
+                String.format(
+                    "Error trying to update aspect %s for asset %s when deleting %s",
+                    aspectName, assetUrn, deletedUrn),
+                e);
+          }
+        });
+    return mcps;
+  }
+
+  /**
+   * Get the names of all the aspects that need to be updated when the deleted urn is removed.
+   *
+   * <p>TODO: extend this to support other types of deletes and be more dynamic depending on aspects
+   * that the asset has
+   */
+  private List<String> getAspectsToUpdate(@Nonnull final Urn deletedUrn) {
+    if (deletedUrn.getEntityType().equals("form")) {
+      return ImmutableList.of("forms");
+    }
+    return new ArrayList<>();
+  }
+
+  /**
+   * Determine whether the asset referencing the deleted urn should be deleted itself.
+   *
+   * <p>TODO: extend this to support other types of deletes and be more dynamic depending on aspects
+   * that the asset has
+   */
+  private boolean shouldDeleteAssetReferencingUrn(
+      @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
+    if (assetUrn.getEntityType().equals("test") && deletedUrn.getEntityType().equals("form")) {
+      return true;
+    }
+    return false;
+  }
+
+  @Nullable
+  private MetadataChangeProposal updateAspectForSearchReference(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assetUrn,
+      @Nonnull final Urn deletedUrn,
+      @Nonnull final String aspectName) {
+    if (aspectName.equals("forms")) {
+      return updateFormsAspect(opContext, assetUrn, deletedUrn);
+    }
+    return null;
+  }
+
+  @Nullable
+  private MetadataChangeProposal updateFormsAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assetUrn,
+      @Nonnull final Urn deletedUrn) {
+    RecordTemplate record = _entityService.getLatestAspect(opContext, assetUrn, "forms");
+    if (record == null) return null;
+
+    Forms formsAspect = new Forms(record.data());
+    final AtomicReference<Forms> updatedAspect;
+    try {
+      updatedAspect = new AtomicReference<>(formsAspect.copy());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to copy the forms aspect for updating", e);
+    }
+
+    List<FormAssociation> incompleteForms =
+        formsAspect.getIncompleteForms().stream()
+            .filter(incompleteForm -> !incompleteForm.getUrn().equals(deletedUrn))
+            .collect(Collectors.toList());
+    List<FormAssociation> completedForms =
+        formsAspect.getCompletedForms().stream()
+            .filter(completedForm -> completedForm.getUrn() != deletedUrn)
+            .collect(Collectors.toList());
+    final List<FormVerificationAssociation> verifications =
+        formsAspect.getVerifications().stream()
+            .filter(verification -> verification.getForm() != deletedUrn)
+            .collect(Collectors.toList());
+
+    updatedAspect.get().setIncompleteForms(new FormAssociationArray(incompleteForms));
+    updatedAspect.get().setCompletedForms(new FormAssociationArray(completedForms));
+    updatedAspect.get().setVerifications(new FormVerificationAssociationArray(verifications));
+
+    if (!formsAspect.equals(updatedAspect.get())) {
+      return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updatedAspect.get());
+    }
+    return null;
+  }
+
+  private AuditStamp createAuditStamp() {
+    return new AuditStamp()
+        .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
+        .setTime(System.currentTimeMillis());
   }
 
   @AllArgsConstructor

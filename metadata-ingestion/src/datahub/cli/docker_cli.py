@@ -16,15 +16,15 @@ from typing import Dict, List, Optional
 
 import click
 import click_spinner
-import pydantic
 import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
 
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
+from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
+    DOCKER_COMPOSE_PROJECT_NAME,
     DockerComposeVersionError,
     QuickstartStatus,
     check_docker_quickstart,
@@ -39,6 +39,7 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
 
 logger = logging.getLogger(__name__)
+_ClickPositiveInt = click.IntRange(min=1)
 
 NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.quickstart.yml"
@@ -75,7 +76,7 @@ class Architectures(Enum):
     m2 = "m2"
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def _docker_subprocess_env() -> Dict[str, str]:
     # platform.machine() is equivalent to `uname -m`, as per https://stackoverflow.com/a/45124927/5004662
     DOCKER_COMPOSE_PLATFORM: str = "linux/" + platform.machine()
@@ -159,11 +160,11 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 def _set_environment_variables(
     version: Optional[str],
     mysql_version: Optional[str],
-    mysql_port: Optional[pydantic.PositiveInt],
-    zk_port: Optional[pydantic.PositiveInt],
-    kafka_broker_port: Optional[pydantic.PositiveInt],
-    schema_registry_port: Optional[pydantic.PositiveInt],
-    elastic_port: Optional[pydantic.PositiveInt],
+    mysql_port: Optional[int],
+    zk_port: Optional[int],
+    kafka_broker_port: Optional[int],
+    schema_registry_port: Optional[int],
+    elastic_port: Optional[int],
     kafka_setup: Optional[bool],
 ) -> None:
     if version is not None:
@@ -252,7 +253,7 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
                 ("-f", f"{path}") for path in compose_files_for_stopping
             ),
             "-p",
-            "datahub",
+            DOCKER_COMPOSE_PROJECT_NAME,
         ]
         try:
             logger.debug(f"Executing {base_command} stop")
@@ -280,7 +281,7 @@ def _backup(backup_file: str) -> int:
         [
             "bash",
             "-c",
-            f"docker exec mysql mysqldump -u root -pdatahub datahub > {resolved_backup_file}",
+            f"docker exec {DOCKER_COMPOSE_PROJECT_NAME}-mysql-1 mysqldump -u root -pdatahub datahub > {resolved_backup_file}",
         ]
     )
     logger.info(
@@ -315,16 +316,15 @@ def _restore(
         assert os.path.exists(
             resolved_restore_file
         ), f"File {resolved_restore_file} does not exist"
-        with open(resolved_restore_file, "r") as fp:
+        with open(resolved_restore_file) as fp:
             result = subprocess.run(
                 [
                     "bash",
                     "-c",
-                    "docker exec -i mysql bash -c 'mysql -uroot -pdatahub datahub '",
+                    f"docker exec -i {DOCKER_COMPOSE_PROJECT_NAME}-mysql-1 bash -c 'mysql -uroot -pdatahub datahub '",
                 ],
                 stdin=fp,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
             )
         if result.returncode != 0:
             logger.error("Failed to run MySQL restore")
@@ -380,7 +380,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
             )
             env_fp.flush()
             if logger.isEnabledFor(logging.DEBUG):
-                with open(env_fp.name, "r") as env_fp_reader:
+                with open(env_fp.name) as env_fp_reader:
                     logger.debug(f"Env file contents: {env_fp_reader.read()}")
 
             # continue to issue the restore indices command
@@ -396,12 +396,11 @@ DATAHUB_MAE_CONSUMER_PORT=9091
                     "-c",
                     "docker pull acryldata/datahub-upgrade:"
                     + "${DATAHUB_VERSION:-head}"
-                    + f" && docker run --network datahub_network --env-file {env_fp.name} "
+                    + f" && docker run --network {DOCKER_COMPOSE_PROJECT_NAME}_network --env-file {env_fp.name} "
                     + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
                     + " -u RestoreIndices -a clean",
                 ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
             )
             logger.info(
                 f"Index restore command finished with status {result.returncode}"
@@ -475,35 +474,35 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 )
 @click.option(
     "--mysql-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing mysql instance running on port 3306, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--zk-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing zookeeper instance running on port 2181, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--kafka-broker-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing Kafka broker running on port 9092, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--schema-registry-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing process running on port 8081, set this to a free port to avoid port conflicts with Kafka schema registry on startup",
 )
 @click.option(
     "--elastic-port",
-    type=pydantic.PositiveInt,
+    type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing Elasticsearch instance running on port 9092, set this to a free port to avoid port conflicts on startup",
@@ -599,11 +598,11 @@ def quickstart(  # noqa: C901
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
     graph_service_impl: Optional[str],
-    mysql_port: Optional[pydantic.PositiveInt],
-    zk_port: Optional[pydantic.PositiveInt],
-    kafka_broker_port: Optional[pydantic.PositiveInt],
-    schema_registry_port: Optional[pydantic.PositiveInt],
-    elastic_port: Optional[pydantic.PositiveInt],
+    mysql_port: Optional[int],
+    zk_port: Optional[int],
+    kafka_broker_port: Optional[int],
+    schema_registry_port: Optional[int],
+    elastic_port: Optional[int],
     stop: bool,
     backup: bool,
     backup_file: str,
@@ -694,7 +693,7 @@ def quickstart(  # noqa: C901
             ("-f", f"{path}") for path in quickstart_compose_file
         ),
         "-p",
-        "datahub",
+        DOCKER_COMPOSE_PROJECT_NAME,
     ]
 
     # Pull and possibly build the latest containers.
@@ -1021,22 +1020,24 @@ def nuke(keep_data: bool) -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
 
     with get_docker_client() as client:
-        click.echo("Removing containers in the datahub project")
+        click.echo(f"Removing containers in the {DOCKER_COMPOSE_PROJECT_NAME} project")
         for container in client.containers.list(
             all=True, filters=DATAHUB_COMPOSE_PROJECT_FILTER
         ):
             container.remove(v=True, force=True)
 
         if keep_data:
-            click.echo("Skipping deleting data volumes in the datahub project")
+            click.echo(
+                f"Skipping deleting data volumes in the {DOCKER_COMPOSE_PROJECT_NAME} project"
+            )
         else:
-            click.echo("Removing volumes in the datahub project")
+            click.echo(f"Removing volumes in the {DOCKER_COMPOSE_PROJECT_NAME} project")
             for filter in DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS + [
                 DATAHUB_COMPOSE_PROJECT_FILTER
             ]:
                 for volume in client.volumes.list(filters=filter):
                     volume.remove(force=True)
 
-        click.echo("Removing networks in the datahub project")
+        click.echo(f"Removing networks in the {DOCKER_COMPOSE_PROJECT_NAME} project")
         for network in client.networks.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
             network.remove()

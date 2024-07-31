@@ -1,13 +1,13 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub [Feature Name]
+# [Feature Name]
 
 <!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
 
 <!-- 
-Update feature availability; by default, feature availabilty is Self-Hosted and Managed DataHub
+Update feature availability; by default, feature availabilty is Self-Hosted and DataHub Cloud
 
-Add in `saasOnly` for Managed DataHub-only features
+Add in `saasOnly` for DataHub Cloud-only features
  -->
 
 <FeatureAvailability/>
@@ -76,7 +76,7 @@ Response in plain text
 
 -->
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 
 ### Related Features
 

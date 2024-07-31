@@ -118,6 +118,10 @@ export const getFieldValues = (filter: Maybe<PolicyMatchFilter> | undefined, res
     return filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.values || [];
 };
 
+export const getFieldValuesOfTags = (filter: Maybe<PolicyMatchFilter> | undefined, resourceFieldType: string) => {
+    return filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.values || [];
+};
+
 export const setFieldValues = (
     filter: PolicyMatchFilter,
     resourceFieldType: string,
@@ -175,7 +179,6 @@ export const updateListPoliciesCache = (client, policies, pageSize) => {
             },
         },
         data: {
-            
             listPolicies: {
                 __typename: 'ListPoliciesResult',
                 start: 0,

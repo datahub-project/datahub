@@ -1,4 +1,5 @@
 import datetime
+from functools import partial
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -6,39 +7,46 @@ import pytest
 from freezegun import freeze_time
 
 from datahub.configuration.common import ConfigurationWarning
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.fivetran.config import (
     BigQueryDestinationConfig,
     FivetranSourceConfig,
     SnowflakeDestinationConfig,
 )
+from datahub.ingestion.source.fivetran.fivetran import FivetranSource
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 
+default_connector_query_results = [
+    {
+        "connector_id": "calendar_elected",
+        "connecting_user_id": "reapply_phone",
+        "connector_type_id": "postgres",
+        "connector_name": "postgres",
+        "paused": False,
+        "sync_frequency": 1440,
+        "destination_id": "interval_unconstitutional",
+    },
+]
 
-def default_query_results(query):
+
+def default_query_results(
+    query, connector_query_results=default_connector_query_results
+):
     fivetran_log_query = FivetranLogQuery()
     fivetran_log_query.set_db("test")
     if query == fivetran_log_query.use_database("test_database"):
         return []
     elif query == fivetran_log_query.get_connectors_query():
+        return connector_query_results
+    elif query == fivetran_log_query.get_table_lineage_query():
         return [
             {
                 "connector_id": "calendar_elected",
-                "connecting_user_id": "reapply_phone",
-                "connector_type_id": "postgres",
-                "connector_name": "postgres",
-                "paused": False,
-                "sync_frequency": 1440,
-                "destination_id": "interval_unconstitutional",
-            },
-        ]
-    elif query == fivetran_log_query.get_table_lineage_query("calendar_elected"):
-        return [
-            {
                 "source_table_id": "10040",
                 "source_table_name": "employee",
                 "source_schema_name": "public",
@@ -47,6 +55,7 @@ def default_query_results(query):
                 "destination_schema_name": "postgres_public",
             },
             {
+                "connector_id": "calendar_elected",
                 "source_table_id": "10041",
                 "source_table_name": "company",
                 "source_schema_name": "public",
@@ -55,58 +64,101 @@ def default_query_results(query):
                 "destination_schema_name": "postgres_public",
             },
         ]
-    elif query == fivetran_log_query.get_column_lineage_query(
-        "10040", "7779"
-    ) or query == fivetran_log_query.get_column_lineage_query("10041", "7780"):
+    elif query == fivetran_log_query.get_column_lineage_query():
         return [
             {
+                "source_table_id": "10040",
+                "destination_table_id": "7779",
                 "source_column_name": "id",
                 "destination_column_name": "id",
             },
             {
+                "source_table_id": "10040",
+                "destination_table_id": "7779",
+                "source_column_name": "name",
+                "destination_column_name": "name",
+            },
+            {
+                "source_table_id": "10041",
+                "destination_table_id": "7780",
+                "source_column_name": "id",
+                "destination_column_name": "id",
+            },
+            {
+                "source_table_id": "10041",
+                "destination_table_id": "7780",
                 "source_column_name": "name",
                 "destination_column_name": "name",
             },
         ]
-    elif query == fivetran_log_query.get_user_query("reapply_phone"):
+    elif query == fivetran_log_query.get_users_query():
         return [
             {
                 "user_id": "reapply_phone",
                 "given_name": "Shubham",
                 "family_name": "Jagtap",
+                "email": "abc.xyz@email.com",
             }
         ]
-    elif query == fivetran_log_query.get_sync_start_logs_query("calendar_elected"):
+    elif query == fivetran_log_query.get_sync_logs_query().format(
+        db_clause=fivetran_log_query.db_clause, syncs_interval=7
+    ):
         return [
             {
+                "connector_id": "calendar_elected",
+                "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
+                "message_event": "sync_start",
+                "message_data": None,
                 "time_stamp": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
-                "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
             },
             {
+                "connector_id": "calendar_elected",
+                "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
+                "message_event": "sync_start",
+                "message_data": None,
                 "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
-                "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
             },
             {
+                "connector_id": "calendar_elected",
+                "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
+                "message_event": "sync_start",
+                "message_data": None,
                 "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
-                "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
             },
-        ]
-    elif query == fivetran_log_query.get_sync_end_logs_query("calendar_elected"):
-        return [
             {
-                "time_stamp": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+                "connector_id": "calendar_elected",
+                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
+                "message_event": "sync_start",
+                "message_data": None,
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 5, 403000),
+            },
+            {
+                "connector_id": "calendar_elected",
                 "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
+                "message_event": "sync_end",
                 "message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
+                "time_stamp": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
             },
             {
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
+                "connector_id": "calendar_elected",
                 "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
+                "message_event": "sync_end",
                 "message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
             },
             {
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
+                "connector_id": "calendar_elected",
                 "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
+                "message_event": "sync_end",
                 "message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
+            },
+            {
+                "connector_id": "calendar_elected",
+                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
+                "message_event": "sync_end",
+                "message_data": None,
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 35, 478000),
             },
         ]
     # Unreachable code
@@ -184,18 +236,35 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_fivetran_with_bigquery_dest(pytestconfig, tmp_path):
+def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/fivetran"
 
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "fivetran_test_events.json"
-    golden_file = test_resources_dir / "fivetran_bigquery_golden.json"
+    golden_file = (
+        test_resources_dir / "fivetran_snowflake_empty_connection_user_golden.json"
+    )
 
     with mock.patch(
         "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
     ) as mock_create_engine:
         connection_magic_mock = MagicMock()
-        connection_magic_mock.execute.side_effect = default_query_results
+
+        connector_query_results = [
+            {
+                "connector_id": "calendar_elected",
+                "connecting_user_id": None,
+                "connector_type_id": "postgres",
+                "connector_name": "postgres",
+                "paused": False,
+                "sync_frequency": 1440,
+                "destination_id": "interval_unconstitutional",
+            },
+        ]
+
+        connection_magic_mock.execute.side_effect = partial(
+            default_query_results, connector_query_results=connector_query_results
+        )
 
         mock_create_engine.return_value = connection_magic_mock
 
@@ -206,16 +275,15 @@ def test_fivetran_with_bigquery_dest(pytestconfig, tmp_path):
                     "type": "fivetran",
                     "config": {
                         "fivetran_log_config": {
-                            "destination_platform": "bigquery",
-                            "bigquery_destination_config": {
-                                "credential": {
-                                    "private_key_id": "testprivatekey",
-                                    "project_id": "test-project",
-                                    "client_email": "fivetran-connector@test-project.iam.gserviceaccount.com",
-                                    "client_id": "1234567",
-                                    "private_key": "private-key",
-                                },
-                                "dataset": "test",
+                            "destination_platform": "snowflake",
+                            "snowflake_destination_config": {
+                                "account_id": "testid",
+                                "warehouse": "test_wh",
+                                "username": "test",
+                                "password": "test@123",
+                                "database": "test_database",
+                                "role": "testrole",
+                                "log_schema": "test",
                             },
                         },
                         "connector_patterns": {
@@ -250,6 +318,31 @@ def test_fivetran_with_bigquery_dest(pytestconfig, tmp_path):
         output_path=f"{output_file}",
         golden_path=f"{golden_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_fivetran_bigquery_config():
+    with mock.patch("datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"):
+        # Simply test that the config is parsed and the source is initialized without an error.
+        assert FivetranSource.create(
+            {
+                "fivetran_log_config": {
+                    "destination_platform": "bigquery",
+                    "bigquery_destination_config": {
+                        "credential": {
+                            "private_key_id": "testprivatekey",
+                            "project_id": "test-project",
+                            "client_email": "fivetran-connector@test-project.iam.gserviceaccount.com",
+                            "client_id": "1234567",
+                            "private_key": "private-key",
+                        },
+                        "dataset": "test",
+                    },
+                },
+            },
+            ctx=PipelineContext(run_id="fivetran-bq-dummy"),
+        )
 
 
 @freeze_time(FROZEN_TIME)

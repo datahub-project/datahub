@@ -3,10 +3,12 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -19,6 +21,7 @@ public class ConfigEntitySpec implements EntitySpec {
   private final Map<String, AspectSpec> _aspectSpecs;
 
   private List<SearchableFieldSpec> _searchableFieldSpecs;
+  private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
 
   public ConfigEntitySpec(
       @Nonnull final String entityName,
@@ -88,5 +91,14 @@ public class ConfigEntitySpec implements EntitySpec {
     }
 
     return _searchableFieldSpecs;
+  }
+
+  @Override
+  public Map<String, Set<SearchableAnnotation.FieldType>> getSearchableFieldTypes() {
+    if (searchableFieldTypeMap == null) {
+      searchableFieldTypeMap = EntitySpec.super.getSearchableFieldTypes();
+    }
+
+    return searchableFieldTypeMap;
   }
 }

@@ -1,0 +1,29 @@
+mutation upsertConnection($input: UpsertDataHubConnectionInput!) {
+    upsertConnection(input: $input) {
+        urn
+        details {
+            type
+            json {
+                blob
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+}
+
+query connection($urn: String!) {
+    connection(urn: $urn) {
+        urn
+        details {
+            type
+            json {
+                blob
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+}

@@ -8,8 +8,8 @@ import click
 from requests import Response
 from termcolor import colored
 
-import datahub.cli.cli_utils
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
@@ -63,7 +63,9 @@ def get_timeline(
     end_time: Optional[int],
     diff: bool,
 ) -> Any:
-    session, host = datahub.cli.cli_utils.get_session_and_host()
+    client = get_default_graph()
+    session = client._session
+    host = client.config.server
     if urn.startswith("urn%3A"):
         # we assume the urn is already encoded
         encoded_urn: str = urn
@@ -79,7 +81,7 @@ def get_timeline(
     diff_param: str = f"&raw={diff}" if diff else ""
     endpoint: str = (
         host
-        + f"/openapi/timeline/v1/{encoded_urn}?categories={categories}{start_time_param}{end_time_param}{diff_param}"
+        + f"/openapi/v2/timeline/v1/{encoded_urn}?categories={categories}{start_time_param}{end_time_param}{diff_param}"
     )
     click.echo(endpoint)
 

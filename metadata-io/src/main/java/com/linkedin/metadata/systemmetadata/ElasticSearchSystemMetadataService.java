@@ -2,8 +2,8 @@ package com.linkedin.metadata.systemmetadata;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -13,12 +13,15 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -225,10 +228,10 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
-  public void configure() {
+  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     log.info("Setting up system metadata index");
     try {
-      for (ReindexConfig config : buildReindexConfigs()) {
+      for (ReindexConfig config : buildReindexConfigs(properties)) {
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException ie) {
@@ -237,7 +240,8 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
-  public List<ReindexConfig> buildReindexConfigs() throws IOException {
+  public List<ReindexConfig> buildReindexConfigs(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
     return List.of(
         _indexBuilder.buildReindexState(
             _indexConvention.getIndexName(INDEX_NAME),
@@ -245,12 +249,6 @@ public class ElasticSearchSystemMetadataService
             Collections.emptyMap()));
   }
 
-  @Override
-  public void reindexAll() {
-    configure();
-  }
-
-  @VisibleForTesting
   @Override
   public void clear() {
     _esBulkProcessor.deleteByQuery(

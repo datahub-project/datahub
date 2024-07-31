@@ -37,7 +37,15 @@ jobs:
                 "maggiehays",
                 "mrjefflewis",
                 "pedro93",
-                "RyanHolstien"
+                "RyanHolstien",
+                "Kunal-kankriya",
+                "purnimagarg1",
+                "dushayntAW",
+                "sagar-salvi-apptware",
+                "kushagra-apptware",
+                "Salman-Apptware",
+                "mayurinehate",
+                "noggi"
               ]'), 
               github.actor
             ) 

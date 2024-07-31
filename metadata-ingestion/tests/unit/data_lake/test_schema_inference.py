@@ -18,23 +18,23 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from tests.unit.test_schema_util import assert_field_paths_match
 
 expected_field_paths = [
-    "boolean_field",
     "integer_field",
+    "boolean_field",
     "string_field",
 ]
 
 expected_field_paths_avro = [
-    "[version=2.0].[type=test].[type=boolean].boolean_field",
     "[version=2.0].[type=test].[type=int].integer_field",
+    "[version=2.0].[type=test].[type=boolean].boolean_field",
     "[version=2.0].[type=test].[type=string].string_field",
 ]
 
-expected_field_types = [BooleanTypeClass, NumberTypeClass, StringTypeClass]
+expected_field_types = [NumberTypeClass, BooleanTypeClass, StringTypeClass]
 
 test_table = pd.DataFrame(
     {
-        "boolean_field": [True, False, True],
         "integer_field": [1, 2, 3],
+        "boolean_field": [True, False, True],
         "string_field": ["a", "b", "c"],
     }
 )
@@ -54,7 +54,6 @@ def test_infer_schema_csv():
         file.seek(0)
 
         fields = csv_tsv.CsvInferrer(max_rows=100).infer_schema(file)
-        fields.sort(key=lambda x: x.fieldPath)
 
         assert_field_paths_match(fields, expected_field_paths)
         assert_field_types_match(fields, expected_field_types)
@@ -70,7 +69,19 @@ def test_infer_schema_tsv():
         file.seek(0)
 
         fields = csv_tsv.TsvInferrer(max_rows=100).infer_schema(file)
-        fields.sort(key=lambda x: x.fieldPath)
+
+        assert_field_paths_match(fields, expected_field_paths)
+        assert_field_types_match(fields, expected_field_types)
+
+
+def test_infer_schema_jsonl():
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(
+            bytes(test_table.to_json(orient="records", lines=True), encoding="utf-8")
+        )
+        file.seek(0)
+
+        fields = json.JsonInferrer(max_rows=100, format="jsonl").infer_schema(file)
 
         assert_field_paths_match(fields, expected_field_paths)
         assert_field_types_match(fields, expected_field_types)
@@ -82,7 +93,6 @@ def test_infer_schema_json():
         file.seek(0)
 
         fields = json.JsonInferrer().infer_schema(file)
-        fields.sort(key=lambda x: x.fieldPath)
 
         assert_field_paths_match(fields, expected_field_paths)
         assert_field_types_match(fields, expected_field_types)
@@ -92,9 +102,7 @@ def test_infer_schema_parquet():
     with tempfile.TemporaryFile(mode="w+b") as file:
         test_table.to_parquet(file)
         file.seek(0)
-
         fields = parquet.ParquetInferrer().infer_schema(file)
-        fields.sort(key=lambda x: x.fieldPath)
 
         assert_field_paths_match(fields, expected_field_paths)
         assert_field_types_match(fields, expected_field_types)
@@ -108,8 +116,8 @@ def test_infer_schema_avro():
                     "type": "record",
                     "name": "test",
                     "fields": [
-                        {"name": "boolean_field", "type": "boolean"},
                         {"name": "integer_field", "type": "int"},
+                        {"name": "boolean_field", "type": "boolean"},
                         {"name": "string_field", "type": "string"},
                     ],
                 }
@@ -124,7 +132,6 @@ def test_infer_schema_avro():
         file.seek(0)
 
         fields = AvroInferrer().infer_schema(file)
-        fields.sort(key=lambda x: x.fieldPath)
 
         assert_field_paths_match(fields, expected_field_paths_avro)
         assert_field_types_match(fields, expected_field_types)

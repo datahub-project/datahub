@@ -37,10 +37,8 @@ def send_lineage_to_datahub(
     emitter = hook.make_emitter()
 
     dataflow = AirflowGenerator.generate_dataflow(
-        cluster=config.cluster,
+        config=config,
         dag=dag,
-        capture_tags=config.capture_tags_info,
-        capture_owner=config.capture_ownership_info,
     )
     dataflow.emit(emitter)
     operator.log.info(f"Emitted from Lineage: {dataflow}")
@@ -51,6 +49,7 @@ def send_lineage_to_datahub(
         dag=dag,
         capture_tags=config.capture_tags_info,
         capture_owner=config.capture_ownership_info,
+        config=config,
     )
     datajob.inlets.extend(entities_to_dataset_urn_list([let.urn for let in inlets]))
     datajob.outlets.extend(entities_to_dataset_urn_list([let.urn for let in outlets]))
@@ -58,7 +57,8 @@ def send_lineage_to_datahub(
         entities_to_datajob_urn_list([let.urn for let in inlets])
     )
 
-    datajob.emit(emitter)
+    for mcp in datajob.generate_mcp(materialize_iolets=config.materialize_iolets):
+        emitter.emit(mcp)
     operator.log.info(f"Emitted from Lineage: {datajob}")
 
     if config.capture_executions:
@@ -66,7 +66,7 @@ def send_lineage_to_datahub(
 
         dpi = AirflowGenerator.run_datajob(
             emitter=emitter,
-            cluster=config.cluster,
+            config=config,
             ti=ti,
             dag=dag,
             dag_run=dag_run,

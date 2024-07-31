@@ -74,6 +74,12 @@ def make_usage_workunit(
 
     top_sql_queries: Optional[List[str]] = None
     if query_freq is not None:
+        if top_n_queries < len(query_freq):
+            logger.warn(
+                f"Top N query limit exceeded on {str(resource)}.  Max number of queries {top_n_queries} <  {len(query_freq)}. Truncating top queries to {top_n_queries}."
+            )
+            query_freq = query_freq[0:top_n_queries]
+
         budget_per_query: int = int(queries_character_limit / top_n_queries)
         top_sql_queries = [
             trim_query(
@@ -133,19 +139,20 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         query: Optional[str],
         fields: List[str],
         user_email_pattern: AllowDenyPattern = AllowDenyPattern.allow_all(),
+        count: int = 1,
     ) -> None:
         if user_email and not user_email_pattern.allowed(user_email):
             return
 
-        self.readCount += 1
+        self.readCount += count
         if user_email is not None:
-            self.userFreq[user_email] += 1
+            self.userFreq[user_email] += count
 
         if query:
             self.queryCount += 1
-            self.queryFreq[query] += 1
+            self.queryFreq[query] += count
         for column in fields:
-            self.columnFreq[column] += 1
+            self.columnFreq[column] += count
 
     def make_usage_workunit(
         self,
@@ -240,6 +247,7 @@ class UsageAggregator(Generic[ResourceType]):
         query: Optional[str],
         user: Optional[str],
         fields: List[str],
+        count: int = 1,
     ) -> None:
         floored_ts: datetime = get_time_bucket(start_time, self.config.bucket_duration)
         self.aggregation[floored_ts].setdefault(
@@ -252,6 +260,7 @@ class UsageAggregator(Generic[ResourceType]):
             user,
             query,
             fields,
+            count=count,
         )
 
     def generate_workunits(

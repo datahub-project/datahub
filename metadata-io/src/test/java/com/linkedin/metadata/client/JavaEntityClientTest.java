@@ -6,7 +6,6 @@ import static org.testng.Assert.assertThrows;
 
 import com.codahale.metrics.Counter;
 import com.linkedin.data.template.RequiredFieldNotPresentException;
-import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
@@ -14,8 +13,10 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.function.Supplier;
 import org.mockito.MockedStatic;
 import org.testng.annotations.AfterMethod;
@@ -32,9 +33,10 @@ public class JavaEntityClientTest {
   private LineageSearchService _lineageSearchService;
   private TimeseriesAspectService _timeseriesAspectService;
   private EventProducer _eventProducer;
-  private RestliEntityClient _restliEntityClient;
   private MockedStatic<MetricUtils> _metricUtils;
+  private RollbackService rollbackService;
   private Counter _counter;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setupTest() {
@@ -45,11 +47,12 @@ public class JavaEntityClientTest {
     _searchService = mock(SearchService.class);
     _lineageSearchService = mock(LineageSearchService.class);
     _timeseriesAspectService = mock(TimeseriesAspectService.class);
+    rollbackService = mock(RollbackService.class);
     _eventProducer = mock(EventProducer.class);
-    _restliEntityClient = mock(RestliEntityClient.class);
     _metricUtils = mockStatic(MetricUtils.class);
     _counter = mock(Counter.class);
     when(MetricUtils.counter(any(), any())).thenReturn(_counter);
+    opContext = mock(OperationContext.class);
   }
 
   @AfterMethod
@@ -66,8 +69,9 @@ public class JavaEntityClientTest {
         _searchService,
         _lineageSearchService,
         _timeseriesAspectService,
+        rollbackService,
         _eventProducer,
-        _restliEntityClient);
+        1);
   }
 
   @Test

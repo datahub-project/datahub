@@ -1,10 +1,16 @@
+---
+hide_title: true
+slug: /features
+---
+
+
 import QuickstartCards from '@site/src/pages/docs/_components/QuickstartCards';
 import FeatureCardSection from '@site/src/pages/docs/_components/FeatureCardSection';
 
 # What is DataHub?
 
-DataHub is a modern data catalog built to enable end-to-end data discovery, data observability, and data governance.
-This extensible metadata platform is built for developers to tame the complexity of their rapidly evolving data ecosystems and for data practitioners to leverage the total value of data within their organization.
+DataHub is a modern data catalog designed to streamline metadata management, data discovery, and data governance. It enables users to efficiently explore and understand their data, track data lineage, profile datasets, and establish data contracts. 
+This extensible metadata management platform is built for developers to tame the complexity of their rapidly evolving data ecosystems and for data practitioners to leverage the total value of data within their organization.
 
 ## Quickstart
 
@@ -22,7 +28,7 @@ To get started with DataHub, you can use a simple CLI command. Alternatively, yo
 
 - [Quickstart](quickstart.md)
 - [Self-hosted DataHub](deploy/kubernetes.md)
-- [Managed DataHub](managed-datahub/managed-datahub-overview.md)
+- [DataHub Cloud](managed-datahub/managed-datahub-overview.md)
 
 ### Ingestion
 

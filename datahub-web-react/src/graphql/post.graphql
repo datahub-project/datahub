@@ -7,6 +7,9 @@ query listPosts($input: ListPostsInput!) {
             urn
             type
             postType
+            lastModified {
+                time
+            }
             content {
                 contentType
                 title

@@ -13,6 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -79,7 +80,8 @@ public class BatchGetEntitiesResolverTest {
         CompletableFuture.completedFuture(
             ImmutableList.of(mockResponseEntity2, mockResponseEntity1));
     when(mockDataLoader.loadMany(any())).thenReturn(mockFuture);
-    when(_entityService.exists(any())).thenReturn(true);
+    when(_entityService.exists(any(), any(List.class), eq(true)))
+        .thenAnswer(args -> Set.of(args.getArgument(0)));
     List<Entity> batchGetResponse = resolver.get(_dataFetchingEnvironment).join();
     assertEquals(batchGetResponse.size(), 2);
     assertEquals(batchGetResponse.get(0), mockResponseEntity1);
@@ -108,7 +110,8 @@ public class BatchGetEntitiesResolverTest {
     CompletableFuture mockFuture =
         CompletableFuture.completedFuture(ImmutableList.of(mockResponseEntity));
     when(mockDataLoader.loadMany(any())).thenReturn(mockFuture);
-    when(_entityService.exists(any())).thenReturn(true);
+    when(_entityService.exists(any(), any(List.class), eq(true)))
+        .thenAnswer(args -> Set.of(args.getArgument(0)));
     List<Entity> batchGetResponse = resolver.get(_dataFetchingEnvironment).join();
     assertEquals(batchGetResponse.size(), 2);
     assertEquals(batchGetResponse.get(0), mockResponseEntity);

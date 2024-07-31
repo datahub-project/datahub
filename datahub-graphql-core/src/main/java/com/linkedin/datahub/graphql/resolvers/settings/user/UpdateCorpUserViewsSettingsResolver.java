@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.UpdateCorpUserViewsSettingsInput;
 import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
@@ -32,14 +33,14 @@ public class UpdateCorpUserViewsSettingsResolver
     final UpdateCorpUserViewsSettingsInput input =
         bindArgument(environment.getArgument("input"), UpdateCorpUserViewsSettingsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
             final Urn userUrn = UrnUtils.getUrn(context.getActorUrn());
 
             final CorpUserSettings maybeSettings =
-                _settingsService.getCorpUserSettings(userUrn, context.getAuthentication());
+                _settingsService.getCorpUserSettings(context.getOperationContext(), userUrn);
 
             final CorpUserSettings newSettings =
                 maybeSettings == null
@@ -52,7 +53,7 @@ public class UpdateCorpUserViewsSettingsResolver
             updateCorpUserSettings(newSettings, input);
 
             _settingsService.updateCorpUserSettings(
-                userUrn, newSettings, context.getAuthentication());
+                context.getOperationContext(), userUrn, newSettings);
             return true;
           } catch (Exception e) {
             log.error(
@@ -65,7 +66,9 @@ public class UpdateCorpUserViewsSettingsResolver
                     input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static void updateCorpUserSettings(

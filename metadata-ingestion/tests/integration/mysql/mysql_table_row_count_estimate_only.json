@@ -455,7 +455,8 @@
                 },
                 {
                     "fieldPath": "email_address",
-                    "uniqueCount": 0,
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
                     "nullCount": 0
                 },
                 {
@@ -464,7 +465,8 @@
                     "uniqueProportion": 0.75,
                     "nullCount": 0
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -503,7 +505,8 @@
                     "uniqueCount": 0,
                     "nullCount": 0
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {

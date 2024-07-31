@@ -6,7 +6,7 @@ ARG APP_ENV=prod
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 
-FROM golang:1-alpine3.18 AS binary
+FROM golang:1-alpine3.20 AS binary
 
 ARG ALPINE_REPO_URL
 
@@ -23,7 +23,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM alpine:3.18 AS base
+FROM alpine:3.20 AS base
 
 ARG ALPINE_REPO_URL
 
@@ -44,9 +44,9 @@ FROM base AS dev-install
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
 FROM ${APP_ENV}-install AS final
+
 CMD if [ "$ELASTICSEARCH_USE_SSL" == "true" ]; then ELASTICSEARCH_PROTOCOL=https; else ELASTICSEARCH_PROTOCOL=http; fi \
     && if [[ -n "$ELASTICSEARCH_USERNAME" ]]; then ELASTICSEARCH_HTTP_HEADERS="Authorization: Basic $(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64)"; else ELASTICSEARCH_HTTP_HEADERS="Accept: */*"; fi \
     && if [[ "$SKIP_ELASTICSEARCH_CHECK" != "true" ]]; then \
         dockerize -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "${ELASTICSEARCH_HTTP_HEADERS}" -timeout 120s /create-indices.sh; \
     else /create-indices.sh; fi
-

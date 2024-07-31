@@ -52,12 +52,12 @@ public class TestType implements com.linkedin.datahub.graphql.types.EntityType<T
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.TEST_ENTITY_NAME,
               new HashSet<>(testUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : testUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }

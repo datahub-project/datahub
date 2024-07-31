@@ -1,3 +1,4 @@
+import json
 import re
 import subprocess
 import sys
@@ -35,6 +36,12 @@ def python_package_name_normalize(name):
 @click.argument("outdir", type=click.Path(), required=True)
 @click.argument("package_name", type=str, required=True)
 @click.argument("package_version", type=str, required=True)
+@click.option(
+    "--build/--no-build",
+    is_flag=True,
+    help="Build the package after generating it",
+    default=True,
+)
 @click.pass_context
 def generate(
     ctx: click.Context,
@@ -44,6 +51,7 @@ def generate(
     outdir: str,
     package_name: str,
     package_version: str,
+    build: bool,
 ) -> None:
     package_path = Path(outdir) / package_name
     if package_path.is_absolute():
@@ -75,36 +83,48 @@ __version__ = "{package_version}"
 
     (src_path / "py.typed").write_text("")
 
+    (src_path / "_codegen_config.json").write_text(
+        json.dumps(
+            dict(
+                name=package_name,
+                version=package_version,
+                install_requires=[
+                    f"avro-gen3=={_avrogen_version}",
+                    "acryl-datahub",
+                ],
+                package_data={
+                    f"{python_package_name}": ["py.typed", "_codegen_config.json"],
+                    f"{python_package_name}.metadata": ["schema.avsc"],
+                    f"{python_package_name}.metadata.schemas": ["*.avsc"],
+                },
+                entry_points={
+                    "datahub.custom_packages": [
+                        f"models={python_package_name}.metadata.schema_classes",
+                        f"urns={python_package_name}.metadata._urns.urn_defs",
+                    ],
+                },
+            ),
+            indent=2,
+        )
+    )
+
     (package_path / "setup.py").write_text(
         f"""{autogen_header}
 from setuptools import setup
+import pathlib
+import json
 
-_package_name = "{package_name}"
-_package_version = "{package_version}"
+_codegen_config_file = pathlib.Path("./src/{python_package_name}/_codegen_config.json")
 
-setup(
-    name=_package_name,
-    version=_package_version,
-    install_requires=[
-        "avro-gen3=={_avrogen_version}",
-        "acryl-datahub",
-    ],
-    package_data={{
-        "{python_package_name}": ["py.typed"],
-        "{python_package_name}.metadata": ["schema.avsc"],
-        "{python_package_name}.metadata.schemas": ["*.avsc"],
-    }},
-    entry_points={{
-        "datahub.custom_packages": [
-            "models={python_package_name}.metadata.schema_classes",
-            "urns={python_package_name}.metadata._urns.urn_defs",
-        ],
-    }},
-)
+setup(**json.loads(_codegen_config_file.read_text()))
 """
     )
 
     # TODO add a README.md?
+
+    if not build:
+        return
+
     click.echo("Building package...")
     subprocess.run(["python", "-m", "build", str(package_path)])
 

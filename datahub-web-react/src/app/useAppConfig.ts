@@ -17,3 +17,18 @@ export function useIsNestedDomainsEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.nestedDomainsEnabled;
 }
+
+export function useBusinessAttributesFlag() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.businessAttributeEntityEnabled;
+}
+
+export function useIsAppConfigContextLoaded() {
+    const appConfig = useAppConfig();
+    return appConfig.loaded;
+}
+
+export function useIsShowSeparateSiblingsEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showSeparateSiblings;
+}

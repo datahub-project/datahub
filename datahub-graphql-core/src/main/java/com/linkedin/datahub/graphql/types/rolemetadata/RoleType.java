@@ -18,7 +18,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -73,10 +72,10 @@ public class RoleType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.ROLE_ENTITY_NAME,
               new HashSet<>(externalRolesUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : externalRolesUrns) {
@@ -87,7 +86,9 @@ public class RoleType
               gmsResult ->
                   gmsResult == null
                       ? null
-                      : DataFetcherResult.<Role>newResult().data(RoleMapper.map(gmsResult)).build())
+                      : DataFetcherResult.<Role>newResult()
+                          .data(RoleMapper.map(context, gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Role", e);
@@ -104,14 +105,13 @@ public class RoleType
       throws Exception {
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             Constants.ROLE_ENTITY_NAME,
             query,
             Collections.emptyMap(),
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -124,7 +124,7 @@ public class RoleType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            Constants.ROLE_ENTITY_NAME, query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+            context.getOperationContext(), Constants.ROLE_ENTITY_NAME, query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

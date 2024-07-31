@@ -1,8 +1,24 @@
 query getMLPrimaryKey($urn: String!) {
     mlPrimaryKey(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLPrimaryKey
+        privileges {
+            ...entityPrivileges
+        }
         featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 100 }) {
             ...fullRelationshipResults
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
     }
 }

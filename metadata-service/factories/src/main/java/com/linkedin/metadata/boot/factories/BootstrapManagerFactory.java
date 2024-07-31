@@ -13,7 +13,9 @@ import com.linkedin.metadata.boot.steps.BackfillBrowsePathsV2Step;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
+import com.linkedin.metadata.boot.steps.IngestDataTypesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
+import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestOwnershipTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
@@ -31,6 +33,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -54,7 +57,7 @@ public class BootstrapManagerFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Autowired
   @Qualifier("entityRegistry")
@@ -101,15 +104,12 @@ public class BootstrapManagerFactory {
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
-  protected BootstrapManager createInstance() {
+  protected BootstrapManager createInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(
-            _entityRegistry,
-            _entityService,
-            _entitySearchService,
-            _searchDocumentTransformer,
-            _policiesResource);
+            _entityService, _entitySearchService, _searchDocumentTransformer, _policiesResource);
     final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService, _entityRegistry);
     final IngestDataPlatformsStep ingestDataPlatformsStep =
         new IngestDataPlatformsStep(_entityService);
@@ -118,19 +118,21 @@ public class BootstrapManagerFactory {
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
         new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
     final IndexDataPlatformsStep indexDataPlatformsStep =
-        new IndexDataPlatformsStep(_entityService, _entitySearchService, _entityRegistry);
+        new IndexDataPlatformsStep(_entityService, _entitySearchService);
     final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
-        new RestoreDbtSiblingsIndices(_entityService, _entityRegistry);
+        new RestoreDbtSiblingsIndices(_entityService);
     final RemoveClientIdAspectStep removeClientIdAspectStep =
         new RemoveClientIdAspectStep(_entityService);
     final RestoreColumnLineageIndices restoreColumnLineageIndices =
-        new RestoreColumnLineageIndices(_entityService, _entityRegistry);
+        new RestoreColumnLineageIndices(_entityService);
     final IngestDefaultGlobalSettingsStep ingestSettingsStep =
         new IngestDefaultGlobalSettingsStep(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
     final IngestOwnershipTypesStep ingestOwnershipTypesStep =
         new IngestOwnershipTypesStep(_entityService, _ownershipTypesResource);
+    final IngestDataTypesStep ingestDataTypesStep = new IngestDataTypesStep(_entityService);
+    final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
 
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
@@ -148,7 +150,9 @@ public class BootstrapManagerFactory {
                 removeClientIdAspectStep,
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
-                restoreColumnLineageIndices));
+                restoreColumnLineageIndices,
+                ingestDataTypesStep,
+                ingestEntityTypesStep));
 
     if (_upgradeDefaultBrowsePathsEnabled) {
       finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));

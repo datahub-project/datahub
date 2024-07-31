@@ -5,10 +5,10 @@ Ingesting metadata from dbt requires either using the **dbt** module or the **db
 | Source Concept  | DataHub Concept                                               | Notes              |
 | --------------- | ------------------------------------------------------------- | ------------------ |
 | `"dbt"`         | [Data Platform](../../metamodel/entities/dataPlatform.md)     |                    |
-| dbt Source      | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `source`   |
-| dbt Seed        | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `seed`     |
-| dbt Model       | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `model`    |
-| dbt Snapshot    | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `snapshot` |
+| dbt Source      | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `Source`   |
+| dbt Seed        | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `Seed`     |
+| dbt Model       | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `Model`    |
+| dbt Snapshot    | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `Snapshot` |
 | dbt Test        | [Assertion](../../metamodel/entities/assertion.md)            |                    |
 | dbt Test Result | [Assertion Run Result](../../metamodel/entities/assertion.md) |                    |
 

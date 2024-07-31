@@ -1,15 +1,21 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.GroupingCriterion;
+import com.linkedin.metadata.query.GroupingCriterionArray;
+import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.SearchFlags;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -28,7 +34,14 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
           .setMaxAggValues(20)
           .setSkipCache(false)
           .setSkipAggregates(false)
-          .setSkipHighlighting(false);
+          .setSkipHighlighting(false)
+          .setGroupingSpec(
+              new GroupingSpec()
+                  .setGroupingCriteria(
+                      new GroupingCriterionArray(
+                          new GroupingCriterion()
+                              .setBaseEntityType(SCHEMA_FIELD_ENTITY_NAME)
+                              .setGroupingEntityType(DATASET_ENTITY_NAME))));
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
 
@@ -37,6 +50,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
   @Override
   @WithSpan
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
+    final QueryContext context = environment.getContext();
     final SearchInput input = bindArgument(environment.getArgument("input"), SearchInput.class);
     final String entityName = EntityTypeMapper.getName(input.getType());
     // escape forward slash since it is a reserved character in Elasticsearch
@@ -47,12 +61,12 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
     final SearchFlags searchFlags;
     com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
     if (inputFlags != null) {
-      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
     } else {
       searchFlags = applyDefaultSearchFlags(null, sanitizedQuery, SEARCH_RESOLVER_DEFAULTS);
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug(
@@ -66,15 +80,18 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                 searchFlags);
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.search(
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     entityName,
                     sanitizedQuery,
-                    ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
+                    ResolverUtils.buildFilter(
+                        input.getFilters(),
+                        input.getOrFilters(),
+                        context.getOperationContext().getAspectRetriever()),
                     null,
                     start,
-                    count,
-                    ResolverUtils.getAuthentication(environment),
-                    searchFlags));
+                    count));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}, searchFlags: {}",
@@ -98,6 +115,8 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         searchFlags),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

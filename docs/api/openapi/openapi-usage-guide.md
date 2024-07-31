@@ -48,13 +48,16 @@ Even lower-level API-s that allow you to write metadata events into the DataHub 
 
 #### Entities (/entities) endpoint
 
-##### POST
+##### POST (UPSERT)
+
+A post without any additional URL parameters performs an UPSERT of entity's aspects. The entity will be
+created if it doesn't exist or updated if it does.
 
 ```shell
 curl --location --request POST 'localhost:8080/openapi/entities/v1/' \
 --header 'Content-Type: application/json' \
 --header 'Accept: application/json' \
---header 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMSIsImV4cCI6MTY1MDY2MDY1NSwianRpIjoiM2E4ZDY3ZTItOTM5Yi00NTY3LWE0MjYtZDdlMDA1ZGU3NjJjIiwic3ViIjoiZGF0YWh1YiIsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.pp_vW2u1tiiTT7U0nDF2EQdcayOMB8jatiOA8Je4JJA' \
+--header 'Authorization: Bearer <token>' \
 --data-raw '[
     {
         "aspect": {
@@ -111,13 +114,34 @@ curl --location --request POST 'localhost:8080/openapi/entities/v1/' \
     }
 ]'
 ```
+##### POST (CREATE)
+
+The second POST example will write the update ONLY if the entity doesn't exist. If the entity does exist the
+command will return an error instead of overwriting the entity.
+
+In this example we've added a URL parameter `createEntityIfNotExists=true`
+
+```shell
+curl --location --request POST 'localhost:8080/openapi/entities/v1/?createEntityIfNotExists=true' \
+--header 'Content-Type: application/json' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer <token>' \
+--data-raw '<see previous example>'
+```
+
+If the entity doesn't exist the response will be identical to the previous example. In the case where the entity already exists,
+the following error will occur.
+
+> 422 ValidationExceptionCollection{EntityAspect:(urn:li:dataset:(urn:li:dataPlatform:platform,testSchemaIngest,PROD),schemaMetadata) Exceptions: [com.linkedin.metadata.aspect.plugins.validation.AspectValidationException: Cannot perform CREATE if not exists since the entity key already exists.]}
+
+
 
 ##### GET
 
 ```shell
 curl --location --request GET 'localhost:8080/openapi/entities/v1/latest?urns=urn:li:dataset:(urn:li:dataPlatform:platform,testSchemaIngest,PROD)&aspectNames=schemaMetadata' \
 --header 'Accept: application/json' \
---header 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMSIsImV4cCI6MTY1MDY2MDY1NSwianRpIjoiM2E4ZDY3ZTItOTM5Yi00NTY3LWE0MjYtZDdlMDA1ZGU3NjJjIiwic3ViIjoiZGF0YWh1YiIsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.pp_vW2u1tiiTT7U0nDF2EQdcayOMB8jatiOA8Je4JJA'
+--header 'Authorization: Bearer <token>'
 ```
 
 ##### DELETE
@@ -125,7 +149,7 @@ curl --location --request GET 'localhost:8080/openapi/entities/v1/latest?urns=ur
 ```shell
 curl --location --request DELETE 'localhost:8080/openapi/entities/v1/?urns=urn:li:dataset:(urn:li:dataPlatform:platform,testSchemaIngest,PROD)&soft=true' \
 --header 'Accept: application/json' \
---header 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMSIsImV4cCI6MTY1MDY2MDY1NSwianRpIjoiM2E4ZDY3ZTItOTM5Yi00NTY3LWE0MjYtZDdlMDA1ZGU3NjJjIiwic3ViIjoiZGF0YWh1YiIsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.pp_vW2u1tiiTT7U0nDF2EQdcayOMB8jatiOA8Je4JJA'
+--header 'Authorization: Bearer <token>'
 ```
 
 #### Postman Collection
@@ -557,4 +581,233 @@ public class Main {
     System.exit(0);
   }
 }
+```
+
+## OpenAPI v3 Features
+
+### Conditional Writes
+
+All the create/POST endpoints for aspects support `headers` in the POST body to support batch APIs. See the docs in the
+[MetadataChangeProposal](../../advanced/mcp-mcl.md) section for the use of these headers to support conditional writes semantics.
+
+### Batch Get
+
+Batch get endpoints in the form of `/v3/entity/{entityName}/batchGet` exist for all entities. This endpoint allows
+fetching entity and aspects in bulk. In combination with the `If-Version-Match` header it can also retrieve
+a specific version of the aspects, however it defaults to the latest aspect version. Currently, this interface is limited
+to returning a single version for each entity/aspect however different versions can be specified across entities.
+
+A few example queries are as follows:
+
+Example Request:
+
+Fetch the latest aspects for the given URNs with the url parameter `systemMetadata=true` in order to view the current 
+versions of the aspects.
+
+```json
+[
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
+    "globalTags": {},
+    "datasetProperties": {}
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "globalTags": {},
+    "datasetProperties": {}
+  }
+]
+```
+
+Example Response:
+
+Notice that `systemMetadata` contains `"version": "1"` for each of the aspects that exist in the system.
+
+```json
+[
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
+    "datasetProperties": {
+      "value": {
+        "description": "table containing all the users deleted on a single day",
+        "customProperties": {
+          "encoding": "utf-8"
+        },
+        "tags": []
+      },
+      "systemMetadata": {
+        "properties": {
+          "clientVersion": "1!0.0.0.dev0",
+          "clientId": "acryl-datahub"
+        },
+        "version": "1",
+        "lastObserved": 1720781548776,
+        "lastRunId": "file-2024_07_12-05_52_28",
+        "runId": "file-2024_07_12-05_52_28"
+      }
+    }
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "datasetProperties": {
+      "value": {
+        "description": "table containing all the users created on a single day",
+        "customProperties": {
+          "encoding": "utf-8"
+        },
+        "tags": []
+      },
+      "systemMetadata": {
+        "properties": {
+          "clientVersion": "1!0.0.0.dev0",
+          "clientId": "acryl-datahub"
+        },
+        "version": "1",
+        "lastObserved": 1720781548773,
+        "lastRunId": "file-2024_07_12-05_52_28",
+        "runId": "file-2024_07_12-05_52_28"
+      }
+    },
+    "globalTags": {
+      "value": {
+        "tags": [
+          {
+            "tag": "urn:li:tag:NeedsDocumentation"
+          }
+        ]
+      },
+      "systemMetadata": {
+        "properties": {
+          "appSource": "ui"
+        },
+        "version": "1",
+        "lastObserved": 0,
+        "lastRunId": "no-run-id-provided",
+        "runId": "no-run-id-provided"
+      }
+    }
+  }
+]
+```
+
+Next let's mutate `globalTags` for the second URN by adding a new tag. This will increment the version of
+the `globalTags` aspect. The response will then look at like the following, notice the incremented 
+`"version": "2"` in `systemMetadata` for the `globalTags` aspect. Also notice that there are now 2 tags present, unlike
+previously where only `urn:li:tag:NeedsDocumentation` was present.
+
+```json
+[
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
+    "datasetProperties": {
+      "value": {
+        "description": "table containing all the users deleted on a single day",
+        "customProperties": {
+          "encoding": "utf-8"
+        },
+        "tags": []
+      },
+      "systemMetadata": {
+        "properties": {
+          "clientVersion": "1!0.0.0.dev0",
+          "clientId": "acryl-datahub"
+        },
+        "version": "1",
+        "lastObserved": 1720781548776,
+        "lastRunId": "file-2024_07_12-05_52_28",
+        "runId": "file-2024_07_12-05_52_28"
+      }
+    }
+  },
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "datasetProperties": {
+      "value": {
+        "description": "table containing all the users created on a single day",
+        "customProperties": {
+          "encoding": "utf-8"
+        },
+        "tags": []
+      },
+      "systemMetadata": {
+        "properties": {
+          "clientVersion": "1!0.0.0.dev0",
+          "clientId": "acryl-datahub"
+        },
+        "version": "1",
+        "lastObserved": 1720781548773,
+        "lastRunId": "file-2024_07_12-05_52_28",
+        "runId": "file-2024_07_12-05_52_28"
+      }
+    },
+    "globalTags": {
+      "value": {
+        "tags": [
+          {
+            "tag": "urn:li:tag:NeedsDocumentation"
+          },
+          {
+            "tag": "urn:li:tag:Legacy"
+          }
+        ]
+      },
+      "systemMetadata": {
+        "properties": {
+          "appSource": "ui"
+        },
+        "version": "2",
+        "lastObserved": 0,
+        "lastRunId": "no-run-id-provided",
+        "runId": "no-run-id-provided"
+      }
+    }
+  }
+]
+```
+
+Next, we'll retrieve the previous version of the `globalTags` for the one aspect with a version 2 with the following query.
+We can do this by populating the `headers` map with `If-Version-Match` to retrieve the previous version 1.
+
+Example Request:
+```json
+[
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "globalTags": {
+      "headers": {
+        "If-Version-Match": "1"
+      }
+    }
+  }
+]
+```
+
+Example Response:
+
+The previous version `1` of the `globalTags` aspect is returned as expected with only the single tag.
+
+```json
+[
+  {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "globalTags": {
+      "value": {
+        "tags": [
+          {
+            "tag": "urn:li:tag:NeedsDocumentation"
+          }
+        ]
+      },
+      "systemMetadata": {
+        "properties": {
+          "appSource": "ui"
+        },
+        "version": "1",
+        "lastObserved": 0,
+        "lastRunId": "no-run-id-provided",
+        "runId": "no-run-id-provided"
+      }
+    }
+  }
+]
 ```

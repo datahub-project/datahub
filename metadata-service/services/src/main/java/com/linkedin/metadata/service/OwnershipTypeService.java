@@ -1,6 +1,5 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -8,12 +7,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.OwnershipTypeKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.ownership.OwnershipTypeInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -34,9 +34,8 @@ public class OwnershipTypeService extends BaseService {
 
   public static final String SYSTEM_ID = "__system__";
 
-  public OwnershipTypeService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+  public OwnershipTypeService(@Nonnull SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   /**
@@ -52,12 +51,12 @@ public class OwnershipTypeService extends BaseService {
    * @return the urn of the newly created Ownership Type
    */
   public Urn createOwnershipType(
+      @Nonnull OperationContext opContext,
       String name,
       @Nullable String description,
-      @Nonnull Authentication authentication,
       long currentTimeMs) {
     Objects.requireNonNull(name, "name must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
     // 1. Generate a unique id for the new Ownership Type.
     final OwnershipTypeKey key = new OwnershipTypeKey();
@@ -69,7 +68,7 @@ public class OwnershipTypeService extends BaseService {
     ownershipTypeInfo.setDescription(description, SetMode.IGNORE_NULL);
     final AuditStamp auditStamp =
         new AuditStamp()
-            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
+            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
             .setTime(currentTimeMs);
     ownershipTypeInfo.setCreated(auditStamp);
     ownershipTypeInfo.setLastModified(auditStamp);
@@ -80,9 +79,9 @@ public class OwnershipTypeService extends BaseService {
           EntityKeyUtils.convertEntityKeyToUrn(key, Constants.OWNERSHIP_TYPE_ENTITY_NAME);
       return UrnUtils.getUrn(
           this.entityClient.ingestProposal(
+              opContext,
               AspectUtils.buildMetadataChangeProposal(
                   entityUrn, Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME, ownershipTypeInfo),
-              authentication,
               false));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create Ownership Type", e);
@@ -103,16 +102,16 @@ public class OwnershipTypeService extends BaseService {
    * @param currentTimeMs the current time in millis
    */
   public void updateOwnershipType(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nullable String name,
       @Nullable String description,
-      @Nonnull Authentication authentication,
       long currentTimeMs) {
     Objects.requireNonNull(urn, "urn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
     // 1. Check whether the Ownership Type exists
-    OwnershipTypeInfo info = getOwnershipTypeInfo(urn, authentication);
+    OwnershipTypeInfo info = getOwnershipTypeInfo(opContext, urn);
 
     if (info == null) {
       throw new IllegalArgumentException(
@@ -131,14 +130,14 @@ public class OwnershipTypeService extends BaseService {
     info.setLastModified(
         new AuditStamp()
             .setTime(currentTimeMs)
-            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
 
     // 3. Write changes to GMS
     try {
       this.entityClient.ingestProposal(
+          opContext,
           AspectUtils.buildMetadataChangeProposal(
               urn, Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME, info),
-          authentication,
           false);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", urn), e);
@@ -157,23 +156,23 @@ public class OwnershipTypeService extends BaseService {
    * @param authentication the current authentication
    */
   public void deleteOwnershipType(
-      @Nonnull Urn urn, boolean deleteReferences, @Nonnull Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, boolean deleteReferences) {
     Objects.requireNonNull(urn, "Ownership TypeUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       if (isSystemOwnershipType(urn)) {
         log.info("Soft deleting ownership type: {}", urn);
         final Status statusAspect = new Status();
         statusAspect.setRemoved(true);
         this.entityClient.ingestProposal(
+            opContext,
             AspectUtils.buildMetadataChangeProposal(
                 urn, Constants.STATUS_ASPECT_NAME, statusAspect),
-            authentication,
             false);
       } else {
-        this.entityClient.deleteEntity(urn, authentication);
+        this.entityClient.deleteEntity(opContext, urn);
         if (deleteReferences) {
-          this.entityClient.deleteEntityReferences(urn, authentication);
+          this.entityClient.deleteEntityReferences(opContext, urn);
         }
       }
     } catch (Exception e) {
@@ -203,11 +202,10 @@ public class OwnershipTypeService extends BaseService {
    */
   @Nullable
   public OwnershipTypeInfo getOwnershipTypeInfo(
-      @Nonnull final Urn ownershipTypeUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn ownershipTypeUrn) {
     Objects.requireNonNull(ownershipTypeUrn, "ownershipTypeUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
-    final EntityResponse response =
-        getOwnershipTypeEntityResponse(ownershipTypeUrn, authentication);
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
+    final EntityResponse response = getOwnershipTypeEntityResponse(opContext, ownershipTypeUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME)) {
       return new OwnershipTypeInfo(
@@ -228,15 +226,15 @@ public class OwnershipTypeService extends BaseService {
    */
   @Nullable
   public EntityResponse getOwnershipTypeEntityResponse(
-      @Nonnull final Urn ownershipTypeUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn ownershipTypeUrn) {
     Objects.requireNonNull(ownershipTypeUrn, "viewUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           Constants.OWNERSHIP_TYPE_ENTITY_NAME,
           ownershipTypeUrn,
-          ImmutableSet.of(Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME, Constants.STATUS_ASPECT_NAME),
-          authentication);
+          ImmutableSet.of(Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME, Constants.STATUS_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Ownership Type with urn %s", ownershipTypeUrn), e);

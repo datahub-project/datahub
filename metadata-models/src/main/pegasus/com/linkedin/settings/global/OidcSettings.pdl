@@ -90,7 +90,12 @@ record OidcSettings {
   extractJwtAccessTokenClaims: optional boolean
 
    /**
-   *  ADVANCED. Which jws algorithm to use.
+   *  ADVANCED. Which jws algorithm to use. Unused.
    */
   preferredJwsAlgorithm: optional string
+
+   /**
+   *  ADVANCED. Which jws algorithm to use.
+   */
+  preferredJwsAlgorithm2: optional string
 }

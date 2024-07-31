@@ -24,7 +24,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class HealthStatusAuthenticator implements Authenticator {
-  private static final Set<String> HEALTH_ENDPOINTS = Set.of("/openapi/check/", "/openapi/up/");
+  private static final Set<String> HEALTH_ENDPOINTS =
+      Set.of("/openapi/check/", "/openapi/up/", "/actuator/health", "/health");
   private String systemClientId;
 
   @Override

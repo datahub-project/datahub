@@ -1,0 +1,77 @@
+fragment incidentsFields on EntityIncidentsResult {
+    start
+    count
+    total
+    incidents {
+        urn
+        type
+        incidentType
+        customType
+        title
+        description
+        status {
+            state
+            message
+            lastUpdated {
+                time
+                actor
+            }
+        }
+        source {
+            type
+        }
+        created {
+            time
+            actor
+        }
+        tags {
+            ...globalTagsFields
+        }
+    }
+}
+
+fragment datasetSiblingIncidents on Dataset {
+    siblings {
+        isPrimary
+        siblings {
+            urn
+            type
+            ... on Dataset {
+                incidents(start: $start, count: $count, state: $state) {
+                    ...incidentsFields
+                }
+            }
+        }
+    }
+}
+
+query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentState) {
+    entity(urn: $urn) {
+        ... on Dataset {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentsFields
+            }
+            ...datasetSiblingIncidents
+        }
+        ... on DataJob {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentsFields
+            }
+        }
+        ... on DataFlow {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentsFields
+            }
+        }
+        ... on Dashboard {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentsFields
+            }
+        }
+        ... on Chart {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentsFields
+            }
+        }
+    }
+}

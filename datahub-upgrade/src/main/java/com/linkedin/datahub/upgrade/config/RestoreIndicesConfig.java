@@ -3,8 +3,8 @@ package com.linkedin.datahub.upgrade.config;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -21,19 +21,26 @@ public class RestoreIndicesConfig {
   @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "restoreIndices")
-  @DependsOn({"ebeanServer", "entityService", "searchService", "graphService", "entityRegistry"})
+  @DependsOn({
+    "ebeanServer",
+    "entityService",
+    "systemMetadataService",
+    "searchService",
+    "graphService"
+  })
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   public RestoreIndices createInstance() {
     final Database ebeanServer = applicationContext.getBean(Database.class);
-    final EntityService entityService = applicationContext.getBean(EntityService.class);
+    final EntityService<?> entityService = applicationContext.getBean(EntityService.class);
+    final SystemMetadataService systemMetadataService =
+        applicationContext.getBean(SystemMetadataService.class);
     final EntitySearchService entitySearchService =
         applicationContext.getBean(EntitySearchService.class);
     final GraphService graphService = applicationContext.getBean(GraphService.class);
-    final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);
 
     return new RestoreIndices(
-        ebeanServer, entityService, entityRegistry, entitySearchService, graphService);
+        ebeanServer, entityService, systemMetadataService, entitySearchService, graphService);
   }
 
   @Bean(name = "restoreIndices")

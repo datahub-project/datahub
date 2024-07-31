@@ -2,9 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -44,10 +46,10 @@ public class UnsetDomainResolverTest {
     // Test setting the domain
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
-                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 Urn.createFromString(TEST_ENTITY_URN),
@@ -57,7 +59,8 @@ public class UnsetDomainResolverTest {
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService);
 
@@ -74,10 +77,10 @@ public class UnsetDomainResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(Mockito.eq(proposal), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -93,10 +96,10 @@ public class UnsetDomainResolverTest {
     // Test setting the domain
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
-                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 Urn.createFromString(TEST_ENTITY_URN),
@@ -111,7 +114,8 @@ public class UnsetDomainResolverTest {
                                     .setValue(new Aspect(originalDomains.data())))))));
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
 
     UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService);
 
@@ -128,10 +132,10 @@ public class UnsetDomainResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(Mockito.eq(proposal), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -142,10 +146,10 @@ public class UnsetDomainResolverTest {
     // Test setting the domain
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
-                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 Urn.createFromString(TEST_ENTITY_URN),
@@ -155,7 +159,8 @@ public class UnsetDomainResolverTest {
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(false);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(false);
 
     UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService);
 
@@ -166,8 +171,7 @@ public class UnsetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -184,8 +188,7 @@ public class UnsetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -193,7 +196,7 @@ public class UnsetDomainResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(), Mockito.any(), anyBoolean());
     UnsetDomainResolver resolver =
         new UnsetDomainResolver(mockClient, Mockito.mock(EntityService.class));
 

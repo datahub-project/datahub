@@ -33,11 +33,16 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                     id
                     input {
                         requestedAt
+                        actorUrn
                     }
                     result {
                         status
                         startTimeMs
                         durationMs
+                        structuredReport {
+                            type
+                            serializedValue
+                        }
                     }
                 }
             }
@@ -76,6 +81,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                 id
                 input {
                     requestedAt
+                    actorUrn
                     source {
                         type
                     }
@@ -84,6 +90,10 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                     status
                     startTimeMs
                     durationMs
+                    structuredReport {
+                        type
+                        serializedValue
+                    }
                 }
             }
         }
@@ -98,6 +108,7 @@ query getIngestionExecutionRequest($urn: String!) {
             source {
                 type
             }
+            actorUrn
             arguments {
                 key
                 value
@@ -143,6 +154,10 @@ query listSecrets($input: ListSecretsInput!) {
 
 mutation createSecret($input: CreateSecretInput!) {
     createSecret(input: $input)
+}
+
+mutation updateSecret($input: UpdateSecretInput!) {
+    updateSecret(input: $input)
 }
 
 mutation deleteSecret($urn: String!) {

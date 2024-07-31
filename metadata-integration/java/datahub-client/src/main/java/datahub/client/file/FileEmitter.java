@@ -88,7 +88,7 @@ public class FileEmitter implements Emitter {
           public MetadataWriteResponse get() throws InterruptedException, ExecutionException {
             return MetadataWriteResponse.builder()
                 .success(true)
-                .responseContent("MCP witten to File")
+                .responseContent("MCP witten to File " + config.getFileName())
                 .build();
           }
 

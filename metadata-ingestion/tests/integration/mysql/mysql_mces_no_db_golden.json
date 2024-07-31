@@ -197,6 +197,17 @@
                                 },
                                 "nativeDataType": "ENUM('M', 'F')",
                                 "recursive": false,
+                                "glossaryTerms": {
+                                    "terms": [
+                                        {
+                                            "urn": "urn:li:glossaryTerm:Gender"
+                                        }
+                                    ],
+                                    "auditStamp": {
+                                        "time": 1586847600000,
+                                        "actor": "urn:li:corpuser:datahub"
+                                    }
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -428,6 +439,7 @@
             },
             "rowCount": 10,
             "columnCount": 6,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "emp_no",
@@ -585,6 +597,7 @@
             },
             "rowCount": 112,
             "columnCount": 4,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "emp_no",
@@ -1895,6 +1908,17 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
+                                "glossaryTerms": {
+                                    "terms": [
+                                        {
+                                            "urn": "urn:li:glossaryTerm:Email_Address"
+                                        }
+                                    ],
+                                    "auditStamp": {
+                                        "time": 1586847600000,
+                                        "actor": "urn:li:corpuser:datahub"
+                                    }
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -2126,6 +2150,7 @@
             },
             "rowCount": 5,
             "columnCount": 6,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "id",
@@ -2190,10 +2215,17 @@
                 },
                 {
                     "fieldPath": "email_address",
-                    "uniqueCount": 0,
-                    "nullCount": 5,
-                    "nullProportion": 1,
-                    "sampleValues": []
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Bedecs@xyz.com",
+                        "Gratacos@xyz.com",
+                        "Axen@xyz.com",
+                        "Lee@xyz.com",
+                        "Donnell@xyz.com"
+                    ]
                 },
                 {
                     "fieldPath": "priority",
@@ -2250,6 +2282,7 @@
             },
             "rowCount": 0,
             "columnCount": 3,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "id",
@@ -2608,6 +2641,7 @@
             },
             "rowCount": 0,
             "columnCount": 1,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "col",
@@ -2637,6 +2671,7 @@
             },
             "rowCount": 0,
             "columnCount": 1,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "dummy",
@@ -2715,6 +2750,38 @@
                     "confidenceScore": 1.0
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Email_Address",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Email_Address"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Gender",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Gender"
         }
     },
     "systemMetadata": {

@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Authentication;
@@ -88,7 +90,7 @@ public class CreateGlossaryTermResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(Mockito.eq(proposal), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
   }
 
   @Test
@@ -103,7 +105,7 @@ public class CreateGlossaryTermResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(Mockito.eq(proposal), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
   }
 
   @Test
@@ -118,7 +120,7 @@ public class CreateGlossaryTermResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(Mockito.eq(proposal), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
   }
 
   @Test
@@ -127,12 +129,12 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.any()))
+                Mockito.eq(1000)))
         .thenReturn(
             new SearchResult()
                 .setEntities(
@@ -149,10 +151,10 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.any(),
-                Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
         .thenReturn(result);
 
     EntityService mockService = getMockEntityService();
@@ -168,8 +170,7 @@ public class CreateGlossaryTermResolverTest {
     CreateGlossaryTermResolver resolver = new CreateGlossaryTermResolver(mockClient, mockService);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   private EntityClient initMockClient() throws Exception {
@@ -177,19 +178,19 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.any()))
+                Mockito.eq(1000)))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.any(),
-                Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
         .thenReturn(new HashMap<>());
 
     return mockClient;

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryEntitiesInput;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryNodesResult;
@@ -42,7 +43,7 @@ public class GetRootGlossaryNodesResolver
 
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final GetRootGlossaryEntitiesInput input =
               bindArgument(environment.getArgument("input"), GetRootGlossaryEntitiesInput.class);
@@ -53,12 +54,12 @@ public class GetRootGlossaryNodesResolver
             final Filter filter = buildGlossaryEntitiesFilter();
             final SearchResult gmsNodesResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.GLOSSARY_NODE_ENTITY_NAME,
                     filter,
                     null,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             final List<Urn> glossaryNodeUrns =
                 gmsNodesResult.getEntities().stream()
@@ -75,7 +76,9 @@ public class GetRootGlossaryNodesResolver
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve root glossary nodes from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildGlossaryEntitiesFilter() {

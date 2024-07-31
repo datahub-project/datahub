@@ -1,5 +1,7 @@
-apply plugin: 'java-library'
-apply plugin: 'pegasus'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
 
 dependencies {
   dataModel project(path: ':li-utils', configuration: 'dataTemplate')

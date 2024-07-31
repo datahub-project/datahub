@@ -61,28 +61,37 @@ public class PluginsTest {
     assertNotNull(eventSpec.getPegasusSchema());
 
     assertEquals(
-        configEntityRegistry.getAspectPayloadValidators(ChangeType.UPSERT, "*", "status").size(),
+        configEntityRegistry.getAllAspectPayloadValidators().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.UPSERT, "chart", "status"))
+            .count(),
         2);
     assertEquals(
-        configEntityRegistry.getAspectPayloadValidators(ChangeType.DELETE, "*", "status").size(),
+        configEntityRegistry.getAllAspectPayloadValidators().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.DELETE, "chart", "status"))
+            .count(),
         0);
 
     assertEquals(
-        configEntityRegistry.getMCLSideEffects(ChangeType.UPSERT, "chart", "chartInfo").size(), 1);
-    assertEquals(
-        configEntityRegistry.getMCLSideEffects(ChangeType.DELETE, "chart", "chartInfo").size(), 0);
-
-    assertEquals(
-        configEntityRegistry.getMCPSideEffects(ChangeType.UPSERT, "dataset", "datasetKey").size(),
+        configEntityRegistry.getAllMCPSideEffects().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.UPSERT, "dataset", "datasetKey"))
+            .count(),
         1);
     assertEquals(
-        configEntityRegistry.getMCPSideEffects(ChangeType.DELETE, "dataset", "datasetKey").size(),
+        configEntityRegistry.getAllMCPSideEffects().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.DELETE, "dataset", "datasetKey"))
+            .count(),
         0);
 
     assertEquals(
-        configEntityRegistry.getMutationHooks(ChangeType.UPSERT, "*", "schemaMetadata").size(), 1);
+        configEntityRegistry.getAllMutationHooks().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.UPSERT, "*", "schemaMetadata"))
+            .count(),
+        1);
     assertEquals(
-        configEntityRegistry.getMutationHooks(ChangeType.DELETE, "*", "schemaMetadata").size(), 0);
+        configEntityRegistry.getAllMutationHooks().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.DELETE, "*", "schemaMetadata"))
+            .count(),
+        0);
   }
 
   @Test
@@ -124,28 +133,37 @@ public class PluginsTest {
     assertNotNull(eventSpec.getPegasusSchema());
 
     assertEquals(
-        mergedEntityRegistry.getAspectPayloadValidators(ChangeType.UPSERT, "*", "status").size(),
-        3);
-    assertEquals(
-        mergedEntityRegistry.getAspectPayloadValidators(ChangeType.DELETE, "*", "status").size(),
-        1);
-
-    assertEquals(
-        mergedEntityRegistry.getMCLSideEffects(ChangeType.UPSERT, "chart", "chartInfo").size(), 2);
-    assertEquals(
-        mergedEntityRegistry.getMCLSideEffects(ChangeType.DELETE, "chart", "chartInfo").size(), 1);
-
-    assertEquals(
-        mergedEntityRegistry.getMCPSideEffects(ChangeType.UPSERT, "dataset", "datasetKey").size(),
+        mergedEntityRegistry.getAllAspectPayloadValidators().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.UPSERT, "chart", "status"))
+            .count(),
         2);
     assertEquals(
-        mergedEntityRegistry.getMCPSideEffects(ChangeType.DELETE, "dataset", "datasetKey").size(),
+        mergedEntityRegistry.getAllAspectPayloadValidators().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.DELETE, "chart", "status"))
+            .count(),
         1);
 
     assertEquals(
-        mergedEntityRegistry.getMutationHooks(ChangeType.UPSERT, "*", "schemaMetadata").size(), 2);
+        mergedEntityRegistry.getAllMCPSideEffects().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.UPSERT, "dataset", "datasetKey"))
+            .count(),
+        2);
     assertEquals(
-        mergedEntityRegistry.getMutationHooks(ChangeType.DELETE, "*", "schemaMetadata").size(), 1);
+        mergedEntityRegistry.getAllMCPSideEffects().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.DELETE, "dataset", "datasetKey"))
+            .count(),
+        1);
+
+    assertEquals(
+        mergedEntityRegistry.getAllMutationHooks().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.UPSERT, "*", "schemaMetadata"))
+            .count(),
+        2);
+    assertEquals(
+        mergedEntityRegistry.getAllMutationHooks().stream()
+            .filter(validator -> validator.shouldApply(ChangeType.DELETE, "*", "schemaMetadata"))
+            .count(),
+        1);
   }
 
   @Test
@@ -207,5 +225,61 @@ public class PluginsTest {
             .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
             .count(),
         0);
+  }
+
+  @Test
+  public void testEmptyMerges() throws EntityRegistryException {
+    ConfigEntityRegistry configEntityRegistry1 =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_1));
+    ConfigEntityRegistry emptyEntityRegistry =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_2),
+            (config, classLoaders) -> PluginFactory.empty());
+
+    MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(configEntityRegistry1);
+    mergedEntityRegistry.apply(emptyEntityRegistry);
+    assertEquals(mergedEntityRegistry.getPluginFactory(), configEntityRegistry1.getPluginFactory());
+
+    MergedEntityRegistry mergedEntityRegistry2 = new MergedEntityRegistry(emptyEntityRegistry);
+    mergedEntityRegistry2.apply(configEntityRegistry1);
+    assertEquals(
+        mergedEntityRegistry2.getPluginFactory(), configEntityRegistry1.getPluginFactory());
+  }
+
+  @Test
+  public void testUnloadedMerge() throws EntityRegistryException {
+    ConfigEntityRegistry configEntityRegistry1 =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_1),
+            (config, classLoaders) -> new PluginFactory(config, classLoaders));
+    ConfigEntityRegistry configEntityRegistry2 =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_2),
+            (config, classLoaders) -> new PluginFactory(config, classLoaders));
+
+    MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(configEntityRegistry1);
+    mergedEntityRegistry.apply(configEntityRegistry2);
+
+    assertEquals(
+        mergedEntityRegistry.getAllAspectPayloadValidators().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+    assertEquals(
+        mergedEntityRegistry.getAllMutationHooks().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+    assertEquals(
+        mergedEntityRegistry.getAllMCLSideEffects().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+    assertEquals(
+        mergedEntityRegistry.getAllMCPSideEffects().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
   }
 }

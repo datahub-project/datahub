@@ -1,9 +1,13 @@
 import pytest
 import tenacity
 
-from tests.utils import (delete_urns_from_file, get_frontend_url,
-                         get_sleep_info, ingest_file_via_rest,
-                         wait_for_healthcheck_util)
+from tests.utils import (
+    delete_urns_from_file,
+    get_frontend_url,
+    get_sleep_info,
+    ingest_file_via_rest,
+    wait_for_healthcheck_util,
+)
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -37,7 +41,6 @@ test_description = "test description"
 
 
 def create_test(frontend_session):
-
     # Create new Test
     create_test_json = {
         "query": """mutation createTest($input: CreateTestInput!) {\n
@@ -84,7 +87,6 @@ def delete_test(frontend_session, test_urn):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_test(frontend_session, wait_for_healthchecks):
-
     test_urn = create_test(frontend_session)
 
     # Get the test

@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from typing import cast
 from unittest import mock
 
-import pandas as pd
 import pytest
 from freezegun import freeze_time
 
@@ -65,7 +64,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     golden_file = test_resources_dir / "snowflake_golden.json"
 
     with mock.patch("snowflake.connector.connect") as mock_connect, mock.patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source.get_sample_values_for_table"
+        "datahub.ingestion.source.snowflake.snowflake_data_reader.SnowflakeDataReader.get_sample_data_for_table"
     ) as mock_sample_values:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -74,13 +73,11 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         sf_cursor.execute.side_effect = default_query_results
 
-        mock_sample_values.return_value = pd.DataFrame(
-            data={
-                "col_1": [random.randint(1, 80) for i in range(20)],
-                "col_2": [random_email() for i in range(20)],
-                "col_3": [random_cloud_region() for i in range(20)],
-            }
-        )
+        mock_sample_values.return_value = {
+            "col_1": [random.randint(1, 80) for i in range(20)],
+            "col_2": [random_email() for i in range(20)],
+            "col_3": [random_cloud_region() for i in range(20)],
+        }
 
         datahub_classifier_config = DataHubClassifierConfig(
             minimum_values_threshold=10,
@@ -122,6 +119,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         include_table_lineage=True,
                         include_view_lineage=True,
                         include_usage_stats=True,
+                        format_sql_queries=True,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
                         email_as_user_identifier=True,
@@ -162,6 +160,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()
+        assert not pipeline.source.get_report().warnings
 
         # Verify the output.
 
@@ -178,11 +177,13 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             ],
         )
         report = cast(SnowflakeV2Report, pipeline.source.get_report())
-        assert report.lru_cache_info["get_tables_for_database"]["misses"] == 1
-        assert report.lru_cache_info["get_views_for_database"]["misses"] == 1
-        assert report.lru_cache_info["get_columns_for_schema"]["misses"] == 1
-        assert report.lru_cache_info["get_pk_constraints_for_schema"]["misses"] == 1
-        assert report.lru_cache_info["get_fk_constraints_for_schema"]["misses"] == 1
+        assert report.data_dictionary_cache is not None
+        cache_info = report.data_dictionary_cache.as_obj()
+        assert cache_info["get_tables_for_database"]["misses"] == 1
+        assert cache_info["get_views_for_database"]["misses"] == 1
+        assert cache_info["get_columns_for_schema"]["misses"] == 1
+        assert cache_info["get_pk_constraints_for_schema"]["misses"] == 1
+        assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
 
 @freeze_time(FROZEN_TIME)
@@ -215,6 +216,7 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         include_views=True,
                         include_view_lineage=True,
                         include_usage_stats=False,
+                        format_sql_queries=True,
                         incremental_lineage=False,
                         include_operational_stats=False,
                         platform_instance="instance1",

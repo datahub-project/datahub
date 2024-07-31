@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchUpdateSoftDeletedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DeleteUtils;
@@ -20,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -30,7 +31,7 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
     final List<String> urns = input.getUrns();
     final boolean deleted = input.getDeleted();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the entities exist
@@ -50,7 +51,9 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
                     "Failed to perform batch soft delete against input %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateInputUrns(List<String> urnStrs, QueryContext context) {
@@ -65,7 +68,7 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
-    if (!_entityService.exists(urn)) {
+    if (!_entityService.exists(context.getOperationContext(), urn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to soft delete entity with urn %s. Entity does not exist.", urn));
     }
@@ -75,7 +78,11 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
     log.debug("Batch soft deleting assets. urns: {}", urnStrs);
     try {
       DeleteUtils.updateStatusForResources(
-          removed, urnStrs, UrnUtils.getUrn(context.getActorUrn()), _entityService);
+          context.getOperationContext(),
+          removed,
+          urnStrs,
+          UrnUtils.getUrn(context.getActorUrn()),
+          _entityService);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(

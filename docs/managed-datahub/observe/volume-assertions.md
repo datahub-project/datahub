@@ -8,12 +8,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-
-> ⚠️ The **Volume Assertions** feature is currently in private beta, part of the **Acryl Observe** module, and may only be available to a
-> limited set of design partners.
->
-> If you are interested in trying it and providing feedback, please reach out to your Acryl Customer Success
-> representative.
+> The **Volume Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
+> If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
 
 ## Introduction
 
@@ -22,14 +18,14 @@ If the answer is yes, how did you find out? We'll take a guess - someone looking
 a number looked a bit out of the ordinary. Perhaps your table initially tracked purchases made on your company's e-commerce web store, but suddenly began to include purchases made
 through your company's new mobile app. 
 
-There are many reasons why an important Table on Snowflake, Redshift, or BigQuery may change in its meaning - application code bugs, new feature rollouts,
+There are many reasons why an important Table on Snowflake, Redshift, BigQuery, or Databricks may change in its meaning - application code bugs, new feature rollouts,
 changes to key metric definitions, etc. Often times, these changes break important assumptions made about the data used in building key downstream data products 
 like reporting dashboards or data-driven product features.
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data
-issues _before_ anyone else? With Acryl DataHub **Volume Assertions**, you can.
+issues _before_ anyone else? With DataHub Cloud **Volume Assertions**, you can.
 
-Acryl DataHub allows users to define expectations about the normal volume, or size, of a particular warehouse Table,
+DataHub Cloud allows users to define expectations about the normal volume, or size, of a particular warehouse Table,
 and then monitor those expectations over time as the table grows and changes.
 
 In this article, we'll cover the basics of monitoring Volume Assertions - what they are, how to configure them, and more - so that you and your team can
@@ -44,12 +40,14 @@ Volume Assertions are currently supported for:
 1. Snowflake
 2. Redshift
 3. BigQuery
+4. Databricks
+5. DataHub Dataset Profile (collected via ingestion)
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion**
+Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion**
 tab.
 
 > Note that Volume Assertions are not yet supported if you are connecting to your warehouse
-> using the DataHub CLI or a Remote Ingestion Executor.
+> using the DataHub CLI.
 
 ## What is a Volume Assertion?
 
@@ -113,7 +111,7 @@ table that are following an abnormal pattern of growth.
 
 #### 3. Volume Source
 
-The **Volume Source**: This is the mechanism that Acryl DataHub should use to determine the table volume (row count). The supported
+The **Volume Source**: This is the mechanism that DataHub Cloud should use to determine the table volume (row count). The supported
 source types vary by the platform, but generally fall into these categories:
 
 - **Information Schema**: A system Table that is exposed by the Data Warehouse which contains live information about the Databases
@@ -136,9 +134,10 @@ Volume Assertions also have an off switch: they can be started or stopped at any
 ### Prerequisites
 
 1. **Permissions**: To create or delete Volume Assertions for a specific entity on DataHub, you'll need to be granted the
-   `Edit Assertions` and `Edit Monitors` privileges for the entity. This is granted to Entity owners by default.
+   `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
+   by default.
 
-2. **Data Platform Connection**: In order to create a Volume Assertion, you'll need to have an **Ingestion Source** configured to your
+2. (Optional) **Data Platform Connection**: In order to create a Volume Assertion that queries the source data platform directly (instead of DataHub metadata), you'll need to have an **Ingestion Source** configured to your
    Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
 
 Once these are in place, you're ready to create your Volume Assertions!
@@ -148,14 +147,14 @@ Once these are in place, you're ready to create your Volume Assertions!
 1. Navigate to the Table that to monitor for volume
 2. Click the **Validations** tab
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
 3. Click **+ Create Assertion**
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-choose-type.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-choose-type.png"/>
 </p>
 
 4. Choose **Volume**
@@ -165,82 +164,76 @@ Once these are in place, you're ready to create your Volume Assertions!
 
 6. Configure the evaluation **condition type**. This determines the cases in which the new assertion will fail when it is evaluated.
 
-<p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-condition-type.png"/>
+<p align="left">
+  <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-condition-type.png"/>
 </p>
 
 7. (Optional) Click **Advanced** to customize the volume **source**. This is the mechanism that will be used to obtain the table
    row count metric. Each Data Platform supports different options including Information Schema, Query, and DataHub Dataset Profile.
 
-<p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-select-source-type.png"/>
+<p align="left">
+  <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-select-source-type.png"/>
 </p>
 
 - **Information Schema**: Check the Data Platform system metadata tables to determine the table row count. 
 - **Query**: Issue a `COUNT(*)` query to the table to determine the row count. 
 - **DataHub Dataset Profile**: Use the DataHub Dataset Profile metadata to determine the row count.
 
-8. Click **Next**
-9. Configure actions that should be taken when the Volume Assertion passes or fails
+8. Configure actions that should be taken when the Volume Assertion passes or fails
 
 <p align="left">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-actions.png"/>
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
 </p>
 
 - **Raise incident**: Automatically raise a new DataHub `Volume` Incident for the Table whenever the Volume Assertion is failing. This
   may indicate that the Table is unfit for consumption. Configure Slack Notifications under **Settings** to be notified when
   an incident is created due to an Assertion failure.
+
 - **Resolve incident**: Automatically resolved any incidents that were raised due to failures in this Volume Assertion. Note that
   any other incidents will not be impacted.
+
+9. Click **Next** and provide a description.
 
 10. Click **Save**.
 
 And that's it! DataHub will now begin to monitor your Volume Assertion for the table.
 
-To view the time of the next Volume Assertion evaluation, simply click **Volume** and then click on your
-new Assertion:
-
-<p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
-</p>
-
 Once your assertion has run, you will begin to see Success or Failure status for the Table
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/profile-passing-volume-assertions-expanded.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/profile-passing-volume-assertions-expanded.png"/>
 </p>
 
 
 ## Stopping a Volume Assertion
 
-In order to temporarily stop the evaluation of a Volume Assertion:
+In order to temporarily stop the evaluation of the assertion:
 
 1. Navigate to the **Validations** tab of the Table with the assertion
-2. Click **Volume** to open the Volume Assertions list
-3. Click the three-dot menu on the right side of the assertion you want to disable
-4. Click **Stop**
+2. Click **Volume** to open the Volume Assertion assertions
+3. Click the "Stop" button for the assertion you wish to pause.
 
 <p align="left">
-  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/manage-assertion-menu.png"/>
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/stop-assertion.png"/>
 </p>
 
-To resume the Volume Assertion, simply click **Turn On**.
+To resume the assertion, simply click **Start**.
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/stopped-assertion.png"/>
+<p align="left">
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
 
 ## Smart Assertions ⚡
 
-As part of the **Acryl Observe** module, Acryl DataHub also provides **Smart Assertions** out of the box. These are
+As part of the **Acryl Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
 dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
 requiring any manual setup.
 
-If Acryl DataHub is able to detect a pattern in the volume of a Snowflake, Redshift, or BigQuery Table, you'll find
+If DataHub Cloud is able to detect a pattern in the volume of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
 a recommended Smart Assertion under the `Validations` tab on the Table profile page:
 
-<p align="center">
+<p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
 </p>
 
@@ -252,7 +245,7 @@ Don't need it anymore? Smart Assertions can just as easily be turned off by clic
 
 ## Creating Volume Assertions via API
 
-Under the hood, Acryl DataHub implements Volume Assertion Monitoring using two "entity" concepts:
+Under the hood, DataHub Cloud implements Volume Assertion Monitoring using two concepts:
 
 - **Assertion**: The specific expectation for volume, e.g. "The table was changed int the past 7 hours"
   or "The table is changed on a schedule of every day by 8am". This is the "what".
@@ -265,66 +258,39 @@ Note that to create or delete Assertions and Monitors for a specific entity on D
 
 #### GraphQL
 
-In order to create a Volume Assertion that is being monitored on a specific **Evaluation Schedule**, you'll need to use 2
-GraphQL mutation queries to  create a Volume Assertion entity and create an Assertion Monitor entity responsible for evaluating it.
-
-Start by creating the Volume Assertion entity using the `createVolumeAssertion` query and hang on to the 'urn' field of the Assertion entity
-you get back. Then continue by creating a Monitor entity using the `createAssertionMonitor`.
+In order to create or update a Volume Assertion, you can use the `upsertDatasetVolumeAssertionMonitor` mutation.
 
 ##### Examples
 
-To create a Volume Assertion Entity that checks whether a table has been updated in the past 8 hours:
+To create a Volume Assertion Entity that verifies that the row count for a table is between 10 and 20 rows, and runs every 8 hours:
 
-```json
-mutation createVolumeAssertion {
-  createVolumeAssertion(
-  input: {
-    entityUrn: "<urn of the table to be monitored>",
-    type: ROW_COUNT_TOTAL,
-    rowCountTotal: {
-      operator: BETWEEN,
-      parameters: {
-        minValue: {
-          "value": 10,
-          "type": NUMBER
-        },
-        maxValue: {
-          "value": 20,
-          "type": NUMBER
-        }
-      }
-    }
-  }
-  ) {
-  urn
-}
-}
-```
-
-To create an assertion that specifies that the row count total should always fall between 10 and 20. 
-
-The supported volume assertion types are `ROW_COUNT_TOTAL` and `ROW_COUNT_CHANGE`. Other (e.g. incrementing segment) types are not yet supported. 
-The supported operator types are `GREATER_THAN`, `GREATER_THAN_OR_EQUAL_TO`, `LESS_THAN`, `LESS_THAN_OR_EQUAL_TO`, and `BETWEEN` (requires minValue, maxValue).
-The supported parameter types are `NUMBER`. 
-
-To create an Assertion Monitor Entity that evaluates the volume assertion every 8 hours using the Information Schema:
-
-```json
-mutation createAssertionMonitor {
-  createAssertionMonitor(
+```graphql
+mutation upsertDatasetVolumeAssertionMonitor {
+  upsertDatasetVolumeAssertionMonitor(
     input: {
-      entityUrn: "<urn of entity being monitored>",
-      assertionUrn: "<urn of assertion created in first query>",
-      schedule: {
-        cron: "0 */8 * * *",
-        timezone: "America/Los_Angeles"
-      },
-      parameters: {
-        type: DATASET_VOLUME,
-        datasetVolumeParameters: {
-          sourceType: INFORMATION_SCHEMA,
+      entityUrn: "<urn of entity being monitored>"
+      type: ROW_COUNT_TOTAL
+      rowCountTotal: {
+        operator: BETWEEN
+        parameters: {
+          minValue: {
+            value: "10"
+            type: NUMBER
+          }
+          maxValue: {
+            value: "20"
+            type: NUMBER
+          }
         }
       }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE
     }
   ) {
     urn
@@ -332,9 +298,46 @@ mutation createAssertionMonitor {
 }
 ```
 
-This entity defines _when_ to run the check (Using CRON format - every 8th hour) and _how_ to run the check (using the Information Schema).
+The supported volume assertion types are `ROW_COUNT_TOTAL` and `ROW_COUNT_CHANGE`. Other (e.g. incrementing segment) types are not yet supported. 
+The supported operator types are `GREATER_THAN`, `GREATER_THAN_OR_EQUAL_TO`, `LESS_THAN`, `LESS_THAN_OR_EQUAL_TO`, and `BETWEEN` (requires minValue, maxValue).
+The supported parameter types are `NUMBER`. 
 
-After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone.
+You can use same endpoint with assertion urn input to update an existing Volume Assertion and corresponding Monitor:
+
+```graphql
+mutation upsertDatasetVolumeAssertionMonitor {
+  upsertDatasetVolumeAssertionMonitor(
+    assertionUrn: "<urn of assertion created in earlier query>"
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: ROW_COUNT_TOTAL
+      rowCountTotal: {
+        operator: BETWEEN
+        parameters: {
+          minValue: {
+            value: "10"
+            type: NUMBER
+          }
+          maxValue: {
+            value: "20"
+            type: NUMBER
+          }
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */6 * * *"
+      }
+      evaluationParameters: {
+        sourceType: INFORMATION_SCHEMA
+      }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
 
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 
