@@ -6,7 +6,6 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "email": "HR Department",
                         "admins": [],
                         "members": [],
                         "groups": []
