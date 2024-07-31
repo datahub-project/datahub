@@ -398,6 +398,11 @@ public class AuthorizationUtils {
         PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
   }
 
+  public static boolean canManageFeatures(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_FEATURES_PRIVILEGE);
+  }
+
   public static boolean isAuthorized(
       @Nonnull Authorizer authorizer,
       @Nonnull String actor,
