@@ -11,12 +11,16 @@ const PreviewImage = styled.img<{ size: number }>`
     min-width: ${(props) => props.size}px;
     object-fit: contain;
     background-color: transparent;
-    margin: 0 3px;
+    margin: 0px 4px 0px 0px;
 `;
 
 const StyledLink = styled(Link)`
+    margin-right: 4px;
     display: flex;
     align-items: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 interface Props {
@@ -42,9 +46,11 @@ export default function PropagationEntityLink({ entity }: Props) {
     }
 
     return (
+        <>
         <StyledLink to={entityUrl}>
             <PreviewImage src={logoUrl} alt="test" size={14} />
             {entityDisplayName}
         </StyledLink>
+        </>
     );
 }
