@@ -283,8 +283,8 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
             self.reporter.report_warning(
                 title="Table Level Lineage Missing",
                 message="Error in parsing derived sql",
-                context=f"View-name: {self.view_context.name()}. "
-                f"Error: {sql_parsing_result.debug_info.table_error}",
+                context=f"View-name: {self.view_context.name()}",
+                exc=sql_parsing_result.debug_info.table_error,
             )
             return []
 
@@ -312,8 +312,8 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
             self.reporter.report_warning(
                 title="Column Level Lineage Missing",
                 message="Error in parsing derived sql for CLL",
-                context=f"View-name: {self.view_context.name()}. "
-                f"Error: {spr.debug_info.column_error}",
+                context=f"View-name: {self.view_context.name()}",
+                exc=spr.debug_info.column_error,
             )
             return []
 
