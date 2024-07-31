@@ -1,4 +1,4 @@
-const number = Math.floor(Math.random() * 100000);
+const number = crypto.getRandomValues(new Uint32Array(1))[0];
 const accound_id = `account${number}`;
 const warehouse_id = `warehouse${number}`;
 const username = `user${number}`;
