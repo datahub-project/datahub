@@ -1140,13 +1140,34 @@ public class FormService extends BaseService {
     return false;
   }
 
+  /** Verifies a form for all the provided entities */
+  public void batchVerifyForm(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityUrns,
+      @Nonnull final Urn formUrn,
+      @Nullable final Urn actorUrn)
+      throws Exception {
+    entityUrns.forEach(
+        urnStr -> {
+          Urn urn = UrnUtils.getUrn(urnStr);
+          try {
+            verifyFormForEntity(opContext, formUrn, urn, actorUrn);
+          } catch (Exception e) {
+            log.error(String.format("Failed to verify form for entity %s", urn), e);
+          }
+        });
+  }
+
   /**
    * Adds a new form verification association for an entity for this form on their forms aspect. If
    * there was an existing verification association for this form, remove and replace it. First,
    * ensure this form is of VERIFICATION type and that this form is in completedForms.
    */
   public boolean verifyFormForEntity(
-      @Nonnull OperationContext opContext, @Nonnull final Urn formUrn, @Nonnull final Urn entityUrn)
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final Urn entityUrn,
+      @Nullable Urn actorUrn)
       throws Exception {
     final FormInfo formInfo = getFormInfo(opContext, formUrn);
     if (!formInfo.getType().equals(FormType.VERIFICATION)) {
@@ -1168,7 +1189,9 @@ public class FormService extends BaseService {
             .collect(Collectors.toList());
     FormVerificationAssociation newAssociation = new FormVerificationAssociation();
     newAssociation.setForm(formUrn);
-    newAssociation.setLastModified(opContext.getAuditStamp());
+    final Urn finalActorUrn = getActorUrn(opContext, actorUrn);
+    newAssociation.setLastModified(
+        new AuditStamp().setActor(finalActorUrn).setTime(System.currentTimeMillis()));
     formVerifications.add(newAssociation);
 
     formsAspect.setVerifications(new FormVerificationAssociationArray(formVerifications));

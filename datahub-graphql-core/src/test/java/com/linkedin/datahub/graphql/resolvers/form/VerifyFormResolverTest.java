@@ -46,7 +46,8 @@ public class VerifyFormResolverTest {
         .verifyFormForEntity(
             any(),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)));
+            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
+            Mockito.eq(null));
   }
 
   @Test
@@ -64,7 +65,7 @@ public class VerifyFormResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     // Validate that we do not call verify on the service
     Mockito.verify(mockFormService, Mockito.times(0))
-        .verifyFormForEntity(any(), Mockito.any(), Mockito.any());
+        .verifyFormForEntity(any(), Mockito.any(), Mockito.any(), Mockito.eq(null));
   }
 
   @Test
@@ -82,7 +83,7 @@ public class VerifyFormResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     // Validate that we do call verifyFormForEntity but an error is thrown
     Mockito.verify(mockFormService, Mockito.times(1))
-        .verifyFormForEntity(any(), Mockito.any(), Mockito.any());
+        .verifyFormForEntity(any(), Mockito.any(), Mockito.any(), Mockito.eq(null));
   }
 
   private FormService initMockFormService(
@@ -94,10 +95,12 @@ public class VerifyFormResolverTest {
         .thenReturn(isFormAssignedToUser);
 
     if (shouldVerify) {
-      Mockito.when(service.verifyFormForEntity(any(), Mockito.any(), Mockito.any()))
+      Mockito.when(
+              service.verifyFormForEntity(any(), Mockito.any(), Mockito.any(), Mockito.eq(null)))
           .thenReturn(true);
     } else {
-      Mockito.when(service.verifyFormForEntity(any(), Mockito.any(), Mockito.any()))
+      Mockito.when(
+              service.verifyFormForEntity(any(), Mockito.any(), Mockito.any(), Mockito.eq(null)))
           .thenThrow(new RuntimeException());
     }
 

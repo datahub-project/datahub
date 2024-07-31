@@ -19,13 +19,13 @@ export default function BulkSubmissionButton({ isDisabled, submitResponse }: Pro
         entity: { selectedEntities, areAllEntitiesSelected },
         search: { results },
     } = useEntityFormContext();
-    const totalResults = results.searchAcrossEntities?.total;
+    const totalResults = results.searchAcrossEntities?.total || 0;
 
     return (
         <StyledButton disabled={isDisabled} onClick={submitResponse}>
             {areAllEntitiesSelected ? (
                 <>
-                    Set for {totalResults} Selected {pluralize(selectedEntities.length, 'Asset')}
+                    Set for {totalResults} Selected {pluralize(totalResults, 'Asset')}
                 </>
             ) : (
                 <>

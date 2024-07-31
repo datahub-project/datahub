@@ -38,7 +38,9 @@ public enum ActionType {
   /** Unset a particular prompt inside a requirements form when a requirement is no longer met. */
   SET_FORM_PROMPT_INCOMPLETE,
   /** Submits a response to a form prompt */
-  SUBMIT_FORM_PROMPT;
+  SUBMIT_FORM_PROMPT,
+  /** Verifies a form for given entities */
+  VERIFY_FORM;
 
   private static final Map<String, ActionType> NAME_TO_ACTION_TYPE =
       Arrays.stream(ActionType.values())

@@ -53,7 +53,8 @@ public class VerifyFormResolver implements DataFetcher<CompletableFuture<Boolean
                       "Failed to authorize form on entity as form with urn %s is not assigned to user",
                       formUrn));
             }
-            _formService.verifyFormForEntity(context.getOperationContext(), formUrn, entityUrn);
+            _formService.verifyFormForEntity(
+                context.getOperationContext(), formUrn, entityUrn, null);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

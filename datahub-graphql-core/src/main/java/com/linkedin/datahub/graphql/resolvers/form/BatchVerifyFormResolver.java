@@ -61,7 +61,7 @@ public class BatchVerifyFormResolver implements DataFetcher<CompletableFuture<Bo
                               formUrn));
                     }
                     _formService.verifyFormForEntity(
-                        context.getOperationContext(), formUrn, entityUrn);
+                        context.getOperationContext(), formUrn, entityUrn, null);
                   } catch (Exception e) {
                     throw new RuntimeException(
                         String.format("Failed to verify form for entity %s", entityUrnStr), e);

@@ -89,7 +89,7 @@ public class SubmitFormPromptAction implements Action {
     } catch (Exception e) {
       log.error(
           String.format(
-              "Failed to apply form assignment action for urns %s, form urn %s", urns, formUrn),
+              "Failed to submit form prompt action for urns %s, form urn %s", urns, formUrn),
           e);
     }
   }

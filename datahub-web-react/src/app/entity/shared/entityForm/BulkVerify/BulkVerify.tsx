@@ -32,6 +32,7 @@ import { BulkVerifyEntityModal } from './BulkVerifyEntityModal';
 import { EmptyStates } from '../EmptyStates';
 
 import { useIsThemeV2 } from '../../../../useIsThemeV2';
+import ActiveTasks from '../ActiveTasks';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;
@@ -48,7 +49,14 @@ export default function BulkVerify({ closeFormModal }: Props) {
 
     const {
         search: { results, resultItems, resultItemCount, error, loading, refetch },
-        entity: { selectedEntities, setSelectedEntity, setSelectedEntities, setNumSubmittedEntities },
+        entity: {
+            selectedEntities,
+            setSelectedEntity,
+            setSelectedEntities,
+            setNumSubmittedEntities,
+            areAllEntitiesSelected,
+            setAreAllEntitiesSelected,
+        },
         filter: { setFormResponsesFilters },
     } = useEntityFormContext();
 
@@ -163,9 +171,12 @@ export default function BulkVerify({ closeFormModal }: Props) {
                         shouldHideSuggestions
                         onClickExploreAll={clearAllFilters}
                         onClickClearFilters={clearAllFilters}
+                        areAllEntitiesSelected={areAllEntitiesSelected}
+                        setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                     />
                 </FormByQuestionWrapper>
                 <BulkVerifyEntityModal isOpen={isModalOpen} onClose={closeViewResponseModal} />
+                <ActiveTasks />
             </>
         );
     }
@@ -216,11 +227,14 @@ export default function BulkVerify({ closeFormModal }: Props) {
                         refetch={refetch}
                         previewType={PreviewType.BULK_VERIFY}
                         onCardClick={handleCardClick}
+                        areAllEntitiesSelected={areAllEntitiesSelected}
+                        setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                         isSelectMode
                     />
                 )}
             </FormByQuestionWrapper>
             <BulkVerifyEntityModal isOpen={isModalOpen} onClose={closeViewResponseModal} />
+            <ActiveTasks />
         </>
     );
 }

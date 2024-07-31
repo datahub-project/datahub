@@ -25,6 +25,12 @@ mutation batchVerifyForm($input: BatchVerifyFormInput!) {
     batchVerifyForm(input: $input)
 }
 
+mutation asyncBatchVerifyForm($input: AsyncBatchVerifyFormInput!) {
+    asyncBatchVerifyForm(input: $input) {
+        taskUrn
+    }
+}
+
 query searchForEntityUrnsByForm($input: SearchAcrossEntitiesInput!) {
     searchAcrossEntities(input: $input) {
         start

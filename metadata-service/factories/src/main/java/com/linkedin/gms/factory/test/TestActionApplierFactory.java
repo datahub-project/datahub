@@ -14,6 +14,7 @@ import com.linkedin.metadata.test.action.form.AssignFormAction;
 import com.linkedin.metadata.test.action.form.SetFormPromptIncompleteAction;
 import com.linkedin.metadata.test.action.form.SubmitFormPromptAction;
 import com.linkedin.metadata.test.action.form.UnassignFormAction;
+import com.linkedin.metadata.test.action.form.VerifyFormAction;
 import com.linkedin.metadata.test.action.owner.AddOwnersAction;
 import com.linkedin.metadata.test.action.owner.RemoveOwnersAction;
 import com.linkedin.metadata.test.action.tag.AddTagsAction;
@@ -63,6 +64,7 @@ public class TestActionApplierFactory {
     appliers.add(new UnassignFormAction(formService));
     appliers.add(new SetFormPromptIncompleteAction(formService));
     appliers.add(new SubmitFormPromptAction(formService));
+    appliers.add(new VerifyFormAction(formService));
     return new ActionApplier(appliers);
   }
 }
