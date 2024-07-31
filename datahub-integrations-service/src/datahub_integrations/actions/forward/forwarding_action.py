@@ -1,0 +1,298 @@
+import json
+import logging
+from typing import Dict, Optional, Union, cast, Iterable
+
+from datahub.configuration.kafka import KafkaProducerConnectionConfig
+from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
+from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.serialization_helper import post_json_transform
+from datahub.metadata.schema_classes import (
+    GlossaryTermAssociationClass,
+    MetadataChangeLogClass,
+    MetadataChangeProposalClass,
+    TagAssociationClass,
+)
+from datahub.specific.dataset import FieldPatchHelper, DatasetPatchBuilder
+from pydantic import BaseModel
+import jsonpatch
+
+from datahub_actions.action.action import Action
+from datahub_actions.event.event_envelope import EventEnvelope
+from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
+from datahub_actions.pipeline.pipeline_context import PipelineContext
+
+logger = logging.getLogger(__name__)
+
+
+class ForwardingActionConfig(BaseModel):
+    kafka_server: Optional[str]
+    schema_registry_url: Optional[str]
+    ssl_ca_location: Optional[str]
+    ssl_cert_location: Optional[str]
+    ssl_key_location: Optional[str]
+    ssl_key_password: Optional[str]
+    group_id: Optional[str]
+    schema_registry_ca_location: Optional[str]
+    schema_registry_cert_location: Optional[str]
+    schema_registry_key_location: Optional[str]
+    mcp_topic: Optional[str]
+
+
+def create_schema_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataChangeProposalClass], None]:
+    new_schema_infos = new_obj.get("editableSchemaFieldInfo")
+    old_schema_infos = old_obj.get("editableSchemaFieldInfo")
+    new_fields_map = {field["fieldPath"]: {"tags": set(tag["tag"] for tag in field["globalTags"]["tags"]
+                                                       or []), "terms": set(term["urn"] for term in
+                                                                            field["glossaryTerms"]
+                                                                            ["terms"] or [])}
+                      for field in new_schema_infos or []}
+    old_fields_map = {field["fieldPath"]: {"tags": set(tag["tag"] for tag in field["globalTags"]["tags"]
+                                                       or []), "terms": set(term["urn"] for term in
+                                                                            field["glossaryTerms"]
+                                                                            ["terms"] or [])}
+                      for field in old_schema_infos or []}
+    items_to_add = {}
+    items_to_remove = {}
+    # detect adds by not in old obj -> in new obj
+    for new_field in new_fields_map or []:
+        add_tags = set()
+        add_terms = set()
+        if new_field not in old_fields_map:
+            add_tags.update(new_fields_map[new_field]["tags"] or [])
+            add_terms.update(new_fields_map[new_field]["terms"] or [])
+        else:
+            for new_tag in new_fields_map[new_field]["tags"]:
+                if new_tag not in old_fields_map[new_field]["tags"]:
+                    add_tags.add(new_tag)
+            for new_term in new_fields_map[new_field]["terms"]:
+                if new_term not in old_fields_map[new_field]["terms"]:
+                    add_terms.add(new_term)
+        items_to_add[new_field]["tags"] = add_tags
+        items_to_add[new_field]["terms"] = add_terms
+    # detect removes by not in new obj -> in old obj
+    for old_field in old_fields_map or []:
+        remove_tags = set()
+        remove_terms = set()
+        if old_field not in new_fields_map:
+            remove_tags.update(old_fields_map[old_field]["tags"] or [])
+            remove_terms.update(old_fields_map[old_field]["terms"] or [])
+        else:
+            for old_tag in old_fields_map[old_field]["tags"]:
+                if old_tag not in new_fields_map[old_field]["tags"]:
+                    remove_tags.add(old_tag)
+            for old_term in old_fields_map[old_field]["terms"]:
+                if old_term not in new_fields_map[old_field]["terms"]:
+                    remove_terms.add(old_term)
+        items_to_remove[old_field]["tags"] = remove_tags
+        items_to_remove[old_field]["terms"] = remove_terms
+    dataset = DatasetPatchBuilder(urn=orig_event.get("entityUrn"))
+    for field in items_to_add:
+        field_builder = dataset.for_field(field_path=field)
+        for term in items_to_add[field]["terms"]:
+            field_builder.add_term(
+                GlossaryTermAssociationClass(
+                    term,
+                )
+            )
+        for tag in items_to_add[field]["tags"]:
+            field_builder.add_tag(
+                TagAssociationClass(tag=make_tag_urn(tag))
+            )
+    for field in items_to_remove:
+        field_builder = dataset.for_field(field_path=field)
+        for term in items_to_remove[field]["terms"]:
+            field_builder.remove_term(
+                    term,
+            )
+        for tag in items_to_remove[field]["tags"]:
+            field_builder.remove_tag(
+                make_tag_urn(tag)
+            )
+    return dataset.build()
+
+
+def create_terms_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataChangeProposalClass], None]:
+    new_glossary_terms_assc = new_obj.get("terms")
+    old_glossary_terms_assc = old_obj.get("terms")
+
+    new_glossary_terms = list(term["urn"] for term in new_glossary_terms_assc or [])
+    old_glossary_terms = list(term["urn"] for term in old_glossary_terms_assc or [])
+
+    terms_to_add = set()
+    terms_to_remove = set()
+    # detect adds by not in old obj -> in new obj
+    for new_term in new_glossary_terms or []:
+        if new_term not in old_glossary_terms:
+            terms_to_add.update(new_term)
+    # detect removes by not in new obj -> in old obj
+    for old_term in old_glossary_terms or []:
+        if old_term not in new_glossary_terms:
+            terms_to_remove.update(old_term)
+    # we use dataset patch builder, but it does a guess type on the entity type regardless of patch builder type
+    patch_builder = DatasetPatchBuilder(urn=orig_event.get("entityUrn"))
+    for term in terms_to_add:
+        patch_builder.add_term(
+            GlossaryTermAssociationClass(
+                term,
+            )
+        )
+    for term in terms_to_remove:
+        patch_builder.remove_term(
+            term
+        )
+    return patch_builder.build()
+
+
+def create_tags_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataChangeProposalClass], None]:
+    new_tags_assc = new_obj.get("tags")
+    old_tags_assc = old_obj.get("tags")
+
+    new_tags = list(term["tag"] for term in new_tags_assc or [])
+    old_tags = list(term["tag"] for term in old_tags_assc or [])
+
+    tags_to_add = set()
+    tags_to_remove = set()
+    # detect adds by not in old obj -> in new obj
+    for new_tag in new_tags or []:
+        if new_tag not in old_tags:
+            tags_to_add.update(new_tag)
+    # detect removes by not in new obj -> in old obj
+    for old_tag in old_tags or []:
+        if old_tag not in new_tags:
+            tags_to_remove.update(old_tag)
+    # we use dataset patch builder, but it does a guess type on the entity type regardless of patch builder type
+    patch_builder = DatasetPatchBuilder(urn=orig_event.get("entityUrn"))
+    for tag in tags_to_add:
+        patch_builder.add_tag(
+            TagAssociationClass(tag=make_tag_urn(tag))
+        )
+    for tag in tags_to_remove:
+        patch_builder.remove_tag(
+            tag
+        )
+    return patch_builder.build()
+
+
+class ForwardingAction(Action):
+    kafka_emitter: DatahubKafkaEmitter
+
+    SUPPORTED_PATCH_ASPECTS = {
+        "globalTags",
+        "glossaryTerms",
+        "editableSchemaMetadata",
+    }
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
+        action_config = ForwardingActionConfig.parse_obj(config_dict or {})
+        return cls(action_config, ctx)
+
+    def __init__(self, config: ForwardingActionConfig, ctx: PipelineContext):
+        self.config = config
+        assert isinstance(self.config.kafka_server, str)
+        self.rest_emitter = DatahubKafkaEmitter(
+            config=KafkaEmitterConfig(
+                connection=KafkaProducerConnectionConfig(
+                    bootstrap=self.config.kafka_server,
+                    schema_registry_url=self.config.schema_registry_url,
+                    producer_config={
+                        "security.protocol": "ssl",
+                        "ssl.ca.location": self.config.ssl_ca_location,
+                        "ssl.certificate.location": self.config.ssl_cert_location,
+                        "ssl.key.location": self.config.ssl_key_location,
+                        "ssl.key.password": self.config.ssl_key_password,
+                        "group.id": self.config.group_id
+                    },
+                    schema_registry_config={
+                        "ssl.ca.location": self.config.schema_registry_ca_location,
+                        "ssl.certificate.location": self.config.schema_registry_cert_location,
+                        "ssl.key.location": self.config.schema_registry_key_location
+                    }
+                ),
+                topic_routes={
+                    "MetadataChangeEvent": self.config.mcp_topic,
+                    "MetadataChangeProposal": self.config.mcp_topic
+                }
+            )
+        )
+
+    def act(self, event: EventEnvelope) -> None:
+        """
+        This method listens for MetadataChangeLog events, casts it to MetadataChangeProposal,
+        and emits it to another datahub instance
+        """
+        # MetadataChangeProposal only supports UPSERT type for now
+        if event.event_type is METADATA_CHANGE_LOG_EVENT_V1_TYPE:
+            orig_event = cast(MetadataChangeLogClass, event.event)
+            logger.debug(f"received orig_event {orig_event}")
+            if (orig_event.systemMetadata.properties.get("appSource") == "metadataTests"
+                    or orig_event.aspectName == "testResults"):
+                mcps = self.buildMcp(orig_event)
+                if mcps is not None:
+                    for mcp in mcps:
+                        logger.info(f"{mcp}")
+                        self.emit(mcp)
+
+    def buildMcp(
+            self, orig_event: MetadataChangeLogClass
+    ) -> Union[Iterable[MetadataChangeProposalClass], None]:
+        try:
+            if orig_event.aspectName == "testResults":
+                serialized = orig_event.get("aspect").value.decode()
+                obj = post_json_transform(json.loads(serialized))
+                for failingObj in obj.get("failing") or []:
+                    failingObj.remove("testDefinitionMd5")
+                    failingObj.remove("lastComputed")
+                for passingObj in obj.get("passing") or []:
+                    passingObj.remove("testDefinitionMd5")
+                    passingObj.remove("lastComputed")
+
+            mcp = []
+            if orig_event.get("aspectName") in self.SUPPORTED_PATCH_ASPECTS:
+                serialized = orig_event.get("aspect").value.decode()
+                new_obj = post_json_transform(json.loads(serialized))
+                serialized = orig_event.get("aspect").value.decode()
+                old_obj = post_json_transform(json.loads(serialized))
+                patch = jsonpatch.make_patch(src=old_obj, dst=new_obj)
+                if orig_event.get("aspectName") == "editableSchemaMetadata":
+                    mcp = create_schema_mcp(old_obj, new_obj, orig_event)
+                elif orig_event.get("aspectName") == "globalTags":
+                    mcp = create_tags_mcp(old_obj, new_obj, orig_event)
+                elif orig_event.get("aspectName") == "glossaryTerms":
+                    mcp = create_terms_mcp(old_obj, new_obj, orig_event)
+            else:
+                mcp = list(MetadataChangeProposalClass(
+                    entityType=orig_event.get("entityType"),
+                    changeType=orig_event.get("changeType"),
+                    entityUrn=orig_event.get("entityUrn"),
+                    entityKeyAspect=orig_event.get("entityKeyAspect"),
+                    aspectName=orig_event.get("aspectName"),
+                    aspect=orig_event.get("aspect"),
+                ))
+            return mcp
+        except Exception as ex:
+            logger.error(
+                f"error when building mcp from mcl {json.dumps(orig_event.to_obj(), indent=4)}"
+            )
+            logger.error(f"exception: {ex}")
+            return None
+
+    def emit(self, mcp: MetadataChangeProposalClass) -> None:
+        # Create an emitter to DataHub over REST
+        try:
+            # For unit test purpose, moving test_connection from initialization to here
+            # if rest_emitter.server_config is empty, that means test_connection() has not been called before
+            logger.info(
+                f"emitting the mcp: entityType {mcp.entityType}, changeType {mcp.changeType}, urn {mcp.entityUrn}, "
+                f"aspect name {mcp.aspectName}"
+            )
+            self.kafka_emitter.emit(mcp)
+            logger.info("successfully emit the mcp")
+        except Exception as ex:
+            logger.error(
+                f"error when emitting mcp, {json.dumps(mcp.to_obj(), indent=4)}"
+            )
+            logger.error(f"exception: {ex}")
+
+    def close(self) -> None:
+        pass
