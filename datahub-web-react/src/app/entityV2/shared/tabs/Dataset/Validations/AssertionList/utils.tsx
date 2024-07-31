@@ -408,6 +408,7 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
             name: status,
             assertions: filteredAssertions,
             summary: typeToAssertions,
+            groupName: status,
         });
     });
 
@@ -452,7 +453,10 @@ export const getFilteredTransformedAssertionData = (assertions: AssertionWithMon
     const assertionsTableData = mapAssertionData(filteredAssertions);
 
     assertionRawData.allAssertions = assertionsTableData;
-    assertionRawData.groupBy.type = createAssertionGroups(filteredAssertions);
+    assertionRawData.groupBy.type = createAssertionGroups(filteredAssertions) || [];
+    for (let item of assertionRawData.groupBy.type) {
+        item.groupName = item.name;
+    }
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
 
     console.log('assertionRawData2>>', assertionRawData);

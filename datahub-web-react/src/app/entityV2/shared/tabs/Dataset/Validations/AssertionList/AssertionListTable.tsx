@@ -3,6 +3,7 @@ import { Empty, Table } from 'antd';
 import styled from 'styled-components';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { IFilter } from './NewAcrylAssertions';
+import { DownOutlined, RightOutlined } from '@ant-design/icons';
 
 export const StyledTable = styled(Table)`
     max-width: none;
@@ -40,6 +41,14 @@ const StyledAssertionNameContainer = styled.div`
     display: flex;
 `;
 
+const StyledDownOutlined = styled(DownOutlined)`
+    font-size: 8px;
+`;
+
+const StyledRightOutlined = styled(RightOutlined)`
+    font-size: 8px;
+`;
+
 // type AssertionTableType = {
 //     dataSource: any[];
 // };
@@ -57,7 +66,12 @@ export const AssertionListTable = ({
             groupBy ? record.info : record.assertion.info,
             groupBy ? record.monitor : record.monitor,
         );
-        return <StyledAssertionNameContainer>{primaryLabel}</StyledAssertionNameContainer>;
+        let name = primaryLabel;
+        if (groupBy && record.groupName) {
+            name = record.groupName;
+        }
+
+        return <StyledAssertionNameContainer>{name}</StyledAssertionNameContainer>;
     };
 
     const assertionsTableCols = [
@@ -76,7 +90,7 @@ export const AssertionListTable = ({
             dataIndex: 'type',
             key: 'type',
             render: (_, record: any) => {
-                return <div>{record.type}</div>;
+                return <div>{groupBy ? record.info?.type : record.type}</div>;
             },
             sorter: (a, b) => {
                 return a.type - b.type;
@@ -85,14 +99,12 @@ export const AssertionListTable = ({
         },
         {
             title: 'Last Run',
-            dataIndex: 'type',
+            dataIndex: 'lastEvaluation',
             key: 'type',
-            render: (_, record: any) => {
-                return <div>{record.type}</div>;
+            render: (_, record) => {
+                return <div>{record.lastEvaluation?.status || 'N/A'}</div>;
             },
-            sorter: (a, b) => {
-                return a.type - b.type;
-            },
+            sorter: (a, b) => (a.lastEvaluation?.timestampMillis || 0) - (b.lastEvaluation?.timestampMillis || 0),
             width: '15%',
         },
         {
@@ -115,33 +127,12 @@ export const AssertionListTable = ({
         },
     ];
 
-    const groupedColumns = [
-        {
-            title: 'Type',
-            dataIndex: '',
-            key: 'type',
-            render: (text, record) => (
-                <span>
-                    {record.type}
-                    <Table
-                        columns={assertionsTableCols}
-                        dataSource={record?.assertions || []}
-                        pagination={false}
-                        rowKey="key"
-                        // onChange={handleChange}
-                    />
-                </span>
-            ),
-        },
-    ];
     const getGroupData = () => {
         return (assertionData?.groupBy && assertionData?.groupBy[groupBy]) || [];
     };
     return (
         <StyledTable
-            // columns={assertionsTableCols}
-            // dataSource={dataSource || []}
-            columns={groupBy ? groupedColumns : assertionsTableCols}
+            columns={assertionsTableCols}
             dataSource={groupBy ? getGroupData() : assertionData.allAssertions || []}
             rowKey="urn"
             locale={{
@@ -149,6 +140,26 @@ export const AssertionListTable = ({
             }}
             showHeader={true}
             pagination={false}
+            expandable={
+                groupBy
+                    ? {
+                          expandedRowRender: (record: any) => (
+                              <Table
+                                  columns={assertionsTableCols}
+                                  dataSource={record?.assertions || []}
+                                  pagination={false}
+                                  showHeader={false}
+                              />
+                          ),
+                          expandIcon: ({ expanded, onExpand, record }: any) =>
+                              expanded ? (
+                                  <StyledDownOutlined onClick={(e) => onExpand(record, e)} />
+                              ) : (
+                                  <StyledRightOutlined onClick={(e) => onExpand(record, e)} />
+                              ),
+                      }
+                    : undefined
+            }
         />
     );
 };
