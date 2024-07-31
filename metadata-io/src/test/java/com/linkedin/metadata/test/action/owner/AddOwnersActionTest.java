@@ -76,7 +76,8 @@ public class AddOwnersActionTest {
             Mockito.eq(DASHBOARD_REFERENCES),
             Mockito.eq(OwnershipType.TECHNICAL_OWNER),
             Mockito.eq(null),
-            Mockito.eq(METADATA_TESTS_SOURCE));
+            Mockito.eq(METADATA_TESTS_SOURCE),
+            Mockito.eq(null));
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchAddOwners(
@@ -85,7 +86,8 @@ public class AddOwnersActionTest {
             Mockito.eq(DATASET_REFERENCES),
             Mockito.eq(OwnershipType.TECHNICAL_OWNER),
             Mockito.eq(null),
-            Mockito.eq(METADATA_TESTS_SOURCE));
+            Mockito.eq(METADATA_TESTS_SOURCE),
+            Mockito.eq(null));
 
     Mockito.verifyNoMoreInteractions(service);
   }

@@ -36,9 +36,20 @@ public class SubmitFormPromptActionTest {
     assertThrows(
         InvalidActionParamsException.class, () -> submitPromptAction.validate(missingParams));
 
-    // missing formUrn
+    // missing actorUrn
+    paramsMap.put("formUrn", ImmutableList.of("test"));
     paramsMap.put("promptId", ImmutableList.of("test"));
-    paramsMap.put("promptType", ImmutableList.of("test"));
+    paramsMap.put("promptType", ImmutableList.of("STRUCTURED_PROPERTY"));
+    ActionParameters missingActorUrnParams = new ActionParameters(paramsMap);
+    assertThrows(
+        InvalidActionParamsException.class,
+        () -> submitPromptAction.validate(missingActorUrnParams));
+
+    // missing formUrn
+    paramsMap.remove("formUrn");
+    paramsMap.put("actorUrn", ImmutableList.of("test"));
+    paramsMap.put("promptId", ImmutableList.of("test"));
+    paramsMap.put("promptType", ImmutableList.of("STRUCTURED_PROPERTY"));
     ActionParameters missingFormUrnParams = new ActionParameters(paramsMap);
     assertThrows(
         InvalidActionParamsException.class,
@@ -46,15 +57,17 @@ public class SubmitFormPromptActionTest {
 
     // missing promptId
     paramsMap.remove("promptId");
+    paramsMap.put("actorUrn", ImmutableList.of("test"));
     paramsMap.put("formUrn", ImmutableList.of("test"));
-    paramsMap.put("promptType", ImmutableList.of("test"));
+    paramsMap.put("promptType", ImmutableList.of("STRUCTURED_PROPERTY"));
     ActionParameters missingPromptIdParams = new ActionParameters(paramsMap);
     assertThrows(
         InvalidActionParamsException.class,
         () -> submitPromptAction.validate(missingPromptIdParams));
 
-    // missing promptId
+    // missing promptType
     paramsMap.remove("promptType");
+    paramsMap.put("actorUrn", ImmutableList.of("test"));
     paramsMap.put("formUrn", ImmutableList.of("test"));
     paramsMap.put("promptId", ImmutableList.of("test"));
     ActionParameters missingPromptTypeParams = new ActionParameters(paramsMap);
@@ -77,6 +90,8 @@ public class SubmitFormPromptActionTest {
     ActionParameters params =
         new ActionParameters(
             ImmutableMap.of(
+                "actorUrn",
+                ImmutableList.of("urn:li:corpuser:test"),
                 "formUrn",
                 ImmutableList.of("urn:li:form:test"),
                 "promptId",
@@ -90,6 +105,7 @@ public class SubmitFormPromptActionTest {
   public void testApplyStructuredPropertyPromptStringValues() throws Exception {
     FormService formService = Mockito.mock(FormService.class);
     SubmitFormPromptAction submitPromptAction = new SubmitFormPromptAction(formService);
+    Urn actorUrn = UrnUtils.getUrn("urn:li:corpuser:testing");
     Urn formUrn = UrnUtils.getUrn("urn:li:form:test");
     Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
     String promptId = "testPrompt123";
@@ -99,6 +115,7 @@ public class SubmitFormPromptActionTest {
 
     // Given
     Map<String, List<String>> paramsMap = new HashMap<>();
+    paramsMap.put("actorUrn", Collections.singletonList(actorUrn.toString()));
     paramsMap.put("formUrn", Collections.singletonList(formUrn.toString()));
     paramsMap.put("promptId", Collections.singletonList(promptId));
     paramsMap.put("promptType", Collections.singletonList(promptType));
@@ -119,13 +136,15 @@ public class SubmitFormPromptActionTest {
             eq(structuredPropertyUrn),
             eq(values),
             eq(formUrn),
-            eq(promptId));
+            eq(promptId),
+            eq(actorUrn));
   }
 
   @Test
   public void testApplyStructuredPropertyPromptNumberValues() throws Exception {
     FormService formService = Mockito.mock(FormService.class);
     SubmitFormPromptAction submitPromptAction = new SubmitFormPromptAction(formService);
+    Urn actorUrn = UrnUtils.getUrn("urn:li:corpuser:testing");
     Urn formUrn = UrnUtils.getUrn("urn:li:form:test");
     Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
     String promptId = "testPrompt123";
@@ -135,6 +154,7 @@ public class SubmitFormPromptActionTest {
 
     // Given
     Map<String, List<String>> paramsMap = new HashMap<>();
+    paramsMap.put("actorUrn", Collections.singletonList(actorUrn.toString()));
     paramsMap.put("formUrn", Collections.singletonList(formUrn.toString()));
     paramsMap.put("promptId", Collections.singletonList(promptId));
     paramsMap.put("promptType", Collections.singletonList(promptType));
@@ -156,13 +176,15 @@ public class SubmitFormPromptActionTest {
             eq(structuredPropertyUrn),
             eq(values),
             eq(formUrn),
-            eq(promptId));
+            eq(promptId),
+            eq(actorUrn));
   }
 
   @Test
   public void testApplyOwnershipPrompt() throws Exception {
     FormService formService = Mockito.mock(FormService.class);
     SubmitFormPromptAction submitPromptAction = new SubmitFormPromptAction(formService);
+    Urn actorUrn = UrnUtils.getUrn("urn:li:corpuser:testing");
     Urn formUrn = UrnUtils.getUrn("urn:li:form:test");
     Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
     String promptId = "testPrompt123";
@@ -172,6 +194,7 @@ public class SubmitFormPromptActionTest {
 
     // Given
     Map<String, List<String>> paramsMap = new HashMap<>();
+    paramsMap.put("actorUrn", Collections.singletonList(actorUrn.toString()));
     paramsMap.put("formUrn", Collections.singletonList(formUrn.toString()));
     paramsMap.put("promptId", Collections.singletonList(promptId));
     paramsMap.put("promptType", Collections.singletonList(promptType));
@@ -188,6 +211,7 @@ public class SubmitFormPromptActionTest {
             eq(owners.stream().map(UrnUtils::getUrn).collect(Collectors.toList())),
             eq(UrnUtils.getUrn(ownershipTypeUrn)),
             eq(formUrn),
-            eq(promptId));
+            eq(promptId),
+            eq(actorUrn));
   }
 }

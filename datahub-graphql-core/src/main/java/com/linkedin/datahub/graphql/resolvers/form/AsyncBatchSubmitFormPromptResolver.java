@@ -149,6 +149,7 @@ public class AsyncBatchSubmitFormPromptResolver
     ObjectNode submitPromptParamsNode = submitPromptNode.putObject("params");
 
     // add the params for the action
+    submitPromptParamsNode.put("actorUrn", context.getActorUrn());
     submitPromptParamsNode.put("formUrn", promptInput.getFormUrn());
     submitPromptParamsNode.put("promptId", promptInput.getPromptId());
     submitPromptParamsNode.put("promptType", promptInput.getType().toString());

@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SubmitFormPromptAction implements Action {
 
+  private static final String ACTOR_URN_PARAMETER = "actorUrn";
   private static final String FORM_URN_PARAMETER = "formUrn";
   private static final String PROMPT_ID_PARAMETER = "promptId";
   private static final String PROMPT_TYPE_PARAMETER = "promptType";
@@ -40,6 +41,10 @@ public class SubmitFormPromptAction implements Action {
 
   @Override
   public void validate(ActionParameters params) throws InvalidActionParamsException {
+    if (!paramsContainsKey(params, ACTOR_URN_PARAMETER)) {
+      throw new InvalidActionParamsException(
+          "Action parameters are missing the required 'actorUrn' parameter.");
+    }
     if (!paramsContainsKey(params, FORM_URN_PARAMETER)) {
       throw new InvalidActionParamsException(
           "Action parameters are missing the required 'formUrn' parameter.");
@@ -63,6 +68,7 @@ public class SubmitFormPromptAction implements Action {
   public void apply(@Nonnull OperationContext opContext, List<Urn> urns, ActionParameters params)
       throws InvalidOperandException {
     final List<String> urnStrings = urns.stream().map(Urn::toString).collect(Collectors.toList());
+    final Urn actorUrn = UrnUtils.getUrn(params.getParams().get(ACTOR_URN_PARAMETER).get(0));
     final Urn formUrn = UrnUtils.getUrn(params.getParams().get(FORM_URN_PARAMETER).get(0));
     final String promptId = params.getParams().get(PROMPT_ID_PARAMETER).get(0);
     final FormPromptType promptType =
@@ -70,9 +76,10 @@ public class SubmitFormPromptAction implements Action {
 
     try {
       if (promptType.equals(FormPromptType.STRUCTURED_PROPERTY)) {
-        submitStructuredPropertyResponse(opContext, params, urnStrings, formUrn, promptId);
+        submitStructuredPropertyResponse(
+            opContext, params, urnStrings, formUrn, promptId, actorUrn);
       } else if (promptType.equals(FormPromptType.OWNERSHIP)) {
-        submitOwnershipResponse(opContext, params, urnStrings, formUrn, promptId);
+        submitOwnershipResponse(opContext, params, urnStrings, formUrn, promptId, actorUrn);
       } else {
         log.error(
             String.format(
@@ -96,7 +103,8 @@ public class SubmitFormPromptAction implements Action {
       ActionParameters params,
       List<String> urnStrings,
       Urn formUrn,
-      String promptId) {
+      String promptId,
+      Urn actorUrn) {
     try {
       // Grab params specific to submitting structured property response
       if (!paramsContainsKey(params, STRUCTURED_PROPERTY_URN_PARAMETER)) {
@@ -123,7 +131,7 @@ public class SubmitFormPromptAction implements Action {
       }
 
       formService.batchSubmitStructuredPropertyPromptResponse(
-          opContext, urnStrings, structuredPropertyUrn, values, formUrn, promptId);
+          opContext, urnStrings, structuredPropertyUrn, values, formUrn, promptId, actorUrn);
     } catch (Exception e) {
       log.error(
           String.format(
@@ -138,7 +146,8 @@ public class SubmitFormPromptAction implements Action {
       ActionParameters params,
       List<String> urnStrings,
       Urn formUrn,
-      String promptId) {
+      String promptId,
+      Urn actorUrn) {
     try {
       // Grab params specific to submitting ownership response
       if (!paramsContainsKey(params, OWNERS_PARAMETER)) {
@@ -158,7 +167,7 @@ public class SubmitFormPromptAction implements Action {
           UrnUtils.getUrn(params.getParams().get(OWNERSHIP_TYPE_URN_PARAMETER).get(0));
 
       formService.batchSubmitOwnershipPromptResponse(
-          opContext, urnStrings, owners, ownershipTypeUrn, formUrn, promptId);
+          opContext, urnStrings, owners, ownershipTypeUrn, formUrn, promptId, actorUrn);
     } catch (Exception e) {
       log.error(
           String.format(

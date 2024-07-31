@@ -63,7 +63,8 @@ public class AddOwnersAction extends ValuesAction {
           getResourceReferences(urns),
           ownershipType,
           null,
-          METADATA_TESTS_SOURCE);
+          METADATA_TESTS_SOURCE,
+          null);
     }
   }
 }

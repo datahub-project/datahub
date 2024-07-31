@@ -737,42 +737,39 @@ public class TestEngine {
       }
     }
 
-    if (!testResults.isEmpty()) {
-      AuditStamp auditStamp =
-          new AuditStamp()
-              .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-              .setTime(System.currentTimeMillis());
+    AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
 
-      Stream<MetadataChangeProposal> reportingMCPs =
-          batchTestRunResults.entrySet().stream()
-              .map(
-                  entry -> {
-                    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-                    proposal.setEntityUrn(entry.getKey());
-                    proposal.setEntityType(entry.getKey().getEntityType());
-                    proposal.setAspectName("batchTestRunEvent");
-                    proposal.setAspect(
-                        GenericRecordUtils.serializeAspect(
-                            new BatchTestRunEvent()
-                                .setTimestampMillis(System.currentTimeMillis())
-                                .setStatus(BatchTestRunStatus.COMPLETE)
-                                .setResult(entry.getValue())));
-                    proposal.setChangeType(ChangeType.UPSERT);
-                    log.info("Reporting Batch Test Result: {}", entry.getValue());
-                    return proposal;
-                  });
+    Stream<MetadataChangeProposal> reportingMCPs =
+        batchTestRunResults.entrySet().stream()
+            .map(
+                entry -> {
+                  final MetadataChangeProposal proposal = new MetadataChangeProposal();
+                  proposal.setEntityUrn(entry.getKey());
+                  proposal.setEntityType(entry.getKey().getEntityType());
+                  proposal.setAspectName("batchTestRunEvent");
+                  proposal.setAspect(
+                      GenericRecordUtils.serializeAspect(
+                          new BatchTestRunEvent()
+                              .setTimestampMillis(System.currentTimeMillis())
+                              .setStatus(BatchTestRunStatus.COMPLETE)
+                              .setResult(entry.getValue())));
+                  proposal.setChangeType(ChangeType.UPSERT);
+                  log.info("Reporting Batch Test Result: {}", entry.getValue());
+                  return proposal;
+                });
 
-      List<MetadataChangeProposal> allMCPs =
-          Stream.concat(Stream.concat(mcps, removalMcps), reportingMCPs)
-              .collect(Collectors.toList());
-      log.info("Total number of mcps = {}", allMCPs.size());
-      AspectsBatchImpl batch =
-          AspectsBatchImpl.builder()
-              .mcps(allMCPs, auditStamp, systemOpContext.getRetrieverContext().get())
-              .build();
+    List<MetadataChangeProposal> allMCPs =
+        Stream.concat(Stream.concat(mcps, removalMcps), reportingMCPs).collect(Collectors.toList());
+    log.info("Total number of mcps = {}", allMCPs.size());
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(allMCPs, auditStamp, systemOpContext.getRetrieverContext().get())
+            .build();
 
-      _entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
-    }
+    _entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
   }
 
   /**
