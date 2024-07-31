@@ -7,10 +7,12 @@ import static com.linkedin.metadata.test.util.TestUtils.*;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -44,6 +46,7 @@ import com.linkedin.test.BatchTestRunEvent;
 import com.linkedin.test.BatchTestRunResult;
 import com.linkedin.test.BatchTestRunStatus;
 import com.linkedin.test.TestInfo;
+import com.linkedin.test.TestInterval;
 import com.linkedin.test.TestResult;
 import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
@@ -95,6 +98,8 @@ public class TestEngine {
   // Maps test urn to deserialized test definition
   // Not concurrent data structure because writes are always against the entire
   // thing.
+  // _testCache does not contain tests without a schedule. These tests should only
+  // be run manually and do not get picked up in scheduled runs.
   private final Map<Urn, TestDefinition> _testCache = new HashMap<>();
   private final Map<Urn, TestInfo> _testInfoCache = new HashMap<>();
   // Maps entity type to list of tests that target the entity type
@@ -1009,8 +1014,8 @@ public class TestEngine {
       @Nonnull EvaluationMode mode) {
     log.info("Evaluating single test {} with mode {}", testUrn, mode);
     this.refreshSingleTest(testUrn);
-    final TestDefinition testDefinition;
-    final TestInfo testInfo;
+    TestDefinition testDefinition;
+    TestInfo testInfo;
     cacheReadLock.lock();
     try {
       testDefinition = _testCache.get(testUrn);
@@ -1019,9 +1024,22 @@ public class TestEngine {
       // To unlock the acquired read thread
       cacheReadLock.unlock();
     }
-    if (testDefinition == null) {
-      log.warn("Test {} does not exist: Skipping", testUrn);
-      return null;
+    // when evaluating a single test, try fetching the test from db if not in cache
+    // tests without a schedule do not exist in the cache
+    if (testDefinition == null || testInfo == null) {
+      testInfo = getTestInfo(opContext, testUrn);
+      if (testInfo == null) {
+        log.warn("Test {} does not exist: Skipping", testUrn);
+        return null;
+      }
+      try {
+        testDefinition =
+            _testDefinitionParser.deserialize(testUrn, testInfo.getDefinition().getJson());
+      } catch (TestDefinitionParsingException e) {
+        log.error(
+            "Issue while deserializing test definition {}", testInfo.getDefinition().getJson(), e);
+        return null;
+      }
     }
 
     // First retrieve the last execution of this test
@@ -1078,8 +1096,7 @@ public class TestEngine {
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
       // skip writing asset results if the source type is bulk form submission
       boolean shouldSkipAssetResults =
-          testInfo != null
-              && testInfo.getSource() != null
+          testInfo.getSource() != null
               && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
       log.info(
           "Mode: {}: Writing {} results to DataHub for test {}",
@@ -1210,6 +1227,22 @@ public class TestEngine {
     _testRefreshRunnable.refreshOneUrn(testUrn);
   }
 
+  private TestInfo getTestInfo(@Nonnull OperationContext opContext, @Nonnull final Urn testUrn) {
+    TestInfo testInfo = null;
+
+    try {
+      EntityResponse response =
+          _entityService.getEntityV2(
+              opContext, TEST_ENTITY_NAME, testUrn, ImmutableSet.of(TEST_INFO_ASPECT_NAME), false);
+      if (response != null && response.getAspects().containsKey(TEST_INFO_ASPECT_NAME)) {
+        testInfo = new TestInfo(response.getAspects().get(TEST_INFO_ASPECT_NAME).getValue().data());
+      }
+    } catch (Exception e) {
+      log.error(String.format("Failed to fetch test info for test urn %s", testUrn));
+    }
+    return testInfo;
+  }
+
   /**
    * A {@link Runnable} used to periodically fetch a new instance of the test Cache.
    *
@@ -1305,6 +1338,12 @@ public class TestEngine {
         final Map<Urn, TestInfo> testInfoCache,
         final Map<String, Set<TestDefinition>> cache,
         final TestFetcher.Test test) {
+      // do not add tests without a schedule to the cache to prevent automatic runs
+      if (test.getTestInfo().getSchedule() != null
+          && test.getTestInfo().getSchedule().getInterval().equals(TestInterval.NONE)) {
+        return;
+      }
+
       TestDefinition testDefinition;
       try {
         testDefinition =

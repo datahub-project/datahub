@@ -28,7 +28,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.BatchedTestResults;
 import com.linkedin.test.MetadataTestClient;
 import com.linkedin.test.TestInfo;
-import com.linkedin.test.TestSourceType;
+import com.linkedin.test.TestInterval;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Objects;
 import java.util.Set;
@@ -188,8 +188,9 @@ public class MetadataTestHook implements MetadataChangeLogHook {
 
   @Override
   public void invoke(@NotNull MetadataChangeLog event) throws Exception {
-    // we don't want this hook to run and create side effects if it is a form submission test
-    if (isBulkFormSubmissionTest(event)) {
+    // we don't want this hook to run and create side effects if it is not a scheduled test
+    // tests that aren't scheduled are run manually as tasks
+    if (isTestNotScheduled(event)) {
       return;
     }
 
@@ -257,13 +258,13 @@ public class MetadataTestHook implements MetadataChangeLogHook {
         System.currentTimeMillis());
   }
 
-  private boolean isBulkFormSubmissionTest(@Nonnull MetadataChangeLog event) {
+  private boolean isTestNotScheduled(@Nonnull MetadataChangeLog event) {
     TestInfo testInfo =
         GenericRecordUtils.deserializeAspect(
             event.getAspect().getValue(), event.getAspect().getContentType(), TestInfo.class);
 
-    return testInfo.getSource() != null
-        && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
+    return testInfo.getSchedule() != null
+        && testInfo.getSchedule().getInterval().equals(TestInterval.NONE);
   }
 
   @VisibleForTesting
