@@ -13,14 +13,7 @@ import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
 import { SourceConfig } from './builder/types';
-import {
-    STRUCTURED_REPORT_ITEM_RAW_TYPE_TO_DETAILS,
-    STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS,
-    StructuredReport,
-    StructuredReportItem,
-    StructuredReportItemLevel,
-    StructuredReportItemType,
-} from './types';
+import { StructuredReport, StructuredReportLogEntry, StructuredReportItemLevel } from './types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -54,6 +47,7 @@ export const WARNING = 'WARNING';
 export const FAILURE = 'FAILURE';
 export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
 export const CANCELLED = 'CANCELLED';
+export const ABORTED = 'ABORTED';
 export const UP_FOR_RETRY = 'UP_FOR_RETRY';
 export const ROLLING_BACK = 'ROLLING_BACK';
 export const ROLLED_BACK = 'ROLLED_BACK';
@@ -75,6 +69,7 @@ export const getExecutionRequestStatusIcon = (status: string) => {
         (status === ROLLED_BACK && WarningOutlined) ||
         (status === ROLLING_BACK && LoadingOutlined) ||
         (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
+        (status === ABORTED && CloseCircleOutlined) ||
         ClockCircleOutlined
     );
 };
@@ -90,6 +85,7 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
         (status === ROLLED_BACK && 'Rolled Back') ||
         (status === ROLLING_BACK && 'Rolling Back') ||
         (status === ROLLBACK_FAILED && 'Rollback Failed') ||
+        (status === ABORTED && 'Aborted') ||
         status
     );
 };
@@ -112,6 +108,8 @@ export const getExecutionRequestSummaryText = (status: string) => {
             return 'Ingestion is in the process of rolling back.';
         case ROLLBACK_FAILED:
             return 'Ingestion rollback failed.';
+        case ABORTED:
+            return 'Ingestion job got aborted due to worker restart.';
         default:
             return 'Ingestion status not recognized.';
     }
@@ -128,6 +126,7 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
         (status === ROLLED_BACK && 'orange') ||
         (status === ROLLING_BACK && 'orange') ||
         (status === ROLLBACK_FAILED && 'red') ||
+        (status === ABORTED && 'red') ||
         ANTD_GRAY[7]
     );
 };
@@ -135,7 +134,9 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
 export const validateURL = (fieldName: string) => {
     return {
         validator(_, value) {
-            const URLPattern = new RegExp(/^(?:http(s)?:\/\/)?[\w.-]+(?:\.[a-zA-Z0-9.-]{2,})+[\w\-._~:/?#[\]@!$&'()*+,;=.]+$/);
+            const URLPattern = new RegExp(
+                /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[a-zA-Z0-9.-]{2,})+[\w\-._~:/?#[\]@!$&'()*+,;=.]+$/,
+            );
             const isURLValid = URLPattern.test(value);
             if (!value || isURLValid) {
                 return Promise.resolve();
@@ -145,36 +146,7 @@ export const validateURL = (fieldName: string) => {
     };
 };
 
-const tryMapRawTypeToStructuredTypeByName = (rawType: string): StructuredReportItemType => {
-    const normalizedType = rawType.toLocaleUpperCase();
-    return (
-        StructuredReportItemType[normalizedType as keyof typeof StructuredReportItemType] ||
-        StructuredReportItemType.UNKNOWN
-    );
-};
-
-const getStructuredReportItemType = (rawType: string): StructuredReportItemType => {
-    return STRUCTURED_REPORT_ITEM_RAW_TYPE_TO_DETAILS.has(rawType)
-        ? STRUCTURED_REPORT_ITEM_RAW_TYPE_TO_DETAILS.get(rawType).type
-        : tryMapRawTypeToStructuredTypeByName(rawType);
-};
-
-const getStructuredReportItemTitle = (rawType: string): string => {
-    const type = getStructuredReportItemType(rawType);
-    return STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS.get(type)?.title;
-};
-
-const getStructuredReportItemLevel = (rawLevel: string) => {
-    const normalizedLevel = rawLevel.toLocaleUpperCase();
-    return StructuredReportItemLevel[normalizedLevel as keyof typeof StructuredReportItemType];
-};
-
-const getStructuredReportItemMessage = (rawType: string): string => {
-    const stdType = getStructuredReportItemType(rawType);
-    return StructuredReportItemType.UNKNOWN ? rawType : STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS.get(stdType)?.message;
-};
-
-const createStructuredReport = (items: StructuredReportItem[]): StructuredReport => {
+const createStructuredReport = (items: StructuredReportLogEntry[]): StructuredReport => {
     const errorCount = items.filter((item) => item.level === StructuredReportItemLevel.ERROR).length;
     const warnCount = items.filter((item) => item.level === StructuredReportItemLevel.WARN).length;
     const infoCount = items.filter((item) => item.level === StructuredReportItemLevel.INFO).length;
@@ -191,61 +163,69 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
         return null;
     }
 
-    /* Legacy help function to map backend failure or warning ingestion objects into StructuredReportItems */
+    /* Legacy helper function to map backend failure or warning ingestion objects into StructuredReportLogEntry[] */
     const mapItemObject = (
         items: { [key: string]: string[] },
         level: StructuredReportItemLevel,
-    ): StructuredReportItem[] => {
-        return Object.entries(items).map(([rawType, context]) => ({
+    ): StructuredReportLogEntry[] => {
+        return Object.entries(items).map(([rawMessage, context]) => ({
             level,
-            title: getStructuredReportItemTitle(rawType),
-            message: getStructuredReportItemMessage(rawType),
+            title: 'An unexpected issue occurred',
+            message: rawMessage,
             context,
-            rawType,
         }));
     };
 
-    /* V2 help function to map backend failure or warning lists into StructuredReportItems */
-    const mapItemArray = (items): StructuredReportItem[] => {
-        return items.map((item) => ({
-            level: getStructuredReportItemLevel(item.level),
-            title: getStructuredReportItemTitle(item.type),
-            message: !item.message ? getStructuredReportItemMessage(item.type) : item.message,
-            context: item.context,
-            rawType: item.type,
-        }));
+    /* V2 helper function to map backend failure or warning lists into StructuredReportLogEntry[] */
+    const mapItemArray = (items, level: StructuredReportItemLevel): StructuredReportLogEntry[] => {
+        return items
+            .map((item) => {
+                if (typeof item === 'string') {
+                    // Handle "sampled from" case..
+                    return null;
+                }
+
+                return {
+                    level,
+                    title: item.title || 'An unexpected issue occurred',
+                    message: item.message,
+                    context: item.context,
+                };
+            })
+            .filter((item) => item != null);
     };
 
-    const sourceReport = structuredReportObj.source?.report;
+    try {
+        const sourceReport = structuredReportObj.source?.report;
 
-    if (!sourceReport) {
-        return null;
-    }
+        if (!sourceReport) {
+            return null;
+        }
 
-    // extract the report.
-    let structuredReport: StructuredReport;
-
-    if (sourceReport.structured_logs) {
-        // If the report has NEW structured logs fields, use that field.
-        structuredReport = createStructuredReport(mapItemArray(sourceReport.structured_logs || []));
-    } else {
         // Else fallback to using the legacy fields
-        const failures = sourceReport.failure_list
+        const failures = Array.isArray(sourceReport.failures)
             ? /* Use V2 failureList if present */
-              mapItemArray(sourceReport.failure_list || [])
+              mapItemArray(sourceReport.failures || [], StructuredReportItemLevel.ERROR)
             : /* Else use the legacy object type */
               mapItemObject(sourceReport.failures || {}, StructuredReportItemLevel.ERROR);
 
-        const warnings = sourceReport.warning_list
+        const warnings = Array.isArray(sourceReport.warnings)
             ? /* Use V2 warning if present */
-              mapItemArray(sourceReport.warning_list || [])
+              mapItemArray(sourceReport.warnings || [], StructuredReportItemLevel.WARN)
             : /* Else use the legacy object type */
               mapItemObject(sourceReport.warnings || {}, StructuredReportItemLevel.WARN);
 
-        structuredReport = createStructuredReport([...failures, ...warnings]);
-    }
+        const infos = Array.isArray(sourceReport.infos)
+            ? /* Use V2 infos if present */
+              mapItemArray(sourceReport.infos || [], StructuredReportItemLevel.INFO)
+            : /* Else use the legacy object type */
+              mapItemObject(sourceReport.infos || {}, StructuredReportItemLevel.INFO);
 
-    return structuredReport;
+        return createStructuredReport([...failures, ...warnings, ...infos]);
+    } catch (e) {
+        console.warn('Failed to extract structured report from ingestion report!', e);
+        return null;
+    }
 };
 
 export const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {

@@ -37,7 +37,6 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         super().__init__(config, report, self.platform, state_handler)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
-        self.logger = logger
         self.database_default_schema: Dict[str, str] = dict()
 
     def get_workunits(
@@ -86,7 +85,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         )
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
-        return self.get_dataset_identifier(table_name, schema_name, db_name)
+        return self.identifiers.get_dataset_identifier(table_name, schema_name, db_name)
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
@@ -164,7 +163,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         schema_name = self.database_default_schema.get(db_name)
 
         def get_db_connection():
-            conn = self.config.get_connection()
+            conn = self.config.get_native_connection()
             conn.cursor().execute(SnowflakeQuery.use_database(db_name))
 
             # As mentioned here - https://docs.snowflake.com/en/sql-reference/sql/use-database#usage-notes

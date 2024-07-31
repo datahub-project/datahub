@@ -21,4 +21,5 @@ public class FeatureFlags {
   private boolean schemaFieldEntityFetchEnabled = false;
   private boolean businessAttributeEntityEnabled = false;
   private boolean dataContractsEnabled = false;
+  private boolean showSeparateSiblings = false;
 }

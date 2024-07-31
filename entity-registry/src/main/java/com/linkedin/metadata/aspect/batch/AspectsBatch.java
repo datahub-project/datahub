@@ -9,6 +9,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +83,13 @@ public interface AspectsBatch {
         retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks()) {
       mutationHook.applyWriteMutation(changeMCPS, retrieverContext);
     }
+  }
+
+  default Stream<MCPItem> applyProposalMutationHooks(
+      Collection<MCPItem> proposedItems, @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks().stream()
+        .flatMap(
+            mutationHook -> mutationHook.applyProposalMutation(proposedItems, retrieverContext));
   }
 
   default <T extends BatchItem> ValidationExceptionCollection validateProposed(
@@ -191,16 +199,12 @@ public interface AspectsBatch {
 
   static <T> Map<String, Map<String, T>> merge(
       @Nonnull Map<String, Map<String, T>> a, @Nonnull Map<String, Map<String, T>> b) {
-    return Stream.concat(a.entrySet().stream(), b.entrySet().stream())
-        .flatMap(
-            entry ->
-                entry.getValue().entrySet().stream()
-                    .map(innerEntry -> Pair.of(entry.getKey(), innerEntry)))
-        .collect(
-            Collectors.groupingBy(
-                Pair::getKey,
-                Collectors.mapping(
-                    Pair::getValue, Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+    Map<String, Map<String, T>> mergedMap = new HashMap<>();
+    for (Map.Entry<String, Map<String, T>> entry :
+        Stream.concat(a.entrySet().stream(), b.entrySet().stream()).collect(Collectors.toList())) {
+      mergedMap.computeIfAbsent(entry.getKey(), k -> new HashMap<>()).putAll(entry.getValue());
+    }
+    return mergedMap;
   }
 
   default String toAbbreviatedString(int maxWidth) {

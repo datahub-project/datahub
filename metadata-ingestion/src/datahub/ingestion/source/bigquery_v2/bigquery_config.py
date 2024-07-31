@@ -24,6 +24,10 @@ from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredent
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_BQ_SCHEMA_PARALLELISM = int(
+    os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20)
+)
+
 
 class BigQueryUsageConfig(BaseUsageConfig):
     _query_log_delay_removed = pydantic_removed_field("query_log_delay")
@@ -175,12 +179,12 @@ class BigQueryV2Config(
 
     number_of_datasets_process_in_batch: int = Field(
         hidden_from_docs=True,
-        default=500,
+        default=10000,
         description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care.",
     )
 
     number_of_datasets_process_in_batch_if_profiling_enabled: int = Field(
-        default=200,
+        default=1000,
         description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
 
@@ -311,6 +315,12 @@ class BigQueryV2Config(
         default=100,
         description="The number of tables to process in a batch when resolving schema from DataHub.",
         hidden_from_schema=True,
+    )
+
+    max_threads_dataset_parallelism: int = Field(
+        default=DEFAULT_BQ_SCHEMA_PARALLELISM,
+        description="Number of worker threads to use to parallelize BigQuery Dataset Metadata Extraction."
+        " Set to 1 to disable.",
     )
 
     @root_validator(skip_on_failure=True)
