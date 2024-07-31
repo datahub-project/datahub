@@ -254,6 +254,11 @@ module.exports = {
               id: "docs/managed-datahub/slack/saas-slack-app",
               className: "saasOnly",
             },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+              className: "saasOnly",
+            },
           ],
         },
         {
@@ -811,7 +816,6 @@ module.exports = {
     },
     {
       "API & SDK Guides": [
-        "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
