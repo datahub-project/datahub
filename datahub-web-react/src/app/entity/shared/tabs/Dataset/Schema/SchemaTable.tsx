@@ -122,10 +122,7 @@ export default function SchemaTable({
         filterText,
         false,
     );
-    const businessAttributeRenderer = useBusinessAttributeRenderer(
-        filterText,
-        false
-    );
+    const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
@@ -214,12 +211,7 @@ export default function SchemaTable({
         render: (field: SchemaField) => <PropertiesColumn field={field} />,
     };
 
-    let allColumns: ColumnsType<ExtendedSchemaFields> = [
-        fieldColumn,
-        descriptionColumn,
-        tagColumn,
-        termColumn,
-    ];
+    let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
 
     if (businessAttributesFlag) {
         allColumns = [...allColumns, businessAttributeColumn];

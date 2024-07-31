@@ -1,8 +1,8 @@
-# How Acryl DataHub compares to DataHub
+# How DataHub Cloud compares to DataHub
 
 DataHub is the #1 open source data catalog for developers.
 
-Acryl DataHub takes DataHub to the next level by offering features that allow
+DataHub Cloud takes DataHub to the next level by offering features that allow
 you to roll out the product to the entire organization beyond your central data
 platform team.
 
@@ -12,7 +12,7 @@ checklists and we hope you love them too!
 ## Search and Discovery
 Features aimed at making it easy to discover data assets at your organization and understand relationships between them.
 
-| Feature | DataHub | Acryl DataHub | 
+| Feature | DataHub | DataHub Cloud | 
 | ---------------------------------------------- | ------- | ------------- |
 | Integrations for 50+ data sources | ✅ | ✅ | 
 | Table level, Column-level, Job-level lineage | ✅ | ✅ |
@@ -32,7 +32,7 @@ Features aimed at making it easy to discover data assets at your organization an
 Features that help you govern the crown jewels of your organization, and trim
 out the datasets that seem to grow like weeds when no one’s looking.
 
-| Feature | DataHub | Acryl DataHub |
+| Feature | DataHub | DataHub Cloud |
 | ---------------------------------------------- | ------- | ------------- |
 | Shift-Left governance | ✅ | ✅ |
 | Dataset ownership management | ✅ | ✅ |
@@ -48,19 +48,27 @@ Features that help you ensure your data pipelines are producing high quality
 assets, and if they’re not, making sure you and impacted users are the first to
 know. 
 
-| Feature | DataHub | Acryl DataHub |
+| Feature | DataHub | DataHub Cloud |
 | ---------------------------------------------- | ------- | ------------- |
 | Surface data quality results | ✅ | ✅ |
-| Build and enforce continuous data SLAs | ❌ | ✅ |
-| Continuous monitoring of dataset health | ❌ | ✅ |
-| Data observability alerts and notifications | ❌ | ✅ |
-| Data Incident management | ❌ | ✅ |
+| Create data contracts | ✅ | ✅ |
+| Raise and Resolve Data Incidents | ✅ | ✅ |
+| Monitor Freshness SLAs | ❌ | ✅ |
+| Monitor Table Schemas | ❌ | ✅ |
+| Monitor Table Volume | ❌ | ✅ |
+| Monitor Table Column Integrity | ❌ | ✅ |
+| Monitor Table with Custom SQL | ❌ | ✅ |
+| Receive Notifications via Email & Slack | ❌ | ✅ |
+| Manage Data Incidents via Slack | ❌ | ✅ |
+| View Data Health Dashboard | ❌ | ✅ |
+| Evaluate data quality checks on-demand (API + UI) | ❌ | ✅ |
+| Evaluate data quality checks in your VPC | ❌ | ✅ |
 
 
 ## Enterprise Grade
 Features needed to roll out at scale to large enterprises.
 
-| Feature | DataHub | Acryl DataHub |
+| Feature | DataHub | DataHub Cloud |
 | ---------------------------------------------- | ------- | ------------- |
 | Battle-tested open source metadata platform | ✅ | ✅ |
 | Metadata change events as a real-time stream | ✅ | ✅ |
@@ -74,7 +82,7 @@ Features needed to roll out at scale to large enterprises.
 ## Implementation and Support
 Features related to ease of deployment and maintenance.
 
-| Feature | DataHub | Acryl DataHub |
+| Feature | DataHub | DataHub Cloud |
 | ---------------------------------------------- | ------- | ------------- |
 | Community support | ✅ | ✅ |
 | Your own engineering team | ✅ | ❌ (They can instead focus on high-value work like contributing features to the open source product, or build amazing data applications with the APIs!)|
@@ -94,7 +102,7 @@ the form using the link below, and someone from the Acryl team will reach
 out to set up a chat.
 
 <a href="https://www.acryldata.io/sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_vs_datahub" style={{ display: 'inline-block', padding: '10px 20px', margin: '10px 0', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', textDecoration: 'none', textAlign: 'center' }}>
-  Learn about Acryl DataHub
+  Learn about DataHub Cloud
 </a>
 
 <!-- 
@@ -108,7 +116,7 @@ Fill out
 
 ## Additional Integrations
 
-- [Slack Integration](docs/managed-datahub/saas-slack-setup.md)
+- [Slack Integration](docs/managed-datahub/slack/saas-slack-setup.md)
 - [Remote Ingestion Executor](docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md)
 - [AWS Privatelink](docs/managed-datahub/integrations/aws-privatelink.md)
 - [AWS Eventbridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)

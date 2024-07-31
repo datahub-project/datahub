@@ -57,6 +57,9 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("#{new Boolean('${elasticsearch.index.enableMappingsReindex}')}")
   private boolean enableMappingsReindex;
 
+  @Value("#{new Boolean('${structuredProperties.systemUpdateEnabled}')}")
+  private boolean enableStructuredPropertiesReindex;
+
   @Bean(name = "elasticSearchIndexSettingsOverrides")
   @Nonnull
   protected Map<String, Map<String, String>> getIndexSettingsOverrides(
@@ -85,6 +88,7 @@ public class ElasticSearchIndexBuilderFactory {
         overrides,
         enableSettingsReindex,
         enableMappingsReindex,
+        enableStructuredPropertiesReindex,
         configurationProvider.getElasticSearch(),
         gitVersion);
   }

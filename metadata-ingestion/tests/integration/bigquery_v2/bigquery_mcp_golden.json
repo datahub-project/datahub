@@ -249,7 +249,11 @@
                     "nativeDataType": "INT",
                     "recursive": false,
                     "globalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Test Policy Tag"
+                            }
+                        ]
                     },
                     "glossaryTerms": {
                         "terms": [
@@ -421,6 +425,22 @@
     "aspect": {
         "json": {
             "name": "Email_Address"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Test Policy Tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Test Policy Tag"
         }
     },
     "systemMetadata": {

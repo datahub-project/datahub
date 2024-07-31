@@ -1,9 +1,8 @@
-import React from "react";
-import { Collapse, Form, Input, Typography } from "antd";
-import styled from "styled-components";
+import React from 'react';
+import { Collapse, Form, Input, Typography } from 'antd';
+import styled from 'styled-components';
 import { validateCustomUrnId } from '../../../shared/textUtil';
-import { DataProductBuilderFormProps } from "./types";
-
+import { DataProductBuilderFormProps } from './types';
 
 const FormItem = styled(Form.Item)`
     .ant-form-item-label {
@@ -23,8 +22,7 @@ const AdvancedLabel = styled(Typography.Text)`
     color: #373d44;
 `;
 
-export function DataProductAdvancedOption({builderState, updateBuilderState }: DataProductBuilderFormProps){
-
+export function DataProductAdvancedOption({ builderState, updateBuilderState }: DataProductBuilderFormProps) {
     function updateDataProductId(id: string) {
         updateBuilderState({
             ...builderState,
@@ -54,9 +52,9 @@ export function DataProductAdvancedOption({builderState, updateBuilderState }: D
                             }),
                         ]}
                     >
-                        <Input 
-                            data-testid="data-product-id" 
-                            placeholder="engineering" 
+                        <Input
+                            data-testid="data-product-id"
+                            placeholder="engineering"
                             value={builderState.id}
                             onChange={(e) => updateDataProductId(e.target.value)}
                         />
@@ -64,5 +62,5 @@ export function DataProductAdvancedOption({builderState, updateBuilderState }: D
                 </FormItemWithMargin>
             </Collapse.Panel>
         </Collapse>
-    )
+    );
 }

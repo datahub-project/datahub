@@ -600,7 +600,8 @@
             },
             "rowCount": 2,
             "columnCount": 9,
-            "fieldProfiles": []
+            "fieldProfiles": [],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {

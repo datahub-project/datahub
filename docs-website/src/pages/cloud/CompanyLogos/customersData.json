@@ -1,0 +1,88 @@
+{
+  "customers": [
+    {
+      "link": {
+        "href": "https://robinhood.com",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "/img/logos/scrollingCompanies/acertus.webp"
+        },
+        "alt": "Robinhood"
+      }
+    },
+    {
+      "link": {
+        "href": "https://www.dpgmediagroup.com/",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "/img/logos/scrollingCompanies/autoscout24.webp"
+        },
+        "alt": "DPG Media"
+      }
+    },
+    {
+      "link": {
+        "href": "https://www.twilio.com",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "/img/logos/scrollingCompanies/betterup.webp"
+        },
+        "alt": "Twilio"
+      }
+    },
+    {
+      "link": {
+        "href": "https://myob.com",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "/img/logos/scrollingCompanies/depop.webp"
+        },
+        "alt": "Myob"
+      }
+    },
+    {
+      "link": {
+        "href": "https://regeneron.com",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "/img/logos/scrollingCompanies/dpg_media.webp"
+        },
+        "alt": "Regeneron"
+      }
+    },
+    {
+      "link": {
+        "href": "https://riskified.com",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "/img/logos/scrollingCompanies/myob.webp"
+        },
+        "alt": "Riskified"
+      }
+    },
+    {
+      "link": {
+        "href": "https://xero.com",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "/img/logos/scrollingCompanies/notion.webp"
+        },
+        "alt": "Xero"
+      }
+    }
+  ]
+}

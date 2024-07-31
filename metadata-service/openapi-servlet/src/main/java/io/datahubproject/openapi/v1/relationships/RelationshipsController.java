@@ -41,6 +41,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/*
+ Use v2 or v3 controllers instead
+*/
+@Deprecated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/relationships/v1")

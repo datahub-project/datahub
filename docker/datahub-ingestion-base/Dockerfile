@@ -7,7 +7,7 @@ ARG GITHUB_REPO_URL=https://github.com
 ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
-FROM golang:1-alpine3.18 AS dockerize-binary
+FROM golang:1-alpine3.20 AS dockerize-binary
 
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
