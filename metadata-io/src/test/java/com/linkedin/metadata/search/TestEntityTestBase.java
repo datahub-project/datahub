@@ -70,7 +70,9 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(opContext);
+    syncAfterWrite(getBulkProcessor());
   }
 
   @Nonnull
