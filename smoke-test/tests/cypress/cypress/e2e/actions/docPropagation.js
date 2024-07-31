@@ -5,6 +5,7 @@ describe("docPropagation", () => {
     cy.login();
     cy.visit(
       "http://localhost:3000/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD)/Schema?is_lineage_mode=false&schemaFilter=",
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD)/Schema?is_lineage_mode=false&schemaFilter=",
     );
 
     // verify that the indicator exists in the table
