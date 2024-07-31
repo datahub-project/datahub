@@ -209,7 +209,9 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             status=status,
             startTimeMs=self.start_time_ms,
             durationMs=self.get_cur_time_in_ms() - self.start_time_ms,
-            report=summary,
+            # Truncate summary such that the generated MCP will not exceed GMS's payload limit.
+            # Hardcoding the overall size of dataHubExecutionRequestResult to >1MB by trimming summary to 800,000 chars
+            report=summary[-800000:],
             structuredReport=structured_report,
         )
 
