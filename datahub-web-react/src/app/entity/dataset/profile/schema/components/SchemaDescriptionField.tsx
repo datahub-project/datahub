@@ -195,29 +195,29 @@ export default function DescriptionField({
                 </>
             ) : (
                 <>
-                    {/* <StripMarkdownText
-                        limit={ABBREVIATED_LIMIT}
-                        // readMore={
-                        //     <>
-                        //         <Typography.Link
-                        //             onClick={(e) => {
-                        //                 e.stopPropagation();
-                        //                 handleExpanded(true);
-                        //             }}
-                        //         >
-                        //             Read More
-                        //         </Typography.Link>
-                        //     </>
-                        // }
-                        suffix={EditButton}
-                        shouldWrap
-                    > */}
                     <DescriptionWrapper>
                         {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
                         &nbsp;
-                        {description}
+                        <StripMarkdownText
+                            limit={ABBREVIATED_LIMIT}
+                            readMore={
+                                <>
+                                    <Typography.Link
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleExpanded(true);
+                                        }}
+                                    >
+                                        Read More
+                                    </Typography.Link>
+                                </>
+                            }
+                            suffix={EditButton}
+                            shouldWrap
+                        >
+                            {description}
+                        </StripMarkdownText>
                     </DescriptionWrapper>
-                    {/* </StripMarkdownText> */}
                 </>
             )}
             {isEdited && <EditedLabel>(edited)</EditedLabel>}
