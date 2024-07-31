@@ -1,7 +1,6 @@
 import { Button, Modal, message } from 'antd';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { PropertyRow } from '../types';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
 import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
@@ -33,15 +32,16 @@ export default function EditStructuredPropertyModal({
     refetch,
 }: Props) {
     const { refetch: entityRefetch } = useEntityContext();
-    const urn = associatedUrn || useMutationUrn();
-    const initialValues = values || [];
+    const mutationUrn = useMutationUrn();
+    const urn = associatedUrn || mutationUrn;
+    const initialValues = useMemo(() => values || [], [values]);
     const { selectedValues, selectSingleValue, toggleSelectedValue, updateSelectedValues, setSelectedValues } =
         useEditStructuredProperty(initialValues);
     const [upsertStructuredProperties] = useUpsertStructuredPropertiesMutation();
 
     useEffect(() => {
         setSelectedValues(initialValues);
-    }, [isOpen]);
+    }, [isOpen, initialValues, setSelectedValues]);
 
     function upsertProperties() {
         message.loading('Updating...');
