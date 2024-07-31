@@ -83,10 +83,9 @@ This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in respon
 - increasing tableau configuration [metadata query node limit](https://help.tableau.com/current/server/en-us/cli_configuration-set_tsm.htm#metadata_nodelimit) to higher value.
 
 ### `PERMISSIONS_MODE_SWITCHED` error in ingestion report 
-This error occurred if tableau site is using external assets. 
-For more detail refer tableau documentation [Manage Permissions for External Assets](https://help.tableau.com/current/online/en-us/dm_perms_assets.htm).
+This error occurs if the Tableau site is using external assets. For more detail, refer to the Tableau documentation [Manage Permissions for External Assets](https://help.tableau.com/current/online/en-us/dm_perms_assets.htm).
 
-Follow below steps to enable derived permissions:
+Follow the below steps to enable the derived permissions:
 
 1.  Sign in to Tableau Cloud or Tableau Server as an admin.
 2.  From the left navigation pane, click Settings.

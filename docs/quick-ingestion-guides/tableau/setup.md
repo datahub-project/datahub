@@ -51,9 +51,9 @@ In order to configure ingestion from Tableau, you'll first have to enable Tablea
    - Open a command prompt as an admin on the initial node (*where TSM is installed*) in the cluster
    - Run the command: `tsm maintenance metadata-services enable`
 
-3. **Enable Derived Permissions:** This step is required only when the site is using external assets. For more detail refer tableau documentation [Manage Permissions for External Assets](https://help.tableau.com/current/online/en-us/dm_perms_assets.htm).
+3. **Enable Derived Permissions:** This step is required only when the site is using external assets. For more detail, refer to the tableau documentation [Manage Permissions for External Assets](https://help.tableau.com/current/online/en-us/dm_perms_assets.htm).
 
-   Follow below steps to enable the derived permissions:
+   Follow the below steps to enable the derived permissions:
 
    -  Sign in to Tableau Cloud or Tableau Server as an admin.
    -  From the left navigation pane, click Settings.
