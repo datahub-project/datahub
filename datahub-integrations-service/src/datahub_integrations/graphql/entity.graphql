@@ -1,3 +1,4 @@
+
 fragment platformFields on DataPlatform {
   urn
   type
@@ -17,6 +18,137 @@ fragment platformFields on DataPlatform {
     logoUrl
   }
 }
+
+fragment entityDisplayNameFields on Entity {
+    urn
+    type
+    ... on Dataset {
+        name
+        properties {
+            name
+            qualifiedName
+        }
+    }
+    ... on CorpUser {
+        username
+        properties {
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+        info {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+    }
+    ... on CorpGroup {
+        name
+        info {
+            displayName
+        }
+    }
+    ... on Dashboard {
+        dashboardId
+        properties {
+            name
+        }
+    }
+    ... on Chart {
+        chartId
+        properties {
+            name
+        }
+    }
+    ... on DataFlow {
+        properties {
+            name
+        }
+    }
+    ... on DataJob {
+        jobId
+        properties {
+            name
+        }
+    }
+    ... on GlossaryTerm {
+        name
+        hierarchicalName
+        properties {
+            name
+        }
+    }
+    ... on GlossaryNode {
+        properties {
+            name
+            description
+        }
+    }
+    ... on Domain {
+        properties {
+            name
+        }
+    }
+    ... on Container {
+        properties {
+            name
+        }
+    }
+    ... on MLFeatureTable {
+        name
+    }
+    ... on MLFeature {
+        name
+    }
+    ... on MLPrimaryKey {
+        name
+    }
+    ... on MLModel {
+        name
+    }
+    ... on MLModelGroup {
+        name
+    }
+    ... on Tag {
+        name
+        properties {
+            name
+            colorHex
+        }
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+    ... on DataProduct {
+        properties {
+            name
+        }
+    }
+    ... on DataPlatformInstance {
+        instanceId
+    }
+}
+
+
+fragment deprecationFields on Deprecation {
+    actor
+    deprecated
+    note
+    decommissionTime
+    actorEntity {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+}
+
 
 fragment entityFields on Entity {
   urn
@@ -64,15 +196,6 @@ fragment entityFields on Entity {
       fullName
       email
     }
-    info {
-      active
-      displayName
-      title
-      firstName
-      lastName
-      fullName
-      email
-    }
     editableProperties {
       displayName
       title
@@ -81,10 +204,6 @@ fragment entityFields on Entity {
   }
   ... on CorpGroup {
     name
-    info {
-      displayName
-      description
-    }
   }
   ... on Dashboard {
     lastIngested
@@ -473,7 +592,6 @@ fragment entityFields on Entity {
     info {
       name
       description
-      type
     }
   }
 }
@@ -809,12 +927,6 @@ fragment nonConflictingPlatformFields on DataPlatform {
     logoUrl
   }
   displayName
-  info {
-    type
-    displayName
-    datasetNameDelimiter
-    logoUrl
-  }
 }
 
 fragment entityHealth on Health {

@@ -190,7 +190,7 @@ def oauth_callback(
     app = get_slack_app(new_config)
     app.client.chat_postMessage(
         channel=authed_user["id"],
-        text="Acryl has been connected to Slack!",
+        text="DataHub has been connected to Slack!",
         icon_url=ACRYL_SLACK_ICON_URL,
     )
 
@@ -273,7 +273,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     def handle_test_message(message: dict, say: Say) -> None:
         logger.info(message)
         say(
-            f'Hey <@{message["user"]}>, Acryl is available in this channel!',
+            f'Hey <@{message["user"]}>, DataHub is available in this channel!',
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
@@ -286,12 +286,16 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     def handle_app_mention_events(event: dict, say: Say) -> None:
         logger.info(event)
         say(
-            f'Hey <@{event["user"]}>! Acryl commands are coming soon!',
+            f'Hey <@{event["user"]}>! DataHub commands are coming soon!',
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
     @app.command(re.compile(r"^/acryl.*"))
     def handle_command_acryl(ack: Ack, respond: Respond, command: dict) -> None:
+        handle_command(app, graph, ack, respond, command)
+
+    @app.command(re.compile(r"^/datahub.*"))
+    def handle_command_datahub(ack: Ack, respond: Respond, command: dict) -> None:
         handle_command(app, graph, ack, respond, command)
 
     @app.action("view_details")
@@ -361,7 +365,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
                                     ),
                                     "text": value["name"],
                                 },
-                                {"type": "text", "text": " on Acryl DataHub:"},
+                                {"type": "text", "text": " on DataHub Cloud:"},
                             ],
                         }
                     ],
@@ -638,7 +642,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     def handle_shortcuts(ack: Ack, event: dict, say: Say) -> None:
         ack()
         say(
-            f'Hey <@{event["user"]}>! Acryl shortcut commands are coming soon!',
+            f'Hey <@{event["user"]}>! DataHub shortcut commands are coming soon!',
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
