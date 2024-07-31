@@ -9,6 +9,8 @@ import pyodata.v2.model
 import pyodata.v2.service
 from authlib.integrations.requests_client import OAuth2Session
 from pydantic import Field, SecretStr, validator
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -129,6 +131,11 @@ class SACSourceConfig(
     ingest_applications: bool = Field(
         default=True,
         description="Controls whether Analytic Applications should be ingested",
+    )
+
+    ingest_import_data_model_schema_metadata: bool = Field(
+        default=True,
+        description="Controls whether schema metadata of Import Data Models should be ingested (ingesting schema metadata of Import Data Models significantly increases overall ingestion time)",
     )
 
     resource_id_pattern: AllowDenyPattern = Field(
@@ -385,7 +392,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         yield mcp.as_workunit()
 
-        if model.is_import:
+        if model.is_import and self.config.ingest_import_data_model_schema_metadata:
             primary_fields: List[str] = []
             schema_fields: List[SchemaFieldClass] = []
 
@@ -545,6 +552,22 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             token_endpoint_auth_method="client_secret_post",
             grant_type="client_credentials",
         )
+
+        retries = 3
+        backoff_factor = 10
+        status_forcelist = (500,)
+
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=status_forcelist,
+        )
+
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
 
         session.register_compliance_hook(
             "protected_request", _add_sap_sac_custom_auth_header
