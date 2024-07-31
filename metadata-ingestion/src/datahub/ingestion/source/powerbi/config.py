@@ -440,6 +440,11 @@ class PowerBiDashboardSourceConfig(
     )
     profiling: PowerBiProfilingConfig = PowerBiProfilingConfig()
 
+    patch_metadata: bool = pydantic.Field(
+        default=True,
+        description="Patch dashboard metadata",
+    )
+
     @root_validator(skip_on_failure=True)
     def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
         flags = [
