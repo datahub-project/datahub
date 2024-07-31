@@ -2,7 +2,6 @@ package com.linkedin.metadata.systemmetadata;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.run.AspectRowSummary;
@@ -250,7 +249,6 @@ public class ElasticSearchSystemMetadataService
             Collections.emptyMap()));
   }
 
-  @VisibleForTesting
   @Override
   public void clear() {
     _esBulkProcessor.deleteByQuery(
