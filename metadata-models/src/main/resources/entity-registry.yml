@@ -45,6 +45,7 @@ entities:
       - access
       - structuredProperties
       - forms
+      - partitionsSummary
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -74,6 +75,7 @@ entities:
       - forms
       - subTypes
       - incidentsSummary
+      - testResults
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -95,12 +97,14 @@ entities:
       - incidentsSummary
       - forms
       - subTypes
+      - testResults
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
       - dataProcessInfo
       - ownership
       - status
+      - testResults
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -111,6 +115,7 @@ entities:
       - dataProcessInstanceRelationships
       - dataProcessInstanceRunEvent
       - status
+      - testResults
   - name: chart
     category: core
     keyAspect: chartKey
@@ -136,6 +141,7 @@ entities:
       - structuredProperties
       - incidentsSummary
       - forms
+      - testResults
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -159,6 +165,7 @@ entities:
       - structuredProperties
       - incidentsSummary
       - forms
+      - testResults
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -176,6 +183,7 @@ entities:
       - subTypes
       - dataPlatformInstance
       - browsePathsV2
+      - testResults
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -193,6 +201,7 @@ entities:
       - roleMembership
       - structuredProperties
       - forms
+      - testResults
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -206,6 +215,7 @@ entities:
       - roleMembership
       - structuredProperties
       - forms
+      - testResults
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -216,6 +226,7 @@ entities:
       - ownership
       - structuredProperties
       - forms
+      - testResults
   - name: container
     doc: A container of related data assets.
     category: core
@@ -236,6 +247,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
   - name: tag
     category: core
     keyAspect: tagKey
@@ -244,6 +256,7 @@ entities:
       - ownership
       - deprecation
       - status
+      - testResults
   - name: glossaryTerm
     category: core
     keyAspect: glossaryTermKey
@@ -259,6 +272,7 @@ entities:
       - browsePaths
       - structuredProperties
       - forms
+      - testResults
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -269,6 +283,7 @@ entities:
       - status
       - structuredProperties
       - forms
+      - testResults
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -340,6 +355,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -357,6 +373,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -367,6 +384,7 @@ entities:
       - deprecation
       - globalTags
       - dataPlatformInstance
+      - testResults
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -385,6 +403,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -403,6 +422,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -419,6 +439,7 @@ entities:
       - dataPlatformInstance
       - structuredProperties
       - forms
+      - testResults
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -454,6 +475,8 @@ entities:
       - structuredProperties
       - forms
       - businessAttributes
+      - documentation
+      - testResults
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -521,6 +544,7 @@ entities:
       - status
       - structuredProperties
       - forms
+      - testResults
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
@@ -548,6 +572,10 @@ entities:
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
+  - name: dataHubAction
+    category: internal
+    keyAspect: dataHubActionKey
+    aspects: []
   - name: entityType
     doc: A type of entity in the DataHub Metadata Model.
     category: core

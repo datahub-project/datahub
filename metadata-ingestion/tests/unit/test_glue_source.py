@@ -13,7 +13,11 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
-from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
+from datahub.ingestion.source.aws.glue import (
+    GlueProfilingConfig,
+    GlueSource,
+    GlueSourceConfig,
+)
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -38,6 +42,7 @@ from tests.unit.test_glue_source_stubs import (
     get_databases_delta_response,
     get_databases_response,
     get_databases_response_for_lineage,
+    get_databases_response_profiling,
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
@@ -54,9 +59,11 @@ from tests.unit.test_glue_source_stubs import (
     get_tables_response_1,
     get_tables_response_2,
     get_tables_response_for_target_database,
+    get_tables_response_profiling_1,
     resource_link_database,
     tables_1,
     tables_2,
+    tables_profiling_1,
     target_database_tables,
 )
 
@@ -89,6 +96,42 @@ def glue_source(
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
             emit_s3_lineage=emit_s3_lineage,
             include_column_lineage=include_column_lineage,
+        ),
+    )
+
+
+def glue_source_with_profiling(
+    platform_instance: Optional[str] = None,
+    use_s3_bucket_tags: bool = False,
+    use_s3_object_tags: bool = False,
+    extract_delta_schema_from_parameters: bool = False,
+) -> GlueSource:
+    profiling_config = GlueProfilingConfig(
+        enabled=True,
+        profile_table_level_only=False,
+        row_count="row_count",
+        column_count="column_count",
+        unique_count="unique_count",
+        unique_proportion="unique_proportion",
+        null_count="null_count",
+        null_proportion="null_proportion",
+        min="min",
+        max="max",
+        mean="mean",
+        median="median",
+        stdev="stdev",
+    )
+
+    return GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=False,
+            platform_instance=platform_instance,
+            use_s3_bucket_tags=use_s3_bucket_tags,
+            use_s3_object_tags=use_s3_object_tags,
+            extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
+            profiling=profiling_config,
         ),
     )
 
@@ -630,6 +673,44 @@ def test_glue_ingest_include_column_lineage(
         )
 
         mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+        glue_stubber.assert_no_pending_responses()
+
+        write_metadata_file(tmp_path / mce_file, mce_objects)
+
+    # Verify the output.
+    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_file,
+        golden_path=test_resources_dir / mce_golden_file,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_glue_ingest_with_profiling(
+    tmp_path: Path,
+    pytestconfig: PytestConfig,
+) -> None:
+    glue_source_instance = glue_source_with_profiling()
+    mce_file = "glue_mces.json"
+    mce_golden_file = "glue_mces_golden_profiling.json"
+    with Stubber(glue_source_instance.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_databases_response_profiling, {})
+
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_profiling_1,
+            {"DatabaseName": "flights-database-profiling"},
+        )
+
+        glue_stubber.add_response(
+            "get_table",
+            {"Table": tables_profiling_1[0]},
+            {"DatabaseName": "flights-database-profiling", "Name": "avro-profiling"},
+        )
+
+        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+
         glue_stubber.assert_no_pending_responses()
 
         write_metadata_file(tmp_path / mce_file, mce_objects)

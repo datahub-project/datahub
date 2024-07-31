@@ -37,6 +37,7 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v3.models.GenericAspectV3;
 import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
 import io.datahubproject.openapi.v3.models.GenericEntityV3;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -67,6 +68,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/v3/entity")
 @Slf4j
+@Hidden
 public class EntityController
     extends GenericEntitiesController<
         GenericAspectV3, GenericEntityV3, GenericEntityScrollResultV3> {
