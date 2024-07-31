@@ -1,10 +1,17 @@
 import pytest
-
+import requests
 from tests.test_result_msg import add_datahub_stats
 from tests.utils import get_frontend_session, get_frontend_url
+from tests.utils import get_gms_url
+
+BASE_URL_V3 = f"{get_gms_url()}/openapi/v3"
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
+}
+
+default_headers = {
+    "Content-Type": "application/json",
 }
 
 ENTITY_TO_MAP = {
@@ -25,7 +32,6 @@ ENTITY_TO_MAP = {
     "glossaryNode": "GLOSSARY_NODE",
     "mlModel": "MLMODEL",
 }
-
 
 def _get_search_result(frontend_session, entity: str):
     json = {
@@ -86,6 +92,7 @@ def _get_search_result(frontend_session, entity: str):
         ("mlModel", "mlModel"),
     ],
 )
+
 def test_search_works(entity_type, api_name):
     frontend_session = get_frontend_session()
     search_result = _get_search_result(frontend_session, entity_type)
@@ -112,8 +119,31 @@ def test_search_works(entity_type, api_name):
         """,
         "variables": {"input": first_urn},
     }
+
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
     assert res_data["data"], f"res_data was {res_data}"
     assert res_data["data"][api_name]["urn"] == first_urn, f"res_data was {res_data}"
+    
+    print(f"Response entity_type {entity_type}")
+    print(f"Response first_urn {first_urn}")
+
+    if not entity_type or not first_urn:
+        pytest.skip("No dynamic data available")
+
+    # Fetch actual data from the OpenAPI v3 endpoint
+    session = requests.Session()
+    url = f"{BASE_URL_V3}/entity/{entity_type}/{first_urn}"
+    response = session.get(url, headers=default_headers)
+    response.raise_for_status()
+    actual_data = response.json()
+    print(f"Entity Data for URN {first_urn}: {actual_data}")
+
+    # Simulated expected data, ideally this should be obtained from a reliable source
+    expected_data = {
+        "urn": first_urn
+    }
+
+    # Validate that the data from OpenAPI matches the expected data
+    assert actual_data["urn"] == expected_data["urn"], f"Mismatch: expected {expected_data}, got {actual_data}"
