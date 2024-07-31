@@ -33,7 +33,7 @@ avro==1.11.3
 avro-gen3==0.7.13
 azure-common==1.1.28
 azure-core==1.29.4
-azure-identity==1.14.1
+azure-identity==1.16.1
 azure-storage-blob==12.21.0
 azure-storage-file-datalake==12.16.0
 Babel==2.15.0
