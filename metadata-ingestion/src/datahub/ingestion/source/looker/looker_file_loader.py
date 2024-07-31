@@ -62,9 +62,9 @@ class LookerViewFileLoader:
         except Exception as e:
             self.reporter.failure(
                 title="LKML File Loading Error",
-                message=f"Failed to read lkml file {path}",
+                message="A lookml file is not present on local storage or GitHub",
+                context=f"file path: ${path}",
                 exc=e,
-                log=True,
             )
             self.viewfile_cache[path] = None
             return None
@@ -93,9 +93,9 @@ class LookerViewFileLoader:
         except Exception as e:
             self.reporter.failure(
                 title="LKML File Parsing Error",
-                message=f"Failed to parse lookml file {path}",
+                message="The input file is not lookml file",
+                context=f"file path: {path}",
                 exc=e,
-                log=True,
             )
 
             logger.debug(f"Raw file content for path {path}")
@@ -103,6 +103,7 @@ class LookerViewFileLoader:
             logger.debug(raw_file_content)
 
             self.viewfile_cache[path] = None
+
             return None
 
     def load_viewfile(
