@@ -5,16 +5,19 @@ from typing import Dict, Optional, Union, cast, Iterable
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mcp import _try_from_generic_aspect
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
+    EditableSchemaMetadataClass,
+    GlobalTagsClass,
     GlossaryTermAssociationClass,
+    GlossaryTermsClass,
     MetadataChangeLogClass,
     MetadataChangeProposalClass,
     TagAssociationClass,
 )
 from datahub.specific.dataset import FieldPatchHelper, DatasetPatchBuilder
 from pydantic import BaseModel
-import jsonpatch
 
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -39,17 +42,17 @@ class ForwardingActionConfig(BaseModel):
 
 
 def create_schema_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataChangeProposalClass], None]:
-    new_schema_infos = new_obj.get("editableSchemaFieldInfo")
-    old_schema_infos = old_obj.get("editableSchemaFieldInfo")
-    new_fields_map = {field["fieldPath"]: {"tags": set(tag["tag"] for tag in field["globalTags"]["tags"]
-                                                       or []), "terms": set(term["urn"] for term in
-                                                                            field["glossaryTerms"]
-                                                                            ["terms"] or [])}
+    new_schema_obj = _try_from_generic_aspect("glossaryTerms", new_obj)
+    old_schema_obj = _try_from_generic_aspect("glossaryTerms", old_obj)
+    assert isinstance(new_schema_obj, EditableSchemaMetadataClass)
+    assert isinstance(old_schema_obj, EditableSchemaMetadataClass)
+    new_schema_infos = new_schema_obj.editableSchemaFieldInfo()
+    old_schema_infos = old_schema_obj.editableSchemaFieldInfo()
+    new_fields_map = {field.fieldPath(): {"tags": set(tag.tag() for tag in field.globalTags().tags() or []),
+                                          "terms": set(term.urn() for term in field.glossaryTerms().terms() or [])}
                       for field in new_schema_infos or []}
-    old_fields_map = {field["fieldPath"]: {"tags": set(tag["tag"] for tag in field["globalTags"]["tags"]
-                                                       or []), "terms": set(term["urn"] for term in
-                                                                            field["glossaryTerms"]
-                                                                            ["terms"] or [])}
+    old_fields_map = {field.fieldPath(): {"tags": set(tag.tag() for tag in field.globalTags().tags() or []),
+                                          "terms": set(term.urn() for term in field.glossaryTerms().terms() or [])}
                       for field in old_schema_infos or []}
     items_to_add = {}
     items_to_remove = {}
@@ -112,11 +115,15 @@ def create_schema_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataCh
 
 
 def create_terms_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataChangeProposalClass], None]:
-    new_glossary_terms_assc = new_obj.get("terms")
-    old_glossary_terms_assc = old_obj.get("terms")
+    new_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", new_obj)
+    old_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", old_obj)
+    assert isinstance(new_glossary_term_obj, GlossaryTermsClass)
+    assert isinstance(old_glossary_term_obj, GlossaryTermsClass)
+    new_glossary_terms_assc = new_glossary_term_obj.terms()
+    old_glossary_terms_assc = old_glossary_term_obj.terms()
 
-    new_glossary_terms = list(term["urn"] for term in new_glossary_terms_assc or [])
-    old_glossary_terms = list(term["urn"] for term in old_glossary_terms_assc or [])
+    new_glossary_terms = list(term.urn() for term in new_glossary_terms_assc or [])
+    old_glossary_terms = list(term.urn() for term in old_glossary_terms_assc or [])
 
     terms_to_add = set()
     terms_to_remove = set()
@@ -144,11 +151,15 @@ def create_terms_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataCha
 
 
 def create_tags_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataChangeProposalClass], None]:
-    new_tags_assc = new_obj.get("tags")
-    old_tags_assc = old_obj.get("tags")
+    new_tags_obj = _try_from_generic_aspect("globalTags", new_obj)
+    old_tags_obj = _try_from_generic_aspect("globalTags", old_obj)
+    assert isinstance(new_tags_obj, GlobalTagsClass)
+    assert isinstance(old_tags_obj, GlobalTagsClass)
+    new_tags_assc = new_tags_obj.tags()
+    old_tags_assc = old_tags_obj.tags()
 
-    new_tags = list(term["tag"] for term in new_tags_assc or [])
-    old_tags = list(term["tag"] for term in old_tags_assc or [])
+    new_tags = list(tag.tag() for tag in new_tags_assc or [])
+    old_tags = list(tag.tag() for tag in old_tags_assc or [])
 
     tags_to_add = set()
     tags_to_remove = set()
@@ -249,11 +260,8 @@ class ForwardingAction(Action):
 
             mcp = []
             if orig_event.get("aspectName") in self.SUPPORTED_PATCH_ASPECTS:
-                serialized = orig_event.get("aspect").value.decode()
-                new_obj = post_json_transform(json.loads(serialized))
-                serialized = orig_event.get("aspect").value.decode()
-                old_obj = post_json_transform(json.loads(serialized))
-                patch = jsonpatch.make_patch(src=old_obj, dst=new_obj)
+                new_obj = orig_event.get("aspect")
+                old_obj = orig_event.get("previousAspectValue")
                 if orig_event.get("aspectName") == "editableSchemaMetadata":
                     mcp = create_schema_mcp(old_obj, new_obj, orig_event)
                 elif orig_event.get("aspectName") == "globalTags":
