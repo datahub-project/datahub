@@ -713,18 +713,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                             data_reader,
                         )
                     except Exception as e:
-                        self.warn(
-                            logger,
-                            f"{schema}.{table}",
-                            f"Ingestion error: {e}",
+                        self.report.warning(
+                            "Error processing table",
+                            context=f"{schema}.{table}",
+                            exc=e,
                         )
-                        logger.debug(
-                            f"Error processing table {schema}.{table}: Error was: {e} Traceback:",
-                            exc_info=e,
-                        )
-
             except Exception as e:
-                self.error(logger, f"{schema}", f"Tables error: {e}")
+                self.report.failure(
+                    "Error processing tables",
+                    context=schema,
+                    exc=e,
+                )
 
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
         pass
@@ -1047,13 +1046,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         sql_config=sql_config,
                     )
                 except Exception as e:
-                    self.warn(
-                        logger,
-                        f"{schema}.{view}",
-                        f"Ingestion error: {e} {traceback.format_exc()}",
+                    self.report.warning(
+                        "Error processing view",
+                        context=f"{schema}.{view}",
+                        exc=e,
                     )
         except Exception as e:
-            self.error(logger, f"{schema}", f"Views error: {e}")
+            self.report.failure(
+                "Error processing views",
+                context=schema,
+                exc=e,
+            )
 
     def _process_view(
         self,
