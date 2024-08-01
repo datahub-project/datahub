@@ -1,11 +1,11 @@
 import json
 import logging
-from typing import Dict, Optional, Union, cast, Iterable
+from typing import Iterable, Optional, Union, cast
 
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mce_builder import make_tag_urn
-from datahub.emitter.mcp import _try_from_generic_aspect
+from datahub.emitter.mcp import _try_from_generic_aspect, _make_generic_aspect
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     EditableSchemaMetadataClass,
@@ -16,13 +16,12 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     TagAssociationClass,
 )
-from datahub.specific.dataset import FieldPatchHelper, DatasetPatchBuilder
-from pydantic import BaseModel
-
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
 from datahub_actions.pipeline.pipeline_context import PipelineContext
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -41,19 +40,60 @@ class ForwardingActionConfig(BaseModel):
     mcp_topic: Optional[str]
 
 
-def create_schema_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataChangeProposalClass], None]:
-    new_schema_obj = _try_from_generic_aspect("glossaryTerms", new_obj)
-    old_schema_obj = _try_from_generic_aspect("glossaryTerms", old_obj)
-    assert isinstance(new_schema_obj, EditableSchemaMetadataClass)
-    assert isinstance(old_schema_obj, EditableSchemaMetadataClass)
-    new_schema_infos = new_schema_obj.editableSchemaFieldInfo()
-    old_schema_infos = old_schema_obj.editableSchemaFieldInfo()
-    new_fields_map = {field.fieldPath(): {"tags": set(tag.tag() for tag in field.globalTags().tags() or []),
-                                          "terms": set(term.urn() for term in field.glossaryTerms().terms() or [])}
-                      for field in new_schema_infos or []}
-    old_fields_map = {field.fieldPath(): {"tags": set(tag.tag() for tag in field.globalTags().tags() or []),
-                                          "terms": set(term.urn() for term in field.glossaryTerms().terms() or [])}
-                      for field in old_schema_infos or []}
+def create_schema_mcp(
+    old_obj, new_obj, orig_event
+) -> Union[Iterable[MetadataChangeProposalClass], None]:
+    new_schema_obj = _try_from_generic_aspect("editableSchemaMetadata", new_obj)[1]
+    old_schema_obj = _try_from_generic_aspect("editableSchemaMetadata", old_obj)[1]
+
+    new_schema_infos = new_schema_obj.editableSchemaFieldInfo if (new_schema_obj
+                                                                  and new_schema_obj.editableSchemaFieldInfo) \
+        else []
+    old_schema_infos = old_schema_obj.editableSchemaFieldInfo if (old_schema_obj
+                                                                  and old_schema_obj.editableSchemaFieldInfo) \
+        else []
+    new_fields_map = {
+        field.fieldPath: {
+            "tags": set(
+                tag.tag
+                for tag in (
+                    field.globalTags.tags
+                    if field.globalTags and field.globalTags.tags
+                    else []
+                )
+            ),
+            "terms": set(
+                term.urn
+                for term in (
+                    field.glossaryTerms.terms
+                    if field.glossaryTerms and field.glossaryTerms.terms
+                    else []
+                )
+            ),
+        }
+        for field in new_schema_infos or []
+    }
+    old_fields_map = {
+        field.fieldPath: {
+            "tags": set(
+                tag.tag
+                for tag in (
+                    field.globalTags.tags
+                    if field.globalTags and field.globalTags.tags
+                    else []
+                )
+            ),
+            "terms": set(
+                term.urn
+                for term in (
+                    field.glossaryTerms.terms
+                    if field.glossaryTerms and field.glossaryTerms.terms
+                    else []
+                )
+            ),
+        }
+        for field in old_schema_infos or []
+    }
     items_to_add = {}
     items_to_remove = {}
     # detect adds by not in old obj -> in new obj
@@ -70,8 +110,7 @@ def create_schema_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataCh
             for new_term in new_fields_map[new_field]["terms"]:
                 if new_term not in old_fields_map[new_field]["terms"]:
                     add_terms.add(new_term)
-        items_to_add[new_field]["tags"] = add_tags
-        items_to_add[new_field]["terms"] = add_terms
+        items_to_add[new_field] = {"tags": add_tags, "terms": add_terms}
     # detect removes by not in new obj -> in old obj
     for old_field in old_fields_map or []:
         remove_tags = set()
@@ -86,8 +125,7 @@ def create_schema_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataCh
             for old_term in old_fields_map[old_field]["terms"]:
                 if old_term not in new_fields_map[old_field]["terms"]:
                     remove_terms.add(old_term)
-        items_to_remove[old_field]["tags"] = remove_tags
-        items_to_remove[old_field]["terms"] = remove_terms
+        items_to_remove[old_field] = {"tags": remove_tags, "terms": remove_terms}
     dataset = DatasetPatchBuilder(urn=orig_event.get("entityUrn"))
     for field in items_to_add:
         field_builder = dataset.for_field(field_path=field)
@@ -98,89 +136,83 @@ def create_schema_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataCh
                 )
             )
         for tag in items_to_add[field]["tags"]:
-            field_builder.add_tag(
-                TagAssociationClass(tag=make_tag_urn(tag))
-            )
+            field_builder.add_tag(TagAssociationClass(tag=make_tag_urn(tag)))
     for field in items_to_remove:
         field_builder = dataset.for_field(field_path=field)
         for term in items_to_remove[field]["terms"]:
             field_builder.remove_term(
-                    term,
+                term,
             )
         for tag in items_to_remove[field]["tags"]:
-            field_builder.remove_tag(
-                make_tag_urn(tag)
-            )
+            field_builder.remove_tag(make_tag_urn(tag))
     return dataset.build()
 
 
-def create_terms_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataChangeProposalClass], None]:
-    new_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", new_obj)
-    old_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", old_obj)
-    assert isinstance(new_glossary_term_obj, GlossaryTermsClass)
-    assert isinstance(old_glossary_term_obj, GlossaryTermsClass)
-    new_glossary_terms_assc = new_glossary_term_obj.terms()
-    old_glossary_terms_assc = old_glossary_term_obj.terms()
+def create_terms_mcp(
+    old_obj, new_obj, orig_event
+) -> Union[Iterable[MetadataChangeProposalClass], None]:
+    new_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", new_obj)[1]
+    old_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", old_obj)[1]
 
-    new_glossary_terms = list(term.urn() for term in new_glossary_terms_assc or [])
-    old_glossary_terms = list(term.urn() for term in old_glossary_terms_assc or [])
+    new_glossary_terms_assc = new_glossary_term_obj.terms if new_glossary_term_obj and new_glossary_term_obj.terms \
+        else []
+    old_glossary_terms_assc = old_glossary_term_obj.terms if old_glossary_term_obj and old_glossary_term_obj.terms \
+        else []
+
+    new_glossary_terms = list(term.urn for term in new_glossary_terms_assc or [])
+    old_glossary_terms = list(term.urn for term in old_glossary_terms_assc or [])
 
     terms_to_add = set()
     terms_to_remove = set()
     # detect adds by not in old obj -> in new obj
     for new_term in new_glossary_terms or []:
         if new_term not in old_glossary_terms:
-            terms_to_add.update(new_term)
+            terms_to_add.add(new_term)
     # detect removes by not in new obj -> in old obj
     for old_term in old_glossary_terms or []:
         if old_term not in new_glossary_terms:
-            terms_to_remove.update(old_term)
+            terms_to_remove.add(old_term)
     # we use dataset patch builder, but it does a guess type on the entity type regardless of patch builder type
     patch_builder = DatasetPatchBuilder(urn=orig_event.get("entityUrn"))
     for term in terms_to_add:
         patch_builder.add_term(
             GlossaryTermAssociationClass(
-                term,
+                urn=term,
             )
         )
     for term in terms_to_remove:
-        patch_builder.remove_term(
-            term
-        )
+        patch_builder.remove_term(term)
     return patch_builder.build()
 
 
-def create_tags_mcp(old_obj, new_obj, orig_event) -> Union[Iterable[MetadataChangeProposalClass], None]:
-    new_tags_obj = _try_from_generic_aspect("globalTags", new_obj)
-    old_tags_obj = _try_from_generic_aspect("globalTags", old_obj)
-    assert isinstance(new_tags_obj, GlobalTagsClass)
-    assert isinstance(old_tags_obj, GlobalTagsClass)
-    new_tags_assc = new_tags_obj.tags()
-    old_tags_assc = old_tags_obj.tags()
+def create_tags_mcp(
+    old_obj, new_obj, orig_event
+) -> Union[Iterable[MetadataChangeProposalClass], None]:
+    new_tags_obj = _try_from_generic_aspect("globalTags", new_obj)[1]
+    old_tags_obj = _try_from_generic_aspect("globalTags", old_obj)[1]
 
-    new_tags = list(tag.tag() for tag in new_tags_assc or [])
-    old_tags = list(tag.tag() for tag in old_tags_assc or [])
+    new_tags_assc = new_tags_obj.tags if new_tags_obj and new_tags_obj.tags else []
+    old_tags_assc = old_tags_obj.tags if old_tags_obj and old_tags_obj.tags else []
+
+    new_tags = list(tag.tag for tag in new_tags_assc or [])
+    old_tags = list(tag.tag for tag in old_tags_assc or [])
 
     tags_to_add = set()
     tags_to_remove = set()
     # detect adds by not in old obj -> in new obj
     for new_tag in new_tags or []:
         if new_tag not in old_tags:
-            tags_to_add.update(new_tag)
+            tags_to_add.add(new_tag)
     # detect removes by not in new obj -> in old obj
     for old_tag in old_tags or []:
         if old_tag not in new_tags:
-            tags_to_remove.update(old_tag)
+            tags_to_remove.add(old_tag)
     # we use dataset patch builder, but it does a guess type on the entity type regardless of patch builder type
     patch_builder = DatasetPatchBuilder(urn=orig_event.get("entityUrn"))
     for tag in tags_to_add:
-        patch_builder.add_tag(
-            TagAssociationClass(tag=make_tag_urn(tag))
-        )
+        patch_builder.add_tag(TagAssociationClass(tag=make_tag_urn(tag)))
     for tag in tags_to_remove:
-        patch_builder.remove_tag(
-            tag
-        )
+        patch_builder.remove_tag(tag)
     return patch_builder.build()
 
 
@@ -201,7 +233,7 @@ class ForwardingAction(Action):
     def __init__(self, config: ForwardingActionConfig, ctx: PipelineContext):
         self.config = config
         assert isinstance(self.config.kafka_server, str)
-        self.rest_emitter = DatahubKafkaEmitter(
+        self.kafka_emitter = DatahubKafkaEmitter(
             config=KafkaEmitterConfig(
                 connection=KafkaProducerConnectionConfig(
                     bootstrap=self.config.kafka_server,
@@ -212,18 +244,18 @@ class ForwardingAction(Action):
                         "ssl.certificate.location": self.config.ssl_cert_location,
                         "ssl.key.location": self.config.ssl_key_location,
                         "ssl.key.password": self.config.ssl_key_password,
-                        "group.id": self.config.group_id
+                        "group.id": self.config.group_id,
                     },
                     schema_registry_config={
                         "ssl.ca.location": self.config.schema_registry_ca_location,
                         "ssl.certificate.location": self.config.schema_registry_cert_location,
-                        "ssl.key.location": self.config.schema_registry_key_location
-                    }
+                        "ssl.key.location": self.config.schema_registry_key_location,
+                    },
                 ),
                 topic_routes={
                     "MetadataChangeEvent": self.config.mcp_topic,
-                    "MetadataChangeProposal": self.config.mcp_topic
-                }
+                    "MetadataChangeProposal": self.config.mcp_topic,
+                },
             )
         )
 
@@ -236,8 +268,10 @@ class ForwardingAction(Action):
         if event.event_type is METADATA_CHANGE_LOG_EVENT_V1_TYPE:
             orig_event = cast(MetadataChangeLogClass, event.event)
             logger.debug(f"received orig_event {orig_event}")
-            if (orig_event.systemMetadata.properties.get("appSource") == "metadataTests"
-                    or orig_event.aspectName == "testResults"):
+            if (
+                orig_event.systemMetadata.properties.get("appSource") == "metadataTests"
+                or orig_event.aspectName == "testResults"
+            ):
                 mcps = self.buildMcp(orig_event)
                 if mcps is not None:
                     for mcp in mcps:
@@ -245,18 +279,19 @@ class ForwardingAction(Action):
                         self.emit(mcp)
 
     def buildMcp(
-            self, orig_event: MetadataChangeLogClass
+        self, orig_event: MetadataChangeLogClass
     ) -> Union[Iterable[MetadataChangeProposalClass], None]:
         try:
             if orig_event.aspectName == "testResults":
-                serialized = orig_event.get("aspect").value.decode()
-                obj = post_json_transform(json.loads(serialized))
-                for failingObj in obj.get("failing") or []:
-                    failingObj.remove("testDefinitionMd5")
-                    failingObj.remove("lastComputed")
-                for passingObj in obj.get("passing") or []:
-                    passingObj.remove("testDefinitionMd5")
-                    passingObj.remove("lastComputed")
+                test_results = _try_from_generic_aspect("testResults", orig_event.aspect)[1]
+                for failingObj in test_results.failing or []:
+                    failingObj._inner_dict.pop("testDefinitionMd5", None)
+                    failingObj._inner_dict.pop("lastComputed", None)
+
+                for passingObj in test_results.passing or []:
+                    passingObj._inner_dict.pop("testDefinitionMd5", None)
+                    passingObj._inner_dict.pop("lastComputed", None)
+                orig_event.aspect = _make_generic_aspect(test_results)
 
             mcp = []
             if orig_event.get("aspectName") in self.SUPPORTED_PATCH_ASPECTS:
@@ -269,14 +304,16 @@ class ForwardingAction(Action):
                 elif orig_event.get("aspectName") == "glossaryTerms":
                     mcp = create_terms_mcp(old_obj, new_obj, orig_event)
             else:
-                mcp = list(MetadataChangeProposalClass(
-                    entityType=orig_event.get("entityType"),
-                    changeType=orig_event.get("changeType"),
-                    entityUrn=orig_event.get("entityUrn"),
-                    entityKeyAspect=orig_event.get("entityKeyAspect"),
-                    aspectName=orig_event.get("aspectName"),
-                    aspect=orig_event.get("aspect"),
-                ))
+                mcp = [
+                    MetadataChangeProposalClass(
+                        entityType=orig_event.get("entityType"),
+                        changeType=orig_event.get("changeType"),
+                        entityUrn=orig_event.get("entityUrn"),
+                        entityKeyAspect=orig_event.get("entityKeyAspect"),
+                        aspectName=orig_event.get("aspectName"),
+                        aspect=orig_event.get("aspect"),
+                    )
+                ]
             return mcp
         except Exception as ex:
             logger.error(
@@ -288,8 +325,6 @@ class ForwardingAction(Action):
     def emit(self, mcp: MetadataChangeProposalClass) -> None:
         # Create an emitter to DataHub over REST
         try:
-            # For unit test purpose, moving test_connection from initialization to here
-            # if rest_emitter.server_config is empty, that means test_connection() has not been called before
             logger.info(
                 f"emitting the mcp: entityType {mcp.entityType}, changeType {mcp.changeType}, urn {mcp.entityUrn}, "
                 f"aspect name {mcp.aspectName}"

@@ -334,6 +334,10 @@ metadataTests:
     enabled: ${METADATA_TESTS_BOOTSTRAP_ENABLED:false}
   elasticSearchExecutor:
     enabled: ${METADATA_TESTS_ELASTICSEARCH_EXECUTOR_ENABLED:true} # Will try to execute test queries through Elastic if query is supported by searchable fields
+  # SAAS Only
+  forwardingAction:
+    enabled: ${METADATA_TESTS_FORWARDING_ACTION_ENABLED:false} # Forwarding integration-service action to target instance for Metadata Test Results and Actions, enables bootstrapping of action request
+    recipe: ${METADATA_TESTS_FORWARDING_ACTION_RECIPE:{"name":"Forwarding Action","source":{"type":"datahub-kafka","config":{"connection":{"bootstrap":"bootstrap-url","schema_registry_url":"schema-registry-url","producer_config":{"security.protocol":"ssl","ssl.ca.location":"cert_ca.crt","ssl.certificate.location":"cert.pem","ssl.key.location":"key.pem","ssl.key.password":"keystore_password","group.id":"group-id"},"schema_registry_config":{"ssl.ca.location":"cert_ca.crt","ssl.certificate.location":"cert.pem","ssl.key.location":"key.pem"}},"topic_routes":{"MetadataChangeEvent":"MetadataChangeProposal_v1","MetadataChangeProposal":"MetadataChangeProposal_v1"}}},"filter":{"event_type":"EntityChangeEvent_v1"},"action":{"type":"datahub_integrations.actions.forward.forwarding_action.ForwardingAction","config":{"kafka_server":"server-name","schema_registry_url":"registry-url","ssl_ca_location":"/mnt/ca_cert.crt","ssl_cert_location":"/mnt/cert.pem","ssl_key_location":"/mnt/key.pem","ssl_key_password":"password","group_id":"group-id","schema_registry_ca_location":"/mnt/cert_ca.crt","schema_registry_key_location":"/mnt/key.pem","mcp_topic":"MetadataChangeProposal_v1"}}}} # JSON String representing the recipe config
 
 # Notifications config
 notifications:
