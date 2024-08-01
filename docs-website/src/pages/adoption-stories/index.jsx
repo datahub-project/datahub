@@ -5,7 +5,7 @@ import Layout from "@theme/Layout";
 import LearnItemCard from "./_components/LearnItemCard";
 import styles from "./styles.module.scss";
 
-import customerStoriesIndexes from "../../../customerStoriesIndexes.json";
+import customerStoriesIndexes from "../../../adoptionStoriesIndexes.json";
 
 function AdoptionStoriesListPageContent() {
   const companies = (customerStoriesIndexes?.companies || []).filter((company) => company.link);
@@ -31,9 +31,9 @@ function AdoptionStoriesListPageContent() {
           <div className="hero__content">
             <div>
               <h1 className="hero__title">DataHub Adoption Stories</h1>
-              <p className="hero__subtitle">Meet the DataHub users who have shared their stories with us.
+              <p className="hero__subtitle">Learn how the best data and AI teams are using DataHub
               <br />
-              Check our more stories on <a href="https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi" style={{ color: "black" }}>DataHub Youtube</a>.
+              Check out more stories on the <a href="https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi" style={{ color: "black" }}>DataHub Youtube</a>.
               </p>
             </div>
           </div>

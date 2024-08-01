@@ -7,7 +7,7 @@ import "swiper/css";
 import "swiper/css/pagination";
 import { Pagination } from "swiper/modules";
 import styles from "./logos.module.scss";
-const companyIndexes = require("../../../../customerStoriesIndexes.json");
+const companyIndexes = require("../../../../adoptionStoriesIndexes.json");
 const companies = companyIndexes.companies;
 
 

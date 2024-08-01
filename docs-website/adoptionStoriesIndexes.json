@@ -19,8 +19,19 @@
       "link": "https://blog.datahubproject.io/how-visa-uses-datahub-to-scale-data-governance-cace052d61c5",
       "linkType": "blog",
       "tagline": "How Visa uses DataHub to scale data governance",
-      "category": "B2B & B2C",
+      "category": "Financial & Fintech",
       "description": "<i>\"We found DataHub to provide excellent coverage for our needs. What we appreciate most about DataHub is <b>its powerful API platform.</b>\"<br /><br /><div style='color: gray;'>— Jean-Pierre Dijcks, Sr. Dir. Product Management at VISA</div></i><br />"
+    },
+    {
+      "name": "Optum",
+      "slug": "optum",
+      "imageUrl": "/img/logos/companies/optum.jpg",
+      "imageSize": "medium",
+      "link": "https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub",
+      "linkType": "blog",
+      "tagline": "Data Mesh via DataHub",
+      "category": "And More",
+      "description": "<i>“DataHub’s event driven architecture provides us a mechanism to act on any metadata changes in real time. This allows us to perform various actions like provisioning access to a data product, notifying consumers on any schema changes that may affect their application or triggering data movement jobs to move data from source to sink platforms.”</i>"
     },
     {
       "name": "MediaMarkt Saturn",
@@ -56,15 +67,15 @@
       "description": "<i>“DataHub aligns with our needs [for] data documentation, a unified search experience, lineage information, and additional metadata. We are also very impressed with the vibrant and supportive community.”</i>"
     },
     {
-      "name": "Wolt",
-      "slug": "wolt",
-      "imageUrl": "/img/logos/companies/wolt.png",
+      "name": "Pinterest",
+      "slug": "pinterest",
+      "imageUrl": "/img/logos/companies/pinterest.png",
       "imageSize": "default",
-      "link": "https://blog.datahubproject.io/humans-of-datahub-fredrik-sannholm-d673b1877f2b",
+      "link": "https://www.youtube.com/watch?v=YoxTg8tQSwg&feature=youtu.be",
       "linkType": "blog",
-      "tagline": "Wolt's DataHub Integration",
-      "category": "E-Commerce",
-      "description": "<i>“[DataHub] has made our legal team very happy with being able to keep track of our sensitive data [to answer questions like] Where’s it going? How’s it being processed? Where’s it ending up? Which third party tool or API’s are we sending it to and why? Who is responsible for this integration?”</i>"
+      "tagline": "DataHub Project @ Pinterest",
+      "category": "B2B & B2C",
+      "description": "Pinterest adopted a DataHub project to enhance metadata management for its big data query platform, facilitating better data navigation and understanding."
     },
     {
       "name": "Adevinta",
@@ -76,6 +87,17 @@
       "tagline": "Building the data catalogue",
       "category": "E-Commerce",
       "description": "<i>“DataHub allows us to solve the data discovery problem, which was a big challenge in our organization, and now we are solving it.”</i>"
+    },
+    {
+      "name": "Wolt",
+      "slug": "wolt",
+      "imageUrl": "/img/logos/companies/wolt.png",
+      "imageSize": "default",
+      "link": "https://blog.datahubproject.io/humans-of-datahub-fredrik-sannholm-d673b1877f2b",
+      "linkType": "blog",
+      "tagline": "Wolt's DataHub Integration",
+      "category": "E-Commerce",
+      "description": "<i>“[DataHub] has made our legal team very happy with being able to keep track of our sensitive data [to answer questions like] Where’s it going? How’s it being processed? Where’s it ending up? Which third party tool or API’s are we sending it to and why? Who is responsible for this integration?”</i>"
     },
     {
       "name": "Zynga",
@@ -142,17 +164,6 @@
       "tagline": "Viasat's DataHub Implementation",
       "category": "And More",
       "description": "Viasat highlights why they chose DataHub over other open source and commercial technologies and their plans with it."
-    },
-    {
-      "name": "Optum",
-      "slug": "optum",
-      "imageUrl": "/img/logos/companies/optum.jpg",
-      "imageSize": "medium",
-      "link": "https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub",
-      "linkType": "blog",
-      "tagline": "Data Mesh via DataHub",
-      "category": "And More",
-      "description": "<i>“DataHub’s event driven architecture provides us a mechanism to act on any metadata changes in real time. This allows us to perform various actions like provisioning access to a data product, notifying consumers on any schema changes that may affect their application or triggering data movement jobs to move data from source to sink platforms.”</i>"
     },
     {
       "name": "LinkedIn",
