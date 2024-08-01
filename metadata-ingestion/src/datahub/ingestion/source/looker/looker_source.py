@@ -1580,18 +1580,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 instance=self.source_config.platform_instance,
             )
 
-            yield MetadataWorkUnit(
-                id=f"{platform_instance_urn}-aspect-dataplatformInfo",
-                mcp=MetadataChangeProposalWrapper(
-                    entityUrn=platform_instance_urn,
-                    aspect=DataPlatformInfoClass(
-                        name=self.source_config.platform_instance,
-                        type=PlatformTypeClass.OTHERS,
-                        datasetNameDelimiter=".",
-                    ),
-                ),
-            )
-
         with self.reporter.report_stage("dashboard_chart_metadata"):
             for job in BackpressureAwareExecutor.map(
                 self.process_dashboard,
