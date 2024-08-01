@@ -17,6 +17,7 @@ import TabToolbar from '@src/app/entity/shared/components/styled/TabToolbar';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { AssertionMonitorBuilderDrawer } from '../assertion/builder/AssertionMonitorBuilderDrawer';
 import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '../acrylCacheUtils';
+import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 
 export type IFilter = {
     sortBy: string;
@@ -77,7 +78,12 @@ export const AcrylAssertionList = () => {
     const [visibleAssertions, setVisibleAssertions] = useState<any>({ allAssertions: [] });
     const [filter, setFilter] = useState<IFilter>({ ...dummyFilterObject });
     const [assertionMonitorData, setAssertionMonitorData] = useState<any[]>([]);
+
     const { data, refetch, client, loading } = useGetDatasetAssertionsWithMonitorsQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+    });
+    const { data: contractData, refetch: contractRefetch } = useGetDatasetContractQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
@@ -157,7 +163,14 @@ export const AcrylAssertionList = () => {
                 <AssertionHeader>
                     <AssertionTitleSection></AssertionTitleSection>
                 </AssertionHeader>
-                <AssertionListTable assertionData={visibleAssertions} filterOptions={filter} />
+                <AssertionListTable
+                    assertionData={visibleAssertions}
+                    filterOptions={filter}
+                    refetch={() => {
+                        refetch();
+                        contractRefetch();
+                    }}
+                />
             </AssertionConinter>
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer

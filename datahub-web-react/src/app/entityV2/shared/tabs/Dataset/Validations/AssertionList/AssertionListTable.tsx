@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { IFilter } from './NewAcrylAssertions';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
+import { ActionsColumn } from '../AcrylAssertionsTableColumns';
+import { AssertionType } from '@src/types.generated';
 
 export const StyledTable = styled(Table)`
     max-width: none;
@@ -56,9 +58,11 @@ const StyledRightOutlined = styled(RightOutlined)`
 export const AssertionListTable = ({
     assertionData,
     filterOptions,
+    refetch,
 }: {
     assertionData: any;
     filterOptions: IFilter;
+    refetch: () => void;
 }) => {
     const { groupBy } = filterOptions;
     const AssertionName = ({ record }: any) => {
@@ -121,8 +125,25 @@ export const AssertionListTable = ({
             dataIndex: '',
             key: '',
             width: '15%',
-            render: () => {
-                return <div> Actions </div>;
+            render: (_, record?: any) => {
+                const isSqlAssertion = record.type === AssertionType.Sql;
+                console.log('record>>>>', record);
+                const assertion = groupBy ? record : record.assertion;
+                return (
+                    !record.groupName && (
+                        <ActionsColumn
+                            assertion={assertion}
+                            platform={record.platform}
+                            monitor={record.monitor}
+                            // contract={contract}
+                            canEditAssertion={true} //{isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
+                            canEditMonitor={true} //{canEditMonitors}
+                            canEditContract
+                            lastEvaluationUrl={record.lastEvaluationUrl}
+                            refetch={refetch}
+                        />
+                    )
+                );
             },
         },
     ];

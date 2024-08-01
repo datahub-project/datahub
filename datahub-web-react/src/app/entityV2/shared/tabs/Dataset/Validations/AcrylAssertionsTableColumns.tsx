@@ -21,12 +21,12 @@ import { AssertionPlatformAvatar } from './AssertionPlatformAvatar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { isMonitorActive } from './acrylUtils';
 import { isAssertionPartOfContract } from './contract/utils';
-import { Actions } from './assertion/profile/actions/Actions';
 import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
 import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
 import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import { AssertionActionList } from './assertion/profile/actions/AssertionActionList';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -190,7 +190,7 @@ export function ActionsColumn({
                     />
                 </AssertionPlatformWrapper>
             )}
-            <Actions
+            <AssertionActionList
                 assertion={assertion}
                 monitor={monitor}
                 contract={contract}
