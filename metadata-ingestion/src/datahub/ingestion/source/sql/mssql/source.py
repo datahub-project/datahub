@@ -858,9 +858,9 @@ class SQLServerSource(SQLAlchemySource):
 
                 if self.config.mssql_lineage:
                     dependency = self._extract_procedure_dependency(procedure)
-                    data_job.incoming = dependency.as_input_datasets
-                    data_job.input_jobs = dependency.as_input_datajobs
-                    data_job.outgoing = dependency.as_output_datasets
+                    data_job.incoming = dependency.get_input_datasets
+                    data_job.input_jobs = dependency.get_input_datajobs
+                    data_job.outgoing = dependency.get_output_datasets
 
                 procedure_definition, procedure_code = self._get_procedure_code(
                     conn, procedure
@@ -901,8 +901,9 @@ class SQLServerSource(SQLAlchemySource):
                     schema=dependency["referenced_schema_name"],
                     name=dependency["referenced_entity_name"],
                     type=dependency["referenced_object_type"],
-                    incoming=dependency["is_selected"] or dependency["is_select_all"],
-                    outgoing=dependency["is_updated"],
+                    incoming=int(dependency["is_selected"])
+                    or int(dependency["is_select_all"]),
+                    outgoing=int(dependency["is_updated"]),
                     env=procedure.flow.env,
                     server=procedure.flow.platform_instance,
                 )
@@ -1008,12 +1009,12 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
-            aspect=data_job.as_datajob_info_aspect,
+            aspect=data_job.get_datajob_info_aspect,
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
-            aspect=data_job.as_datajob_input_output_aspect,
+            aspect=data_job.get_datajob_input_output_aspect,
         ).as_workunit()
         # TODO: Add SubType when it appear
 
@@ -1023,7 +1024,7 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
             entityUrn=data_flow.urn,
-            aspect=data_flow.as_dataflow_info_aspect,
+            aspect=data_flow.get_dataflow_info_aspect,
         ).as_workunit()
         # TODO: Add SubType when it appear
 

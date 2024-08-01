@@ -22,13 +22,9 @@ class ProcedureDependency:
     schema: str
     name: str
     type: str
-    incoming: Union[str, int]
-    outgoing: Union[str, int]
+    incoming: int
+    outgoing: int
     source: str = "mssql"
-
-    def __post_init__(self):
-        self.incoming = int(self.incoming)
-        self.outgoing = int(self.outgoing)
 
 
 @dataclass
@@ -36,7 +32,7 @@ class ProcedureLineageStream:
     dependencies: List[ProcedureDependency] = field(default_factory=list)
 
     @property
-    def as_input_datasets(self) -> List[str]:
+    def get_input_datasets(self) -> List[str]:
         return [
             make_dataset_urn_with_platform_instance(
                 platform=dep.source,
@@ -49,7 +45,7 @@ class ProcedureLineageStream:
         ]
 
     @property
-    def as_output_datasets(self) -> List[str]:
+    def get_output_datasets(self) -> List[str]:
         return [
             make_dataset_urn_with_platform_instance(
                 platform=dep.source,
@@ -62,7 +58,7 @@ class ProcedureLineageStream:
         ]
 
     @property
-    def as_input_datajobs(self) -> List[str]:
+    def get_input_datajobs(self) -> List[str]:
         return [
             make_data_job_urn(
                 orchestrator=dep.source,
@@ -235,7 +231,7 @@ class MSSQLDataJob:
         return self.job_properties
 
     @property
-    def as_datajob_input_output_aspect(self) -> DataJobInputOutputClass:
+    def get_datajob_input_output_aspect(self) -> DataJobInputOutputClass:
         return DataJobInputOutputClass(
             inputDatasets=sorted(self.incoming),
             outputDatasets=sorted(self.outgoing),
@@ -243,7 +239,7 @@ class MSSQLDataJob:
         )
 
     @property
-    def as_datajob_info_aspect(self) -> DataJobInfoClass:
+    def get_datajob_info_aspect(self) -> DataJobInfoClass:
         return DataJobInfoClass(
             name=self.entity.full_name,
             type=self.entity.full_type,
@@ -281,7 +277,7 @@ class MSSQLDataFlow:
         )
 
     @property
-    def as_dataflow_info_aspect(self) -> DataFlowInfoClass:
+    def get_dataflow_info_aspect(self) -> DataFlowInfoClass:
         return DataFlowInfoClass(
             name=self.entity.formatted_name,
             customProperties=self.flow_properties,
