@@ -108,6 +108,7 @@ runs:
             - "metadata-models/**"
             - "docker/datahub-ingestion-**"
             - "docker/datahub-integrations-service/**"
+            - "smoke-test/**"
           datahub-executor:
             - "docker/datahub-executor/**"
             - "datahub-executor/**"

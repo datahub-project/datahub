@@ -889,6 +889,7 @@ jobs:
         mce_consumer_build,
         datahub_upgrade_build,
         datahub_ingestion_slim_build,
+        datahub_integrations_service_build,
       ]
     strategy:
       fail-fast: false
@@ -974,6 +975,11 @@ jobs:
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
+      - name: Download DataHub Integrations image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.datahub_integrations_service_build.result == 'success' }}
+        with:
+          image: ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Disk Check
         run: df -h . && docker images
       - name: CI Optimization Head Images

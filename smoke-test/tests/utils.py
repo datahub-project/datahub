@@ -79,6 +79,10 @@ def get_sleep_info() -> Tuple[int, int]:
     )
 
 
+def get_integrations_service_url() -> str:
+    return os.getenv("DATAHUB_INTEGRATIONS_SERVICE_URL") or "http://localhost:9003"
+
+
 def is_k8s_enabled():
     return os.getenv("K8S_CLUSTER_ENABLED", "false").lower() in ["true", "yes"]
 
@@ -86,6 +90,7 @@ def is_k8s_enabled():
 def wait_for_healthcheck_util():
     assert not check_endpoint(f"{get_frontend_url()}/admin")
     assert not check_endpoint(f"{get_gms_url()}/health")
+    assert not check_endpoint(f"{get_integrations_service_url()}/docs")
 
 
 def check_endpoint(url):
