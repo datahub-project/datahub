@@ -1,9 +1,11 @@
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { Empty, Table, Typography } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+import { Table, Typography, Empty } from 'antd';
+import { DownOutlined, RightOutlined } from '@ant-design/icons';
+
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { IFilter } from './NewAcrylAssertions';
-import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 import { AssertionType } from '@src/types.generated';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
@@ -11,9 +13,8 @@ import { AssertionResultPopover } from '../assertion/profile/shared/result/Asser
 import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
 import { AssertionResultDot } from '../assertion/profile/shared/AssertionResultDot';
 import { isMonitorActive } from '../acrylUtils';
-import { useState } from 'react';
 
-export const StyledTable = styled(Table)`
+const StyledTable = styled(Table)`
     max-width: none;
     overflow: inherit;
     height: inherit;
@@ -33,15 +34,17 @@ export const StyledTable = styled(Table)`
     &&& .ant-table-cell {
         background-color: transparent;
     }
-    &&& .acryl-assertions-table-row {
+
+    &&& .acryl-selected-assertions-table-row {
+        background-color: ${ANTD_GRAY[4]};
+    }
+
+    .group-header {
         cursor: pointer;
         background-color: ${ANTD_GRAY[2]};
         :hover {
             background-color: ${ANTD_GRAY[3]};
         }
-    }
-    &&& .acryl-selected-assertions-table-row {
-        background-color: ${ANTD_GRAY[4]};
     }
 `;
 
@@ -63,73 +66,52 @@ const Result = styled.div`
     align-items: center;
 `;
 
-// type AssertionTableType = {
-//     dataSource: any[];
-// };
+const AssertionName = ({ record, groupBy }) => {
+    const { primaryLabel } = useBuildAssertionDescriptionLabels(
+        groupBy ? record.info : record.assertion.info,
+        groupBy ? record.monitor : record.monitor,
+    );
+    let name = primaryLabel;
+    let assertion = record.assertion;
 
-export const AssertionListTable = ({
-    assertionData,
-    filterOptions,
-    refetch,
-}: {
-    assertionData: any;
-    filterOptions: IFilter;
-    refetch: () => void;
-}) => {
+    if (groupBy && record.groupName) {
+        name = record.groupName;
+    } else if (groupBy && !record.groupName) {
+        assertion = record;
+    }
+
+    const lastEvaluation = groupBy ? record.runEvents?.runEvents?.[0] : record.lastEvaluation;
+
+    return (
+        <div style={{ display: 'flex' }}>
+            {!(groupBy && record.groupName) && (
+                <AssertionResultPopover
+                    assertion={assertion}
+                    run={lastEvaluation}
+                    showProfileButton
+                    placement="right"
+                    resultStatusType={ResultStatusType.LATEST}
+                >
+                    <Result>
+                        <AssertionResultDot run={lastEvaluation} size={18} />
+                    </Result>
+                </AssertionResultPopover>
+            )}
+            <StyledAssertionNameContainer>{name}</StyledAssertionNameContainer>
+        </div>
+    );
+};
+
+export const AssertionListTable = ({ assertionData, filterOptions, refetch }) => {
     const { groupBy } = filterOptions;
-
     const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
-
-    const AssertionName = ({ record }: any) => {
-        const { primaryLabel } = useBuildAssertionDescriptionLabels(
-            groupBy ? record.info : record.assertion.info,
-            groupBy ? record.monitor : record.monitor,
-        );
-        let name = primaryLabel;
-        let assertion = record.assertion;
-        // let monitor = record.monitor;
-        if (groupBy && record.groupName) {
-            name = record.groupName;
-        }
-        if (groupBy && !record.groupName) {
-            assertion = record;
-        }
-        let lastEvaluation = groupBy ? record.runEvents?.runEvents?.[0] : record.lastEvaluation;
-        // const disabled = (monitor && !isMonitorActive(monitor)) || false;
-
-        return (
-            <div style={{ display: 'flex' }}>
-                {!(groupBy && record.groupName) && (
-                    <AssertionResultPopover
-                        assertion={assertion}
-                        run={lastEvaluation}
-                        showProfileButton
-                        // onClickProfileButton={onViewAssertionDetails}
-                        placement="right"
-                        resultStatusType={ResultStatusType.LATEST}
-                    >
-                        <Result>
-                            <AssertionResultDot
-                                run={lastEvaluation}
-                                // disabled={disabled}
-                                size={18}
-                            />
-                        </Result>
-                    </AssertionResultPopover>
-                )}
-                <StyledAssertionNameContainer>{name}</StyledAssertionNameContainer>
-            </div>
-        );
-    };
 
     const assertionsTableCols: any[] = [
         {
             title: 'Name',
             dataIndex: 'description',
             key: 'description',
-            render: (_, record: any) => {
-                return <AssertionName record={record} />;
-            },
+            render: (_, record) => <AssertionName record={record} groupBy={groupBy} />,
             width: '35%',
             sorter: (a, b) => a.description - b.description,
         },
@@ -137,23 +119,18 @@ export const AssertionListTable = ({
             title: 'Category',
             dataIndex: 'type',
             key: 'type',
-            render: (_, record: any) => {
-                return <div>{groupBy ? record.info?.type : record.type}</div>;
-            },
-            sorter: (a, b) => {
-                return a.type - b.type;
-            },
+            render: (_, record) => <div>{groupBy ? record.info?.type : record.type}</div>,
+            sorter: (a, b) => a.type - b.type,
             width: '15%',
         },
         {
             title: 'Last Run',
             dataIndex: 'lastEvaluation',
-            key: 'type',
+            key: 'lastEvaluation',
             render: (_, record) => {
                 const lastRun = groupBy
                     ? record.runEvents?.runEvents?.[0]?.timestampMillis
                     : record.lastEvaluationTimeMs;
-
                 return !(groupBy && record.groupName) && <Typography.Text>{getTimeFromNow(lastRun)}</Typography.Text>;
             },
             sorter: (a, b) => (a.lastEvaluation?.timestampMillis || 0) - (b.lastEvaluation?.timestampMillis || 0),
@@ -161,21 +138,18 @@ export const AssertionListTable = ({
         },
         {
             title: 'Tags',
-            dataIndex: '',
+            dataIndex: 'tags',
             key: 'tags',
             width: '15%',
-            render: (_, record?: any) => {
-                return <div> {record.tags} </div>;
-            },
+            render: (_, record) => <div>{record.tags}</div>,
         },
         {
             title: '',
             dataIndex: '',
-            key: '',
+            key: 'actions',
             width: '15%',
-            render: (_, record?: any) => {
-                const isSqlAssertion = record.type === AssertionType.Sql;
-                console.log('record>>>>', record);
+            render: (_, record) => {
+                // const isSqlAssertion = record.type === AssertionType.Sql;
                 const assertion = groupBy ? record : record.assertion;
                 return (
                     !record.groupName && (
@@ -195,27 +169,34 @@ export const AssertionListTable = ({
             },
         },
     ];
+
     if (groupBy) {
         assertionsTableCols.push({
             title: '',
             key: 'expand',
             render: (_, record) => {
                 if (record.groupName)
-                    return expandedRowKeys.includes(record.key) ? (
-                        <DownOutlined onClick={() => handleExpand(record.key)} />
+                    return expandedRowKeys.includes(record.name) ? (
+                        <DownOutlined onClick={() => handleExpand(record.name)} />
                     ) : (
-                        <RightOutlined onClick={() => handleExpand(record.key)} />
+                        <RightOutlined onClick={() => handleExpand(record.name)} />
                     );
             },
         });
     }
 
+    const handleExpand = (key) => {
+        setExpandedRowKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    };
+
     const getGroupData = () => {
         return (assertionData?.groupBy && assertionData?.groupBy[groupBy]) || [];
     };
-
-    const handleExpand = (key) => {
-        setExpandedRowKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    const rowClassName = (record) => {
+        if (record.groupName) {
+            return 'group-header';
+        }
+        return '';
     };
 
     return (
@@ -223,11 +204,10 @@ export const AssertionListTable = ({
             columns={assertionsTableCols}
             dataSource={groupBy ? getGroupData() : assertionData.allAssertions || []}
             rowKey="urn"
-            locale={{
-                emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-            }}
-            showHeader={true}
+            locale={{ emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+            showHeader
             pagination={false}
+            rowClassName={rowClassName}
             expandable={
                 groupBy
                     ? {
@@ -239,15 +219,8 @@ export const AssertionListTable = ({
                                   showHeader={false}
                               />
                           ),
+                          expandedRowKeys,
                           expandIcon: () => <></>,
-                          expandedRowKeys: expandedRowKeys,
-
-                          //   expandIcon: ({ expanded, onExpand, record }: any) =>
-                          //       expanded ? (
-                          //           <StyledDownOutlined onClick={(e) => onExpand(record, e)} />
-                          //       ) : (
-                          //           <StyledRightOutlined onClick={(e) => onExpand(record, e)} />
-                          //       ),
                       }
                     : undefined
             }
