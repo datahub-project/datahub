@@ -1,12 +1,12 @@
+import useComputeGraph from '@app/lineageV2/useComputeGraph/useComputeGraph';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useReactFlow } from 'reactflow';
+import { EntityType } from '@types';
 
 import { ColumnRef, LineageDisplayContext, LineageNodesContext } from './common';
 import LineageSidebar from './LineageSidebar';
 import LineageVisualization from './LineageVisualization';
 import useColumnHighlighting from './useColumnHighlighting';
-import useProcessData from './useProcessData';
-import { EntityType } from '../../types.generated';
 import useBulkEntityLineage from './useBulkEntityLineage';
 import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
 import useNodeHighlighting from './useNodeHighlighting';
@@ -25,7 +25,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
-    const { fineGrainedLineage, flowNodes, flowEdges } = useProcessData(urn, type);
+    const { fineGrainedLineage, flowNodes, flowEdges } = useComputeGraph(urn, type);
     const shownUrns = useMemo(
         () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
         [flowNodes],
