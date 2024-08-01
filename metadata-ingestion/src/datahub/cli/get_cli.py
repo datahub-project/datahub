@@ -56,6 +56,7 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
                 entity_urn=urn,
                 aspects=aspect,
                 typed=False,
+                details=details,
             ),
             sort_keys=True,
             indent=2,
