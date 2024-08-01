@@ -1,11 +1,12 @@
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { Empty, Table } from 'antd';
+import { Empty, Table, Typography } from 'antd';
 import styled from 'styled-components';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { IFilter } from './NewAcrylAssertions';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 import { AssertionType } from '@src/types.generated';
+import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 
 export const StyledTable = styled(Table)`
     max-width: none;
@@ -106,7 +107,11 @@ export const AssertionListTable = ({
             dataIndex: 'lastEvaluation',
             key: 'type',
             render: (_, record) => {
-                return <div>{record.lastEvaluation?.status || 'N/A'}</div>;
+                const lastRun = groupBy
+                    ? record.runEvents?.runEvents?.[0]?.timestampMillis
+                    : record.lastEvaluationTimeMs;
+
+                return !(groupBy && record.groupName) && <Typography.Text>{getTimeFromNow(lastRun)}</Typography.Text>;
             },
             sorter: (a, b) => (a.lastEvaluation?.timestampMillis || 0) - (b.lastEvaluation?.timestampMillis || 0),
             width: '15%',

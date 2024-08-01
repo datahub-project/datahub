@@ -1,5 +1,6 @@
 import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
 import cronstrue from 'cronstrue';
+import omit from 'lodash/omit';
 
 import {
     AssertionInfo,
@@ -43,6 +44,8 @@ import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { IFilter } from './NewAcrylAssertions';
+import { Typography } from 'antd';
+import { AssertionGroupHeader } from '../AssertionGroupHeader';
 
 /**
  * Returns the React Component to render for the aggregation portion of the Assertion Description
@@ -382,6 +385,24 @@ export const getPlainTextDescriptionFromAssertion = (
     return primaryLabel;
 };
 
+const getGroupNameBySummary = (record) => {
+    let subText = ' ';
+    const newSummary = omit(record.summary, ['total', 'totalAssertions']);
+
+    for (let key of Object.keys(newSummary)) {
+        if (newSummary[key] > 0) {
+            subText = `${subText}, ${newSummary[key]} ${key}`;
+        }
+    }
+
+    return (
+        <Typography.Text>
+            <strong>{record.name}</strong>
+            {subText}
+        </Typography.Text>
+    );
+};
+
 // Generate Assertion Group By Status
 const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]) => {
     const STATUSES = [
@@ -399,17 +420,20 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
             const resultType = mostRecentRun?.result?.type;
             return assertion.info?.type && resultType === status;
         });
-        const typeToAssertions = filteredAssertions.reduce((map, assertion) => {
-            const assertionType = assertion?.info?.customAssertion?.type || assertion?.info?.type || 'Unknown';
-            map[assertionType] = (map[assertionType] || 0) + 1;
-            return map;
-        }, {});
-        assertionGroup.push({
-            name: status,
-            assertions: filteredAssertions,
-            summary: typeToAssertions,
-            groupName: status,
-        });
+
+        if (filteredAssertions.length > 0) {
+            const typeToAssertions = filteredAssertions.reduce((map, assertion) => {
+                const assertionType = assertion?.info?.customAssertion?.type || assertion?.info?.type || 'Unknown';
+                map[assertionType] = (map[assertionType] || 0) + 1;
+                return map;
+            }, {});
+            const group = {
+                name: status,
+                assertions: filteredAssertions,
+                summary: typeToAssertions,
+            };
+            assertionGroup.push({ ...group, groupName: getGroupNameBySummary(group) });
+        }
     });
 
     return assertionGroup;
@@ -455,12 +479,9 @@ export const getFilteredTransformedAssertionData = (assertions: AssertionWithMon
     assertionRawData.allAssertions = assertionsTableData;
     assertionRawData.groupBy.type = createAssertionGroups(filteredAssertions) || [];
     for (let item of assertionRawData.groupBy.type) {
-        item.groupName = item.name;
+        item.groupName = <AssertionGroupHeader group={item} />;
     }
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
-
-    console.log('assertionRawData2>>', assertionRawData);
-
     return assertionRawData;
 };
 // "Field level UNIQUE_PERCENTAGE metric assertion for field coat_type"
