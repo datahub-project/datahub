@@ -20,6 +20,11 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.data.template.BooleanMap;
+import com.linkedin.data.template.IntegerMap;
+import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.FloatMap;
+import com.linkedin.data.template.DoubleMap;
 
 public class TestEntityUtil {
   private TestEntityUtil() {}
@@ -70,6 +75,16 @@ public class TestEntityUtil {
                 "longValue",
                 "0123456789")));
     testEntityInfo.setDoubleField(100.456);
+    testEntityInfo.setEsObjectFieldBoolean(
+            new BooleanMap(ImmutableMap.of("key1", true, "key2", false)));
+    testEntityInfo.setEsObjectFieldLong(
+            new LongMap(ImmutableMap.of("key1", 1L, "key2", 2L)));
+    testEntityInfo.setEsObjectFieldFloat(
+            new FloatMap(ImmutableMap.of("key1", 1.0f, "key2", 2.0f)));
+    testEntityInfo.setEsObjectFieldDouble(
+            new DoubleMap(ImmutableMap.of("key1", 1.2, "key2", 2.4)));
+    testEntityInfo.setEsObjectFieldInteger(
+            new IntegerMap(ImmutableMap.of("key1", 123, "key2", 456)));
     return testEntityInfo;
   }
 
