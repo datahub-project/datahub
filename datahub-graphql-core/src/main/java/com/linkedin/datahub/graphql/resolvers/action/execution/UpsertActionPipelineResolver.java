@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import com.linkedin.action.DataHubActionConfig;
 import com.linkedin.action.DataHubActionInfo;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -71,6 +72,8 @@ public class UpsertActionPipelineResolver implements DataFetcher<CompletableFutu
               DataHubActionInfo actionInfo = new DataHubActionInfo();
               actionInfo.setType(input.getType());
               actionInfo.setName(input.getName());
+              actionInfo.setCategory(input.getCategory());
+              actionInfo.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
               actionInfo.setConfig(
                   new DataHubActionConfig().setRecipe(input.getConfig().getRecipe()));
               log.info("Action Info aspect = {}", actionInfo);

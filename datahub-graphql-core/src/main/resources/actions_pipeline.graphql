@@ -99,6 +99,16 @@ type ActionPipelineDetails {
   name: String!
 
   """
+  The category of the action (user defined)
+  """
+  category: String!
+
+  """
+  Description of the action
+  """
+  description: String
+
+  """
   An type-specific set of configurations for the action pipeline
   """
   config: ActionConfig!
@@ -231,6 +241,11 @@ input UpdateActionPipelineInput {
   The type of the action itself, e.g. tag-propagation, term-propagation. Should match the recipe.
   """
   type: String!
+
+  """
+  The category of the action (user defined)
+  """
+  category: String!
 
   """
   An optional description associated with the action
