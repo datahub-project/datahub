@@ -1,10 +1,10 @@
+import json
 import unittest
 from typing import Any
 from unittest.mock import MagicMock, patch
-import json
 
 from datahub.emitter.mcp import MetadataChangeProposalClass, _make_generic_aspect
-from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
+from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeTypeClass,
@@ -124,20 +124,35 @@ class TestCreateMcpFunctions(unittest.TestCase):
             serialized = aspect.value.decode()
             objs = post_json_transform(json.loads(serialized))
             self.assertEquals(objs[0].get("op"), "add", msg=objs[0])
-            self.assertEquals(objs[0].get("path"),
-                              "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag2", msg=objs[0])
+            self.assertEquals(
+                objs[0].get("path"),
+                "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag2",
+                msg=objs[0],
+            )
             self.assertEquals(objs[1].get("op"), "add", msg=objs[1])
-            self.assertEquals(objs[1].get("path"),
-                "/editableSchemaFieldInfo/field2/glossaryTerms/terms/urn:li:glossaryTerm:term3", msg=objs[1])
+            self.assertEquals(
+                objs[1].get("path"),
+                "/editableSchemaFieldInfo/field2/glossaryTerms/terms/urn:li:glossaryTerm:term3",
+                msg=objs[1],
+            )
             self.assertEquals(objs[2].get("op"), "add", msg=objs[2])
-            self.assertEquals(objs[2].get("path"),
-                              "/editableSchemaFieldInfo/field2/globalTags/tags/urn:li:tag:tag3", msg=objs[2])
+            self.assertEquals(
+                objs[2].get("path"),
+                "/editableSchemaFieldInfo/field2/globalTags/tags/urn:li:tag:tag3",
+                msg=objs[2],
+            )
             self.assertEquals(objs[3].get("op"), "remove", msg=objs[3])
-            self.assertEquals(objs[3].get("path"),
-                "/editableSchemaFieldInfo/field1/glossaryTerms/terms/urn:li:glossaryTerm:term2", msg=objs[3])
+            self.assertEquals(
+                objs[3].get("path"),
+                "/editableSchemaFieldInfo/field1/glossaryTerms/terms/urn:li:glossaryTerm:term2",
+                msg=objs[3],
+            )
             self.assertEquals(objs[4].get("op"), "remove", msg=objs[4])
-            self.assertEquals(objs[4].get("path"),
-                "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag1", msg=objs[4])
+            self.assertEquals(
+                objs[4].get("path"),
+                "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag1",
+                msg=objs[4],
+            )
 
     def test_create_terms_mcp(self):
         mcps = create_terms_mcp(self.old_terms_obj, self.new_terms_obj, self.orig_event)
@@ -150,9 +165,13 @@ class TestCreateMcpFunctions(unittest.TestCase):
             serialized = aspect.value.decode()
             objs = post_json_transform(json.loads(serialized))
             self.assertEquals(objs[0].get("op"), "add", msg=objs[0])
-            self.assertEquals(objs[0].get("path"),"/terms/urn:li:glossaryTerm:term2", msg=objs[0])
+            self.assertEquals(
+                objs[0].get("path"), "/terms/urn:li:glossaryTerm:term2", msg=objs[0]
+            )
             self.assertEquals(objs[1].get("op"), "remove", msg=objs[1])
-            self.assertEquals(objs[1].get("path"),"/terms/urn:li:glossaryTerm:term1", msg=objs[1])
+            self.assertEquals(
+                objs[1].get("path"), "/terms/urn:li:glossaryTerm:term1", msg=objs[1]
+            )
 
     def test_create_tags_mcp(self):
         mcps = create_tags_mcp(self.old_tags_obj, self.new_tags_obj, self.orig_event)
@@ -165,9 +184,9 @@ class TestCreateMcpFunctions(unittest.TestCase):
             serialized = aspect.value.decode()
             objs = post_json_transform(json.loads(serialized))
             self.assertEquals(objs[0].get("op"), "add", msg=objs[0])
-            self.assertEquals(objs[0].get("path"),"/tags/urn:li:tag:tag2", msg=objs[0])
+            self.assertEquals(objs[0].get("path"), "/tags/urn:li:tag:tag2", msg=objs[0])
             self.assertEquals(objs[1].get("op"), "remove", msg=objs[1])
-            self.assertEquals(objs[1].get("path"),"/tags/urn:li:tag:tag1", msg=objs[1])
+            self.assertEquals(objs[1].get("path"), "/tags/urn:li:tag:tag1", msg=objs[1])
 
 
 class TestForwardingAction(unittest.TestCase):
@@ -206,29 +225,37 @@ class TestForwardingAction(unittest.TestCase):
                         test="test1",
                         type=TestResultTypeClass.SUCCESS,
                         testDefinitionMd5="12345",
-                        lastComputed=AuditStampClass(actor="urn:li:corpuser:actor", time=123)
+                        lastComputed=AuditStampClass(
+                            actor="urn:li:corpuser:actor", time=123
+                        ),
                     ),
                     TestResultClass(
                         test="test2",
                         type=TestResultTypeClass.SUCCESS,
                         testDefinitionMd5="12345",
-                        lastComputed=AuditStampClass(actor="urn:li:corpuser:actor", time=123)
+                        lastComputed=AuditStampClass(
+                            actor="urn:li:corpuser:actor", time=123
+                        ),
                     ),
                 ],
-                failing =[
+                failing=[
                     TestResultClass(
                         test="test3",
                         type=TestResultTypeClass.SUCCESS,
                         testDefinitionMd5="12345",
-                        lastComputed=AuditStampClass(actor="urn:li:corpuser:actor", time=123)
+                        lastComputed=AuditStampClass(
+                            actor="urn:li:corpuser:actor", time=123
+                        ),
                     ),
                     TestResultClass(
                         test="test4",
                         type=TestResultTypeClass.SUCCESS,
                         testDefinitionMd5="12345",
-                        lastComputed=AuditStampClass(actor="urn:li:corpuser:actor", time=123)
+                        lastComputed=AuditStampClass(
+                            actor="urn:li:corpuser:actor", time=123
+                        ),
                     ),
-                ]
+                ],
             )
         )
 
@@ -239,29 +266,37 @@ class TestForwardingAction(unittest.TestCase):
                         test="test5",
                         type=TestResultTypeClass.SUCCESS,
                         testDefinitionMd5="12345",
-                        lastComputed=AuditStampClass(actor="urn:li:corpuser:actor", time=123)
+                        lastComputed=AuditStampClass(
+                            actor="urn:li:corpuser:actor", time=123
+                        ),
                     ),
                     TestResultClass(
                         test="test6",
                         type=TestResultTypeClass.SUCCESS,
                         testDefinitionMd5="12345",
-                        lastComputed=AuditStampClass(actor="urn:li:corpuser:actor", time=123)
+                        lastComputed=AuditStampClass(
+                            actor="urn:li:corpuser:actor", time=123
+                        ),
                     ),
                 ],
-                failing =[
+                failing=[
                     TestResultClass(
                         test="test7",
                         type=TestResultTypeClass.SUCCESS,
                         testDefinitionMd5="12345",
-                        lastComputed=AuditStampClass(actor="urn:li:corpuser:actor", time=123)
+                        lastComputed=AuditStampClass(
+                            actor="urn:li:corpuser:actor", time=123
+                        ),
                     ),
                     TestResultClass(
                         test="test8",
                         type=TestResultTypeClass.SUCCESS,
                         testDefinitionMd5="12345",
-                        lastComputed=AuditStampClass(actor="urn:li:corpuser:actor", time=123)
+                        lastComputed=AuditStampClass(
+                            actor="urn:li:corpuser:actor", time=123
+                        ),
                     ),
-                ]
+                ],
             )
         )
 
@@ -270,7 +305,7 @@ class TestForwardingAction(unittest.TestCase):
         ForwardingAction,
         "__init__",
         lambda self, config, ctx: setattr(self, "config", MagicMock())
-                                  or setattr(self, "kafka_emitter", MagicMock()),
+        or setattr(self, "kafka_emitter", MagicMock()),
     )
     def test_buildMcpTestResults(self, mock_emitter):
         mock_event = MetadataChangeLogClass(
@@ -291,10 +326,14 @@ class TestForwardingAction(unittest.TestCase):
             aspect_converted = post_json_transform(json.loads(serialized))
             for failingTest in aspect_converted.get("failing"):
                 self.assertEquals(failingTest.get("lastComputed"), None, failingTest)
-                self.assertEquals(failingTest.get("testDefinitionMd5"), None, failingTest)
+                self.assertEquals(
+                    failingTest.get("testDefinitionMd5"), None, failingTest
+                )
             for passingTest in aspect_converted.get("passing"):
                 self.assertEquals(passingTest.get("lastComputed"), None, passingTest)
-                self.assertEquals(passingTest.get("testDefinitionMd5"), None, passingTest)
+                self.assertEquals(
+                    passingTest.get("testDefinitionMd5"), None, passingTest
+                )
 
     @patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter")
     @patch.object(

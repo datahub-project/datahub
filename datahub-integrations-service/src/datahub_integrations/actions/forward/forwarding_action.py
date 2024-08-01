@@ -5,13 +5,9 @@ from typing import Iterable, Optional, Union, cast
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mce_builder import make_tag_urn
-from datahub.emitter.mcp import _try_from_generic_aspect, _make_generic_aspect
-from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.mcp import _make_generic_aspect, _try_from_generic_aspect
 from datahub.metadata.schema_classes import (
-    EditableSchemaMetadataClass,
-    GlobalTagsClass,
     GlossaryTermAssociationClass,
-    GlossaryTermsClass,
     MetadataChangeLogClass,
     MetadataChangeProposalClass,
     TagAssociationClass,
@@ -46,12 +42,16 @@ def create_schema_mcp(
     new_schema_obj = _try_from_generic_aspect("editableSchemaMetadata", new_obj)[1]
     old_schema_obj = _try_from_generic_aspect("editableSchemaMetadata", old_obj)[1]
 
-    new_schema_infos = new_schema_obj.editableSchemaFieldInfo if (new_schema_obj
-                                                                  and new_schema_obj.editableSchemaFieldInfo) \
+    new_schema_infos = (
+        new_schema_obj.editableSchemaFieldInfo
+        if (new_schema_obj and new_schema_obj.editableSchemaFieldInfo)
         else []
-    old_schema_infos = old_schema_obj.editableSchemaFieldInfo if (old_schema_obj
-                                                                  and old_schema_obj.editableSchemaFieldInfo) \
+    )
+    old_schema_infos = (
+        old_schema_obj.editableSchemaFieldInfo
+        if (old_schema_obj and old_schema_obj.editableSchemaFieldInfo)
         else []
+    )
     new_fields_map = {
         field.fieldPath: {
             "tags": set(
@@ -154,10 +154,16 @@ def create_terms_mcp(
     new_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", new_obj)[1]
     old_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", old_obj)[1]
 
-    new_glossary_terms_assc = new_glossary_term_obj.terms if new_glossary_term_obj and new_glossary_term_obj.terms \
+    new_glossary_terms_assc = (
+        new_glossary_term_obj.terms
+        if new_glossary_term_obj and new_glossary_term_obj.terms
         else []
-    old_glossary_terms_assc = old_glossary_term_obj.terms if old_glossary_term_obj and old_glossary_term_obj.terms \
+    )
+    old_glossary_terms_assc = (
+        old_glossary_term_obj.terms
+        if old_glossary_term_obj and old_glossary_term_obj.terms
         else []
+    )
 
     new_glossary_terms = list(term.urn for term in new_glossary_terms_assc or [])
     old_glossary_terms = list(term.urn for term in old_glossary_terms_assc or [])
@@ -283,7 +289,9 @@ class ForwardingAction(Action):
     ) -> Union[Iterable[MetadataChangeProposalClass], None]:
         try:
             if orig_event.aspectName == "testResults":
-                test_results = _try_from_generic_aspect("testResults", orig_event.aspect)[1]
+                test_results = _try_from_generic_aspect(
+                    "testResults", orig_event.aspect
+                )[1]
                 for failingObj in test_results.failing or []:
                     failingObj._inner_dict.pop("testDefinitionMd5", None)
                     failingObj._inner_dict.pop("lastComputed", None)
