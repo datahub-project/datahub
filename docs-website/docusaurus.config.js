@@ -52,16 +52,6 @@ module.exports = {
   },
 
   themeConfig: {
-    ...(!isSaas && {
-      announcementBar: {
-        id: "announcement",
-        content:
-          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
-        backgroundColor: "#070707",
-        textColor: "#ffffff",
-        isCloseable: false,
-      },
-    }),
     navbar: {
       title: null,
       logo: {
@@ -71,22 +61,19 @@ module.exports = {
       },
       items: [
         {
-          to: "docs/",
-          activeBasePath: "docs",
-          label: "Docs",
+          type: "dropdown",
+          label: "Product",
           position: "right",
-        },
-        {
-          to: "/cloud",
-          activeBasePath: "cloud",
-          label: "Cloud",
-          position: "right",
-        },
-        {
-          to: "/learn",
-          activeBasePath: "learn",
-          label: "Learn",
-          position: "right",
+          items: [
+            {
+              href: "/",
+              label: "DataHub Core",
+            },
+            {
+              to: "/cloud",
+              label: "DataHub Cloud",
+            },    
+          ],
         },
         {
           to: "/integrations",
@@ -96,63 +83,57 @@ module.exports = {
         },
         {
           type: "dropdown",
-          label: "Community",
+          label: "Learn",
           position: "right",
           items: [
             {
-              to: "/slack",
-              label: "Join Slack",
+              to: "/learn",
+              label: "Use Cases",
             },
             {
-              href: "https://forum.datahubproject.io/",
-              label: "Community Forum",
-            },
-            {
-              to: "/events",
-              label: "Events",
-            },
-            {
-              to: "/champions",
-              label: "Champions",
-            },
-            {
-              label: "Share Your Journey",
-              href: "/customer-stories-survey",
-            },
-          ],
-        },
-        {
-          type: "dropdown",
-          label: "Resources",
-          position: "right",
-          items: [
-            {
-              href: "https://demo.datahubproject.io/",
-              label: "Demo",
+              to: "/",
+              label: "Adoption Stories",
             },
             {
               href: "https://blog.datahubproject.io/",
               label: "Blog",
             },
             {
-              href: "https://feature-requests.datahubproject.io/roadmap",
-              label: "Roadmap",
-            },
-            {
-              href: "https://github.com/datahub-project/datahub",
-              label: "GitHub",
-            },
-            {
               href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
               label: "YouTube",
             },
+          ]
+        },
+        {
+          to: "docs/",
+          activeBasePath: "docs",
+          label: "Docs",
+          position: "right",
+        },
+        {
+          type: "dropdown",
+          label: "Community",
+          position: "right",
+          items: [
             {
-              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi",
-              label: "Case Studies",
+              to: "/slack",
+              label: "DataHub Slack",
             },
             {
-              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg",
-              label: "DataHub Basics",
+              href: "https://forum.datahubproject.io/",
+              label: "DataHub Discourse",
+            },
+            {
+              to: "/events",
+              label: "Upcoming Events",
+            },
+            {
+              to: "/champions",
+              label: "DataHub Champions",
+            },
+            {
+              label: "Share Your Journey",
+              href: "/customer-stories-survey",
             },
           ],
         },
@@ -202,6 +183,23 @@ module.exports = {
                 type: "html",
                 },
             ],
+        },
+        {
+          href: "/slack",
+          html: `
+            <style>
+              .slack-logo:hover {
+                opacity: 0.8;
+              }
+            </style>
+            <img class='slack-logo' src='https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg', alt='slack', height='20px' style='margin: 10px 0 0 0;'/>
+          `,
+          position: "right",
+        },
+        {
+          href: "/",
+          html: "<div class='button button--primary button--md'>Try DataHub Cloud Free</div>",
+          position: "right",
         },
       ],
     },
