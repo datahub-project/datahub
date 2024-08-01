@@ -11,6 +11,7 @@ import { AssertionResultPopover } from '../assertion/profile/shared/result/Asser
 import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
 import { AssertionResultDot } from '../assertion/profile/shared/AssertionResultDot';
 import { isMonitorActive } from '../acrylUtils';
+import { useState } from 'react';
 
 export const StyledTable = styled(Table)`
     max-width: none;
@@ -76,6 +77,9 @@ export const AssertionListTable = ({
     refetch: () => void;
 }) => {
     const { groupBy } = filterOptions;
+
+    const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
+
     const AssertionName = ({ record }: any) => {
         const { primaryLabel } = useBuildAssertionDescriptionLabels(
             groupBy ? record.info : record.assertion.info,
@@ -118,7 +122,7 @@ export const AssertionListTable = ({
         );
     };
 
-    const assertionsTableCols = [
+    const assertionsTableCols: any[] = [
         {
             title: 'Name',
             dataIndex: 'description',
@@ -191,10 +195,29 @@ export const AssertionListTable = ({
             },
         },
     ];
+    if (groupBy) {
+        assertionsTableCols.push({
+            title: '',
+            key: 'expand',
+            render: (_, record) => {
+                if (record.groupName)
+                    return expandedRowKeys.includes(record.key) ? (
+                        <DownOutlined onClick={() => handleExpand(record.key)} />
+                    ) : (
+                        <RightOutlined onClick={() => handleExpand(record.key)} />
+                    );
+            },
+        });
+    }
 
     const getGroupData = () => {
         return (assertionData?.groupBy && assertionData?.groupBy[groupBy]) || [];
     };
+
+    const handleExpand = (key) => {
+        setExpandedRowKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    };
+
     return (
         <StyledTable
             columns={assertionsTableCols}
@@ -216,12 +239,15 @@ export const AssertionListTable = ({
                                   showHeader={false}
                               />
                           ),
-                          expandIcon: ({ expanded, onExpand, record }: any) =>
-                              expanded ? (
-                                  <StyledDownOutlined onClick={(e) => onExpand(record, e)} />
-                              ) : (
-                                  <StyledRightOutlined onClick={(e) => onExpand(record, e)} />
-                              ),
+                          expandIcon: () => <></>,
+                          expandedRowKeys: expandedRowKeys,
+
+                          //   expandIcon: ({ expanded, onExpand, record }: any) =>
+                          //       expanded ? (
+                          //           <StyledDownOutlined onClick={(e) => onExpand(record, e)} />
+                          //       ) : (
+                          //           <StyledRightOutlined onClick={(e) => onExpand(record, e)} />
+                          //       ),
                       }
                     : undefined
             }

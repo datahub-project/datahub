@@ -33,7 +33,7 @@ export type IFilter = {
 
 const dummyFilterObject: IFilter = {
     sortBy: '',
-    groupBy: 'type',
+    groupBy: 'status',
     filterCriteria: {
         searchText: '',
         status: [],

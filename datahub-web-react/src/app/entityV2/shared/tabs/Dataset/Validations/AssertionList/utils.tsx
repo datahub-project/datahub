@@ -1,6 +1,6 @@
 import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
 import cronstrue from 'cronstrue';
-import omit from 'lodash/omit';
+import styled from 'styled-components';
 
 import {
     AssertionInfo,
@@ -386,20 +386,50 @@ export const getPlainTextDescriptionFromAssertion = (
 };
 
 const getGroupNameBySummary = (record) => {
-    let subText = ' ';
-    const newSummary = omit(record.summary, ['total', 'totalAssertions']);
+    const TextContainer = styled.div`
+        display: flex;
+        align-items: center;
+        justify-content: left;
+        font-size: 14px;
+    `;
 
-    for (let key of Object.keys(newSummary)) {
-        if (newSummary[key] > 0) {
-            subText = `${subText}, ${newSummary[key]} ${key}`;
+    const Title = styled(Typography.Text)`
+        && {
+            padding-bottom: 0px;
+            margin-bottom: 0px;
         }
-    }
+    `;
+
+    const Message = styled(Typography.Text)`
+        && {
+            font-size: 12px;
+            margin-left: 8px;
+        }
+    `;
+
+    const NAME_MAP = {
+        FAILURE: 'Failing',
+        SUCCESS: 'Passing',
+        ERROR: 'Error',
+        VOLUME: 'Volume',
+        SQL: 'Sql',
+        FIELD: 'Field',
+        FRESHNESS: 'Freshness',
+        DATASET: 'Other',
+    };
+    const newSummary = record.summary;
+    const list: string[] = [];
+    Object.keys(newSummary).forEach((key, index) => {
+        if (newSummary[key] > 0) {
+            list.push(`${newSummary[key]} ${NAME_MAP[key]}`);
+        }
+    });
 
     return (
-        <Typography.Text>
-            <strong>{record.name}</strong>
-            {subText}
-        </Typography.Text>
+        <TextContainer>
+            <Title strong>{NAME_MAP[record.name]}</Title>
+            <Message type="secondary">{list.join(', ')}</Message>
+        </TextContainer>
     );
 };
 
