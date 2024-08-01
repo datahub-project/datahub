@@ -39,7 +39,7 @@ RUN apt-get update -y && \
 RUN ln -svT "/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)" /usr/lib/jvm/default-jvm
 ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 
-#USER datahub
+USER datahub
 RUN uv pip install --no-cache -e .
 
 WORKDIR /datahub-ingestion
@@ -48,9 +48,7 @@ RUN uv pip install --no-cache -e .
 ## Production Image Built From Build Image
 FROM build as prod-install
 
-#USER datahub
-ENV HOME=/home/datahub
-
+USER datahub
 
 FROM prod-install as dev-install
 
