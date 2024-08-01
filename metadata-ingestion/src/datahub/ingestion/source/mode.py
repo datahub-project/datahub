@@ -205,8 +205,12 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Mode")
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(SourceCapability.LINEAGE_FINE, "Supported by default")
+@capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class ModeSource(StatefulIngestionSourceBase):
     """
 

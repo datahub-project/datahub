@@ -166,11 +166,6 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
     SourceCapability.PLATFORM_INSTANCE,
     "By default, platform_instance will use the AWS account id",
 )
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
