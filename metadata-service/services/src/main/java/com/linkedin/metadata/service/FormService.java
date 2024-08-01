@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.entity.AspectUtils.buildMetadataChangeProposal;
+import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.applyAppSource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -72,6 +73,17 @@ public class FormService extends BaseService {
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
   private final OwnerService _ownerService;
+  private final String _appSource;
+
+  public FormService(
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper,
+      @Nonnull final String appSource) {
+    super(systemEntityClient, openApiClient, objectMapper);
+    _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
+    _appSource = appSource;
+  }
 
   public FormService(
       @Nonnull final SystemEntityClient systemEntityClient,
@@ -79,7 +91,7 @@ public class FormService extends BaseService {
       @Nonnull ObjectMapper objectMapper) {
     super(systemEntityClient, openApiClient, objectMapper);
     _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
-    ;
+    _appSource = null;
   }
 
   /** Batch associated a form to a given set of entities by urn. */
@@ -92,6 +104,9 @@ public class FormService extends BaseService {
     verifyEntitiesExist(opContext, entityUrns, false);
     final List<MetadataChangeProposal> changes =
         buildAssignFormChanges(opContext, entityUrns, formUrn);
+    if (_appSource != null) {
+      applyAppSource(changes, _appSource);
+    }
     ingestChangeProposals(opContext, changes, true);
   }
 
@@ -107,6 +122,9 @@ public class FormService extends BaseService {
     verifyEntitiesExist(opContext, entityUrns, false);
     final List<MetadataChangeProposal> changes =
         buildUnassignFormChanges(opContext, entityUrns, formUrn);
+    if (_appSource != null) {
+      applyAppSource(changes, _appSource);
+    }
     ingestChangeProposals(opContext, changes, true);
   }
 
@@ -122,6 +140,9 @@ public class FormService extends BaseService {
     final FormInfo formInfo = getFormInfo(opContext, formUrn);
     final List<MetadataChangeProposal> changes =
         buildUnsetFormPromptChanges(opContext, entityUrns, formUrn, formPromptId, formInfo);
+    if (_appSource != null) {
+      applyAppSource(changes, _appSource);
+    }
     ingestChangeProposals(opContext, changes, true);
   }
 
@@ -163,11 +184,14 @@ public class FormService extends BaseService {
     final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);
     final TestInfo testDefinition = FormTestBuilder.buildFormPromptCompletionTest(formUrn, prompt);
     try {
-      ingestChangeProposals(
-          opContext,
+      List<MetadataChangeProposal> changes =
           ImmutableList.of(
               AspectUtils.buildMetadataChangeProposal(
-                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)));
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition));
+      if (_appSource != null) {
+        applyAppSource(changes, _appSource);
+      }
+      ingestChangeProposals(opContext, changes);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create form", e);
     }
@@ -182,6 +206,13 @@ public class FormService extends BaseService {
     final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormAssignment(formUrn);
     final TestInfo testDefinition = FormTestBuilder.buildFormAssignmentTest(formUrn, formFilters);
     try {
+      List<MetadataChangeProposal> changes =
+          ImmutableList.of(
+              AspectUtils.buildMetadataChangeProposal(
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition));
+      if (_appSource != null) {
+        applyAppSource(changes, _appSource);
+      }
       ingestChangeProposals(
           opContext,
           ImmutableList.of(
@@ -338,13 +369,14 @@ public class FormService extends BaseService {
 
     // First, let's apply the action and add the owners
     ResourceReference resourceRef = new ResourceReference(entityUrn, null, null);
+    final String finalAppSource = _appSource != null ? _appSource : UI_SOURCE;
     _ownerService.batchAddOwners(
         opContext,
         owners,
         ImmutableList.of(resourceRef),
         OwnershipType.NONE,
         ownershipTypeUrn,
-        UI_SOURCE,
+        finalAppSource,
         actorUrn);
 
     // Then, let's apply the change to the entity's form status.
@@ -552,6 +584,10 @@ public class FormService extends BaseService {
     final MetadataChangeProposal structuredPropertiesProposal =
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
+
+    if (_appSource != null) {
+      applyAppSource(ImmutableList.of(structuredPropertiesProposal), _appSource);
+    }
     try {
       this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
     } catch (Exception e) {
@@ -564,10 +600,12 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Forms forms) {
     try {
-      ingestChangeProposals(
-          opContext,
-          ImmutableList.of(
-              AspectUtils.buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, forms)));
+      MetadataChangeProposal mcp =
+          AspectUtils.buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, forms);
+      if (_appSource != null) {
+        applyAppSource(ImmutableList.of(mcp), _appSource);
+      }
+      ingestChangeProposals(opContext, ImmutableList.of(mcp));
     } catch (Exception e) {
       log.warn(String.format("Failed to ingest forms for entity with urn %s", entityUrn), e);
     }

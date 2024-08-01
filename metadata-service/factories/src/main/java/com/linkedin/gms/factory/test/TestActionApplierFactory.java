@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.test.action.Action;
@@ -49,7 +50,9 @@ public class TestActionApplierFactory {
     OwnerService ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
     DomainService domainService =
         new DomainService(systemEntityClient, openApiClient, objectMapper);
-    FormService formService = new FormService(systemEntityClient, openApiClient, objectMapper);
+    FormService formService =
+        new FormService(
+            systemEntityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE);
     appliers.add(new AddTagsAction(tagService));
     appliers.add(new RemoveTagsAction(tagService));
     appliers.add(new AddGlossaryTermsAction(termsService));
