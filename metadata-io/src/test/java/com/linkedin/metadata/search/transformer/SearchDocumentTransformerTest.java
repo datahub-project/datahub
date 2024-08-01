@@ -85,6 +85,11 @@ public class SearchDocumentTransformerTest {
     assertEquals(parsedJson.get("feature2").asInt(), 1);
     JsonNode browsePathV2 = (JsonNode) parsedJson.get("browsePathV2");
     assertEquals(browsePathV2.asText(), "␟levelOne␟levelTwo");
+    assertEquals(parsedJson.get("esObjectFieldBoolean").get("key1").getNodeType(), JsonNodeFactory.instance.booleanNode(true).getNodeType());
+    assertEquals(parsedJson.get("esObjectFieldLong").get("key1").getNodeType(), JsonNodeFactory.instance.numberNode(1L).getNodeType());
+    assertEquals(parsedJson.get("esObjectFieldFloat").get("key2").getNodeType(), JsonNodeFactory.instance.numberNode(2.0f).getNodeType());
+    assertEquals(parsedJson.get("esObjectFieldDouble").get("key1").getNodeType(), JsonNodeFactory.instance.numberNode(1.2).getNodeType());
+    assertEquals(parsedJson.get("esObjectFieldInteger").get("key2").getNodeType(), JsonNodeFactory.instance.numberNode(456).getNodeType());
   }
 
   @Test
