@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.action.DataHubActionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -115,8 +114,6 @@ public class ActionPipelineType
     final ActionPipelineDetails result = new ActionPipelineDetails();
     result.setName(actionInfo.getName());
     result.setType(actionInfo.getType());
-    result.setCategory(actionInfo.getCategory());
-    result.setDescription(actionInfo.getDescription(), SetMode.IGNORE_NULL);
 
     ActionConfig config = new ActionConfig();
     config.setDebugMode(false);
