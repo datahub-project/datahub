@@ -7,6 +7,10 @@ import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 import { AssertionType } from '@src/types.generated';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
+import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
+import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
+import { AssertionResultDot } from '../assertion/profile/shared/AssertionResultDot';
+import { isMonitorActive } from '../acrylUtils';
 
 export const StyledTable = styled(Table)`
     max-width: none;
@@ -52,6 +56,12 @@ const StyledRightOutlined = styled(RightOutlined)`
     font-size: 8px;
 `;
 
+const Result = styled.div`
+    margin: 0px 20px 0px 0px;
+    display: flex;
+    align-items: center;
+`;
+
 // type AssertionTableType = {
 //     dataSource: any[];
 // };
@@ -72,11 +82,40 @@ export const AssertionListTable = ({
             groupBy ? record.monitor : record.monitor,
         );
         let name = primaryLabel;
+        let assertion = record.assertion;
+        // let monitor = record.monitor;
         if (groupBy && record.groupName) {
             name = record.groupName;
         }
+        if (groupBy && !record.groupName) {
+            assertion = record;
+        }
+        let lastEvaluation = groupBy ? record.runEvents?.runEvents?.[0] : record.lastEvaluation;
+        // const disabled = (monitor && !isMonitorActive(monitor)) || false;
 
-        return <StyledAssertionNameContainer>{name}</StyledAssertionNameContainer>;
+        return (
+            <div style={{ display: 'flex' }}>
+                {!(groupBy && record.groupName) && (
+                    <AssertionResultPopover
+                        assertion={assertion}
+                        run={lastEvaluation}
+                        showProfileButton
+                        // onClickProfileButton={onViewAssertionDetails}
+                        placement="right"
+                        resultStatusType={ResultStatusType.LATEST}
+                    >
+                        <Result>
+                            <AssertionResultDot
+                                run={lastEvaluation}
+                                // disabled={disabled}
+                                size={18}
+                            />
+                        </Result>
+                    </AssertionResultPopover>
+                )}
+                <StyledAssertionNameContainer>{name}</StyledAssertionNameContainer>
+            </div>
+        );
     };
 
     const assertionsTableCols = [

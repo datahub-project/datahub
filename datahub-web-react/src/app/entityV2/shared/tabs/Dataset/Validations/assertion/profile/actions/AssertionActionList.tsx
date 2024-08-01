@@ -45,6 +45,7 @@ export const AssertionActionList = ({
 
     const menu = (
         <Menu>
+            {/** Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract. */}
             {(isSeparateSiblingsMode && (
                 <Menu.Item key="1">
                     <ContractAction
@@ -58,12 +59,18 @@ export const AssertionActionList = ({
             )) ||
                 null}
             <Menu.Item key="2">
-                <CopyLinkAction assertion={assertion} />
+                <ExternalUrlAction assertion={assertion} />
             </Menu.Item>
             <Menu.Item key="3">
-                <CopyUrnAction assertion={assertion} />
+                <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
             </Menu.Item>
             <Menu.Item key="4">
+                <CopyLinkAction assertion={assertion} />
+            </Menu.Item>
+            <Menu.Item key="5">
+                <CopyUrnAction assertion={assertion} />
+            </Menu.Item>
+            <Menu.Item key="6">
                 <DeleteAction
                     assertion={assertion}
                     monitor={monitor}
@@ -76,14 +83,12 @@ export const AssertionActionList = ({
     return (
         <ActionList>
             <StartStopAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
-            <ExternalUrlAction assertion={assertion} />
-            <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
+
             <SubscribeAction assertion={assertion} refetch={refetch} />
 
             <Dropdown overlay={menu} trigger={['click']}>
                 <Button type="text" icon={<MoreOutlined />} />
             </Dropdown>
-            {/** Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract. */}
         </ActionList>
     );
 };

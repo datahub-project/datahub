@@ -72,7 +72,7 @@ export const AcrylAssertionList = () => {
     const { urn, entityData, entityType } = useEntityData();
     const { config } = useAppConfig();
 
-    const [showAssertionBuilder, setShowAssertionBuilder] = useState(false); 
+    const [showAssertionBuilder, setShowAssertionBuilder] = useState(false);
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const [visibleAssertions, setVisibleAssertions] = useState<any>({ allAssertions: [] });
