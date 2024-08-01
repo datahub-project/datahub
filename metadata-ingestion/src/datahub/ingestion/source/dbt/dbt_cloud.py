@@ -40,8 +40,7 @@ class DBTCloudConfig(DBTCommonConfig):
 
     metadata_endpoint: str = Field(
         default="https://metadata.cloud.getdbt.com/graphql",
-        description="The dbt Cloud metadata API endpoint. This is deprecated, and will be removed in a future release. Please use access_url instead.",
-        deprecated=True,
+        description="The dbt Cloud metadata API endpoint. If not provided, we will try to infer it from the access_url.",
     )
 
     token: str = Field(
@@ -66,11 +65,37 @@ class DBTCloudConfig(DBTCommonConfig):
     @root_validator(pre=True)
     def set_metadata_endpoint(cls, values: dict) -> dict:
         if values.get("access_url") and not values.get("metadata_endpoint"):
-            parsed_uri = urlparse(values["access_url"])
-            values[
-                "metadata_endpoint"
-            ] = f"{parsed_uri.scheme}://metadata.{parsed_uri.netloc}/graphql"
+            metadata_endpoint = infer_metadata_endpoint(values["access_url"])
+            if metadata_endpoint is None:
+                raise ValueError(
+                    "Unable to infer the metadata endpoint from the access URL. Please provide a metadata endpoint."
+                )
+            values["metadata_endpoint"] = metadata_endpoint
         return values
+
+
+def infer_metadata_endpoint(access_url: str) -> Optional[str]:
+    # See https://docs.getdbt.com/docs/cloud/about-cloud/access-regions-ip-addresses#api-access-urls
+    # and https://docs.getdbt.com/docs/dbt-cloud-apis/discovery-querying#discovery-api-endpoints
+
+    try:
+        parsed_uri = urlparse(access_url)
+        assert parsed_uri.scheme is not None
+        assert parsed_uri.hostname is not None
+    except Exception as e:
+        logger.debug(f"Unable to parse access URL {access_url}: {e}", exc_info=e)
+        return None
+
+    if parsed_uri.hostname.endswith(".dbt.com"):
+        # For cell-based deployments.
+        # prefix.region.dbt.com -> prefix.metadata.region.dbt.com
+        hostname_parts = parsed_uri.hostname.split(".", maxsplit=1)
+        return f"{parsed_uri.scheme}://{hostname_parts[0]}.metadata.{hostname_parts[1]}/graphql"
+    elif parsed_uri.hostname.endswith(".getdbt.com"):
+        return f"{parsed_uri.scheme}://metadata.{parsed_uri.netloc}/graphql"
+    else:
+        # The self-hosted variants also have the metadata. prefix.
+        return f"{parsed_uri.scheme}://metadata.{parsed_uri.netloc}/graphql"
 
 
 _DBT_GRAPHQL_COMMON_FIELDS = """

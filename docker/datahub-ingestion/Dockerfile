@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=full
 ARG BASE_IMAGE=acryldata/datahub-ingestion-base
-ARG DOCKER_VERSION=head
+ARG DOCKER_VERSION=head-full
 ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 

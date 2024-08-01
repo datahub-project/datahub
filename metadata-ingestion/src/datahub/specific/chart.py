@@ -3,8 +3,11 @@ from typing import Dict, List, Optional, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
+    AccessLevelClass,
     AuditStampClass,
+    ChangeAuditStampsClass,
     ChartInfoClass as ChartInfo,
+    ChartTypeClass,
     EdgeClass as Edge,
     GlobalTagsClass as GlobalTags,
     GlossaryTermAssociationClass as Term,
@@ -310,4 +313,109 @@ class ChartPatchBuilder(MetadataPatchProposal):
             The ChartPatchBuilder instance.
         """
         self.custom_properties_patch_helper.remove_property(key)
+        return self
+
+    def set_title(self, title: str) -> "ChartPatchBuilder":
+        assert title, "ChartInfo title should not be None"
+        self._add_patch(
+            ChartInfo.ASPECT_NAME,
+            "add",
+            path="/title",
+            value=title,
+        )
+
+        return self
+
+    def set_description(self, description: str) -> "ChartPatchBuilder":
+        assert description, "DashboardInfo description should not be None"
+        self._add_patch(
+            ChartInfo.ASPECT_NAME,
+            "add",
+            path="/description",
+            value=description,
+        )
+
+        return self
+
+    def set_last_refreshed(self, last_refreshed: Optional[int]) -> "ChartPatchBuilder":
+        if last_refreshed:
+            self._add_patch(
+                ChartInfo.ASPECT_NAME,
+                "add",
+                path="/lastRefreshed",
+                value=last_refreshed,
+            )
+
+        return self
+
+    def set_last_modified(
+        self, last_modified: "ChangeAuditStampsClass"
+    ) -> "ChartPatchBuilder":
+        if last_modified:
+            self._add_patch(
+                ChartInfo.ASPECT_NAME,
+                "add",
+                path="/lastModified",
+                value=last_modified,
+            )
+
+        return self
+
+    def set_external_url(self, external_url: Optional[str]) -> "ChartPatchBuilder":
+        if external_url:
+            self._add_patch(
+                ChartInfo.ASPECT_NAME,
+                "add",
+                path="/externalUrl",
+                value=external_url,
+            )
+        return self
+
+    def set_chart_url(self, dashboard_url: Optional[str]) -> "ChartPatchBuilder":
+        if dashboard_url:
+            self._add_patch(
+                ChartInfo.ASPECT_NAME,
+                "add",
+                path="/chartUrl",
+                value=dashboard_url,
+            )
+
+        return self
+
+    def set_type(
+        self, type: Union[None, Union[str, "ChartTypeClass"]] = None
+    ) -> "ChartPatchBuilder":
+        if type:
+            self._add_patch(
+                ChartInfo.ASPECT_NAME,
+                "add",
+                path="/type",
+                value=type,
+            )
+
+        return self
+
+    def set_access(
+        self, access: Union[None, Union[str, "AccessLevelClass"]] = None
+    ) -> "ChartPatchBuilder":
+        if access:
+            self._add_patch(
+                ChartInfo.ASPECT_NAME,
+                "add",
+                path="/access",
+                value=access,
+            )
+
+        return self
+
+    def add_inputs(self, input_urns: Optional[List[str]]) -> "ChartPatchBuilder":
+        if input_urns:
+            for urn in input_urns:
+                self._add_patch(
+                    aspect_name=ChartInfo.ASPECT_NAME,
+                    op="add",
+                    path=f"/inputs/{urn}",
+                    value=urn,
+                )
+
         return self

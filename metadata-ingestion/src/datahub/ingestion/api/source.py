@@ -137,7 +137,10 @@ class StructuredLogs(Report):
                 )
 
             # Add the simple exception details to the context.
-            context = f"{context}: {exc}"
+            if context:
+                context = f"{context} {type(exc)}: {exc}"
+            else:
+                context = f"{type(exc)}: {exc}"
         elif log:
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 

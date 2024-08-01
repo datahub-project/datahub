@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
@@ -13,6 +14,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Type,
     Union,
     cast,
 )
@@ -157,6 +159,21 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+try:
+    # On earlier versions of the tableauserverclient, the NonXMLResponseError
+    # was thrown when reauthentication was needed. We'll keep both exceptions
+    # around for now, but can remove this in the future.
+    from tableauserverclient.server.endpoint.exceptions import (  # type: ignore
+        NotSignedInError,
+    )
+
+    REAUTHENTICATE_ERRORS: Tuple[Type[Exception], ...] = (
+        NotSignedInError,
+        NonXMLResponseError,
+    )
+except ImportError:
+    REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -965,7 +982,7 @@ class TableauSiteSource:
             query_data = query_metadata(
                 self.server, query, connection_type, count, offset, query_filter
             )
-        except NonXMLResponseError:
+        except REAUTHENTICATE_ERRORS:
             if not retry_on_auth_error:
                 raise
 
@@ -1038,6 +1055,35 @@ class TableauSiteSource:
                     )
 
             else:
+                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30 second
+                # timeout error. It doesn't reliably happen, so retrying a couple times makes sense.
+                if all(
+                    error.get("message")
+                    == "Execution canceled because timeout of 30000 millis was reached"
+                    for error in errors
+                ):
+                    # If it was only a timeout error, we can retry.
+                    if retries_remaining <= 0:
+                        raise
+
+                    # This is a pretty dumb backoff mechanism, but it's good enough for now.
+                    backoff_time = min(
+                        (self.config.max_retries - retries_remaining + 1) ** 2, 60
+                    )
+                    logger.info(
+                        f"Query {connection_type} received a 30 second timeout error - will retry in {backoff_time} seconds. "
+                        f"Retries remaining: {retries_remaining}"
+                    )
+                    time.sleep(backoff_time)
+                    return self.get_connection_object_page(
+                        query,
+                        connection_type,
+                        query_filter,
+                        count,
+                        offset,
+                        retry_on_auth_error=False,
+                        retries_remaining=retries_remaining - 1,
+                    )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
         connection_object = query_data.get(c.DATA, {}).get(connection_type, {})

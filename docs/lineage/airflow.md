@@ -266,6 +266,34 @@ with DAG(
 - ingest this DAG, and it will remove all the obsolete pipelines and tasks from the Datahub based on the `cluster` value set in the `airflow.cfg`
 
 
+## Get all dataJobs associated with a dataFlow
+
+If you are looking to find all tasks (aka DataJobs) that belong to a specific pipeline (aka DataFlow), you can use the following GraphQL query:
+
+```graphql
+query {
+  dataFlow(urn: "urn:li:dataFlow:(airflow,db_etl,prod)") {
+    childJobs: relationships(
+      input: {
+        types: ["IsPartOf"],
+        direction: INCOMING,
+        start: 0,
+        count: 100
+      }
+    ) {
+      total
+      relationships {
+        entity {
+          ... on DataJob {
+            urn
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ## Emit Lineage Directly
 
 If you can't use the plugin or annotate inlets/outlets, you can also emit lineage using the `DatahubEmitterOperator`.

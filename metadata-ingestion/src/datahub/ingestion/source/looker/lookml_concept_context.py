@@ -266,15 +266,25 @@ class LookerViewContext:
         sql_table_name: Optional[str] = self._get_sql_table_name_field()
         # if sql_table_name field is not set then the table name is equal to view-name
         if sql_table_name is None:
-            return self.raw_view[NAME].lower()
+            sql_table_name = self.raw_view[NAME].lower()
+
+        return sql_table_name
+
+    def datahub_transformed_sql_table_name(self) -> str:
+        table_name: Optional[str] = self.raw_view.get(
+            "datahub_transformed_sql_table_name"
+        )
+
+        if not table_name:
+            table_name = self.sql_table_name()
 
         # sql_table_name is in the format "${view-name}.SQL_TABLE_NAME"
         # remove extra characters
         if self._is_dot_sql_table_name_present():
-            sql_table_name = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_table_name)
+            table_name = re.sub(DERIVED_VIEW_PATTERN, r"\1", table_name)
 
         # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
-        return sql_table_name.replace('"', "").replace("`", "").lower()
+        return table_name.replace('"', "").replace("`", "").lower()
 
     def derived_table(self) -> Dict[Any, Any]:
         """
@@ -296,30 +306,21 @@ class LookerViewContext:
 
         return derived_table["explore_source"]
 
-    def sql(self, transformed: bool = True) -> str:
+    def sql(self) -> str:
         """
         This function should only be called if is_sql_based_derived_case return true
         """
         derived_table = self.derived_table()
 
-        # Looker supports sql fragments that omit the SELECT and FROM parts of the query
-        # Add those in if we detect that it is missing
-        sql_query: str = derived_table["sql"]
+        return derived_table["sql"]
 
-        if transformed:  # update the original sql attribute only if transformed is true
-            if not re.search(r"SELECT\s", sql_query, flags=re.I):
-                # add a SELECT clause at the beginning
-                sql_query = f"SELECT {sql_query}"
+    def datahub_transformed_sql(self) -> str:
+        """
+        This function should only be called if is_sql_based_derived_case return true
+        """
+        derived_table = self.derived_table()
 
-            if not re.search(r"FROM\s", sql_query, flags=re.I):
-                # add a FROM clause at the end
-                sql_query = f"{sql_query} FROM {self.name()}"
-                # Get the list of tables in the query
-
-            # Drop ${ and }
-            sql_query = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_query)
-
-        return sql_query
+        return derived_table["datahub_transformed_sql"]
 
     def name(self) -> str:
         return self.raw_view[NAME]
