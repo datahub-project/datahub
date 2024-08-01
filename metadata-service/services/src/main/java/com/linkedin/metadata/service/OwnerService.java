@@ -30,12 +30,23 @@ import lombok.extern.slf4j.Slf4j;
 public class OwnerService extends BaseService {
 
   public static final String SYSTEM_ID = "__system__";
+  private final boolean _isAsync;
+
+  public OwnerService(
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper,
+      final boolean isAsync) {
+    super(entityClient, openApiClient, objectMapper);
+    _isAsync = isAsync;
+  }
 
   public OwnerService(
       @Nonnull SystemEntityClient entityClient,
       @Nonnull final OpenApiClient openApiClient,
       @Nonnull ObjectMapper objectMapper) {
     super(entityClient, openApiClient, objectMapper);
+    _isAsync = false;
   }
 
   /**
@@ -110,7 +121,7 @@ public class OwnerService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   private void removeOwnersFromResources(
@@ -124,7 +135,7 @@ public class OwnerService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   @VisibleForTesting

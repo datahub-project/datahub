@@ -74,15 +74,18 @@ public class FormService extends BaseService {
 
   private final OwnerService _ownerService;
   private final String _appSource;
+  private final boolean _isAsync;
 
   public FormService(
       @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull final OpenApiClient openApiClient,
       @Nonnull ObjectMapper objectMapper,
-      @Nonnull final String appSource) {
+      @Nonnull final String appSource,
+      final boolean isAsync) {
     super(systemEntityClient, openApiClient, objectMapper);
-    _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
+    _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper, isAsync);
     _appSource = appSource;
+    _isAsync = isAsync;
   }
 
   public FormService(
@@ -92,6 +95,7 @@ public class FormService extends BaseService {
     super(systemEntityClient, openApiClient, objectMapper);
     _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
     _appSource = null;
+    _isAsync = false;
   }
 
   /** Batch associated a form to a given set of entities by urn. */
@@ -107,7 +111,7 @@ public class FormService extends BaseService {
     if (_appSource != null) {
       applyAppSource(changes, _appSource);
     }
-    ingestChangeProposals(opContext, changes, true);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   /** Batch remove a form from a given entity by urn. */
@@ -125,7 +129,7 @@ public class FormService extends BaseService {
     if (_appSource != null) {
       applyAppSource(changes, _appSource);
     }
-    ingestChangeProposals(opContext, changes, true);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   /** Mark a specific form prompt as incomplete */
@@ -143,7 +147,7 @@ public class FormService extends BaseService {
     if (_appSource != null) {
       applyAppSource(changes, _appSource);
     }
-    ingestChangeProposals(opContext, changes, true);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   /** Create a dynamic form assignment for a particular form. */
@@ -191,7 +195,7 @@ public class FormService extends BaseService {
       if (_appSource != null) {
         applyAppSource(changes, _appSource);
       }
-      ingestChangeProposals(opContext, changes);
+      ingestChangeProposals(opContext, changes, _isAsync);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create form", e);
     }
@@ -217,7 +221,8 @@ public class FormService extends BaseService {
           opContext,
           ImmutableList.of(
               AspectUtils.buildMetadataChangeProposal(
-                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)));
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
+          _isAsync);
       SearchBasedFormAssignmentRunner.assign(
           opContext,
           formFilters,
@@ -290,7 +295,8 @@ public class FormService extends BaseService {
       @Nonnull final PrimitivePropertyValueArray values,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nullable final Urn actorUrn)
+      @Nullable final Urn actorUrn,
+      @Nonnull final boolean shouldThrow)
       throws Exception {
     entityUrns.forEach(
         urnStr -> {
@@ -299,7 +305,10 @@ public class FormService extends BaseService {
             submitStructuredPropertyPromptResponse(
                 opContext, urn, structuredPropertyUrn, values, formUrn, formPromptId, actorUrn);
           } catch (Exception e) {
-            throw new RuntimeException("Failed to batch submit structured property prompt", e);
+            log.error("Failed to batch submit structured property prompt", e);
+            if (shouldThrow) {
+              throw new RuntimeException("Failed to batch submit structured property prompt", e);
+            }
           }
         });
 
@@ -314,7 +323,8 @@ public class FormService extends BaseService {
       @Nonnull Urn ownershipTypeUrn,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nullable Urn actorUrn)
+      @Nullable Urn actorUrn,
+      final boolean shouldThrow)
       throws Exception {
     entityUrns.forEach(
         urnStr -> {
@@ -323,7 +333,10 @@ public class FormService extends BaseService {
             submitOwnershipPromptResponse(
                 opContext, urn, owners, ownershipTypeUrn, formUrn, formPromptId, actorUrn);
           } catch (Exception e) {
-            throw new RuntimeException("Failed to batch submit structured property prompt", e);
+            log.error("Failed to batch submit structured property prompt", e);
+            if (shouldThrow) {
+              throw new RuntimeException("Failed to batch submit structured property prompt", e);
+            }
           }
         });
 
@@ -370,6 +383,7 @@ public class FormService extends BaseService {
     // First, let's apply the action and add the owners
     ResourceReference resourceRef = new ResourceReference(entityUrn, null, null);
     final String finalAppSource = _appSource != null ? _appSource : UI_SOURCE;
+    // do we pass in _isAsync or take the same approach with ownerService and set as class var?
     _ownerService.batchAddOwners(
         opContext,
         owners,
@@ -589,7 +603,7 @@ public class FormService extends BaseService {
       applyAppSource(ImmutableList.of(structuredPropertiesProposal), _appSource);
     }
     try {
-      this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
+      this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, _isAsync);
     } catch (Exception e) {
       throw new RuntimeException("Failed to submit form response", e);
     }
@@ -605,7 +619,7 @@ public class FormService extends BaseService {
       if (_appSource != null) {
         applyAppSource(ImmutableList.of(mcp), _appSource);
       }
-      ingestChangeProposals(opContext, ImmutableList.of(mcp));
+      ingestChangeProposals(opContext, ImmutableList.of(mcp), _isAsync);
     } catch (Exception e) {
       log.warn(String.format("Failed to ingest forms for entity with urn %s", entityUrn), e);
     }

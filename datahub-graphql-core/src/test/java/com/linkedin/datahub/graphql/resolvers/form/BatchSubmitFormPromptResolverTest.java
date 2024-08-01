@@ -60,7 +60,8 @@ public class BatchSubmitFormPromptResolverTest {
             Mockito.eq(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("test"))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
             Mockito.eq(PROMPT_ID),
-            Mockito.any());
+            Mockito.any(),
+            Mockito.eq(true));
     Mockito.verify(mockFormService, Mockito.times(0))
         .batchSubmitFieldStructuredPropertyPromptResponse(
             Mockito.any(),
@@ -108,7 +109,8 @@ public class BatchSubmitFormPromptResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any());
+            Mockito.any(),
+            Mockito.eq(true));
   }
 
   @Test
@@ -122,7 +124,8 @@ public class BatchSubmitFormPromptResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any()))
+                Mockito.any(),
+                Mockito.eq(true)))
         .thenThrow(new RuntimeException());
     BatchSubmitFormPromptResolver resolver = new BatchSubmitFormPromptResolver(mockFormService);
 
@@ -145,7 +148,8 @@ public class BatchSubmitFormPromptResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any()))
+                Mockito.any(),
+                Mockito.eq(true)))
         .thenReturn(true);
 
     Mockito.when(

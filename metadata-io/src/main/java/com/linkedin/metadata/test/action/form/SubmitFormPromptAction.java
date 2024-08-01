@@ -131,7 +131,7 @@ public class SubmitFormPromptAction implements Action {
       }
 
       formService.batchSubmitStructuredPropertyPromptResponse(
-          opContext, urnStrings, structuredPropertyUrn, values, formUrn, promptId, actorUrn);
+          opContext, urnStrings, structuredPropertyUrn, values, formUrn, promptId, actorUrn, false);
     } catch (Exception e) {
       log.error(
           String.format(
@@ -167,7 +167,7 @@ public class SubmitFormPromptAction implements Action {
           UrnUtils.getUrn(params.getParams().get(OWNERSHIP_TYPE_URN_PARAMETER).get(0));
 
       formService.batchSubmitOwnershipPromptResponse(
-          opContext, urnStrings, owners, ownershipTypeUrn, formUrn, promptId, actorUrn);
+          opContext, urnStrings, owners, ownershipTypeUrn, formUrn, promptId, actorUrn, false);
     } catch (Exception e) {
       log.error(
           String.format(

@@ -580,7 +580,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms))),
-            Mockito.eq(true));
+            Mockito.eq(false));
   }
 
   @Test

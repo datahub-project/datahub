@@ -65,7 +65,8 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   values,
                   formUrn,
                   promptId,
-                  UrnUtils.getUrn(context.getActorUrn()));
+                  UrnUtils.getUrn(context.getActorUrn()),
+                  true);
             } else if (promptInput.getType().equals(FormPromptType.FIELDS_STRUCTURED_PROPERTY)) {
               if (promptInput.getStructuredPropertyParams() == null) {
                 throw new IllegalArgumentException(
@@ -112,7 +113,8 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   ownershipTypeUrn,
                   formUrn,
                   promptId,
-                  UrnUtils.getUrn(context.getActorUrn()));
+                  UrnUtils.getUrn(context.getActorUrn()),
+                  true);
             }
             return false;
           } catch (Exception e) {
