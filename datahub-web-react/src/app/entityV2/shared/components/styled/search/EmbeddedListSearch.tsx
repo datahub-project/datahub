@@ -236,7 +236,8 @@ export const EmbeddedListSearch = ({
         },
         skip: !defaultViewUrn,
     });
-    const view = (viewData?.entity?.__typename === 'DataHubView' && viewData?.entity) || undefined;
+
+    const view = (viewData?.view?.__typename === 'DataHubView' && viewData?.view) || undefined;
 
     useEffect(() => {
         if (shouldRefetch && resetShouldRefetch) {

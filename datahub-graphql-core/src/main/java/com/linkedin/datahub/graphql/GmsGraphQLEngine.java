@@ -1038,6 +1038,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("mlModelGroup", getResolver(mlModelGroupType))
                 .dataFetcher("assertion", getResolver(assertionType))
                 .dataFetcher("form", getResolver(formType))
+                .dataFetcher("view", getResolver(dataHubViewType))
                 .dataFetcher("listPolicies", new ListPoliciesResolver(this.entityClient))
                 .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
