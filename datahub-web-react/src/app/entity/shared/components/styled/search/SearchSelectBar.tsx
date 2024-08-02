@@ -41,6 +41,7 @@ type Props = {
     isSelectAll: boolean;
     totalResults?: number;
     selectedEntities?: EntityAndType[];
+    setSelectedEntities: (entities: EntityAndType[]) => void;
     showCancel?: boolean;
     showActions?: boolean;
     onChangeSelectAll: (selected: boolean) => void;
@@ -59,6 +60,7 @@ export const SearchSelectBar = ({
     isSelectAll,
     totalResults = 0,
     selectedEntities = [],
+    setSelectedEntities,
     showCancel = true,
     showActions = true,
     onChangeSelectAll,
@@ -104,7 +106,7 @@ export const SearchSelectBar = ({
                         <>{selectedEntityCount} selected</>
                     )}
                 </Typography.Text>
-                {!areAllEntitiesSelected && isSelectAll && selectedEntityCount < totalResults && (
+                {!areAllEntitiesSelected && isInFormContext && isSelectAll && selectedEntityCount < totalResults && (
                     <Tooltip
                         title={
                             totalResults >= MAX_BULK_SELECT_COUNT ? 'Cannot select more than 10,000 assets' : undefined
@@ -125,6 +127,7 @@ export const SearchSelectBar = ({
                         onClick={() => {
                             onChangeSelectAll(false);
                             setAreAllEntitiesSelected?.(false);
+                            setSelectedEntities([]);
                         }}
                     >
                         Clear selection

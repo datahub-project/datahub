@@ -31,7 +31,7 @@ export type EntityFormContextType = {
         handleBulkVerifySubmission: (entityUrns: string[]) => void;
         activeTasks: Test[];
         completeTasks: Test[];
-        handleAsyncBatchSubmit: (taskUrn: string) => void;
+        handleAsyncBatchSubmit: (taskUrn: string, promptId: string) => void;
     };
     search: {
         results: SearchForEntitiesByFormQuery;
@@ -125,7 +125,7 @@ export const DEFAULT_CONTEXT = {
         handleBulkVerifySubmission: (_: string[]) => null,
         activeTasks: [],
         completeTasks: [],
-        handleAsyncBatchSubmit: (_: string) => {},
+        handleAsyncBatchSubmit: (_taskId: string, _promptId: string) => {},
     },
     search: {
         results: {},

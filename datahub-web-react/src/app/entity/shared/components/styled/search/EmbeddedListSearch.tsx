@@ -314,6 +314,7 @@ export const EmbeddedListSearch = ({
                 isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
                 setIsSelectMode={setIsSelectMode}
                 selectedEntities={selectedEntities}
+                setSelectedEntities={setSelectedEntities}
                 onChangeSelectAll={onChangeSelectAll}
                 refetch={() => refetch({ input: searchInput })}
                 searchBarStyle={searchBarStyle}

@@ -10,6 +10,7 @@ import { useEntityFormContext } from '../EntityFormContext';
 
 import { pluralize } from '../../../../shared/textUtil';
 import analytics, { DocRequestView, EventType } from '../../../../analytics';
+import { BULK_VERIFY_ID } from '../useEntityFormTasks';
 
 const ModalContent = styled.div`
     font-size: 14px;
@@ -94,7 +95,7 @@ export default function BulkVerifyModal({ isVerifyModalVisible, closeModal }: Pr
                     formFilter,
                     orFilters,
                     formUrn,
-                    taskInput: { taskName: 'Verify form submission' },
+                    taskInput: { taskName: 'Verify form' },
                 },
             },
         }).then((result) => {
@@ -118,7 +119,7 @@ export default function BulkVerifyModal({ isVerifyModalVisible, closeModal }: Pr
             setAreAllEntitiesSelected(false);
             closeModal();
             if (result.data?.asyncBatchVerifyForm.taskUrn) {
-                handleAsyncBatchSubmit(result.data.asyncBatchVerifyForm.taskUrn);
+                handleAsyncBatchSubmit(result.data.asyncBatchVerifyForm.taskUrn, BULK_VERIFY_ID);
             }
         });
     }

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Icon } from '@components';
-import { pluralize } from '@src/app/shared/textUtil';
 import { Divider } from 'antd';
 import { useEntityFormContext } from './EntityFormContext';
 import Task from './Task';
@@ -18,16 +16,12 @@ const ActiveTasksWrapper = styled.div`
 `;
 
 const Header = styled.div`
-    font-size: 20px;
-    background-color: #323a5d;
+    font-size: 16px;
+    background-color: black;
     padding: 12px;
     color: white;
     display: flex;
     align-items: center;
-`;
-
-const StyledIcon = styled(Icon)`
-    margin-right: 6px;
 `;
 
 const ExpandCollapse = styled.div`
@@ -36,15 +30,9 @@ const ExpandCollapse = styled.div`
 `;
 
 const TasksContent = styled.div`
-    padding: 16px;
+    padding: 8px 16px;
     max-height: 230px;
     overflow: auto;
-`;
-
-const ActiveTaskCount = styled.div`
-    margin-bottom: 8px;
-    color: #81879f;
-    font-size: 12px;
 `;
 
 const StyledDivider = styled(Divider)`
@@ -62,33 +50,28 @@ export default function ActiveTasks() {
     }
 
     const numActiveTasks = activeTasks.length;
+    const allTasks = [...activeTasks, ...completeTasks];
 
     return (
         <ActiveTasksWrapper>
             <Header>
-                <StyledIcon icon="TaskAlt" />
-                Active Tasks
+                Pending Responses
                 <ExpandCollapse onClick={() => setIsExpanded(!isExpanded)}>{isExpanded ? '-' : '+'}</ExpandCollapse>
             </Header>
             {isExpanded && (
                 <TasksContent>
-                    {!!numActiveTasks && (
-                        <ActiveTaskCount>
-                            Running {numActiveTasks} active {pluralize(numActiveTasks, 'task')}
-                        </ActiveTaskCount>
-                    )}
                     <div>
                         {activeTasks.map((t, index) => (
-                            <>
-                                <Task task={t} isComplete={false} />
+                            <div key={t.urn}>
+                                <Task task={t} isComplete={false} allTasks={allTasks} />
                                 {(!!completeTasks.length || index !== numActiveTasks - 1) && <StyledDivider />}
-                            </>
+                            </div>
                         ))}
                         {completeTasks.map((t, index) => (
-                            <>
-                                <Task task={t} isComplete />
+                            <div key={t.urn}>
+                                <Task task={t} isComplete allTasks={allTasks} />
                                 {index !== completeTasks.length - 1 && <StyledDivider />}
-                            </>
+                            </div>
                         ))}
                     </div>
                 </TasksContent>

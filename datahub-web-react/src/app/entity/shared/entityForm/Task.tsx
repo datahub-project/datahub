@@ -1,13 +1,14 @@
 import { Test } from '@src/types.generated';
-import React from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { Icon, Text } from '@components';
 import Loading from '@src/app/shared/Loading';
+import { CheckCircleFilled } from '@ant-design/icons';
+import { blue } from '@ant-design/colors';
+import { FormView, useEntityFormContext } from './EntityFormContext';
+import { BULK_VERIFY_ID, getAssociatedPromptId } from './useEntityFormTasks';
 
 const TaskWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    padding: 8px 0;
+    padding: 12px 0;
 `;
 
 const TextWrapper = styled.div`
@@ -21,24 +22,80 @@ const TaskName = styled.span`
     margin-right: 6px;
 `;
 
-const IconWrapper = styled.div``;
+const StyledCheck = styled(CheckCircleFilled)`
+    color: green;
+    font-size: 16px;
+`;
+
+const SubmittedText = styled.span<{ $color: string }>`
+    color: ${(props) => props.$color};
+`;
+
+const TaskHeader = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const IconWrapper = styled.div`
+    height: 16px;
+    width: 16px;
+`;
+
+const SubHeader = styled.div`
+    margin-left: 25px;
+    color: gray;
+`;
+
+const Reload = styled.span`
+    color: ${blue[6]};
+    cursor: pointer;
+`;
 
 interface Props {
     task: Test;
     isComplete: boolean;
+    allTasks: Test[];
 }
 
-export default function Task({ task, isComplete }: Props) {
+export default function Task({ task, isComplete, allTasks }: Props) {
+    const {
+        prompt: { selectedPromptId },
+        form: { formView },
+        search: { refetch },
+    } = useEntityFormContext();
+    const associatedPromptId = useMemo(() => getAssociatedPromptId(task.urn), [task.urn]);
+
+    function handleReload() {
+        if (formView === FormView.BULK_VERIFY && associatedPromptId === BULK_VERIFY_ID) {
+            refetch();
+        } else if (selectedPromptId === associatedPromptId) {
+            refetch();
+        }
+    }
+
+    // if multiple tasks have the same name, add a (1) etc to the end.
+    const tasksWithSameName = allTasks.filter((t) => t.name === task.name);
+    const myNameIndex = tasksWithSameName.reverse().findIndex((t) => t.urn === task.urn);
+
     return (
         <TaskWrapper>
-            <IconWrapper>
-                {isComplete ? <Icon icon="CheckCircle" color="green" size="2xl" /> : <Loading height={16} />}
-            </IconWrapper>
-            <TextWrapper>
-                <TaskName>{task.name || task.urn}</TaskName>
-                {isComplete && <>Complete: {task.results.passingCount}</>}
-            </TextWrapper>
-            <Text color={isComplete ? 'green' : 'blue'}>{isComplete ? 'Complete' : 'Active'}</Text>
+            <TaskHeader>
+                <IconWrapper>{isComplete ? <StyledCheck /> : <Loading height={16} marginTop={0} />}</IconWrapper>
+                <TextWrapper>
+                    <TaskName>
+                        {task.name || task.urn} {myNameIndex > 0 && `(${myNameIndex})`}
+                    </TaskName>
+                </TextWrapper>
+                <SubmittedText $color={isComplete ? 'green' : blue[6]}>
+                    {isComplete ? `${task.results.passingCount} submitted` : 'Submitting...'}
+                </SubmittedText>
+            </TaskHeader>
+            {isComplete && (
+                <SubHeader>
+                    Processing a large number of responses may take some time after submitting.{' '}
+                    <Reload onClick={handleReload}>Reload</Reload>
+                </SubHeader>
+            )}
         </TaskWrapper>
     );
 }

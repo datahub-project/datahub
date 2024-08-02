@@ -1,7 +1,9 @@
 import { SwapOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
+import * as QueryString from 'query-string';
 import styled from 'styled-components';
+import { useHistory, useLocation } from 'react-router';
 import { FormView, useEntityFormContext } from '../EntityFormContext';
 import { WhiteButton } from '../../../../shared/components';
 import { FORM_QUESTION_VIEW_BUTTON } from '../../../../onboarding/config/FormOnboardingConfig';
@@ -35,16 +37,21 @@ const ButtonText = styled.span`
 `;
 
 export default function FormViewToggle() {
+    const history = useHistory();
+    const location = useLocation();
     const {
         form: { formView, setFormView },
         prompt: { prompts, setSelectedPromptId },
-        entity: { setSelectedEntities },
+        entity: { setSelectedEntities, refetch },
     } = useEntityFormContext();
 
     function toggleFormView() {
         if (formView === FormView.BY_ENTITY) {
             setFormView(FormView.BY_QUESTION);
+            const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+            history.push({ search: QueryString.stringify({ ...params, page: 0 }) });
         } else if (formView === FormView.BY_QUESTION) {
+            refetch();
             setFormView(FormView.BY_ENTITY);
         }
     }

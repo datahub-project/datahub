@@ -61,6 +61,20 @@ query getTestResultsSummary($urn: String!) {
     }
 }
 
+query getTestResultSummaries($input: ListTestsInput!) {
+    listTests(input: $input) {
+        start
+        count
+        total
+        tests {
+            urn
+            type
+            name
+            ...testResultsSummaryFields
+        }
+    }
+}
+
 mutation runTests($urn: String!) {
     runTests(urn: $urn)
 }

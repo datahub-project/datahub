@@ -117,7 +117,7 @@ export default function PromptNavigation() {
                     formFilter,
                     orFilters,
                     input: promptInput,
-                    taskInput: { taskName: `Question ${promptIndex + 1} submission` },
+                    taskInput: { taskName: `Question ${promptIndex + 1}` },
                 },
             },
         })
@@ -144,7 +144,7 @@ export default function PromptNavigation() {
                 setAreAllEntitiesSelected(false);
                 onSuccess();
                 if (result.data?.asyncBatchSubmitFormPrompt.taskUrn) {
-                    handleAsyncBatchSubmit(result.data?.asyncBatchSubmitFormPrompt.taskUrn);
+                    handleAsyncBatchSubmit(result.data?.asyncBatchSubmitFormPrompt.taskUrn, promptInput.promptId);
                 }
             })
             .catch(() => {

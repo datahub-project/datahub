@@ -269,6 +269,7 @@ export const SearchResults = ({
                                     }
                                     totalResults={totalResults}
                                     selectedEntities={selectedEntities}
+                                    setSelectedEntities={setSelectedEntities}
                                     onChangeSelectAll={onChangeSelectAll}
                                     onCancel={() => setIsSelectMode(false)}
                                     refetch={refetch}

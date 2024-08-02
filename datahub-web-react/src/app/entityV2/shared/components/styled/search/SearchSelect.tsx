@@ -168,6 +168,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                     showActions={false}
                     refetch={refetch}
                     selectedEntities={selectedEntities}
+                    setSelectedEntities={setSelectedEntities}
                 />
             </TabToolbar>
             <EmbeddedListSearchResults

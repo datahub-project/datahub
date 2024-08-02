@@ -1,28 +1,55 @@
-import { GetTestResultsSummaryQuery, useGetTestResultsSummaryLazyQuery } from '@src/graphql/test.generated';
-import { Test } from '@src/types.generated';
+import {
+    GetTestResultsSummaryQuery,
+    GetTestResultSummariesQuery,
+    useGetTestResultsSummaryLazyQuery,
+    useGetTestResultSummariesLazyQuery,
+} from '@src/graphql/test.generated';
+import { AndFilterInput, Test } from '@src/types.generated';
+import moment from 'moment';
 import { useEffect, useState } from 'react';
 
-const ACTIVE_TASKS_KEY = 'activeTaks';
+export const BULK_VERIFY_ID = 'bulkVerify';
+const TASK_TO_ID_MAP_KEY = 'taskToIdMap';
+const ACTIVE_TASKS_KEY = 'activeTasks';
+const LOCAL_STORAGE_TIMEOUT_MINS = 0;
 
 export function useEntityFormTasks(formUrn: string) {
     const localStorageTasksKey = `${formUrn}-${ACTIVE_TASKS_KEY}`;
     const [activeTasks, setActiveTasks] = useState<Test[]>([]);
     const [completeTasks, setCompleteTasks] = useState<Test[]>([]);
 
+    function handleFetchedTask(task: Test) {
+        if (task?.results.lastRunTimestampMillis) {
+            // task is complete
+            const taskUrn = task.urn;
+            const lastRunTime = task?.results.lastRunTimestampMillis;
+            if (moment(lastRunTime).add(LOCAL_STORAGE_TIMEOUT_MINS, 'seconds') < moment()) {
+                removeFromLocalStorage(taskUrn);
+            } else {
+                // add tasks within timeout window to complete tasks
+                setCompleteTasks((completed) => [task as Test, ...completed]);
+            }
+            setActiveTasks((active) => active.filter((t) => t.urn !== taskUrn));
+        } else if (task) {
+            if (!activeTasks.find((t) => t.urn === task?.urn)) {
+                setActiveTasks([task as Test, ...activeTasks]);
+            }
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            setTimeout(() => fetchTask({ variables: { urn: task?.urn || '' } }), 3000);
+        }
+    }
+
     const [fetchTask] = useGetTestResultsSummaryLazyQuery({
         onCompleted: (data: GetTestResultsSummaryQuery) => {
-            if (data.test?.results.lastRunTimestampMillis) {
-                // task is complete
-                const taskUrn = data.test.urn;
-                removeFromLocalStorage(taskUrn);
-                setActiveTasks(activeTasks.filter((t) => t.urn !== taskUrn));
-                setCompleteTasks([data.test as Test, ...completeTasks]);
-            } else if (data.test) {
-                if (!activeTasks.find((t) => t.urn === data.test?.urn)) {
-                    setActiveTasks([data.test as Test, ...activeTasks]);
-                }
-                setTimeout(() => fetchTask({ variables: { urn: data.test?.urn || '' } }), 3000);
+            if (data.test) {
+                handleFetchedTask(data.test as Test);
             }
+        },
+    });
+
+    const [fetchTasks] = useGetTestResultSummariesLazyQuery({
+        onCompleted: (data: GetTestResultSummariesQuery) => {
+            data.listTests?.tests.forEach((test) => handleFetchedTask(test as Test));
         },
     });
 
@@ -31,16 +58,35 @@ export function useEntityFormTasks(formUrn: string) {
         localStorage.setItem(localStorageTasksKey, JSON.stringify(tasksInLocalStorage.filter((t) => t !== taskUrn)));
     }
 
-    function handleAsyncBatchSubmit(taskUrn: string) {
+    /*
+     * After batch submitting, add task to localStorage as an active task and with its associated promptId.
+     * Then start fetching the task every 3 seconds until it's complete
+     */
+    function handleAsyncBatchSubmit(taskUrn: string, promptId: string) {
         const tasksInLocalStorage: string[] = JSON.parse(localStorage.getItem(localStorageTasksKey) || '[]');
         localStorage.setItem(localStorageTasksKey, JSON.stringify([...tasksInLocalStorage, taskUrn]));
         fetchTask({ variables: { urn: taskUrn } });
+
+        // add to tasksToId map
+        const tasksToIdMap: { [key: string]: string } = JSON.parse(localStorage.getItem(TASK_TO_ID_MAP_KEY) || '{}');
+        tasksToIdMap[taskUrn] = promptId;
+        localStorage.setItem(TASK_TO_ID_MAP_KEY, JSON.stringify(tasksToIdMap));
     }
 
+    /*
+     * On page load, get tasks from localStorage to display to the user.
+     */
     useEffect(() => {
-        const tasksInLocalStorage = JSON.parse(localStorage.getItem(localStorageTasksKey) || '[]');
-        tasksInLocalStorage.forEach((task) => fetchTask({ variables: { urn: task } }));
-    }, [fetchTask, localStorageTasksKey]);
+        const tasksInLocalStorage: string[] = JSON.parse(localStorage.getItem(localStorageTasksKey) || '[]');
+        const urnsFilter = { field: 'urn', values: tasksInLocalStorage };
+        const orFilters: AndFilterInput[] = [{ and: [urnsFilter] }];
+        fetchTasks({ variables: { input: { orFilters, start: 0, count: 50 } } });
+    }, [fetchTasks, localStorageTasksKey]);
 
     return { activeTasks, completeTasks, handleAsyncBatchSubmit };
+}
+
+export function getAssociatedPromptId(taskId: string): string | undefined {
+    const tasksToIdMap: { [key: string]: string } = JSON.parse(localStorage.getItem(TASK_TO_ID_MAP_KEY) || '{}');
+    return tasksToIdMap[taskId];
 }

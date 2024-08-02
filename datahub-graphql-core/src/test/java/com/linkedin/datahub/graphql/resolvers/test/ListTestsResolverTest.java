@@ -28,7 +28,7 @@ public class ListTestsResolverTest {
 
   private static final Urn TEST_URN = Urn.createFromTuple("test", "test-id");
 
-  private static final ListTestsInput TEST_INPUT = new ListTestsInput(0, 20, null);
+  private static final ListTestsInput TEST_INPUT = new ListTestsInput(0, 20, null, null);
 
   private EntityClient mockClient;
   private ListTestsResolver resolver;
