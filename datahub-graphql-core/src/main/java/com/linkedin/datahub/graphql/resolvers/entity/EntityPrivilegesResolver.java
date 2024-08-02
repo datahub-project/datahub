@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposalUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
@@ -179,5 +180,15 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
     result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
     result.setCanShareEntity(AuthorizationUtils.canShareEntity(urn, context));
+    result.setCanProposeDescription(
+        ProposalUtils.isAuthorizedToProposeDescription(context, urn, null));
+    result.setCanProposeGlossaryTerms(ProposalUtils.isAuthorizedToProposeTerms(context, urn, null));
+    result.setCanProposeTags(ProposalUtils.isAuthorizedToProposeTags(context, urn, null));
+    result.setCanProposeSchemaFieldDescription(
+        ProposalUtils.isAuthorizedToProposeDescription(context, urn, "ignored"));
+    result.setCanProposeSchemaFieldGlossaryTerms(
+        ProposalUtils.isAuthorizedToProposeTerms(context, urn, "ignored"));
+    result.setCanProposeSchemaFieldTags(
+        ProposalUtils.isAuthorizedToProposeTags(context, urn, "ignored"));
   }
 }

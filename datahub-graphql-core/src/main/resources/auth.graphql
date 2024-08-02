@@ -353,6 +353,36 @@ type EntityPrivileges {
   canEditSchemaFieldDescription: Boolean
 
   """
+  Whether or not a user can propose a description for an asset
+  """
+  canProposeDescription: Boolean
+
+  """
+  Whether or not a user can propose tags
+  """
+  canProposeTags: Boolean
+
+  """
+  Whether or not a user can propose glossary terms
+  """
+  canProposeGlossaryTerms: Boolean
+
+  """
+  Whether or not a user can propose a schema field description for an asset
+  """
+  canProposeSchemaFieldDescription: Boolean
+
+  """
+  Whether or not a user can propose a schema field tags for an asset
+  """
+  canProposeSchemaFieldTags: Boolean
+
+  """
+  Whether or not a user can propose a schema field glossary terms for an asset
+  """
+  canProposeSchemaFieldGlossaryTerms: Boolean
+
+  """
   Whether or not a user can share this entity with another instance
   """
   canShareEntity: Boolean

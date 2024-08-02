@@ -39,6 +39,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
     const areTermsEmpty = !entityData?.glossaryTerms?.terms?.length && !proposedTerms?.length;
 
     const canEditGlossaryTerms = !!entityData?.privileges?.canEditGlossaryTerms;
+    const canProposeGlossaryTerms = !!entityData?.privileges?.canProposeGlossaryTerms;
 
     return (
         <div id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
@@ -73,7 +74,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                             setAddModalType(EntityType.GlossaryTerm);
                             event.stopPropagation();
                         }}
-                        actionPrivilege={canEditGlossaryTerms}
+                        actionPrivilege={canEditGlossaryTerms || canProposeGlossaryTerms}
                     />
                 }
             />
