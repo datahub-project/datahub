@@ -1,7 +1,5 @@
 namespace com.linkedin.dataset
 
-import com.linkedin.common.AuditStamp
-
 /**
  * Defines how the data is partitioned
  */
