@@ -33,7 +33,7 @@ export type IFilter = {
 
 const dummyFilterObject: IFilter = {
     sortBy: '',
-    groupBy: 'status',
+    groupBy: 'type',
     filterCriteria: {
         searchText: '',
         status: [],
@@ -89,6 +89,7 @@ export const AcrylAssertionList = () => {
     });
 
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
+    const contract = contractData?.dataset?.contract as any;
 
     useEffect(() => {
         const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
@@ -164,6 +165,7 @@ export const AcrylAssertionList = () => {
                     <AssertionTitleSection></AssertionTitleSection>
                 </AssertionHeader>
                 <AssertionListTable
+                    contract={contract}
                     assertionData={visibleAssertions}
                     filterOptions={filter}
                     refetch={() => {

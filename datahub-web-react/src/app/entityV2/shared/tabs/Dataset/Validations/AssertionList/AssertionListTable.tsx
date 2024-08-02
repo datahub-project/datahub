@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Table, Typography, Empty } from 'antd';
-import { DownOutlined, RightOutlined } from '@ant-design/icons';
+import { Table, Typography, Empty, Tooltip } from 'antd';
+import { AuditOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
+import WarningIcon from '@ant-design/icons/WarningFilled';
 
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entity/shared/constants';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
@@ -12,6 +13,14 @@ import { ResultStatusType } from '../assertion/profile/summary/shared/resultMess
 import { AssertionResultDot } from '../assertion/profile/shared/AssertionResultDot';
 import { isMonitorActive } from '../acrylUtils';
 import { AssertionPlatformAvatar } from '../AssertionPlatformAvatar';
+import { isAssertionPartOfContract } from '../contract/utils';
+import { AssertionSourceType, EntityType } from '@src/types.generated';
+import moment from 'moment';
+import { InferredAssertionPopover } from '../InferredAssertionPopover';
+import { InferredAssertionBadge } from '../InferredAssertionBadge';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { Link } from 'react-router-dom';
 
 const StyledTable = styled(Table)`
     max-width: none;
@@ -62,25 +71,50 @@ const AssertionPlatformWrapper = styled.div`
     margin-left: 10px;
 `;
 
+const DataContractLogo = styled(AuditOutlined)`
+    margin-left: 8px;
+    font-size: 16px;
+    color: ${REDESIGN_COLORS.BLUE};
+`;
+
 const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
-const AssertionName = ({ record, groupBy }) => {
+const SMART_ASSERTION_STALE_IN_DAYS = 3;
+
+const AssertionName = ({ record, groupBy, contract }) => {
+    const entityRegistry = useEntityRegistry();
+    const entityData = useEntityData();
+
+    const { platform, monitor } = record;
     const { primaryLabel } = useBuildAssertionDescriptionLabels(
         groupBy ? record.info : record.assertion.info,
         groupBy ? record.monitor : record.monitor,
     );
     let name = primaryLabel;
-    let assertion = record.assertion;
+    let assertion = groupBy ? record : record.assertion;
 
     if (groupBy && record.groupName) {
         name = record.groupName;
     } else if (groupBy && !record.groupName) {
         assertion = record;
     }
+    if (groupBy && record.groupName) {
+        return <Typography.Text>{name}</Typography.Text>;
+    }
+
+    const disabled = (monitor && !isMonitorActive(monitor)) || false;
+    const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
+    const assertionInfo = assertion.info;
+    const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
+    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt
+        ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days')
+        : undefined;
+    const isSmartAssertionStale =
+        isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
 
     const lastEvaluation = groupBy ? record.runEvents?.runEvents?.[0] : record.lastEvaluation;
-    const lastEvaluationUrl = groupBy ? record.runEvents?.runEvents?.[0].lastEvaluationUrl : record.lastEvaluationUrl;
-    const { platform } = record;
+    const lastEvaluationUrl = groupBy ? record.runEvents?.runEvents?.[0]?.lastEvaluationUrl : record.lastEvaluationUrl;
+
     return (
         <StyledAssertionNameContainer>
             {!(groupBy && record.groupName) && (
@@ -105,11 +139,55 @@ const AssertionName = ({ record, groupBy }) => {
                     />
                 </AssertionPlatformWrapper>
             )}
+            {isSmartAssertionStale ? (
+                <Tooltip
+                    title={
+                        <>
+                            <b>This Smart Assertion may be outdated.</b>
+                            <br />
+                            This is likely related to insufficient training data for this asset. Training data is
+                            obtained during ingestion syncs.
+                        </>
+                    }
+                >
+                    <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
+                </Tooltip>
+            ) : null}
+            {isSmartAssertion && (
+                <InferredAssertionPopover>
+                    <InferredAssertionBadge />
+                </InferredAssertionPopover>
+            )}
+            {(isPartOfContract && entityData?.urn && (
+                <Tooltip
+                    title={
+                        <>
+                            Part of Data Contract{' '}
+                            <Link
+                                to={`${entityRegistry.getEntityUrl(
+                                    EntityType.Dataset,
+                                    entityData.urn,
+                                )}/Quality/Data Contract`}
+                                style={{ color: REDESIGN_COLORS.BLUE }}
+                            >
+                                view
+                            </Link>
+                        </>
+                    }
+                >
+                    <Link
+                        to={`${entityRegistry.getEntityUrl(EntityType.Dataset, entityData.urn)}/Quality/Data Contract`}
+                    >
+                        <DataContractLogo />
+                    </Link>
+                </Tooltip>
+            )) ||
+                undefined}
         </StyledAssertionNameContainer>
     );
 };
 
-export const AssertionListTable = ({ assertionData, filterOptions, refetch }) => {
+export const AssertionListTable = ({ assertionData, filterOptions, refetch, contract }) => {
     const { groupBy } = filterOptions;
     const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
 
@@ -118,7 +196,7 @@ export const AssertionListTable = ({ assertionData, filterOptions, refetch }) =>
             title: 'Name',
             dataIndex: 'description',
             key: 'description',
-            render: (_, record) => <AssertionName record={record} groupBy={groupBy} />,
+            render: (_, record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
             width: '35%',
             sorter: (a, b) => a.description?.localeCompare(b.description),
         },
