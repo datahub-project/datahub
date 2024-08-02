@@ -7,16 +7,25 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
+                "number_of_partitons": "1",
+                "partitions": "{'min_partition': {'id': [('partition_key[0]', 'year'), ('partition[0]', '2022'), ('partition_key[1]', 'month'), ('partition[1]', 'jan')], 'creation_time': '2020-04-14 07:05:50+00:00', 'modification_time': '2020-04-14 07:05:50+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}, 'max_partition': {'id': [('partition_key[0]', 'year'), ('partition[0]', '2022'), ('partition_key[1]', 'month'), ('partition[1]', 'jan')], 'creation_time': '2020-04-14 07:05:50+00:00', 'modification_time': '2020-04-14 07:05:50+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}}"
             },
             "name": "folder_aaa.pokemon_abilities_json",
             "description": "",
+            "created": {
+                "time": 1586847950000
+            },
+            "lastModified": {
+                "time": 1586847950000
+            },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -541,7 +550,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -553,8 +563,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847960000
@@ -562,7 +572,45 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "partitionsSummary",
+    "aspect": {
+        "json": {
+            "minPartition": {
+                "partition": "partition_key[0]=year/partition[0]=2022/partition_key[1]=month/partition[1]=jan",
+                "created": {
+                    "time": 1586847950000,
+                    "actor": "urn:li:corpuser:datahub"
+                },
+                "lastModified": {
+                    "time": 1586847950000,
+                    "actor": "urn:li:corpuser:datahub"
+                }
+            },
+            "maxPartition": {
+                "partition": "partition_key[0]=year/partition[0]=2022/partition_key[1]=month/partition[1]=jan",
+                "created": {
+                    "time": 1586847950000,
+                    "actor": "urn:li:corpuser:datahub"
+                },
+                "lastModified": {
+                    "time": 1586847950000,
+                    "actor": "urn:li:corpuser:datahub"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -582,7 +630,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -597,7 +646,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -612,7 +662,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -629,7 +680,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -644,7 +696,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -664,7 +717,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -679,7 +733,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -694,7 +749,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -711,7 +767,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -726,7 +783,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -746,7 +804,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -766,7 +825,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -781,7 +841,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -796,7 +857,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -813,7 +875,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -828,7 +891,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -852,7 +916,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -872,7 +937,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -887,7 +953,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -902,7 +969,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -919,7 +987,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -934,7 +1003,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -962,7 +1032,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -977,7 +1048,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -992,7 +1064,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1024,7 +1097,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

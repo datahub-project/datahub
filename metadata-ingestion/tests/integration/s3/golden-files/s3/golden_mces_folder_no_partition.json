@@ -7,7 +7,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part2.csv"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
+                "number_of_partitons": "0",
+                "partitions": "{'min_partition': {'id': None, 'creation_time': None, 'modification_time': 'None', 'size': None, 'sample_file': None}, 'max_partition': {'id': None, 'creation_time': None, 'modification_time': 'None', 'size': None, 'sample_file': None}}"
             },
             "name": "food_csv",
             "description": "",
@@ -16,7 +18,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -53,18 +56,6 @@
                         }
                     },
                     "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "healthy",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.BooleanType": {}
-                        }
-                    },
-                    "nativeDataType": "boolean",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -109,7 +100,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -121,8 +113,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847990000
@@ -130,7 +122,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -150,7 +143,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -165,7 +159,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -180,7 +175,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -197,7 +193,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -212,7 +209,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -232,7 +230,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -247,7 +246,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -262,7 +262,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -279,7 +280,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -294,7 +296,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -314,7 +317,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -334,7 +338,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -349,7 +354,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -364,7 +370,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -381,7 +388,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -396,7 +404,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -420,7 +429,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -440,7 +450,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -455,7 +466,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -470,7 +482,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -487,7 +500,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -502,7 +516,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -530,7 +545,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -545,7 +561,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -577,7 +594,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -588,7 +606,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
+                "number_of_partitons": "0",
+                "partitions": "{'min_partition': {'id': None, 'creation_time': None, 'modification_time': 'None', 'size': None, 'sample_file': None}, 'max_partition': {'id': None, 'creation_time': None, 'modification_time': 'None', 'size': None, 'sample_file': None}}"
             },
             "name": "food_parquet",
             "description": "",
@@ -597,7 +617,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -690,7 +711,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -702,8 +724,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847810000
@@ -711,7 +733,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -726,7 +749,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -758,7 +782,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -773,7 +798,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -788,7 +814,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json"
+        "runId": "folder_no_partition.json",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

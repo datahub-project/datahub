@@ -48,6 +48,11 @@ class DataLakeSourceConfig(
         description="Whether or not to create tags in datahub from the s3 object",
     )
 
+    get_all_partitions: bool = Field(
+        default=False,
+        description="Whether to list all partitions in the table, or only the latest",
+    )
+
     # Whether to update the table schema when schema in files within the partitions are updated
     _update_schema_on_partition_file_updates_deprecation = pydantic_field_deprecated(
         "update_schema_on_partition_file_updates",
@@ -94,7 +99,7 @@ class DataLakeSourceConfig(
     )
 
     sort_schema_fields: bool = Field(
-        default=False,
+        default=True,
         description="Whether to sort schema fields by fieldPath when inferring schemas.",
     )
 
