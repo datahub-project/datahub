@@ -255,11 +255,17 @@ class ForwardingAction(Action):
             producer_config["security.protocol"] = "ssl"
 
         if self.config.schema_registry_ca_location is not None:
-            schema_registry_config["ssl.ca.location"] = self.config.schema_registry_ca_location
+            schema_registry_config["ssl.ca.location"] = (
+                self.config.schema_registry_ca_location
+            )
         if self.config.schema_registry_cert_location is not None:
-            schema_registry_config["ssl.certificate.location"] = self.config.schema_registry_cert_location
+            schema_registry_config["ssl.certificate.location"] = (
+                self.config.schema_registry_cert_location
+            )
         if self.config.schema_registry_key_location is not None:
-            schema_registry_config["ssl.key.location"] = self.config.schema_registry_key_location
+            schema_registry_config["ssl.key.location"] = (
+                self.config.schema_registry_key_location
+            )
         self.kafka_emitter = DatahubKafkaEmitter(
             config=KafkaEmitterConfig(
                 connection=KafkaProducerConnectionConfig(
