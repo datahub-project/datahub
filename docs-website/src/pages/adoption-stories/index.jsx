@@ -1,6 +1,4 @@
-import React, { useState } from "react";
-import clsx from "clsx";
-import { HtmlClassNameProvider, ThemeClassNames } from "@docusaurus/theme-common";
+import React, { useState, useEffect, useRef } from "react";
 import Layout from "@theme/Layout";
 import LearnItemCard from "./_components/LearnItemCard";
 import styles from "./styles.module.scss";
@@ -11,6 +9,7 @@ function AdoptionStoriesListPageContent() {
   const companies = (customerStoriesIndexes?.companies || []).filter((company) => company.link);
   const [activeFilters, setActiveFilters] = useState([]);
   const categories = ["B2B & B2C", "E-Commerce", "Financial & Fintech", "And More"];
+  const selectedCardRef = useRef(null);
 
   const filteredItems = activeFilters.length
     ? companies.filter((company) => activeFilters.includes(company.category))
@@ -23,6 +22,14 @@ function AdoptionStoriesListPageContent() {
       setActiveFilters([...new Set([...activeFilters, category])]);
     }
   };
+
+  const selectedSlug = window.location.hash.substring(1);
+
+  useEffect(() => {
+    if (selectedCardRef.current) {
+      selectedCardRef.current.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+    }
+  }, [selectedSlug]);
 
   return (
     <Layout>
@@ -54,7 +61,12 @@ function AdoptionStoriesListPageContent() {
       <div className="container">
         <div className="row">
           {filteredItems.map((company) => (
-            <LearnItemCard key={company.name} company={company} />
+            <LearnItemCard
+              key={company.name}
+              company={company}
+              isSelected={company.slug === selectedSlug}
+              ref={company.slug === selectedSlug ? selectedCardRef : null}
+            />
           ))}
         </div>
       </div>
@@ -63,7 +75,5 @@ function AdoptionStoriesListPageContent() {
 }
 
 export default function AdoptionStoriesListPage() {
-  return (
-      <AdoptionStoriesListPageContent />
-  );
+  return <AdoptionStoriesListPageContent />;
 }

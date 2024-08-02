@@ -28,8 +28,16 @@
   align-self: stretch;
   flex-grow: 1;
   &:hover {
-    border-color: var(--ifm-color-primary);
+    opacity: 0.9;
   }
+
+  &.selected {
+    border-color: var(--ifm-color-primary);
+    box-shadow: rgba(0, 0, 0, 0.35) 0px 5px 15px;  
+    scroll-margin-top: 100px; 
+  }
+    
+
   hr {
     margin: 0;
   }

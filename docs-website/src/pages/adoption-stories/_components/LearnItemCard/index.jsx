@@ -3,10 +3,10 @@ import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import styles from "./styles.module.scss";
 
-export default function LearnItemCard({ company }) {
+const LearnItemCard = React.forwardRef(({ company, isSelected }, ref) => {
   return (
-    <div className={clsx("col col--4", styles.featureCol)}>
-      <div className={clsx("card", styles.card)} id={company.slug}>
+    <div className={clsx("col col--4", styles.featureCol)} id={company.slug} ref={ref}>
+      <div className={clsx("card", styles.card, { [styles.selected]: isSelected })}>
         <div className={styles.card_image}>
           <img src={`/img/adoption-stories/adoption-stories-${company.slug}.png`} alt={company.name} />
         </div>
@@ -20,4 +20,6 @@ export default function LearnItemCard({ company }) {
       </div>
     </div>
   );
-}
+});
+
+export default LearnItemCard;
