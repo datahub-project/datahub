@@ -527,7 +527,12 @@ class ModeSource(StatefulIngestionSourceBase):
             for s in spaces:
                 logger.debug(f"Space: {s.get('name')}")
                 space_name = s.get("name", "")
-                if s.get("restricted") and self.config.exclude_restricted:
+                # Using both restricted and default_access_level because
+                # there is a current bug with restricted returning False everytime
+                # which has been reported to Mode team
+                if self.config.exclude_restricted and (
+                    s.get("restricted") or s.get("default_access_level") == "restricted"
+                ):
                     logging.debug(
                         f"Skipping space {space_name} due to exclude restricted"
                     )
