@@ -1,6 +1,7 @@
 import LaunchIcon from '@mui/icons-material/Launch';
-import { Typography } from 'antd';
+import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
+import { CloseOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import {
     Container,
@@ -39,6 +40,22 @@ import { CompactView } from './CompactView';
 
 import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
 import StyledExternalLink from '../entityV2/shared/links/StyledExternalLink';
+import { useEntityContext, useEntityData } from '../entity/shared/EntityContext';
+import { useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
+
+const TransparentButton = styled(Button)`
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    font-size: 12px;
+    box-shadow: none;
+    border: none;
+    padding: 0px 10px;
+    display: none;
+
+    &:hover {
+        opacity: 0.9;
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+`;
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -49,6 +66,10 @@ const PreviewContainer = styled.div`
 
     .entityCount {
         margin-bottom: 2px;
+    }
+
+    &:hover ${TransparentButton} {
+        display: inline-block;
     }
 `;
 
@@ -131,6 +152,7 @@ const ActionsSection = styled.div`
     display: flex;
     flex-direction: row;
     gap: 5px;
+    align-items: center;
 `;
 
 const ActionsAndStatusSection = styled.div`
@@ -215,6 +237,8 @@ export default function DefaultPreviewCard({
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
     const previewData = usePreviewData();
+    const entityData = useEntityData();
+    const pageEntityType = entityData.entityType;
     const insightViews: Array<ReactNode> =
         insights?.map((insight) => (
             <>
@@ -239,6 +263,16 @@ export default function DefaultPreviewCard({
         (parentContainers && parentContainers.count > 0) || (parentEntities && parentEntities.length > 0);
 
     const { isFullViewCard } = useSearchContext();
+
+    const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
+
+    const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
+    const { removeTerm } = useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch);
+
+    const removeRelationship = () => {
+        if (pageEntityType === EntityType.GlossaryTerm) removeTerm(previewData, entityData.urn);
+        else if (pageEntityType === EntityType.Domain) removeDomain(previewData?.urn);
+    };
 
     return (
         <PreviewContainer data-testid={dataTestID}>
@@ -279,6 +313,17 @@ export default function DefaultPreviewCard({
 
                         <ActionsAndStatusSection>
                             <ActionsSection>
+                                {pageEntityType === EntityType.GlossaryTerm &&
+                                    entityType !== EntityType.GlossaryTerm && (
+                                        <TransparentButton size="small" onClick={removeRelationship}>
+                                            <CloseOutlined size={5} /> Remove from glossary
+                                        </TransparentButton>
+                                    )}
+                                {pageEntityType === EntityType.Domain && entityType !== EntityType.DataProduct && (
+                                    <TransparentButton size="small" onClick={removeRelationship}>
+                                        <CloseOutlined size={5} /> Remove from domain
+                                    </TransparentButton>
+                                )}
                                 {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
                                     <MoreOptionsMenuAction
                                         menuItems={headerDropdownItems}
