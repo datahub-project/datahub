@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
-from typing import Any, Deque, Iterator, Type
+from typing import Any, Deque, Iterator, Optional, Type
 
 import anyio
 import anyio.abc
@@ -223,6 +223,10 @@ class SubprocessRunner:
     @property
     def logs(self) -> LogHolder:
         return self._logs
+
+    @property
+    def pid(self) -> Optional[int]:
+        return self._process.pid if self._process else None
 
     async def execute(
         self,

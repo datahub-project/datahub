@@ -1,12 +1,12 @@
-import os
+import json
 
-from datahub.ingestion.graph.client import get_default_graph
-import yaml, json
 import click
+import yaml
+from datahub.ingestion.graph.client import get_default_graph
 
 
 @click.command()
-@click.option("--file", help="The action pipeline file")
+@click.option("--file", help="The action pipeline file", required=True)
 @click.option(
     "--operation",
     type=click.Choice(
@@ -15,11 +15,8 @@ import click
     help="The operation to perform",
     default="create",
 )
-def main(file, operation):
-    # first argument is the action pipeline file
-    action_pipeline_file = file
-    # we first load it
-    with open(action_pipeline_file) as f:
+def main(file: str, operation: str) -> None:
+    with open(file) as f:
         recipe = yaml.safe_load(f)
 
     # this tells us the name of the action pipeline
@@ -32,6 +29,12 @@ def main(file, operation):
     )
 
     if operation == "create":
+        remove_keys = ["source", "datahub"]
+        for key in remove_keys:
+            if key in recipe:
+                click.echo(f"Removing {key} block from recipe")
+                del recipe[key]
+
         query = """
         mutation create_pipeline($urn: String!, $input: UpdateActionPipelineInput!) {
           upsertActionPipeline(urn: $urn, input: $input)

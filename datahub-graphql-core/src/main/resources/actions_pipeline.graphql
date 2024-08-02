@@ -53,6 +53,11 @@ extend type Mutation {
   """
   rollbackActionPipeline(urn: String!): String
 
+  """
+  Bootstrap an existing action pipeline execution
+  """
+  bootstrapActionPipeline(urn: String!): String
+
 }
 
 """
@@ -102,6 +107,25 @@ type ActionPipelineDetails {
   An type-specific set of configurations for the action pipeline
   """
   config: ActionConfig!
+
+  """
+  The intended state of the action pipeline
+  """
+  state: ActionPipelineState
+
+}
+
+enum ActionPipelineState {
+  """
+  The action pipeline is currently active and running.
+  """
+  ACTIVE
+
+  """
+  The action pipeline is currently inactive and not processing any actions.
+  Note: One can issue bootstrap and rollback commands to the action pipeline even when it is inactive.
+  """
+  INACTIVE
 }
 
 

@@ -19,6 +19,7 @@ For example, you might want to point it to `dev01`.
 Here is how you can do it.
 
 First, export the following env variables:
+
 ```sh
 export DATAHUB_GMS_PROTOCOL='https'
 export DATAHUB_GMS_HOST='dev01.acryl.io/api/gms'
@@ -27,17 +28,17 @@ export DATAHUB_GMS_API_TOKEN='<INSERT_PERSONAL_ACCESS_TOKEN_HERE>'
 ```
 
 Then build and run integrations service
+
 ```sh
 # execute this from inside the `datahub-integrations-service` folder (this folder)
 ../gradlew installDev # this installs all the dependencies
 source venv/bin/activate
 # start the application on port 9003
-uvicorn datahub_integrations.server:app --host 0.0.0.0 --port 9003 ${EXTRA_UVICORN_ARGS:-} --log-level debug --reload
+uvicorn datahub_integrations.server:app --host 0.0.0.0 --port 9003 ${EXTRA_UVICORN_ARGS:-} --reload
 ```
 
 You can now go to `http://localhost:9003` and access the integrations service
 Swagger UI.
-
 
 ## Build machinery
 

@@ -120,6 +120,16 @@ public class ActionPipelineType
     config.setRecipe(actionInfo.getConfig().getRecipe());
     config.setExecutorId("default");
     result.setConfig(config);
+    switch (actionInfo.getState()) {
+      case ACTIVE:
+        result.setState(ActionPipelineState.ACTIVE);
+        break;
+      case INACTIVE:
+        result.setState(ActionPipelineState.INACTIVE);
+        break;
+      default:
+        result.setState(null);
+    }
     return result;
   }
 }

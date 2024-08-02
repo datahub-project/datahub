@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.generated.RowResult;
 import com.linkedin.datahub.graphql.generated.ShareResult;
 import com.linkedin.datahub.graphql.generated.SystemMonitor;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
+import com.linkedin.datahub.graphql.resolvers.action.execution.BootstrapActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.DeleteActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.GetActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.ListActionPipelineResolver;
@@ -433,6 +434,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "rollbackActionPipeline",
                     new RollbackActionPipelineResolver(this.entityClient, this.integrationsService))
+                .dataFetcher(
+                    "bootstrapActionPipeline",
+                    new BootstrapActionPipelineResolver(
+                        this.entityClient, this.integrationsService))
                 .dataFetcher(
                     "stopActionPipeline",
                     new StopActionPipelineResolver(this.entityClient, this.integrationsService))

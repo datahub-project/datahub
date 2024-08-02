@@ -32,4 +32,19 @@ record DataHubActionInfo {
      */
      recipe: string
   }
+
+  /**
+  * The intended state of the action
+  */
+  state: optional enum DataHubActionState {
+    /**
+     * The action is supposed to be active
+     */
+    ACTIVE
+    /**
+     * The action should be inactive
+    */
+    INACTIVE
+  } = "ACTIVE"
+  
 }

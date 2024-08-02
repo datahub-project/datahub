@@ -9,7 +9,6 @@ fragment ActionInfo on ActionPipeline {
       version
       debugMode
     }
-    state
   }
 }
 

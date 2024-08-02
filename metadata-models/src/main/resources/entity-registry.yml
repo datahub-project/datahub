@@ -701,6 +701,7 @@ entities:
     keyAspect: dataHubActionKey
     aspects:
       - dataHubActionInfo
+      - dataHubActionStatus
   - name: subscription
     category: core
     keyAspect: subscriptionKey

@@ -521,14 +521,35 @@ public class IntegrationsService {
       response = (ApiResponse<Object>) apiResponse;
 
       if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error("Failed to reload action! Integrations service returned non-200 error code!");
+        log.error("Failed to rollback action! Integrations service returned non-200 error code!");
         log.error(String.valueOf(response.getData().toString()));
         return false;
       }
       return true;
     } catch (Exception e) {
       log.error(
-          "Failed to reload action! Exceptions encountered when trying to access integrations service",
+          "Failed to rollback action! Exceptions encountered when trying to access integrations service",
+          e);
+      return false;
+    }
+  }
+
+  public boolean bootstrapAction(String actionPipelineUrn) {
+
+    ApiResponse<Object> response = null;
+    try {
+      Object apiResponse = this.actionsApi.bootstrapActionWithHttpInfo(actionPipelineUrn);
+      response = (ApiResponse<Object>) apiResponse;
+
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error("Failed to bootstrap action! Integrations service returned non-200 error code!");
+        log.error(String.valueOf(response.getData().toString()));
+        return false;
+      }
+      return true;
+    } catch (Exception e) {
+      log.error(
+          "Failed to bootstrap action! Exceptions encountered when trying to access integrations service",
           e);
       return false;
     }

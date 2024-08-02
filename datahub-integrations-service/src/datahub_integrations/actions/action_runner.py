@@ -6,6 +6,7 @@ It also captures signals to stop the pipeline gracefully.
 """
 
 import argparse
+import contextlib
 import json
 import logging
 import signal
@@ -18,14 +19,22 @@ import fastapi.responses
 import uvicorn
 from datahub.configuration.config_loader import load_config_file
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.utilities import logging_manager
 from datahub_actions.pipeline.pipeline import Pipeline
-from pydantic.main import BaseModel
+from loguru import logger as loguru_logger
+
+from datahub_integrations.actions.action_extended import ExtendedAction
+from datahub_integrations.actions.oss.stats_util import ReportingAction
+from datahub_integrations.actions.reporter import ActionStatsReporter
+from datahub_integrations.actions.stats_util import Stage
 
 # We force load the telemetry client because it has a side-effect of loading Sentry.
 assert telemetry_instance
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+REPORTING_FREQ_SEC = 20
 
 
 def make_api(pipeline: Pipeline) -> fastapi.FastAPI:
@@ -41,31 +50,16 @@ def make_api(pipeline: Pipeline) -> fastapi.FastAPI:
 
     @app.get("/stats")
     def stats() -> dict:
-        stats_obj = pipeline.stats()
+        pipeline_stats = pipeline.stats()
 
-        main_stats_obj = json.loads(stats_obj.as_string()) or {}
+        main_stats_obj = json.loads(pipeline_stats.as_string())
+        main_stats_obj["stats_generated_at"] = datetime.now(tz=timezone.utc).isoformat()
 
-        # Opportunistically add last event processed time to the stats.
-        if hasattr(pipeline.action, "event_processing_stats"):
-            event_processing_stats = pipeline.action.event_processing_stats
-            if isinstance(event_processing_stats, BaseModel):
-                main_stats_obj["event_processing_stats"] = event_processing_stats.dict(
-                    exclude_none=True
-                )
+        # If we have an action report, merge that in.
+        if isinstance(pipeline.action, ReportingAction):
+            main_stats_obj["action"] = pipeline.action.get_report().as_obj()
 
-        # Hacky was to convert stats_obj to a dict.
-        # TODO: Change datahub-actions to use reports properly.
-        stats = {
-            "stats_generated_at": datetime.now(tz=timezone.utc).isoformat(),
-            "main": main_stats_obj,
-            "transformers": {
-                key: json.loads(transformer_stats.as_string())
-                for key, transformer_stats in stats_obj.transformer_stats.items()
-            },
-            "action": json.loads(stats_obj.action_stats.as_string()),
-        }
-
-        return stats
+        return main_stats_obj
 
     return app
 
@@ -75,6 +69,17 @@ def setup_server(app: fastapi.FastAPI, port: int) -> uvicorn.Server:
     server = uvicorn.Server(uvicorn.Config(app, port=port, workers=1))
     threading.Thread(target=server.run, args=(), daemon=True).start()
     return server
+
+
+def setup_reporter(
+    reporter: ActionStatsReporter,
+    report_interval_secs: int,
+) -> None:
+    threading.Thread(
+        target=reporter.run_action_stats_reporter,
+        args=(report_interval_secs,),
+        daemon=True,
+    ).start()
 
 
 def main() -> None:
@@ -92,66 +97,106 @@ def main() -> None:
         default=False,
         help="Bootstrap the pipeline.",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Enable debug logging.",
+    )
 
     # Parse the CLI arguments.
     args = parser.parse_args()
     config_file = args.config_file
     port = args.port
+    debug = args.debug
 
-    # Load the config file.
-    recipe = load_config_file(
-        config_file,
-        allow_remote=False,
-        resolve_env_vars=True,
-    )
-    # logger.info(f"Loaded config: {recipe}")
-
-    # Initialize the pipeline.
-    pipeline: Pipeline = Pipeline.create(recipe)
-
-    # Run the webserver.
-    api = make_api(pipeline)
-    server = None
-    if port is not None:
-        server = setup_server(api, port)
-
-    # Register signal handlers to stop the pipeline gracefully.
-    def stop_handler(signum, frame):  # type: ignore[no-untyped-def]
-        logger.info(f"Received signal {signum}. Stopping pipeline gracefully...")
-
-        if server:
-            server.handle_exit(signum, frame)
-        pipeline.stop()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, stop_handler)
-    signal.signal(signal.SIGTERM, stop_handler)
-
+    stage = Stage.LIVE
     if args.rollback:
-        if hasattr(pipeline.action, "rollback"):
-            logger.info("Rolling back pipeline")
-            pipeline.action.rollback()
-            sys.exit(0)
-        else:
-            logger.error("Action does not support rollback")
-            sys.exit(1)
+        stage = Stage.ROLLBACK
     elif args.bootstrap:
-        logger.info("Bootstrapping pipeline")
-        if hasattr(pipeline.action, "bootstrap"):
-            pipeline.action.bootstrap()
-            sys.exit(0)
-    else:
-        # Run the pipeline.
-        logger.info("Running pipeline")
-        try:
-            pipeline.run()
-        except Exception as e:
-            logger.exception(f"Caught exception while running pipeline: {e}")
-            pipeline.stop()
-            sys.exit(1)
+        stage = Stage.BOOTSTRAP
 
-    logger.info("Pipeline has stopped unexpectedly, without raising an exception.")
-    sys.exit(2)
+    with contextlib.ExitStack() as stack:
+        # Configure log capturing.
+        logging_manager.DATAHUB_PACKAGES.append("datahub_integrations")
+        stack.enter_context(logging_manager.configure_logging(debug=debug))
+        loguru_logger.add(
+            logging_manager._BufferLogHandler(logging_manager.get_log_buffer()),
+            format="{message}",
+        )
+
+        # Load the config file.
+        recipe = load_config_file(
+            config_file,
+            allow_remote=False,
+            resolve_env_vars=True,
+        )
+        # logger.info(f"Loaded config: {recipe}")
+
+        # Initialize the pipeline.
+        pipeline: Pipeline = Pipeline.create(recipe)
+
+        # Run the webserver.
+        server = None
+        if port is not None:
+            api = make_api(pipeline)
+            server = setup_server(api, port)
+
+        # Run the reporter.
+        reporter = None
+        if isinstance(pipeline.action, ExtendedAction):
+            reporter = ActionStatsReporter(
+                pipeline, graph=pipeline.action.ctx.graph.graph, stage=stage
+            )
+            setup_reporter(reporter, report_interval_secs=REPORTING_FREQ_SEC)
+
+        # Register signal handlers to stop the pipeline gracefully.
+        def stop_handler(signum, frame):  # type: ignore[no-untyped-def]
+            logger.info(f"Received signal {signum}. Stopping pipeline gracefully...")
+
+            if server:
+                server.handle_exit(signum, frame)
+            pipeline.stop()
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, stop_handler)
+        signal.signal(signal.SIGTERM, stop_handler)
+
+        if stage == Stage.ROLLBACK:
+            if isinstance(pipeline.action, ExtendedAction):
+                logger.info("Rolling back pipeline")
+                pipeline.action.rollback()
+
+                assert reporter is not None
+                reporter.report()
+            else:
+                logger.error("Action does not support rollback")
+                sys.exit(1)
+        elif stage == Stage.BOOTSTRAP:
+            logger.info("Bootstrapping pipeline")
+            if isinstance(pipeline.action, ExtendedAction):
+                pipeline.action.bootstrap()
+
+                assert reporter is not None
+                reporter.report()
+            else:
+                logger.error("Action does not support bootstrap")
+                sys.exit(1)
+            logger.info("Pipeline bootstrapped successfully")
+        else:
+            # Run the pipeline.
+            logger.info("Running pipeline")
+            try:
+                pipeline.run()
+
+                logger.info(
+                    "Pipeline has stopped unexpectedly, without raising an exception."
+                )
+                sys.exit(2)
+            except Exception as e:
+                logger.exception(f"Caught exception while running pipeline: {e}")
+                pipeline.stop()
+                sys.exit(1)
 
 
 if __name__ == "__main__":

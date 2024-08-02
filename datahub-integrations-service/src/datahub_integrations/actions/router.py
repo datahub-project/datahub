@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Callable
 
 import anyio
+import datahub.metadata.schema_classes as models
 import fastapi
 import httpx
 import reactpy
@@ -21,6 +22,8 @@ from datahub_integrations.actions.actions_manager import (
     ActionsManager,
     LiveActionSpec,
 )
+from datahub_integrations.actions.reporter import ActionStatsReporter
+from datahub_integrations.actions.stats_util import Stage
 from datahub_integrations.app import DATAHUB_SERVER, graph
 
 ACTIONS_ROUTE = "/actions"
@@ -91,7 +94,9 @@ async def actions_lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
                 for action in all_actions["listActionPipelines"]["actionPipelines"]:
                     action_urn = action["urn"]
                     action_details = action["details"]
-
+                    if action_details.get("state") == "INACTIVE":
+                        logger.info(f"Skipping inactive action {action_urn}.")
+                        continue
                     logger.info(f"Starting action {action_urn}.")
                     await start_or_restart_action(
                         action_urn, action_details, throw=False
@@ -109,6 +114,7 @@ async def actions_lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
                 f"Failed to start actions: {e}. Continuing with no actions."
             )
             yield
+    await _httpx_client.aclose()
 
 
 @actions_router.get("/")
@@ -178,7 +184,8 @@ async def reload_action(action_urn: str) -> None:
 def _get_action_spec(action_urn: str) -> LiveActionSpec:
     if action_urn not in pipeline_manager.pipelines:
         raise HTTPException(
-            status.HTTP_404_NOT_FOUND, f"Action {action_urn} not found."
+            status.HTTP_404_NOT_FOUND,
+            f"Action {action_urn} not found. Did you mean one of {pipeline_manager.pipelines.keys()}?",
         )
 
     return pipeline_manager.pipelines[action_urn]
@@ -213,9 +220,16 @@ async def rollback_action(action_urn: str) -> str:
         action_spec = _get_action_spec(action_urn)
         config = action_spec.action_run.unresolved_config
     except HTTPException:
-        updated_details = graph.execute_graphql(
+        server_action_info = graph.execute_graphql(
             actions_gql, operation_name="getAction", variables={"urn": action_urn}
-        )["actionPipeline"]["details"]
+        )
+        if not server_action_info or server_action_info.get("actionPipeline") is None:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, f"Action {action_urn} not found."
+            )
+        updated_details = server_action_info.get("actionPipeline", {}).get(
+            "details", {}
+        )
         config = get_config_from_details(action_urn, updated_details)
 
     try:
@@ -233,7 +247,9 @@ async def rollback_stats(action_urn: str) -> dict:
 
     """
     try:
-        rollback_results = pipeline_manager.rolledback_pipelines.get(action_urn)
+        rollback_results = pipeline_manager.job_completed_pipelines.get(
+            Stage.ROLLBACK, {}
+        ).get(action_urn)
         if not rollback_results:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No rollback stats found.")
         else:
@@ -252,7 +268,66 @@ async def rollback_stats(action_urn: str) -> dict:
             }
             return rollback_stats
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
         logger.error(f"Failed to get rollback stats for action {action_urn}: {e}")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
+
+
+@actions_router.post("/{action_urn}/bootstrap")
+async def bootstrap_action(action_urn: str) -> str:
+    """
+    Bootstrap an action.
+
+    """
+    try:
+        action_spec = _get_action_spec(action_urn)
+        config = action_spec.action_run.unresolved_config
+    except HTTPException:
+        updated_details = graph.execute_graphql(
+            actions_gql, operation_name="getAction", variables={"urn": action_urn}
+        )["actionPipeline"]["details"]
+        config = get_config_from_details(action_urn, updated_details)
+
+    try:
+        await pipeline_manager.bootstrap_pipeline(action_urn, config=config)
+        return "OK"
+    except Exception as e:
+        logger.error(f"Failed to stop action {action_urn}: {e}")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
+
+
+@actions_router.get("/{action_urn}/bootstrapstats")
+async def bootstrap_stats(action_urn: str) -> dict:
+    """
+    Last bootstrap stats for an action.
+
+    """
+    try:
+        run_results = pipeline_manager.job_completed_pipelines.get(
+            Stage.BOOTSTRAP, {}
+        ).get(action_urn)
+        if not run_results:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No bootstrap stats found.")
+        else:
+            bootstrap_stats = {
+                "action_urn": action_urn,
+                "status": run_results.status,
+                "started_at": datetime.strftime(
+                    run_results.started_at, "%Y-%m-%d %H:%M:%S"
+                ),
+                "logs": run_results.action_run.logs.get_logs(),
+                "ended_at": (
+                    datetime.strftime(run_results.ended_at, "%Y-%m-%d %H:%M:%S")
+                    if run_results.ended_at
+                    else None
+                ),
+            }
+            return bootstrap_stats
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        logger.error(f"Failed to get bootstrap stats for action {action_urn}: {e}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
 
 
@@ -279,12 +354,35 @@ async def action_ping(action_urn: str) -> str:
 @actions_router.get("/{action_urn}/stats")
 async def action_stats(action_urn: str) -> dict:
     """Call the stats endpoint of the action."""
+    try:
+        server_stats = graph.get_aspect(action_urn, models.DataHubActionStatusClass)
+    except Exception as e:
+        logger.error(f"Error getting server stats: {e}")
+        server_stats = None
 
-    spec = _get_action_spec(action_urn)
+    try:
+        # The main reason we're doing this is to ensure that the action is still running.
+        # We rely on the action itself to continuously push stats to GMS.
+        # The action is responsible for some somewhat tricky logic of merging historical
+        # stats with live ones, and replicating all of that logic here feels like a bad idea.
+        spec = _get_action_spec(action_urn)
+        assert spec is not None
 
-    res = await _httpx_client.get(f"{spec.base_url}/stats")
-    logger.info(f"Stats response: {res.json()}")
-    return res.json()
+    except (HTTPException, httpx.HTTPError):
+        # live stats are not available, set server stats live to STOPPED
+        if server_stats and server_stats.live:
+            server_stats.live.statusCode = "STOPPED"
+            server_stats.live.reportedTime = (
+                ActionStatsReporter._get_reporting_auditstamp()
+            )
+
+    if server_stats:
+        return server_stats.to_obj()
+    else:
+        # We would only get here if there were no server stats and there were no live stats.
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, f"No stats found for {action_urn}."
+        )
 
 
 @actions_router.api_route(

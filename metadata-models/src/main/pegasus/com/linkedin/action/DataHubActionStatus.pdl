@@ -1,0 +1,27 @@
+namespace com.linkedin.action
+
+/**
+ * Status about a DataHub Action Pipeline
+ * This combines status from all the three stages of the pipeline - bootstrap, live and rollback
+ */
+@Aspect = {
+  "name": "dataHubActionStatus"
+}
+record DataHubActionStatus {
+
+    /**
+     * Status of the bootstrap pipeline if applicable
+     */
+    bootstrap: optional DataHubActionStageStatus
+
+    /**
+    * Status of the live pipeline
+    */
+    live: optional DataHubActionStageStatus
+
+    /**
+    * Status of the rollback pipeline if applicable
+    */
+    rollback: optional DataHubActionStageStatus
+    
+}
