@@ -409,7 +409,9 @@ class DataHubFormReportingData(FormData):
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
-                            form_completed_date=form_completed_dates[form_id],
+                            form_completed_date=form_completed_dates.get(
+                                form_id, form_assigned_dates[form_id]
+                            ),
                             form_status=form_status,
                             form_type=form_type,
                             assignee_urn=owner,
@@ -440,7 +442,9 @@ class DataHubFormReportingData(FormData):
                         yield FormReportingRow(
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
-                            form_completed_date=form_completed_dates[form_id],
+                            form_completed_date=form_completed_dates.get(
+                                form_id, form_assigned_dates[form_id]
+                            ),
                             form_status=form_status,
                             form_type=form_type,
                             assignee_urn=owner,
