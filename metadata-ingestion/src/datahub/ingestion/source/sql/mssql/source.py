@@ -548,9 +548,7 @@ class SQLServerSource(SQLAlchemySource):
         # return str(engine.url.database).strip('"').lower()
         # to avoid inconsistency, referenced_database_name in this module repeats the same behavior
         # remove after fixing
-        db_force_converting = (
-            True if "lower()" in inspect_objects.getsource(self.get_db_name) else False
-        )
+        db_force_converting = "lower()" in inspect_objects.getsource(self.get_db_name)
 
         for row in _dependencies:
 
