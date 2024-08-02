@@ -23,6 +23,26 @@ query getDataProduct($urn: String!) {
     }
 }
 
+query getDataProductsList($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ... on DataProduct {
+                    urn
+                    type
+                    properties {
+                        name
+                        numAssets
+                    }
+                    domain {
+                        ...entityDomain
+                    }
+                }
+            }
+        }
+    }
+}
+
 fragment dataProductFields on DataProduct {
     ...dataProductSearchFields
     properties {
