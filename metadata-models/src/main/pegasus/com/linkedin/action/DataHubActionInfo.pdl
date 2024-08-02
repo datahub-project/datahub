@@ -24,6 +24,16 @@ record DataHubActionInfo {
   type: string
 
   /**
+   * The category of the action
+   */
+  category: optional string
+
+  /**
+   * The description of the action
+   */
+  description: optional string
+
+  /**
   * Parameters associated with the Action
   */
   config: record DataHubActionConfig {
@@ -46,5 +56,5 @@ record DataHubActionInfo {
     */
     INACTIVE
   } = "ACTIVE"
-  
+
 }

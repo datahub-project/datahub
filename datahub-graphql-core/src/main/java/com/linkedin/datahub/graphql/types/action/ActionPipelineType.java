@@ -114,6 +114,8 @@ public class ActionPipelineType
     final ActionPipelineDetails result = new ActionPipelineDetails();
     result.setName(actionInfo.getName());
     result.setType(actionInfo.getType());
+    result.setCategory(actionInfo.getCategory());
+    result.setDescription(actionInfo.getDescription());
 
     ActionConfig config = new ActionConfig();
     config.setDebugMode(false);
