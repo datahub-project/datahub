@@ -2,8 +2,8 @@
   "customers": [
     {
       "link": {
-        "href": "/",
-        "blank": false
+        "href": "https://www.depop.com/",
+        "blank": true
       },
       "logo": {
         "asset": {
@@ -26,8 +26,8 @@
     },
     {
       "link": {
-        "href": "/",
-        "blank": false
+        "href": "https://get.betterup.com/",
+        "blank": true
       },
       "logo": {
         "asset": {
@@ -38,8 +38,8 @@
     },
     {
       "link": {
-        "href": "/",
-        "blank": false
+        "href": "https://www.ovoenergy.com/",
+        "blank": true
       },
       "logo": {
         "asset": {
@@ -62,8 +62,8 @@
     },
     {
       "link": {
-        "href": "/",
-        "blank": false
+        "href": "https://www.dpgmediagroup.com/",
+        "blank": true
       },
       "logo": {
         "asset": {
@@ -74,8 +74,8 @@
     },
     {
       "link": {
-        "href": "/",
-        "blank": false
+        "href": "https://www.notion.so/",
+        "blank": true
       },
       "logo": {
         "asset": {
@@ -86,8 +86,8 @@
     },
     {
       "link": {
-        "href": "/",
-        "blank": false
+        "href": "https://www.sae.org/",
+        "blank": true
       },
       "logo": {
         "asset": {
@@ -111,7 +111,7 @@
     {
       "link": {
         "href": "https://www.tripadvisor.co.uk/",
-        "blank": false
+        "blank": true
       },
       "logo": {
         "asset": {
