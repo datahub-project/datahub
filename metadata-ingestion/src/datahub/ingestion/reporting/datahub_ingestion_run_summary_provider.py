@@ -31,7 +31,6 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.logging_manager import get_log_buffer
 from datahub.utilities.urns.urn import Urn
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -213,7 +212,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             durationMs=self.get_cur_time_in_ms() - self.start_time_ms,
             # Truncate summary such that the generated MCP will not exceed GMS's payload limit.
             # Hardcoding the overall size of dataHubExecutionRequestResult to >1MB by trimming summary to 800,000 chars
-            report=summary[-self._MAX_SUMMARY_SIZE:],
+            report=summary[-self._MAX_SUMMARY_SIZE :],
             structuredReport=structured_report,
         )
 
