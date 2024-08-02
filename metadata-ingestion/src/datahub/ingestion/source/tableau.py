@@ -762,6 +762,7 @@ class TableauSiteSource:
         if self.site and self.site.content_url:
             return self.site.content_url
         return None
+
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
             return
