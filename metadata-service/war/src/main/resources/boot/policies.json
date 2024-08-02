@@ -103,7 +103,8 @@
       },
       "privileges":[
         "VIEW_ANALYTICS",
-        "GENERATE_PERSONAL_ACCESS_TOKENS"
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
+        "VIEW_METADATA_PROPOSALS"
       ],
       "displayName":"All Users - Base Platform Privileges",
       "description":"Grants base platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
