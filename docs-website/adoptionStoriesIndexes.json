@@ -34,15 +34,15 @@
       "description": "<i>“DataHub’s event driven architecture provides us a mechanism to act on any metadata changes in real time. This allows us to perform various actions like provisioning access to a data product, notifying consumers on any schema changes that may affect their application or triggering data movement jobs to move data from source to sink platforms.”</i>"
     },
     {
-      "name": "MediaMarkt Saturn",
-      "slug": "mediamarkt-saturn",
-      "imageUrl": "/img/logos/companies/mediamarkt-saturn.png",
-      "imageSize": "large",
-      "link": "https://www.youtube.com/watch?v=wsCFnElN_Wo",
-      "linkType": "video",
-      "tagline": "DataHub + MediaMarktSaturn Access Management Journey",
+      "name": "Pinterest",
+      "slug": "pinterest",
+      "imageUrl": "/img/logos/companies/pinterest.png",
+      "imageSize": "default",
+      "link": "https://www.youtube.com/watch?v=YoxTg8tQSwg&feature=youtu.be",
+      "linkType": "blog",
+      "tagline": "DataHub Project @ Pinterest",
       "category": "B2B & B2C",
-      "description": "Europe’s #1 consumer electronics retailer implemented DataHub for three reasons:<br /><br />1. DataHub provides an extremely <b>flexible and customizable metadata platform at scale</b>.<br />2. Open-source means lower cost to implement and removes the headache of license management.<br />3. Community-driven project which continually evolves with industry trends and best practices."
+      "description": "Pinterest adopted a DataHub project to enhance metadata management for its big data query platform, facilitating better data navigation and understanding."
     },
     {
       "name": "Airtel",
@@ -67,15 +67,37 @@
       "description": "<i>“DataHub aligns with our needs [for] data documentation, a unified search experience, lineage information, and additional metadata. We are also very impressed with the vibrant and supportive community.”</i>"
     },
     {
-      "name": "Pinterest",
-      "slug": "pinterest",
-      "imageUrl": "/img/logos/companies/pinterest.png",
+      "name": "Zynga",
+      "slug": "zynga",
+      "imageUrl": "/img/logos/companies/zynga.png",
       "imageSize": "default",
-      "link": "https://www.youtube.com/watch?v=YoxTg8tQSwg&feature=youtu.be",
-      "linkType": "blog",
-      "tagline": "DataHub Project @ Pinterest",
+      "link": "https://www.youtube.com/watch?v=VCU3-Hd_glI",
+      "linkType": "video",
+      "tagline": "Zynga's DataHub Implementation",
       "category": "B2B & B2C",
-      "description": "Pinterest adopted a DataHub project to enhance metadata management for its big data query platform, facilitating better data navigation and understanding."
+      "description": "<i>“We looked around for data catalog tool, and DataHub was a clear winner.”</i> <br /> <br /> Zynga levels up data management using DataHub, highlighting its role in enhancing data management, tracing data lineage, and ensuring data quality."
+    },
+    {
+      "name": "Saxo Bank",
+      "slug": "saxo-bank",
+      "imageUrl": "/img/logos/companies/saxobank.svg",
+      "imageSize": "default",
+      "link": "https://blog.datahubproject.io/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f",
+      "linkType": "blog",
+      "tagline": "Enabling Data Discovery in a Data Mesh",
+      "category": "Financial & Fintech",
+      "description": "Saxo Bank adopted DataHub to enhance data quality and streamline governance, facilitating efficient data management through self-service capabilities. <br /><br />By integrating Apache Kafka and Snowflake with DataHub, the bank embraced Data Mesh principles to democratize data, support rapid growth, and improve business processes."
+    },
+    {
+      "name": "MediaMarkt Saturn",
+      "slug": "mediamarkt-saturn",
+      "imageUrl": "/img/logos/companies/mediamarkt-saturn.png",
+      "imageSize": "large",
+      "link": "https://www.youtube.com/watch?v=wsCFnElN_Wo",
+      "linkType": "video",
+      "tagline": "DataHub + MediaMarktSaturn Access Management Journey",
+      "category": "B2B & B2C",
+      "description": "Europe’s #1 consumer electronics retailer implemented DataHub for three reasons:<br /><br />1. DataHub provides an extremely <b>flexible and customizable metadata platform at scale</b>.<br />2. Open-source means lower cost to implement and removes the headache of license management.<br />3. Community-driven project which continually evolves with industry trends and best practices."
     },
     {
       "name": "Adevinta",
@@ -100,17 +122,6 @@
       "description": "<i>“[DataHub] has made our legal team very happy with being able to keep track of our sensitive data [to answer questions like] Where’s it going? How’s it being processed? Where’s it ending up? Which third party tool or API’s are we sending it to and why? Who is responsible for this integration?”</i>"
     },
     {
-      "name": "Zynga",
-      "slug": "zynga",
-      "imageUrl": "/img/logos/companies/zynga.png",
-      "imageSize": "default",
-      "link": "https://www.youtube.com/watch?v=VCU3-Hd_glI",
-      "linkType": "video",
-      "tagline": "Zynga's DataHub Implementation",
-      "category": "B2B & B2C",
-      "description": "<i>“We looked around for data catalog tool, and DataHub was a clear winner.”</i> <br /> <br /> Zynga levels up data management using DataHub, highlighting its role in enhancing data management, tracing data lineage, and ensuring data quality."
-    },
-    {
       "name": "Geotab",
       "slug": "geotab",
       "imageUrl": "/img/logos/companies/geotab.jpg",
@@ -131,17 +142,6 @@
       "tagline": "Hurb's DataHub Journey",
       "category": "B2B & B2C",
       "description": "<i>“The main points that drove our decision to implement DataHub were its user-friendly interface, active and receptive community, contribution opportunities, and built-in ingestion sources for our primary services.”</i><br /><br /> Hurb implemented DataHub to enhance data governance, streamline data access, and improve decision-making through a structured integration process."
-    },
-    {
-      "name": "Saxo Bank",
-      "slug": "saxo-bank",
-      "imageUrl": "/img/logos/companies/saxobank.svg",
-      "imageSize": "default",
-      "link": "https://blog.datahubproject.io/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f",
-      "linkType": "blog",
-      "tagline": "Enabling Data Discovery in a Data Mesh",
-      "category": "Financial & Fintech",
-      "description": "Saxo Bank adopted DataHub to enhance data quality and streamline governance, facilitating efficient data management through self-service capabilities. <br /><br />By integrating Apache Kafka and Snowflake with DataHub, the bank embraced Data Mesh principles to democratize data, support rapid growth, and improve business processes."
     },
     {
       "name": "Grofers",
