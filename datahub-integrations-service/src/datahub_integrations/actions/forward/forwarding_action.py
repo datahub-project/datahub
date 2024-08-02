@@ -239,24 +239,34 @@ class ForwardingAction(Action):
     def __init__(self, config: ForwardingActionConfig, ctx: PipelineContext):
         self.config = config
         assert isinstance(self.config.kafka_server, str)
+        producer_config = {}
+        schema_registry_config = {}
+        if self.config.ssl_ca_location is not None:
+            producer_config["ssl.ca.location"] = self.config.ssl_ca_location
+        if self.config.ssl_cert_location is not None:
+            producer_config["ssl.certificate.location"] = self.config.ssl_cert_location
+        if self.config.ssl_key_location is not None:
+            producer_config["ssl.key.location"] = self.config.ssl_key_location
+        if self.config.ssl_key_password is not None:
+            producer_config["ssl.key.password"] = self.config.ssl_key_password
+        if self.config.group_id is not None:
+            producer_config["group.id"] = self.config.group_id
+        if producer_config:
+            producer_config["security.protocol"] = "ssl"
+
+        if self.config.schema_registry_ca_location is not None:
+            schema_registry_config["ssl.ca.location"] = self.config.schema_registry_ca_location
+        if self.config.schema_registry_cert_location is not None:
+            schema_registry_config["ssl.certificate.location"] = self.config.schema_registry_cert_location
+        if self.config.schema_registry_key_location is not None:
+            schema_registry_config["ssl.key.location"] = self.config.schema_registry_key_location
         self.kafka_emitter = DatahubKafkaEmitter(
             config=KafkaEmitterConfig(
                 connection=KafkaProducerConnectionConfig(
                     bootstrap=self.config.kafka_server,
                     schema_registry_url=self.config.schema_registry_url,
-                    producer_config={
-                        "security.protocol": "ssl",
-                        "ssl.ca.location": self.config.ssl_ca_location,
-                        "ssl.certificate.location": self.config.ssl_cert_location,
-                        "ssl.key.location": self.config.ssl_key_location,
-                        "ssl.key.password": self.config.ssl_key_password,
-                        "group.id": self.config.group_id,
-                    },
-                    schema_registry_config={
-                        "ssl.ca.location": self.config.schema_registry_ca_location,
-                        "ssl.certificate.location": self.config.schema_registry_cert_location,
-                        "ssl.key.location": self.config.schema_registry_key_location,
-                    },
+                    producer_config=producer_config,
+                    schema_registry_config=schema_registry_config,
                 ),
                 topic_routes={
                     "MetadataChangeEvent": self.config.mcp_topic,
