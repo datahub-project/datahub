@@ -1,6 +1,5 @@
 import React from 'react';
 import Cookies from 'js-cookie';
-import { message } from 'antd';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
@@ -21,7 +20,7 @@ import { useCustomTheme } from './customThemeContext';
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
 const errorLink = onError((error) => {
-    const { networkError, graphQLErrors } = error;
+    const { networkError } = error;
     if (networkError) {
         const serverError = networkError as ServerError;
         if (serverError.statusCode === ErrorCodes.Unauthorized) {
