@@ -1196,12 +1196,12 @@ class S3Source(StatefulIngestionSourceBase):
                             table_dict[table_data.table_path].timestamp
                             < table_data.timestamp
                         ) and (table_data.size_in_bytes > 0):
-                            table_dict[table_data.table_path].full_path = (
-                                table_data.full_path
-                            )
-                            table_dict[table_data.table_path].timestamp = (
-                                table_data.timestamp
-                            )
+                            table_dict[
+                                table_data.table_path
+                            ].full_path = table_data.full_path
+                            table_dict[
+                                table_data.table_path
+                            ].timestamp = table_data.timestamp
 
                 for guid, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
