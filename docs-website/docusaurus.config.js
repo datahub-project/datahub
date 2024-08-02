@@ -324,6 +324,7 @@ module.exports = {
             require.resolve("./src/styles/global.scss"),
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
+            require.resolve("./src/components/SecondNavbar/secondnavbar.scss"),
           ],
         },
         pages: {
