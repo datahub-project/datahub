@@ -75,6 +75,11 @@ type Query {
     view(urn: String!): DataHubView
 
     """
+    Fetch a Form by primary key (urn)
+    """
+    form(urn: String!): Form
+
+    """
     Fetch a Role by primary key (urn)
     """
     role(urn: String!): Role
