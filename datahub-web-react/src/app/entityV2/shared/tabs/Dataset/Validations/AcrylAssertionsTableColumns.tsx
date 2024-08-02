@@ -50,11 +50,7 @@ const ActionButtonContainer = styled.div`
     align-items: center;
 `;
 
-const AssertionPlatformWrapper = styled.div`
-    margin-right: 20px;
-`;
 
-const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
 const DataContractLogo = styled(AuditOutlined)`
     margin-left: 8px;
@@ -182,14 +178,6 @@ export function ActionsColumn({
 }: ActionsColumnProps) {
     return (
         <ActionButtonContainer>
-            {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
-                <AssertionPlatformWrapper>
-                    <AssertionPlatformAvatar
-                        platform={platform}
-                        externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
-                    />
-                </AssertionPlatformWrapper>
-            )}
             <AssertionActionList
                 assertion={assertion}
                 monitor={monitor}

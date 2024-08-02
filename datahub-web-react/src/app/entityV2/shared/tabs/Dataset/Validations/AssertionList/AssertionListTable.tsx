@@ -5,14 +5,13 @@ import { DownOutlined, RightOutlined } from '@ant-design/icons';
 
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
-import { IFilter } from './NewAcrylAssertions';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
-import { AssertionType } from '@src/types.generated';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
 import { AssertionResultDot } from '../assertion/profile/shared/AssertionResultDot';
 import { isMonitorActive } from '../acrylUtils';
+import { AssertionPlatformAvatar } from '../AssertionPlatformAvatar';
 
 const StyledTable = styled(Table)`
     max-width: none;
@@ -41,23 +40,16 @@ const StyledTable = styled(Table)`
 
     .group-header {
         cursor: pointer;
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${ANTD_GRAY[3]};
         :hover {
-            background-color: ${ANTD_GRAY[3]};
+            background-color: ${ANTD_GRAY[4]};
         }
     }
 `;
 
 const StyledAssertionNameContainer = styled.div`
     display: flex;
-`;
-
-const StyledDownOutlined = styled(DownOutlined)`
-    font-size: 8px;
-`;
-
-const StyledRightOutlined = styled(RightOutlined)`
-    font-size: 8px;
+    align-items: center;
 `;
 
 const Result = styled.div`
@@ -65,6 +57,12 @@ const Result = styled.div`
     display: flex;
     align-items: center;
 `;
+
+const AssertionPlatformWrapper = styled.div`
+    margin-left: 10px;
+`;
+
+const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
 const AssertionName = ({ record, groupBy }) => {
     const { primaryLabel } = useBuildAssertionDescriptionLabels(
@@ -81,9 +79,10 @@ const AssertionName = ({ record, groupBy }) => {
     }
 
     const lastEvaluation = groupBy ? record.runEvents?.runEvents?.[0] : record.lastEvaluation;
-
+    const lastEvaluationUrl = groupBy ? record.runEvents?.runEvents?.[0].lastEvaluationUrl : record.lastEvaluationUrl;
+    const { platform } = record;
     return (
-        <div style={{ display: 'flex' }}>
+        <StyledAssertionNameContainer>
             {!(groupBy && record.groupName) && (
                 <AssertionResultPopover
                     assertion={assertion}
@@ -97,8 +96,16 @@ const AssertionName = ({ record, groupBy }) => {
                     </Result>
                 </AssertionResultPopover>
             )}
-            <StyledAssertionNameContainer>{name}</StyledAssertionNameContainer>
-        </div>
+            <Typography.Text>{name}</Typography.Text>
+            {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
+                <AssertionPlatformWrapper>
+                    <AssertionPlatformAvatar
+                        platform={platform}
+                        externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
+                    />
+                </AssertionPlatformWrapper>
+            )}
+        </StyledAssertionNameContainer>
     );
 };
 
@@ -113,14 +120,14 @@ export const AssertionListTable = ({ assertionData, filterOptions, refetch }) =>
             key: 'description',
             render: (_, record) => <AssertionName record={record} groupBy={groupBy} />,
             width: '35%',
-            sorter: (a, b) => a.description - b.description,
+            sorter: (a, b) => a.description?.localeCompare(b.description),
         },
         {
             title: 'Category',
             dataIndex: 'type',
             key: 'type',
             render: (_, record) => <div>{groupBy ? record.info?.type : record.type}</div>,
-            sorter: (a, b) => a.type - b.type,
+            sorter: (a, b) => a.type?.localeCompare(b.type),
             width: '15%',
         },
         {
@@ -176,10 +183,10 @@ export const AssertionListTable = ({ assertionData, filterOptions, refetch }) =>
             key: 'expand',
             render: (_, record) => {
                 if (record.groupName)
-                    return expandedRowKeys.includes(record.name) ? (
-                        <DownOutlined onClick={() => handleExpand(record.name)} />
+                    return expandedRowKeys.includes(record.key) ? (
+                        <DownOutlined onClick={() => handleExpand(record.key)} />
                     ) : (
-                        <RightOutlined onClick={() => handleExpand(record.name)} />
+                        <RightOutlined onClick={() => handleExpand(record.key)} />
                     );
             },
         });
@@ -192,6 +199,7 @@ export const AssertionListTable = ({ assertionData, filterOptions, refetch }) =>
     const getGroupData = () => {
         return (assertionData?.groupBy && assertionData?.groupBy[groupBy]) || [];
     };
+
     const rowClassName = (record) => {
         if (record.groupName) {
             return 'group-header';
