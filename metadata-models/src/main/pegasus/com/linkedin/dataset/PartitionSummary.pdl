@@ -15,10 +15,10 @@ record PartitionSummary {
     /**
      * The created time for a given partition.
      */
-    created: optional AuditStamp
+    createdTime: optional long
 
     /**
      * The last modified / touched time for a given partition.
      */
-    lastModified: optional AuditStamp
+    lastModifiedTime: optional long
 }
