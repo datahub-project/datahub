@@ -2,6 +2,7 @@ import inspect as inspect_objects
 import logging
 import re
 import urllib.parse
+from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
@@ -172,8 +173,10 @@ class SQLServerSource(SQLAlchemySource):
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
-        self.full_lineage: Dict[str, List[Dict[str, str]]] = {}
-        self.procedures_dependencies: Dict[str, List[Dict[str, str]]] = {}
+        self.full_lineage: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+        self.procedures_dependencies: Dict[str, List[Dict[str, str]]] = defaultdict(
+            list
+        )
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name = self.get_db_name(inspector)
@@ -294,7 +297,6 @@ class SQLServerSource(SQLAlchemySource):
         return result
 
     def _populate_stored_procedures_dependencies(self, conn: Connection) -> None:
-        _procedures_dependencies: Dict[str, List[Dict[str, str]]] = {}
 
         trans = conn.begin()
 
@@ -555,7 +557,7 @@ class SQLServerSource(SQLAlchemySource):
             if row:
                 _key = f"{row['current_db'].lower() if db_force_converting else row['current_db']}.{row['procedure_schema']}.{row['procedure_name']}"
 
-                _procedures_dependencies.setdefault(_key, []).append(
+                self.procedures_dependencies[_key].append(
                     {
                         "referenced_database_name": row[
                             "referenced_database_name"
@@ -572,8 +574,6 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
         trans.commit()
-
-        self.procedures_dependencies = _procedures_dependencies
 
     def _populate_object_links(self, conn: Connection, db_name: str) -> None:
         # see https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-sql-expression-dependencies-transact-sql
@@ -599,7 +599,7 @@ class SQLServerSource(SQLAlchemySource):
         # {"U ": "USER_TABLE", "V ": "VIEW", "P ": "SQL_STORED_PROCEDURE"}
         for row in _links:
             _key = f"{db_name}.{row['dst_schema_name']}.{row['dst_object_name']}"
-            self.full_lineage.setdefault(_key, []).append(
+            self.full_lineage[_key].append(
                 {
                     "schema": row["src_schema_name"] or row["dst_schema_name"],
                     "name": row["src_object_name"],
