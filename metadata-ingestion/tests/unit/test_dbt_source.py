@@ -229,32 +229,6 @@ def test_dbt_config_skip_sources_in_lineage():
     assert config.skip_sources_in_lineage is True
 
 
-def test_dbt_config_prefer_sql_parser_lineage():
-    with pytest.raises(
-        ValidationError,
-        match="prefer_sql_parser_lineage.*requires.*skip_sources_in_lineage",
-    ):
-        config_dict = {
-            "manifest_path": "dummy_path",
-            "catalog_path": "dummy_path",
-            "target_platform": "dummy_platform",
-            "prefer_sql_parser_lineage": True,
-        }
-        config = DBTCoreConfig.parse_obj(config_dict)
-
-    config_dict = {
-        "manifest_path": "dummy_path",
-        "catalog_path": "dummy_path",
-        "target_platform": "dummy_platform",
-        "skip_sources_in_lineage": True,
-        "entities_enabled": {"sources": "NO"},
-        "prefer_sql_parser_lineage": True,
-    }
-    config = DBTCoreConfig.parse_obj(config_dict)
-    assert config.skip_sources_in_lineage is True
-    assert config.prefer_sql_parser_lineage is True
-
-
 def test_dbt_s3_config():
     # test missing aws config
     config_dict: dict = {

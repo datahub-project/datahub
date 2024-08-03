@@ -459,8 +459,8 @@ class DBTCommonConfig(
         cls, prefer_sql_parser_lineage: bool, values: Dict
     ) -> bool:
         if prefer_sql_parser_lineage and not values.get("skip_sources_in_lineage"):
-            raise ValueError(
-                "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
+            logger.warning(
+                "We recommend that `skip_sources_in_lineage` is enabled when using `prefer_sql_parser_lineage`."
             )
         return prefer_sql_parser_lineage
 
@@ -1851,7 +1851,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 sql_parsing_result = node.raw_sql_parsing_result
                 if sql_parsing_result and not sql_parsing_result.debug_info.table_error:
                     # If we have some table lineage from SQL parsing, use that.
-                    upstream_urns = sql_parsing_result.in_tables
+                    upstream_urns = sql_parsing_result.in_tables.copy()
 
                     cll = []
                     for column_lineage in sql_parsing_result.column_lineage or []:
@@ -1873,6 +1873,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                 confidenceScore=sql_parsing_result.debug_info.confidence,
                             )
                         )
+
+                    if not self.config.skip_sources_in_lineage:
+                        # For dbt sources, we also want to point at the dbt source. This isn't
+                        # strictly correct, since we'll be pointing at both dbt source and its
+                        # corresponding warehouse entity. However, the entire purpose of the
+                        # `prefer_sql_parser_lineage` flag is to handle cases where dbt's reported
+                        # metadata isn't correct, so it's better than nothing.
+                        # Column lineage will still only point at the warehouse entity.
+                        for upstream in node.upstream_nodes:
+                            upstream_node = all_nodes_map.get(upstream)
+                            if upstream_node and upstream_node.node_type == "source":
+                                upstream_urns.append(
+                                    _translate_dbt_name_to_upstream_urn(upstream)
+                                )
 
             else:
                 if self.config.prefer_sql_parser_lineage:
