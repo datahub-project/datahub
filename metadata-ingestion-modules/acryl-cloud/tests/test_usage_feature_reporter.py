@@ -79,6 +79,7 @@ def test_dataset_usage(
         extract_batch_size=500,
         use_exp_cdf=True,
         sibling_usage_enabled=False,
+        use_server_side_aggregation=True,
     )
     tmp_path = pathlib.Path(tempfile.mkdtemp("usage_feature_reporter_test"))
     load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
@@ -121,6 +122,7 @@ def test_dataset_usage_with_ranking_factors(
         extract_batch_size=500,
         use_exp_cdf=True,
         sibling_usage_enabled=False,
+        use_server_side_aggregation=True,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),

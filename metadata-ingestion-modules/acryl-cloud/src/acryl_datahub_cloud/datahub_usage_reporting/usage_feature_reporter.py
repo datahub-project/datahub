@@ -83,7 +83,22 @@ GET_DATASET_USAGE_QUERY = {
     },
 }
 
-DATASET_WRITE_USAGE_QUERY = {
+DATASET_WRITE_USAGE_RAW_QUERY = {
+    "sort": [{"urn": {"order": "asc"}}, {"@timestamp": {"order": "asc"}}],
+    "query": {
+        "bool": {
+            "must": [
+                {"range": {"@timestamp": {"gte": "now-30d/d", "lte": "now/d"}}},
+                {"terms": {"operationType": ["INSERT", "UPDATE", "CREATE"]}},
+            ]
+        }
+    },
+    "_source": {
+        "includes": ["urn", "@timestamp"],
+    },
+}
+
+DATASET_WRITE_USAGE_COMPOSITE_QUERY = {
     "query": {
         "bool": {
             "must": [
@@ -177,6 +192,11 @@ class DataHubUsageFeatureReportingSourceConfig(StatefulIngestionConfigBase):
     sibling_usage_enabled: bool = Field(
         True,
         description="Flag to enable or disable the setting dataset usage statistics for sibling entities (only DBT siblings are set).",
+    )
+
+    use_server_side_aggregation: bool = Field(
+        False,
+        description="Flag to enable server side aggregation for write usage statistics.",
     )
 
 
@@ -300,6 +320,25 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     "urn": doc["key"]["dataset_operationaspect_v1"],
                     "platform": platform,
                     "write_count": doc["doc_count"],
+                }
+            time_taken = timer.elapsed_seconds()
+            logger.info(
+                f"Write Operation aspect processing took {time_taken:.3f} seconds"
+            )
+
+    def write_stat_raw_batch(self, results: Iterable) -> Iterable[Dict]:
+        with PerfTimer() as timer:
+            for doc in results:
+                match = re.match(platform_regexp, doc["_source"]["urn"])
+                if match:
+                    platform = match.group(1)
+                else:
+                    logging.warning("Platform not found in urn. Skipping...")
+                    continue
+
+                yield {
+                    "urn": doc["_source"]["urn"],
+                    "platform": platform,
                 }
             time_taken = timer.elapsed_seconds()
             logger.info(
@@ -531,12 +570,41 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def load_write_usage(
         self, soft_deleted_entities_df: polars.LazyFrame
     ) -> polars.LazyFrame:
-        query: Dict = DATASET_WRITE_USAGE_QUERY
+        wdf = polars.LazyFrame(
+            self.load_data_from_es(
+                "dataset_operationaspect_v1",
+                DATASET_WRITE_USAGE_RAW_QUERY,
+                self.write_stat_raw_batch,
+            ),
+            schema={"urn": polars.Categorical, "platform": polars.Categorical},
+            strict=True,
+        )
+        wdf = wdf.group_by(polars.col("urn"), polars.col("platform")).agg(
+            polars.col("urn").count().alias("write_count"),
+        )
+
+        wdf = (
+            wdf.join(
+                soft_deleted_entities_df,
+                left_on="urn",
+                right_on="entity_urn",
+                how="inner",
+            )
+            .filter(polars.col("removed") == False)  # noqa: E712
+            .drop(["removed"])
+        )
+
+        return wdf
+
+    def load_write_usage_server_side_aggregation(
+        self, soft_deleted_entities_df: polars.LazyFrame
+    ) -> polars.LazyFrame:
+        query: Dict = DATASET_WRITE_USAGE_COMPOSITE_QUERY
         query["aggs"]["urn_count"]["composite"]["size"] = self.config.extract_batch_size
         wdf = polars.LazyFrame(
             self.load_data_from_es(
                 "dataset_operationaspect_v1",
-                DATASET_WRITE_USAGE_QUERY,
+                DATASET_WRITE_USAGE_COMPOSITE_QUERY,
                 self.write_stat_batch,
                 aggregation_key="urn_count",
             ),
@@ -938,7 +1006,11 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         )
 
         # Calculate write usage
-        write_lf = self.load_write_usage(soft_deleted_df)
+        if self.config.use_server_side_aggregation:
+            write_lf = self.load_write_usage_server_side_aggregation(soft_deleted_df)
+        else:
+            write_lf = self.load_write_usage(soft_deleted_df)
+
         usage_and_write_lf = (
             usage_with_top_users_with_ranks.join(
                 write_lf, on="urn", how="full", suffix="_write"
