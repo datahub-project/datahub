@@ -501,8 +501,8 @@ class DataHubGraph(DatahubRestEmitter):
         responds to these calls, and will be fixed automatically when the server-side issue is fixed.
 
         :param str entity_urn: The urn of the entity
-        :param List[Type[Aspect]] aspect_type_list: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
-        :param List[str] aspects_list: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
+        :param aspects: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
+        :param aspect_types: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
         :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
         :raises HttpError: if the HTTP response is not a 200
         """
@@ -527,8 +527,10 @@ class DataHubGraph(DatahubRestEmitter):
 
         return result
 
-    def get_entity_semityped(self, entity_urn: str) -> AspectBag:
-        """Get all non-timeseries aspects for an entity (experimental).
+    def get_entity_semityped(
+        self, entity_urn: str, aspects: Optional[List[str]] = None
+    ) -> AspectBag:
+        """Get (all) non-timeseries aspects for an entity.
 
         This method is called "semityped" because it returns aspects as a dictionary of
         properly typed objects. While the returned dictionary is constrained using a TypedDict,
@@ -538,11 +540,12 @@ class DataHubGraph(DatahubRestEmitter):
         something, even if the entity doesn't actually exist in DataHub.
 
         :param entity_urn: The urn of the entity
+        :param aspects: Optional list of aspect names being requested (e.g. ["schemaMetadata", "datasetProperties"])
         :returns: A dictionary of aspect name to aspect value. If an aspect is not found, it will
             not be present in the dictionary. The entity's key aspect will always be present.
         """
 
-        response_json = self.get_entity_raw(entity_urn)
+        response_json = self.get_entity_raw(entity_urn, aspects)
 
         # Now, we parse the response into proper aspect objects.
         result: AspectBag = {}
