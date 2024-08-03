@@ -164,7 +164,7 @@ class DataHubUsageFeatureReportingSourceConfig(StatefulIngestionConfigBase):
         30, description="Timeout in seconds for the search queries."
     )
     extract_batch_size: int = Field(
-        2000,
+        1000,
         description="The number of documents to retrieve in each batch from ElasticSearch or OpenSearch.",
     )
 
@@ -1110,7 +1110,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         index: str,
         process_function: Callable,
         aggregation_key: Optional[str] = None,
-        batch_size: int = 2000,
+        batch_size: int = 1000,
         delay: Optional[float] = None,
     ) -> Iterable[Dict[str, Any]]:
         while True:
