@@ -25,7 +25,7 @@ public class SecretUtils {
       } catch (NoSuchAlgorithmException e) {
         e.printStackTrace();
       }
-      Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+      Cipher cipher = Cipher.getInstance("AES");
       cipher.init(Cipher.ENCRYPT_MODE, secretKey);
       return Base64.getEncoder()
           .encodeToString(cipher.doFinal(value.getBytes(StandardCharsets.UTF_8)));
@@ -48,7 +48,7 @@ public class SecretUtils {
       } catch (NoSuchAlgorithmException e) {
         e.printStackTrace();
       }
-      Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING");
+      Cipher cipher = Cipher.getInstance("AES");
       cipher.init(Cipher.DECRYPT_MODE, secretKey);
       return new String(cipher.doFinal(Base64.getDecoder().decode(encryptedValue)));
     } catch (Exception e) {
