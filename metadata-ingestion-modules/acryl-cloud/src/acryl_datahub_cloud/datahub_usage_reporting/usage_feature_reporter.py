@@ -2,6 +2,7 @@ import logging
 import math
 import os
 import re
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -166,6 +167,12 @@ class DataHubUsageFeatureReportingSourceConfig(StatefulIngestionConfigBase):
         2000,
         description="The number of documents to retrieve in each batch from ElasticSearch or OpenSearch.",
     )
+
+    extract_delay: Optional[float] = Field(
+        0.25,
+        description="The delay in seconds between each batch extraction from ElasticSearch or OpenSearch.",
+    )
+
     use_exp_cdf: bool = Field(
         True,
         description="Flag to determine whether to use the exponential cumulative distribution function for calculating percentiles.",
@@ -477,6 +484,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             user = self.config.search_index.username
             password = self.config.search_index.password
             batch_size = self.config.extract_batch_size
+            delay = self.config.extract_delay
             server: Union[Elasticsearch, OpenSearch]
 
             if self.config.search_index.opensearch_dialect:
@@ -512,6 +520,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 index,
                 process_function,
                 batch_size=batch_size,
+                delay=delay,
                 aggregation_key=aggregation_key,
             )
 
@@ -1102,6 +1111,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         process_function: Callable,
         aggregation_key: Optional[str] = None,
         batch_size: int = 2000,
+        delay: Optional[float] = None,
     ) -> Iterable[Dict[str, Any]]:
         while True:
             with PerfTimer() as timer:
@@ -1143,6 +1153,12 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         query["aggs"][aggregation_key]["composite"]["after"] = results[
                             "aggregations"
                         ][aggregation_key]["after_key"]
+
+                if delay:
+                    logger.debug(
+                        f"Sleeping for {delay} seconds before getting next batch from ES"
+                    )
+                    time.sleep(delay)
 
     def get_report(self) -> SourceReport:
         return self.report
