@@ -135,9 +135,14 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     connect_uri: str = Field(
         default="https://app.mode.com", description="Mode host URL."
     )
-    token: str = Field(description="Mode user token.")
+    token: str = Field(
+        description="When creating workspace API key this is the 'Key ID'."
+    )
     password: pydantic.SecretStr = Field(
-        description="Mode password for authentication."
+        description="When creating workspace API key this is the 'Secret'."
+    )
+    exclude_restricted: bool = Field(
+        default=False, description="Exclude restricted collections"
     )
 
     workspace: str = Field(
@@ -522,6 +527,16 @@ class ModeSource(StatefulIngestionSourceBase):
             for s in spaces:
                 logger.debug(f"Space: {s.get('name')}")
                 space_name = s.get("name", "")
+                # Using both restricted and default_access_level because
+                # there is a current bug with restricted returning False everytime
+                # which has been reported to Mode team
+                if self.config.exclude_restricted and (
+                    s.get("restricted") or s.get("default_access_level") == "restricted"
+                ):
+                    logging.debug(
+                        f"Skipping space {space_name} due to exclude restricted"
+                    )
+                    continue
                 if not self.config.space_pattern.allowed(space_name):
                     self.report.report_dropped_space(space_name)
                     logging.debug(f"Skipping space {space_name} due to space pattern")
