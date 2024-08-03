@@ -197,6 +197,7 @@ def _table_level_lineage(
             sqlglot.exp.Update,
             sqlglot.exp.Delete,
             sqlglot.exp.Merge,
+            sqlglot.exp.AlterTable,
         )
         # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
         # the `this` on the INSERT part isn't a table.
@@ -218,6 +219,7 @@ def _table_level_lineage(
         {
             _TableName.from_sqlglot_table(table)
             for table in statement.find_all(sqlglot.exp.Table)
+            if not isinstance(table.parent, sqlglot.exp.Drop)
         }
         # ignore references created in this query
         - modified

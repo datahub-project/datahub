@@ -1202,3 +1202,13 @@ ORDER BY
         dialect="bigquery",
         expected_file=RESOURCE_DIR / "test_bigquery_information_schema_query.json",
     )
+
+
+def test_bigquery_alter_table_column() -> None:
+    assert_sql_result(
+        """\
+ALTER TABLE `my-bq-project.covid_data.covid_deaths` drop COLUMN patient_name
+    """,
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_alter_table_column.json",
+    )
