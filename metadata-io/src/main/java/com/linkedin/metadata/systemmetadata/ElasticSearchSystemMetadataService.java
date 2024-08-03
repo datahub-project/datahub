@@ -96,7 +96,7 @@ public class ElasticSearchSystemMetadataService
 
   private String toDocId(@Nonnull final String urn, @Nonnull final String aspect) {
     String rawDocId = urn + DOC_DELIMETER + aspect;
-
+    String hashAlgo = System.getenv("ELASTIC_ID_HASH_ALGO");
     try {
       byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
       MessageDigest md = MessageDigest.getInstance(hashAlgo);
