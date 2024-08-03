@@ -17,6 +17,7 @@ services:
     - KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE=false
     - KAFKA_MESSAGE_MAX_BYTES=5242880
     - KAFKA_MAX_MESSAGE_BYTES=5242880
+    - ELASTIC_ID_HASH_ALGO=MD5
     healthcheck:
       interval: 1s
       retries: 5
