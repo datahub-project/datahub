@@ -83,6 +83,10 @@ const ColumnLinkWrapper = styled(Link)`
     }
 `;
 
+const ColumnText = styled(Typography.Text)`
+    color: inherit;
+`;
+
 type Props = LineageDisplayColumn & { urn: string; entityType: EntityType };
 
 export default function Column({ urn, entityType, fieldPath, highlighted, hasLineage, type, nativeDataType }: Props) {
@@ -132,7 +136,7 @@ export default function Column({ urn, entityType, fieldPath, highlighted, hasLin
                     <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
                 </TypeWrapper>
             )}
-            <Typography.Text ellipsis={{ tooltip: { showArrow: false } }}>{columnName}</Typography.Text>
+            <ColumnText ellipsis={{ tooltip: { showArrow: false } }}>{columnName}</ColumnText>
             {config.featureFlags.schemaFieldCLLEnabled && hasLineage && (
                 <ColumnLinkWrapper
                     to={`${entityRegistry.getEntityUrl(EntityType.SchemaField, schemaFieldUrn)}/Lineage`}

@@ -1,4 +1,5 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
 import React from 'react';
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
 import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
@@ -6,7 +7,6 @@ import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '../lineageV2/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
-import translateFieldPath from './dataset/profile/schema/utils/translateFieldPath';
 import DefaultEntity from './DefaultEntity';
 import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from './Entity';
 import PreviewContext from './shared/PreviewContext';
@@ -269,7 +269,7 @@ export default class EntityRegistry {
         const fields = getSchemaFields(data, this.getGenericEntityProperties(type, data));
         if (fields) {
             return fields.map((field) => ({
-                name: translateFieldPath(field.fieldPath),
+                name: downgradeV2FieldPath(field.fieldPath),
                 type: LineageAssetType.Column,
                 dataType: field.type,
                 nativeDataType: field.nativeDataType,
