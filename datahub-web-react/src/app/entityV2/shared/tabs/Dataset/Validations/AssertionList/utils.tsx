@@ -42,10 +42,9 @@ import {
 
 import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
-import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { IFilter } from './NewAcrylAssertions';
 import { Typography } from 'antd';
-import { AssertionGroupHeader } from '../AssertionGroupHeader';
+import { AssertionGroupHeader } from './AssertionGroupHeader';
 
 /**
  * Returns the React Component to render for the aggregation portion of the Assertion Description
@@ -459,7 +458,7 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
             }, {});
             const group = {
                 name: status,
-                assertions: filteredAssertions,
+                assertions: mapAssertionData(filteredAssertions),
                 summary: typeToAssertions,
             };
             assertionGroup.push({ ...group, groupName: getGroupNameBySummary(group) });
@@ -509,6 +508,8 @@ export const getFilteredTransformedAssertionData = (assertions: AssertionWithMon
     assertionRawData.allAssertions = assertionsTableData;
     assertionRawData.groupBy.type = createAssertionGroups(filteredAssertions) || [];
     for (let item of assertionRawData.groupBy.type) {
+        const transformedData = mapAssertionData(item.assertions);
+        item.assertions = transformedData;
         item.groupName = <AssertionGroupHeader group={item} />;
     }
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
@@ -521,7 +522,7 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[]) => {
 
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
-
+        const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
         return {
             type: assertion.info?.type,
             lastUpdated: assertion.info?.lastUpdated,
@@ -530,11 +531,10 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[]) => {
             description: primaryPainTextLabel,
             urn: assertion.urn,
             platform: assertion.platform,
-            lastEvaluation: mostRecentRun?.status === AssertionRunStatus.Complete && mostRecentRun,
+            lastEvaluation: isCompleted && mostRecentRun,
             lastEvaluationTimeMs: mostRecentRun?.timestampMillis,
-            lastEvaluationResult: mostRecentRun?.status === AssertionRunStatus.Complete && mostRecentRun?.result?.type,
-            lastEvaluationUrl:
-                mostRecentRun?.status === AssertionRunStatus.Complete && mostRecentRun?.result?.externalUrl,
+            lastEvaluationResult: isCompleted && mostRecentRun?.result?.type,
+            lastEvaluationUrl: isCompleted && mostRecentRun?.result?.externalUrl,
             assertion,
             monitor,
             status: mostRecentRun?.status,

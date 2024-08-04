@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, Tooltip, TableProps, Table, Typography } from 'antd';
+import { Button, Tooltip, Typography } from 'antd';
 
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
@@ -7,9 +7,7 @@ import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode
 import { AssertionWithMonitorDetails, tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '../acrylUtils';
 import { combineEntityDataWithSiblings } from '../../../../../../entity/shared/siblingUtils';
 import styled from 'styled-components';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
-import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
-import { AssertionRunStatus } from '@src/types.generated';
+import { REDESIGN_COLORS } from '../../../../constants';
 import { getFilteredTransformedAssertionData, transformAssertionData } from './utils';
 import { AssertionListTable } from './AssertionListTable';
 import { PlusOutlined } from '@ant-design/icons';
@@ -118,12 +116,15 @@ export const AcrylAssertionList = () => {
         </>
     );
 
-    const isAllowedToCreateAssertion =
-        (data?.dataset?.privileges?.canEditAssertions || false) &&
-        (data?.dataset?.privileges?.canEditMonitors || false);
     const isNotAllowedToCreateAssertionMessage = 'You do not have permission to create an assertion for this asset';
 
     /* We do not enable the create button if the user does not have the privilege, OR if sibling mode is enabled */
+    const { privileges } = data?.dataset || {};
+    const canEditAssertions = privileges?.canEditAssertions || false;
+    const canEditMonitors = privileges?.canEditMonitors || false;
+    const canEditSqlAssertionMonitors = privileges?.canEditSqlAssertionMonitors || false;
+    const isAllowedToCreateAssertion = canEditAssertions && canEditMonitors;
+
     const disableCreateAssertion = !isAllowedToCreateAssertion || isSiblingMode;
     const disableCreateAssertionMessage = isSiblingMode ? isSiblingModeMessage : isNotAllowedToCreateAssertionMessage;
 
@@ -172,6 +173,9 @@ export const AcrylAssertionList = () => {
                         refetch();
                         contractRefetch();
                     }}
+                    canEditAssertions={canEditAssertions}
+                    canEditMonitors={canEditMonitors}
+                    canEditSqlAssertions={canEditSqlAssertionMonitors}
                 />
             </AssertionConinter>
             {showAssertionBuilder && (

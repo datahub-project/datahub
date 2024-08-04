@@ -1,26 +1,18 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Table, Typography, Empty, Tooltip } from 'antd';
-import { AuditOutlined, DownOutlined, RightOutlined } from '@ant-design/icons';
-import WarningIcon from '@ant-design/icons/WarningFilled';
+import { Table, Typography, Empty } from 'antd';
+import { DownOutlined, RightOutlined } from '@ant-design/icons';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entity/shared/constants';
-import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
+import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
-import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
-import { AssertionResultDot } from '../assertion/profile/shared/AssertionResultDot';
-import { isMonitorActive } from '../acrylUtils';
-import { AssertionPlatformAvatar } from '../AssertionPlatformAvatar';
-import { isAssertionPartOfContract } from '../contract/utils';
-import { AssertionSourceType, EntityType } from '@src/types.generated';
-import moment from 'moment';
-import { InferredAssertionPopover } from '../InferredAssertionPopover';
-import { InferredAssertionBadge } from '../InferredAssertionBadge';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+
+import { AssertionName } from './AssertionName';
+import { AssertionType, Entity } from '@src/types.generated';
+import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
+import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { Link } from 'react-router-dom';
+import { useOpenAssertionDetailModal } from '../assertion/builder/hooks';
 
 const StyledTable = styled(Table)`
     max-width: none;
@@ -50,145 +42,46 @@ const StyledTable = styled(Table)`
     .group-header {
         cursor: pointer;
         background-color: ${ANTD_GRAY[3]};
+    }
+    &&& .acryl-assertions-table-row {
+        cursor: pointer;
+        background-color: ${ANTD_GRAY[2]};
         :hover {
-            background-color: ${ANTD_GRAY[4]};
+            background-color: ${ANTD_GRAY[3]};
         }
     }
 `;
 
-const StyledAssertionNameContainer = styled.div`
-    display: flex;
-    align-items: center;
-`;
-
-const Result = styled.div`
-    margin: 0px 20px 0px 0px;
-    display: flex;
-    align-items: center;
-`;
-
-const AssertionPlatformWrapper = styled.div`
-    margin-left: 10px;
-`;
-
-const DataContractLogo = styled(AuditOutlined)`
-    margin-left: 8px;
-    font-size: 16px;
-    color: ${REDESIGN_COLORS.BLUE};
-`;
-
-const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
-
-const SMART_ASSERTION_STALE_IN_DAYS = 3;
-
-const AssertionName = ({ record, groupBy, contract }) => {
-    const entityRegistry = useEntityRegistry();
-    const entityData = useEntityData();
-
-    const { platform, monitor } = record;
-    const { primaryLabel } = useBuildAssertionDescriptionLabels(
-        groupBy ? record.info : record.assertion.info,
-        groupBy ? record.monitor : record.monitor,
-    );
-    let name = primaryLabel;
-    let assertion = groupBy ? record : record.assertion;
-
-    if (groupBy && record.groupName) {
-        name = record.groupName;
-    } else if (groupBy && !record.groupName) {
-        assertion = record;
-    }
-    if (groupBy && record.groupName) {
-        return <Typography.Text>{name}</Typography.Text>;
-    }
-
-    const disabled = (monitor && !isMonitorActive(monitor)) || false;
-    const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
-    const assertionInfo = assertion.info;
-    const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
-    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt
-        ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days')
-        : undefined;
-    const isSmartAssertionStale =
-        isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
-
-    const lastEvaluation = groupBy ? record.runEvents?.runEvents?.[0] : record.lastEvaluation;
-    const lastEvaluationUrl = groupBy ? record.runEvents?.runEvents?.[0]?.lastEvaluationUrl : record.lastEvaluationUrl;
-
-    return (
-        <StyledAssertionNameContainer>
-            {!(groupBy && record.groupName) && (
-                <AssertionResultPopover
-                    assertion={assertion}
-                    run={lastEvaluation}
-                    showProfileButton
-                    placement="right"
-                    resultStatusType={ResultStatusType.LATEST}
-                >
-                    <Result>
-                        <AssertionResultDot run={lastEvaluation} size={18} />
-                    </Result>
-                </AssertionResultPopover>
-            )}
-            <Typography.Text>{name}</Typography.Text>
-            {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
-                <AssertionPlatformWrapper>
-                    <AssertionPlatformAvatar
-                        platform={platform}
-                        externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
-                    />
-                </AssertionPlatformWrapper>
-            )}
-            {isSmartAssertionStale ? (
-                <Tooltip
-                    title={
-                        <>
-                            <b>This Smart Assertion may be outdated.</b>
-                            <br />
-                            This is likely related to insufficient training data for this asset. Training data is
-                            obtained during ingestion syncs.
-                        </>
-                    }
-                >
-                    <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
-                </Tooltip>
-            ) : null}
-            {isSmartAssertion && (
-                <InferredAssertionPopover>
-                    <InferredAssertionBadge />
-                </InferredAssertionPopover>
-            )}
-            {(isPartOfContract && entityData?.urn && (
-                <Tooltip
-                    title={
-                        <>
-                            Part of Data Contract{' '}
-                            <Link
-                                to={`${entityRegistry.getEntityUrl(
-                                    EntityType.Dataset,
-                                    entityData.urn,
-                                )}/Quality/Data Contract`}
-                                style={{ color: REDESIGN_COLORS.BLUE }}
-                            >
-                                view
-                            </Link>
-                        </>
-                    }
-                >
-                    <Link
-                        to={`${entityRegistry.getEntityUrl(EntityType.Dataset, entityData.urn)}/Quality/Data Contract`}
-                    >
-                        <DataContractLogo />
-                    </Link>
-                </Tooltip>
-            )) ||
-                undefined}
-        </StyledAssertionNameContainer>
-    );
-};
-
-export const AssertionListTable = ({ assertionData, filterOptions, refetch, contract }) => {
+export const AssertionListTable = ({
+    assertionData,
+    filterOptions,
+    refetch,
+    contract,
+    canEditAssertions,
+    canEditMonitors,
+    canEditSqlAssertions,
+}) => {
+    const { entityData } = useEntityData();
     const { groupBy } = filterOptions;
+
+    const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
+    const focusedAssertion = assertionData.allAssertions.find((assertion) => assertion.urn === focusAssertionUrn);
+    const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion.assertion) : undefined;
+
+    const focusedAssertionEntity =
+        focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
+
+    const canEditFocusAssertion = focusedAssertion
+        ? (focusedAssertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
+        : false;
+    const canEditFocusMonitor = focusedAssertion ? canEditMonitors : false;
+
+    if (focusAssertionUrn && !focusedAssertion) {
+        setFocusAssertionUrn(null);
+    }
+
+    useOpenAssertionDetailModal(setFocusAssertionUrn);
+
     const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
 
     const assertionsTableCols: any[] = [
@@ -204,7 +97,7 @@ export const AssertionListTable = ({ assertionData, filterOptions, refetch, cont
             title: 'Category',
             dataIndex: 'type',
             key: 'type',
-            render: (_, record) => <div>{groupBy ? record.info?.type : record.type}</div>,
+            render: (_, record) => <div>{record?.type}</div>,
             sorter: (a, b) => a.type?.localeCompare(b.type),
             width: '15%',
         },
@@ -213,12 +106,13 @@ export const AssertionListTable = ({ assertionData, filterOptions, refetch, cont
             dataIndex: 'lastEvaluation',
             key: 'lastEvaluation',
             render: (_, record) => {
-                const lastRun = groupBy
-                    ? record.runEvents?.runEvents?.[0]?.timestampMillis
-                    : record.lastEvaluationTimeMs;
-                return !(groupBy && record.groupName) && <Typography.Text>{getTimeFromNow(lastRun)}</Typography.Text>;
+                return (
+                    !record.groupName && (
+                        <Typography.Text>{getTimeFromNow(record.lastEvaluationTimeMs)}</Typography.Text>
+                    )
+                );
             },
-            sorter: (a, b) => (a.lastEvaluation?.timestampMillis || 0) - (b.lastEvaluation?.timestampMillis || 0),
+            sorter: (a, b) => (a.lastEvaluationTimeMs || 0) - (b.lastEvaluationTimeMs || 0),
             width: '15%',
         },
         {
@@ -234,17 +128,17 @@ export const AssertionListTable = ({ assertionData, filterOptions, refetch, cont
             key: 'actions',
             width: '15%',
             render: (_, record) => {
-                // const isSqlAssertion = record.type === AssertionType.Sql;
-                const assertion = groupBy ? record : record.assertion;
+                const isSqlAssertion = record.type === AssertionType.Sql;
+                const assertion = record.assertion;
                 return (
                     !record.groupName && (
                         <ActionsColumn
                             assertion={assertion}
                             platform={record.platform}
                             monitor={record.monitor}
-                            // contract={contract}
-                            canEditAssertion={true} //{isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
-                            canEditMonitor={true} //{canEditMonitors}
+                            contract={contract}
+                            canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
+                            canEditMonitor={canEditMonitors}
                             canEditContract
                             lastEvaluationUrl={record.lastEvaluationUrl}
                             refetch={refetch}
@@ -279,37 +173,74 @@ export const AssertionListTable = ({ assertionData, filterOptions, refetch, cont
     };
 
     const rowClassName = (record) => {
+        // return 'row-item';
         if (record.groupName) {
             return 'group-header';
         }
-        return '';
+        if (record.urn === focusAssertionUrn) {
+            return 'acryl-selected-assertions-table-row' || 'acryl-assertions-table-row';
+        } else {
+            return 'acryl-assertions-table-row';
+        }
     };
 
     return (
-        <StyledTable
-            columns={assertionsTableCols}
-            dataSource={groupBy ? getGroupData() : assertionData.allAssertions || []}
-            rowKey="urn"
-            locale={{ emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
-            showHeader
-            pagination={false}
-            rowClassName={rowClassName}
-            expandable={
-                groupBy
-                    ? {
-                          expandedRowRender: (record: any) => (
-                              <Table
-                                  columns={assertionsTableCols}
-                                  dataSource={record?.assertions || []}
-                                  pagination={false}
-                                  showHeader={false}
-                              />
-                          ),
-                          expandedRowKeys,
-                          expandIcon: () => <></>,
-                      }
-                    : undefined
-            }
-        />
+        <>
+            <StyledTable
+                columns={assertionsTableCols}
+                dataSource={groupBy ? getGroupData() : assertionData.allAssertions || []}
+                rowKey="urn"
+                locale={{
+                    emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                }}
+                showHeader
+                pagination={false}
+                rowClassName={rowClassName}
+                expandable={
+                    groupBy
+                        ? {
+                              expandedRowRender: (record: any) => (
+                                  <Table
+                                      columns={assertionsTableCols}
+                                      dataSource={record?.assertions || []}
+                                      pagination={false}
+                                      showHeader={false}
+                                      rowClassName={rowClassName}
+                                      onRow={(record: any) => {
+                                          return {
+                                              onClick: !record.groupName
+                                                  ? (_) => {
+                                                        setFocusAssertionUrn(record.urn);
+                                                    }
+                                                  : () => null,
+                                          };
+                                      }}
+                                  />
+                              ),
+                              expandedRowKeys,
+                              expandIcon: () => <></>,
+                          }
+                        : undefined
+                }
+                onRow={(record: any) => {
+                    return {
+                        onClick: (_) => {
+                            setFocusAssertionUrn(record.urn);
+                        },
+                    };
+                }}
+            />
+            {focusAssertionUrn && focusedAssertionEntity && (
+                <AssertionProfileDrawer
+                    urn={focusAssertionUrn}
+                    entity={focusedAssertionEntity as Entity}
+                    contract={contract}
+                    canEditAssertion={canEditFocusAssertion}
+                    canEditMonitor={canEditFocusMonitor}
+                    closeDrawer={() => setFocusAssertionUrn(null)}
+                    refetch={refetch}
+                />
+            )}
+        </>
     );
 };

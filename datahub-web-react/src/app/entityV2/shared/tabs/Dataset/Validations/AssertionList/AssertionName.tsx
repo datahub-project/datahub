@@ -1,0 +1,113 @@
+import React from 'react';
+import WarningIcon from '@ant-design/icons/WarningFilled';
+import moment from 'moment';
+import styled from 'styled-components';
+import { InferredAssertionPopover } from '../InferredAssertionPopover';
+import { InferredAssertionBadge } from '../InferredAssertionBadge';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
+import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
+import { AssertionResultDot } from '../assertion/profile/shared/AssertionResultDot';
+import { isMonitorActive } from '../acrylUtils';
+import { AssertionPlatformAvatar } from '../AssertionPlatformAvatar';
+import { isAssertionPartOfContract } from '../contract/utils';
+import { AssertionSourceType, EntityType } from '@src/types.generated';
+import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
+import { Tooltip, Typography } from 'antd';
+import { DataContractBadge } from './DataContractBadge';
+
+const StyledAssertionNameContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const Result = styled.div`
+    margin: 0px 20px 0px 0px;
+    display: flex;
+    align-items: center;
+`;
+
+const AssertionPlatformWrapper = styled.div`
+    margin-left: 10px;
+`;
+
+const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
+
+const SMART_ASSERTION_STALE_IN_DAYS = 3;
+
+export const AssertionName = ({ record, groupBy, contract }) => {
+    const entityRegistry = useEntityRegistry();
+    const entityData = useEntityData();
+
+    const { platform, monitor, assertion, lastEvaluation, lastEvaluationUrl } = record;
+    const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, record.monitor);
+    let name = primaryLabel;
+
+    if (groupBy && record.name) {
+        name = record.groupName;
+        return <Typography.Text>{name}</Typography.Text>;
+    }
+
+    const disabled = (monitor && !isMonitorActive(monitor)) || false;
+    const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
+    const assertionInfo = assertion.info;
+    const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
+    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt
+        ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days')
+        : undefined;
+    const isSmartAssertionStale =
+        isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
+
+    return (
+        <StyledAssertionNameContainer>
+            {!(groupBy && record.groupName) && (
+                <AssertionResultPopover
+                    assertion={assertion}
+                    run={lastEvaluation}
+                    showProfileButton
+                    placement="right"
+                    resultStatusType={ResultStatusType.LATEST}
+                >
+                    <Result>
+                        <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
+                    </Result>
+                </AssertionResultPopover>
+            )}
+            <Typography.Text>{name}</Typography.Text>
+            {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
+                <AssertionPlatformWrapper>
+                    <AssertionPlatformAvatar
+                        platform={platform}
+                        externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
+                    />
+                </AssertionPlatformWrapper>
+            )}
+            {isSmartAssertionStale ? (
+                <Tooltip
+                    title={
+                        <>
+                            <b>This Smart Assertion may be outdated.</b>
+                            <br />
+                            This is likely related to insufficient training data for this asset. Training data is
+                            obtained during ingestion syncs.
+                        </>
+                    }
+                >
+                    <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
+                </Tooltip>
+            ) : null}
+            {isSmartAssertion && (
+                <InferredAssertionPopover>
+                    <InferredAssertionBadge />
+                </InferredAssertionPopover>
+            )}
+            {(isPartOfContract && entityData?.urn && (
+                <DataContractBadge
+                    link={`${entityRegistry.getEntityUrl(EntityType.Dataset, entityData.urn)}/Quality/Data Contract`}
+                />
+            )) ||
+                undefined}
+        </StyledAssertionNameContainer>
+    );
+};
