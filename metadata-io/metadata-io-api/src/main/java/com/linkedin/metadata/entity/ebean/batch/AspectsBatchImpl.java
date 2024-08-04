@@ -9,6 +9,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -101,9 +102,24 @@ public class AspectsBatchImpl implements AspectsBatch {
   }
 
   private Stream<? extends BatchItem> proposedItemsToChangeItemStream(List<MCPItem> proposedItems) {
+    List<MutationHook> mutationHooks = retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks();
+    Stream<? extends BatchItem> unmutatedItems = proposedItems.stream()
+        .filter(proposedItem -> mutationHooks.stream()
+            .noneMatch(mutationHook -> mutationHook
+                .shouldApply(proposedItem.getChangeType(), proposedItem.getUrn(), proposedItem.getAspectName())))
+        .map(
+            mcpItem -> {
+              if (ChangeType.PATCH.equals(mcpItem.getChangeType())) {
+                return PatchItemImpl.PatchItemImplBuilder.build(mcpItem.getMetadataChangeProposal(),
+                    mcpItem.getAuditStamp(), retrieverContext.getAspectRetriever()
+                        .getEntityRegistry());
+              }
+              return ChangeItemImpl.ChangeItemImplBuilder.build(mcpItem.getMetadataChangeProposal(), mcpItem.getAuditStamp(),
+                  retrieverContext.getAspectRetriever());
+            });
     List<MCPItem> mutatedItems =
         applyProposalMutationHooks(proposedItems, retrieverContext).collect(Collectors.toList());
-    Stream<ChangeMCP> proposedItemsToChangeItems =
+    Stream<? extends BatchItem> proposedItemsToChangeItems =
         mutatedItems.stream()
             .filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
             // Filter on proposed items again to avoid applying builder to Patch Item side effects
@@ -116,7 +132,8 @@ public class AspectsBatchImpl implements AspectsBatch {
                         retrieverContext.getAspectRetriever()));
     Stream<? extends BatchItem> sideEffectItems =
         mutatedItems.stream().filter(mcpItem -> !(mcpItem instanceof ProposedItem));
-    return Stream.concat(proposedItemsToChangeItems, sideEffectItems);
+    Stream<? extends BatchItem> combinedChangeItems = Stream.concat(proposedItemsToChangeItems, unmutatedItems);
+    return Stream.concat(combinedChangeItems, sideEffectItems);
   }
 
   public static class AspectsBatchImplBuilder {
