@@ -8,10 +8,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddLinkInput;
-import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -35,8 +33,7 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
     String linkLabel = input.getLabel();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    if (!LinkUtils.isAuthorizedToUpdateLinks(context, targetUrn)
-        && !canUpdateGlossaryEntityLinks(targetUrn, context)) {
+    if (!LinkUtils.isAuthorizedToUpdateLinks(context, targetUrn, _entityClient)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
@@ -69,19 +66,5 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
         },
         this.getClass().getSimpleName(),
         "get");
-  }
-
-  // Returns whether this is a glossary entity and whether you can edit this glossary entity with
-  // the
-  // Manage all children or Manage direct children privileges
-  private boolean canUpdateGlossaryEntityLinks(Urn targetUrn, QueryContext context) {
-    final boolean isGlossaryEntity =
-        targetUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
-            || targetUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME);
-    if (!isGlossaryEntity) {
-      return false;
-    }
-    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
-    return GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
   }
 }
