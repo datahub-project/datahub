@@ -53,7 +53,6 @@ FILE_LIST_FOR_VALIDATION = [
      'folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=april/part2.json',
      'folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=march/part1.json',
      'folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=march/part2.json',
-     'folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/.DS_Store',
      'folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json',
      'folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/_temporary/dummy.json'
 ]
