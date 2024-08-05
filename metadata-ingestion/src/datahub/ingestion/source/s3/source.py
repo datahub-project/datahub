@@ -87,7 +87,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     MapTypeClass,
@@ -630,13 +629,9 @@ class S3Source(StatefulIngestionSourceBase):
         if max_partition_id is not None:
             max_partition_summary = PartitionSummaryClass(
                 partition=max_partition_id,
-                created=AuditStampClass(
-                    time=int(max_partition.creation_time.timestamp() * 1000),
-                    actor="urn:li:corpuser:datahub",
-                ),
-                lastModified=AuditStampClass(
-                    time=int(max_partition.modification_time.timestamp() * 1000),
-                    actor="urn:li:corpuser:datahub",
+                createdTime=int(max_partition.creation_time.timestamp() * 1000),
+                lastModifiedTime=int(
+                    max_partition.modification_time.timestamp() * 1000
                 ),
             )
 
@@ -645,13 +640,9 @@ class S3Source(StatefulIngestionSourceBase):
             if min_partition_id is not None:
                 min_partition_summary = PartitionSummaryClass(
                     partition=min_partition_id,
-                    created=AuditStampClass(
-                        time=int(min_partition.creation_time.timestamp() * 1000),
-                        actor="urn:li:corpuser:datahub",
-                    ),
-                    lastModified=AuditStampClass(
-                        time=int(min_partition.modification_time.timestamp() * 1000),
-                        actor="urn:li:corpuser:datahub",
+                    createdTime=int(min_partition.creation_time.timestamp() * 1000),
+                    lastModifiedTime=int(
+                        min_partition.modification_time.timestamp() * 1000
                     ),
                 )
 
