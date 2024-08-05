@@ -721,7 +721,9 @@ class S3Source(StatefulIngestionSourceBase):
                                         else None
                                     ),
                                     "size": (
-                                        str(min_partition.size) if min_partition else None
+                                        str(min_partition.size)
+                                        if min_partition
+                                        else None
                                     ),
                                     "sample_file": (
                                         str(min_partition.sample_file)
@@ -746,7 +748,9 @@ class S3Source(StatefulIngestionSourceBase):
                                         else None
                                     ),
                                     "size": (
-                                        str(max_partition.size) if max_partition else None
+                                        str(max_partition.size)
+                                        if max_partition
+                                        else None
                                     ),
                                     "sample_file": (
                                         str(max_partition.sample_file)
