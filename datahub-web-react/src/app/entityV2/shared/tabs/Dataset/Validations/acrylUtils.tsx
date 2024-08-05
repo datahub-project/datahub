@@ -184,7 +184,7 @@ ASSERTION_INFO.forEach((info) => {
     ASSERTION_TYPE_TO_INFO.set(info.type, info);
 });
 
-const getAssertionGroupName = (type: string): string => {
+export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 

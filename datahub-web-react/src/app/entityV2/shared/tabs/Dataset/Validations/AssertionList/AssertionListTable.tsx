@@ -11,7 +11,7 @@ import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 
 import { AssertionName } from './AssertionName';
 import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
+import { getAssertionGroupName, getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/builder/hooks';
 
@@ -108,7 +108,8 @@ export const AssertionListTable = ({
             title: 'Category',
             dataIndex: 'type',
             key: 'type',
-            render: (_, record) => !record.groupName && <CategoryType>{record?.type}</CategoryType>,
+            render: (_, record) =>
+                !record.groupName && <CategoryType>{getAssertionGroupName(record?.type)}</CategoryType>,
             sorter: (a, b) => a.type?.localeCompare(b.type),
             width: '11%',
         },
