@@ -6,7 +6,7 @@
       "include": "s3://my-test-bucket/folder_a/folder_aa/{dept}/{table}/",
       "sample_files": true,
       "autodetect_partitions": true,
-      "taversal_method": "MIN_MAX",
+      "traversal_method": "MIN_MAX",
       "table_name": "{dept}.{table}",
       "exclude":[
         "**/folder_aaaa/**"

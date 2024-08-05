@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
-                "number_of_partitons": "1",
+                "number_of_partitions": "1",
                 "partitions": "{'min_partition': {'id': [('partition[0]', 'year=2022'), ('partition[1]', 'month=jan')], 'creation_time': '2020-04-14 07:06:20+00:00', 'modification_time': '2020-04-14 07:06:20+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}, 'max_partition': {'id': [('partition[0]', 'year=2022'), ('partition[1]', 'month=jan')], 'creation_time': '2020-04-14 07:06:20+00:00', 'modification_time': '2020-04-14 07:06:20+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}}"
             },
             "name": "folder_aaa.pokemon_abilities_json",

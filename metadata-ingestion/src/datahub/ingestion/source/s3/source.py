@@ -699,7 +699,7 @@ class S3Source(StatefulIngestionSourceBase):
             if table_data.partitions:
                 customProperties.update(
                     {
-                        "number_of_partitons": str(
+                        "number_of_partitions": str(
                             len(table_data.partitions) if table_data.partitions else 0
                         ),
                         "partitions": str(
@@ -1051,13 +1051,13 @@ class S3Source(StatefulIngestionSourceBase):
                     ):
                         dirs_to_process = []
                         logger.info(f"Processing folder: {f}")
-                        if path_spec.taversal_method == FolderTraversalMethod.ALL:
+                        if path_spec.traversal_method == FolderTraversalMethod.ALL:
                             dirs_to_process.append(f)
                         else:
                             if (
-                                path_spec.taversal_method
+                                path_spec.traversal_method
                                 == FolderTraversalMethod.MIN_MAX
-                                or path_spec.taversal_method
+                                or path_spec.traversal_method
                                 == FolderTraversalMethod.MAX
                             ):
                                 protocol = ContainerWUCreator.get_protocol(
@@ -1072,7 +1072,7 @@ class S3Source(StatefulIngestionSourceBase):
                                 dirs_to_process.append(dirs_to_process_max[0])
 
                             if (
-                                path_spec.taversal_method
+                                path_spec.traversal_method
                                 == FolderTraversalMethod.MIN_MAX
                             ):
                                 dirs_to_process_min = self.get_dir_to_process(

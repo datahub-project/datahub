@@ -135,7 +135,7 @@ class PathSpec(ConfigModel):
         description="Autodetect partition(s) from the path. If set to true, it will autodetect partition key/value if the folder format is {partition_key}={partition_value} for example `year=2024`",
     )
 
-    taversal_method: FolderTraversalMethod = Field(
+    traversal_method: FolderTraversalMethod = Field(
         default=FolderTraversalMethod.MAX,
         description="Method to traverse the folder. ALL: Traverse all the folders, MIN_MAX: Traverse the folders by finding min and max value, MAX: Traverse the folder with max value",
     )
