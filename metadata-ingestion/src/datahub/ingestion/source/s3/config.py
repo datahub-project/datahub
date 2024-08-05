@@ -99,8 +99,13 @@ class DataLakeSourceConfig(
     )
 
     sort_schema_fields: bool = Field(
-        default=True,
+        default=False,
         description="Whether to sort schema fields by fieldPath when inferring schemas.",
+    )
+
+    generate_partition_aspects: bool = Field(
+        default=True,
+        description="Whether to generate partition aspects for partitioned tables. On older servers for backward compatibility, this should be set to False. This flag will be removed in future versions.",
     )
 
     def is_profiling_enabled(self) -> bool:

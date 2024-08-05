@@ -7,9 +7,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
-                "number_of_partitons": "0",
-                "partitions": "{'min_partition': {'id': None, 'creation_time': None, 'modification_time': 'None', 'size': None, 'sample_file': None}, 'max_partition': {'id': None, 'creation_time': None, 'modification_time': 'None', 'size': None, 'sample_file': None}}"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part3.csv"
             },
             "name": "folder_aaa.food_csv",
             "description": "",
@@ -589,9 +587,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
-                "number_of_partitons": "0",
-                "partitions": "{'min_partition': {'id': None, 'creation_time': None, 'modification_time': 'None', 'size': None, 'sample_file': None}, 'max_partition': {'id': None, 'creation_time': None, 'modification_time': 'None', 'size': None, 'sample_file': None}}"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet"
             },
             "name": "folder_aaa.food_parquet",
             "description": "",

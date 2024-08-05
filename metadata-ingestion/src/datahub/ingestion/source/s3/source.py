@@ -696,67 +696,68 @@ class S3Source(StatefulIngestionSourceBase):
                 }
             )
         else:
-            customProperties.update(
-                {
-                    "number_of_partitons": str(
-                        len(table_data.partitions) if table_data.partitions else 0
-                    ),
-                    "partitions": str(
-                        {
-                            "min_partition": {
-                                "id": (
-                                    min_partition.partition_id
-                                    if min_partition
-                                    else None
-                                ),
-                                "creation_time": (
-                                    str(min_partition.creation_time)
-                                    if min_partition
-                                    else None
-                                ),
-                                "modification_time": str(
-                                    min_partition.modification_time
-                                    if min_partition
-                                    else None
-                                ),
-                                "size": (
-                                    str(min_partition.size) if min_partition else None
-                                ),
-                                "sample_file": (
-                                    str(min_partition.sample_file)
-                                    if min_partition
-                                    else None
-                                ),
-                            },
-                            "max_partition": {
-                                "id": (
-                                    max_partition.partition_id
-                                    if max_partition
-                                    else None
-                                ),
-                                "creation_time": (
-                                    str(max_partition.creation_time)
-                                    if max_partition
-                                    else None
-                                ),
-                                "modification_time": str(
-                                    max_partition.modification_time
-                                    if max_partition
-                                    else None
-                                ),
-                                "size": (
-                                    str(max_partition.size) if max_partition else None
-                                ),
-                                "sample_file": (
-                                    str(max_partition.sample_file)
-                                    if max_partition
-                                    else None
-                                ),
-                            },
-                        }
-                    ),
-                }
-            )
+            if table_data.partitions:
+                customProperties.update(
+                    {
+                        "number_of_partitons": str(
+                            len(table_data.partitions) if table_data.partitions else 0
+                        ),
+                        "partitions": str(
+                            {
+                                "min_partition": {
+                                    "id": (
+                                        min_partition.partition_id
+                                        if min_partition
+                                        else None
+                                    ),
+                                    "creation_time": (
+                                        str(min_partition.creation_time)
+                                        if min_partition
+                                        else None
+                                    ),
+                                    "modification_time": str(
+                                        min_partition.modification_time
+                                        if min_partition
+                                        else None
+                                    ),
+                                    "size": (
+                                        str(min_partition.size) if min_partition else None
+                                    ),
+                                    "sample_file": (
+                                        str(min_partition.sample_file)
+                                        if min_partition
+                                        else None
+                                    ),
+                                },
+                                "max_partition": {
+                                    "id": (
+                                        max_partition.partition_id
+                                        if max_partition
+                                        else None
+                                    ),
+                                    "creation_time": (
+                                        str(max_partition.creation_time)
+                                        if max_partition
+                                        else None
+                                    ),
+                                    "modification_time": str(
+                                        max_partition.modification_time
+                                        if max_partition
+                                        else None
+                                    ),
+                                    "size": (
+                                        str(max_partition.size) if max_partition else None
+                                    ),
+                                    "sample_file": (
+                                        str(max_partition.sample_file)
+                                        if max_partition
+                                        else None
+                                    ),
+                                },
+                            }
+                        ),
+                    }
+                )
 
         dataset_properties = DatasetPropertiesClass(
             description="",
@@ -821,7 +822,7 @@ class S3Source(StatefulIngestionSourceBase):
         operation = self._create_table_operation_aspect(table_data)
         aspects.append(operation)
 
-        if table_data.partitions:
+        if table_data.partitions and self.source_config.generate_partition_aspects:
             aspects.append(
                 self.__create_partition_summary_aspect(table_data.partitions)
             )
