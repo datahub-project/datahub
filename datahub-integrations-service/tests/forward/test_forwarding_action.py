@@ -14,6 +14,7 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
     MetadataChangeLogClass,
+    SystemMetadataClass,
     TagAssociationClass,
     TestResultClass,
     TestResultsClass,
@@ -334,6 +335,52 @@ class TestForwardingAction(unittest.TestCase):
                 self.assertEquals(
                     passingTest.get("testDefinitionMd5"), None, passingTest
                 )
+
+    @patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter")
+    @patch.object(
+        ForwardingAction,
+        "__init__",
+        lambda self, config, ctx: setattr(self, "config", MagicMock())
+        or setattr(self, "kafka_emitter", MagicMock()),
+    )
+    def test_buildMcpGlobalTags(self, mock_emitter) -> None:
+        global_tags = _make_generic_aspect(
+            GlobalTagsClass(
+                tags=[
+                    TagAssociationClass(
+                        tag="tag1",
+                    )
+                ]
+            )
+        )
+
+        mock_event = MetadataChangeLogClass(
+            aspect=global_tags,
+            aspectName="globalTags",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:kafka,kafkadata,PROD)",
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            systemMetadata=SystemMetadataClass(
+                lastObserved=0,
+                runId="no-run-id-provided",
+                lastRunId="no-run-id-provided",
+                properties={
+                    "appSource": "metadataTests",
+                },
+                version=0,
+            ),
+        )
+
+        mcps = self.action.buildMcp(mock_event)
+
+        self.assertIsNotNone(mcps)
+        for mcp in mcps:
+            aspect = mcp.aspect
+            serialized = aspect.value.decode()
+            aspect_converted = post_json_transform(json.loads(serialized))
+            for aspect_patch in aspect_converted:
+                self.assertEquals(aspect_patch.get("op"), "add")
+                self.assertEquals(aspect_patch.get("path"), "/tags/urn:li:tag:tag1")
 
     @patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter")
     @patch.object(

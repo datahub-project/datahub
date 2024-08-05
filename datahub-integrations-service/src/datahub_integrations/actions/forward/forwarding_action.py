@@ -45,14 +45,12 @@ def create_schema_mcp(
     new_obj: GenericAspectClass,
     orig_event: MetadataChangeLogClass,
 ) -> Iterable[MetadataChangeProposalClass]:
-    new_schema_obj = cast(
-        _try_from_generic_aspect("editableSchemaMetadata", new_obj)[1],
-        EditableSchemaMetadataClass,
-    )
-    old_schema_obj = cast(
-        _try_from_generic_aspect("editableSchemaMetadata", old_obj)[1],
-        EditableSchemaMetadataClass,
-    )
+    new_schema_obj: EditableSchemaMetadataClass = _try_from_generic_aspect(
+        "editableSchemaMetadata", new_obj
+    )[1]
+    old_schema_obj: EditableSchemaMetadataClass = _try_from_generic_aspect(
+        "editableSchemaMetadata", old_obj
+    )[1]
 
     new_schema_infos = (
         new_schema_obj.editableSchemaFieldInfo
@@ -165,12 +163,12 @@ def create_terms_mcp(
     new_obj: GenericAspectClass,
     orig_event: MetadataChangeLogClass,
 ) -> Iterable[MetadataChangeProposalClass]:
-    new_glossary_term_obj = cast(
-        _try_from_generic_aspect("glossaryTerms", new_obj)[1], GlossaryTermsClass
-    )
-    old_glossary_term_obj = cast(
-        _try_from_generic_aspect("glossaryTerms", old_obj)[1], GlossaryTermsClass
-    )
+    new_glossary_term_obj: GlossaryTermsClass = _try_from_generic_aspect(
+        "glossaryTerms", new_obj
+    )[1]
+    old_glossary_term_obj: GlossaryTermsClass = _try_from_generic_aspect(
+        "glossaryTerms", old_obj
+    )[1]
 
     new_glossary_terms_assc = (
         new_glossary_term_obj.terms
@@ -214,12 +212,8 @@ def create_tags_mcp(
     new_obj: GenericAspectClass,
     orig_event: MetadataChangeLogClass,
 ) -> Iterable[MetadataChangeProposalClass]:
-    new_tags_obj = cast(
-        _try_from_generic_aspect("globalTags", new_obj)[1], GlobalTagsClass
-    )
-    old_tags_obj = cast(
-        _try_from_generic_aspect("globalTags", old_obj)[1], GlobalTagsClass
-    )
+    new_tags_obj: GlobalTagsClass = _try_from_generic_aspect("globalTags", new_obj)[1]
+    old_tags_obj: GlobalTagsClass = _try_from_generic_aspect("globalTags", old_obj)[1]
 
     new_tags_assc = new_tags_obj.tags if new_tags_obj and new_tags_obj.tags else []
     old_tags_assc = old_tags_obj.tags if old_tags_obj and old_tags_obj.tags else []
@@ -315,9 +309,11 @@ class ForwardingAction(Action):
             orig_event = cast(MetadataChangeLogClass, event.event)
             logger.debug(f"received orig_event {orig_event}")
             if (
-                orig_event.systemMetadata.properties.get("appSource") == "metadataTests"
-                or orig_event.aspectName == "testResults"
-            ):
+                orig_event.systemMetadata
+                and orig_event.systemMetadata.properties
+                and orig_event.systemMetadata.properties.get("appSource")
+                == "metadataTests"
+            ) or orig_event.aspectName == "testResults":
                 mcps = self.buildMcp(orig_event)
                 if mcps is not None:
                     for mcp in mcps:
