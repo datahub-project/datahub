@@ -66,7 +66,8 @@ public class ProposedItem implements MCPItem {
   public Urn getUrn() {
     Urn urn = metadataChangeProposal.getEntityUrn();
     if (urn == null) {
-      urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
+      urn =
+          EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
     }
     return urn;
   }

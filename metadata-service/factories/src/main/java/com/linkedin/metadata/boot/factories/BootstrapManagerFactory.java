@@ -19,7 +19,7 @@ import com.linkedin.metadata.boot.steps.IngestDataTypesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultTagsStep;
 import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
-import com.linkedin.metadata.boot.steps.IngestForwardingActionStep;
+import com.linkedin.metadata.boot.steps.IngestionMetadataTestResultsActionStep;
 import com.linkedin.metadata.boot.steps.IngestMetadataTestsStep;
 import com.linkedin.metadata.boot.steps.IngestOwnershipTypesStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
@@ -239,7 +239,7 @@ public class BootstrapManagerFactory {
         _configurationProvider.getMetadataTests().getForwardingAction();
     if (forwardingActionConfiguration.isEnabled()) {
       finalSteps.add(
-          new IngestForwardingActionStep(
+          new IngestionMetadataTestResultsActionStep(
               _entityService, integrationsService, forwardingActionConfiguration));
     }
 

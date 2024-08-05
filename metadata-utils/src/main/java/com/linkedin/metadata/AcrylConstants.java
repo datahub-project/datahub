@@ -57,8 +57,8 @@ public class AcrylConstants {
 
   public static final String FORWARDING_ACTION_URN =
       "urn:li:dataHubAction:__system__forwardingAction";
-  public static final String FORWARDING_ACTION_DISPLAY_NAME = "Forwarding Action";
-  public static final String FORWARDING_ACTION_TYPE =
+  public static final String METADATA_TESTS_FORWARDING_ACTION_DISPLAY_NAME = "Forwarding Action";
+  public static final String METADATA_TESTS_FORWARDING_ACTION_TYPE =
       "datahub_integrations.actions.forward.forwarding_action.ForwardingAction";
 
   private AcrylConstants() {}

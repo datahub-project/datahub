@@ -22,13 +22,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 
 @Slf4j
-public class IngestForwardingActionStep implements BootstrapStep {
+public class IngestionMetadataTestResultsActionStep implements BootstrapStep {
 
   private final EntityService<?> entityService;
   private final IntegrationsService integrationsService;
   private final ForwardingActionConfiguration config;
 
-  public IngestForwardingActionStep(
+  public IngestionMetadataTestResultsActionStep(
       EntityService<?> entityService,
       IntegrationsService integrationsService,
       ForwardingActionConfiguration forwardingActionConfiguration) {
@@ -47,8 +47,8 @@ public class IngestForwardingActionStep implements BootstrapStep {
     try {
       log.info("Action pipeline config = {}", config.getRecipe());
       DataHubActionInfo actionInfo = new DataHubActionInfo();
-      actionInfo.setType(FORWARDING_ACTION_TYPE);
-      actionInfo.setName(FORWARDING_ACTION_DISPLAY_NAME);
+      actionInfo.setType(METADATA_TESTS_FORWARDING_ACTION_TYPE);
+      actionInfo.setName(METADATA_TESTS_FORWARDING_ACTION_DISPLAY_NAME);
       actionInfo.setConfig(new DataHubActionConfig().setRecipe(config.getRecipe()));
       actionInfo.setSource(new DataHubActionSource().setType(DataHubActionRequestSource.SYSTEM));
       log.info("Action Info aspect = {}", actionInfo);
