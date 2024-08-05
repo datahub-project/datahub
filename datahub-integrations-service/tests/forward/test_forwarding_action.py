@@ -34,7 +34,7 @@ from datahub_integrations.actions.forward.forwarding_action import (
 
 class TestCreateMcpFunctions(unittest.TestCase):
 
-    def setUp(self):
+    def setUp(self) -> None:
         # Sample old and new objects for testing
         self.old_schema_obj = _make_generic_aspect(
             EditableSchemaMetadataClass(
@@ -111,7 +111,7 @@ class TestCreateMcpFunctions(unittest.TestCase):
             "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
         }
 
-    def test_create_schema_mcp(self):
+    def test_create_schema_mcp(self) -> None:
         mcps = create_schema_mcp(
             self.old_schema_obj, self.new_schema_obj, self.orig_event
         )
@@ -154,7 +154,7 @@ class TestCreateMcpFunctions(unittest.TestCase):
                 msg=objs[4],
             )
 
-    def test_create_terms_mcp(self):
+    def test_create_terms_mcp(self) -> None:
         mcps = create_terms_mcp(self.old_terms_obj, self.new_terms_obj, self.orig_event)
         self.assertIsNotNone(mcps)
         self.assertTrue(
@@ -173,7 +173,7 @@ class TestCreateMcpFunctions(unittest.TestCase):
                 objs[1].get("path"), "/terms/urn:li:glossaryTerm:term1", msg=objs[1]
             )
 
-    def test_create_tags_mcp(self):
+    def test_create_tags_mcp(self) -> None:
         mcps = create_tags_mcp(self.old_tags_obj, self.new_tags_obj, self.orig_event)
         self.assertIsNotNone(mcps)
         self.assertTrue(
@@ -197,7 +197,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def setUp(self):
+    def setUp(self) -> None:
         self.config_dict = {
             "kafka_server": "localhost:9092",
             "schema_registry_url": "http://localhost:8081",
@@ -307,7 +307,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def test_buildMcpTestResults(self, mock_emitter):
+    def test_buildMcpTestResults(self, mock_emitter) -> None:
         mock_event = MetadataChangeLogClass(
             aspect=self.new_test_results,
             previousAspectValue=self.old_test_results,
@@ -342,7 +342,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def test_act(self, mock_emitter):
+    def test_act(self, mock_emitter) -> None:
         mock_event = EventEnvelope(
             event_type="MetadataChangeLogEvent_v1",
             event=MagicMock(spec=MetadataChangeLogClass),
@@ -369,7 +369,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def test_buildMcp(self, mock_emitter):
+    def test_buildMcp(self, mock_emitter) -> None:
         mock_event = MagicMock(spec=MetadataChangeLogClass)
         mock_event.get.side_effect = lambda key: self.config_dict.get(key)
 
@@ -384,7 +384,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def test_emit(self, mock_emitter):
+    def test_emit(self, mock_emitter) -> None:
         mock_mcp = MagicMock(spec=MetadataChangeProposalClass)
         self.action.emit(mock_mcp)
 

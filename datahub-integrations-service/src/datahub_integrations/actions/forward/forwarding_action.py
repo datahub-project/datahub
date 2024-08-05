@@ -7,7 +7,11 @@ from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfi
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import _make_generic_aspect, _try_from_generic_aspect
 from datahub.metadata.schema_classes import (
+    EditableSchemaMetadataClass,
+    GenericAspectClass,
+    GlobalTagsClass,
     GlossaryTermAssociationClass,
+    GlossaryTermsClass,
     MetadataChangeLogClass,
     MetadataChangeProposalClass,
     TagAssociationClass,
@@ -37,10 +41,18 @@ class ForwardingActionConfig(BaseModel):
 
 
 def create_schema_mcp(
-    old_obj, new_obj, orig_event
-) -> Union[Iterable[MetadataChangeProposalClass], None]:
-    new_schema_obj = _try_from_generic_aspect("editableSchemaMetadata", new_obj)[1]
-    old_schema_obj = _try_from_generic_aspect("editableSchemaMetadata", old_obj)[1]
+    old_obj: GenericAspectClass,
+    new_obj: GenericAspectClass,
+    orig_event: MetadataChangeLogClass,
+) -> Iterable[MetadataChangeProposalClass]:
+    new_schema_obj = cast(
+        _try_from_generic_aspect("editableSchemaMetadata", new_obj)[1],
+        EditableSchemaMetadataClass,
+    )
+    old_schema_obj = cast(
+        _try_from_generic_aspect("editableSchemaMetadata", old_obj)[1],
+        EditableSchemaMetadataClass,
+    )
 
     new_schema_infos = (
         new_schema_obj.editableSchemaFieldInfo
@@ -94,12 +106,12 @@ def create_schema_mcp(
         }
         for field in old_schema_infos or []
     }
-    items_to_add = {}
-    items_to_remove = {}
+    items_to_add: dict = {}
+    items_to_remove: dict = {}
     # detect adds by not in old obj -> in new obj
     for new_field in new_fields_map or []:
-        add_tags = set()
-        add_terms = set()
+        add_tags: set[str] = set()
+        add_terms: set[str] = set()
         if new_field not in old_fields_map:
             add_tags.update(new_fields_map[new_field]["tags"] or [])
             add_terms.update(new_fields_map[new_field]["terms"] or [])
@@ -113,8 +125,8 @@ def create_schema_mcp(
         items_to_add[new_field] = {"tags": add_tags, "terms": add_terms}
     # detect removes by not in new obj -> in old obj
     for old_field in old_fields_map or []:
-        remove_tags = set()
-        remove_terms = set()
+        remove_tags: set[str] = set()
+        remove_terms: set[str] = set()
         if old_field not in new_fields_map:
             remove_tags.update(old_fields_map[old_field]["tags"] or [])
             remove_terms.update(old_fields_map[old_field]["terms"] or [])
@@ -149,10 +161,16 @@ def create_schema_mcp(
 
 
 def create_terms_mcp(
-    old_obj, new_obj, orig_event
-) -> Union[Iterable[MetadataChangeProposalClass], None]:
-    new_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", new_obj)[1]
-    old_glossary_term_obj = _try_from_generic_aspect("glossaryTerms", old_obj)[1]
+    old_obj: GenericAspectClass,
+    new_obj: GenericAspectClass,
+    orig_event: MetadataChangeLogClass,
+) -> Iterable[MetadataChangeProposalClass]:
+    new_glossary_term_obj = cast(
+        _try_from_generic_aspect("glossaryTerms", new_obj)[1], GlossaryTermsClass
+    )
+    old_glossary_term_obj = cast(
+        _try_from_generic_aspect("glossaryTerms", old_obj)[1], GlossaryTermsClass
+    )
 
     new_glossary_terms_assc = (
         new_glossary_term_obj.terms
@@ -168,8 +186,8 @@ def create_terms_mcp(
     new_glossary_terms = list(term.urn for term in new_glossary_terms_assc or [])
     old_glossary_terms = list(term.urn for term in old_glossary_terms_assc or [])
 
-    terms_to_add = set()
-    terms_to_remove = set()
+    terms_to_add: set[str] = set()
+    terms_to_remove: set[str] = set()
     # detect adds by not in old obj -> in new obj
     for new_term in new_glossary_terms or []:
         if new_term not in old_glossary_terms:
@@ -192,10 +210,16 @@ def create_terms_mcp(
 
 
 def create_tags_mcp(
-    old_obj, new_obj, orig_event
-) -> Union[Iterable[MetadataChangeProposalClass], None]:
-    new_tags_obj = _try_from_generic_aspect("globalTags", new_obj)[1]
-    old_tags_obj = _try_from_generic_aspect("globalTags", old_obj)[1]
+    old_obj: GenericAspectClass,
+    new_obj: GenericAspectClass,
+    orig_event: MetadataChangeLogClass,
+) -> Iterable[MetadataChangeProposalClass]:
+    new_tags_obj = cast(
+        _try_from_generic_aspect("globalTags", new_obj)[1], GlobalTagsClass
+    )
+    old_tags_obj = cast(
+        _try_from_generic_aspect("globalTags", old_obj)[1], GlobalTagsClass
+    )
 
     new_tags_assc = new_tags_obj.tags if new_tags_obj and new_tags_obj.tags else []
     old_tags_assc = old_tags_obj.tags if old_tags_obj and old_tags_obj.tags else []
@@ -203,8 +227,8 @@ def create_tags_mcp(
     new_tags = list(tag.tag for tag in new_tags_assc or [])
     old_tags = list(tag.tag for tag in old_tags_assc or [])
 
-    tags_to_add = set()
-    tags_to_remove = set()
+    tags_to_add: set[str] = set()
+    tags_to_remove: set[str] = set()
     # detect adds by not in old obj -> in new obj
     for new_tag in new_tags or []:
         if new_tag not in old_tags:
