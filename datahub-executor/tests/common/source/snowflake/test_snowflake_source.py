@@ -397,6 +397,9 @@ class TestSnowflakeSource:
 
     def test_execute_fetchone_query(self) -> None:
         query = "SELECT * FROM TABLE;"
+        self.snowflake_connection_mock.get_client().cursor().fetchone.return_value = (
+            None
+        )
         self.snowflake_source._execute_fetchone_query(query)
         self.snowflake_connection_mock.get_client().cursor().execute.assert_has_calls(
             [
