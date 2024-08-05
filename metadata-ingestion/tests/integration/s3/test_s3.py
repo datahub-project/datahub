@@ -61,6 +61,7 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
             FROZEN_TIME, "%Y-%m-%d %H:%M:%S"
         ).timestamp()
         for root, _dirs, files in os.walk(test_resources_dir):
+            _dirs.sort()
             for file in sorted(files):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, test_resources_dir)

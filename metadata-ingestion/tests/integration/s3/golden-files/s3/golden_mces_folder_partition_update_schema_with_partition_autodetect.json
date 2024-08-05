@@ -796,15 +796,15 @@
             "customProperties": {
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
                 "number_of_partitons": "1",
-                "partitions": "{'min_partition': {'id': [('year', '2022'), ('month', 'jan')], 'creation_time': '2020-04-14 07:05:50+00:00', 'modification_time': '2020-04-14 07:05:50+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}, 'max_partition': {'id': [('year', '2022'), ('month', 'jan')], 'creation_time': '2020-04-14 07:05:50+00:00', 'modification_time': '2020-04-14 07:05:50+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}}"
+                "partitions": "{'min_partition': {'id': [('year', '2022'), ('month', 'jan')], 'creation_time': '2020-04-14 07:06:30+00:00', 'modification_time': '2020-04-14 07:06:30+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}, 'max_partition': {'id': [('year', '2022'), ('month', 'jan')], 'creation_time': '2020-04-14 07:06:30+00:00', 'modification_time': '2020-04-14 07:06:30+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}}"
             },
             "name": "folder_aaa.pokemon_abilities_json",
             "description": "",
             "created": {
-                "time": 1586847950000
+                "time": 1586847990000
             },
             "lastModified": {
-                "time": 1586847950000
+                "time": 1586847990000
             },
             "tags": []
         }
@@ -1404,13 +1404,13 @@
         "json": {
             "minPartition": {
                 "partition": "year=2022/month=jan",
-                "createdTime": 1586847950000,
-                "lastModifiedTime": 1586847950000
+                "createdTime": 1586847990000,
+                "lastModifiedTime": 1586847990000
             },
             "maxPartition": {
                 "partition": "year=2022/month=jan",
-                "createdTime": 1586847950000,
-                "lastModifiedTime": 1586847950000
+                "createdTime": 1586847990000,
+                "lastModifiedTime": 1586847990000
             }
         }
     },
