@@ -81,7 +81,7 @@ export const AssertionActionList = ({
         </Menu>
     );
     return (
-        <ActionList>
+        <ActionList onClick={(e) => e.stopPropagation()}>
             <StartStopAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
 
             <SubscribeAction assertion={assertion} refetch={refetch} />

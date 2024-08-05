@@ -16,6 +16,7 @@ import { useAppConfig } from '@src/app/useAppConfig';
 import { AssertionMonitorBuilderDrawer } from '../assertion/builder/AssertionMonitorBuilderDrawer';
 import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '../acrylCacheUtils';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
+import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
 
 export type IFilter = {
     sortBy: string;
@@ -95,13 +96,18 @@ export const AcrylAssertionList = () => {
             tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
         setAssertionMonitorData(assertionsWithMonitorsDetails);
         const transformedAssertions = transformAssertionData(assertionsWithMonitorsDetails);
-        setVisibleAssertions(transformedAssertions);
-        setFilter({ ...dummyFilterObject });
+        getFilteredAssertions(assertionsWithMonitorsDetails);
     }, [data]);
 
-    useEffect(() => {
-        const filteredAssertionData = getFilteredTransformedAssertionData(assertionMonitorData, filter);
+    const getFilteredAssertions = (assertions: AssertionWithMonitorDetails[]) => {
+        const filteredAssertionData = getFilteredTransformedAssertionData(assertions, filter);
         setVisibleAssertions(filteredAssertionData);
+    };
+
+    useEffect(() => {
+        if (assertionMonitorData?.length > 0) {
+            getFilteredAssertions(assertionMonitorData);
+        }
     }, [filter]);
 
     const isSiblingMode = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
@@ -127,6 +133,7 @@ export const AcrylAssertionList = () => {
 
     const disableCreateAssertion = !isAllowedToCreateAssertion || isSiblingMode;
     const disableCreateAssertionMessage = isSiblingMode ? isSiblingModeMessage : isNotAllowedToCreateAssertionMessage;
+    console.log('visibleAssertions 111>>>>', visibleAssertions);
 
     const AssertionTitleSection = () => {
         return (
@@ -165,18 +172,24 @@ export const AcrylAssertionList = () => {
                 <AssertionHeader>
                     <AssertionTitleSection></AssertionTitleSection>
                 </AssertionHeader>
-                <AssertionListTable
-                    contract={contract}
-                    assertionData={visibleAssertions}
-                    filterOptions={filter}
-                    refetch={() => {
-                        refetch();
-                        contractRefetch();
-                    }}
-                    canEditAssertions={canEditAssertions}
-                    canEditMonitors={canEditMonitors}
-                    canEditSqlAssertions={canEditSqlAssertionMonitors}
-                />
+                {loading ? (
+                    <AcrylAssertionsSummaryLoading />
+                ) : (
+                    <AssertionListTable
+                        contract={contract}
+                        assertionData={visibleAssertions}
+                        filterOptions={filter}
+                        refetch={() => {
+                            setTimeout(() => {
+                                refetch();
+                                contractRefetch();
+                            }, 500);
+                        }}
+                        canEditAssertions={canEditAssertions}
+                        canEditMonitors={canEditMonitors}
+                        canEditSqlAssertions={canEditSqlAssertionMonitors}
+                    />
+                )}
             </AssertionConinter>
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer

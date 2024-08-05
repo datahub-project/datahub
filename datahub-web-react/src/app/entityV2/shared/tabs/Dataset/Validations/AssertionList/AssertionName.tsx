@@ -44,6 +44,7 @@ export const AssertionName = ({ record, groupBy, contract }) => {
     const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, record.monitor);
     let name = primaryLabel;
 
+    // if it is group header then just display group name instead of other fields
     if (groupBy && record.name) {
         name = record.groupName;
         return <Typography.Text>{name}</Typography.Text>;

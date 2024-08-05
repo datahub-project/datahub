@@ -2,17 +2,18 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Table, Typography, Empty } from 'antd';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { ActionsColumn } from '../AcrylAssertionsTableColumns';
+import { AssertionType, Entity } from '@src/types.generated';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
+import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 
 import { AssertionName } from './AssertionName';
-import { AssertionType, Entity } from '@src/types.generated';
 import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { useOpenAssertionDetailModal } from '../assertion/builder/hooks';
+import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/builder/hooks';
 
 const StyledTable = styled(Table)`
     max-width: none;
@@ -51,6 +52,15 @@ const StyledTable = styled(Table)`
         }
     }
 `;
+const CategoryType = styled.div`
+    font-family: Mulish;
+    color: ${REDESIGN_COLORS.BODY_TEXT};
+`;
+
+const LastRun = styled(Typography.Text)`
+    font-family: Mulish;
+    color: ${REDESIGN_COLORS.BODY_TEXT};
+`;
 
 export const AssertionListTable = ({
     assertionData,
@@ -63,6 +73,10 @@ export const AssertionListTable = ({
 }) => {
     const { entityData } = useEntityData();
     const { groupBy } = filterOptions;
+
+    const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(
+        assertionData?.groupBy ? assertionData?.groupBy[groupBy] : [],
+    );
 
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
     const focusedAssertion = assertionData.allAssertions.find((assertion) => assertion.urn === focusAssertionUrn);
@@ -79,16 +93,13 @@ export const AssertionListTable = ({
     if (focusAssertionUrn && !focusedAssertion) {
         setFocusAssertionUrn(null);
     }
-
     useOpenAssertionDetailModal(setFocusAssertionUrn);
-
-    const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
 
     const assertionsTableCols: any[] = [
         {
             title: 'Name',
-            dataIndex: 'description',
-            key: 'description',
+            dataIndex: 'name',
+            key: 'name',
             render: (_, record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
             width: '35%',
             sorter: (a, b) => a.description?.localeCompare(b.description),
@@ -97,7 +108,7 @@ export const AssertionListTable = ({
             title: 'Category',
             dataIndex: 'type',
             key: 'type',
-            render: (_, record) => <div>{record?.type}</div>,
+            render: (_, record) => !record.groupName && <CategoryType>{record?.type}</CategoryType>,
             sorter: (a, b) => a.type?.localeCompare(b.type),
             width: '15%',
         },
@@ -106,11 +117,7 @@ export const AssertionListTable = ({
             dataIndex: 'lastEvaluation',
             key: 'lastEvaluation',
             render: (_, record) => {
-                return (
-                    !record.groupName && (
-                        <Typography.Text>{getTimeFromNow(record.lastEvaluationTimeMs)}</Typography.Text>
-                    )
-                );
+                return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
             },
             sorter: (a, b) => (a.lastEvaluationTimeMs || 0) - (b.lastEvaluationTimeMs || 0),
             width: '15%',
@@ -153,18 +160,16 @@ export const AssertionListTable = ({
         assertionsTableCols.push({
             title: '',
             key: 'expand',
+            width: '2%',
             render: (_, record) => {
                 if (record.groupName)
-                    return expandedRowKeys.includes(record.key) ? (
-                        <DownOutlined onClick={() => handleExpand(record.key)} />
-                    ) : (
-                        <RightOutlined onClick={() => handleExpand(record.key)} />
-                    );
+                    return expandedRowKeys.includes(record.name) ? <DownOutlined /> : <RightOutlined />;
             },
         });
     }
 
-    const handleExpand = (key) => {
+    const onAssertionExpand = (_, record) => {
+        const key = record.name;
         setExpandedRowKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
     };
 
@@ -189,13 +194,13 @@ export const AssertionListTable = ({
             <StyledTable
                 columns={assertionsTableCols}
                 dataSource={groupBy ? getGroupData() : assertionData.allAssertions || []}
-                rowKey="urn"
                 locale={{
                     emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                 }}
                 showHeader
                 pagination={false}
                 rowClassName={rowClassName}
+                rowKey="name"
                 expandable={
                     groupBy
                         ? {
@@ -217,8 +222,10 @@ export const AssertionListTable = ({
                                       }}
                                   />
                               ),
+                              onExpand: onAssertionExpand,
                               expandedRowKeys,
-                              expandIcon: () => <></>,
+                              expandRowByClick: true,
+                              expandIcon: () => null,
                           }
                         : undefined
                 }

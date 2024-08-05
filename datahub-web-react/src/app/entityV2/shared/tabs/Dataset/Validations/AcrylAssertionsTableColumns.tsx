@@ -50,8 +50,6 @@ const ActionButtonContainer = styled.div`
     align-items: center;
 `;
 
-
-
 const DataContractLogo = styled(AuditOutlined)`
     margin-left: 8px;
     font-size: 16px;
@@ -167,13 +165,11 @@ interface ActionsColumnProps {
 
 export function ActionsColumn({
     assertion,
-    platform,
     contract,
     monitor,
     canEditAssertion,
     canEditMonitor,
     canEditContract,
-    lastEvaluationUrl,
     refetch,
 }: ActionsColumnProps) {
     return (
