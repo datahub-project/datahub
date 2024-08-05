@@ -2,26 +2,21 @@ package com.linkedin.metadata.kafka.hook.event;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
-import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.eventgenerator.Aspect;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.mxe.SystemMetadata;
@@ -30,12 +25,10 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -167,20 +160,6 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
             event.getOperation(),
             event.getEntityUrn());
       }
-
-      // Iterate through each transaction, process change events to generate derived aspects.
-      for (final ChangeEvent event : changeEvents) {
-        Optional<MetadataChangeProposal> derivedAspectChangeProposal = createDerivedAspect(event);
-        if (derivedAspectChangeProposal.isPresent()) {
-          _entityClient.ingestProposal(
-              systemOperationContext, derivedAspectChangeProposal.get(), false);
-        }
-        log.debug(
-            "Successfully processed change event. category: {}, operation: {}, entity urn: {}",
-            event.getCategory(),
-            event.getOperation(),
-            event.getEntityUrn());
-      }
     }
   }
 
@@ -259,61 +238,5 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   private Aspect createAspect(
       @Nullable final RecordTemplate value, @Nullable final SystemMetadata systemMetadata) {
     return new Aspect(value, systemMetadata);
-  }
-
-  @SneakyThrows
-  private MetadataChangeProposal createStatusChangeProposal(
-      @Nonnull final String datasetUrn,
-      @Nonnull final String fieldPath,
-      @Nonnull final boolean removed,
-      @Nonnull final SystemMetadata systemMetadata) {
-
-    Urn assetUrn = Urn.createFromString(fieldPath);
-    return new MetadataChangeProposal()
-        .setEntityUrn(assetUrn)
-        .setEntityType(Constants.SCHEMA_FIELD_ENTITY_NAME)
-        .setAspectName(Constants.STATUS_ASPECT_NAME)
-        .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(removed)))
-        .setChangeType(ChangeType.UPSERT)
-        .setSystemMetadata(systemMetadata);
-  }
-
-  private Optional<MetadataChangeProposal> createDerivedAspect(
-      @Nonnull final ChangeEvent changeEvent) {
-    if (changeEvent.getCategory().equals(ChangeCategory.TECHNICAL_SCHEMA)) {
-      if (log.isDebugEnabled()) {
-        // Protect against expensive toString() call
-        String parameterString = "";
-        if (changeEvent.getParameters() != null) {
-          parameterString =
-              changeEvent.getParameters().entrySet().stream()
-                  .map(entry -> entry.getKey() + ":" + entry.getValue())
-                  .collect(Collectors.joining(","));
-        }
-        log.debug(
-            "Technical Schema Event: Entity: {}\nOperation: {}\nModifier: {}\nAuditStamp: {}\nParameters:{}\nCategory:{} ",
-            changeEvent.getEntityUrn(),
-            changeEvent.getOperation(),
-            changeEvent.getModifier(),
-            changeEvent.getAuditStamp(),
-            parameterString,
-            changeEvent.getCategory());
-      }
-      Boolean removed = null;
-      if (changeEvent.getOperation().equals(ChangeOperation.REMOVE)) {
-        removed = true;
-      }
-      if (changeEvent.getOperation().equals(ChangeOperation.ADD)) {
-        removed = false;
-      }
-      if (removed != null) {
-        String fieldPath = changeEvent.getModifier().toString();
-        log.debug("Creating status change proposal {} for field: {}", removed, fieldPath);
-        return Optional.of(
-            createStatusChangeProposal(
-                changeEvent.getEntityUrn(), fieldPath, removed, new SystemMetadata()));
-      }
-    }
-    return Optional.empty();
   }
 }
