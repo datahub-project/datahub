@@ -1,4 +1,5 @@
 import json
+import os
 import pathlib
 import tempfile
 from functools import partial
@@ -41,6 +42,15 @@ def load_data_from_es_mock(
             docs = json.load(f)
     elif index == "dataset_operationaspect_v1":
         docs = []
+    elif index == "graph_service_v1":
+        docs = []
+        if os.path.isfile(
+            f"tests/test_data/test_{test_file_prefix}_graph_service.json"
+        ):
+            with open(
+                f"tests/test_data/test_{test_file_prefix}_graph_service.json"
+            ) as f:
+                docs = json.load(f)
     else:
         raise AssertionError(f"Unhandled index {index}")
 
@@ -78,6 +88,7 @@ def test_dataset_usage(
         query_timeout=10,
         extract_batch_size=500,
         extract_delay=0.25,
+        set_upstream_table_max_modification_time_for_views=True,
         use_exp_cdf=True,
         sibling_usage_enabled=False,
         use_server_side_aggregation=True,
@@ -125,6 +136,7 @@ def test_dataset_usage_with_ranking_factors(
         use_exp_cdf=True,
         sibling_usage_enabled=False,
         use_server_side_aggregation=True,
+        set_upstream_table_max_modification_time_for_views=True,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),
