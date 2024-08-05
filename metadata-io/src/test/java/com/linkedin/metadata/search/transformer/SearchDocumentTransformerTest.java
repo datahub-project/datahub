@@ -90,6 +90,11 @@ public class SearchDocumentTransformerTest {
     assertEquals(parsedJson.get("esObjectFieldFloat").get("key2").getNodeType(), JsonNodeFactory.instance.numberNode(2.0f).getNodeType());
     assertEquals(parsedJson.get("esObjectFieldDouble").get("key1").getNodeType(), JsonNodeFactory.instance.numberNode(1.2).getNodeType());
     assertEquals(parsedJson.get("esObjectFieldInteger").get("key2").getNodeType(), JsonNodeFactory.instance.numberNode(456).getNodeType());
+    assertEquals(parsedJson.get("esObjectFieldBoolean").get("key2").getNodeType(), JsonNodeFactory.instance.booleanNode(false).getNodeType());
+    assertEquals(parsedJson.get("esObjectFieldLong").get("key2").getNodeType(), JsonNodeFactory.instance.numberNode(2L).getNodeType());
+    assertEquals(parsedJson.get("esObjectFieldFloat").get("key1").getNodeType(), JsonNodeFactory.instance.numberNode(1.0f).getNodeType());
+    assertEquals(parsedJson.get("esObjectFieldDouble").get("key2").getNodeType(), JsonNodeFactory.instance.numberNode(2.4).getNodeType());
+    assertEquals(parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(), JsonNodeFactory.instance.numberNode(123).getNodeType());
   }
 
   @Test
