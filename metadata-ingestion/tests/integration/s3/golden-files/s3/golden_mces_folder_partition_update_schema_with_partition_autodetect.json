@@ -105,28 +105,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1615443388097,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586847980000
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
     "changeType": "UPSERT",
@@ -164,13 +142,19 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "operation",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:s3"
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847820000
         }
     },
     "systemMetadata": {
@@ -189,6 +173,22 @@
             "typeNames": [
                 "S3 bucket"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
@@ -268,14 +268,17 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "containerProperties",
     "aspect": {
         "json": {
-            "typeNames": [
-                "Folder"
-            ]
+            "customProperties": {
+                "platform": "s3",
+                "env": "UAT",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
+            },
+            "name": "folder_aa"
         }
     },
     "systemMetadata": {
@@ -288,10 +291,12 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "container": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+            "typeNames": [
+                "Folder"
+            ]
         }
     },
     "systemMetadata": {
@@ -325,15 +330,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
     "changeType": "UPSERT",
-    "aspectName": "containerProperties",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "customProperties": {
-                "platform": "s3",
-                "env": "UAT",
-                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
-            },
-            "name": "folder_aa"
+            "container": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
         }
     },
     "systemMetadata": {
@@ -360,12 +360,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:s3"
+            "container": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
         }
     },
     "systemMetadata": {
@@ -396,10 +396,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "container": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
@@ -458,10 +458,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "removed": false
+            "container": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
         }
     },
     "systemMetadata": {
@@ -474,10 +474,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:s3"
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -508,10 +508,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "container": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
@@ -569,27 +569,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
-                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
-                },
-                {
-                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
-                },
-                {
-                    "id": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-                    "urn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
-                },
-                {
-                    "id": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
-                    "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
-                }
-            ]
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -717,45 +700,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1615443388097,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586847810000
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -778,6 +723,44 @@
                     "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847840000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
         }
     },
     "systemMetadata": {
@@ -1343,44 +1326,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1615443388097,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586847950000
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -1412,6 +1357,61 @@
                 "createdTime": 1586847990000,
                 "lastModifiedTime": 1586847990000
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+                },
+                {
+                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+                },
+                {
+                    "id": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+                    "urn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+                },
+                {
+                    "id": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+                    "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_update_schema_with_partition_autodetect.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847990000
         }
     },
     "systemMetadata": {

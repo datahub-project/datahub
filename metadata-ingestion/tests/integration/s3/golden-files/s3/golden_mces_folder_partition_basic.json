@@ -555,19 +555,18 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
+    "entityType": "container",
+    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
     "changeType": "UPSERT",
-    "aspectName": "operation",
+    "aspectName": "containerProperties",
     "aspect": {
         "json": {
-            "timestampMillis": 1615443388097,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
+            "customProperties": {
+                "platform": "s3",
+                "env": "UAT",
+                "bucket_name": "my-test-bucket"
             },
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586847960000
+            "name": "my-test-bucket"
         }
     },
     "systemMetadata": {
@@ -605,27 +604,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
     "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "s3",
-                "env": "UAT",
-                "bucket_name": "my-test-bucket"
-            },
-            "name": "my-test-bucket"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
-    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
@@ -639,13 +617,19 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "operation",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:s3"
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847990000
         }
     },
     "systemMetadata": {
@@ -676,10 +660,97 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "UAT",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
+            },
+            "name": "folder_aa"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
         }
     },
     "systemMetadata": {
@@ -743,14 +814,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "typeNames": [
-                "Folder"
-            ]
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
@@ -763,10 +832,12 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "container": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+            "typeNames": [
+                "Folder"
+            ]
         }
     },
     "systemMetadata": {
@@ -788,93 +859,6 @@
                     "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "s3",
-                "env": "UAT",
-                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
-            },
-            "name": "folder_aa"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:s3"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
         }
     },
     "systemMetadata": {
@@ -931,12 +915,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "removed": false
+            "container": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
         }
     },
     "systemMetadata": {
@@ -949,10 +933,26 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:s3"
+            "container": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -983,10 +983,10 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "container": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
