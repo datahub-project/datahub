@@ -188,17 +188,12 @@ public class MetadataTestHook implements MetadataChangeLogHook {
 
   @Override
   public void invoke(@NotNull MetadataChangeLog event) throws Exception {
-    // we don't want this hook to run and create side effects if it is not a scheduled test
-    // tests that aren't scheduled are run manually as tasks
-    if (isTestNotScheduled(event)) {
-      return;
-    }
-
     // Check if this is a new or updated Metadata Test
     if (this._isOnTestChangeEnabled
         && event.getChangeType() == ChangeType.UPSERT
         && event.getEntityType().equals(TEST_ENTITY_NAME)
-        && event.getAspectName().equals(TEST_INFO_ASPECT_NAME)) {
+        && event.getAspectName().equals(TEST_INFO_ASPECT_NAME)
+        && !isOnDemandTest(event)) { // don't process on demand tests
       log.info(
           "Upsert event for Metadata Test entity {} received, evaluating test",
           event.getEntityUrn());
@@ -258,7 +253,16 @@ public class MetadataTestHook implements MetadataChangeLogHook {
         System.currentTimeMillis());
   }
 
-  private boolean isTestNotScheduled(@Nonnull MetadataChangeLog event) {
+  /*
+   * Tests are on-demand if there is explicitly no schedule assigned to them.
+   * These tests should not be processed and produce side effects from this hook.
+   */
+  private boolean isOnDemandTest(@Nonnull MetadataChangeLog event) {
+    if (!event.getEntityType().equals(TEST_ENTITY_NAME)
+        || !event.getAspectName().equals(TEST_INFO_ASPECT_NAME)) {
+      return false;
+    }
+
     TestInfo testInfo =
         GenericRecordUtils.deserializeAspect(
             event.getAspect().getValue(), event.getAspect().getContentType(), TestInfo.class);
