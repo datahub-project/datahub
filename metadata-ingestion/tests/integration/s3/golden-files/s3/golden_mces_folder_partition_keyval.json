@@ -585,25 +585,13 @@
         "json": {
             "minPartition": {
                 "partition": "partition_key[0]=year/partition[0]=2022/partition_key[1]=month/partition[1]=jan",
-                "created": {
-                    "time": 1586847950000,
-                    "actor": "urn:li:corpuser:datahub"
-                },
-                "lastModified": {
-                    "time": 1586847950000,
-                    "actor": "urn:li:corpuser:datahub"
-                }
+                "createdTime": 1586847950000,
+                "lastModifiedTime": 1586847950000
             },
             "maxPartition": {
                 "partition": "partition_key[0]=year/partition[0]=2022/partition_key[1]=month/partition[1]=jan",
-                "created": {
-                    "time": 1586847950000,
-                    "actor": "urn:li:corpuser:datahub"
-                },
-                "lastModified": {
-                    "time": 1586847950000,
-                    "actor": "urn:li:corpuser:datahub"
-                }
+                "createdTime": 1586847950000,
+                "lastModifiedTime": 1586847950000
             }
         }
     },

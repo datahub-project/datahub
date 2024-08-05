@@ -1404,25 +1404,13 @@
         "json": {
             "minPartition": {
                 "partition": "year=2022/month=jan",
-                "created": {
-                    "time": 1586847950000,
-                    "actor": "urn:li:corpuser:datahub"
-                },
-                "lastModified": {
-                    "time": 1586847950000,
-                    "actor": "urn:li:corpuser:datahub"
-                }
+                "createdTime": 1586847950000,
+                "lastModifiedTime": 1586847950000
             },
             "maxPartition": {
                 "partition": "year=2022/month=jan",
-                "created": {
-                    "time": 1586847950000,
-                    "actor": "urn:li:corpuser:datahub"
-                },
-                "lastModified": {
-                    "time": 1586847950000,
-                    "actor": "urn:li:corpuser:datahub"
-                }
+                "createdTime": 1586847950000,
+                "lastModifiedTime": 1586847950000
             }
         }
     },
