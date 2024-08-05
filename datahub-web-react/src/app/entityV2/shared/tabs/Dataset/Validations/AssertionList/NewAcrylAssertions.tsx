@@ -175,20 +175,22 @@ export const AcrylAssertionList = () => {
                 {loading ? (
                     <AcrylAssertionsSummaryLoading />
                 ) : (
-                    <AssertionListTable
-                        contract={contract}
-                        assertionData={visibleAssertions}
-                        filterOptions={filter}
-                        refetch={() => {
-                            setTimeout(() => {
-                                refetch();
-                                contractRefetch();
-                            }, 500);
-                        }}
-                        canEditAssertions={canEditAssertions}
-                        canEditMonitors={canEditMonitors}
-                        canEditSqlAssertions={canEditSqlAssertionMonitors}
-                    />
+                    visibleAssertions.allAssertions?.length > 0 && (
+                        <AssertionListTable
+                            contract={contract}
+                            assertionData={visibleAssertions}
+                            filterOptions={filter}
+                            refetch={() => {
+                                setTimeout(() => {
+                                    refetch();
+                                    contractRefetch();
+                                }, 500);
+                            }}
+                            canEditAssertions={canEditAssertions}
+                            canEditMonitors={canEditMonitors}
+                            canEditSqlAssertions={canEditSqlAssertionMonitors}
+                        />
+                    )
                 )}
             </AssertionConinter>
             {showAssertionBuilder && (

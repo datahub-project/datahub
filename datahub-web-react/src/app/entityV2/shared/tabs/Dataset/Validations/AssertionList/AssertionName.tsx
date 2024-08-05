@@ -32,6 +32,19 @@ const AssertionPlatformWrapper = styled.div`
     margin-left: 10px;
 `;
 
+const AssertionDescriptionContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+`;
+
+const NameTypography = styled(Typography.Paragraph)`
+    // white-space: nowrap;
+    overflow: hidden;
+    width: 80%;
+    text-overflow: ellipsis;
+`;
+
 const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
 const SMART_ASSERTION_STALE_IN_DAYS = 3;
@@ -41,7 +54,10 @@ export const AssertionName = ({ record, groupBy, contract }) => {
     const entityData = useEntityData();
 
     const { platform, monitor, assertion, lastEvaluation, lastEvaluationUrl } = record;
-    const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, record.monitor);
+    const monitorSchedule = monitor?.info?.assertionMonitor?.assertions.find(
+        (assrn) => assrn.assertion.urn === assertion.urn,
+    )?.schedule;
+    const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, monitorSchedule);
     let name = primaryLabel;
 
     // if it is group header then just display group name instead of other fields
@@ -75,40 +91,46 @@ export const AssertionName = ({ record, groupBy, contract }) => {
                     </Result>
                 </AssertionResultPopover>
             )}
-            <Typography.Text>{name}</Typography.Text>
-            {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
-                <AssertionPlatformWrapper>
-                    <AssertionPlatformAvatar
-                        platform={platform}
-                        externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
+            <AssertionDescriptionContainer>
+                <NameTypography>{name}</NameTypography>
+                {/* <Typography.Paragraph>{name}</Typography.Paragraph> */}
+                {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
+                    <AssertionPlatformWrapper>
+                        <AssertionPlatformAvatar
+                            platform={platform}
+                            externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
+                        />
+                    </AssertionPlatformWrapper>
+                )}
+                {isSmartAssertionStale ? (
+                    <Tooltip
+                        title={
+                            <>
+                                <b>This Smart Assertion may be outdated.</b>
+                                <br />
+                                This is likely related to insufficient training data for this asset. Training data is
+                                obtained during ingestion syncs.
+                            </>
+                        }
+                    >
+                        <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
+                    </Tooltip>
+                ) : null}
+                {isSmartAssertion && (
+                    <InferredAssertionPopover>
+                        <InferredAssertionBadge />
+                    </InferredAssertionPopover>
+                )}
+                {(isPartOfContract && entityData?.urn && (
+                    <DataContractBadge
+                        link={`${entityRegistry.getEntityUrl(
+                            EntityType.Dataset,
+                            entityData.urn,
+                        )}/Quality/Data Contract`}
                     />
-                </AssertionPlatformWrapper>
-            )}
-            {isSmartAssertionStale ? (
-                <Tooltip
-                    title={
-                        <>
-                            <b>This Smart Assertion may be outdated.</b>
-                            <br />
-                            This is likely related to insufficient training data for this asset. Training data is
-                            obtained during ingestion syncs.
-                        </>
-                    }
-                >
-                    <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
-                </Tooltip>
-            ) : null}
-            {isSmartAssertion && (
-                <InferredAssertionPopover>
-                    <InferredAssertionBadge />
-                </InferredAssertionPopover>
-            )}
-            {(isPartOfContract && entityData?.urn && (
-                <DataContractBadge
-                    link={`${entityRegistry.getEntityUrl(EntityType.Dataset, entityData.urn)}/Quality/Data Contract`}
-                />
-            )) ||
-                undefined}
+                )) ||
+                    undefined}
+            </AssertionDescriptionContainer>
         </StyledAssertionNameContainer>
     );
 };

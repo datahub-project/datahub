@@ -101,7 +101,7 @@ export const AssertionListTable = ({
             dataIndex: 'name',
             key: 'name',
             render: (_, record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
-            width: '35%',
+            width: '50%',
             sorter: (a, b) => a.description?.localeCompare(b.description),
         },
         {
@@ -110,7 +110,7 @@ export const AssertionListTable = ({
             key: 'type',
             render: (_, record) => !record.groupName && <CategoryType>{record?.type}</CategoryType>,
             sorter: (a, b) => a.type?.localeCompare(b.type),
-            width: '15%',
+            width: '11%',
         },
         {
             title: 'Last Run',
@@ -120,20 +120,20 @@ export const AssertionListTable = ({
                 return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
             },
             sorter: (a, b) => (a.lastEvaluationTimeMs || 0) - (b.lastEvaluationTimeMs || 0),
-            width: '15%',
+            width: '12%',
         },
         {
             title: 'Tags',
             dataIndex: 'tags',
             key: 'tags',
-            width: '15%',
+            width: '12%',
             render: (_, record) => <div>{record.tags}</div>,
         },
         {
             title: '',
             dataIndex: '',
             key: 'actions',
-            width: '15%',
+            width: '10%',
             render: (_, record) => {
                 const isSqlAssertion = record.type === AssertionType.Sql;
                 const assertion = record.assertion;

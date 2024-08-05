@@ -92,6 +92,7 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
         <>
             {(entityUrn && (
                 <ActionItem
+                    placement="left"
                     key="0"
                     tip={tip}
                     disabled={!canEdit}
