@@ -254,7 +254,7 @@ class ForwardingAction(Action):
         action_config = ForwardingActionConfig.parse_obj(config_dict or {})
         return cls(action_config, ctx)
 
-    def __init__(self, config: ForwardingActionConfig, ctx: PipelineContext):
+    def __init__(self, config: ForwardingActionConfig, ctx: PipelineContext) -> None:
         self.config = config
         assert isinstance(self.config.kafka_server, str)
         producer_config = {}

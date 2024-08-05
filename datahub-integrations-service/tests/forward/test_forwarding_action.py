@@ -108,9 +108,11 @@ class TestCreateMcpFunctions(unittest.TestCase):
             GlobalTagsClass(tags=[TagAssociationClass(tag="tag2")])
         )
 
-        self.orig_event = {
-            "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
-        }
+        self.orig_event = MetadataChangeLogClass(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+        )
 
     def test_create_schema_mcp(self) -> None:
         mcps = create_schema_mcp(
@@ -308,7 +310,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def test_buildMcpTestResults(self, mock_emitter) -> None:
+    def test_buildMcpTestResults(self) -> None:
         mock_event = MetadataChangeLogClass(
             aspect=self.new_test_results,
             previousAspectValue=self.old_test_results,
@@ -343,7 +345,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def test_buildMcpGlobalTags(self, mock_emitter) -> None:
+    def test_buildMcpGlobalTags(self) -> None:
         global_tags = _make_generic_aspect(
             GlobalTagsClass(
                 tags=[
@@ -389,7 +391,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def test_act(self, mock_emitter) -> None:
+    def test_act(self) -> None:
         mock_event = EventEnvelope(
             event_type="MetadataChangeLogEvent_v1",
             event=MagicMock(spec=MetadataChangeLogClass),
@@ -416,7 +418,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def test_buildMcp(self, mock_emitter) -> None:
+    def test_buildMcp(self) -> None:
         mock_event = MagicMock(spec=MetadataChangeLogClass)
         mock_event.get.side_effect = lambda key: self.config_dict.get(key)
 
@@ -431,7 +433,7 @@ class TestForwardingAction(unittest.TestCase):
         lambda self, config, ctx: setattr(self, "config", MagicMock())
         or setattr(self, "kafka_emitter", MagicMock()),
     )
-    def test_emit(self, mock_emitter) -> None:
+    def test_emit(self) -> None:
         mock_mcp = MagicMock(spec=MetadataChangeProposalClass)
         self.action.emit(mock_mcp)
 
