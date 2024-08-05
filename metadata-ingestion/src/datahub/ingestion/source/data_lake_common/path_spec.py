@@ -40,7 +40,7 @@ java_to_python_mapping = {
 }
 
 
-class SortKeyType(str, Enum):
+class SortKeyType(Enum):
     STRING = "STRING"
     INTEGER = "INTEGER"
     FLOAT = "FLOAT"
@@ -77,7 +77,7 @@ class SortKey(ConfigModel):
         return v
 
 
-class FolderTraversalMethod(str, Enum):
+class FolderTraversalMethod(Enum):
     ALL = "ALL"
     MIN_MAX = "MIN_MAX"
     MAX = "MAX"
