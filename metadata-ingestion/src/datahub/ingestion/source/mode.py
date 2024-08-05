@@ -210,8 +210,12 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Mode")
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(SourceCapability.LINEAGE_FINE, "Supported by default")
+@capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class ModeSource(StatefulIngestionSourceBase):
     """
 
@@ -756,7 +760,7 @@ class ModeSource(StatefulIngestionSourceBase):
     def _parse_definition_name(self, definition_variable: str) -> Tuple[str, str]:
         name, alias = "", ""
         # i.e '{{ @join_on_definition as alias}}'
-        name_match = re.findall("@[a-zA-z]+", definition_variable)
+        name_match = re.findall("@[a-zA-Z]+", definition_variable)
         if len(name_match):
             name = name_match[0][1:]
         alias_match = re.findall(
