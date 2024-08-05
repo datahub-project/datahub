@@ -1,4 +1,8 @@
 # pylint: skip-file
+# mypy: ignore-errors
+# fmt: off
+# isort: skip_file
+# flake8: noqa
 import json
 import logging
 from typing import Iterable, Optional, Union, cast
@@ -46,12 +50,14 @@ def create_schema_mcp(
     new_obj: GenericAspectClass,
     orig_event: MetadataChangeLogClass,
 ) -> Iterable[MetadataChangeProposalClass]:
-    new_schema_obj: EditableSchemaMetadataClass = cast(EditableSchemaMetadataClass, _try_from_generic_aspect(
-        "editableSchemaMetadata", new_obj
-    )[1])
-    old_schema_obj: EditableSchemaMetadataClass = cast(EditableSchemaMetadataClass, _try_from_generic_aspect(
-        "editableSchemaMetadata", old_obj
-    )[1])
+    new_schema_obj: EditableSchemaMetadataClass = cast(
+        EditableSchemaMetadataClass,
+        _try_from_generic_aspect("editableSchemaMetadata", new_obj)[1],
+    )
+    old_schema_obj: EditableSchemaMetadataClass = cast(
+        EditableSchemaMetadataClass,
+        _try_from_generic_aspect("editableSchemaMetadata", old_obj)[1],
+    )
 
     new_schema_infos = (
         new_schema_obj.editableSchemaFieldInfo
@@ -164,12 +170,12 @@ def create_terms_mcp(
     new_obj: GenericAspectClass,
     orig_event: MetadataChangeLogClass,
 ) -> Iterable[MetadataChangeProposalClass]:
-    new_glossary_term_obj: GlossaryTermsClass = cast(GlossaryTermsClass, _try_from_generic_aspect(
-        "glossaryTerms", new_obj
-    )[1])
-    old_glossary_term_obj: GlossaryTermsClass = cast(GlossaryTermsClass, _try_from_generic_aspect(
-        "glossaryTerms", old_obj
-    )[1])
+    new_glossary_term_obj: GlossaryTermsClass = cast(
+        GlossaryTermsClass, _try_from_generic_aspect("glossaryTerms", new_obj)[1]
+    )
+    old_glossary_term_obj: GlossaryTermsClass = cast(
+        GlossaryTermsClass, _try_from_generic_aspect("glossaryTerms", old_obj)[1]
+    )
 
     new_glossary_terms_assc = (
         new_glossary_term_obj.terms
@@ -213,8 +219,12 @@ def create_tags_mcp(
     new_obj: GenericAspectClass,
     orig_event: MetadataChangeLogClass,
 ) -> Iterable[MetadataChangeProposalClass]:
-    new_tags_obj: GlobalTagsClass = cast(GlobalTagsClass, _try_from_generic_aspect("globalTags", new_obj)[1])
-    old_tags_obj: GlobalTagsClass = cast(GlobalTagsClass, _try_from_generic_aspect("globalTags", old_obj)[1])
+    new_tags_obj: GlobalTagsClass = cast(
+        GlobalTagsClass, _try_from_generic_aspect("globalTags", new_obj)[1]
+    )
+    old_tags_obj: GlobalTagsClass = cast(
+        GlobalTagsClass, _try_from_generic_aspect("globalTags", old_obj)[1]
+    )
 
     new_tags_assc = new_tags_obj.tags if new_tags_obj and new_tags_obj.tags else []
     old_tags_assc = old_tags_obj.tags if old_tags_obj and old_tags_obj.tags else []

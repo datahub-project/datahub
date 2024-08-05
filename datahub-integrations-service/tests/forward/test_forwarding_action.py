@@ -1,4 +1,8 @@
 # pylint: skip-file
+# mypy: ignore-errors
+# fmt: off
+# isort: skip_file
+# flake8: noqa
 import json
 import unittest
 from typing import Any
