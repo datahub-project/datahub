@@ -1,3 +1,4 @@
+# pylint: skip-file
 import json
 import unittest
 from typing import Any
@@ -124,7 +125,7 @@ class TestCreateMcpFunctions(unittest.TestCase):
         )
         for mcp in mcps:
             aspect = mcp.aspect
-            serialized = aspect.value.decode()
+            serialized = aspect.value.decode() if aspect.value else ""
             objs = post_json_transform(json.loads(serialized))
             self.assertEquals(objs[0].get("op"), "add", msg=objs[0])
             self.assertEquals(
@@ -165,7 +166,7 @@ class TestCreateMcpFunctions(unittest.TestCase):
         )
         for mcp in mcps:
             aspect = mcp.aspect
-            serialized = aspect.value.decode()
+            serialized = aspect.value.decode() if aspect.value else ""
             objs = post_json_transform(json.loads(serialized))
             self.assertEquals(objs[0].get("op"), "add", msg=objs[0])
             self.assertEquals(
@@ -184,7 +185,7 @@ class TestCreateMcpFunctions(unittest.TestCase):
         )
         for mcp in mcps:
             aspect = mcp.aspect
-            serialized = aspect.value.decode()
+            serialized = aspect.value.decode() if aspect.value else ""
             objs = post_json_transform(json.loads(serialized))
             self.assertEquals(objs[0].get("op"), "add", msg=objs[0])
             self.assertEquals(objs[0].get("path"), "/tags/urn:li:tag:tag2", msg=objs[0])
@@ -303,7 +304,6 @@ class TestForwardingAction(unittest.TestCase):
             )
         )
 
-    @patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter")
     @patch.object(
         ForwardingAction,
         "__init__",
@@ -325,7 +325,7 @@ class TestForwardingAction(unittest.TestCase):
         self.assertIsNotNone(mcps)
         for mcp in mcps:
             aspect = mcp.aspect
-            serialized = aspect.value.decode()
+            serialized = aspect.value.decode() if aspect.value else ""
             aspect_converted = post_json_transform(json.loads(serialized))
             for failingTest in aspect_converted.get("failing"):
                 self.assertEquals(failingTest.get("lastComputed"), None, failingTest)
@@ -338,7 +338,6 @@ class TestForwardingAction(unittest.TestCase):
                     passingTest.get("testDefinitionMd5"), None, passingTest
                 )
 
-    @patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter")
     @patch.object(
         ForwardingAction,
         "__init__",
@@ -378,13 +377,12 @@ class TestForwardingAction(unittest.TestCase):
         self.assertIsNotNone(mcps)
         for mcp in mcps:
             aspect = mcp.aspect
-            serialized = aspect.value.decode()
+            serialized = aspect.value.decode() if aspect.value else ""
             aspect_converted = post_json_transform(json.loads(serialized))
             for aspect_patch in aspect_converted:
                 self.assertEquals(aspect_patch.get("op"), "add")
                 self.assertEquals(aspect_patch.get("path"), "/tags/urn:li:tag:tag1")
 
-    @patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter")
     @patch.object(
         ForwardingAction,
         "__init__",
@@ -411,7 +409,6 @@ class TestForwardingAction(unittest.TestCase):
         self.action.buildMcp.assert_called_once_with(mock_event.event)
         self.action.emit.assert_called()
 
-    @patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter")
     @patch.object(
         ForwardingAction,
         "__init__",
@@ -426,7 +423,6 @@ class TestForwardingAction(unittest.TestCase):
 
         self.assertIsNotNone(mcps)
 
-    @patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter")
     @patch.object(
         ForwardingAction,
         "__init__",
