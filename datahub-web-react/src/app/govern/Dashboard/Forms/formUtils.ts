@@ -1,18 +1,24 @@
-export const formSteps = [
-    {
-        number: 1,
-        name: 'Form Details',
-    },
-    {
-        number: 2,
-        name: 'Create Questions',
-    },
-    {
-        number: 3,
-        name: 'Assign Assets',
-    },
-    {
-        number: 4,
-        name: 'Assign Users',
-    },
-];
+import { FormType } from '../../../../types.generated';
+
+export type FormMode = 'create' | 'edit';
+
+export type FormQuestion = {
+    questionType: string;
+    question: string;
+    description?: string;
+};
+
+export type FormFields = {
+    formType: FormType;
+    formName: string;
+    formDescription?: string | undefined;
+    questions?: FormQuestion[];
+};
+
+export const handleInputChange = (setFormValues) => (event) => {
+    const { id, value } = event.target;
+    setFormValues((prev) => ({
+        ...prev,
+        [id]: value,
+    }));
+};

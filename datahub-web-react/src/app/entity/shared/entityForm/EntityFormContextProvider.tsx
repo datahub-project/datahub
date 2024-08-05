@@ -12,6 +12,7 @@ import { getBulkByQuestionPrompts } from '../containers/profile/sidebar/FormInfo
 import { SCHEMA_FIELD_PROMPT_TYPES } from './constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetEntityQuery } from '../../../../graphql/entity.generated';
+import { useEntityFormTasks } from './useEntityFormTasks';
 
 interface Props {
     children: React.ReactNode;
@@ -31,6 +32,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     const [selectedEntity, setSelectedEntity] = useState<Entity | undefined>(entityData as Entity);
     const [selectedPromptId, setSelectedPromptId] = useState<string>();
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
+    const [areAllEntitiesSelected, setAreAllEntitiesSelected] = useState(false);
     const [submittedEntities, setSubmittedEntities] = useState<EntityAndType[]>([]); // used for optimistic render
     const [numSubmittedEntities, setNumSubmittedEntities] = useState<number>(0);
     const [shouldClearFilters, setShouldClearFilters] = useState<boolean>(false);
@@ -60,6 +62,9 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         filter,
         counts,
     } = useEntityFormDataFactory(formUrn, selectedPromptId, formView, submittedEntitiesMap, verifiedEntities);
+
+    // Async task management for mega-bulk submit
+    const { activeTasks, completeTasks, handleAsyncBatchSubmit } = useEntityFormTasks(formUrn);
 
     // Determine the previous form's urn
     const previousFormUrn = usePrevious(formUrn);
@@ -180,6 +185,9 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         handleUndoPromptSubmission,
         handleBulkVerifySubmission,
         verificationDataLoading,
+        activeTasks,
+        completeTasks,
+        handleAsyncBatchSubmit,
     };
 
     // Search
@@ -215,6 +223,8 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         // Selected Entities
         selectedEntities,
         setSelectedEntities,
+        areAllEntitiesSelected,
+        setAreAllEntitiesSelected,
 
         // Selected Entity
         selectedEntity,

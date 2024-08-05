@@ -1,18 +1,20 @@
-import { colors, radius, typography, spacing } from '@components/theme';
+import { colors, borders, radius, typography, spacing } from '@components/theme';
 import { getFontSize } from '@components/theme/utils';
+
 import { SelectStyleProps } from './types';
 
 export const getOptionLabelStyle = (isSelected: boolean) => ({
     cursor: 'pointer',
     padding: spacing.xsm,
     borderRadius: radius.md,
-    lineHeight: '20px',
-    backgroundColor: isSelected ? colors.violet[50] : 'transparent',
+    lineHeight: typography.lineHeights.normal,
+    backgroundColor: isSelected ? colors.violet[100] : 'transparent',
+    color: isSelected ? colors.violet[700] : colors.gray[400],
+    fontWeight: typography.fontWeights.normal,
+
     '&:hover': {
-        backgroundColor: isSelected ? colors.violet[50] : colors.violet[25],
+        backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],
     },
-    color: colors.gray[400],
-    fontWeight: 500,
 });
 
 export const getFooterButtonSize = (size) => {
@@ -21,8 +23,6 @@ export const getFooterButtonSize = (size) => {
 
 export const getSelectFontStyles = (size) => {
     const baseFontStyles = {
-        fontFamily: typography.fonts.body,
-        fontWeight: typography.fontWeights.light,
         lineHeight: typography.lineHeights.none,
     };
 
@@ -47,10 +47,10 @@ export const getSelectFontStyles = (size) => {
 export const getSelectPadding = (size) => {
     const paddingStyles = {
         sm: {
-            padding: `${spacing.xsm} ${spacing.sm}`,
+            padding: `${spacing.sm} ${spacing.xsm}`,
         },
         md: {
-            padding: `${spacing.sm} ${spacing.sm}`,
+            padding: `${spacing.sm} ${spacing.md}`,
         },
         lg: {
             padding: `${spacing.md} ${spacing.sm}`,
@@ -77,21 +77,36 @@ export const getSearchPadding = (size) => {
 };
 
 export const getSelectStyle = (props: SelectStyleProps) => {
-    const { isDisabled, isReadOnly, fontSize } = props;
+    const { isDisabled, isReadOnly, fontSize, isOpen } = props;
 
     const baseStyle = {
-        pdding: spacing.xsm,
         borderRadius: radius.md,
         border: `1px solid ${colors.gray[200]}`,
         fontFamily: typography.fonts.body,
         color: isDisabled ? colors.gray[300] : colors.black,
         cursor: isDisabled || isReadOnly ? 'not-allowed' : 'pointer',
         backgroundColor: isDisabled ? colors.gray[100] : 'initial',
-        ...(isDisabled || isReadOnly
+
+        '&::placeholder': {
+            color: colors.gray[400],
+        },
+
+        // Open Styles
+        ...(isOpen
+            ? {
+                  borderColor: colors.violet[300],
+                  boxShadow: `0px 0px 4px 0px rgba(83, 63, 209, 0.5)`,
+                  outline: 'none',
+              }
+            : {}),
+
+        // Hover Styles
+        ...(isDisabled || isReadOnly || isOpen
             ? {}
             : {
                   '&:hover': {
-                      borderColor: colors.violet[600],
+                      borderColor: colors.violet[200],
+                      outline: `${borders['1px']} ${colors.violet[200]}`,
                   },
               }),
     };

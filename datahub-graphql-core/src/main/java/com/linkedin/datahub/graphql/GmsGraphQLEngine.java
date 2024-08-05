@@ -389,6 +389,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.test.MetadataTestClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -429,6 +430,7 @@ public class GmsGraphQLEngine {
   private final SystemEntityClient systemEntityClient;
   private final UsageStatsJavaClient usageClient;
   private final SiblingGraphService siblingGraphService;
+  private final MetadataTestClient metadataTestClient;
 
   private final EntityService entityService;
   private final AnalyticsService analyticsService;
@@ -550,6 +552,7 @@ public class GmsGraphQLEngine {
     this.graphClient = args.graphClient;
     this.usageClient = args.usageClient;
     this.siblingGraphService = args.siblingGraphService;
+    this.metadataTestClient = args.metadataTestClient;
 
     this.analyticsService = args.analyticsService;
     this.entityService = args.entityService;
@@ -1035,6 +1038,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("mlModelGroup", getResolver(mlModelGroupType))
                 .dataFetcher("assertion", getResolver(assertionType))
                 .dataFetcher("form", getResolver(formType))
+                .dataFetcher("view", getResolver(dataHubViewType))
                 .dataFetcher("listPolicies", new ListPoliciesResolver(this.entityClient))
                 .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
@@ -1889,11 +1893,15 @@ public class GmsGraphQLEngine {
                 "platforms",
                 new LoadableTypeBatchResolver<>(
                     dataPlatformType,
-                    (env) ->
-                        ((CorpUserEditableProperties) env.getSource())
-                            .getPlatforms().stream()
-                                .map(DataPlatform::getUrn)
-                                .collect(Collectors.toList()))));
+                    (env) -> {
+                      CorpUserEditableProperties properties = env.getSource();
+                      if (properties.getPlatforms() == null) {
+                        return Collections.emptyList();
+                      }
+                      return properties.getPlatforms().stream()
+                          .map(DataPlatform::getUrn)
+                          .collect(Collectors.toList());
+                    })));
   }
 
   /**

@@ -54,6 +54,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -318,7 +319,8 @@ public class DataHubAuthorizerTest {
             mock(EntityRegistry.class),
             mock(ServicesRegistryContext.class),
             mock(IndexConvention.class),
-            mock(RetrieverContext.class));
+            mock(RetrieverContext.class),
+            mock(ValidationContext.class));
 
     _dataHubAuthorizer =
         new DataHubAuthorizer(

@@ -27,9 +27,10 @@ from datahub_integrations.graphql.subscription import (
     DELETE_SUBSCRIPTION,
 )
 from datahub_integrations.slack.app_manifest import (
+    create_app_with_manifest,
     get_slack_app_manifest,
     slack_bot_scopes,
-    upsert_app_with_manifest,
+    update_app_with_manifest,
 )
 from datahub_integrations.slack.command.router import handle_command
 from datahub_integrations.slack.command.search import search
@@ -94,9 +95,29 @@ def reload_slack_credentials() -> None:
 def install_slack_app() -> RedirectResponse:
     config = slack_config.reload()
 
-    # Create / update the Slack app manifest before attempting to install.
+    # Create the Slack app manifest before attempting to install.
     manifest = get_slack_app_manifest()
-    config = upsert_app_with_manifest(config, manifest)
+    config = create_app_with_manifest(config, manifest)
+    slack_config.save_config(config)
+    assert config.app_details, "App details should be present after provisioning."
+
+    # Generate the OAuth URL and redirect to it.
+    authorize_url_generator = get_oauth_url_generator(config)
+    state = _state_store.issue()
+
+    url = authorize_url_generator.generate(state=state)
+    logger.debug(f"Redirecting to {url}")
+
+    return RedirectResponse(url=url)
+
+
+@public_router.get("/slack/refresh-installation")
+def refresh_slack_app() -> RedirectResponse:
+    config = slack_config.reload()
+
+    # Update the Slack app manifest before attempting to install.
+    manifest = get_slack_app_manifest()
+    config = update_app_with_manifest(config, manifest)
     slack_config.save_config(config)
     assert config.app_details, "App details should be present after provisioning."
 
@@ -169,7 +190,7 @@ def oauth_callback(
     app = get_slack_app(new_config)
     app.client.chat_postMessage(
         channel=authed_user["id"],
-        text="Acryl has been connected to Slack!",
+        text="DataHub has been connected to Slack!",
         icon_url=ACRYL_SLACK_ICON_URL,
     )
 
@@ -252,7 +273,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     def handle_test_message(message: dict, say: Say) -> None:
         logger.info(message)
         say(
-            f'Hey <@{message["user"]}>, Acryl is available in this channel!',
+            f'Hey <@{message["user"]}>, DataHub is available in this channel!',
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
@@ -265,12 +286,16 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     def handle_app_mention_events(event: dict, say: Say) -> None:
         logger.info(event)
         say(
-            f'Hey <@{event["user"]}>! Acryl commands are coming soon!',
+            f'Hey <@{event["user"]}>! DataHub commands are coming soon!',
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 
     @app.command(re.compile(r"^/acryl.*"))
     def handle_command_acryl(ack: Ack, respond: Respond, command: dict) -> None:
+        handle_command(app, graph, ack, respond, command)
+
+    @app.command(re.compile(r"^/datahub.*"))
+    def handle_command_datahub(ack: Ack, respond: Respond, command: dict) -> None:
         handle_command(app, graph, ack, respond, command)
 
     @app.action("view_details")
@@ -340,7 +365,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
                                     ),
                                     "text": value["name"],
                                 },
-                                {"type": "text", "text": " on Acryl DataHub:"},
+                                {"type": "text", "text": " on DataHub Cloud:"},
                             ],
                         }
                     ],
@@ -617,7 +642,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
     def handle_shortcuts(ack: Ack, event: dict, say: Say) -> None:
         ack()
         say(
-            f'Hey <@{event["user"]}>! Acryl shortcut commands are coming soon!',
+            f'Hey <@{event["user"]}>! DataHub shortcut commands are coming soon!',
             icon_url=ACRYL_SLACK_ICON_URL,
         )
 

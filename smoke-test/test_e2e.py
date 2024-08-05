@@ -21,12 +21,11 @@ from tests.utils import (
     get_frontend_session,
     get_admin_credentials,
     get_root_urn,
+    wait_for_writes_to_sync,
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
-usage_sample_data = (
-    "./test_resources/bigquery_usages_golden.json"
-)
+usage_sample_data = "./test_resources/bigquery_usages_golden.json"
 bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -150,11 +149,13 @@ def _ensure_group_not_present(urn: str, frontend_session) -> Any:
 def test_ingestion_via_rest(wait_for_healthchecks):
     ingest_file_via_rest(bootstrap_sample_data)
     _ensure_user_present(urn=get_root_urn())
+    wait_for_writes_to_sync()
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_usage_via_rest(wait_for_healthchecks):
     ingest_file_via_rest(usage_sample_data)
+    wait_for_writes_to_sync()
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -185,6 +186,7 @@ def test_ingestion_via_kafka(wait_for_healthchecks):
     # Since Kafka emission is asynchronous, we must wait a little bit so that
     # the changes are actually processed.
     time.sleep(kafka_post_ingestion_wait_sec)
+    wait_for_writes_to_sync()
 
 
 @pytest.mark.dependency(
@@ -196,6 +198,7 @@ def test_ingestion_via_kafka(wait_for_healthchecks):
 )
 def test_run_ingestion(wait_for_healthchecks):
     # Dummy test so that future ones can just depend on this one.
+    wait_for_writes_to_sync()
     pass
 
 
@@ -1384,7 +1387,9 @@ def test_native_user_endpoints(frontend_session):
     unauthenticated_get_invite_token_response = unauthenticated_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=get_invite_token_json
     )
-    assert unauthenticated_get_invite_token_response.status_code == HTTPStatus.UNAUTHORIZED
+    assert (
+        unauthenticated_get_invite_token_response.status_code == HTTPStatus.UNAUTHORIZED
+    )
 
     unauthenticated_create_reset_token_json = {
         "query": """mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {\n
@@ -1399,7 +1404,10 @@ def test_native_user_endpoints(frontend_session):
         f"{get_frontend_url()}/api/v2/graphql",
         json=unauthenticated_create_reset_token_json,
     )
-    assert unauthenticated_create_reset_token_response.status_code == HTTPStatus.UNAUTHORIZED
+    assert (
+        unauthenticated_create_reset_token_response.status_code
+        == HTTPStatus.UNAUTHORIZED
+    )
 
     # cleanup steps
     json = {

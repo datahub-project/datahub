@@ -62,6 +62,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         health {
             ...entityHealth
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -96,6 +99,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         health {
             ...entityHealth
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on Dashboard {
@@ -133,6 +139,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         ...entityDataProduct
         parentContainers {
             ...parentContainersFields
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
         status {
             removed
@@ -179,6 +188,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         parentContainers {
             ...parentContainersFields
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
         ...entityDataProduct
         status {
             removed
@@ -208,6 +220,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
         subTypes {
             typeNames
@@ -246,6 +261,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on MLModel {
         urn
@@ -261,6 +279,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         status {
             removed
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on MLFeatureTable {
@@ -575,6 +596,9 @@ fragment entityLineageV2 on Entity {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on QueryEntity {

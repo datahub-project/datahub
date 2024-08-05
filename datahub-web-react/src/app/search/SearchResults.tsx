@@ -138,6 +138,8 @@ interface Props {
     selectedEntities: EntityAndType[];
     suggestions: SearchSuggestion[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
+    areAllEntitiesSelected?: boolean;
+    setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch: () => void;
@@ -168,6 +170,8 @@ export const SearchResults = ({
     setNumResultsPerPage,
     isSelectMode,
     selectedEntities,
+    areAllEntitiesSelected,
+    setAreAllEntitiesSelected,
     suggestions,
     setIsSelectMode,
     setSelectedEntities,
@@ -197,6 +201,11 @@ export const SearchResults = ({
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
+
+    function handlePageChange(p: number) {
+        onChangePage(p);
+        setAreAllEntitiesSelected?.(false);
+    }
 
     return (
         <>
@@ -258,10 +267,14 @@ export const SearchResults = ({
                                         selectedEntities.length > 0 &&
                                         isListSubset(searchResultUrns, selectedEntityUrns)
                                     }
+                                    totalResults={totalResults}
                                     selectedEntities={selectedEntities}
+                                    setSelectedEntities={setSelectedEntities}
                                     onChangeSelectAll={onChangeSelectAll}
                                     onCancel={() => setIsSelectMode(false)}
                                     refetch={refetch}
+                                    areAllEntitiesSelected={areAllEntitiesSelected}
+                                    setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                 />
                             </StyledTabToolbar>
                         )}
@@ -284,6 +297,7 @@ export const SearchResults = ({
                                         onCardClick={onCardClick}
                                         onClickExploreAll={onClickExploreAll}
                                         onClickClearFilters={onClickClearFilters}
+                                        setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                     />
                                     {totalResults > 0 && (
                                         <PaginationControlContainer id="search-pagination">
@@ -292,7 +306,7 @@ export const SearchResults = ({
                                                 pageSize={numResultsPerPage}
                                                 total={totalResults}
                                                 showLessItems
-                                                onChange={onChangePage}
+                                                onChange={handlePageChange}
                                                 showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                                                 onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                                                 pageSizeOptions={['10', '20', '50', '100']}

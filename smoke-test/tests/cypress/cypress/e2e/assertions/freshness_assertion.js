@@ -4,23 +4,48 @@ const datasetUrn =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
 const datasetName = "daily_temperature";
 
+const clickElement = (locator) => {
+  cy.get(locator).click();
+};
+
+const setAssertionMonitorsFlag = (isOn) => {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.reply((res) => {
+        // Modify the response body directly
+        res.body.data.appConfig.featureFlags.assertionMonitorsEnabled = isOn;
+      });
+    }
+  });
+};
+
+const verifyAssertionCount = (operation) => {
+  let beforeCount;
+  let afterCount;
+  cy.contains("Assertions (")
+    .invoke("text")
+    .then((text) => {
+      beforeCount = parseInt(text.match(/\d+/)[0]);
+      cy.reload();
+      cy.waitTextVisible("daily_temperature");
+      cy.wait(3000);
+      cy.contains("Assertions (")
+        .invoke("text")
+        .then((text) => {
+          afterCount = parseInt(text.match(/\d+/)[0]);
+          const expectedCount =
+            operation === "add" ? beforeCount + 1 : beforeCount - 1;
+          expect(afterCount).equals(expectedCount);
+        });
+    });
+};
+
 describe("create and manage freshness assertion", () => {
   beforeEach(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");
     });
   });
-
-  const setAssertionMonitorsFlag = (isOn) => {
-    cy.intercept("POST", "/api/v2/graphql", (req) => {
-      if (hasOperationName(req, "appConfig")) {
-        req.reply((res) => {
-          // Modify the response body directly
-          res.body.data.appConfig.featureFlags.assertionMonitorsEnabled = isOn;
-        });
-      }
-    });
-  };
 
   it("create freshness assertion, stop and restart monitor, manage and remove assertion", () => {
     // create freshness assertion, submit, verify assertion on ui
@@ -29,9 +54,9 @@ describe("create and manage freshness assertion", () => {
     cy.goToDataset(datasetUrn, datasetName);
     cy.openEntityTab("Quality");
     cy.waitTextVisible("No assertions have run");
-    cy.get("#create-assertion-btn-main").click();
+    clickElement("#create-assertion-btn-main");
     cy.waitTextVisible("New Assertion Monitor");
-    cy.clickOptionWithText("Freshness");
+    cy.contains("h4", "Freshness").should("be.visible").click();
     cy.waitTextVisible("Schedule checks at");
     cy.waitTextVisible("If this assertion fails...");
     cy.waitTextVisible("If this assertion passes...");
@@ -40,20 +65,16 @@ describe("create and manage freshness assertion", () => {
       "If not specified, a name will be generated from the assertion settings.",
     );
     cy.get("button").contains("Save").click();
-    cy.ensureElementPresent('[data-row-key="Freshness"]');
-    cy.clickOptionWithText("Freshness");
+    verifyAssertionCount("add");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
     cy.get(".ant-table-row-level-0").last().click();
     cy.waitTextVisible("Schedule details");
-    cy.reload();
-    cy.waitTextVisible("Assertions (1)");
+    clickElement("body");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours ");
     cy.get(".ant-table-cell").find("button").first().click();
     cy.waitTextVisible("Stopped!");
     cy.ensureTextNotPresent("Stopped!");
     cy.get(".ant-tooltip-inner").contains("Start").should("be.visible");
-    cy.reload();
-    cy.waitTextVisible("Assertions (1)");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
     cy.get('[aria-label="caret-right"]').click();
     cy.waitTextVisible("Start Monitoring");
@@ -63,36 +84,29 @@ describe("create and manage freshness assertion", () => {
     cy.get(".ant-table-cell").find("button").first().trigger("mouseover");
     cy.get(".ant-tooltip-inner").contains("Stop").should("be.visible");
     cy.get(".ant-tooltip-inner").contains("Start").should("not.exist");
-    cy.reload();
-    cy.waitTextVisible("Assertions (1)");
     cy.get(".ant-table-row-level-0").last().click();
     cy.waitTextVisible("Freshness check results over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
     cy.get('[aria-label="edit"]').last().click();
     cy.contains("Auto-raise incident").click();
-    cy.get(".anticon-save").click();
+    clickElement(".anticon-save");
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
-    cy.reload();
-    cy.waitTextVisible("Assertions (1)");
+    clickElement("body");
     cy.get(".ant-table-row-level-0").last().click();
     cy.waitTextVisible("Freshness check results over time");
     cy.get(".ant-drawer-content").contains("Settings").click();
     cy.get('[aria-label="edit"]').last().click();
     cy.contains("Auto-raise incident").click();
-    cy.get(".anticon-save").click();
+    clickElement(".anticon-save");
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
-    cy.reload();
-    cy.waitTextVisible("Assertions (1)");
+    clickElement("body");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours ");
     cy.get(".ant-table-cell").find("button").last().click();
     cy.waitTextVisible("Confirm Assertion Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed assertion.");
-    cy.reload();
-    cy.waitTextVisible("Assertions (0)");
-    cy.ensureTextNotPresent("Freshness");
-    cy.waitTextVisible("No Assertions Found");
+    verifyAssertionCount("remove");
   });
 });

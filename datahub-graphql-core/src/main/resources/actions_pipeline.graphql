@@ -26,11 +26,10 @@ extend type Mutation {
   """
   upsertActionPipeline(urn: String!, input: UpdateActionPipelineInput!): String
 
-  # TODO: Not implemented yet.
-  # """
-  # Delete an existing action pipeline
-  # """
-  # deleteActionPipeline(urn: String!): String
+  """
+  Delete an existing action pipeline
+  """
+  deleteActionPipeline(urn: String!): String
 
   """
   Create a request to execute an action pipeline
@@ -53,6 +52,12 @@ extend type Mutation {
   Rollback an existing action pipeline execution
   """
   rollbackActionPipeline(urn: String!): String
+
+  """
+  Bootstrap an existing action pipeline execution
+  """
+  bootstrapActionPipeline(urn: String!): String
+
 }
 
 """
@@ -99,9 +104,38 @@ type ActionPipelineDetails {
   name: String!
 
   """
+  The category of the action (user defined)
+  """
+  category: String
+
+  """
+  Description of the action
+  """
+  description: String
+
+  """
   An type-specific set of configurations for the action pipeline
   """
   config: ActionConfig!
+
+  """
+  The intended state of the action pipeline
+  """
+  state: ActionPipelineState
+
+}
+
+enum ActionPipelineState {
+  """
+  The action pipeline is currently active and running.
+  """
+  ACTIVE
+
+  """
+  The action pipeline is currently inactive and not processing any actions.
+  Note: One can issue bootstrap and rollback commands to the action pipeline even when it is inactive.
+  """
+  INACTIVE
 }
 
 
@@ -231,6 +265,11 @@ input UpdateActionPipelineInput {
   The type of the action itself, e.g. tag-propagation, term-propagation. Should match the recipe.
   """
   type: String!
+
+  """
+  The category of the action (user defined)
+  """
+  category: String
 
   """
   An optional description associated with the action

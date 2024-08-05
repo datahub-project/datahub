@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { EntityType, LineageDirection } from '../../../types.generated';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import { useEntityRegistryV2 } from '../../useEntityRegistry';
 import { FetchStatus, LineageDisplayContext, LineageEntity, LineageNodesContext } from '../common';
 import { LoadingWrapper } from '../LineageEntityNode/NodeContents';
 
@@ -65,18 +64,13 @@ const CustomIcon = styled.img`
 
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
     const { data, selected } = props;
-    const { urn, type, fetchStatus } = data;
+    const { urn, type, entity, fetchStatus } = data;
     const isQuery = type === EntityType.Query;
 
-    const { nodes, rootUrn } = useContext(LineageNodesContext);
+    const { rootUrn } = useContext(LineageNodesContext);
     const { cllHighlightedNodes, setHoveredNode } = useContext(LineageDisplayContext);
-    const entityRegistry = useEntityRegistryV2();
 
-    const entity = nodes.get(urn)?.entity;
-    const name =
-        entity?.type === EntityType.SchemaField
-            ? entity.expandedName
-            : entity && entityRegistry.getDisplayName(type, entity);
+    const name = type === EntityType.SchemaField ? entity?.expandedName : entity?.name;
     const backupLogoUrl = useFetchQuery(urn); // TODO: Remove when query nodes not instantiated on column select
     const icon = entity?.icon || backupLogoUrl;
 
@@ -118,7 +112,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     if (isQuery) {
         return contents;
     }
-    return <Tooltip title={name}>{contents}</Tooltip>;
+    return <Tooltip title={name || urn}>{contents}</Tooltip>;
 }
 
 function useFetchQuery(urn: string) {

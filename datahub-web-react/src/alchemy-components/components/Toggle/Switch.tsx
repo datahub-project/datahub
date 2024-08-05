@@ -1,0 +1,68 @@
+import React, { useEffect, useState } from 'react';
+
+import { SwitchProps } from './types';
+
+import { Label, Required, StyledInput, Slider, SwitchContainer, StyledIcon, IconContainer } from './components';
+
+export const switchDefaults: SwitchProps = {
+    label: 'Label',
+    labelPosition: 'left',
+    colorScheme: 'violet',
+    size: 'md',
+    isSquare: false,
+    isChecked: false,
+    isDisabled: false,
+    isRequired: false,
+};
+
+export const Switch = ({
+    label = switchDefaults.label,
+    labelPosition = switchDefaults.labelPosition,
+    icon, // undefined by default
+    colorScheme = switchDefaults.colorScheme,
+    size = switchDefaults.size,
+    isSquare = switchDefaults.isSquare,
+    isChecked = switchDefaults.isChecked,
+    isDisabled = switchDefaults.isDisabled,
+    isRequired = switchDefaults.isRequired,
+    ...props
+}: SwitchProps) => {
+    const [checked, setChecked] = useState(isChecked);
+
+    useEffect(() => {
+        setChecked(isChecked);
+    }, [isChecked]);
+
+    const id = props.id || `switchToggle-${label}`;
+
+    return (
+        <SwitchContainer labelPosition={labelPosition || 'left'}>
+            <Label id={id} aria-label={label}>
+                {label} {isRequired && <Required>*</Required>}
+            </Label>
+            <StyledInput
+                type="checkbox"
+                checked={checked}
+                onChange={() => setChecked(!checked)}
+                customSize={size}
+                disabled={isDisabled}
+                colorScheme={colorScheme || 'violet'}
+                aria-labelledby={id}
+                aria-checked={checked}
+                {...props}
+            />
+            <Slider size={size} isSquare={isSquare} isDisabled={isDisabled}>
+                <IconContainer>
+                    {icon && (
+                        <StyledIcon
+                            icon={icon}
+                            color={checked ? colorScheme || 'violet' : 'inherit'}
+                            size={size || 'md'}
+                            checked={checked}
+                        />
+                    )}
+                </IconContainer>
+            </Slider>
+        </SwitchContainer>
+    );
+};

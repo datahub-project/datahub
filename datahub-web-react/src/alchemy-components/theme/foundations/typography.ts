@@ -22,10 +22,10 @@ const typography = {
     },
 
     fontWeights: {
-        light: 300,
-        normal: 500,
-        bold: 600,
-        black: 900,
+        normal: 400, // regular
+        medium: 500,
+        semiBold: 600,
+        bold: 700,
     },
 
     fonts: {

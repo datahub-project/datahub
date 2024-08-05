@@ -33,6 +33,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     const routeToTab = useRouteToTab();
 
     const canEditDescription = !!entityData?.privileges?.canEditDescription;
+    const canProposeDescription = !!entityData?.privileges?.canProposeDescription;
 
     return (
         <>
@@ -56,7 +57,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                     routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
                                     event.stopPropagation();
                                 }}
-                                actionPrivilege={canEditDescription}
+                                actionPrivilege={canEditDescription || canProposeDescription}
                             />
                         )}
                     </>

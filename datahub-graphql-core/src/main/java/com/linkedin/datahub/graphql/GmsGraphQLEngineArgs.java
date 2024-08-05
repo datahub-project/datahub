@@ -50,6 +50,7 @@ import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.test.MetadataTestClient;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import lombok.Data;
@@ -115,4 +116,5 @@ public class GmsGraphQLEngineArgs {
   ShareService shareService;
   ExecutorConfiguration executorConfiguration;
   DataContractService dataContractService;
+  MetadataTestClient metadataTestClient;
 }

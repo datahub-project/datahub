@@ -1,8 +1,9 @@
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeConfig
+from snowflake.connector import SnowflakeConnection as NativeSnowflakeConnection
 
 from datahub_executor.common.connection.connection import Connection
 from datahub_executor.common.constants import SNOWFLAKE_PLATFORM_URN
@@ -17,11 +18,11 @@ class SnowflakeConnection(Connection):
         super().__init__(urn, SNOWFLAKE_PLATFORM_URN)
         self.config = config
         self.graph = graph
-        self.connection: Optional[Any] = None
+        self.connection: Optional[NativeSnowflakeConnection] = None
 
-    def get_client(self) -> Any:
+    def get_client(self) -> NativeSnowflakeConnection:
         # TODO: Add try
         # TODO: Filter out unsupported auth types.
         if self.connection is None:
-            self.connection = self.config.get_connection()
+            self.connection = self.config.get_native_connection()
         return self.connection

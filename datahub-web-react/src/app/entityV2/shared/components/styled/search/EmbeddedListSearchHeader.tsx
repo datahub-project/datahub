@@ -39,6 +39,7 @@ type Props = {
     isSelectMode: boolean;
     isSelectAll: boolean;
     selectedEntities: EntityAndType[];
+    setSelectedEntities: (entities: EntityAndType[]) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch?: () => void;
@@ -57,6 +58,7 @@ export default function EmbeddedListSearchHeader({
     isSelectMode,
     isSelectAll,
     selectedEntities,
+    setSelectedEntities,
     setIsSelectMode,
     onChangeSelectAll,
     refetch,
@@ -115,6 +117,7 @@ export default function EmbeddedListSearchHeader({
                         isSelectAll={isSelectAll}
                         onChangeSelectAll={onChangeSelectAll}
                         selectedEntities={selectedEntities}
+                        setSelectedEntities={setSelectedEntities}
                         onCancel={() => {
                             setIsSelectMode(false);
                         }}

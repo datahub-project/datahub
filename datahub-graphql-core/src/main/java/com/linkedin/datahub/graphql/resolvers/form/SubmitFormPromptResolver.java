@@ -66,7 +66,8 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   structuredPropertyUrn,
                   values,
                   formUrn,
-                  promptId);
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()));
             } else if (input.getType().equals(FormPromptType.FIELDS_STRUCTURED_PROPERTY)) {
               if (input.getStructuredPropertyParams() == null) {
                 throw new IllegalArgumentException(
@@ -92,7 +93,8 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   values,
                   formUrn,
                   promptId,
-                  uniqueFieldPaths);
+                  uniqueFieldPaths,
+                  UrnUtils.getUrn(context.getActorUrn()));
             } else if (input.getType().equals(FormPromptType.OWNERSHIP)) {
               if (input.getOwnershipParams() == null) {
                 throw new IllegalArgumentException(
@@ -110,7 +112,8 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   owners,
                   ownershipTypeUrn,
                   formUrn,
-                  promptId);
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()));
             }
             return false;
           } catch (Exception e) {

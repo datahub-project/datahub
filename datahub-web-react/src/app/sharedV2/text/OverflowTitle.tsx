@@ -4,12 +4,17 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
 const Wrapper = styled.div<{ scale: number; computedRatio: boolean }>`
+    // Wrap up to two lines, shrinking text as needed
     font-size: ${({ scale }) => `${scale}em`} !important;
     max-height: 35px;
-
     overflow: hidden;
     white-space: ${({ computedRatio }) => (computedRatio ? 'normal' : 'nowrap')};
     word-break: break-all;
+
+    // Position at start, vertically, as parent aligns center
+    display: flex;
+    align-items: start;
+    height: 100%;
 `;
 
 const MIN_SCALE = 2 / 3;

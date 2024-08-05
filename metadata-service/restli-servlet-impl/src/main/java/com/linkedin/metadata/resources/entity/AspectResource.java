@@ -20,8 +20,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.aspect.batch.MCPItem;
-import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
@@ -242,19 +240,20 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal,
       @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async)
       throws URISyntaxException {
-      log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
       String urn = metadataChangeProposal.getEntityUrn() != null ? metadataChangeProposal.getEntityUrn().toString() :
         java.util.Optional.ofNullable(metadataChangeProposal.getEntityKeyAspect()).orElse(new GenericAspect())
             .getValue().asString(StandardCharsets.UTF_8);
     String proposedValue = java.util.Optional.ofNullable(metadataChangeProposal.getAspect()).orElse(new GenericAspect())
         .getValue().asString(StandardCharsets.UTF_8);
+    log.info("Ingest content: urn: {} value: {}", urn, proposedValue);
     final boolean asyncBool;
     if (UNSET.equals(async)) {
       asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
     } else {
       asyncBool = Boolean.parseBoolean(async);
-    }return ingestProposals(List.of(metadataChangeProposal), asyncBool);
+    }
+    return ingestProposals(List.of(metadataChangeProposal), asyncBool);
   }
 
   @Action(name = ACTION_INGEST_PROPOSAL_BATCH)
@@ -288,7 +287,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                                                      .collect(Collectors.toSet());
 
     final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(), ACTION_INGEST_PROPOSAL, entityTypes), _authorizer, authentication, true);
+              systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(), ACTION_INGEST_PROPOSAL, entityTypes),
+        _authorizer, authentication, true);
 
     // Ingest Authorization Checks
     List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(authentication, _authorizer, ENTITY,
@@ -310,7 +310,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       log.debug("Proposals: {}", metadataChangeProposals);
       try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
-                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get())
+                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get(),
+                    opContext.getValidationContext().isAlternateValidation())
                 .build();
 
         batch.getMCPItems().forEach(item ->

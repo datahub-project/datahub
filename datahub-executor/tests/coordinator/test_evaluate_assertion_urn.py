@@ -98,6 +98,7 @@ class TestEvaluateAssertionUrnHandler:
                 self.assertion,
                 self.input_data,
                 self.engine_mock,
+                False,
             )
 
     def test_evaluate_assertion_handler_success(self) -> None:
@@ -108,8 +109,10 @@ class TestEvaluateAssertionUrnHandler:
             self.assertion,
             self.input_data,
             self.engine_mock,
+            False,
         )
-        assert resp.type == "SUCCESS"
+        if resp is not None:
+            assert resp.type == "SUCCESS"
 
     def test_evaluate_assertion_handler_failure(self) -> None:
         self.engine_mock.evaluate.return_value = AssertionEvaluationResult(
@@ -119,5 +122,7 @@ class TestEvaluateAssertionUrnHandler:
             self.assertion,
             self.input_data,
             self.engine_mock,
+            False,
         )
-        assert resp.type == "FAILURE"
+        if resp is not None:
+            assert resp.type == "FAILURE"

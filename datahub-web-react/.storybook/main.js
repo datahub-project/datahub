@@ -1,3 +1,5 @@
+// Docs for badges: https://storybook.js.org/addons/@geometricpanda/storybook-addon-badges
+
 export default {
 	framework: '@storybook/react-vite',
 	features: {
@@ -15,6 +17,7 @@ export default {
 		'@storybook/addon-essentials',
 		'@storybook/addon-interactions',
 		'@storybook/addon-links',
+		'@geometricpanda/storybook-addon-badges',
 	],
 	typescript: {
 		reactDocgen: 'react-docgen-typescript',

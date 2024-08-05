@@ -11,6 +11,10 @@ export type SlackConnection = {
      */
     signingSecret?: string | null;
     /**
+     * The app id for Slack
+     */
+    appId?: string | null;
+    /**
      * The app configuration token
      */
     appConfigToken?: string | null;

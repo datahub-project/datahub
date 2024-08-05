@@ -40,8 +40,10 @@ const VerifyButton = styled(Button)`
 export default function BulkVerifyHeader() {
     const {
         form: { form },
-        entity: { selectedEntities },
+        entity: { selectedEntities, areAllEntitiesSelected },
+        search: { results },
     } = useEntityFormContext();
+    const totalResults = results.searchAcrossEntities?.total || 0;
     const { entityType } = useEntityData();
 
     const [isVerifyModalVisible, setIsVerifyModalVisible] = useState(false);
@@ -76,7 +78,15 @@ export default function BulkVerifyHeader() {
                 onClick={() => setIsVerifyModalVisible(true)}
                 id={FORM_BULK_VERIFY_ID}
             >
-                Verify {selectedEntities.length} {pluralize(selectedEntities.length, 'Asset')}
+                {areAllEntitiesSelected ? (
+                    <>
+                        Verify {totalResults} {pluralize(totalResults, 'Asset')}
+                    </>
+                ) : (
+                    <>
+                        Verify {selectedEntities.length} {pluralize(selectedEntities.length, 'Asset')}
+                    </>
+                )}
             </VerifyButton>
             {isVerifyModalVisible && (
                 <BulkVerifyModal

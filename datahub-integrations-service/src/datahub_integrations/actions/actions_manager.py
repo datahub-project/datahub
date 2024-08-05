@@ -7,13 +7,15 @@ import random
 import traceback
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 import anyio
 import anyio.abc
+import psutil
 from loguru import logger
 from typing_extensions import Self
 
+from datahub_integrations.actions.stats_util import Stage
 from datahub_integrations.dispatch.runner import (
     VENV_VERSION_NATIVE,
     LogHolder,
@@ -80,10 +82,13 @@ class LiveActionSpec:
 class ActionsManager(contextlib.AbstractAsyncContextManager):
     pipelines: dict[str, LiveActionSpec] = dataclasses.field(default_factory=dict)
     dead_pipelines: dict[str, ActionRun] = dataclasses.field(default_factory=dict)
-    rollback_pipelines: dict[str, LiveActionSpec] = dataclasses.field(
+    job_pipelines: dict[Stage, dict[str, LiveActionSpec]] = dataclasses.field(
         default_factory=dict
     )
-    rolledback_pipelines: dict[str, ActionRun] = dataclasses.field(default_factory=dict)
+    job_completed_pipelines: dict[Stage, dict[str, ActionRun]] = dataclasses.field(
+        default_factory=dict
+    )
+    _subprocess_pids: List[int] = dataclasses.field(default_factory=list)
 
     context_stack: contextlib.AsyncExitStack = dataclasses.field(
         default_factory=contextlib.AsyncExitStack
@@ -191,7 +196,7 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         return urn in self.pipelines
 
     def is_rolling_back(self, urn: str) -> bool:
-        return urn in self.rollback_pipelines
+        return urn in self.job_pipelines.get(Stage.ROLLBACK, {})
 
     async def stop_pipeline(self, urn: str) -> None:
         if urn not in self.pipelines:
@@ -204,17 +209,48 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         while urn in self.pipelines:
             await anyio.sleep(0.1)
 
+    def is_currently_executing_stage(self, urn: str, stage: Stage) -> bool:
+        return urn in self.job_pipelines.get(stage, {})
+
     async def rollback_pipeline(self, urn: str, config: Optional[dict] = None) -> None:
-        if urn in self.pipelines:
-            if config is None:
-                config = self.pipelines[urn].action_run.unresolved_config
-            await self.stop_pipeline(urn)
+        await self.run_action_pipeline_task(
+            urn, Stage.ROLLBACK, config, cancel_stages=[Stage.LIVE, Stage.BOOTSTRAP]
+        )
 
-        if urn in self.rollback_pipelines:
-            raise Exception(f"Pipeline {urn} is already rolling back.")
+    async def bootstrap_pipeline(self, urn: str, config: Optional[dict] = None) -> None:
+        await self.run_action_pipeline_task(
+            urn, Stage.BOOTSTRAP, config, cancel_stages=[Stage.ROLLBACK]
+        )
 
+    async def run_action_pipeline_task(
+        self,
+        urn: str,
+        stage: Stage,
+        config: Optional[dict] = None,
+        cancel_stages: List[Stage] = [],
+    ) -> None:
         if config is None:
-            raise Exception(f"Cannot rollback stopped pipeline {urn} without a config.")
+            raise Exception(f"Cannot execute pipeline {urn} without a config.")
+
+        if Stage.LIVE in cancel_stages:
+            if urn in self.pipelines:
+                logger.info(
+                    f"Stopping pipeline {urn} before starting {stage} pipeline."
+                )
+                if config is None:
+                    config = self.pipelines[urn].action_run.unresolved_config
+                await self.stop_pipeline(urn)
+
+        for task_stage in [Stage.BOOTSTRAP, Stage.ROLLBACK]:
+            if task_stage in cancel_stages:
+                if urn in self.job_pipelines.get(task_stage, {}):
+                    logger.info(
+                        f"Stopping {task_stage} pipeline {urn} before starting {stage} pipeline."
+                    )
+                    await self._cancel_pipeline_stage(Stage.BOOTSTRAP, urn)
+
+        if self.is_currently_executing_stage(urn, stage):
+            raise Exception(f"Pipeline {urn} is already in stage {stage}")
 
         # TODO: Also write the logs to a file.
         logs = LogHolder(echo_to_stdout_prefix=f"{urn}: ")
@@ -240,11 +276,23 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
             port=port,
         )
 
-        await self._main_tg.start(self._rollback_pipeline, action_spec)
-        self.rollback_pipelines[urn] = action_spec
+        await self._main_tg.start(self._execute_pipeline_stage, stage, action_spec)
+        self.job_pipelines[stage] = self.job_pipelines.get(stage, {})
+        self.job_pipelines[stage][urn] = action_spec
 
-    async def _rollback_pipeline(
+    async def _cancel_pipeline_stage(
         self,
+        stage: Stage,
+        urn: str,
+    ) -> None:
+        if urn in self.job_pipelines.get(stage, {}):
+            action_spec: LiveActionSpec = self.job_pipelines[stage][urn]
+            await action_spec._action_scope.cancel()
+            logger.info(f"Cancelled {stage} pipeline {urn}.")
+
+    async def _execute_pipeline_stage(
+        self,
+        stage: Stage,
         action_spec: LiveActionSpec,
         *,
         task_status: anyio.abc.TaskStatus[None] = anyio.TASK_STATUS_IGNORED,
@@ -274,7 +322,11 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
                         str(_config_file),
                         "--port",
                         str(action_spec.port),
-                        "--rollback",
+                        (
+                            "--rollback"
+                            if stage == Stage.ROLLBACK
+                            else "--bootstrap" if stage == Stage.BOOTSTRAP else ""
+                        ),
                     ],
                     env={
                         **os.environ,
@@ -286,7 +338,7 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
             except Exception as e:
                 # This also suppresses any exceptions generated by the task, which prevents
                 # them from propagating out to the main task group.
-                logger.info(f"Pipeline {action_spec.urn} rollback has failed.")
+                logger.info(f"Pipeline {action_spec.urn} {stage} has failed.")
                 action_spec.action_run.logs.append(
                     "".join(traceback.format_exception(e))
                 )
@@ -294,20 +346,38 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
 
             finally:
                 # TODO: Capture exit code?
-                logger.info(f"Pipeline {action_spec.urn} rollback has finished.")
+                logger.info(f"Pipeline {action_spec.urn} {stage} has finished.")
                 action_spec.action_run.ended_at = datetime.now(tz=timezone.utc)
-                self.rolledback_pipelines[action_spec.urn] = (
-                    self.rollback_pipelines.pop(action_spec.urn)
-                ).action_run
-                logger.info(f"Rolledback Pipelines: {self.rolledback_pipelines}")
+                self.job_completed_pipelines[stage] = self.job_completed_pipelines.get(
+                    stage, {}
+                )
+                self.job_completed_pipelines[stage][action_spec.urn] = (
+                    self.job_pipelines[stage].pop(action_spec.urn).action_run
+                )
+                # logger.info(
+                #     f"Executed {stage} pipeline: {self.job_completed_pipelines[stage]}"
+                # )
 
-        logger.debug(f"Pipeline {action_spec.urn} has exited _rollback_pipeline.")
+        logger.debug(f"Pipeline {action_spec.urn} has exited _execute_pipeline_stage.")
 
     async def stop_all(self) -> None:
         async with anyio.create_task_group() as tg:
             for urn in list(self.pipelines.keys()):
                 # TODO: Maybe each one should be shielded?
                 tg.start_soon(self.stop_pipeline, urn)
+
+        # Terminate any remaining subprocesses
+        for pid in self._subprocess_pids:
+            try:
+                process = psutil.Process(pid)
+                process.terminate()
+                process.wait(timeout=5)
+            except psutil.NoSuchProcess:
+                pass
+            except psutil.TimeoutExpired:
+                process.kill()
+
+        self._subprocess_pids.clear()
 
     def report_dead_pipeline(self, urn: str, config: dict, exc: Exception) -> None:
         logs = LogHolder(echo_to_stdout_prefix=f"{urn}: ")

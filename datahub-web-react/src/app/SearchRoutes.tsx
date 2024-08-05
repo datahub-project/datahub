@@ -101,10 +101,7 @@ export const SearchRoutes = (): JSX.Element => {
                         render={() => (isThemeV2 ? <ManageDomainsPageV2 /> : <ManageDomainsPage />)}
                     />
                 )}
-                {includeGovernDashboard && (
-                    <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
-                )}
-                {includeGovernDashboard && <Route path={PageRoutes.NEW_FORM} render={() => <NewForm />} />}
+
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
                 <Route
@@ -133,6 +130,15 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
+                {includeGovernDashboard && (
+                    <>
+                        <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
+
+                        <Route path={PageRoutes.NEW_FORM} render={() => <NewForm mode="create" />} />
+
+                        <Route path={PageRoutes.EDIT_FORM} render={() => <NewForm mode="edit" />} />
+                    </>
+                )}
                 <Route component={NoPageFound} />
             </Switch>
         </FinalSearchablePage>

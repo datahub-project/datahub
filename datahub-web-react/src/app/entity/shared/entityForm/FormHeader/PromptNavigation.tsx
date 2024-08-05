@@ -5,9 +5,12 @@ import { message, notification } from 'antd';
 import styled from 'styled-components';
 import { useEntityFormContext } from '../EntityFormContext';
 import { ArrowLeft, ArrowRight, BulkNavigationWrapper, NavigationWrapper } from './components';
-import { FormPromptType, SubmitFormPromptInput } from '../../../../../types.generated';
+import { EntityType, FormPromptType, SubmitFormPromptInput } from '../../../../../types.generated';
 import StructuredPropertyPrompt from '../prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
-import { useBatchSubmitFormPromptMutation } from '../../../../../graphql/form.generated';
+import {
+    useAsyncBatchSubmitFormPromptMutation,
+    useBatchSubmitFormPromptMutation,
+} from '../../../../../graphql/form.generated';
 import VerificationCTA from './VerificationCTA';
 import { FORM_ANSWER_IN_BULK_ID } from '../../../../onboarding/config/FormOnboardingConfig';
 import { pluralize } from '../../../../shared/textUtil';
@@ -28,12 +31,21 @@ const RightColumn = styled.div`
 export default function PromptNavigation() {
     const {
         form: { isVerificationType },
-        submission: { handlePromptSubmission, handleUndoPromptSubmission },
+        submission: { handlePromptSubmission, handleUndoPromptSubmission, handleAsyncBatchSubmit },
         prompt: { prompts, prompt, promptIndex, setSelectedPromptId },
-        entity: { selectedEntities, setSelectedEntities, setNumSubmittedEntities },
+        entity: {
+            selectedEntities,
+            setSelectedEntities,
+            setNumSubmittedEntities,
+            areAllEntitiesSelected,
+            setAreAllEntitiesSelected,
+        },
+        filter: { formFilter, orFilters },
+        search: { results },
     } = useEntityFormContext();
 
     const [batchSubmitFormPromptResponse] = useBatchSubmitFormPromptMutation();
+    const [asyncBatchSubmitFormPromptResponse] = useAsyncBatchSubmitFormPromptMutation();
 
     function navigateLeft() {
         if (prompts) {
@@ -57,8 +69,7 @@ export default function PromptNavigation() {
         }
     }
 
-    function submitResponse(promptInput: SubmitFormPromptInput, onSuccess: () => void) {
-        message.loading('Submitting response...');
+    function batchSubmit(promptInput: SubmitFormPromptInput, onSuccess: () => void) {
         const selectedEntityUrns = selectedEntities.map((e) => e.urn);
         batchSubmitFormPromptResponse({
             variables: { input: { assetUrns: selectedEntityUrns, input: promptInput } },
@@ -91,6 +102,64 @@ export default function PromptNavigation() {
                 message.destroy();
                 message.error('Unknown error while batch submitting form response');
             });
+    }
+
+    function asyncBatchSubmit(promptInput: SubmitFormPromptInput, onSuccess: () => void) {
+        const types = results.searchAcrossEntities?.facets
+            ?.find((f) => f.field === '_entityType')
+            ?.aggregations.filter((agg) => !!agg.count)
+            .map((agg) => agg.value) as EntityType[];
+        const totalCount = results.searchAcrossEntities?.total || 0;
+        asyncBatchSubmitFormPromptResponse({
+            variables: {
+                input: {
+                    types: types || [],
+                    formFilter,
+                    orFilters,
+                    input: promptInput,
+                    taskInput: { taskName: `Question ${promptIndex + 1}` },
+                },
+            },
+        })
+            .then((result) => {
+                analytics.event({
+                    type: EventType.CompleteDocRequestPrompt,
+                    source: DocRequestView.ByAsset,
+                    required: prompt?.required as boolean,
+                    promptId: promptInput.promptId,
+                    numAssets: totalCount,
+                });
+                message.destroy();
+                notification.success({
+                    message: 'Success',
+                    description: `Started task to submit a response for ${totalCount} ${pluralize(
+                        selectedEntities.length,
+                        'asset',
+                    )}.`,
+                    placement: 'bottomLeft',
+                    duration: 3,
+                    icon: <CheckCircleFilled style={{ color: '#078781' }} />,
+                });
+                setSelectedEntities([]);
+                setAreAllEntitiesSelected(false);
+                onSuccess();
+                if (result.data?.asyncBatchSubmitFormPrompt.taskUrn) {
+                    handleAsyncBatchSubmit(result.data?.asyncBatchSubmitFormPrompt.taskUrn, promptInput.promptId);
+                }
+            })
+            .catch(() => {
+                message.destroy();
+                message.error('Unknown error while batch submitting form response');
+            });
+    }
+
+    function submitResponse(promptInput: SubmitFormPromptInput, onSuccess: () => void) {
+        message.loading('Submitting response...');
+        if (areAllEntitiesSelected) {
+            asyncBatchSubmit(promptInput, onSuccess);
+        } else {
+            batchSubmit(promptInput, onSuccess);
+        }
     }
 
     return (

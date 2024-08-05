@@ -20,11 +20,14 @@ import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -153,7 +156,24 @@ public class EntityController
 
           AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey());
 
-          if (aspectSpec != null) {
+          if (opContext.getValidationContext().isAlternateValidation()) {
+            ProposedItem.ProposedItemBuilder builder =
+                ProposedItem.builder()
+                    .metadataChangeProposal(
+                        new MetadataChangeProposal()
+                            .setEntityUrn(entityUrn)
+                            .setAspectName(aspect.getKey())
+                            .setEntityType(entityUrn.getEntityType())
+                            .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
+                            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
+                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
+                    .entitySpec(
+                        opContext
+                            .getAspectRetriever()
+                            .getEntityRegistry()
+                            .getEntitySpec(entityUrn.getEntityType()));
+            items.add(builder.build());
+          } else if (aspectSpec != null) {
             ChangeItemImpl.ChangeItemImplBuilder builder =
                 ChangeItemImpl.builder()
                     .urn(entityUrn)

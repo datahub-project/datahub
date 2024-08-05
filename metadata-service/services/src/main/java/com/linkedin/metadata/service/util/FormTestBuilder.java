@@ -14,10 +14,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormPrompt;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
@@ -25,8 +21,6 @@ import com.linkedin.test.TestSource;
 import com.linkedin.test.TestSourceType;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -161,7 +155,7 @@ public class FormTestBuilder {
     // Case 2: Target Entities which do not have the form applied, but need it.
     ObjectNode entityFiltersNode = orConditions.addObject();
     ArrayNode orArray = entityFiltersNode.putArray("or");
-    orArray.addAll(buildFormAssignmentTestConditions(assignment.getFilter()));
+    orArray.addAll(MetadataTestServiceUtils.convertFilterToTestConditions(assignment.getFilter()));
 
     // Build Test Rule Set: We verify that entities match the dynamic filter set that is currently
     // required for the form.
@@ -169,7 +163,7 @@ public class FormTestBuilder {
     // the test.
     ObjectNode rulesNode = definitionNode.putObject("rules");
     orArray = rulesNode.putArray("or");
-    orArray.addAll(buildFormAssignmentTestConditions(assignment.getFilter()));
+    orArray.addAll(MetadataTestServiceUtils.convertFilterToTestConditions(assignment.getFilter()));
 
     // Build Test Actions: Two important things happen here.
     //     1. We assign the form for any entities matching the current filter set.
@@ -282,95 +276,6 @@ public class FormTestBuilder {
     propertyNode.put("property", "ownership.owners.owner");
     propertyNode.put("operator", "exists");
     return ImmutableList.of(propertyNode);
-  }
-
-  private static List<JsonNode> buildFormAssignmentTestConditions(@Nonnull final Filter filter) {
-    // We know we have an OR of ANDs to deal with.
-    if (filter.hasOr()) {
-      final List<JsonNode> orConditions = new ArrayList<>();
-      for (ConjunctiveCriterion orCondition : filter.getOr()) {
-        ObjectNode andNode = OBJECT_MAPPER.createObjectNode();
-        final List<JsonNode> andConditions = new ArrayList<>();
-        // Build AND conditions:
-        for (Criterion andCriterion : orCondition.getAnd()) {
-          andConditions.add(buildFormAssignmentTestCriterion(andCriterion));
-        }
-        andNode.put("and", OBJECT_MAPPER.createArrayNode().addAll(andConditions));
-        orConditions.add(andNode);
-      }
-      return orConditions;
-    }
-    log.warn(String.format("Found form assignment with empty filter conditions! %s", filter));
-    return Collections.emptyList();
-  }
-
-  private static ObjectNode buildFormAssignmentTestCriterion(@Nonnull final Criterion criterion) {
-
-    final String finalField = mapFilterField(criterion.getField());
-    final String finalOperator = mapFilterOperator(criterion.getCondition());
-    final List<String> finalValues = criterion.getValues();
-
-    final ObjectNode predicateNode = OBJECT_MAPPER.createObjectNode();
-    predicateNode.put("property", finalField);
-    predicateNode.put("operator", finalOperator);
-    ArrayNode valuesNode = OBJECT_MAPPER.createArrayNode();
-    finalValues.forEach(valuesNode::add);
-    predicateNode.put("values", valuesNode);
-
-    // Finally, if we are negating the conditions, negate that here.
-    if (criterion.isNegated()) {
-      ObjectNode notNode = OBJECT_MAPPER.createObjectNode();
-      notNode.put("not", predicateNode);
-      return notNode;
-    }
-
-    // Otherwise, return the original predicate node.
-    return predicateNode;
-  }
-
-  @Nonnull
-  private static String mapFilterField(@Nonnull final String filterField) {
-    // TODO: Refactor this for extensibility.
-    switch (filterField) {
-      case "platform":
-      case "platform.keyword":
-        return "dataPlatformInstance.platform";
-      case "domain":
-      case "domains":
-      case "domains.keyword":
-        return "domains.domains";
-      case "container":
-      case "container.keyword":
-        return "container.container";
-      case "_entityType":
-      case "entityType":
-        return "entityType";
-      default:
-        throw new IllegalArgumentException(
-            String.format("Unsupported filter field %s provided in test conditions", filterField));
-    }
-  }
-
-  @Nonnull
-  private static String mapFilterOperator(@Nonnull final Condition filterCondition) {
-    // TODO: Refactor this for extensibility.
-    switch (filterCondition) {
-      case EQUAL:
-      case IN:
-        return "equals";
-      case GREATER_THAN:
-        return "greater_than";
-      case LESS_THAN:
-        return "less_than";
-      case EXISTS:
-        return "exists";
-      case CONTAIN:
-        return "contains_str";
-      default:
-        throw new IllegalArgumentException(
-            String.format(
-                "Unsupported filter operator %s provided in test conditions", filterCondition));
-    }
   }
 
   public static Urn createTestUrnForFormPrompt(

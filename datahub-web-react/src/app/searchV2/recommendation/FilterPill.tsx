@@ -11,7 +11,6 @@ const Pill = styled.div<{ color: string }>`
     margin-right: 0px;
     border: 2px solid white;
     :hover {
-        color: ${(props) => props.color};
         opacity: 1;
         cursor: pointer;
         border-color: ${(props) => props.color};

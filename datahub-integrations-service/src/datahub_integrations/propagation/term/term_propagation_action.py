@@ -17,7 +17,6 @@ import logging
 import time
 from typing import Any, Dict, Iterable, List, Optional, Set
 
-from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -42,8 +41,11 @@ from datahub_actions.pipeline.pipeline_context import PipelineContext
 from datahub_actions.plugin.action.utils.term_resolver import GlossaryTermsResolver
 from pydantic import Field
 
-from datahub_integrations.actions.action_extended import ExtendedAction
-from datahub_integrations.actions.stats_util import EventProcessingStats
+from datahub_integrations.actions.action_extended import (
+    AutomationActionConfig,
+    ExtendedAction,
+)
+from datahub_integrations.actions.oss.stats_util import EventProcessingStats
 from datahub_integrations.propagation.propagation_utils import (
     PropagationDirective,
     get_attribution_and_context_from_directive,
@@ -60,7 +62,7 @@ class TermPropagationDirective(PropagationDirective):
     )
 
 
-class TermPropagationConfig(ConfigModel):
+class TermPropagationConfig(AutomationActionConfig):
     """
     Configuration model for term propagation.
 
@@ -107,13 +109,8 @@ class TermPropagationConfig(ConfigModel):
 
 class TermPropagationAction(ExtendedAction):
     def __init__(self, config: TermPropagationConfig, ctx: PipelineContext):
-        self.config = config
-        self.ctx = ctx
-        self.action_urn = (
-            ctx.pipeline_name
-            if ctx.pipeline_name.startswith("urn:li:dataHubAction:")
-            else f"urn:li:dataHubAction:{ctx.pipeline_name}"
-        )
+        super().__init__(config=config, ctx=ctx)
+        self.config: TermPropagationConfig = config
         self.term_resolver = GlossaryTermsResolver(graph=self.ctx.graph)
         if self.config.target_terms:
             logger.info(

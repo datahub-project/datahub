@@ -11,12 +11,24 @@ mutation batchSubmitFormPrompt($input: BatchSubmitFormPromptInput!) {
     batchSubmitFormPrompt(input: $input)
 }
 
+mutation asyncBatchSubmitFormPrompt($input: AsyncBatchSubmitFormPromptInput!) {
+    asyncBatchSubmitFormPrompt(input: $input) {
+        taskUrn
+    }
+}
+
 mutation verifyForm($input: VerifyFormInput!) {
     verifyForm(input: $input)
 }
 
 mutation batchVerifyForm($input: BatchVerifyFormInput!) {
     batchVerifyForm(input: $input)
+}
+
+mutation asyncBatchVerifyForm($input: AsyncBatchVerifyFormInput!) {
+    asyncBatchVerifyForm(input: $input) {
+        taskUrn
+    }
 }
 
 query searchForEntityUrnsByForm($input: SearchAcrossEntitiesInput!) {
@@ -63,5 +75,17 @@ query getFormsForActor($input: GetFormsForActorInput) {
             }
             numEntitiesToComplete
         }
+    }
+}
+
+mutation createForm($input: CreateFormInput!) {
+    createForm(input: $input) {
+        ...formFields
+    }
+}
+
+mutation updateForm($input: UpdateFormInput!) {
+    updateForm(input: $input) {
+        ...formFields
     }
 }

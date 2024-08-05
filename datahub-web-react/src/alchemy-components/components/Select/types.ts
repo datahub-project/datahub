@@ -24,6 +24,7 @@ export interface SelectStyleProps {
     isDisabled?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
+    isOpen?: boolean;
 }
 
 export interface ActionButtonsProps {

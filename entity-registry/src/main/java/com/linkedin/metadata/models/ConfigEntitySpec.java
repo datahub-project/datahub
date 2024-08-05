@@ -24,6 +24,7 @@ public class ConfigEntitySpec implements EntitySpec {
   private List<SearchableFieldSpec> _searchableFieldSpecs;
   private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
   private Map<PathSpec, String> searchableFieldPathMap;
+  private Map<String, List<PathSpec>> fieldPathToSearchableFieldMap;
 
   public ConfigEntitySpec(
       @Nonnull final String entityName,
@@ -111,5 +112,14 @@ public class ConfigEntitySpec implements EntitySpec {
     }
 
     return searchableFieldPathMap;
+  }
+
+  @Override
+  public Map<String, List<PathSpec>> getSearchableFieldsToPathSpecsMap() {
+    if (fieldPathToSearchableFieldMap == null) {
+      fieldPathToSearchableFieldMap = EntitySpec.super.getSearchableFieldsToPathSpecsMap();
+    }
+
+    return fieldPathToSearchableFieldMap;
   }
 }

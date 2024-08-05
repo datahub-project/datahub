@@ -76,6 +76,8 @@ interface ChangeTransactionProps {
 }
 
 const ChangeTransactionComponent: React.FC<ChangeTransactionProps> = ({ changeTransaction }) => {
+    const changeVersion = changeTransaction.lastSemanticVersion.split('-computed')[0];
+
     return (
         <ChangeTransactionContainer>
             <ChangeTransactionSidebar>
@@ -87,7 +89,7 @@ const ChangeTransactionComponent: React.FC<ChangeTransactionProps> = ({ changeTr
                         <InnerEventCircle />
                     </ChangeEventCircle>
                     <ChangeTransactionTimestamp>
-                        {formatTimestamp(changeTransaction.timestampMillis)}
+                        {changeVersion} - {formatTimestamp(changeTransaction.timestampMillis)}
                     </ChangeTransactionTimestamp>
                 </TransactionDateHeader>
                 <div>

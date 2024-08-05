@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.test.action.Action;
@@ -12,7 +13,9 @@ import com.linkedin.metadata.test.action.domain.SetDomainAction;
 import com.linkedin.metadata.test.action.domain.UnsetDomainAction;
 import com.linkedin.metadata.test.action.form.AssignFormAction;
 import com.linkedin.metadata.test.action.form.SetFormPromptIncompleteAction;
+import com.linkedin.metadata.test.action.form.SubmitFormPromptAction;
 import com.linkedin.metadata.test.action.form.UnassignFormAction;
+import com.linkedin.metadata.test.action.form.VerifyFormAction;
 import com.linkedin.metadata.test.action.owner.AddOwnersAction;
 import com.linkedin.metadata.test.action.owner.RemoveOwnersAction;
 import com.linkedin.metadata.test.action.tag.AddTagsAction;
@@ -44,10 +47,13 @@ public class TestActionApplierFactory {
     TagService tagService = new TagService(systemEntityClient, openApiClient, objectMapper);
     GlossaryTermService termsService =
         new GlossaryTermService(systemEntityClient, openApiClient, objectMapper);
-    OwnerService ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
+    OwnerService ownerService =
+        new OwnerService(systemEntityClient, openApiClient, objectMapper, true);
     DomainService domainService =
         new DomainService(systemEntityClient, openApiClient, objectMapper);
-    FormService formService = new FormService(systemEntityClient, openApiClient, objectMapper);
+    FormService formService =
+        new FormService(
+            systemEntityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE, true);
     appliers.add(new AddTagsAction(tagService));
     appliers.add(new RemoveTagsAction(tagService));
     appliers.add(new AddGlossaryTermsAction(termsService));
@@ -61,6 +67,8 @@ public class TestActionApplierFactory {
     appliers.add(new AssignFormAction(formService));
     appliers.add(new UnassignFormAction(formService));
     appliers.add(new SetFormPromptIncompleteAction(formService));
+    appliers.add(new SubmitFormPromptAction(formService));
+    appliers.add(new VerifyFormAction(formService));
     return new ActionApplier(appliers);
   }
 }

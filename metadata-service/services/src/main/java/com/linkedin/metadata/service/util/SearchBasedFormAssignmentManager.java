@@ -55,7 +55,9 @@ public class SearchBasedFormAssignmentManager {
       int totalResults = 0;
       int numResults = 0;
       String scrollId = null;
-      FormService formService = new FormService(entityClient, openApiClient, objectMapper);
+      FormService formService =
+          new FormService(
+              entityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE, true);
 
       do {
 

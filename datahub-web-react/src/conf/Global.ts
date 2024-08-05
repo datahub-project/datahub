@@ -25,6 +25,7 @@ export enum PageRoutes {
     SETTINGS = '/settings',
     GOVERN_DASHBOARD = '/govern/dashboard',
     NEW_FORM = '/govern/dashboard/new-form',
+    EDIT_FORM = '/govern/dashboard/edit-form/:urn',
     DOMAINS = '/domains',
     DOMAIN = '/domain',
     GLOSSARY = '/glossary',
@@ -38,6 +39,8 @@ export enum PageRoutes {
     SETTINGS_POSTS = '/settings/posts',
     BUSINESS_ATTRIBUTE = '/business-attribute',
     SETTINGS_HELP_LINK = '/settings/helpLink',
+    // Temporary route to view all data products
+    DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
 }
 
 export enum AcrylPageRoutes {

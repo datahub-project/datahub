@@ -102,7 +102,11 @@ export const SidebarStatsSection = () => {
                             onClick={() => routeToTab({ tabName: 'Queries' })}
                             width={INFO_ITEM_WIDTH_PX}
                         >
-                            <HeaderInfoBody>{usageStats?.aggregations?.totalSqlQueries}</HeaderInfoBody>
+                            <HeaderInfoBody>
+                                {usageStats?.aggregations?.totalSqlQueries
+                                    ? formatNumberWithoutAbbreviation(usageStats?.aggregations?.totalSqlQueries)
+                                    : null}
+                            </HeaderInfoBody>
                         </InfoItem>
                     ) : null}
                     {(usageStats?.aggregations?.users?.length || 0) > 0 ? (

@@ -40,7 +40,7 @@ query listGlobalViews($start: Int!, $count: Int!, $query: String) {
 }
 
 query getView($urn: String!) {
-    entity(urn: $urn) {
+    view(urn: $urn) {
         ...view
     }
 }

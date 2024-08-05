@@ -58,6 +58,7 @@ entities:
       - forms
       - share
       - origin
+      - partitionsSummary
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -701,6 +702,7 @@ entities:
     keyAspect: dataHubActionKey
     aspects:
       - dataHubActionInfo
+      - dataHubActionStatus
   - name: subscription
     category: core
     keyAspect: subscriptionKey
@@ -744,6 +746,15 @@ entities:
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
+  - name: genericEntity
+    doc: 
+    category: internal
+    keyAspect: genericEntityKey
+    aspects:
+      - subTypes
+      - slackChannel
+      - slackMember
+
 events:
   - name: notificationRequest
 plugins:
@@ -849,6 +860,12 @@ plugins:
           aspectName: 'schemaMetadata'
         - entityName: '*'
           aspectName: 'editableSchemaMetadata'
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
     # Acryl Only
     # Calculates md5 hash on test definitions on read/write
     - className: 'com.linkedin.metadata.test.hooks.MetadataTestHash'

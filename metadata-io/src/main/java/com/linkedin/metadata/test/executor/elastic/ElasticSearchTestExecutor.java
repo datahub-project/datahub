@@ -19,7 +19,6 @@ import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -101,91 +100,83 @@ public class ElasticSearchTestExecutor {
         new AuditStamp()
             .setTime(System.currentTimeMillis())
             .setActor(UrnUtils.getUrn(SYSTEM_ACTOR));
-    for (String entityType : elasticTestDefinition.getSelectedEntityTypes()) {
-      Set<Urn> passingUrns = new HashSet<>();
-      TestResultArray passingResults = new TestResultArray();
-      passingResults.add(
-          new TestResult()
-              .setTest(testDefinition.getUrn())
-              .setTestDefinitionMd5(testDefinition.getMd5())
-              .setType(TestResultType.SUCCESS)
-              .setLastComputed(currentTime));
-      Predicate passingFilters = elasticTestDefinition.getPassingFilters(entityType);
-      log.info(
-          "Evaluating test {} for entity type {} with filters {}",
-          testDefinition.getUrn(),
-          entityType,
-          passingFilters);
-      SearchResult passingSearchResult =
-          searchService.predicateSearch(
-              opContext,
-              Collections.singletonList(entityType),
-              "*",
-              passingFilters,
-              null,
-              0,
-              executionLimit,
-              null);
-      if (passingSearchResult.getNumEntities() >= executionLimit) {
-        throw abortBeyondLimitExecution(testDefinition, passingSearchResult.getNumEntities());
-      }
-      passingSearchResult
-          .getEntities()
-          .forEach(
-              entity -> {
-                passing.incrementAndGet();
-                passingUrns.add(entity.getEntity());
-                results.put(
-                    entity.getEntity(),
-                    new TestResults().setPassing(passingResults).setFailing(emptyResults));
-              });
-      TestResultArray failingResults = new TestResultArray();
-      failingResults.add(
-          new TestResult()
-              .setTest(testDefinition.getUrn())
-              .setTestDefinitionMd5(testDefinition.getMd5())
-              .setType(TestResultType.FAILURE)
-              .setLastComputed(currentTime));
-      Stream<SearchEntity> failingEntities;
-      if (elasticTestDefinition.getFailingFilters(entityType) != null) {
-        failingEntities =
-            searchService
-                .predicateSearch(
-                    opContext,
-                    Collections.singletonList(entityType),
-                    "*",
-                    elasticTestDefinition.getFailingFilters(entityType),
-                    null,
-                    0,
-                    1000,
-                    null)
-                .getEntities()
-                .stream();
-      } else {
-        SearchResult selectionSearchResult =
-            searchService.predicateSearch(
-                opContext,
-                Collections.singletonList(entityType),
-                "*",
-                elasticTestDefinition.getSelectionFilters(),
-                null,
-                0,
-                1000,
-                null);
-        failingEntities =
-            selectionSearchResult.getEntities().stream()
-                .filter(entity -> !passingUrns.contains(entity.getEntity()));
-      }
-      failingEntities.forEach(
-          entity -> {
-            if (!passingUrns.contains(entity.getEntity())) {
-              failing.incrementAndGet();
+    List<String> entityTypes = elasticTestDefinition.getSelectedEntityTypes();
+    Set<Urn> passingUrns = new HashSet<>();
+    TestResultArray passingResults = new TestResultArray();
+    passingResults.add(
+        new TestResult()
+            .setTest(testDefinition.getUrn())
+            .setTestDefinitionMd5(testDefinition.getMd5())
+            .setType(TestResultType.SUCCESS)
+            .setLastComputed(currentTime));
+    Predicate passingFilters = elasticTestDefinition.getPassingFilters();
+    log.info(
+        "Evaluating test {} for entity types {} with filters {}",
+        testDefinition.getUrn(),
+        entityTypes,
+        passingFilters);
+    SearchResult passingSearchResult =
+        searchService.predicateSearch(
+            opContext, entityTypes, "*", passingFilters, null, 0, executionLimit, null);
+    if (passingSearchResult.getNumEntities() >= executionLimit) {
+      throw abortBeyondLimitExecution(testDefinition, passingSearchResult.getNumEntities());
+    }
+    passingSearchResult
+        .getEntities()
+        .forEach(
+            entity -> {
+              passing.incrementAndGet();
+              passingUrns.add(entity.getEntity());
               results.put(
                   entity.getEntity(),
-                  new TestResults().setFailing(failingResults).setPassing(emptyResults));
-            }
-          });
+                  new TestResults().setPassing(passingResults).setFailing(emptyResults));
+            });
+    TestResultArray failingResults = new TestResultArray();
+    failingResults.add(
+        new TestResult()
+            .setTest(testDefinition.getUrn())
+            .setTestDefinitionMd5(testDefinition.getMd5())
+            .setType(TestResultType.FAILURE)
+            .setLastComputed(currentTime));
+    Stream<SearchEntity> failingEntities;
+    if (elasticTestDefinition.getFailingFilters() != null) {
+      failingEntities =
+          searchService
+              .predicateSearch(
+                  opContext,
+                  entityTypes,
+                  "*",
+                  elasticTestDefinition.getFailingFilters(),
+                  null,
+                  0,
+                  1000,
+                  null)
+              .getEntities()
+              .stream();
+    } else {
+      SearchResult selectionSearchResult =
+          searchService.predicateSearch(
+              opContext,
+              entityTypes,
+              "*",
+              elasticTestDefinition.getSelectionFilters(),
+              null,
+              0,
+              1000,
+              null);
+      failingEntities =
+          selectionSearchResult.getEntities().stream()
+              .filter(entity -> !passingUrns.contains(entity.getEntity()));
     }
+    failingEntities.forEach(
+        entity -> {
+          if (!passingUrns.contains(entity.getEntity())) {
+            failing.incrementAndGet();
+            results.put(
+                entity.getEntity(),
+                new TestResults().setFailing(failingResults).setPassing(emptyResults));
+          }
+        });
     batchTestRunResult.setPassingCount(passing.get()).setFailingCount(failing.get());
     return results;
   }

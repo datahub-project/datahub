@@ -192,7 +192,9 @@ gitpython==3.1.43
 great-expectations==0.15.50
     # via acryl-datahub
 greenlet==3.0.3
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   sqlalchemy
 h11==0.14.0
     # via
     #   httpcore

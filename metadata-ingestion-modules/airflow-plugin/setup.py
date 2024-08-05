@@ -53,7 +53,7 @@ base_requirements.update(plugins["datahub-rest"])
 mypy_stubs = {
     "types-dataclasses",
     "sqlalchemy-stubs",
-    "types-pkg_resources",
+    "types-setuptools",
     "types-six",
     "types-python-dateutil",
     "types-requests",

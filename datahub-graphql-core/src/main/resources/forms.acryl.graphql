@@ -24,9 +24,19 @@ extend type Mutation {
     batchSubmitFormPrompt(input: BatchSubmitFormPromptInput!): Boolean
 
     """
+    Batch submit a form prompt response for a set of entities matching a filter
+    """
+    asyncBatchSubmitFormPrompt(input: AsyncBatchSubmitFormPromptInput!): AsyncBatchSubmitFormPromptResponse!
+
+    """
     Batch verify a form for a group of entities
     """
     batchVerifyForm(input: BatchVerifyFormInput!): Boolean
+
+    """
+    Batch submit a form prompt response for a set of entities matching a filter
+    """
+    asyncBatchVerifyForm(input: AsyncBatchVerifyFormInput!): AsyncBatchVerifyFormResponse!
 }
 
 """
@@ -42,6 +52,66 @@ input BatchSubmitFormPromptInput {
     Input for responding to a specific prompt on a form
     """
     input: SubmitFormPromptInput
+}
+
+"""
+Input for responding to a singular prompt in a form for a batch of entities
+"""
+input AsyncBatchSubmitFormPromptInput {
+    """
+    Entity types to be submit a response for
+    """
+    types: [EntityType!]!
+
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters)
+    """
+    orFilters: [AndFilterInput!]
+
+    """
+    Filter on how to search for entities by metadata forms
+    """
+    formFilter: FormFilter
+
+    """
+    Input for responding to a specific prompt on a form
+    """
+    input: SubmitFormPromptInput!
+
+    """
+    Input for the task that is generated for this action
+    """
+    taskInput: TaskInput
+}
+
+"""
+Input for asynchronously verifying a batch form entities for a form
+"""
+input AsyncBatchVerifyFormInput {
+    """
+    Entity types to be submit a response for
+    """
+    types: [EntityType!]!
+
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters)
+    """
+    orFilters: [AndFilterInput!]
+
+    """
+    Filter on how to search for entities by metadata forms
+    """
+    formFilter: FormFilter
+
+    """
+    The urn of the form being verified on the given entities
+    """
+    formUrn: String!
+
+    """
+    Input for the task that is generated for this action
+    """
+    taskInput: TaskInput
 }
 
 """
@@ -254,4 +324,34 @@ type FormAnalyticsConfig {
     """
     errors: [FormAnalyticsError!]
 
+}
+
+"""
+Response for the async batch form submission endpoint
+"""
+type AsyncBatchSubmitFormPromptResponse {
+    """
+    The urn of the task that is submitting this form response for the matching assets
+    """
+    taskUrn: String!
+}
+
+"""
+Response for the async batch form verification endpoint
+"""
+type AsyncBatchVerifyFormResponse {
+    """
+    The urn of the task that is verifying this form for the matching assets
+    """
+    taskUrn: String!
+}
+
+"""
+Input for the task that is generated for this action
+"""
+input TaskInput {
+    """
+    The name of the task
+    """
+    taskName: String!
 }

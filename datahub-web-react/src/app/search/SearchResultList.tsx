@@ -75,6 +75,7 @@ type Props = {
     onCardClick?: (any: any) => any;
     onClickExploreAll?: () => any;
     onClickClearFilters?: () => any;
+    setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
 };
 
 export const SearchResultList = ({
@@ -90,6 +91,7 @@ export const SearchResultList = ({
     onCardClick,
     onClickExploreAll,
     onClickClearFilters,
+    setAreAllEntitiesSelected,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -114,6 +116,7 @@ export const SearchResultList = ({
             setSelectedEntities?.([...selectedEntities, selectedEntity]);
         } else {
             setSelectedEntities?.(selectedEntities?.filter((entity) => entity.urn !== selectedEntity.urn) || []);
+            setAreAllEntitiesSelected?.(false);
         }
     };
 

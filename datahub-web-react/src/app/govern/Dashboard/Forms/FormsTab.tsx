@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Skeleton } from 'antd';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
+import { NetworkStatus } from '@apollo/client';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { EntityType } from '../../../../types.generated';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
@@ -64,14 +65,26 @@ const FormsTab = () => {
     };
 
     // Execute search
-    const { data: searchData, loading: isLoading } = useGetSearchResultsForMultipleQuery({
+    const {
+        data: searchData,
+        loading,
+        refetch,
+        networkStatus,
+    } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: inputs,
         },
         fetchPolicy: 'cache-first',
+        notifyOnNetworkStatusChange: true,
     });
 
     const formsData = searchData?.searchAcrossEntities?.searchResults || [];
+
+    const isLoading = loading || networkStatus === NetworkStatus.refetch;
+
+    useEffect(() => {
+        refetch();
+    }, [refetch]);
 
     return (
         <Container>

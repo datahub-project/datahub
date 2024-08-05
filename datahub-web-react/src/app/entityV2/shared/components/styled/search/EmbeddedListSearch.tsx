@@ -236,7 +236,8 @@ export const EmbeddedListSearch = ({
         },
         skip: !defaultViewUrn,
     });
-    const view = (viewData?.entity?.__typename === 'DataHubView' && viewData?.entity) || undefined;
+
+    const view = (viewData?.view?.__typename === 'DataHubView' && viewData?.view) || undefined;
 
     useEffect(() => {
         if (shouldRefetch && resetShouldRefetch) {
@@ -356,6 +357,7 @@ export const EmbeddedListSearch = ({
                     isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
                     setIsSelectMode={setIsSelectMode}
                     selectedEntities={selectedEntities}
+                    setSelectedEntities={setSelectedEntities}
                     onChangeSelectAll={onChangeSelectAll}
                     refetch={() => refetch({ input: searchInput })}
                     searchBarStyle={searchBarStyle}

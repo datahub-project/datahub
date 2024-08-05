@@ -537,31 +537,6 @@ public class AggregationQueryBuilder {
    */
   private Map<String, String> getFacetToDisplayNames() {
     if (filtersToDisplayName == null) {
-      // Validate field names
-      Map<String, Set<Pair<String, Pair<String, String>>>> validateFieldMap =
-          entitySearchAnnotations.entrySet().stream()
-              .flatMap(
-                  entry ->
-                      entry.getValue().stream()
-                          .flatMap(
-                              annotation ->
-                                  getFacetFieldDisplayNameFromAnnotation(entry.getKey(), annotation)
-                                      .stream()))
-              .collect(Collectors.groupingBy(Pair::getFirst, Collectors.toSet()));
-      for (Map.Entry<String, Set<Pair<String, Pair<String, String>>>> entry :
-          validateFieldMap.entrySet()) {
-        if (entry.getValue().stream().map(i -> i.getSecond().getSecond()).distinct().count() > 1) {
-          Map<String, Set<Pair<String, String>>> displayNameEntityMap =
-              entry.getValue().stream()
-                  .map(Pair::getSecond)
-                  .collect(Collectors.groupingBy(Pair::getSecond, Collectors.toSet()));
-          throw new IllegalStateException(
-              String.format(
-                  "Facet field collision on field `%s`. Incompatible Display Name across entities. Multiple Display Names detected: %s",
-                  entry.getKey(), displayNameEntityMap));
-        }
-      }
-
       filtersToDisplayName =
           entitySearchAnnotations.entrySet().stream()
               .flatMap(
@@ -596,11 +571,14 @@ public class AggregationQueryBuilder {
     aggregationMetadataList.add(aggregationMetadata);
   }
 
-  // If values are not equal, throw error
+  // If values are not equal, pick the first one
   private BinaryOperator<String> mapMerger() {
     return (s1, s2) -> {
       if (!StringUtils.equals(s1, s2)) {
-        throw new IllegalStateException(String.format("Unable to merge values %s and %s", s1, s2));
+        log.warn(
+            String.format(
+                "Encountered two equal values %s and %s when merging facet to display name map",
+                s1, s2));
       }
       return s1;
     };

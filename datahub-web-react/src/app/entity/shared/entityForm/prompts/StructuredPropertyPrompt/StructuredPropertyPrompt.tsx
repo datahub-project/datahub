@@ -121,7 +121,11 @@ export default function StructuredPropertyPrompt({
                     </PromptTitle>
                     {description && (
                         <PromptSubTitle>
-                            <Editor content={description} readOnly editorStyle="padding: 0;" />
+                            <Editor
+                                content={description}
+                                readOnly
+                                editorStyle={!displayBulkPromptStyles ? 'padding: 0;' : 'padding: 0; color: white;'}
+                            />
                         </PromptSubTitle>
                     )}
                     <InputSection>

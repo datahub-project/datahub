@@ -3,14 +3,21 @@ package com.linkedin.datahub.graphql.resolvers.action.execution;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
+import com.linkedin.action.DataHubActionInfo;
+import com.linkedin.action.DataHubActionState;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.integration.IntegrationsService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
@@ -48,24 +55,49 @@ public class StartActionPipelineResolver implements DataFetcher<CompletableFutur
               }
             } else {
               throw new DataHubGraphQLException(
-                  "Action pipeline urn is required for rollback.",
+                  "Action pipeline urn is required for starting.",
                   DataHubGraphQLErrorCode.BAD_REQUEST);
             }
             log.info("Action pipeline = {}", actionPipelineUrn);
+            try {
+              Aspect rawAspect =
+                  _entityClient.getLatestAspectObject(
+                      context.getOperationContext(), actionPipelineUrn, "dataHubActionInfo");
+              if (rawAspect == null) {
+                throw new DataHubGraphQLException(
+                    String.format(
+                        "No dataHubActionInfo found for action pipeline %s", actionPipelineUrn),
+                    DataHubGraphQLErrorCode.NOT_FOUND);
+              }
+
+              DataHubActionInfo dataHubActionInfo = new DataHubActionInfo(rawAspect.data());
+              dataHubActionInfo.setState(DataHubActionState.ACTIVE);
+              _entityClient.ingestProposal(
+                  context.getOperationContext(),
+                  new MetadataChangeProposal()
+                      .setEntityType("dataHubAction")
+                      .setChangeType(ChangeType.UPSERT)
+                      .setAspect(GenericRecordUtils.serializeAspect(dataHubActionInfo))
+                      .setAspectName("dataHubActionInfo")
+                      .setEntityUrn(actionPipelineUrn),
+                  false);
+            } catch (RemoteInvocationException e) {
+              throw new RuntimeException(e);
+            } catch (URISyntaxException e) {
+              throw new RuntimeException(e);
+            }
 
             try {
-
               if (!_integrationsService.reloadAction(actionPipelineUrn.toString())) {
                 throw new DataHubGraphQLException(
-                    String.format("Failed to rollback action pipeline %s", actionPipelineUrn),
+                    String.format("Failed to start action pipeline %s", actionPipelineUrn),
                     DataHubGraphQLErrorCode.SERVER_ERROR);
               }
               return actionPipelineUrn.toString();
             } catch (Exception e) {
-              log.error("Failed to rollback action pipeline", e);
+              log.error("Failed to start action pipeline", e);
               throw new RuntimeException(
-                  String.format(
-                      "Failed to rollback action pipeline %s", actionPipelineUrn.toString()),
+                  String.format("Failed to start action pipeline %s", actionPipelineUrn.toString()),
                   e);
             }
           }

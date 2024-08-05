@@ -1,6 +1,6 @@
 import { Key, useMemo } from 'react';
 import { useDrawerDispatch } from './context';
-import { ActionTypes, ChannelSelection, InitializeActionPayload } from './types';
+import { ActionTypes, ChannelSelection, InitializeActionPayload, SlackState } from './types';
 
 const useDrawerActions = () => {
     const dispatch = useDrawerDispatch();
@@ -25,6 +25,9 @@ const useDrawerActions = () => {
             setSlackSaveAsDefault: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_SLACK_SAVE_AS_DEFAULT, payload });
             },
+            setWholeSlackObject: (payload: SlackState) => {
+                dispatch({ type: ActionTypes.SET_SLACK_OBJECT, payload });
+            },
             setEmailEnabled: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_EMAIL_ENABLED, payload });
             },
@@ -36,6 +39,9 @@ const useDrawerActions = () => {
             },
             setEmailSaveAsDefault: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_EMAIL_SAVE_AS_DEFAULT, payload });
+            },
+            setWholeEmailObject: (payload: SlackState) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_OBJECT, payload });
             },
             setSubscribeToUpstream: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM, payload });

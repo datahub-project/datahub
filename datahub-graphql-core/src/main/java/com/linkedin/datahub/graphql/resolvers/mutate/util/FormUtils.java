@@ -1,11 +1,20 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.PathSpec;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.CreateDynamicFormAssignmentInput;
 import com.linkedin.datahub.graphql.generated.CreateFormInput;
 import com.linkedin.datahub.graphql.generated.CreatePromptInput;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FormActorAssignmentInput;
 import com.linkedin.datahub.graphql.generated.FormFilter;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParamsInput;
@@ -27,10 +36,15 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.service.util.MetadataTestServiceUtils;
 import com.linkedin.structured.PrimitivePropertyValueArray;
+import com.linkedin.test.MetadataTestClient;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -335,5 +349,67 @@ public class FormUtils {
   public static List<FormPrompt> mapPromptsToAdd(
       @Nonnull final List<CreatePromptInput> promptsToAdd) {
     return promptsToAdd.stream().map(FormUtils::mapPrompt).collect(Collectors.toList());
+  }
+
+  /*
+   * Takes a list of orFilters and a formFilter and combines them to a single filter
+   */
+  public static Filter combineFormFilterAndOrFilters(
+      QueryContext context,
+      FormService formService,
+      List<AndFilterInput> orFilters,
+      FormFilter formFilter) {
+    final Filter inputFilter =
+        ResolverUtils.buildFilter(
+            null, orFilters, context.getOperationContext().getAspectRetriever());
+    final Filter finalFormFilter =
+        SearchUtils.getFormFilter(context.getOperationContext(), formFilter, formService);
+    return finalFormFilter != null
+        ? SearchUtils.combineFilters(inputFilter, finalFormFilter)
+        : inputFilter;
+  }
+
+  /*
+   * Async evaluate the test
+   */
+  public static void runTest(
+      QueryContext context, MetadataTestClient metadataTestClient, String taskUrn) {
+    CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            metadataTestClient.evaluateSingleTest(
+                UrnUtils.getUrn(taskUrn), true, context.getAuthentication());
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to evaluate bulk form response task with urn %s", taskUrn),
+                e);
+          }
+          return null;
+        });
+  }
+
+  public static ObjectNode buildBulkFormDefinitionOnNode(
+      QueryContext context,
+      List<EntityType> types,
+      Filter filter,
+      @Nullable Map<String, List<PathSpec>> searchableFieldsToPathSpecs) {
+    ObjectMapper objectMapper = context.getOperationContext().getObjectMapper();
+    ObjectNode definitionNode = objectMapper.createObjectNode();
+    definitionNode.putArray("rules");
+
+    // create on clause with conditions
+    ObjectNode onNode = definitionNode.putObject("on");
+    ArrayNode typesArray = onNode.putArray("types");
+    getEntityNames(types).forEach(typesArray::add);
+
+    ObjectNode conditionsNode = onNode.putObject("conditions");
+    ArrayNode orConditions = conditionsNode.putArray("or");
+    ObjectNode filterNode = orConditions.addObject();
+    ArrayNode orArray = filterNode.putArray("or");
+    orArray.addAll(
+        MetadataTestServiceUtils.convertFilterToTestConditions(
+            filter, searchableFieldsToPathSpecs));
+
+    return definitionNode;
   }
 }

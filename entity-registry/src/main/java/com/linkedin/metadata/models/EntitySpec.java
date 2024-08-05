@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
@@ -198,5 +199,66 @@ public interface EntitySpec {
         .map(AspectSpec::getSearchableRefFieldSpecs)
         .flatMap(List::stream)
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Creates a map of searchable field names to path specs where the path is
+   * aspectName/FIELD_PATH(/numValuesFieldName | /hasValuesFieldName)? (Regex)
+   *
+   * @return map of searchable field names to path specs
+   */
+  default Map<String, List<PathSpec>> getSearchableFieldsToPathSpecsMap() {
+    BiFunction<AspectSpec, SearchableFieldSpec, Pair<String, List<PathSpec>>> numValuesFn =
+        (aspectSpec, searchableFieldSpec) -> {
+          List<String> fieldPaths = new ArrayList<>();
+          fieldPaths.add(aspectSpec.getName());
+          fieldPaths.addAll(searchableFieldSpec.getPath().getPathComponents());
+          fieldPaths.add(
+              searchableFieldSpec.getSearchableAnnotation().getNumValuesFieldName().get());
+          PathSpec pathSpec =
+              new PathSpec(
+                  fieldPaths.stream()
+                      .filter(str -> !ARRAY_WILDCARD.equals(str))
+                      .collect(Collectors.toList()));
+          String fieldName =
+              searchableFieldSpec.getSearchableAnnotation().getNumValuesFieldName().get();
+          return new Pair<>(fieldName, ImmutableList.of(pathSpec));
+        };
+    BiFunction<AspectSpec, SearchableFieldSpec, Pair<String, List<PathSpec>>> hasValuesFn =
+        (aspectSpec, searchableFieldSpec) -> {
+          String fieldName =
+              searchableFieldSpec.getSearchableAnnotation().getHasValuesFieldName().get();
+          List<String> fieldPaths = new ArrayList<>();
+          fieldPaths.add(aspectSpec.getName());
+          fieldPaths.addAll(searchableFieldSpec.getPath().getPathComponents());
+          fieldPaths.add(
+              searchableFieldSpec.getSearchableAnnotation().getHasValuesFieldName().get());
+          PathSpec pathSpec =
+              new PathSpec(
+                  fieldPaths.stream()
+                      .filter(str -> !ARRAY_WILDCARD.equals(str))
+                      .collect(Collectors.toList()));
+          return new Pair<>(fieldName, ImmutableList.of(pathSpec));
+        };
+    BiFunction<AspectSpec, SearchableFieldSpec, Pair<String, List<PathSpec>>> defaultKeyFn =
+        (aspectSpec, searchableFieldSpec) -> {
+          String fieldName = searchableFieldSpec.getSearchableAnnotation().getFieldName();
+          List<String> paths = new ArrayList<>();
+          paths.add(aspectSpec.getName());
+          paths.addAll(searchableFieldSpec.getPath().getPathComponents());
+          PathSpec pathSpec =
+              new PathSpec(
+                  paths.stream()
+                      .filter(str -> !ARRAY_WILDCARD.equals(str))
+                      .collect(Collectors.toList()));
+          return new Pair<>(fieldName, ImmutableList.of(pathSpec));
+        };
+    BinaryOperator<List<PathSpec>> mergeFn =
+        (s1, s2) -> {
+          s1.addAll(s2);
+          return s1;
+        };
+
+    return getFieldMap(numValuesFn, hasValuesFn, defaultKeyFn, mergeFn);
   }
 }

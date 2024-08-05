@@ -15,7 +15,6 @@
 import logging
 from typing import Optional, Union
 
-from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -27,8 +26,11 @@ from datahub_actions.plugin.action.tag.tag_propagation_action import (
     TagPropagationDirective,
 )
 
-from datahub_integrations.actions.action_extended import ExtendedAction
-from datahub_integrations.actions.stats_util import EventProcessingStats
+from datahub_integrations.actions.action_extended import (
+    AutomationActionConfig,
+    ExtendedAction,
+)
+from datahub_integrations.actions.oss.stats_util import EventProcessingStats
 from datahub_integrations.propagation.snowflake.snowflake_util import (
     SnowflakeTagHelper,
     is_snowflake_urn,
@@ -42,7 +44,7 @@ from datahub_integrations.propagation.term.term_propagation_action import (
 logger = logging.getLogger(__name__)
 
 
-class SnowflakeTagPropagatorConfig(ConfigModel):
+class SnowflakeTagPropagatorConfig(AutomationActionConfig):
     snowflake: SnowflakeV2Config
     tag_propagation: Optional[TagPropagationConfig] = None
     term_propagation: Optional[TermPropagationConfig] = None
@@ -50,7 +52,10 @@ class SnowflakeTagPropagatorConfig(ConfigModel):
 
 class SnowflakeTagPropagatorAction(ExtendedAction):
     def __init__(self, config: SnowflakeTagPropagatorConfig, ctx: PipelineContext):
+        super().__init__(config=config, ctx=ctx)
+
         self.event_processing_stats = EventProcessingStats()
+
         self.config: SnowflakeTagPropagatorConfig = config
         self.ctx = ctx
         self.snowflake_tag_helper = SnowflakeTagHelper(self.config.snowflake)

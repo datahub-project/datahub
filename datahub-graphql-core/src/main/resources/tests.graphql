@@ -146,6 +146,11 @@ input ListTestsInput {
   Optional query string to match on
   """
   query: String
+
+  """
+  An optional list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """

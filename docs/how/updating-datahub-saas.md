@@ -27,6 +27,20 @@ This is over and above updating-datahub.md file
 
 ### Potential Downtime
 
+
+### Deprecations
+
+### Other Notable Changes
+
+### Environment Variables
+
+## v0.3.4
+
+### Breaking Changes
+
+
+### Potential Downtime
+
 - Metadata Test entities will not be displayed in the Metadata Test UI until it has executed at least once with the new version of DataHub.
 
 ### Deprecations
@@ -46,6 +60,8 @@ size of 50. This is typical in metadata tests.
 `SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT` (default: false) - Whether we should
 separate siblings when fetching lineage data in search results by default.
 Typically this is false, but for Apple, we need this to be set to true.
+
+`ALTERNATE_MCP_VALIDATION` (default: false) - Enables an alternate MCP validation pathway for when we have MCPs we want to validate only after applying a mutation hook
 
 #### Sharing
 

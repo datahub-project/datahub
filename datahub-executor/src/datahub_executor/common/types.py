@@ -1320,4 +1320,4 @@ class ExecutionRequestStatus(PermissiveBaseModel):
     execution_request_urn: str
     ingestion_source_urn: str
     status: str
-    last_observed: datetime
+    last_observed: int

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.entity.AspectUtils.buildMetadataChangeProposal;
+import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.applyAppSource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -72,6 +73,20 @@ public class FormService extends BaseService {
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
   private final OwnerService _ownerService;
+  private final String _appSource;
+  private final boolean _isAsync;
+
+  public FormService(
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper,
+      @Nonnull final String appSource,
+      final boolean isAsync) {
+    super(systemEntityClient, openApiClient, objectMapper);
+    _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper, isAsync);
+    _appSource = appSource;
+    _isAsync = isAsync;
+  }
 
   public FormService(
       @Nonnull final SystemEntityClient systemEntityClient,
@@ -79,7 +94,8 @@ public class FormService extends BaseService {
       @Nonnull ObjectMapper objectMapper) {
     super(systemEntityClient, openApiClient, objectMapper);
     _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
-    ;
+    _appSource = null;
+    _isAsync = false;
   }
 
   /** Batch associated a form to a given set of entities by urn. */
@@ -92,7 +108,10 @@ public class FormService extends BaseService {
     verifyEntitiesExist(opContext, entityUrns, false);
     final List<MetadataChangeProposal> changes =
         buildAssignFormChanges(opContext, entityUrns, formUrn);
-    ingestChangeProposals(opContext, changes, true);
+    if (_appSource != null) {
+      applyAppSource(changes, _appSource);
+    }
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   /** Batch remove a form from a given entity by urn. */
@@ -107,7 +126,10 @@ public class FormService extends BaseService {
     verifyEntitiesExist(opContext, entityUrns, false);
     final List<MetadataChangeProposal> changes =
         buildUnassignFormChanges(opContext, entityUrns, formUrn);
-    ingestChangeProposals(opContext, changes, true);
+    if (_appSource != null) {
+      applyAppSource(changes, _appSource);
+    }
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   /** Mark a specific form prompt as incomplete */
@@ -122,7 +144,10 @@ public class FormService extends BaseService {
     final FormInfo formInfo = getFormInfo(opContext, formUrn);
     final List<MetadataChangeProposal> changes =
         buildUnsetFormPromptChanges(opContext, entityUrns, formUrn, formPromptId, formInfo);
-    ingestChangeProposals(opContext, changes, true);
+    if (_appSource != null) {
+      applyAppSource(changes, _appSource);
+    }
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   /** Create a dynamic form assignment for a particular form. */
@@ -163,11 +188,14 @@ public class FormService extends BaseService {
     final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);
     final TestInfo testDefinition = FormTestBuilder.buildFormPromptCompletionTest(formUrn, prompt);
     try {
-      ingestChangeProposals(
-          opContext,
+      List<MetadataChangeProposal> changes =
           ImmutableList.of(
               AspectUtils.buildMetadataChangeProposal(
-                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)));
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition));
+      if (_appSource != null) {
+        applyAppSource(changes, _appSource);
+      }
+      ingestChangeProposals(opContext, changes, _isAsync);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create form", e);
     }
@@ -182,11 +210,19 @@ public class FormService extends BaseService {
     final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormAssignment(formUrn);
     final TestInfo testDefinition = FormTestBuilder.buildFormAssignmentTest(formUrn, formFilters);
     try {
+      List<MetadataChangeProposal> changes =
+          ImmutableList.of(
+              AspectUtils.buildMetadataChangeProposal(
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition));
+      if (_appSource != null) {
+        applyAppSource(changes, _appSource);
+      }
       ingestChangeProposals(
           opContext,
           ImmutableList.of(
               AspectUtils.buildMetadataChangeProposal(
-                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)));
+                  metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
+          _isAsync);
       SearchBasedFormAssignmentRunner.assign(
           opContext,
           formFilters,
@@ -258,16 +294,21 @@ public class FormService extends BaseService {
       @Nonnull final Urn structuredPropertyUrn,
       @Nonnull final PrimitivePropertyValueArray values,
       @Nonnull final Urn formUrn,
-      @Nonnull final String formPromptId)
+      @Nonnull final String formPromptId,
+      @Nullable final Urn actorUrn,
+      @Nonnull final boolean shouldThrow)
       throws Exception {
     entityUrns.forEach(
         urnStr -> {
           Urn urn = UrnUtils.getUrn(urnStr);
           try {
             submitStructuredPropertyPromptResponse(
-                opContext, urn, structuredPropertyUrn, values, formUrn, formPromptId);
+                opContext, urn, structuredPropertyUrn, values, formUrn, formPromptId, actorUrn);
           } catch (Exception e) {
-            throw new RuntimeException("Failed to batch submit structured property prompt", e);
+            log.error("Failed to batch submit structured property prompt", e);
+            if (shouldThrow) {
+              throw new RuntimeException("Failed to batch submit structured property prompt", e);
+            }
           }
         });
 
@@ -281,16 +322,21 @@ public class FormService extends BaseService {
       @Nonnull final List<Urn> owners,
       @Nonnull Urn ownershipTypeUrn,
       @Nonnull final Urn formUrn,
-      @Nonnull final String formPromptId)
+      @Nonnull final String formPromptId,
+      @Nullable Urn actorUrn,
+      final boolean shouldThrow)
       throws Exception {
     entityUrns.forEach(
         urnStr -> {
           Urn urn = UrnUtils.getUrn(urnStr);
           try {
             submitOwnershipPromptResponse(
-                opContext, urn, owners, ownershipTypeUrn, formUrn, formPromptId);
+                opContext, urn, owners, ownershipTypeUrn, formUrn, formPromptId, actorUrn);
           } catch (Exception e) {
-            throw new RuntimeException("Failed to batch submit structured property prompt", e);
+            log.error("Failed to batch submit structured property prompt", e);
+            if (shouldThrow) {
+              throw new RuntimeException("Failed to batch submit structured property prompt", e);
+            }
           }
         });
 
@@ -304,11 +350,12 @@ public class FormService extends BaseService {
       @Nonnull final Urn structuredPropertyUrn,
       @Nonnull final PrimitivePropertyValueArray values,
       @Nonnull final Urn formUrn,
-      @Nonnull final String formPromptId)
+      @Nonnull final String formPromptId,
+      @Nullable final Urn actorUrn)
       throws Exception {
 
     // First, let's apply the action and add the structured property.
-    ingestStructuredProperties(opContext, entityUrn, structuredPropertyUrn, values);
+    ingestStructuredProperties(opContext, entityUrn, structuredPropertyUrn, values, actorUrn);
 
     // Then, let's apply the change to the entity's form status.
     FormPromptResponse promptResponse = new FormPromptResponse();
@@ -316,7 +363,8 @@ public class FormService extends BaseService {
     propertyResponse.setPropertyUrn(structuredPropertyUrn);
     propertyResponse.setValues(values);
     promptResponse.setStructuredPropertyResponse(propertyResponse);
-    ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, promptResponse);
+    ingestCompletedFormResponse(
+        opContext, entityUrn, formUrn, formPromptId, promptResponse, actorUrn);
 
     return true;
   }
@@ -328,18 +376,22 @@ public class FormService extends BaseService {
       @Nonnull final List<Urn> owners,
       @Nonnull Urn ownershipTypeUrn,
       @Nonnull final Urn formUrn,
-      @Nonnull final String formPromptId)
+      @Nonnull final String formPromptId,
+      @Nullable Urn actorUrn)
       throws Exception {
 
     // First, let's apply the action and add the owners
     ResourceReference resourceRef = new ResourceReference(entityUrn, null, null);
+    final String finalAppSource = _appSource != null ? _appSource : UI_SOURCE;
+    // do we pass in _isAsync or take the same approach with ownerService and set as class var?
     _ownerService.batchAddOwners(
         opContext,
         owners,
         ImmutableList.of(resourceRef),
         OwnershipType.NONE,
         ownershipTypeUrn,
-        UI_SOURCE);
+        finalAppSource,
+        actorUrn);
 
     // Then, let's apply the change to the entity's form status.
     FormPromptResponse promptResponse = new FormPromptResponse();
@@ -347,7 +399,8 @@ public class FormService extends BaseService {
     ownershipResponse.setOwners(new UrnArray(owners));
     ownershipResponse.setOwnershipTypeUrn(ownershipTypeUrn);
     promptResponse.setOwnershipResponse(ownershipResponse);
-    ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, promptResponse);
+    ingestCompletedFormResponse(
+        opContext, entityUrn, formUrn, formPromptId, promptResponse, actorUrn);
 
     return true;
   }
@@ -360,14 +413,22 @@ public class FormService extends BaseService {
       @Nonnull final PrimitivePropertyValueArray values,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nonnull final List<String> fieldPaths)
+      @Nonnull final List<String> fieldPaths,
+      @Nullable final Urn actorUrn)
       throws Exception {
     entityUrns.forEach(
         urnStr -> {
           Urn urn = UrnUtils.getUrn(urnStr);
           try {
             submitFieldStructuredPropertyPromptResponse(
-                opContext, urn, structuredPropertyUrn, values, formUrn, formPromptId, fieldPaths);
+                opContext,
+                urn,
+                structuredPropertyUrn,
+                values,
+                formUrn,
+                formPromptId,
+                fieldPaths,
+                actorUrn);
           } catch (Exception e) {
             throw new RuntimeException(
                 "Failed to batch submit field structured property prompt", e);
@@ -385,17 +446,19 @@ public class FormService extends BaseService {
       @Nonnull final PrimitivePropertyValueArray values,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nonnull final List<String> fieldPaths)
+      @Nonnull final List<String> fieldPaths,
+      @Nullable final Urn actorUrn)
       throws Exception {
 
     // First, let's apply the action and add the structured property.
     for (String fieldPath : fieldPaths) {
       ingestSchemaFieldStructuredProperties(
-          opContext, entityUrn, structuredPropertyUrn, values, fieldPath);
+          opContext, entityUrn, structuredPropertyUrn, values, fieldPath, actorUrn);
     }
 
     // Then, let's apply the change to the entity's form status.
-    ingestCompletedFieldFormResponse(opContext, entityUrn, formUrn, formPromptId, fieldPaths);
+    ingestCompletedFieldFormResponse(
+        opContext, entityUrn, formUrn, formPromptId, fieldPaths, actorUrn);
 
     return true;
   }
@@ -405,7 +468,8 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nonnull final List<String> fieldPaths)
+      @Nonnull final List<String> fieldPaths,
+      @Nullable Urn actorUrn)
       throws Exception {
     final Forms forms = getEntityForms(opContext, entityUrn);
     final FormAssociation formAssociation = getFormWithUrn(forms, formUrn);
@@ -414,7 +478,7 @@ public class FormService extends BaseService {
           String.format("Form %s has not been assigned to entity %s", formUrn, entityUrn));
     }
     final FormPromptAssociation formPromptAssociation =
-        getOrDefaultFormPromptAssociation(opContext, formAssociation, formPromptId);
+        getOrDefaultFormPromptAssociation(opContext, formAssociation, formPromptId, actorUrn);
 
     // update the prompt association to have this fieldFormPromptAssociation marked as complete
     for (String fieldPath : fieldPaths) {
@@ -426,7 +490,8 @@ public class FormService extends BaseService {
     // field prompt is complete if all fields in entity's schema metadata are marked complete
     if (isFieldPromptComplete(opContext, entityUrn, formPromptAssociation)) {
       // if this is complete, the prompt as a whole should be marked as complete
-      ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, forms, null);
+      ingestCompletedFormResponse(
+          opContext, entityUrn, formUrn, formPromptId, forms, null, actorUrn);
     } else {
       // regardless, ingest forms to save state of this aspect
       ingestForms(opContext, entityUrn, forms);
@@ -438,10 +503,12 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nullable final FormPromptResponse promptResponse)
+      @Nullable final FormPromptResponse promptResponse,
+      @Nullable Urn actorUrn)
       throws Exception {
     final Forms forms = getEntityForms(opContext, entityUrn);
-    ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, forms, promptResponse);
+    ingestCompletedFormResponse(
+        opContext, entityUrn, formUrn, formPromptId, forms, promptResponse, actorUrn);
   }
 
   private void ingestCompletedFormResponse(
@@ -450,7 +517,8 @@ public class FormService extends BaseService {
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
       @Nonnull final Forms forms,
-      @Nullable final FormPromptResponse promptResponse)
+      @Nullable final FormPromptResponse promptResponse,
+      @Nullable Urn actorUrn)
       throws Exception {
     // Next, get all the information we need to update the forms for the entity.
     final FormInfo formInfo = getFormInfo(opContext, formUrn);
@@ -463,7 +531,7 @@ public class FormService extends BaseService {
 
     // First, mark the prompt as completed in forms aspect.
     updatePromptToComplete(
-        opContext, formAssociation, entityUrn, formUrn, formPromptId, promptResponse);
+        opContext, formAssociation, entityUrn, formUrn, formPromptId, promptResponse, actorUrn);
 
     // Then, update the completed forms fields based on which prompts remain incomplete.
     updateFormCompletion(forms, formAssociation, formInfo);
@@ -477,17 +545,19 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn structuredPropertyUrn,
       @Nonnull final PrimitivePropertyValueArray values,
-      @Nonnull final String fieldPath)
+      @Nonnull final String fieldPath,
+      @Nullable final Urn actorUrn)
       throws Exception {
     Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn.toString(), fieldPath);
-    ingestStructuredProperties(opContext, schemaFieldUrn, structuredPropertyUrn, values);
+    ingestStructuredProperties(opContext, schemaFieldUrn, structuredPropertyUrn, values, actorUrn);
   }
 
   private void ingestStructuredProperties(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn structuredPropertyUrn,
-      @Nonnull final PrimitivePropertyValueArray values)
+      @Nonnull final PrimitivePropertyValueArray values,
+      @Nullable final Urn actorUrn)
       throws Exception {
     final EntityResponse response =
         entityClient.getV2(
@@ -511,17 +581,14 @@ public class FormService extends BaseService {
             .filter(assignment -> !assignment.getPropertyUrn().equals(structuredPropertyUrn))
             .collect(Collectors.toList());
 
+    final Urn finalActorUrn = getActorUrn(opContext, actorUrn);
     StructuredPropertyValueAssignment assignment = new StructuredPropertyValueAssignment();
     assignment.setValues(values);
     assignment.setPropertyUrn(structuredPropertyUrn);
     assignment.setCreated(
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
-            .setTime(System.currentTimeMillis()));
+        new AuditStamp().setActor(finalActorUrn).setTime(System.currentTimeMillis()));
     assignment.setLastModified(
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
-            .setTime(System.currentTimeMillis()));
+        new AuditStamp().setActor(finalActorUrn).setTime(System.currentTimeMillis()));
     filteredAssignments.add(assignment);
 
     StructuredPropertyValueAssignmentArray assignments =
@@ -531,8 +598,12 @@ public class FormService extends BaseService {
     final MetadataChangeProposal structuredPropertiesProposal =
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
+
+    if (_appSource != null) {
+      applyAppSource(ImmutableList.of(structuredPropertiesProposal), _appSource);
+    }
     try {
-      this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
+      this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, _isAsync);
     } catch (Exception e) {
       throw new RuntimeException("Failed to submit form response", e);
     }
@@ -543,10 +614,12 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Forms forms) {
     try {
-      ingestChangeProposals(
-          opContext,
-          ImmutableList.of(
-              AspectUtils.buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, forms)));
+      MetadataChangeProposal mcp =
+          AspectUtils.buildMetadataChangeProposal(entityUrn, FORMS_ASPECT_NAME, forms);
+      if (_appSource != null) {
+        applyAppSource(ImmutableList.of(mcp), _appSource);
+      }
+      ingestChangeProposals(opContext, ImmutableList.of(mcp), _isAsync);
     } catch (Exception e) {
       log.warn(String.format("Failed to ingest forms for entity with urn %s", entityUrn), e);
     }
@@ -648,9 +721,10 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nullable final FormPromptResponse promptResponse) {
+      @Nullable final FormPromptResponse promptResponse,
+      @Nullable Urn actorUrn) {
     final FormPromptAssociation formPromptAssociation =
-        getOrDefaultFormPromptAssociation(opContext, formAssociation, formPromptId);
+        getOrDefaultFormPromptAssociation(opContext, formAssociation, formPromptId, actorUrn);
     if (promptResponse != null) {
       formPromptAssociation.setResponse(promptResponse);
     }
@@ -677,7 +751,9 @@ public class FormService extends BaseService {
             });
     formAssociation.setIncompletePrompts(incompletePrompts);
 
-    formAssociation.setLastModified(opContext.getAuditStamp());
+    final Urn finalActorUrn = getActorUrn(opContext, actorUrn);
+    formAssociation.setLastModified(
+        new AuditStamp().setActor(finalActorUrn).setTime(System.currentTimeMillis()));
   }
 
   /** Performs the operation of changing the status of a form prompt from complete to incomplete. */
@@ -1055,13 +1131,16 @@ public class FormService extends BaseService {
   private FormPromptAssociation getOrDefaultFormPromptAssociation(
       @Nonnull OperationContext opContext,
       @Nonnull final FormAssociation formAssociation,
-      @Nonnull final String formPromptId) {
+      @Nonnull final String formPromptId,
+      @Nullable Urn actorUrn) {
     final FormPromptAssociation existingPromptAssociation =
         getFormPromptAssociation(formAssociation, formPromptId);
     final FormPromptAssociation formPromptAssociation =
         existingPromptAssociation != null ? existingPromptAssociation : new FormPromptAssociation();
     formPromptAssociation.setId(formPromptId);
-    formPromptAssociation.setLastModified(opContext.getAuditStamp());
+    final Urn finalActorUrn = getActorUrn(opContext, actorUrn);
+    formPromptAssociation.setLastModified(
+        new AuditStamp().setActor(finalActorUrn).setTime(System.currentTimeMillis()));
     if (existingPromptAssociation == null) {
       FormPromptAssociationArray incompletePrompts =
           new FormPromptAssociationArray(formAssociation.getIncompletePrompts());
@@ -1113,13 +1192,34 @@ public class FormService extends BaseService {
     return false;
   }
 
+  /** Verifies a form for all the provided entities */
+  public void batchVerifyForm(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityUrns,
+      @Nonnull final Urn formUrn,
+      @Nullable final Urn actorUrn)
+      throws Exception {
+    entityUrns.forEach(
+        urnStr -> {
+          Urn urn = UrnUtils.getUrn(urnStr);
+          try {
+            verifyFormForEntity(opContext, formUrn, urn, actorUrn);
+          } catch (Exception e) {
+            log.error(String.format("Failed to verify form for entity %s", urn), e);
+          }
+        });
+  }
+
   /**
    * Adds a new form verification association for an entity for this form on their forms aspect. If
    * there was an existing verification association for this form, remove and replace it. First,
    * ensure this form is of VERIFICATION type and that this form is in completedForms.
    */
   public boolean verifyFormForEntity(
-      @Nonnull OperationContext opContext, @Nonnull final Urn formUrn, @Nonnull final Urn entityUrn)
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final Urn entityUrn,
+      @Nullable Urn actorUrn)
       throws Exception {
     final FormInfo formInfo = getFormInfo(opContext, formUrn);
     if (!formInfo.getType().equals(FormType.VERIFICATION)) {
@@ -1141,7 +1241,9 @@ public class FormService extends BaseService {
             .collect(Collectors.toList());
     FormVerificationAssociation newAssociation = new FormVerificationAssociation();
     newAssociation.setForm(formUrn);
-    newAssociation.setLastModified(opContext.getAuditStamp());
+    final Urn finalActorUrn = getActorUrn(opContext, actorUrn);
+    newAssociation.setLastModified(
+        new AuditStamp().setActor(finalActorUrn).setTime(System.currentTimeMillis()));
     formVerifications.add(newAssociation);
 
     formsAspect.setVerifications(new FormVerificationAssociationArray(formVerifications));
@@ -1437,5 +1539,11 @@ public class FormService extends BaseService {
     } catch (Exception e) {
       throw new RuntimeException("Failed to create form", e);
     }
+  }
+
+  public Urn getActorUrn(@Nonnull OperationContext opContext, @Nullable Urn actorUrn) {
+    return actorUrn != null
+        ? actorUrn
+        : UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr());
   }
 }

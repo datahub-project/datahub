@@ -1,6 +1,7 @@
 import React from 'react';
 
 import type { Meta, StoryObj, StoryFn } from '@storybook/react';
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
 
 import { VerticalFlexGrid } from '@components/.docs/mdx-components';
 import { Heading, headingDefaults } from '.';
@@ -13,6 +14,7 @@ const meta = {
     // Display Properties
     parameters: {
         layout: 'centered',
+        badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
             subtitle: 'Used to render semantic HTML heading elements.',
         },

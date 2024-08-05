@@ -4,8 +4,8 @@ import KeyboardArrowRightOutlinedIcon from '@mui/icons-material/KeyboardArrowRig
 
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { getSubTypeIcon } from '../entityV2/shared/components/subtypes';
-import { BrowsePathV2, Dataset, EntityType, Maybe } from '../../types.generated';
-import { capitalizeFirstLetter } from '../shared/textUtil';
+import { BrowsePathEntry, BrowsePathV2, Dataset, EntityType, Maybe } from '../../types.generated';
+import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import { IconStyleType } from '../entityV2/Entity';
 import ContainerLink from './SearchCardBrowsePathContainerLink';
@@ -84,12 +84,12 @@ function StaticSearchCardBrowsePath({ browsePaths, entityType, type, isCompactVi
     return (
         <PlatformContentWrapper>
             {/* This always renders */}
-            <PlatformText $maxWidth={150} $isCompactView={isCompactView} title={capitalizeFirstLetter(type)}>
+            <PlatformText $maxWidth={150} $isCompactView={isCompactView} title={capitalizeFirstLetterOnly(type)}>
                 {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
-                <PlatFormTitle>{capitalizeFirstLetter(type)}</PlatFormTitle>
+                <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
                 {(paths.length > 0 || parentEntity) && divider}
             </PlatformText>
-            {/* For parentEntity type */}
+            {/* For schema field parent */}
             {parentEntity && (
                 <>
                     <ContainerLink key={parentEntity.urn} container={parentEntity as Dataset} />
@@ -99,37 +99,41 @@ function StaticSearchCardBrowsePath({ browsePaths, entityType, type, isCompactVi
             {/* Render the paths if they exist */}
             {browsePaths &&
                 paths.map((path: any, key: number) => {
-                    const hasEntity = path.entity !== null;
-                    const pathEntityType = path.entity?.type || path.type;
-
-                    let renderComponent: JSX.Element | null = null;
-
-                    /* If the path has an entity, render it's link */
-
-                    switch (hasEntity && pathEntityType) {
-                        case EntityType.Container:
-                        case EntityType.Dashboard:
-                        case EntityType.Dataset:
-                            renderComponent = <ContainerLink key={path.urn} container={path.entity} />;
-                            break;
-                        default:
-                            renderComponent = (
-                                <PlatformText $maxWidth={150}>
-                                    <PlatFormTitle>{path.name}</PlatFormTitle>
-                                </PlatformText>
-                            );
-                            break;
-                    }
-
                     return (
                         <>
-                            {renderComponent}
+                            <BrowsePathSection entry={path} />
                             {key !== paths.length - 1 && divider}
                         </>
                     );
                 })}
         </PlatformContentWrapper>
     );
+}
+
+/**
+ * Renders a single path entry. If the path entry is an entity, renders a link to the entity.
+ * @param path Path to render
+ */
+function BrowsePathSection({ entry }: { entry: BrowsePathEntry }) {
+    const entityRegistry = useEntityRegistryV2();
+
+    switch (entry.entity?.type) {
+        case EntityType.Container:
+        case EntityType.Dashboard:
+        case EntityType.Dataset:
+        case EntityType.DataFlow:
+            return <ContainerLink key={entry.entity?.urn} container={entry.entity} />;
+        default: {
+            const name = entry.entity?.type
+                ? entityRegistry.getDisplayName(entry.entity.type, entry.entity)
+                : entry.name;
+            return (
+                <PlatformText $maxWidth={150}>
+                    <PlatFormTitle>{name}</PlatFormTitle>
+                </PlatformText>
+            );
+        }
+    }
 }
 
 export default StaticSearchCardBrowsePath;

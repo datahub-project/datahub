@@ -41,7 +41,13 @@ export const PropertiesTab = () => {
         propertyTableColumns.push({
             title: '',
             width: '10%',
-            render: (propertyRow: PropertyRow) => <EditColumn propertyRow={propertyRow} />,
+            render: (propertyRow: PropertyRow) => (
+                <EditColumn
+                    structuredProperty={propertyRow.structuredProperty}
+                    associatedUrn={propertyRow.associatedUrn}
+                    values={propertyRow.values?.map((v) => v.value) || []}
+                />
+            ),
         } as any);
     }
 

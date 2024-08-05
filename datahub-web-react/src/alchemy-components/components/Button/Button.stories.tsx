@@ -1,6 +1,7 @@
 import React from 'react';
 
 import type { Meta, StoryObj } from '@storybook/react';
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { AVAILABLE_ICONS } from '@components';
@@ -15,9 +16,10 @@ const meta = {
     // Display Properties
     parameters: {
         layout: 'centered',
+        badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
             subtitle:
-                'Button component is used to trigger an action or event, such as submitting a form, opening a dialog, canceling an action, or performing a delete operation.',
+                'Buttons are used to trigger an action or event, such as submitting a form, opening a dialog, canceling an action, or performing a delete operation.',
         },
     },
 

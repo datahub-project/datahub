@@ -1,5 +1,6 @@
 import './storybook-theme.css';
 
+import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
 import DocTemplate from './DocTemplate.mdx';
 
 const preview = {
@@ -50,7 +51,31 @@ const preview = {
 					format: true,
 				},
 			},
-		}
+		},
+
+		// Reconfig the premade badges with better titles
+		badgesConfig: {
+			"stable": {
+				...defaultBadgesConfig[BADGE.STABLE],
+				title: 'Stable',
+				tooltip: 'This component is stable but may have frequent changes. Use at own discretion.',
+			},
+			"productionReady": {
+				...defaultBadgesConfig[BADGE.STABLE],
+				title: 'Production Ready',
+				tooltip: 'This component is production ready and has been tested in a production environment.',
+			},
+			"WIP": {
+				...defaultBadgesConfig[BADGE.BETA],
+				title: 'WIP',
+				tooltip: 'This component is a work in progress and may not be fully functional or tested.',
+			},
+			"readyForDesignReview": {
+				...defaultBadgesConfig[BADGE.NEEDS_REVISION],
+				title: 'Ready for Design Review',
+				tooltip: 'This component is ready for design review and feedback.',
+			},
+		},
 	},
 };
 

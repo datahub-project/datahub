@@ -50,12 +50,14 @@ public class BatchVerifyFormResolverTest {
         .verifyFormForEntity(
             any(OperationContext.class),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN1)));
+            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN1)),
+            Mockito.eq(null));
     Mockito.verify(mockFormService, Mockito.times(1))
         .verifyFormForEntity(
             any(OperationContext.class),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN2)));
+            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN2)),
+            Mockito.eq(null));
   }
 
   @Test
@@ -74,7 +76,8 @@ public class BatchVerifyFormResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     Mockito.verify(mockFormService, Mockito.times(0))
-        .verifyFormForEntity(any(OperationContext.class), Mockito.any(), Mockito.any());
+        .verifyFormForEntity(
+            any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.eq(null));
   }
 
   @Test
@@ -94,7 +97,8 @@ public class BatchVerifyFormResolverTest {
 
     // gets called once but throws error
     Mockito.verify(mockFormService, Mockito.times(1))
-        .verifyFormForEntity(any(OperationContext.class), Mockito.any(), Mockito.any());
+        .verifyFormForEntity(
+            any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.eq(null));
   }
 
   private FormService initMockFormService(
@@ -112,12 +116,12 @@ public class BatchVerifyFormResolverTest {
     if (shouldVerify) {
       Mockito.when(
               service.verifyFormForEntity(
-                  any(OperationContext.class), Mockito.any(), Mockito.any()))
+                  any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.eq(null)))
           .thenReturn(true);
     } else {
       Mockito.when(
               service.verifyFormForEntity(
-                  any(OperationContext.class), Mockito.any(), Mockito.any()))
+                  any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.eq(null)))
           .thenThrow(new RuntimeException());
     }
 

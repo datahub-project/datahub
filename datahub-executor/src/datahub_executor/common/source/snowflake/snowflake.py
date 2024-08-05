@@ -107,7 +107,17 @@ class SnowflakeSource(Source):
         try:
             cur = self.connection.get_client().cursor()
             cur.execute(query)
-            return cur.fetchone()
+            result = cur.fetchone()
+            if result is None:
+                return []
+            elif isinstance(result, dict):
+                return list(result.values())
+            elif isinstance(result, tuple):
+                return list(result)
+            else:
+                raise SourceQueryFailedException(
+                    message=f"Unexpected result type: {type(result)}", query=query
+                )
         except Exception as e:
             raise SourceQueryFailedException(
                 message=f"Source query (Snowflake) failed with error: {e}", query=query

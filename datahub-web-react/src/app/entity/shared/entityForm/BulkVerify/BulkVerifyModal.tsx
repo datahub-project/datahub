@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 
+import { EntityType } from '@src/types.generated';
 import { CheckCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Button, Modal, notification } from 'antd';
 
-import { useBatchVerifyFormMutation } from '../../../../../graphql/form.generated';
+import { useAsyncBatchVerifyFormMutation, useBatchVerifyFormMutation } from '../../../../../graphql/form.generated';
 import { useEntityFormContext } from '../EntityFormContext';
 
 import { pluralize } from '../../../../shared/textUtil';
 import analytics, { DocRequestView, EventType } from '../../../../analytics';
+import { BULK_VERIFY_ID } from '../useEntityFormTasks';
 
 const ModalContent = styled.div`
     font-size: 14px;
@@ -40,16 +42,20 @@ interface Props {
 
 export default function BulkVerifyModal({ isVerifyModalVisible, closeModal }: Props) {
     const {
-        submission: { handleBulkVerifySubmission },
+        submission: { handleBulkVerifySubmission, handleAsyncBatchSubmit },
         form: { formUrn },
-        entity: { selectedEntities, setSelectedEntities },
+        filter: { formFilter, orFilters },
+        entity: { selectedEntities, setSelectedEntities, areAllEntitiesSelected, setAreAllEntitiesSelected },
+        search: { results },
     } = useEntityFormContext();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [batchVerifyForm, { loading }] = useBatchVerifyFormMutation();
+    const [asyncBatchVerifyForm, { loading: asyncVerifyLoading }] = useAsyncBatchVerifyFormMutation();
 
-    const shouldShowLoading = loading || isSubmitting;
+    const shouldShowLoading = loading || isSubmitting || asyncVerifyLoading;
     const numSelectedEntities = selectedEntities.length;
+    const totalCount = results.searchAcrossEntities?.total || 0;
 
     function batchVerify() {
         setIsSubmitting(true);
@@ -76,24 +82,76 @@ export default function BulkVerifyModal({ isVerifyModalVisible, closeModal }: Pr
         });
     }
 
+    function asyncBatchVerify() {
+        setIsSubmitting(true);
+        const types = results.searchAcrossEntities?.facets
+            ?.find((f) => f.field === '_entityType')
+            ?.aggregations.filter((agg) => !!agg.count)
+            .map((agg) => agg.value) as EntityType[];
+        asyncBatchVerifyForm({
+            variables: {
+                input: {
+                    types: types || [],
+                    formFilter,
+                    orFilters,
+                    formUrn,
+                    taskInput: { taskName: 'Verify form' },
+                },
+            },
+        }).then((result) => {
+            analytics.event({
+                type: EventType.CompleteVerification,
+                source: DocRequestView.BulkVerify,
+                numAssets: 1,
+            });
+            setIsSubmitting(false);
+            notification.success({
+                message: 'Success',
+                description: `Started task to verify form for ${totalCount} ${pluralize(
+                    selectedEntities.length,
+                    'asset',
+                )}.`,
+                placement: 'bottomLeft',
+                duration: 3,
+                icon: <CheckCircleFilled style={{ color: '#078781' }} />,
+            });
+            setSelectedEntities([]);
+            setAreAllEntitiesSelected(false);
+            closeModal();
+            if (result.data?.asyncBatchVerifyForm.taskUrn) {
+                handleAsyncBatchSubmit(result.data.asyncBatchVerifyForm.taskUrn, BULK_VERIFY_ID);
+            }
+        });
+    }
+
+    function handleSubmit() {
+        if (areAllEntitiesSelected) {
+            asyncBatchVerify();
+        } else {
+            batchVerify();
+        }
+    }
+
+    const numEntitiesVerified = areAllEntitiesSelected ? totalCount : numSelectedEntities;
+
     return (
         <Modal open={isVerifyModalVisible} title={null} footer={null} onCancel={closeModal}>
             <ModalContent>
                 <Title>
-                    Verify {numSelectedEntities} {pluralize(numSelectedEntities, 'Asset')}
+                    Verify {numEntitiesVerified} {pluralize(numEntitiesVerified, 'Asset')}
                 </Title>
                 <div>
-                    This action will mark the documentation for {} as verified for {numSelectedEntities}{' '}
-                    {pluralize(numSelectedEntities, 'asset')}. Would you like to proceed?
+                    This action will mark the documentation for {} as verified for {numEntitiesVerified}{' '}
+                    {pluralize(numEntitiesVerified, 'asset')}. Would you like to proceed?
                 </div>
                 <ButtonsWrapper>
                     <CancelButton onClick={closeModal} disabled={shouldShowLoading}>
                         Cancel
                     </CancelButton>
-                    <Button type="primary" onClick={batchVerify} disabled={shouldShowLoading}>
+                    <Button type="primary" onClick={handleSubmit} disabled={shouldShowLoading}>
                         {!shouldShowLoading && (
                             <>
-                                Verify {numSelectedEntities} {pluralize(numSelectedEntities, 'Asset')}
+                                Verify {numEntitiesVerified} {pluralize(numEntitiesVerified, 'Asset')}
                             </>
                         )}
                         {shouldShowLoading && (

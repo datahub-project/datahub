@@ -6,8 +6,8 @@ import { H1, H2, H3, H4, H5, H6 } from './components';
 export const headingDefaults: HeadingProps = {
     type: 'h1',
     color: 'inherit',
-    size: undefined,
-    weight: undefined,
+    size: '2xl',
+    weight: 'medium',
 };
 
 export const Heading = ({

@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListTestsInput;
 import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.Test;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
@@ -62,15 +63,21 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
             final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
             final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
             final String query = input.getQuery() == null ? "" : input.getQuery();
+            final Filter filter =
+                input.getOrFilters() != null
+                    ? ResolverUtils.buildFilter(
+                        null,
+                        input.getOrFilters(),
+                        context.getOperationContext().getAspectRetriever())
+                    : buildTestsFilter();
 
             try {
-              // First, get all group Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
                       context.getOperationContext().withSearchFlags(flags -> SEARCH_FLAGS),
                       Constants.TEST_ENTITY_NAME,
                       query,
-                      buildTestsFilter(),
+                      filter,
                       Collections.singletonList(
                           new SortCriterion()
                               .setField(TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME)
@@ -123,7 +130,9 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                                     new Criterion()
                                         .setField("sourceType")
                                         .setCondition(Condition.EQUAL)
-                                        .setValues(new StringArray(ImmutableList.of("FORMS")))
+                                        .setValues(
+                                            new StringArray(
+                                                ImmutableList.of("FORMS", "BULK_FORM_SUBMISSION")))
                                         .setValue("FORMS")
                                         .setNegated(true)))))));
   }

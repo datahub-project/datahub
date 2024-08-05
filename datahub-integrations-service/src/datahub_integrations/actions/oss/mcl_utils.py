@@ -6,6 +6,9 @@ from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TY
 
 
 class MCLProcessor:
+    """
+    A utility class to register and process MetadataChangeLog events.
+    """
 
     def __init__(self) -> None:
         self.entity_aspect_processors: dict[str, dict[str, Callable]] = {}

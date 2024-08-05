@@ -136,7 +136,7 @@ export function NavLinksMenu(props: Props) {
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
-    const showActionRequests = (isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) || false;
+    const showActionRequests = isActionRequestsEnabled || false;
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;

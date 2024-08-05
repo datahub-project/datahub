@@ -47,19 +47,6 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
   cy.get(".ant-avatar-circle").should("be.visible");
 });
 
-Cypress.Commands.add("loginWithCredentials", (username, password) => {
-  cy.visit("/");
-  if ((username, password)) {
-    cy.get("input[data-testid=username]").type(username);
-    cy.get("input[data-testid=password]").type(password);
-  } else {
-    cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
-    cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
-  }
-  cy.contains("Sign In").click();
-  cy.get(".ant-avatar-circle").should("be.visible");
-});
-
 Cypress.Commands.add("deleteUrn", (urn) => {
   cy.request({
     method: "POST",

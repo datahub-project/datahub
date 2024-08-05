@@ -53,7 +53,7 @@ export const Input = ({
 
     return (
         <InputWrapper {...props}>
-            <Label>
+            <Label aria-label={label}>
                 {label} {isRequired && <Required>*</Required>}
             </Label>
             <InputContainer {...inputBaseProps}>

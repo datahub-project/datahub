@@ -30,6 +30,30 @@ RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
+# Install JRE in the prod image
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends openjdk-17-jre-headless && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set JAVA_HOME environment variable
+RUN ln -svT "/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)" /usr/lib/jvm/default-jvm
+ENV JAVA_HOME=/usr/lib/jvm/default-jvm
+
+RUN <<EOF
+set -e
+DEBIAN_VERSION=$(cat /etc/debian_version | cut -d . -f 1)
+curl -sSL https://packages.microsoft.com/keys/microsoft.asc | tee /etc/apt/trusted.gpg.d/microsoft.asc
+curl -sSL https://packages.microsoft.com/config/debian/$DEBIAN_VERSION/prod.list | tee /etc/apt/sources.list.d/mssql-release.list
+gpg -o /usr/share/keyrings/microsoft-prod.gpg --dearmor /etc/apt/trusted.gpg.d/microsoft.asc
+apt-get update
+ACCEPT_EULA=Y apt-get install -y -qq msodbcsql18
+rm -rf /var/lib/apt/lists/*
+
+odbcinst -j || { echo 'odbcinst -j failed'; exit 1; }
+odbcinst -q -d -n "ODBC Driver 18 for SQL Server" || { echo 'ODBC Driver 18 for SQL Server not found'; exit 1; }
+
+EOF
+
 USER datahub
 RUN uv pip install --no-cache -e .
 
@@ -38,12 +62,6 @@ RUN uv pip install --no-cache -e .
 
 ## Production Image Built From Build Image
 FROM build as prod-install
-
-# Install OpenJDK 17 in the prod image
-RUN apt-get update && apt-get install -y openjdk-17-jdk
-
-# Set JAVA_HOME environment variable
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 USER datahub
 

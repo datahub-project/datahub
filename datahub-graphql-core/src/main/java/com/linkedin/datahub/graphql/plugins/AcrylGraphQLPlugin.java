@@ -31,6 +31,8 @@ import com.linkedin.datahub.graphql.generated.RowResult;
 import com.linkedin.datahub.graphql.generated.ShareResult;
 import com.linkedin.datahub.graphql.generated.SystemMonitor;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
+import com.linkedin.datahub.graphql.resolvers.action.execution.BootstrapActionPipelineResolver;
+import com.linkedin.datahub.graphql.resolvers.action.execution.DeleteActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.GetActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.ListActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.RollbackActionPipelineResolver;
@@ -65,6 +67,8 @@ import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.DataContractResultResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
+import com.linkedin.datahub.graphql.resolvers.form.AsyncBatchSubmitFormPromptResolver;
+import com.linkedin.datahub.graphql.resolvers.form.AsyncBatchVerifyFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchSubmitFormPromptResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchVerifyFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.FormAnalyticsConfigResolver;
@@ -149,6 +153,7 @@ import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.test.MetadataTestClient;
 import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.ArrayList;
@@ -186,6 +191,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private ShareService shareService;
   private FormService formService;
   private TimeseriesAspectService timeseriesAspectService;
+  private MetadataTestClient metadataTestClient;
 
   // Config
   private ExecutorConfiguration executorConfiguration;
@@ -229,6 +235,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.testEngine = args.getTestEngine();
     this.shareService = args.getShareService();
     this.formService = args.getFormService();
+    this.metadataTestClient = args.getMetadataTestClient();
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
@@ -410,6 +417,14 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "batchSubmitFormPrompt", new BatchSubmitFormPromptResolver(this.formService))
                 .dataFetcher(
+                    "asyncBatchSubmitFormPrompt",
+                    new AsyncBatchSubmitFormPromptResolver(
+                        this.formService, this.entityClient, this.metadataTestClient))
+                .dataFetcher(
+                    "asyncBatchVerifyForm",
+                    new AsyncBatchVerifyFormResolver(
+                        this.formService, this.entityClient, this.metadataTestClient))
+                .dataFetcher(
                     "batchVerifyForm",
                     new BatchVerifyFormResolver(this.formService, this.groupService))
                 .dataFetcher("updateHelpLink", new UpdateHelpLinkResolver(this.settingsService))
@@ -419,6 +434,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "rollbackActionPipeline",
                     new RollbackActionPipelineResolver(this.entityClient, this.integrationsService))
+                .dataFetcher(
+                    "bootstrapActionPipeline",
+                    new BootstrapActionPipelineResolver(
+                        this.entityClient, this.integrationsService))
                 .dataFetcher(
                     "stopActionPipeline",
                     new StopActionPipelineResolver(this.entityClient, this.integrationsService))
@@ -576,7 +595,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new UpsertActionPipelineResolver(this.entityClient, this.integrationsService))
                 .dataFetcher(
                     "upsertActionPipeline",
-                    new UpsertActionPipelineResolver(this.entityClient, this.integrationsService)));
+                    new UpsertActionPipelineResolver(this.entityClient, this.integrationsService))
+                .dataFetcher(
+                    "deleteActionPipeline",
+                    new DeleteActionPipelineResolver(this.entityClient, this.integrationsService)));
 
     builder.type(
         "Query",

@@ -1,0 +1,16 @@
+namespace com.linkedin.generic.slack
+
+/**
+ * Information about a Slack entity, stored within a Generic Entity.
+ */
+record SlackEntityBase {
+  /**
+   * The unique ID of the Slack entity. I.e., memberID, or channelID.
+   */
+  id: string
+
+  /**
+   * The display name of the Slack entity. I.e., if this is a member, it would be the member's name.
+   */
+  displayName: string
+}

@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 
-import { Entity, Form, FormFilter, FormPrompt, SearchResult } from '../../../../types.generated';
+import { AndFilterInput, Entity, Form, FormFilter, FormPrompt, SearchResult, Test } from '../../../../types.generated';
 import { EntityAndType, GenericEntityProperties } from '../types';
 import { SearchForEntitiesByFormQuery } from '../../../../graphql/form.generated';
 
@@ -29,6 +29,9 @@ export type EntityFormContextType = {
         handlePromptSubmission: (promptId: string, entityUrns: string[]) => void;
         handleUndoPromptSubmission: (promptId: string, entityUrns: string[]) => void;
         handleBulkVerifySubmission: (entityUrns: string[]) => void;
+        activeTasks: Test[];
+        completeTasks: Test[];
+        handleAsyncBatchSubmit: (taskUrn: string, promptId: string) => void;
     };
     search: {
         results: SearchForEntitiesByFormQuery;
@@ -50,6 +53,7 @@ export type EntityFormContextType = {
     filter: {
         formFilter?: FormFilter;
         formResponsesFilters?: FormResponsesFilter[];
+        orFilters?: AndFilterInput[] | null;
         setFormResponsesFilters: (value: FormResponsesFilter[]) => void;
         shouldClearFilters: boolean;
         setShouldClearFilters: (bool: boolean) => void;
@@ -58,6 +62,8 @@ export type EntityFormContextType = {
         entitiesForForm?: EntityAndType[];
         entityData?: GenericEntityProperties;
         refetch: () => Promise<any>;
+        areAllEntitiesSelected: boolean;
+        setAreAllEntitiesSelected: (areAllSelected: boolean) => void;
         selectedEntities: EntityAndType[];
         setSelectedEntities: (entities: EntityAndType[]) => void;
         selectedEntity?: Entity;
@@ -117,6 +123,9 @@ export const DEFAULT_CONTEXT = {
         handlePromptSubmission: (_: string, __: string[]) => null,
         handleUndoPromptSubmission: (_: string, __: string[]) => null,
         handleBulkVerifySubmission: (_: string[]) => null,
+        activeTasks: [],
+        completeTasks: [],
+        handleAsyncBatchSubmit: (_taskId: string, _promptId: string) => {},
     },
     search: {
         results: {},
@@ -138,6 +147,7 @@ export const DEFAULT_CONTEXT = {
     filter: {
         formFilter: undefined,
         formResponsesFilters: undefined,
+        orFilters: undefined,
         setFormResponsesFilters: () => null,
         shouldClearFilters: false,
         setShouldClearFilters: (_: boolean) => null,
@@ -146,6 +156,8 @@ export const DEFAULT_CONTEXT = {
         entitiesForForm: undefined,
         entityData: undefined,
         refetch: () => Promise.resolve({}),
+        areAllEntitiesSelected: false,
+        setAreAllEntitiesSelected: (_: boolean) => null,
         selectedEntities: [],
         setSelectedEntities: (_: EntityAndType[]) => null,
         selectedEntity: undefined,

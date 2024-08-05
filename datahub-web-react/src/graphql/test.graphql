@@ -54,7 +54,24 @@ mutation runTestDefinition($urn: String!, $test: TestDefinitionInput!) {
 
 query getTestResultsSummary($urn: String!) {
     test(urn: $urn) {
+        urn
+        type
+        name
         ...testResultsSummaryFields
+    }
+}
+
+query getTestResultSummaries($input: ListTestsInput!) {
+    listTests(input: $input) {
+        start
+        count
+        total
+        tests {
+            urn
+            type
+            name
+            ...testResultsSummaryFields
+        }
     }
 }
 

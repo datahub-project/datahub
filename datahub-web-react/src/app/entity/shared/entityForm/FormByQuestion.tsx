@@ -26,6 +26,7 @@ import usePrevious from '../../../shared/usePrevious';
 import BulkVerifyPromptModal from './BulkVerifyPromptModal';
 
 import { useIsThemeV2 } from '../../../useIsThemeV2';
+import ActiveTasks from './ActiveTasks';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;
@@ -50,7 +51,13 @@ export default function FormByQuestion({ closeModal }: Props) {
             setNumResultsPerPage,
         },
         filter: { setFormResponsesFilters },
-        entity: { selectedEntities, setSelectedEntities, setNumSubmittedEntities },
+        entity: {
+            selectedEntities,
+            setSelectedEntities,
+            setNumSubmittedEntities,
+            areAllEntitiesSelected,
+            setAreAllEntitiesSelected,
+        },
         states: {
             byQuestion: { showVerifyCTA },
         },
@@ -82,6 +89,7 @@ export default function FormByQuestion({ closeModal }: Props) {
     const clearAllFilters = () => {
         setFormResponsesFilters([]);
         setSelectedEntities([]);
+        setAreAllEntitiesSelected(false);
         onChangeFilters([]);
     };
 
@@ -153,12 +161,15 @@ export default function FormByQuestion({ closeModal }: Props) {
                     showCustomSection={resultItemCount === 0}
                     onClickExploreAll={clearAllFilters}
                     onClickClearFilters={clearAllFilters}
+                    areAllEntitiesSelected={areAllEntitiesSelected}
+                    setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                     shouldHideSuggestions
                 />
                 <BulkVerifyPromptModal
                     isVisible={isVerifyModalVisible}
                     closeModal={() => setIsVerifyModalVisible(false)}
                 />
+                <ActiveTasks />
             </FormByQuestionWrapper>
         );
     }
@@ -211,10 +222,13 @@ export default function FormByQuestion({ closeModal }: Props) {
                     setSelectedEntities={setSelectedEntities}
                     onChangeSelectAll={onChangeSelectAll}
                     refetch={refetch}
+                    areAllEntitiesSelected={areAllEntitiesSelected}
+                    setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                     isSelectMode
                 />
             )}
             <BulkVerifyPromptModal isVisible={isVerifyModalVisible} closeModal={() => setIsVerifyModalVisible(false)} />
+            <ActiveTasks />
         </FormByQuestionWrapper>
     );
 }

@@ -3,16 +3,24 @@ import { MainFormContainer, NewFormContainer } from './styledComponents';
 import FormLeftSection from './FormLeftSection';
 import FormBody from './FormBody';
 import FormFooter from './FormFooter';
+import { ManageFormContextProvider } from './ManageFormContextProvider';
+import { FormMode } from './formUtils';
 
-const NewForm = () => {
+interface Props {
+    mode: FormMode;
+}
+
+const NewForm = ({ mode }: Props) => {
     return (
-        <NewFormContainer>
-            <FormLeftSection />
-            <MainFormContainer>
-                <FormBody />
-                <FormFooter />
-            </MainFormContainer>
-        </NewFormContainer>
+        <ManageFormContextProvider>
+            <NewFormContainer>
+                <FormLeftSection />
+                <MainFormContainer>
+                    <FormBody mode={mode} />
+                    <FormFooter />
+                </MainFormContainer>
+            </NewFormContainer>
+        </ManageFormContextProvider>
     );
 };
 

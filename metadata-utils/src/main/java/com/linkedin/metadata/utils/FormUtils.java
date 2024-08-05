@@ -60,6 +60,7 @@ public class FormUtils {
     return new Criterion()
         .setField("owners")
         .setValues(ownershipUrns)
+        .setValue(ownershipUrns.get(0))
         .setCondition(Condition.EQUAL);
   }
 }

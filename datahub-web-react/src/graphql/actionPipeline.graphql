@@ -57,3 +57,7 @@ mutation startActionPipeline($urn: String!) {
 mutation rollbackActionPipeline($urn: String!) {
     rollbackActionPipeline(urn: $urn)
 }
+
+mutation deleteActionPipeline($urn: String!) {
+    deleteActionPipeline(urn: $urn)
+}

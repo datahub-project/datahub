@@ -36,6 +36,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
     const areTagsEmpty = !entityData?.globalTags?.tags?.length && !proposedTags?.length;
 
     const canEditTags = !!entityData?.privileges?.canEditTags;
+    const canProposeTags = !!entityData?.privileges?.canProposeTags;
 
     return (
         <div id={ENTITY_PROFILE_TAGS_ID}>
@@ -70,7 +71,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                             setAddModalType(EntityType.Tag);
                             event.stopPropagation();
                         }}
-                        actionPrivilege={canEditTags}
+                        actionPrivilege={canEditTags || canProposeTags}
                     />
                 }
             />

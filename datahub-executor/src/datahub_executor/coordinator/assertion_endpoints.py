@@ -28,7 +28,7 @@ assertions_router = fastapi.APIRouter(
 @assertions_router.post("/evaluate_assertion")
 def evaluate_assertion(
     assertion_input: EvaluateAssertionInputSchema,
-) -> AssertionResultSchema:
+) -> Optional[AssertionResultSchema]:
     global graph, engine
 
     return handle_evaluate_assertion(assertion_input)
@@ -45,7 +45,7 @@ def evaluate_assertion_urns(
 def evaluate_assertion_urn(
     assertion_urn_input: EvaluateAssertionUrnInputSchema,
 ) -> AssertionResultSchema:
-    return handle_evaluate_assertion_urn(assertion_urn_input)
+    return handle_evaluate_assertion_urn(assertion_urn_input, False)
 
 
 if __name__ == "__main__":

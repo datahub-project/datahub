@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tooltip } from 'antd';
+import moment from 'moment';
 import styled from 'styled-components';
 import { LabelText } from './styledComponents';
 import { REDESIGN_COLORS } from '../../../../constants';
@@ -23,13 +24,14 @@ interface Props {
 }
 
 const TimeProperty = ({ labelText, time, titleTip }: Props) => {
+    const timeFormatted = moment(time).format('hh:mm A');
     return (
         <PropertyContainer>
             <Tooltip showArrow={false} title={titleTip}>
                 <LabelText>{labelText}</LabelText>
             </Tooltip>
             {!!time && (
-                <Tooltip title={toLocalDateString(time)}>
+                <Tooltip showArrow={false} title={`${toLocalDateString(time)} at ${timeFormatted}`}>
                     <UpdatedTime>{toRelativeTimeString(time)}</UpdatedTime>
                 </Tooltip>
             )}

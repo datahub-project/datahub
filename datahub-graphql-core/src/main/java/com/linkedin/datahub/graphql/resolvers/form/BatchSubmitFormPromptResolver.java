@@ -64,7 +64,9 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   structuredPropertyUrn,
                   values,
                   formUrn,
-                  promptId);
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()),
+                  true);
             } else if (promptInput.getType().equals(FormPromptType.FIELDS_STRUCTURED_PROPERTY)) {
               if (promptInput.getStructuredPropertyParams() == null) {
                 throw new IllegalArgumentException(
@@ -91,7 +93,8 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   values,
                   formUrn,
                   promptId,
-                  uniqueFieldPaths);
+                  uniqueFieldPaths,
+                  UrnUtils.getUrn(context.getActorUrn()));
             } else if (promptInput.getType().equals(FormPromptType.OWNERSHIP)) {
               if (promptInput.getOwnershipParams() == null) {
                 throw new IllegalArgumentException(
@@ -109,7 +112,9 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   owners,
                   ownershipTypeUrn,
                   formUrn,
-                  promptId);
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()),
+                  true);
             }
             return false;
           } catch (Exception e) {

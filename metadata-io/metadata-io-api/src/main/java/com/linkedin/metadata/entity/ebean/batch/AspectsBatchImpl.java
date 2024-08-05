@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import java.util.Collection;
@@ -47,7 +48,7 @@ public class AspectsBatchImpl implements AspectsBatch {
       final Map<String, Map<String, SystemAspect>> latestAspects) {
 
     // Process proposals to change items
-    Stream<ChangeMCP> mutatedProposalsStream =
+    Stream<? extends BatchItem> mutatedProposalsStream =
         proposedItemsToChangeItemStream(
             items.stream()
                 .filter(item -> item instanceof ProposedItem)
@@ -92,21 +93,30 @@ public class AspectsBatchImpl implements AspectsBatch {
 
     LinkedList<ChangeMCP> newItems =
         applyMCPSideEffects(upsertBatchItems).collect(Collectors.toCollection(LinkedList::new));
-    Map<String, Set<String>> newUrnAspectNames = getNewUrnAspectsMap(getUrnAspectsMap(), newItems);
     upsertBatchItems.addAll(newItems);
+    Map<String, Set<String>> newUrnAspectNames =
+        getNewUrnAspectsMap(getUrnAspectsMap(), upsertBatchItems);
 
     return Pair.of(newUrnAspectNames, upsertBatchItems);
   }
 
-  private Stream<ChangeMCP> proposedItemsToChangeItemStream(List<MCPItem> proposedItems) {
-    return applyProposalMutationHooks(proposedItems, retrieverContext)
-        .filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
-        .map(
-            mcpItem ->
-                ChangeItemImpl.ChangeItemImplBuilder.build(
-                    mcpItem.getMetadataChangeProposal(),
-                    mcpItem.getAuditStamp(),
-                    retrieverContext.getAspectRetriever()));
+  private Stream<? extends BatchItem> proposedItemsToChangeItemStream(List<MCPItem> proposedItems) {
+    List<MCPItem> mutatedItems =
+        applyProposalMutationHooks(proposedItems, retrieverContext).collect(Collectors.toList());
+    Stream<ChangeMCP> proposedItemsToChangeItems =
+        mutatedItems.stream()
+            .filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
+            // Filter on proposed items again to avoid applying builder to Patch Item side effects
+            .filter(mcpItem -> mcpItem instanceof ProposedItem)
+            .map(
+                mcpItem ->
+                    ChangeItemImpl.ChangeItemImplBuilder.build(
+                        mcpItem.getMetadataChangeProposal(),
+                        mcpItem.getAuditStamp(),
+                        retrieverContext.getAspectRetriever()));
+    Stream<? extends BatchItem> sideEffectItems =
+        mutatedItems.stream().filter(mcpItem -> !(mcpItem instanceof ProposedItem));
+    return Stream.concat(proposedItemsToChangeItems, sideEffectItems);
   }
 
   public static class AspectsBatchImplBuilder {
@@ -126,12 +136,32 @@ public class AspectsBatchImpl implements AspectsBatch {
         List<MetadataChangeProposal> mcps,
         AuditStamp auditStamp,
         RetrieverContext retrieverContext) {
+      return mcps(mcps, auditStamp, retrieverContext, false);
+    }
+
+    public AspectsBatchImplBuilder mcps(
+        List<MetadataChangeProposal> mcps,
+        AuditStamp auditStamp,
+        RetrieverContext retrieverContext,
+        boolean alternateMCPValidation) {
 
       retrieverContext(retrieverContext);
       items(
           mcps.stream()
               .map(
                   mcp -> {
+                    if (alternateMCPValidation) {
+                      EntitySpec entitySpec =
+                          retrieverContext
+                              .getAspectRetriever()
+                              .getEntityRegistry()
+                              .getEntitySpec(mcp.getEntityType());
+                      return ProposedItem.builder()
+                          .metadataChangeProposal(mcp)
+                          .entitySpec(entitySpec)
+                          .auditStamp(auditStamp)
+                          .build();
+                    }
                     if (mcp.getChangeType().equals(ChangeType.PATCH)) {
                       return PatchItemImpl.PatchItemImplBuilder.build(
                           mcp,

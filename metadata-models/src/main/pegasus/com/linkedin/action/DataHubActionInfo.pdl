@@ -24,6 +24,16 @@ record DataHubActionInfo {
   type: string
 
   /**
+   * The category of the action
+   */
+  category: optional string
+
+  /**
+   * The description of the action
+   */
+  description: optional string
+
+  /**
   * Parameters associated with the Action
   */
   config: record DataHubActionConfig {
@@ -32,4 +42,19 @@ record DataHubActionInfo {
      */
      recipe: string
   }
+
+  /**
+  * The intended state of the action
+  */
+  state: optional enum DataHubActionState {
+    /**
+     * The action is supposed to be active
+     */
+    ACTIVE
+    /**
+     * The action should be inactive
+    */
+    INACTIVE
+  } = "ACTIVE"
+
 }

@@ -70,6 +70,7 @@ public class OperationContext {
         .requestContext(requestContext)
         // Initialize view authorization for user viewable urn tracking
         .viewAuthorizationContext(ViewAuthorizationContext.builder().build())
+        .validationContext(systemOperationContext.getValidationContext())
         .build(sessionAuthentication);
   }
 
@@ -121,7 +122,8 @@ public class OperationContext {
       @Nonnull EntityRegistry entityRegistry,
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
-      @Nullable RetrieverContext retrieverContext) {
+      @Nullable RetrieverContext retrieverContext,
+      @Nonnull ValidationContext validationContext) {
     return asSystem(
         config,
         systemAuthentication,
@@ -129,6 +131,7 @@ public class OperationContext {
         servicesRegistryContext,
         indexConvention,
         retrieverContext,
+        validationContext,
         ObjectMapperContext.DEFAULT);
   }
 
@@ -139,6 +142,7 @@ public class OperationContext {
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
+      @Nonnull ValidationContext validationContext,
       @Nonnull ObjectMapperContext objectMapperContext) {
 
     ActorContext systemActorContext =
@@ -160,6 +164,7 @@ public class OperationContext {
         .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
         .retrieverContext(retrieverContext)
         .objectMapperContext(objectMapperContext)
+        .validationContext(validationContext)
         .build(systemAuthentication);
   }
 
@@ -174,6 +179,7 @@ public class OperationContext {
   @Nullable private final ViewAuthorizationContext viewAuthorizationContext;
   @Nullable private final RetrieverContext retrieverContext;
   @Nonnull private final ObjectMapperContext objectMapperContext;
+  @Nonnull private final ValidationContext validationContext;
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
@@ -430,9 +436,8 @@ public class OperationContext {
           this.requestContext,
           this.viewAuthorizationContext,
           this.retrieverContext,
-          this.objectMapperContext != null
-              ? this.objectMapperContext
-              : ObjectMapperContext.DEFAULT);
+          this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
+          this.validationContext);
     }
 
     private OperationContext build() {

@@ -54,7 +54,7 @@ export const isSinkEnabled = (
 ) => {
     switch (sinkId) {
         case SLACK_SINK.id: {
-            // This is a HACK. We should actually make a call to hcheck connection settings.
+            // This is a HACK. We should actually make a call to check connection settings.
             return isPresent(settings?.integrationSettings?.slackSettings?.defaultChannelName);
         }
         case EMAIL_SINK.id:

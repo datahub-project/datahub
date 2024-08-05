@@ -1,9 +1,13 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.APP_SOURCE;
+import static com.linkedin.metadata.Constants.UI_SOURCE;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -15,6 +19,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,6 +61,28 @@ public class AspectUtils {
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
+    return proposal;
+  }
+
+  /**
+   * Build an MCP that is processed in a fully synchronous manner.
+   *
+   * <p>This means that the secondary storage will be updated synchronously with the primary
+   * storage, without waiting on the MCL kafka topic / eventual consistency.
+   */
+  public static MetadataChangeProposal buildSynchronousMetadataChangeProposal(
+      @Nonnull Urn urn, @Nonnull String aspectName, @Nonnull RecordTemplate aspect) {
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(urn);
+    proposal.setEntityType(urn.getEntityType());
+    proposal.setAspectName(aspectName);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, UI_SOURCE);
+    systemMetadata.setProperties(properties);
+    proposal.setSystemMetadata(systemMetadata);
     return proposal;
   }
 

@@ -16,12 +16,22 @@ interface Props {
 
 export default function BulkSubmissionButton({ isDisabled, submitResponse }: Props) {
     const {
-        entity: { selectedEntities },
+        entity: { selectedEntities, areAllEntitiesSelected },
+        search: { results },
     } = useEntityFormContext();
+    const totalResults = results.searchAcrossEntities?.total || 0;
 
     return (
         <StyledButton disabled={isDisabled} onClick={submitResponse}>
-            Set for {selectedEntities.length} Selected {pluralize(selectedEntities.length, 'Asset')}
+            {areAllEntitiesSelected ? (
+                <>
+                    Set for {totalResults} Selected {pluralize(totalResults, 'Asset')}
+                </>
+            ) : (
+                <>
+                    Set for {selectedEntities.length} Selected {pluralize(selectedEntities.length, 'Asset')}
+                </>
+            )}
         </StyledButton>
     );
 }

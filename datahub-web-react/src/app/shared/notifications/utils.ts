@@ -98,10 +98,10 @@ export const getErrorDisplayContentFromSlackErrorCode = (
     switch (errorCode) {
         // --- channel/conversation related errors --- //
         case 'channel_not_found':
-            message = `Looks like there's no channel with the name '${extraContext.destinationName}' in this workspace. Verify the channel name is spelled correctly; and if this is a private channel, be sure to add the Acryl Slackbot to it.`;
+            message = `Looks like there's no channel with the name '${extraContext.destinationName}' in this workspace. Verify the channel name is spelled correctly; and if this is a private channel, be sure to add the DataHub Slackbot to it.`;
             break;
         case 'not_in_channel':
-            message = `Please add the Acryl Slackbot into ${extraContext.destinationName} to recieve messages there.`;
+            message = `Please add the DataHub Slackbot into ${extraContext.destinationName} to recieve messages there.`;
             break;
         case 'is_archived':
             message = `Looks like this channel has been archived. Contact your Slack admin to un-archive it, or select another channel.`;
@@ -113,7 +113,7 @@ export const getErrorDisplayContentFromSlackErrorCode = (
             message = `Looks like this channel only supports replying in threads. Contact your Slack admin to change this, or select another channel.`;
             break;
         case 'no_permission':
-            message = `We do not have access to post messages into ${extraContext.destinationName}. Please add the Acryl Slackbot into ${extraContext.destinationName} to recieve messages there.`;
+            message = `We do not have access to post messages into ${extraContext.destinationName}. Please add the DataHub Slackbot into ${extraContext.destinationName} to recieve messages there.`;
             break;
 
         // --- Admin restriction errors --- //
@@ -121,17 +121,17 @@ export const getErrorDisplayContentFromSlackErrorCode = (
             message = `Your workspace admins have suspended the ability to post messages. Contact your Slack admin to resolve this, or try again later.`;
             break;
         case 'restricted_action':
-            message = `A workspace preference has restricted the Acryl Slackbot from posting messages. Contact your Slack admin to resolve this, or try again later.`;
+            message = `A workspace preference has restricted the DataHub Slackbot from posting messages. Contact your Slack admin to resolve this, or try again later.`;
             break;
         case 'access_denied':
-            message = `Access has been denied to complete the request. Contact your Acryl Admin to resolve this, or try again later.`;
+            message = `Access has been denied to complete the request. Contact your DataHub Admin to resolve this, or try again later.`;
             break;
 
         // --- Team-related errors --- //
         case 'team_access_not_granted':
             // TOOD: show who the admins are that they can contact
             // TODO: link to docs to give necessary access
-            message = `The Slackbot has not been given access to the team associated with the desired destination. Contact your Acryl Admin to update the Slack token to one that has access to this team.`;
+            message = `The Slackbot has not been given access to the team associated with the desired destination. Contact your DataHub Admin to update the Slack token to one that has access to this team.`;
             break;
         case 'team_not_found':
             // TODO: link to docs to get channel_id
@@ -141,33 +141,33 @@ export const getErrorDisplayContentFromSlackErrorCode = (
         // --- Token-related errors --- //
         case 'account_inactive':
             message =
-                'The Acryl Slackbot token is for a deleted workspace. Contact your Acryl admin to re-connect Acryl to Slack with the latest workspace details.';
+                'The DataHub Slackbot token is for a deleted workspace. Contact your DataHub admin to re-connect DataHub to Slack with the latest workspace details.';
             break;
         case 'invalid_auth':
-            message = `Either the Slack integration tokens are invalid, or DataHub's IPs have been restricted from sending messages. Contact your Acryl admin to re-connect Acryl to Slack.`;
+            message = `Either the Slack integration tokens are invalid, or DataHub's IPs have been restricted from sending messages. Contact your DataHub admin to re-connect DataHub to Slack.`;
             break;
         case 'missing_scope':
-            message = `The Acryl Slackbot does not have necessary scope to send this message. Contact your Acryl admin to updated the scoped privileges of the Slackbot.`;
+            message = `The DataHub Slackbot does not have necessary scope to send this message. Contact your DataHub admin to updated the scoped privileges of the Slackbot.`;
             break;
         case 'not_allowed_token_type':
             // Should never happen
             // TODO: include a contact us action
-            message = `The Acryl Slackbot's tokentype is not allowed to perform this request. This is unexpected, please contact us if this does not resolve on its own shortly.`;
+            message = `The DataHub Slackbot's tokentype is not allowed to perform this request. This is unexpected, please contact us if this does not resolve on its own shortly.`;
             break;
         case 'not_authed':
             message = `No authentication token was provided to Slack when performing this request. This is unexpected, please contact us if this does not resolve on its own shortly.`;
             break;
         case 'token_expired':
             message =
-                'The Acryl Slackbot token is expired. Contact your Acryl admin to re-connect Acryl to Slack with a fresh token.';
+                'The DataHub Slackbot token is expired. Contact your DataHub admin to re-connect DataHub to Slack with a fresh token.';
             break;
         case 'token_revoked':
             message =
-                "The Acryl Slackbot's token access has been revoked. Contact your Acryl admin to re-connect Acryl to Slack with a fresh token.";
+                "The DataHub Slackbot's token access has been revoked. Contact your DataHub admin to re-connect DataHub to Slack with a fresh token.";
             break;
         case 'accesslimited':
             message =
-                'Access to sending messages has been limited on the current network. This may resolve on its own shortly. If it does not resolve itself, you can contact your Acryl admin to troubleshoot this issue.';
+                'Access to sending messages has been limited on the current network. This may resolve on its own shortly. If it does not resolve itself, you can contact your DataHub admin to troubleshoot this issue.';
             break;
 
         // --- Error with slack systems --- //

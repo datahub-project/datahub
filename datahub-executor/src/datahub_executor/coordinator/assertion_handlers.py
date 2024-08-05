@@ -4,6 +4,7 @@ from threading import Thread
 from typing import Optional
 
 import fastapi
+from acryl.executor.request.execution_request import ExecutionRequest
 
 from datahub_executor.common.aspect_builder import build_assertion_run_event
 from datahub_executor.common.assertion.engine.engine import AssertionEngine
@@ -11,6 +12,7 @@ from datahub_executor.common.client.fetcher.monitors.graphql.query import (
     GRAPHQL_GET_ASSERTION_QUERY,
     GRAPHQL_GET_DATASET_QUERY,
 )
+from datahub_executor.common.constants import RUN_ASSERTION_TASK_NAME
 from datahub_executor.common.helpers import (
     create_assertion_engine,
     create_datahub_graph,
@@ -21,10 +23,17 @@ from datahub_executor.common.types import (
     AssertionEntity,
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
+    AssertionEvaluationSpec,
     AssertionSourceType,
+    CronSchedule,
     Monitor,
 )
-from datahub_executor.config import DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS
+from datahub_executor.config import (
+    DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
+    DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,
+    DATAHUB_EXECUTOR_WORKER_ID,
+)
+from datahub_executor.worker.remote import apply_remote_assertion_request
 
 from .types import (
     AssertionEvaluationParametersSchema,
@@ -64,7 +73,9 @@ def handle_evaluate_assertion_urns_sync(
             assertion_input = EvaluateAssertionUrnInputSchema(
                 assertionUrn=urn, dryRun=input.dryRun
             )
-            assertion_result = handle_evaluate_assertion_urn(assertion_input)
+            assertion_result = handle_evaluate_assertion_urn(
+                assertion_input, input.asyncFlag
+            )
             result = AssertionsResultItemSchema(urn=urn, result=assertion_result)
         except Exception as e:
             logger.warning(e)
@@ -106,18 +117,47 @@ def _evaluate_assertion(
     assertion: Assertion,
     parameters: AssertionEvaluationParameters,
     dry_run: bool,
-) -> AssertionResultSchema:
-    # call the engine evaluate method to run the actual assertion
-    result = engine.evaluate(
-        assertion,
-        parameters,
-        AssertionEvaluationContext(
-            dry_run=dry_run,
-            monitor_urn=assertion.monitor.get("urn", None)
-            if assertion.monitor
-            else None,
-        ),
+    async_flag: bool,
+) -> Optional[AssertionResultSchema]:
+    monitor_urn = assertion.monitor.get("urn", None) if assertion.monitor else None
+    executor_id = (
+        assertion.monitor.get("executor_id", "default")
+        if assertion.monitor
+        else "default"
     )
+    context = AssertionEvaluationContext(
+        dry_run=dry_run,
+        monitor_urn=monitor_urn,
+    )
+    is_embedded = DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED and (
+        DATAHUB_EXECUTOR_WORKER_ID == executor_id
+    )
+
+    if async_flag and not is_embedded:
+        assertion_spec = AssertionEvaluationSpec(
+            assertion=assertion,
+            parameters=parameters,
+            context=context,
+            schedule=CronSchedule(
+                cron="",
+                timezone="",
+            ),
+        )
+        execution_request = ExecutionRequest(
+            executor_id=executor_id,
+            exec_id=monitor_urn,
+            name=RUN_ASSERTION_TASK_NAME,
+            args={
+                "urn": monitor_urn,
+                "assertion_spec": assertion_spec.dict(by_alias=True),
+                "context": context.__dict__,
+            },
+        )
+        apply_remote_assertion_request(execution_request, execution_request.executor_id)
+        return None
+
+    # call the engine evaluate method to run the actual assertion
+    result = engine.evaluate(assertion, parameters, context)
 
     # convert assertion and evaluation result to run event
     run_event = build_assertion_run_event(assertion, result)
@@ -131,7 +171,8 @@ def handle_post_evaluate_assertion(
     engine: AssertionEngine,
     table_name: Optional[str],
     qualified_name: Optional[str],
-) -> AssertionResultSchema:
+    async_flag: bool,
+) -> Optional[AssertionResultSchema]:
     # Setup the test assertion
     entity = AssertionEntity(
         urn=assertion_input.entityUrn,
@@ -158,12 +199,13 @@ def handle_post_evaluate_assertion(
         assertion=assertion,
         parameters=assertion_input.parameters.to_internal_params(),
         dry_run=assertion_input.dryRun,
+        async_flag=async_flag,
     )
 
 
 def handle_evaluate_assertion(
     assertion_input: EvaluateAssertionInputSchema,
-) -> AssertionResultSchema:
+) -> Optional[AssertionResultSchema]:
     global graph, engine
 
     if engine is None:
@@ -196,7 +238,7 @@ def handle_evaluate_assertion(
         )
 
     return handle_post_evaluate_assertion(
-        assertion_input, engine, table_name, qualified_name
+        assertion_input, engine, table_name, qualified_name, False
     )
 
 
@@ -236,7 +278,8 @@ def handle_post_evaluate_assertion_urn(
     assertion: Assertion,
     assertion_urn_input: EvaluateAssertionUrnInputSchema,
     engine: AssertionEngine,
-) -> AssertionResultSchema:
+    async_flag: bool,
+) -> Optional[AssertionResultSchema]:
     if not assertion.source_type == AssertionSourceType.NATIVE:
         logger.error(f"Cannot evaluate non-native assertion {assertion.urn}")
         raise fastapi.HTTPException(
@@ -252,11 +295,12 @@ def handle_post_evaluate_assertion_urn(
         assertion=assertion,
         parameters=parameters,
         dry_run=assertion_urn_input.dryRun,
+        async_flag=async_flag,
     )
 
 
 def handle_evaluate_assertion_urn(
-    assertion_urn_input: EvaluateAssertionUrnInputSchema,
+    assertion_urn_input: EvaluateAssertionUrnInputSchema, async_flag: bool
 ) -> AssertionResultSchema:
     global graph, engine
 
@@ -278,7 +322,9 @@ def handle_evaluate_assertion_urn(
         logger.warning(e)
         raise fastapi.HTTPException(status_code=404)
 
-    return handle_post_evaluate_assertion_urn(assertion, assertion_urn_input, engine)
+    return handle_post_evaluate_assertion_urn(
+        assertion, assertion_urn_input, engine, async_flag
+    )
 
 
 def async_queue_worker() -> None:

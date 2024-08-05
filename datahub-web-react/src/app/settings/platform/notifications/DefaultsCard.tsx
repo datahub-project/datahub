@@ -8,7 +8,7 @@ import { EmailDefaults } from './EmailDefaults';
 import { SlackDefaults } from './SlackDefaults';
 import { GlobalSettings } from '../../../../types.generated';
 import { isSinkEnabled } from '../../utils';
-import { EMAIL_SINK, SLACK_SINK } from '../types';
+import { EMAIL_SINK } from '../types';
 import { useAppConfig } from '../../../useAppConfig';
 import { SLACK_CONNECTION_URN } from '../slack/constants';
 import { decodeSlackConnection } from '../slack/utils';
@@ -74,7 +74,7 @@ export const DefaultsCard = ({ globalSettings, refetch }: Props) => {
         return data;
     }, [existingConnJson]);
 
-    const isSlackEnabled = !!isSinkEnabled(SLACK_SINK.id, globalSettings, config) && !!slackConnData?.botToken;
+    const isSlackEnabled = !!slackConnData?.botToken;
 
     const onSaveSlackChannel = async (inputValue) => {
         try {

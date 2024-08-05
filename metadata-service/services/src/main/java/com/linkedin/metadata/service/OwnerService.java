@@ -30,12 +30,23 @@ import lombok.extern.slf4j.Slf4j;
 public class OwnerService extends BaseService {
 
   public static final String SYSTEM_ID = "__system__";
+  private final boolean _isAsync;
+
+  public OwnerService(
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper,
+      final boolean isAsync) {
+    super(entityClient, openApiClient, objectMapper);
+    _isAsync = isAsync;
+  }
 
   public OwnerService(
       @Nonnull SystemEntityClient entityClient,
       @Nonnull final OpenApiClient openApiClient,
       @Nonnull ObjectMapper objectMapper) {
     super(entityClient, openApiClient, objectMapper);
+    _isAsync = false;
   }
 
   /**
@@ -53,11 +64,12 @@ public class OwnerService extends BaseService {
       @Nonnull List<ResourceReference> resources,
       @Nonnull OwnershipType ownershipType,
       @Nullable Urn ownershipTypeUrn,
-      @Nullable String appSource) {
+      @Nullable String appSource,
+      @Nullable Urn actorUrn) {
     log.debug("Batch adding Owners to entities. owners: {}, resources: {}", resources, ownerUrns);
     try {
       addOwnersToResources(
-          opContext, ownerUrns, resources, ownershipType, ownershipTypeUrn, appSource);
+          opContext, ownerUrns, resources, ownershipType, ownershipTypeUrn, appSource, actorUrn);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -100,14 +112,16 @@ public class OwnerService extends BaseService {
       List<ResourceReference> resources,
       OwnershipType ownershipType,
       Urn ownershipTypeUrn,
-      @Nullable String appSource)
+      @Nullable String appSource,
+      @Nullable Urn actorUrn)
       throws Exception {
     final List<MetadataChangeProposal> changes =
-        buildAddOwnersProposals(opContext, ownerUrns, resources, ownershipType, ownershipTypeUrn);
+        buildAddOwnersProposals(
+            opContext, ownerUrns, resources, ownershipType, ownershipTypeUrn, actorUrn);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   private void removeOwnersFromResources(
@@ -121,7 +135,7 @@ public class OwnerService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   @VisibleForTesting
@@ -130,7 +144,8 @@ public class OwnerService extends BaseService {
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
       OwnershipType ownershipType,
-      Urn ownershipTypeUrn) {
+      Urn ownershipTypeUrn,
+      @Nullable Urn actorUrn) {
 
     final Map<Urn, Ownership> ownershipAspects =
         getOwnershipAspects(
@@ -146,13 +161,14 @@ public class OwnerService extends BaseService {
         return null;
       }
 
+      final Urn finalActorUrn =
+          actorUrn != null
+              ? actorUrn
+              : UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr());
       if (!owners.hasOwners()) {
         owners.setOwners(new OwnerArray());
         owners.setLastModified(
-            new AuditStamp()
-                .setTime(System.currentTimeMillis())
-                .setActor(
-                    UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
+            new AuditStamp().setTime(System.currentTimeMillis()).setActor(finalActorUrn));
       }
       addOwnersIfNotExists(owners, ownerUrns, ownershipType, ownershipTypeUrn);
       proposals.add(

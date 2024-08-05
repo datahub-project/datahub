@@ -1,4 +1,4 @@
-import { EditOutlined } from '@ant-design/icons';
+import { CloseOutlined, EditOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -7,6 +7,7 @@ import { useEntityRegistryV2 } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import EditDataProductModal from './EditDataProductModal';
 import { REDESIGN_COLORS } from '../../shared/constants';
+import useDeleteEntity from '../../shared/EntityDropdown/useDeleteEntity';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -15,8 +16,8 @@ const TransparentButton = styled(Button)`
     border: none;
     padding: 0px 10px;
     position: absolute;
-    top: 3px;
-    right: 80px;
+    top: 0px;
+    right: 40px;
     display: none;
 
     &:hover {
@@ -34,6 +35,7 @@ const ResultWrapper = styled.div`
     padding: 8px 16px;
     display: flex;
     width: 100%;
+    display: flex;
 
     &:hover ${TransparentButton} {
         display: inline-block;
@@ -62,6 +64,7 @@ const ButtonsWrapper = styled.div`
 
 const PreviewWrapper = styled.div`
     max-width: 94%;
+    position: relative;
     flex: 1;
 `;
 
@@ -79,15 +82,16 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
         setDeletedDataProductUrns((currentUrns) => [...currentUrns, dataProduct.urn]);
     }
 
-    const actions = {
-        onDelete: deleteDataProduct,
-    };
+    const { onDeleteEntity } = useDeleteEntity(dataProduct.urn, dataProduct.type, dataProduct, deleteDataProduct);
 
     return (
         <>
             <ResultWrapper>
                 <PreviewWrapper>
-                    {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.PREVIEW, dataProduct, actions)}
+                    {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.PREVIEW, dataProduct)}
+                    <TransparentButton onClick={onDeleteEntity}>
+                        <CloseOutlined size={5} /> Remove DataProduct
+                    </TransparentButton>
                 </PreviewWrapper>
                 <ButtonsWrapper>
                     <StyledButton icon={<EditOutlined />} onClick={() => setIsEditModalVisible(true)} />

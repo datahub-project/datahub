@@ -178,6 +178,7 @@ export const SearchSelect = ({
                         showActions={false}
                         refetch={refetch}
                         selectedEntities={selectedEntities}
+                        setSelectedEntities={setSelectedEntities}
                     />
                 </TabToolbar>
             )}

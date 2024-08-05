@@ -1,10 +1,8 @@
 package com.linkedin.metadata.resources.entity;
 
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.service.RollbackService.ROLLBACK_FAILED_STATUS;
 
 import com.codahale.metrics.MetricRegistry;

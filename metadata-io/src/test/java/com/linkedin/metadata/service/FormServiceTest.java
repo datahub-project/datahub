@@ -580,7 +580,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms))),
-            Mockito.eq(true));
+            Mockito.eq(false));
   }
 
   @Test
@@ -1301,7 +1301,8 @@ public class FormServiceTest {
                 eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formsAspectMap)));
 
-    Assert.assertTrue(formService.verifyFormForEntity(opContext, TEST_FORM_URN, TEST_ENTITY_URN));
+    Assert.assertTrue(
+        formService.verifyFormForEntity(opContext, TEST_FORM_URN, TEST_ENTITY_URN, null));
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -1336,7 +1337,7 @@ public class FormServiceTest {
         RuntimeException.class,
         () -> {
           formService.verifyFormForEntity(
-              any(OperationContext.class), TEST_FORM_URN, TEST_ENTITY_URN);
+              any(OperationContext.class), TEST_FORM_URN, TEST_ENTITY_URN, null);
         });
 
     Mockito.verify(mockClient, Mockito.times(0))
@@ -1374,7 +1375,7 @@ public class FormServiceTest {
         RuntimeException.class,
         () -> {
           formService.verifyFormForEntity(
-              any(OperationContext.class), TEST_FORM_URN, TEST_ENTITY_URN);
+              any(OperationContext.class), TEST_FORM_URN, TEST_ENTITY_URN, null);
         });
 
     Mockito.verify(mockClient, Mockito.times(0))

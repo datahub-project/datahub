@@ -34,6 +34,7 @@ const MAIN_TO_MINI_X_SEP_RATIO = 0.375;
 const MINI_X_SEP_RATIO = 0.1875;
 const MAIN_Y_SEP_RATIO = 0.6;
 const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
+const TRANSFORMATIONAL_LEAF_OFFSET = 25;
 
 export type LineageVisualizationNode = Node<LineageEntity | LineageFilter>;
 type BaseEdge<T> = Pick<Edge<T>, 'source' | 'target' | 'markerEnd' | 'data'>;
@@ -330,6 +331,9 @@ export default class NodeBuilder {
                         .map((p) => this.nodeInformation[p].y)
                         .filter((y): y is number => y !== undefined);
                     nodeY = relativesY.length ? relativesY.reduce((a, b) => a + b) / relativesY.length : 0;
+                    if (mini && !this.transformationChildren.has(id)) {
+                        nodeY += TRANSFORMATIONAL_LEAF_OFFSET;
+                    }
                 }
                 goalY[id] = nodeY;
                 this.nodeInformation[id].y = nodeY;

@@ -133,7 +133,7 @@ const getButtonVariantStyles = (variant, color) => {
 const getButtonFontStyles = (size) => {
     const baseFontStyles = {
         fontFamily: typography.fonts.body,
-        fontWeight: typography.fontWeights.light,
+        fontWeight: typography.fontWeights.normal,
         lineHeight: typography.lineHeights.none,
     };
 

@@ -299,6 +299,10 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
       // Frontend requires an empty settings object as opposed to NULL!
       subscriptionNotificationSettings.setSlackSettings(new SlackNotificationSettings());
     }
+    if (defaultNotificationSettings.hasSinkTypes()
+        && defaultNotificationSettings.getSinkTypes().contains(NotificationSinkType.EMAIL)) {
+      subscriptionSinkTypes.add(NotificationSinkType.EMAIL);
+    }
     subscriptionNotificationSettings.setSinkTypes(
         new NotificationSinkTypeArray(subscriptionSinkTypes));
     subscriptionNotificationConfig.setNotificationSettings(subscriptionNotificationSettings);

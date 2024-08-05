@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
 import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
@@ -56,6 +56,10 @@ export default function StatsSidebarView({
         },
         [fetchDataWithLookbackWindow, setLookbackWindow],
     );
+
+    useEffect(() => {
+        handleLockbackWindowChange(LOOKBACK_WINDOWS.QUARTER);
+    }, [handleLockbackWindowChange]);
 
     // Get the latest profile information
     const latestProfile = profiles && profiles[0];

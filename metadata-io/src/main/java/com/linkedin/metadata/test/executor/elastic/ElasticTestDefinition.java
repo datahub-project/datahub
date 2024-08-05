@@ -30,8 +30,16 @@ public class ElasticTestDefinition {
     return selectionFilters;
   }
 
+  public Predicate getPassingFilters() {
+    return passingFilters;
+  }
+
   public Predicate getPassingFilters(String entityType) {
     return passingFilters;
+  }
+
+  public Predicate getFailingFilters() {
+    return failingFilters;
   }
 
   public Predicate getFailingFilters(String entityType) {

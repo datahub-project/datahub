@@ -41,6 +41,8 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     getCollectionName = () => 'Columns';
 
+    useEntityQuery = useGetSchemaFieldQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

@@ -1,3 +1,5 @@
+import { Modal, message } from 'antd';
+import { useRemoveTermMutation, useUnsetDomainMutation } from '../../graphql/mutations.generated';
 import { GlobalTags, Owner } from '../../types.generated';
 import { EntityCapabilityType } from '../entityV2/Entity';
 
@@ -22,3 +24,86 @@ export const getHighlightedTag = (tags?: GlobalTags) => {
 export const isNullOrUndefined = (value: any) => {
     return value === null || value === undefined;
 };
+
+export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
+    const [unsetDomainMutation] = useUnsetDomainMutation();
+
+    const handleRemoveDomain = (urnToRemoveFrom) => {
+        message.loading({ content: 'Removing Domain...', duration: 2 });
+        unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
+            .then(() => {
+                setTimeout(() => {
+                    setShouldRefetchEmbeddedListSearch(true);
+                    message.success({ content: 'Domain Removed!', duration: 2 });
+                }, 2000);
+            })
+            .catch((e: unknown) => {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({ content: `Failed to remove domain: \n ${e.message || ''}`, duration: 3 });
+                }
+            });
+    };
+
+    const removeDomain = (urnToRemoveFrom) => {
+        Modal.confirm({
+            title: `Confirm Domain Removal`,
+            content: `Are you sure you want to remove this domain?`,
+            onOk() {
+                handleRemoveDomain(urnToRemoveFrom);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
+    return { removeDomain };
+}
+
+export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) {
+    const [removeTermMutation] = useRemoveTermMutation();
+
+    const handleRemoveTerm = (previewData, termUrn) => {
+        if (termUrn) {
+            message.loading({ content: 'Removing Term...', duration: 2 });
+            removeTermMutation({
+                variables: {
+                    input: {
+                        termUrn,
+                        resourceUrn: previewData?.urn,
+                    },
+                },
+            })
+                .then(({ errors }) => {
+                    if (!errors) {
+                        setTimeout(() => {
+                            setShouldRefetchEmbeddedListSearch(true);
+                            message.success({ content: 'Term Removed!', duration: 2 });
+                        }, 2000);
+                    }
+                })
+                .catch((e) => {
+                    message.destroy();
+                    message.error({ content: `Failed to remove Term: \n ${e.message || ''}`, duration: 3 });
+                });
+        }
+    };
+
+    const removeTerm = (previewData, termUrn) => {
+        Modal.confirm({
+            title: `Do you want to remove ${previewData.name} term?`,
+            content: `Are you sure you want to remove the ${previewData.name} term?`,
+            onOk() {
+                handleRemoveTerm(previewData, termUrn);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
+    return { removeTerm };
+}

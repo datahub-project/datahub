@@ -35,11 +35,13 @@ const EmptyText = styled(Empty)`
 interface Props {
     properties?: {
         fieldPath?: string;
+        refetch?: () => void;
     };
 }
 
 export const PropertiesTab = ({ properties }: Props) => {
     const fieldPath = properties?.fieldPath;
+    const refetch = properties?.refetch;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
@@ -60,7 +62,14 @@ export const PropertiesTab = ({ properties }: Props) => {
         propertyTableColumns.push({
             title: '',
             width: '10%',
-            render: (propertyRow: PropertyRow) => <EditColumn propertyRow={propertyRow} />,
+            render: (propertyRow: PropertyRow) => (
+                <EditColumn
+                    structuredProperty={propertyRow.structuredProperty}
+                    associatedUrn={propertyRow.associatedUrn}
+                    values={propertyRow.values?.map((v) => v.value) || []}
+                    refetch={refetch}
+                />
+            ),
         } as any);
     }
 

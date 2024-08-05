@@ -182,6 +182,8 @@ interface Props {
     selectedEntities: EntityAndType[];
     suggestions: SearchSuggestion[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
+    areAllEntitiesSelected?: boolean;
+    setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch: () => void;
@@ -206,6 +208,8 @@ export const SearchResults = ({
     setNumResultsPerPage,
     isSelectMode,
     selectedEntities,
+    areAllEntitiesSelected,
+    setAreAllEntitiesSelected,
     suggestions,
     setIsSelectMode,
     setSelectedEntities,
@@ -241,6 +245,11 @@ export const SearchResults = ({
             resizeObserver.observe(node);
         }
     }, []);
+
+    function handlePageChange(p: number) {
+        onChangePage(p);
+        setAreAllEntitiesSelected?.(false);
+    }
 
     return (
         <>
@@ -283,7 +292,7 @@ export const SearchResults = ({
                                                             isActive={isFullViewCard}
                                                             onClick={() => setIsFullViewCard(true)}
                                                         >
-                                                            <Tooltip title="Full Card View">
+                                                            <Tooltip showArrow={false} title="Full Card View">
                                                                 <ViewDayOutlinedIcon
                                                                     style={{
                                                                         fontSize: '16px',
@@ -295,7 +304,7 @@ export const SearchResults = ({
                                                             isActive={!isFullViewCard}
                                                             onClick={() => setIsFullViewCard(false)}
                                                         >
-                                                            <Tooltip title="Compact Card View">
+                                                            <Tooltip showArrow={false} title="Compact Card View">
                                                                 <ViewHeadlineOutlinedIcon
                                                                     style={{
                                                                         fontSize: '16px',
@@ -328,10 +337,14 @@ export const SearchResults = ({
                                                             selectedEntities.length > 0 &&
                                                             isListSubset(searchResultUrns, selectedEntityUrns)
                                                         }
+                                                        totalResults={totalResults}
                                                         selectedEntities={selectedEntities}
+                                                        setSelectedEntities={setSelectedEntities}
                                                         onChangeSelectAll={onChangeSelectAll}
                                                         onCancel={() => setIsSelectMode(false)}
                                                         refetch={refetch}
+                                                        areAllEntitiesSelected={areAllEntitiesSelected}
+                                                        setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                                     />
                                                 </StyledTabToolbar>
                                             )}
@@ -348,6 +361,7 @@ export const SearchResults = ({
                                                 suggestions={suggestions}
                                                 previewType={previewType}
                                                 onCardClick={onCardClick}
+                                                setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                             />
                                             {totalResults > 0 && (
                                                 <PaginationControlContainer id="search-pagination">
@@ -356,7 +370,7 @@ export const SearchResults = ({
                                                         pageSize={numResultsPerPage}
                                                         total={totalResults}
                                                         showLessItems
-                                                        onChange={onChangePage}
+                                                        onChange={handlePageChange}
                                                         showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                                                         onShowSizeChange={(_currNum, newNum) =>
                                                             setNumResultsPerPage(newNum)

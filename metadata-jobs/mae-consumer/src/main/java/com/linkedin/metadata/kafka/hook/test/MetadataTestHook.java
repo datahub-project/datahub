@@ -21,11 +21,14 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.BatchedTestResults;
 import com.linkedin.test.MetadataTestClient;
+import com.linkedin.test.TestInfo;
+import com.linkedin.test.TestInterval;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Objects;
 import java.util.Set;
@@ -189,7 +192,8 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     if (this._isOnTestChangeEnabled
         && event.getChangeType() == ChangeType.UPSERT
         && event.getEntityType().equals(TEST_ENTITY_NAME)
-        && event.getAspectName().equals(TEST_INFO_ASPECT_NAME)) {
+        && event.getAspectName().equals(TEST_INFO_ASPECT_NAME)
+        && !isOnDemandTest(event)) { // don't process on demand tests
       log.info(
           "Upsert event for Metadata Test entity {} received, evaluating test",
           event.getEntityUrn());
@@ -247,6 +251,24 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     _urnObserverCache.put(
         EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec()),
         System.currentTimeMillis());
+  }
+
+  /*
+   * Tests are on-demand if there is explicitly no schedule assigned to them.
+   * These tests should not be processed and produce side effects from this hook.
+   */
+  private boolean isOnDemandTest(@Nonnull MetadataChangeLog event) {
+    if (!event.getEntityType().equals(TEST_ENTITY_NAME)
+        || !event.getAspectName().equals(TEST_INFO_ASPECT_NAME)) {
+      return false;
+    }
+
+    TestInfo testInfo =
+        GenericRecordUtils.deserializeAspect(
+            event.getAspect().getValue(), event.getAspect().getContentType(), TestInfo.class);
+
+    return testInfo.getSchedule() != null
+        && testInfo.getSchedule().getInterval().equals(TestInterval.NONE);
   }
 
   @VisibleForTesting

@@ -59,9 +59,12 @@ public class BatchSubmitFormPromptResolverTest {
             Mockito.eq(UrnUtils.getUrn(STRUCTURED_PROP_URN)),
             Mockito.eq(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("test"))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            Mockito.eq(PROMPT_ID));
+            Mockito.eq(PROMPT_ID),
+            Mockito.any(),
+            Mockito.eq(true));
     Mockito.verify(mockFormService, Mockito.times(0))
         .batchSubmitFieldStructuredPropertyPromptResponse(
+            Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
@@ -95,7 +98,8 @@ public class BatchSubmitFormPromptResolverTest {
             Mockito.eq(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("test"))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
             Mockito.eq(PROMPT_ID),
-            Mockito.eq(ImmutableList.of("fieldPath1")));
+            Mockito.eq(ImmutableList.of("fieldPath1")),
+            Mockito.any());
     // ensure the other form service endpoint doesn't get called
     Mockito.verify(mockFormService, Mockito.times(0))
         .batchSubmitStructuredPropertyPromptResponse(
@@ -104,7 +108,9 @@ public class BatchSubmitFormPromptResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any());
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.eq(true));
   }
 
   @Test
@@ -117,7 +123,9 @@ public class BatchSubmitFormPromptResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any()))
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(true)))
         .thenThrow(new RuntimeException());
     BatchSubmitFormPromptResolver resolver = new BatchSubmitFormPromptResolver(mockFormService);
 
@@ -139,12 +147,15 @@ public class BatchSubmitFormPromptResolverTest {
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any()))
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(true)))
         .thenReturn(true);
 
     Mockito.when(
             service.batchSubmitFieldStructuredPropertyPromptResponse(
                 any(OperationContext.class),
+                Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
