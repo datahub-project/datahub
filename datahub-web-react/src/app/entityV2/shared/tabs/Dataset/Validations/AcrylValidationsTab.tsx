@@ -12,7 +12,7 @@ import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
-import { AcrylAssertionList } from './AssertionList/NewAcrylAssertions';
+import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
 
 const TabTitle = styled.span`
     margin-left: 4px;

@@ -7,7 +7,6 @@ import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode
 import { AssertionWithMonitorDetails, tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '../acrylUtils';
 import { combineEntityDataWithSiblings } from '../../../../../../entity/shared/siblingUtils';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../../../constants';
 import { getFilteredTransformedAssertionData, transformAssertionData } from './utils';
 import { AssertionListTable } from './AssertionListTable';
 import { PlusOutlined } from '@ant-design/icons';
@@ -27,20 +26,6 @@ const AssertionTitleContainer = styled.div`
     justify-content: space-between;
     margin: 20px;
     height: 50px;
-    .create-assertion-button {
-        button: disabled {
-            background-color: #e0e0e0 !important;
-            height: 40px;
-            color: #a0a0a0;
-            opacity: 0.8;
-        }
-        background-color: #5c3fd1;
-        height: 40px;
-        color: white;
-        justify-content: center;
-        align-items: center;
-        border-radius: 5px;
-    }
     div {
         border-bottom: 0px;
     }
@@ -49,6 +34,23 @@ const AssertionTitleContainer = styled.div`
 const AssertionListTitle = styled(Typography.Title)`
     && {
         margin-bottom: 0px;
+    }
+`;
+
+const CreateButton = styled(Button)`
+    &&& {
+        background-color: #5c3fd1;
+        height: 40px;
+        color: white;
+        justify-content: center;
+        align-items: center;
+        border-radius: 5px;
+        &:disabled {
+            background-color: #e0e0e0 !important;
+            height: 40px;
+            color: #a0a0a0;
+            opacity: 0.8;
+        }
     }
 `;
 /**
@@ -148,16 +150,14 @@ export const AcrylAssertionList = () => {
                             showArrow={false}
                             title={(disableCreateAssertion && disableCreateAssertionMessage) || null}
                         >
-                            <Button
-                                // type="text"
+                            <CreateButton
                                 onClick={() => !disableCreateAssertion && setShowAssertionBuilder(true)}
-                                disabled={true}
-                                // disabled={disableCreateAssertion}
+                                disabled={disableCreateAssertion}
                                 id="create-assertion-btn-main"
                                 className="create-assertion-button"
                             >
                                 <PlusOutlined /> Create
-                            </Button>
+                            </CreateButton>
                         </Tooltip>
                     </TabToolbar>
                 )}
