@@ -2,7 +2,6 @@ package com.linkedin.metadata.systemmetadata;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.run.AspectRowSummary;
@@ -43,7 +42,6 @@ import org.opensearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.opensearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.ParsedMax;
-import org.springframework.beans.factory.annotation.Value;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -72,14 +70,6 @@ public class ElasticSearchSystemMetadataService
               FIELD_LAST_UPDATED,
               FIELD_REGISTRY_NAME,
               FIELD_REGISTRY_VERSION));
-
-  @Value("${elasticsearch.idHashAlgo}")
-  private String hashAlgo;
-
-  @VisibleForTesting
-  public void setIdHashAlgo(String algo) {
-    hashAlgo = algo;
-  }
 
   private String toDocument(SystemMetadata systemMetadata, String urn, String aspect) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();

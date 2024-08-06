@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
@@ -33,7 +32,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.springframework.beans.factory.annotation.Value;
 
 /** Class that provides a utility function that transforms the timeseries aspect into a document */
 @Slf4j
@@ -48,16 +46,6 @@ public class TimeseriesAspectTransformer {
     OBJECT_MAPPER
         .getFactory()
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
-  }
-
-  public TimeseriesAspectTransformer() {}
-
-  @Value("${elasticsearch.idHashAlgo}")
-  private static String hashAlgo;
-
-  @VisibleForTesting
-  public void setIdHashAlgo(String algo) {
-    hashAlgo = algo;
   }
 
   public static Map<String, JsonNode> transform(

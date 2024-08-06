@@ -151,10 +151,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
    */
 
   private void upsertDocument(TestEntityProfile dp, Urn urn) throws JsonProcessingException {
-    TimeseriesAspectTransformer timeseriesAspectTransformer = new TimeseriesAspectTransformer();
-    timeseriesAspectTransformer.setIdHashAlgo("MD5");
     Map<String, JsonNode> documents =
-        timeseriesAspectTransformer.transform(urn, dp, aspectSpec, null);
+        TimeseriesAspectTransformer.transform(urn, dp, aspectSpec, null);
     assertEquals(documents.size(), 3);
     documents.forEach(
         (key, value) ->
