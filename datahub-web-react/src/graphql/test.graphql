@@ -81,7 +81,7 @@ mutation runTests($urn: String!) {
 
 query getDatasetTestResults($urn: String!) {
     dataset(urn: $urn) {
-        testResults {
+        testResults(includeSoftDeleted: false) {
             passing {
                 test {
                     ...testFields
