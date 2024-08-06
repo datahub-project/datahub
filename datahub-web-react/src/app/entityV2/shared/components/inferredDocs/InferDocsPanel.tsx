@@ -1,7 +1,6 @@
-import { Button, message, Typography } from 'antd';
+import { Button, message, Skeleton, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import Loading from '@src/app/shared/Loading';
 import { Sparkle } from 'phosphor-react';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
@@ -39,14 +38,16 @@ const InferencePanelHeader = styled.div`
     padding-top: 4px;
     margin-bottom: 8px;
     color: #5c3fd1;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
 `;
 
-const InferencePanelBody = styled.div``;
+const InferencePanelBody = styled.div`
+    margin-bottom: 24px;
+`;
 
 const InferencePanelDescription = styled(Typography.Text)`
-    font-size: 12px;
+    font-size: 14px;
     color: ${ANTD_GRAY[8]};
 `;
 
@@ -69,7 +70,9 @@ const CollapseButton = styled.button`
 const InsertButton = styled(Button)`
     background-color: #f1f3fd;
     cursor: pointer;
-    color: #218eb5;
+    color: #5c3fd1;
+    box-shadow: none;
+    border-width: 0.5px;
     &:hover {
         background-color: #f1f3fd;
     }
@@ -129,19 +132,20 @@ export default function InferDocsPanel({ onInsertDescription, forColumnPath, inf
         <InferencePanelContainer>
             <InferencePanelHeader>
                 <AiSparkle />
-                Generated
+                {isLoading ? 'Generating...' : 'Generated'}
             </InferencePanelHeader>
             <InferencePanelBody>
-                {isLoading && <Loading marginTop={8} />}
+                {isLoading && <Skeleton active title={false} paragraph={{ rows: 3 }} />}
                 {generatedDescription && !isLoading && (
                     <InferencePanelDescription>{generatedDescription}</InferencePanelDescription>
                 )}
             </InferencePanelBody>
             <InferencePanelFooter>
                 <CollapseButton type="button" onClick={onClose}>
-                    Collapse
+                    Dismiss
                 </CollapseButton>
                 <InsertButton
+                    disabled={isLoading}
                     onClick={() => {
                         onInsertDescription(`\n\n\n${generatedDescription}`);
                         onClose();

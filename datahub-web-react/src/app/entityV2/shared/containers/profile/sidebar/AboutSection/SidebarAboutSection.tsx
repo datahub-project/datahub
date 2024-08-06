@@ -66,7 +66,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
         entityProperties: entityData,
         enableInferredDescriptions: canShowInferDocsButton,
     });
-    const showInferDocsButton = !displayedDescription && !canShowInferDocsButton;
+    const showInferDocsButton = !displayedDescription && canShowInferDocsButton;
 
     const links = entityData?.institutionalMemory?.elements || [];
 
