@@ -168,7 +168,12 @@ class MetadataCleanupSourceReport(SourceReport):
 @support_status(SupportStatus.INCUBATING)
 class MetadataCleanupSource(Source):
     """
-    This source clean up aspects.
+    This source is a maintenance source which cleans up old/unused aspects.
+
+    Currently it only supports:.
+        - DataFlow
+        -DataJob
+        - DataProcessInstance
 
     """
 
