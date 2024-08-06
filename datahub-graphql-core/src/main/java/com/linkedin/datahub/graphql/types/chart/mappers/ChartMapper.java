@@ -7,6 +7,7 @@ import com.linkedin.chart.EditableChartProperties;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Documentation;
 import com.linkedin.common.Embed;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
@@ -147,6 +148,10 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     mappingHelper.mapToResult(
         ORIGIN_ASPECT_NAME,
         (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
+    mappingHelper.mapToResult(
+        DOCUMENTATION_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setDocumentation(DocumentationMapper.map(context, new Documentation(dataMap))));
     mappingHelper.mapToResult(
         LINEAGE_FEATURES_ASPECT_NAME,
         (entity, dataMap) ->

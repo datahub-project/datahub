@@ -58,6 +58,7 @@ entities:
       - forms
       - share
       - origin
+      - documentation
       - partitionsSummary
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
@@ -94,6 +95,7 @@ entities:
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -120,6 +122,7 @@ entities:
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -168,6 +171,7 @@ entities:
       - forms
       - share
       - origin
+      - documentation
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -197,6 +201,7 @@ entities:
       - forms
       - share
       - origin
+      - documentation
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -217,6 +222,7 @@ entities:
       - browsePathsV2
       - share
       - origin
+      - documentation
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -287,6 +293,7 @@ entities:
       - forms
       - share
       - origin
+      - documentation
   - name: tag
     category: core
     keyAspect: tagKey
@@ -409,6 +416,7 @@ entities:
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -431,6 +439,7 @@ entities:
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -464,6 +473,7 @@ entities:
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -487,6 +497,7 @@ entities:
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey

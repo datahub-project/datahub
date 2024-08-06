@@ -361,6 +361,28 @@ fragment institutionalMemoryFields on InstitutionalMemory {
     }
 }
 
+fragment documentationFields on Documentation {
+    documentations {
+        documentation
+        attribution {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+            source {
+                urn
+                type
+            }
+            sourceDetail {
+                key
+                value
+            }
+        }
+    }
+}
+
 fragment nonRecursiveDatasetFields on Dataset {
     urn
     name
@@ -395,6 +417,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     editableProperties {
         description
+    }
+    documentation {
+        ...documentationFields
     }
     ownership {
         ...ownershipFields
@@ -448,6 +473,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     editableProperties {
         description
     }
+    documentation {
+        ...documentationFields
+    }
     ownership {
         ...ownershipFields
     }
@@ -473,6 +501,9 @@ fragment nonRecursiveDataJobFields on DataJob {
             key
             value
         }
+    }
+    documentation {
+        ...documentationFields
     }
     globalTags {
         ...globalTagsFields
@@ -581,6 +612,9 @@ fragment dashboardFields on Dashboard {
     }
     editableProperties {
         description
+    }
+    documentation {
+        ...documentationFields
     }
     ownership {
         ...ownershipFields
@@ -882,25 +916,7 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
         }
     }
     documentation {
-        documentations {
-            documentation
-            attribution {
-                time
-                actor {
-                    urn
-                    type
-                    ...entityDisplayNameFields
-                }
-                source {
-                    urn
-                    type
-                }
-                sourceDetail {
-                    key
-                    value
-                }
-            }
-        }
+        ...documentationFields
     }
     parent {
         urn

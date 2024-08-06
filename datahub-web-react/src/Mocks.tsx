@@ -647,6 +647,7 @@ export const dataset3 = {
         ],
     },
     deprecation: null,
+    documentation: null,
     usageStats: null,
     tagProposals: null,
     termProposals: null,
@@ -781,6 +782,7 @@ export const dataset3WithSchema = {
             foreignKeys: [],
         },
         editableSchemaMetadata: null,
+        documentation: null,
         siblings: null,
         siblingsSearch: null,
     },
@@ -1383,6 +1385,7 @@ export const dataFlow1 = {
         customProperties: [],
     },
     editableProperties: null,
+    documentation: null,
     ownership: {
         owners: [
             {
@@ -1481,6 +1484,7 @@ export const dataJob1 = {
         customProperties: [],
     },
     editableProperties: null,
+    documentation: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset5],
@@ -1664,6 +1668,7 @@ export const dataJob2 = {
         customProperties: [],
     },
     editableProperties: null,
+    documentation: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
@@ -1738,6 +1743,7 @@ export const dataJob3 = {
         customProperties: [],
     },
     editableProperties: null,
+    documentation: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],

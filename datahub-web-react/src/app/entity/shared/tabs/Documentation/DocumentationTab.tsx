@@ -5,11 +5,12 @@ import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { Button, Divider, Typography } from 'antd';
 import Icon, { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
+import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 
 import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
 import { EmptyTab } from '../../components/styled/EmptyTab';
-import { DescriptionEditor, useShouldShowGenerateButton } from './components/DescriptionEditor';
+import { DescriptionEditor } from './components/DescriptionEditor';
 import { LinkList } from './components/LinkList';
 
 import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
@@ -40,7 +41,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const isEditing = queryString.parse(useLocation().search, { parseBooleans: true }).editing;
     const showModal = queryString.parse(useLocation().search, { parseBooleans: true }).modal;
 
-    const shouldShowGenerateButton = useShouldShowGenerateButton(entityType);
+    const shouldShowGenerateButton = useShouldShowInferDocumentationButton(entityType);
 
     useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
@@ -51,8 +52,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
             });
         }
     }, [urn, routeToTab, showModal, localStorageDictionary]);
-
-    console.log('description', description);
 
     return isEditing && !showModal ? (
         <>

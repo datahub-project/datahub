@@ -47,6 +47,7 @@ import {
     Share,
     DisplayProperties,
     ScrollResults,
+    Documentation,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -126,6 +127,7 @@ export type GenericEntityProperties = {
     embed?: Maybe<Embed>;
     exists?: boolean;
     origin?: Maybe<FabricType>;
+    documentation?: Maybe<Documentation>;
     browsePathV2?: Maybe<BrowsePathV2>;
     inputOutput?: Maybe<DataJobInputOutput>;
     forms?: Maybe<Forms>;

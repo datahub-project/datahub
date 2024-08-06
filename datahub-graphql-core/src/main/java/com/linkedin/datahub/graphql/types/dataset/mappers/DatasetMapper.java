@@ -167,6 +167,10 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         ORIGIN_ASPECT_NAME,
         (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
     mappingHelper.mapToResult(
+        DOCUMENTATION_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setDocumentation(DocumentationMapper.map(context, new Documentation(dataMap))));
+    mappingHelper.mapToResult(
         LINEAGE_FEATURES_ASPECT_NAME,
         (entity, dataMap) ->
             entity.setLineageFeatures(
