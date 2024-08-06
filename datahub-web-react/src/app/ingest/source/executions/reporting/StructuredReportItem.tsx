@@ -2,10 +2,10 @@ import React from 'react';
 import styled from 'styled-components';
 import { Collapse } from 'antd';
 
-import { StructuredReportItem as StructuredReportItemType } from '../../types';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { applyOpacity } from '../../../../shared/styleUtils';
 import { StructuredReportItemContext } from './StructuredReportItemContext';
+import { StructuredReportLogEntry } from '../../types';
 
 const StyledCollapse = styled(Collapse)<{ color: string }>`
     background-color: ${(props) => applyOpacity(props.color, 8)};
@@ -51,7 +51,7 @@ const Message = styled.div`
 `;
 
 interface Props {
-    item: StructuredReportItemType;
+    item: StructuredReportLogEntry;
     color: string;
     icon?: React.ComponentType<any>;
 }

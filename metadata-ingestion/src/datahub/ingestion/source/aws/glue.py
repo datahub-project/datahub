@@ -24,6 +24,7 @@ import yaml
 from pydantic import validator
 from pydantic.fields import Field
 
+from datahub.api.entities.dataset.dataset import Dataset
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
@@ -55,7 +56,11 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
-from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn
+from datahub.ingestion.source.aws.s3_util import (
+    is_s3_uri,
+    make_s3_urn,
+    make_s3_urn_for_lineage,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -90,6 +95,9 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -97,6 +105,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     PartitionSpecClass,
     PartitionTypeClass,
+    SchemaMetadataClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -158,8 +167,8 @@ class GlueSourceConfig(
         default=False,
         description="If an S3 Objects Tags should be created for the Tables ingested by Glue.",
     )
-    profiling: Optional[GlueProfilingConfig] = Field(
-        default=None,
+    profiling: GlueProfilingConfig = Field(
+        default_factory=GlueProfilingConfig,
         description="Configs to ingest data profiles from glue table",
     )
     # Custom Stateful Ingestion settings
@@ -171,8 +180,13 @@ class GlueSourceConfig(
         description="If enabled, delta schemas can be alternatively fetched from table parameters.",
     )
 
+    include_column_lineage: bool = Field(
+        default=True,
+        description="When enabled, column-level lineage will be extracted from the s3.",
+    )
+
     def is_profiling_enabled(self) -> bool:
-        return self.profiling is not None and is_profiling_enabled(
+        return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
         )
 
@@ -283,6 +297,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
+        self.ctx = ctx
         self.extract_owners = config.extract_owners
         self.source_config = config
         self.report = GlueSourceReport()
@@ -714,18 +729,43 @@ class GlueSource(StatefulIngestionSourceBase):
             dataset_properties: Optional[
                 DatasetPropertiesClass
             ] = mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
+            # extract dataset schema aspect
+            schema_metadata: Optional[
+                SchemaMetadataClass
+            ] = mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
+
             if dataset_properties and "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
                 if is_s3_uri(location):
-                    s3_dataset_urn = make_s3_urn(location, self.source_config.env)
+                    s3_dataset_urn = make_s3_urn_for_lineage(
+                        location, self.source_config.env
+                    )
+                    assert self.ctx.graph
+                    schema_metadata_for_s3: Optional[
+                        SchemaMetadataClass
+                    ] = self.ctx.graph.get_schema_metadata(s3_dataset_urn)
+
                     if self.source_config.glue_s3_lineage_direction == "upstream":
+                        fine_grained_lineages = None
+                        if (
+                            self.source_config.include_column_lineage
+                            and schema_metadata
+                            and schema_metadata_for_s3
+                        ):
+                            fine_grained_lineages = self.get_fine_grained_lineages(
+                                mce.proposedSnapshot.urn,
+                                s3_dataset_urn,
+                                schema_metadata,
+                                schema_metadata_for_s3,
+                            )
                         upstream_lineage = UpstreamLineageClass(
                             upstreams=[
                                 UpstreamClass(
                                     dataset=s3_dataset_urn,
                                     type=DatasetLineageTypeClass.COPY,
                                 )
-                            ]
+                            ],
+                            fineGrainedLineages=fine_grained_lineages or None,
                         )
                         return MetadataChangeProposalWrapper(
                             entityUrn=mce.proposedSnapshot.urn,
@@ -745,6 +785,49 @@ class GlueSource(StatefulIngestionSourceBase):
                             entityUrn=s3_dataset_urn,
                             aspect=upstream_lineage,
                         ).as_workunit()
+        return None
+
+    def get_fine_grained_lineages(
+        self,
+        dataset_urn: str,
+        s3_dataset_urn: str,
+        schema_metadata: SchemaMetadata,
+        schema_metadata_for_s3: SchemaMetadata,
+    ) -> Optional[List[FineGrainedLineageClass]]:
+        def simplify_field_path(field_path):
+            return Dataset._simplify_field_path(field_path)
+
+        if schema_metadata and schema_metadata_for_s3:
+            fine_grained_lineages: List[FineGrainedLineageClass] = []
+            for field in schema_metadata.fields:
+                field_path_v1 = simplify_field_path(field.fieldPath)
+                matching_s3_field = next(
+                    (
+                        f
+                        for f in schema_metadata_for_s3.fields
+                        if simplify_field_path(f.fieldPath) == field_path_v1
+                    ),
+                    None,
+                )
+                if matching_s3_field:
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[
+                                mce_builder.make_schema_field_urn(
+                                    dataset_urn, field_path_v1
+                                )
+                            ],
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                mce_builder.make_schema_field_urn(
+                                    s3_dataset_urn,
+                                    simplify_field_path(matching_s3_field.fieldPath),
+                                )
+                            ],
+                        )
+                    )
+            return fine_grained_lineages
         return None
 
     def _create_profile_mcp(
@@ -784,34 +867,39 @@ class GlueSource(StatefulIngestionSourceBase):
             # instantiate column profile class for each column
             column_profile = DatasetFieldProfileClass(fieldPath=column_name)
 
-            if self.source_config.profiling.unique_count in column_params:
-                column_profile.uniqueCount = int(
-                    float(column_params[self.source_config.profiling.unique_count])
-                )
-            if self.source_config.profiling.unique_proportion in column_params:
-                column_profile.uniqueProportion = float(
-                    column_params[self.source_config.profiling.unique_proportion]
-                )
-            if self.source_config.profiling.null_count in column_params:
-                column_profile.nullCount = int(
-                    float(column_params[self.source_config.profiling.null_count])
-                )
-            if self.source_config.profiling.null_proportion in column_params:
-                column_profile.nullProportion = float(
-                    column_params[self.source_config.profiling.null_proportion]
-                )
-            if self.source_config.profiling.min in column_params:
-                column_profile.min = column_params[self.source_config.profiling.min]
-            if self.source_config.profiling.max in column_params:
-                column_profile.max = column_params[self.source_config.profiling.max]
-            if self.source_config.profiling.mean in column_params:
-                column_profile.mean = column_params[self.source_config.profiling.mean]
-            if self.source_config.profiling.median in column_params:
-                column_profile.median = column_params[
-                    self.source_config.profiling.median
-                ]
-            if self.source_config.profiling.stdev in column_params:
-                column_profile.stdev = column_params[self.source_config.profiling.stdev]
+            if not self.source_config.profiling.profile_table_level_only:
+                if self.source_config.profiling.unique_count in column_params:
+                    column_profile.uniqueCount = int(
+                        float(column_params[self.source_config.profiling.unique_count])
+                    )
+                if self.source_config.profiling.unique_proportion in column_params:
+                    column_profile.uniqueProportion = float(
+                        column_params[self.source_config.profiling.unique_proportion]
+                    )
+                if self.source_config.profiling.null_count in column_params:
+                    column_profile.nullCount = int(
+                        float(column_params[self.source_config.profiling.null_count])
+                    )
+                if self.source_config.profiling.null_proportion in column_params:
+                    column_profile.nullProportion = float(
+                        column_params[self.source_config.profiling.null_proportion]
+                    )
+                if self.source_config.profiling.min in column_params:
+                    column_profile.min = column_params[self.source_config.profiling.min]
+                if self.source_config.profiling.max in column_params:
+                    column_profile.max = column_params[self.source_config.profiling.max]
+                if self.source_config.profiling.mean in column_params:
+                    column_profile.mean = column_params[
+                        self.source_config.profiling.mean
+                    ]
+                if self.source_config.profiling.median in column_params:
+                    column_profile.median = column_params[
+                        self.source_config.profiling.median
+                    ]
+                if self.source_config.profiling.stdev in column_params:
+                    column_profile.stdev = column_params[
+                        self.source_config.profiling.stdev
+                    ]
 
             dataset_profile.fieldProfiles.append(column_profile)
 
@@ -831,9 +919,7 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_profile_if_enabled(
         self, mce: MetadataChangeEventClass, database_name: str, table_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        # We don't need both checks only the second one
-        # but then lint believes that GlueProfilingConfig can be None
-        if self.source_config.profiling and self.source_config.is_profiling_enabled():
+        if self.source_config.is_profiling_enabled():
             # for cross-account ingestion
             kwargs = dict(
                 DatabaseName=database_name,

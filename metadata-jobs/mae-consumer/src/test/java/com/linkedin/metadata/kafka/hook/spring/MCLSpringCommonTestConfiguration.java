@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -85,4 +86,6 @@ public class MCLSpringCommonTestConfiguration {
         indexConvention,
         mock(RetrieverContext.class));
   }
+
+  @MockBean SpringStandardPluginConfiguration springStandardPluginConfiguration;
 }

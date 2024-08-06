@@ -6,6 +6,7 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import get_aspects_for_entity
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -44,10 +45,18 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
             raise click.UsageError("Nothing for me to get. Maybe provide an urn?")
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
+
+    client = get_default_graph()
+
     click.echo(
         json.dumps(
             get_aspects_for_entity(
-                entity_urn=urn, aspects=aspect, typed=False, details=details
+                session=client._session,
+                gms_host=client.config.server,
+                entity_urn=urn,
+                aspects=aspect,
+                typed=False,
+                details=details,
             ),
             sort_keys=True,
             indent=2,

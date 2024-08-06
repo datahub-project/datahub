@@ -102,9 +102,7 @@ def test_snowflake_shares_workunit_no_shares(
     config = SnowflakeV2Config(account_id="abc12345", platform_instance="instance1")
 
     report = SnowflakeV2Report()
-    shares_handler = SnowflakeSharesHandler(
-        config, report, lambda x: make_snowflake_urn(x)
-    )
+    shares_handler = SnowflakeSharesHandler(config, report)
 
     wus = list(shares_handler.get_shares_workunits(snowflake_databases))
 
@@ -204,9 +202,7 @@ def test_snowflake_shares_workunit_inbound_share(
     )
 
     report = SnowflakeV2Report()
-    shares_handler = SnowflakeSharesHandler(
-        config, report, lambda x: make_snowflake_urn(x, "instance1")
-    )
+    shares_handler = SnowflakeSharesHandler(config, report)
 
     wus = list(shares_handler.get_shares_workunits(snowflake_databases))
 
@@ -262,9 +258,7 @@ def test_snowflake_shares_workunit_outbound_share(
     )
 
     report = SnowflakeV2Report()
-    shares_handler = SnowflakeSharesHandler(
-        config, report, lambda x: make_snowflake_urn(x, "instance1")
-    )
+    shares_handler = SnowflakeSharesHandler(config, report)
 
     wus = list(shares_handler.get_shares_workunits(snowflake_databases))
 
@@ -313,9 +307,7 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
     )
 
     report = SnowflakeV2Report()
-    shares_handler = SnowflakeSharesHandler(
-        config, report, lambda x: make_snowflake_urn(x, "instance1")
-    )
+    shares_handler = SnowflakeSharesHandler(config, report)
 
     wus = list(shares_handler.get_shares_workunits(snowflake_databases))
 
@@ -376,9 +368,7 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share_no_platform_instan
     )
 
     report = SnowflakeV2Report()
-    shares_handler = SnowflakeSharesHandler(
-        config, report, lambda x: make_snowflake_urn(x)
-    )
+    shares_handler = SnowflakeSharesHandler(config, report)
 
     assert sorted(config.outbounds().keys()) == ["db1", "db2_main"]
     assert sorted(config.inbounds().keys()) == [

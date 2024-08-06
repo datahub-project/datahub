@@ -298,7 +298,7 @@ class StaleEntityRemovalHandler(
 
         if copy_previous_state_and_fail:
             logger.info(
-                f"Copying urns from last state (size {last_checkpoint_state.urns}) to current state (size {cur_checkpoint_state.urns}) "
+                f"Copying urns from last state (size {len(last_checkpoint_state.urns)}) to current state (size {len(cur_checkpoint_state.urns)}) "
                 "to ensure stale entities from previous runs are deleted on the next successful run."
             )
             for urn in last_checkpoint_state.urns:

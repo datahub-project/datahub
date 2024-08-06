@@ -17,15 +17,15 @@ The Remote Executor can now also be used for monitoring of ingestion sources.
 
 :::
 
-Acryl DataHub comes packaged with an Acryl-managed executor, which is hosted inside of Acryl's environment on your behalf. However, there are certain scenarios in which an Acryl-hosted executor is not ideal or sufficient to cover all of an organization's ingestion sources. For example, if an ingestion source is hosted behind a firewall or in an environment with strict access policies, then the Acryl executor might be unable to connect to it to extract metadata.
+DataHub Cloud comes packaged with an Acryl-managed executor, which is hosted inside of Acryl's environment on your behalf. However, there are certain scenarios in which an Acryl-hosted executor is not ideal or sufficient to cover all of an organization's ingestion sources. For example, if an ingestion source is hosted behind a firewall or in an environment with strict access policies, then the Acryl executor might be unable to connect to it to extract metadata.
 
-To accommodate these cases, Acryl supports configuring a Remote Ingestion Executor which can be deployed inside of your environment – whether that is on-prem or in cloud. This setup allows you to continue leveraging the Acryl DataHub console to create, schedule, and run both ingestion and assertion monitors, all while retaining network and credential isolation.
+To accommodate these cases, Acryl supports configuring a Remote Ingestion Executor which can be deployed inside of your environment – whether that is on-prem or in cloud. This setup allows you to continue leveraging the DataHub Cloud console to create, schedule, and run both ingestion and assertion monitors, all while retaining network and credential isolation.
 
 ## Deploying a Remote Executor
 
 :::note
 
-The Remote Ingestion Executor is only available for Managed DataHub. Setting up a new executor requires coordination with an Acryl representative.
+The Remote Ingestion Executor is only available for DataHub Cloud. Setting up a new executor requires coordination with an Acryl representative.
 
 :::
 
@@ -51,7 +51,7 @@ Steps you will need to perform on your end when instructed by your Acryl represe
 2. **Provision an Acryl Executor** (ECS)**:** Acryl team will provide a [Cloudformation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
    1. **Deployment Location:** The AWS VPC and subnet in which the Acryl Executor task is to be provisioned.
    2. **DataHub Personal Access Token**: A valid DataHub PAT. This can be generated inside of **Settings > Access Tokens** of DataHub web application. You can alternatively create a secret in AWS Secrets Manager and refer to that by ARN.
-   3. **Acryl DataHub URL**: The URL for your DataHub instance, e.g. `<your-company>.acryl.io/gms`. Note that you MUST enter the trailing /gms when configuring the executor.
+   3. **DataHub Cloud URL**: The URL for your DataHub instance, e.g. `<your-company>.acryl.io/gms`. Note that you MUST enter the trailing /gms when configuring the executor.
    4. **Acryl Remote Executor Version:** The version of the remote executor to deploy. This is converted into a container image tag. It will be set to the latest version of the executor by default.
    5. **Source Secrets:** The template accepts up to 10 named secrets which live inside your environment. Secrets are specified using the **OptionalSecrets** parameter in the following form: `SECRET_NAME=SECRET_ARN` with multiple separated by comma, e.g. `SECRET_NAME_1=SECRET_ARN_1,SECRET_NAME_2,SECRET_ARN_2.`
    6.  **Environment Variables:** The template accepts up to 10 arbitrary environment variables. These can be used to inject properties into your ingestion recipe from within your environment. Environment variables are specified using the **OptionalEnvVars** parameter in the following form: `ENV_VAR_NAME=ENV_VAR_VALUE` with multiple separated by comma, e.g. `ENV_VAR_NAME_1=ENV_VAR_VALUE_1,ENV_VAR_NAME_2,ENV_VAR_VALUE_2.`
@@ -114,7 +114,7 @@ The Helm chart [datahub-executor-worker](https://github.com/acryldata/datahub-ex
   ```
   kubectl create secret generic datahub-access-token-secret --from-literal=datahub-access-token-secret-key=<DATAHUB-ACCESS-TOKEN>
   ```
-5. **Acryl DataHub URL**: The URL for your DataHub instance, e.g. `https://<your-company>.acryl.io/gms`. Note that you MUST enter the trailing /gms when configuring the executor.
+5. **DataHub Cloud URL**: The URL for your DataHub instance, e.g. `https://<your-company>.acryl.io/gms`. Note that you MUST enter the trailing /gms when configuring the executor.
 6. **Acryl Remote Executor Version:** The version of the remote executor to deploy. This is converted into a container image tag.
 7. **Optionally** pass source secrets/environment variables as necessary. See [values.yaml](https://github.com/acryldata/datahub-executor-helm/blob/main/charts/datahub-executor-worker/values.yaml) file for all the available configurable options.
 8. **Install DataHub Executor chart as follows:**
