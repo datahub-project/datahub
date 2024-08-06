@@ -39,13 +39,6 @@ const AssertionDescriptionContainer = styled.div`
     align-items: center;
 `;
 
-const NameTypography = styled(Typography.Paragraph)`
-    // white-space: nowrap;
-    overflow: hidden;
-    width: 80%;
-    text-overflow: ellipsis;
-`;
-
 const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
 const SMART_ASSERTION_STALE_IN_DAYS = 3;
@@ -93,8 +86,7 @@ export const AssertionName = ({ record, groupBy, contract }) => {
                 </AssertionResultPopover>
             )}
             <AssertionDescriptionContainer>
-                <NameTypography>{name}</NameTypography>
-                {/* <Typography.Paragraph>{name}</Typography.Paragraph> */}
+                <Typography.Paragraph>{name}</Typography.Paragraph>
                 {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
                     <AssertionPlatformWrapper>
                         <AssertionPlatformAvatar

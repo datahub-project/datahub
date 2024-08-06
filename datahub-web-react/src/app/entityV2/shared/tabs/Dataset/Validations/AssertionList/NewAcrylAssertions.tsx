@@ -17,30 +17,8 @@ import { AssertionMonitorBuilderDrawer } from '../assertion/builder/AssertionMon
 import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '../acrylCacheUtils';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
-
-export type IFilter = {
-    sortBy: string;
-    groupBy: string;
-    filterCriteria: {
-        searchText: string;
-        status: string[];
-        type: string[];
-        tags: string[];
-        columns: string[];
-    };
-};
-
-const dummyFilterObject: IFilter = {
-    sortBy: '',
-    groupBy: 'type',
-    filterCriteria: {
-        searchText: '',
-        status: [],
-        type: [],
-        tags: [],
-        columns: [],
-    },
-};
+import { AssertionTableType, IFilter } from './types';
+import { DataContract } from '@src/types.generated';
 
 const AssertionConinter = styled.div``;
 const AssertionHeader = styled.div``;
@@ -49,13 +27,22 @@ const AssertionTitleContainer = styled.div`
     justify-content: space-between;
     margin: 20px;
     height: 50px;
-    .create-button {
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    .create-assertion-button {
+        button: disabled {
+            background-color: #e0e0e0 !important;
+            height: 40px;
+            color: #a0a0a0;
+            opacity: 0.8;
+        }
+        background-color: #5c3fd1;
+        height: 40px;
+        color: white;
         justify-content: center;
         align-items: center;
-        color: white;
-        height: 40px;
         border-radius: 5px;
+    }
+    div {
+        border-bottom: 0px;
     }
 `;
 
@@ -74,9 +61,20 @@ export const AcrylAssertionList = () => {
     const [showAssertionBuilder, setShowAssertionBuilder] = useState(false);
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const [visibleAssertions, setVisibleAssertions] = useState<any>({ allAssertions: [] });
-    const [filter, setFilter] = useState<IFilter>({ ...dummyFilterObject });
-    const [assertionMonitorData, setAssertionMonitorData] = useState<any[]>([]);
+    const [visibleAssertions, setVisibleAssertions] = useState<AssertionTableType>();
+    // TODO we need to create setter function to set the filter as per the filter component
+    const [filter] = useState<IFilter>({
+        sortBy: '',
+        groupBy: 'type',
+        filterCriteria: {
+            searchText: '',
+            status: [],
+            type: [],
+            tags: [],
+            columns: [],
+        },
+    });
+    const [assertionMonitorData, setAssertionMonitorData] = useState<AssertionWithMonitorDetails[]>([]);
 
     const { data, refetch, client, loading } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn },
@@ -88,23 +86,24 @@ export const AcrylAssertionList = () => {
     });
 
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
-    const contract = contractData?.dataset?.contract as any;
+    const contract: DataContract = contractData?.dataset?.contract as DataContract;
 
     useEffect(() => {
         const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
         const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
             tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
         setAssertionMonitorData(assertionsWithMonitorsDetails);
-        const transformedAssertions = transformAssertionData(assertionsWithMonitorsDetails);
         getFilteredAssertions(assertionsWithMonitorsDetails);
     }, [data]);
 
+    // get filtered Assertion as per the filter object
     const getFilteredAssertions = (assertions: AssertionWithMonitorDetails[]) => {
-        const filteredAssertionData = getFilteredTransformedAssertionData(assertions, filter);
+        const filteredAssertionData: AssertionTableType = getFilteredTransformedAssertionData(assertions, filter);
         setVisibleAssertions(filteredAssertionData);
     };
 
     useEffect(() => {
+        // after filter change need to get filtered assertions
         if (assertionMonitorData?.length > 0) {
             getFilteredAssertions(assertionMonitorData);
         }
@@ -133,7 +132,6 @@ export const AcrylAssertionList = () => {
 
     const disableCreateAssertion = !isAllowedToCreateAssertion || isSiblingMode;
     const disableCreateAssertionMessage = isSiblingMode ? isSiblingModeMessage : isNotAllowedToCreateAssertionMessage;
-    console.log('visibleAssertions 111>>>>', visibleAssertions);
 
     const AssertionTitleSection = () => {
         return (
@@ -151,11 +149,12 @@ export const AcrylAssertionList = () => {
                             title={(disableCreateAssertion && disableCreateAssertionMessage) || null}
                         >
                             <Button
-                                type="text"
+                                // type="text"
                                 onClick={() => !disableCreateAssertion && setShowAssertionBuilder(true)}
-                                disabled={disableCreateAssertion}
+                                disabled={true}
+                                // disabled={disableCreateAssertion}
                                 id="create-assertion-btn-main"
-                                className="create-button"
+                                className="create-assertion-button"
                             >
                                 <PlusOutlined /> Create
                             </Button>
@@ -175,11 +174,12 @@ export const AcrylAssertionList = () => {
                 {loading ? (
                     <AcrylAssertionsSummaryLoading />
                 ) : (
-                    visibleAssertions.allAssertions?.length > 0 && (
+                    // TODO handle it in proper way - now added to work the expand the particular group if the assertion link is copied
+                    (visibleAssertions?.assertions || []).length > 0 && (
                         <AssertionListTable
                             contract={contract}
-                            assertionData={visibleAssertions}
-                            filterOptions={filter}
+                            assertionData={visibleAssertions as AssertionTableType}
+                            filter={filter}
                             refetch={() => {
                                 setTimeout(() => {
                                     refetch();

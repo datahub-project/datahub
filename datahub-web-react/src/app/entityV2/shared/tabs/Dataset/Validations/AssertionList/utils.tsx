@@ -3,13 +3,16 @@ import cronstrue from 'cronstrue';
 import styled from 'styled-components';
 
 import {
+    Assertion,
     AssertionInfo,
     AssertionResultType,
+    AssertionRunEvent,
     AssertionRunStatus,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameters,
     AssertionType,
+    AuditStamp,
     CronSchedule,
     DatasetAssertionInfo,
     DatasetAssertionScope,
@@ -18,7 +21,9 @@ import {
     FreshnessAssertionInfo,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
+    GlobalTags,
     IncrementingSegmentRowCountChange,
+    Monitor,
     RowCountChange,
     SchemaAssertionCompatibility,
     SchemaAssertionInfo,
@@ -42,12 +47,12 @@ import {
 
 import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
-import { IFilter } from './NewAcrylAssertions';
 import { Typography } from 'antd';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
+import { AssertionStatusGroup, AssertionTableType, IFilter, TableRowType } from './types';
 
 /**
- * Returns the React Component to render for the aggregation portion of the Assertion Description
+ * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Schemas.
  *
  * Schema assertions require an aggregation.
@@ -72,7 +77,7 @@ export const getSchemaAggregationPlainText = (
 };
 
 /**
- * Returns the React Component to render for the aggregation portion of the Assertion Description
+ * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Rows
  *
  * Row assertions require an aggregation.
@@ -90,7 +95,7 @@ export const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation
 };
 
 /**
- * Returns the React Component to render for the aggregation portion of the Assertion Description
+ * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Columns
  */
 export const getColumnAggregationPlainText = (
@@ -143,7 +148,7 @@ export const getColumnAggregationPlainText = (
 };
 
 /**
- * Returns the React Component to render for the aggregation portion of the Assertion Description
+ * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  */
 export const getAggregationPlainText = (
     scope: DatasetAssertionScope,
@@ -164,7 +169,7 @@ export const getAggregationPlainText = (
 };
 
 /**
- * Returns the React Component to render for the operator portion of the Assertion Description
+ * Returns the Plain Text to render for the operator portion of the Assertion Description
  */
 export const getOperatorPlainText = (
     op: AssertionStdOperator,
@@ -333,7 +338,7 @@ export const getFreshnessAssertionPlainTextDescription = (
             scheduleText = createFixedIntervalText(assertionInfo.schedule?.fixedInterval, monitorSchedule);
             break;
         case FreshnessAssertionScheduleType.Cron:
-            scheduleText = createCronText(assertionInfo.schedule?.cron as any);
+            scheduleText = createCronText(assertionInfo.schedule?.cron as CronSchedule);
             break;
         case FreshnessAssertionScheduleType.SinceTheLastCheck:
             scheduleText = createSinceTheLastCheckText(monitorSchedule);
@@ -384,6 +389,7 @@ export const getPlainTextDescriptionFromAssertion = (
     return primaryLabel;
 };
 
+// Create Group's Summary to name and number of records for each group
 const getGroupNameBySummary = (record) => {
     const TextContainer = styled.div`
         display: flex;
@@ -433,7 +439,7 @@ const getGroupNameBySummary = (record) => {
 };
 
 // Generate Assertion Group By Status
-const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]) => {
+const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]): AssertionStatusGroup[] => {
     const STATUSES = [
         AssertionResultType.Success,
         AssertionResultType.Failure,
@@ -441,7 +447,7 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
         AssertionResultType.Init,
     ];
 
-    const assertionGroup: any[] = [];
+    const assertionGroup: AssertionStatusGroup[] = [];
 
     STATUSES.forEach((status) => {
         const filteredAssertions = assertions.filter((assertion) => {
@@ -451,15 +457,15 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
         });
 
         if (filteredAssertions.length > 0) {
-            const typeToAssertions = filteredAssertions.reduce((map, assertion) => {
+            const summary = filteredAssertions.reduce((map, assertion) => {
                 const assertionType = assertion?.info?.customAssertion?.type || assertion?.info?.type || 'Unknown';
                 map[assertionType] = (map[assertionType] || 0) + 1;
                 return map;
             }, {});
-            const group = {
+            const group: AssertionStatusGroup = {
                 name: status,
                 assertions: mapAssertionData(filteredAssertions),
-                summary: typeToAssertions,
+                summary,
             };
             assertionGroup.push({ ...group, groupName: getGroupNameBySummary(group) });
         }
@@ -468,24 +474,23 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
     return assertionGroup;
 };
 
-/** return assertion table data from assertions */
-export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]) => {
-    const assertionRawData: any = { allAssertions: [], groupBy: { type: [], status: [] } };
+/** return assertions table data structure to render on table from assertions */
+export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]): AssertionTableType => {
+    const assertionRawData: AssertionTableType = { assertions: [], groupBy: { type: [], status: [] } };
 
     const assertionsTableData = mapAssertionData(assertions);
-
-    assertionRawData.allAssertions = assertionsTableData;
+    assertionRawData.assertions = assertionsTableData;
     assertionRawData.groupBy.type = createAssertionGroups(assertions);
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(assertions);
-
-    console.log('assertionRawData>>', assertionRawData);
-
     return assertionRawData;
 };
 
-/** return assertion table data from assertions */
-export const getFilteredTransformedAssertionData = (assertions: AssertionWithMonitorDetails[], filter: IFilter) => {
-    const assertionRawData: any = { allAssertions: [], groupBy: { type: [], status: [] } };
+/** return fitlered transformed assertions */
+export const getFilteredTransformedAssertionData = (
+    assertions: AssertionWithMonitorDetails[],
+    filter: IFilter,
+): AssertionTableType => {
+    const assertionRawData: AssertionTableType = { assertions: [], groupBy: { type: [], status: [] } };
     const filteredAssertions = assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const { searchText, type, status } = filter.filterCriteria;
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
@@ -505,9 +510,10 @@ export const getFilteredTransformedAssertionData = (assertions: AssertionWithMon
     });
     const assertionsTableData = mapAssertionData(filteredAssertions);
 
-    assertionRawData.allAssertions = assertionsTableData;
-    assertionRawData.groupBy.type = createAssertionGroups(filteredAssertions) || [];
-    for (let item of assertionRawData.groupBy.type) {
+    assertionRawData.assertions = assertionsTableData;
+    const assertionsByType = createAssertionGroups(filteredAssertions);
+    assertionRawData.groupBy.type = assertionsByType;
+    for (let item of assertionRawData.groupBy.type || []) {
         const transformedData = mapAssertionData(item.assertions);
         item.assertions = transformedData;
         item.groupName = <AssertionGroupHeader group={item} />;
@@ -515,29 +521,31 @@ export const getFilteredTransformedAssertionData = (assertions: AssertionWithMon
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
     return assertionRawData;
 };
-// "Field level UNIQUE_PERCENTAGE metric assertion for field coat_type"
-const mapAssertionData = (assertions: AssertionWithMonitorDetails[]) => {
-    return assertions.map((assertion) => {
+
+// transform assertions into table data
+const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[]): TableRowType[] => {
+    return assertions.map((assertion: AssertionWithMonitorDetails) => {
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
 
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
         const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
-        return {
+        const rowData: TableRowType = {
             type: assertion.info?.type,
-            lastUpdated: assertion.info?.lastUpdated,
-            tags: assertion.tags || ['Important'],
+            lastUpdated: assertion.info?.lastUpdated as AuditStamp,
+            tags: assertion.tags as GlobalTags,
             descriptionHTML: null,
             description: primaryPainTextLabel,
             urn: assertion.urn,
             platform: assertion.platform,
-            lastEvaluation: isCompleted && mostRecentRun,
+            lastEvaluation: (isCompleted && mostRecentRun) as AssertionRunEvent,
             lastEvaluationTimeMs: mostRecentRun?.timestampMillis,
-            lastEvaluationResult: isCompleted && mostRecentRun?.result?.type,
-            lastEvaluationUrl: isCompleted && mostRecentRun?.result?.externalUrl,
-            assertion,
-            monitor,
-            status: mostRecentRun?.status,
+            lastEvaluationResult: (isCompleted && mostRecentRun?.result?.type) as AssertionResultType,
+            lastEvaluationUrl: (isCompleted && mostRecentRun?.result?.externalUrl) || '',
+            assertion: assertion as AssertionWithMonitorDetails,
+            monitor: monitor as Monitor,
+            status: mostRecentRun?.status as AssertionRunStatus,
         };
+        return rowData;
     });
 };

@@ -5,7 +5,7 @@ import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
-import { AssertionType, Entity } from '@src/types.generated';
+import { AssertionType, DataContract, Entity } from '@src/types.generated';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 
@@ -14,6 +14,7 @@ import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDra
 import { getAssertionGroupName, getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/builder/hooks';
+import { AssertionTableType, IFilter } from './types';
 
 const StyledTable = styled(Table)`
     max-width: none;
@@ -62,31 +63,41 @@ const LastRun = styled(Typography.Text)`
     color: ${REDESIGN_COLORS.BODY_TEXT};
 `;
 
+type Props = {
+    assertionData: AssertionTableType;
+    filter: IFilter;
+    refetch: () => void;
+    contract: DataContract;
+    canEditAssertions: boolean;
+    canEditMonitors: boolean;
+    canEditSqlAssertions: boolean;
+};
+
 export const AssertionListTable = ({
     assertionData,
-    filterOptions,
+    filter,
     refetch,
     contract,
     canEditAssertions,
     canEditMonitors,
     canEditSqlAssertions,
-}) => {
+}: Props) => {
     const { entityData } = useEntityData();
-    const { groupBy } = filterOptions;
+    const { groupBy } = filter;
 
     const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(
         assertionData?.groupBy ? assertionData?.groupBy[groupBy] : [],
     );
 
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
-    const focusedAssertion = assertionData.allAssertions.find((assertion) => assertion.urn === focusAssertionUrn);
+    const focusedAssertion = assertionData.assertions.find((assertion) => assertion.urn === focusAssertionUrn);
     const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion.assertion) : undefined;
 
     const focusedAssertionEntity =
         focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
 
     const canEditFocusAssertion = focusedAssertion
-        ? (focusedAssertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
+        ? (focusedAssertion?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
         : false;
     const canEditFocusMonitor = focusedAssertion ? canEditMonitors : false;
 
@@ -95,7 +106,7 @@ export const AssertionListTable = ({
     }
     useOpenAssertionDetailModal(setFocusAssertionUrn);
 
-    const assertionsTableCols: any[] = [
+    const assertionsTableCols = [
         {
             title: 'Name',
             dataIndex: 'name',
@@ -128,7 +139,7 @@ export const AssertionListTable = ({
             dataIndex: 'tags',
             key: 'tags',
             width: '12%',
-            render: (_, record) => <div>{record.tags}</div>,
+            render: (_, record) => <div>{record.tags?.name}</div>,
         },
         {
             title: '',
@@ -161,10 +172,12 @@ export const AssertionListTable = ({
         assertionsTableCols.push({
             title: '',
             key: 'expand',
+            dataIndex: '',
             width: '2%',
             render: (_, record) => {
-                if (record.groupName)
-                    return expandedRowKeys.includes(record.name) ? <DownOutlined /> : <RightOutlined />;
+                return (
+                    record.groupName && (expandedRowKeys.includes(record.name) ? <DownOutlined /> : <RightOutlined />)
+                );
             },
         });
     }
@@ -194,7 +207,7 @@ export const AssertionListTable = ({
         <>
             <StyledTable
                 columns={assertionsTableCols}
-                dataSource={groupBy ? getGroupData() : assertionData.allAssertions || []}
+                dataSource={groupBy ? getGroupData() : assertionData.assertions || []}
                 locale={{
                     emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                 }}
@@ -212,7 +225,7 @@ export const AssertionListTable = ({
                                       pagination={false}
                                       showHeader={false}
                                       rowClassName={rowClassName}
-                                      onRow={(record: any) => {
+                                      onRow={(record) => {
                                           return {
                                               onClick: !record.groupName
                                                   ? (_) => {

@@ -1,0 +1,64 @@
+import {
+    Assertion,
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionRunStatus,
+    AuditStamp,
+    DataPlatform,
+    GlobalTags,
+    Monitor,
+} from '@src/types.generated';
+import { AssertionWithMonitorDetails } from '../acrylUtils';
+import { AssertionGroup } from '../acrylTypes';
+
+export type IFilter = {
+    sortBy: string;
+    groupBy: string;
+    filterCriteria: {
+        searchText: string;
+        status: string[];
+        type: string[];
+        tags: string[];
+        columns: string[];
+    };
+};
+
+export type TableRowType = {
+    type?: string;
+    lastUpdated?: AuditStamp;
+    tags: GlobalTags;
+    descriptionHTML: JSX.Element | null;
+    description: string;
+    urn: string;
+    platform: DataPlatform;
+    lastEvaluation?: AssertionRunEvent;
+    lastEvaluationTimeMs?: number;
+    lastEvaluationResult?: AssertionResultType; // add type
+    lastEvaluationUrl?: string;
+    assertion: AssertionWithMonitorDetails;
+    monitor: Monitor;
+    status: AssertionRunStatus; // status;
+    groupName?: string;
+};
+
+export type AssertionGroupExtended = Omit<AssertionGroup, 'assertions'> & {
+    assertions: TableRowType[];
+    groupName?: JSX.Element;
+};
+
+export type AssertionStatusGroup = {
+    name: string;
+    assertions: TableRowType[];
+    summary: { [key: string]: number };
+    groupName?: JSX.Element;
+};
+
+type AssertionGroupByType = {
+    type: any[]; //AssertionGroupExtended[] | AssertionGroup[];
+    status: AssertionStatusGroup[];
+};
+
+export type AssertionTableType = {
+    assertions: TableRowType[];
+    groupBy: AssertionGroupByType;
+};
