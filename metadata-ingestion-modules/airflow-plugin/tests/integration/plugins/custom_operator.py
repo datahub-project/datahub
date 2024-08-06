@@ -1,8 +1,9 @@
-from airflow.models.baseoperator import BaseOperator
-from datahub_airflow_plugin.entities import Dataset
-
-from typing import List
 import logging
+from typing import List
+
+from airflow.models.baseoperator import BaseOperator
+
+from datahub_airflow_plugin.entities import Dataset
 
 logger = logging.getLogger(__name__)
 
