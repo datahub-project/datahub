@@ -493,17 +493,41 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         age_in_millis = current_time - last_update_time
         age_in_days = age_in_millis / (1000 * 60 * 60 * 24)
 
+        bucket = 0
         for factor in self.config.ranking_policy.freshness_factors:
             if len(factor.age_in_days) == 2:
-                if factor.age_in_days[0] < age_in_days <= factor.age_in_days[1]:
-                    freshness_factor = factor.value
+                if bucket == 0:
+                    if factor.age_in_days[0] <= age_in_days <= factor.age_in_days[1]:
+                        freshness_factor = factor.value
+                        break
+                else:
+                    if factor.age_in_days[0] < age_in_days <= factor.age_in_days[1]:
+                        freshness_factor = factor.value
+                        break
             elif age_in_days > factor.age_in_days[0]:
                 freshness_factor = factor.value
 
+        bucket = 0
         for pfactor in self.config.ranking_policy.usage_percentile_factors:
+            bucket += 1
             if len(pfactor.percentile) == 2:
-                if pfactor.percentile[0] < usage_percentile <= pfactor.percentile[1]:
-                    usage_search_score_multiplier = pfactor.value
+                # The first bucket min should be inclusive
+                if bucket == 1:
+                    if (
+                        pfactor.percentile[0]
+                        <= usage_percentile
+                        <= pfactor.percentile[1]
+                    ):
+                        usage_search_score_multiplier = pfactor.value
+                        break
+                else:
+                    if (
+                        pfactor.percentile[0]
+                        < usage_percentile
+                        <= pfactor.percentile[1]
+                    ):
+                        usage_search_score_multiplier = pfactor.value
+                        break
             elif usage_percentile > pfactor.percentile[0]:
                 usage_search_score_multiplier = pfactor.value
 

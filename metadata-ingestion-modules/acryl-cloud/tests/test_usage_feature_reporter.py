@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import pathlib
@@ -10,6 +11,8 @@ import pytest
 from freezegun import freeze_time
 
 from tests.utils import PytestConfig
+
+from datahub.ingestion.api.common import PipelineContext
 
 if TYPE_CHECKING:
     from _pytest.config.argparsing import Parser
@@ -25,6 +28,122 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 
 FROZEN_TIME = "2024-07-11 07:00:00"
+
+
+@freeze_time(FROZEN_TIME)
+def test_search_search_score_with_zero_usage_percentile() -> None:
+    config = DataHubUsageFeatureReportingSourceConfig(
+        dashboard_usage_enabled=False,
+        chart_usage_enabled=False,
+        dataset_usage_enabled=True,
+        stateful_ingestion=None,
+        server=None,
+        query_timeout=10,
+        extract_batch_size=500,
+        extract_delay=0.25,
+        use_exp_cdf=True,
+        sibling_usage_enabled=False,
+        use_server_side_aggregation=True,
+        set_upstream_table_max_modification_time_for_views=True,
+        ranking_policy=RankingPolicy(
+            freshness_factors=[
+                FreshnessFactor(age_in_days=[0, 7], value=3.6),
+                FreshnessFactor(age_in_days=[7, 30], value=1.3),
+                FreshnessFactor(age_in_days=[30, 90], value=0.6),
+                FreshnessFactor(age_in_days=[90], value=0.4),
+            ],
+            usage_percentile_factors=[
+                UsagePercentileFactor(percentile=[0, 10], value=0.5),
+                UsagePercentileFactor(percentile=[10, 20], value=0.6),
+                UsagePercentileFactor(percentile=[20, 30], value=0.7),
+                UsagePercentileFactor(percentile=[30, 40], value=0.8),
+                UsagePercentileFactor(percentile=[40, 45], value=0.91),
+                UsagePercentileFactor(percentile=[45, 50], value=1.0),
+                UsagePercentileFactor(percentile=[50, 55], value=1.25),
+                UsagePercentileFactor(percentile=[55, 60], value=1.5),
+                UsagePercentileFactor(percentile=[60, 65], value=1.75),
+                UsagePercentileFactor(percentile=[70, 75], value=2.0),
+                UsagePercentileFactor(percentile=[75, 80], value=2.5),
+                UsagePercentileFactor(percentile=[80, 85], value=2.75),
+                UsagePercentileFactor(percentile=[85, 90], value=3.0),
+                UsagePercentileFactor(percentile=[90, 92], value=3.5),
+                UsagePercentileFactor(percentile=[92, 95], value=4.0),
+                UsagePercentileFactor(percentile=[95, 97], value=5.0),
+                UsagePercentileFactor(percentile=[97, 100], value=6.0),
+            ],
+        ),
+    )
+
+    source = DataHubUsageFeatureReportingSource(
+        ctx=PipelineContext(run_id="usage-source-test"), config=config
+    )
+    multipliers = source.search_score(
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_1,PROD)",
+        1234,
+        0,
+    )
+    assert multipliers.usageSearchScoreMultiplier == 0.5
+    assert multipliers.usageFreshnessScoreMultiplier == 0.4
+    assert multipliers.customDatahubScoreMultiplier == 1.0
+    assert multipliers.combinedSearchRankingMultiplier == 0.2
+
+
+@freeze_time(FROZEN_TIME)
+def test_search_search_score_with_zero_freshness() -> None:
+    config = DataHubUsageFeatureReportingSourceConfig(
+        dashboard_usage_enabled=False,
+        chart_usage_enabled=False,
+        dataset_usage_enabled=True,
+        stateful_ingestion=None,
+        server=None,
+        query_timeout=10,
+        extract_batch_size=500,
+        extract_delay=0.25,
+        use_exp_cdf=True,
+        sibling_usage_enabled=False,
+        use_server_side_aggregation=True,
+        set_upstream_table_max_modification_time_for_views=True,
+        ranking_policy=RankingPolicy(
+            freshness_factors=[
+                FreshnessFactor(age_in_days=[0, 7], value=3.6),
+                FreshnessFactor(age_in_days=[7, 30], value=1.3),
+                FreshnessFactor(age_in_days=[30, 90], value=0.6),
+                FreshnessFactor(age_in_days=[90], value=0.4),
+            ],
+            usage_percentile_factors=[
+                UsagePercentileFactor(percentile=[0, 10], value=0.5),
+                UsagePercentileFactor(percentile=[10, 20], value=0.6),
+                UsagePercentileFactor(percentile=[20, 30], value=0.7),
+                UsagePercentileFactor(percentile=[30, 40], value=0.8),
+                UsagePercentileFactor(percentile=[40, 45], value=0.91),
+                UsagePercentileFactor(percentile=[45, 50], value=1.0),
+                UsagePercentileFactor(percentile=[50, 55], value=1.25),
+                UsagePercentileFactor(percentile=[55, 60], value=1.5),
+                UsagePercentileFactor(percentile=[60, 65], value=1.75),
+                UsagePercentileFactor(percentile=[70, 75], value=2.0),
+                UsagePercentileFactor(percentile=[75, 80], value=2.5),
+                UsagePercentileFactor(percentile=[80, 85], value=2.75),
+                UsagePercentileFactor(percentile=[85, 90], value=3.0),
+                UsagePercentileFactor(percentile=[90, 92], value=3.5),
+                UsagePercentileFactor(percentile=[92, 95], value=4.0),
+                UsagePercentileFactor(percentile=[95, 97], value=5.0),
+                UsagePercentileFactor(percentile=[97, 100], value=6.0),
+            ],
+        ),
+    )
+
+    source = DataHubUsageFeatureReportingSource(
+        ctx=PipelineContext(run_id="usage-source-test"), config=config
+    )
+    multipliers = source.search_score(
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,mydb.my_schema_my_table_1,PROD)",
+        int(datetime.datetime.now().timestamp() * 1000),
+        0,
+    )
+    assert multipliers.usageSearchScoreMultiplier == 0.5
+    assert multipliers.usageFreshnessScoreMultiplier == 3.6
+    assert multipliers.customDatahubScoreMultiplier == 1.0
+    assert multipliers.combinedSearchRankingMultiplier == 1.8
 
 
 def load_data_from_es_mock(
