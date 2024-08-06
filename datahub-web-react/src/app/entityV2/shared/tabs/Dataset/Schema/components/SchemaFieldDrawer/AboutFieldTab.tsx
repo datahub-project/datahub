@@ -91,9 +91,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             editableSchemaMetadata={properties.editableSchemaMetadata}
                         />
                         <StatsSection
-                            expandedField={expandedField}
                             fieldProfile={properties.fieldProfile}
-                            profiles={properties.profiles}
                             setSelectedTabName={properties.setSelectedTabName}
                         />
                         <SampleValuesSection fieldProfile={properties.fieldProfile} />
