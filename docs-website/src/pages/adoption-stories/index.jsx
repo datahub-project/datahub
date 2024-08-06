@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "@theme/Layout";
+import BrowserOnly from "@docusaurus/BrowserOnly";
 import LearnItemCard from "./_components/LearnItemCard";
 import styles from "./styles.module.scss";
 
@@ -23,13 +24,12 @@ function AdoptionStoriesListPageContent() {
     }
   };
 
-  const selectedSlug = window.location.hash.substring(1);
-
   useEffect(() => {
+    const selectedSlug = window.location.hash.substring(1);
     if (selectedCardRef.current) {
       selectedCardRef.current.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
     }
-  }, [selectedSlug]);
+  }, [selectedCardRef]);
 
   return (
     <Layout>
@@ -64,8 +64,8 @@ function AdoptionStoriesListPageContent() {
             <LearnItemCard
               key={company.name}
               company={company}
-              isSelected={company.slug === selectedSlug}
-              ref={company.slug === selectedSlug ? selectedCardRef : null}
+              isSelected={company.slug === window.location.hash.substring(1)}
+              ref={company.slug === window.location.hash.substring(1) ? selectedCardRef : null}
             />
           ))}
         </div>
@@ -75,5 +75,9 @@ function AdoptionStoriesListPageContent() {
 }
 
 export default function AdoptionStoriesListPage() {
-  return <AdoptionStoriesListPageContent />;
+  return (
+    <BrowserOnly>
+      {() => <AdoptionStoriesListPageContent />}
+    </BrowserOnly>
+  );
 }
