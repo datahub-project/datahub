@@ -14,8 +14,10 @@ OL_SCHEME_TWEAKS = {
 
 
 def translate_ol_to_datahub_urn(ol_uri: OpenLineageDataset) -> str:
-    if not hasattr(ol_uri, 'namespace') or not ol_uri.namespace:
-        return builder.make_dataset_urn(platform=ol_uri.platform, name=ol_uri.name)
+    if not hasattr(ol_uri, "namespace") or not ol_uri.namespace:
+        return builder.make_dataset_urn(
+            platform=getattr(ol_uri, "platform", "unknown"), name=ol_uri.name
+        )
     else:
         namespace = ol_uri.namespace
         name = ol_uri.name

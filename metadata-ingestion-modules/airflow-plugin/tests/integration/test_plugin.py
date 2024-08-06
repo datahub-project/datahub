@@ -111,7 +111,10 @@ def _wait_for_dag_finish(
 
 @contextlib.contextmanager
 def _run_airflow(
-    tmp_path: pathlib.Path, dags_folder: pathlib.Path, plugins_folder: pathlib.Path, is_v1: bool
+    tmp_path: pathlib.Path,
+    dags_folder: pathlib.Path,
+    plugins_folder: pathlib.Path,
+    is_v1: bool,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")

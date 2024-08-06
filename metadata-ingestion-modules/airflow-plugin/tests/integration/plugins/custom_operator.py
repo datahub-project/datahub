@@ -1,18 +1,18 @@
 from airflow.models.baseoperator import BaseOperator
 from datahub_airflow_plugin.entities import Dataset
 
-from typing import Any, List
+from typing import List
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class CustomOperator(BaseOperator):
-    def __init__(self, name: str, **kwargs) -> None:
+    def __init__(self, name, **kwargs):
         super().__init__(**kwargs)
         self.name = name
 
-    def execute(self, context) -> None:
+    def execute(self, context):
         """
         Other code....
         """
@@ -41,7 +41,7 @@ class CustomOperator(BaseOperator):
         )
 
     @staticmethod
-    def _get_sf_lineage(input_tables: List[str], output_tables: List[str]):
+    def _get_sf_lineage(input_tables, output_tables):
         """
         Get lineage tables from Snowflake.
         """
