@@ -48,6 +48,8 @@ public class TimeseriesAspectTransformer {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
+  private TimeseriesAspectTransformer() {}
+
   public static Map<String, JsonNode> transform(
       @Nonnull final Urn urn,
       @Nonnull final RecordTemplate timeseriesAspect,
