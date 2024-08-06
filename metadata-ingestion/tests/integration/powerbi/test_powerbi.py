@@ -820,7 +820,7 @@ def test_powerbi_ingest_urn_lower_case(
                 "config": {
                     **default_source_config(),
                     "env": "PROD",
-                    "platform_instance": "PROD",
+                    "platform_instance": "myPlatformInstance",
                     "convert_urns_to_lowercase": True,
                     "convert_lineage_urns_to_lowercase": True,
                 },
