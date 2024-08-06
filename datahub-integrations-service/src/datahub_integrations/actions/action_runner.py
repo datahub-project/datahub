@@ -34,7 +34,7 @@ assert telemetry_instance
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-REPORTING_FREQ_SEC = 20
+REPORTING_FREQ_SEC = 10
 
 
 def make_api(pipeline: Pipeline) -> fastapi.FastAPI:

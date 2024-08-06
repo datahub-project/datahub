@@ -6,6 +6,7 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import DataHubActionStatusClass
 from datahub.utilities import logging_manager
 from datahub_actions.pipeline.pipeline import Pipeline
 from loguru import logger
@@ -24,6 +25,9 @@ from datahub_integrations.notifications.constants import DATAHUB_SYSTEM_ACTOR
 
 class ActionStatsReporter:
     def __init__(self, pipeline: Pipeline, graph: DataHubGraph, stage: Stage):
+        from datahub.metadata.schema_classes import DataHubActionStatusClass
+
+        assert DataHubActionStatusClass.ASPECT_NAME
         self.pipeline = pipeline
         self.graph = graph
         self.stage = stage
@@ -34,8 +38,8 @@ class ActionStatsReporter:
         self.action: ReportingAction = self.pipeline.action
         self.action_urn = self.action.action_urn
 
-    def get_server_stats(self) -> Optional[models.DataHubActionStatusClass]:
-        return self.graph.get_aspect(self.action_urn, models.DataHubActionStatusClass)
+    def get_server_stats(self) -> Optional[DataHubActionStatusClass]:
+        return self.graph.get_aspect(self.action_urn, DataHubActionStatusClass)
 
     def run_action_stats_reporter(self, report_interval_secs: float) -> None:
         time.sleep(report_interval_secs)
@@ -84,7 +88,7 @@ class ActionStatsReporter:
                 return True
         return False
 
-    def _build_client_stats(self) -> Optional[models.DataHubActionStatusClass]:
+    def _build_client_stats(self) -> Optional[DataHubActionStatusClass]:
         # TODO: Return None if there is no new data to report.
 
         pipeline_stats = self.pipeline.stats()
@@ -163,7 +167,7 @@ class ActionStatsReporter:
         if existing_stats:
             updated_stats = copy.deepcopy(existing_stats)
         else:
-            updated_stats = models.DataHubActionStatusClass()
+            updated_stats = DataHubActionStatusClass()
 
         if stage == Stage.LIVE:
             # TODO: Aggregate the stats in customProperties with the existing stats.
@@ -181,7 +185,7 @@ class ActionStatsReporter:
         """
 
         if stats:
-            logger.debug(f"Reporting stats for {self.action_urn}: {stats}")
+            # logger.debug(f"Reporting stats for {self.action_urn}: {stats}")
             self.graph.emit(
                 MetadataChangeProposalWrapper(
                     entityUrn=self.action_urn,

@@ -1,8 +1,12 @@
+import logging
 import time
 from datetime import datetime
 from urllib.parse import quote
 
 import requests
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def wait_for_reload_completion(
@@ -104,13 +108,21 @@ def bootstrap_action(
     wait_for_completion: bool = False,
     timeout: int = 120,
 ):
+    time_stages = {}
+    time_stages["bootstrap_request"] = time.time()
     # url encode the action_urn
     action_urn_encoded = quote(action_urn)
     url = f"{integrations_url}/private/actions/{action_urn_encoded}/bootstrap"
     response = requests.post(url, json={})
     response.raise_for_status()
+    time_stages["bootstrap_request"] = time.time() - time_stages["bootstrap_request"]
     if wait_for_completion:
+        time_stages["wait_for_bootstrap_completion"] = time.time()
         wait_for_bootstrap_completion(action_urn, integrations_url, timeout=timeout)
+        time_stages["wait_for_bootstrap_completion"] = (
+            time.time() - time_stages["wait_for_bootstrap_completion"]
+        )
+    print(f"Bootstrap action {action_urn} took {time_stages}")
     return response.json()
 
 

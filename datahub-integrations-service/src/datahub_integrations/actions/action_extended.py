@@ -37,14 +37,9 @@ class ExtendedActionStats(BaseModel):
 
 class AutomationActionConfig(ConfigModel):
 
-    bootstrap: bool = Field(
-        False,
-        description="Indicates whether to bootstrap the action. Default is False.",
-    )
-
     event_processing_rate_limit: int = Field(
-        1,
-        description="Rate limit for processing events. Default is 1 event per rate period.",
+        10,
+        description="Rate limit for processing events. Default is 10 event per rate period.",
     )
 
     event_processing_rate_period: int = Field(
@@ -139,9 +134,10 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
                         future.result()
                     except Exception as e:
                         logger.error(f"Error bootstrapping dataset: {e}")
+                        breakpoint()
                         success = False
-        except Exception as e:
-            logger.error(f"Error bootstrapping action: {e}")
+        except Exception:
+            logger.error("Error bootstrapping action: ", exc_info=True)
             success = False
 
         self.bootstrapping = False
