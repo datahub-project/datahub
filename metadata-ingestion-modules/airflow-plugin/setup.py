@@ -43,6 +43,7 @@ plugins: Dict[str, Set[str]] = {
         # us from being broken by backwards-incompatible changes in the
         # underlying package.
         "openlineage-airflow>=1.2.0,<=1.18.0",
+        "apache-airflow-providers-openlineage==1.9.1",
     },
 }
 
