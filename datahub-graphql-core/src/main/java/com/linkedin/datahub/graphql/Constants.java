@@ -38,6 +38,7 @@ public class Constants {
       ImmutableSet.of(
           "urn:li:dataHubPersona:technicalUser",
           "urn:li:dataHubPersona:businessUser",
-          "urn:li:dataHubPersona:dataLeader",
-          "urn:li:dataHubPersona:dataSteward");
+          "urn:li:dataHubPersona:dataEngineer",
+          "urn:li:dataHubPersona:dataSteward",
+          "urn:li:dataHubPersona:dataLeader"); // Deprecated persona.
 }

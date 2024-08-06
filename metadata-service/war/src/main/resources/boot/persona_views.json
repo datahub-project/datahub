@@ -1,0 +1,169 @@
+[
+  {
+    "urn": "urn:li:dataHubView:__default_technicalUser",
+    "info": {
+      "name": "\uD83D\uDCA1  Data Expert",
+      "description": "Default View for Data Experts",
+      "type": "GLOBAL",
+      "definition": {
+        "entityTypes": [],
+        "filter": {
+          "or": [
+            {
+              "and": [
+                {
+                  "field": "_entityType",
+                  "values": [
+                    "dataset",
+                    "chart",
+                    "container",
+                    "dashboard",
+                    "mlFeature",
+                    "mlPrimaryKey",
+                    "dataFlow",
+                    "glossaryTerm",
+                    "mlFeatureTable",
+                    "mlModel",
+                    "dataProduct",
+                    "domain",
+                    "glossaryNode",
+                    "mlModelGroup"
+                  ],
+                  "value": "",
+                  "negated": false,
+                  "condition": "EQUAL"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "created": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 0
+      },
+      "lastModified": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 0
+      }
+    }
+  },
+  {
+    "urn": "urn:li:dataHubView:__default_businessUser",
+    "info": {
+      "name": "\uD83D\uDCCA  Data User",
+      "description": "Default View for Data Users",
+      "type": "GLOBAL",
+      "definition": {
+        "entityTypes": [],
+        "filter": {
+          "or": [
+            {
+              "and": [
+                {
+                  "field": "_entityType",
+                  "values": [
+                    "dataset",
+                    "chart",
+                    "dashboard"
+                  ],
+                  "value": "",
+                  "negated": false,
+                  "condition": "EQUAL"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "created": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 0
+      },
+      "lastModified": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 0
+      }
+    }
+  },
+  {
+    "urn": "urn:li:dataHubView:__default_dataSteward",
+    "info": {
+      "name": "\uD83D\uDCD6  Data Steward",
+      "description": "Default View for Data Stewards",
+      "type": "GLOBAL",
+      "definition": {
+        "entityTypes": [],
+        "filter": {
+          "or": [
+            {
+              "and": [
+                {
+                  "field": "_entityType",
+                  "values": [
+                    "dataset",
+                    "glossaryTerm",
+                    "dataProduct",
+                    "domain",
+                    "glossaryNode",
+                    "tag"
+                  ],
+                  "value": "",
+                  "negated": false,
+                  "condition": "EQUAL"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "created": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 0
+      },
+      "lastModified": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 0
+      }
+    }
+  },
+  {
+    "urn": "urn:li:dataHubView:__default_dataEngineer",
+    "info": {
+      "name": "\uD83D\uDD27  Data Engineer",
+      "description": "Default View for Data Engineers",
+      "type": "GLOBAL",
+      "definition": {
+        "entityTypes": [],
+        "filter": {
+          "or": [
+            {
+              "and": [
+                {
+                  "field": "_entityType",
+                  "values": [
+                    "dataset",
+                    "container",
+                    "dataFlow",
+                    "mlModel"
+                  ],
+                  "value": "",
+                  "negated": false,
+                  "condition": "EQUAL"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "created": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 0
+      },
+      "lastModified": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 0
+      }
+    }
+  }
+]

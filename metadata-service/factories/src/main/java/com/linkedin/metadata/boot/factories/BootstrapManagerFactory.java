@@ -17,6 +17,7 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataTypesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
+import com.linkedin.metadata.boot.steps.IngestDefaultPersonasAndViews;
 import com.linkedin.metadata.boot.steps.IngestDefaultTagsStep;
 import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
 import com.linkedin.metadata.boot.steps.IngestMetadataTestsStep;
@@ -124,6 +125,9 @@ public class BootstrapManagerFactory {
   @Value("${bootstrap.backfillBrowsePathsV2.enabled}")
   private Boolean _backfillBrowsePathsV2Enabled;
 
+  @Value("${bootstrap.defaultPersonas.enabled}")
+  private Boolean _defaultPersonasEnabled;
+
   // Saas-only
   @Autowired
   @Qualifier("ingestMetadataTestsStep")
@@ -218,6 +222,10 @@ public class BootstrapManagerFactory {
 
     if (_backfillBrowsePathsV2Enabled) {
       finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
+    }
+
+    if (_defaultPersonasEnabled) {
+      finalSteps.add(new IngestDefaultPersonasAndViews(_entityService, _entityRegistry));
     }
 
     ModelExtensionValidationConfiguration mcpExtensionValidationConfig =
