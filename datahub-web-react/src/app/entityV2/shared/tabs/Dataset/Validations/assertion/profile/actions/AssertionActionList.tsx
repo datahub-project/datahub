@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { StartStopAction } from './StartStopAction';
-import { Assertion, DataContract, Monitor } from '../../../../../../../../../types.generated';
+import { Assertion, AssertionRunStatus, DataContract, Monitor } from '../../../../../../../../../types.generated';
 import { DeleteAction } from './DeleteAction';
 import { ContractAction } from './ContractAction';
 import { CopyLinkAction } from './CopyLinkAction';
@@ -42,6 +42,10 @@ export const AssertionActionList = ({
     refetch,
 }: Props) => {
     const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
+    const mostRun = assertion.runEvents?.runEvents;
+    const externalUrl =
+        assertion?.info?.externalUrl ||
+        (mostRun?.length && mostRun[0].status === AssertionRunStatus.Complete && mostRun[0].result?.externalUrl);
 
     const menu = (
         <Menu>
@@ -58,9 +62,11 @@ export const AssertionActionList = ({
                 </Menu.Item>
             )) ||
                 null}
-            <Menu.Item key="2">
-                <ExternalUrlAction assertion={assertion} />
-            </Menu.Item>
+            {externalUrl && (
+                <Menu.Item key="2">
+                    <ExternalUrlAction assertion={assertion} />
+                </Menu.Item>
+            )}
             <Menu.Item key="3">
                 <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
             </Menu.Item>

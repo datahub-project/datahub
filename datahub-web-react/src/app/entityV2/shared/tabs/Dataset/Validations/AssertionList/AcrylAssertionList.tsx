@@ -19,8 +19,6 @@ import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading'
 import { AssertionTableType, IFilter } from './types';
 import { DataContract } from '@src/types.generated';
 
-const AssertionConinter = styled.div``;
-const AssertionHeader = styled.div``;
 const AssertionTitleContainer = styled.div`
     display: flex;
     justify-content: space-between;
@@ -167,32 +165,28 @@ export const AcrylAssertionList = () => {
 
     return (
         <>
-            <AssertionConinter>
-                <AssertionHeader>
-                    <AssertionTitleSection></AssertionTitleSection>
-                </AssertionHeader>
-                {loading ? (
-                    <AcrylAssertionsSummaryLoading />
-                ) : (
-                    // TODO handle it in proper way - now added to work the expand the particular group if the assertion link is copied
-                    (visibleAssertions?.assertions || []).length > 0 && (
-                        <AssertionListTable
-                            contract={contract}
-                            assertionData={visibleAssertions as AssertionTableType}
-                            filter={filter}
-                            refetch={() => {
-                                setTimeout(() => {
-                                    refetch();
-                                    contractRefetch();
-                                }, 500);
-                            }}
-                            canEditAssertions={canEditAssertions}
-                            canEditMonitors={canEditMonitors}
-                            canEditSqlAssertions={canEditSqlAssertionMonitors}
-                        />
-                    )
-                )}
-            </AssertionConinter>
+            <AssertionTitleSection></AssertionTitleSection>
+            {loading ? (
+                <AcrylAssertionsSummaryLoading />
+            ) : (
+                // TODO handle it in proper way - now added to work the expand the particular group if the assertion link is copied
+                (visibleAssertions?.assertions || []).length > 0 && (
+                    <AssertionListTable
+                        contract={contract}
+                        assertionData={visibleAssertions as AssertionTableType}
+                        filter={filter}
+                        refetch={() => {
+                            setTimeout(() => {
+                                refetch();
+                                contractRefetch();
+                            }, 500);
+                        }}
+                        canEditAssertions={canEditAssertions}
+                        canEditMonitors={canEditMonitors}
+                        canEditSqlAssertions={canEditSqlAssertionMonitors}
+                    />
+                )
+            )}
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer
                     entityUrn={urn}
