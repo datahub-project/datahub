@@ -1,44 +1,25 @@
-import json
 import logging
-import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import partial
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional
 
 from pydantic import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.source_common import (
-    EnvConfigMixin,
-    PlatformInstanceConfigMixin,
-)
-from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-    make_user_urn,
-)
-from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
-    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
-    Source,
-    SourceCapability,
-    SourceReport,
-)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict
 
 logger = logging.getLogger(__name__)
@@ -90,7 +71,7 @@ query listDataFlows($query:String!, $scrollId: String) {
             type
             orchestrator
             cluster
-            lastIngested          
+            lastIngested
         }
       }
     }
@@ -110,8 +91,8 @@ query getDataJobRuns($dataJobUrn: String!, $start: Int!, $count: Int!) {
         }
         urn
       }
-      #...runResults
-      
+      #...runResult
+
       __typename
     }
     __typename
@@ -177,6 +158,9 @@ class DataJobEntity:
 class MetadataCleanupSourceReport(SourceReport):
     num_aspects_removed: int = 0
     num_aspect_removed_by_type: TopKDict[str, int] = field(default_factory=TopKDict)
+    sample_removed_aspects_by_type: TopKDict[str, LossyList[str]] = field(
+        default_factory=TopKDict
+    )
 
 
 @platform_name("Metadata Cleanup")
@@ -208,92 +192,100 @@ class MetadataCleanupSource(Source):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [partial(auto_workunit_reporter, self.get_report())]
 
-    def delete_dpi_from_datajobs(self, job: DataJobEntity) -> None:
+    def fetch_dpis(self, job_urn: str, batch_size: int) -> List[dict]:
         assert self.ctx.graph
-
-        dpis: List = []
-        start: int = 0
-        count: int = self.config.batch_size
+        dpis = []
+        start = 0
         while True:
             job_query_result = self.ctx.graph.execute_graphql(
                 DATA_PROCESS_INSTANCES_QUERY,
-                {"dataJobUrn": job.urn, "start": start, "count": count},
+                {"dataJobUrn": job_urn, "start": start, "count": batch_size},
             )
             job_data = job_query_result.get("dataJob")
-            if job_data:
-                runs_data = job_data.get("runs")
-                if runs_data:
-                    runs = runs_data.get("runs")
-                    for dpi in runs:
-                        dpis.append(dpi)
-                else:
-                    raise ValueError(f"Error getting runs for {job.urn}")
-            else:
-                raise ValueError(f"Error getting job {job.urn}")
+            if not job_data:
+                raise ValueError(f"Error getting job {job_urn}")
 
-            start += count
-            logger.info(f"Collected {len(dpis)} DPIs from {job.urn}")
-            if len(runs) < count:
+            runs_data = job_data.get("runs")
+            if not runs_data:
+                raise ValueError(f"Error getting runs for {job_urn}")
+
+            runs = runs_data.get("runs")
+            dpis.extend(runs)
+            start += batch_size
+            if len(runs) < batch_size:
                 break
+        return dpis
 
-        dpis.sort(key=lambda x: x["created"]["time"], reverse=True)
+    def keep_last_n_dpi(self, dpis: List[Dict], job: DataJobEntity) -> None:
+        if not self.config.keep_last_n:
+            return
 
         deleted_count_last_n = 0
+        if len(dpis) >= self.config.keep_last_n:
+            for dpi in dpis[self.config.keep_last_n :]:
+                deleted_count_last_n += 1
+                self.delete_entity(dpi["urn"], "dataprocessInstance")
+                dpi["deleted"] = True
+                if deleted_count_last_n % self.config.batch_size == 0:
+                    logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
+        logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
+
+    def delete_entity(self, urn: str, type: str) -> None:
+        assert self.ctx.graph
+
+        self.report.num_aspects_removed += 1
+        self.report.num_aspect_removed_by_type[type] = (
+            self.report.num_aspect_removed_by_type.get(type, 0) + 1
+        )
+        if type not in self.report.sample_removed_aspects_by_type:
+            self.report.sample_removed_aspects_by_type[type] = LossyList()
+        self.report.sample_removed_aspects_by_type[type].append(urn)
+
+        self.ctx.graph.delete_entity(urn, self.config.hard_delete_entities)
+
+    def delete_dpi_from_datajobs(self, job: DataJobEntity) -> None:
+        assert self.ctx.graph
+
+        dpis = self.fetch_dpis(job.urn, self.config.batch_size)
+        dpis.sort(key=lambda x: x["created"]["time"], reverse=True)
+
         if self.config.keep_last_n:
-            if len(dpis) >= self.config.keep_last_n:
-                for dpi in dpis[self.config.keep_last_n :]:
-                    deleted_count_last_n += 1
-                    self.report.num_aspects_removed += 1
-                    self.report.num_aspect_removed_by_type["dataProcessInstance"] = (
-                        self.report.num_aspect_removed_by_type.get(
-                            "dataProcessInstance", 0
-                        )
-                        + 1
-                    )
-                    self.ctx.graph.delete_entity(
-                        dpi["urn"], self.config.hard_delete_entities
-                    )
-                    dpi["deleted"] = True
-                    if deleted_count_last_n % count == 0:
-                        logger.info(
-                            f"Deleted {deleted_count_last_n} DPIs from {job.urn}"
-                        )
+            self.keep_last_n_dpi(dpis, job)
 
-        deleted_count_retention = 0
         if self.config.retention_days is not None:
-            retention_time = (
-                datetime.now(timezone.utc).timestamp()
-                - self.config.retention_days * 24 * 60 * 60
-            )
-            for dpi in dpis:
-                if dpi.get("deleted"):
-                    continue
+            self.remove_old_dpis(dpis, job)
 
-                if dpi["created"]["time"] < retention_time * 1000:
-                    deleted_count_retention += 1
-                    self.report.num_aspects_removed += 1
-                    self.report.num_aspect_removed_by_type["dataProcessInstance"] = (
-                        self.report.num_aspect_removed_by_type.get(
-                            "dataProcessInstance", 0
-                        )
-                        + 1
-                    )
-                    self.ctx.graph.delete_entity(
-                        dpi["urn"], self.config.hard_delete_entities
-                    )
-                    dpi["deleted"] = True
-                    if deleted_count_retention % count == 0:
-                        logger.info(
-                            f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
-                        )
         job.total_runs = len(
             list(
                 filter(lambda dpi: "deleted" not in dpi or not dpi.get("deleted"), dpis)
             )
         )
-        logger.info(
-            f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+
+    def remove_old_dpis(self, dpis: List[Dict], job: DataJobEntity) -> None:
+        if self.config.retention_days is None:
+            return
+
+        deleted_count_retention = 0
+        retention_time = (
+            int(datetime.now(timezone.utc).timestamp())
+            - self.config.retention_days * 24 * 60 * 60
         )
+        for dpi in dpis:
+            if dpi.get("deleted"):
+                continue
+
+            if dpi["created"]["time"] < retention_time * 1000:
+                deleted_count_retention += 1
+                self.delete_entity(dpi["urn"], "dataprocessInstance")
+                dpi["deleted"] = True
+                if deleted_count_retention % self.config.batch_size == 0:
+                    logger.info(
+                        f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+                    )
+
+            logger.info(
+                f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+            )
 
     def get_data_flows(self) -> Iterable[DataFlowEntity]:
         assert self.ctx.graph
@@ -359,13 +351,7 @@ class MetadataCleanupSource(Source):
                     logger.info(
                         f"Deleting datajob {datajob_entity.urn} because there are no runs"
                     )
-                    self.ctx.graph.delete_entity(
-                        datajob_entity.urn, self.config.hard_delete_entities
-                    )
-                    self.report.num_aspects_removed += 1
-                    self.report.num_aspect_removed_by_type["dataJob"] = (
-                        self.report.num_aspect_removed_by_type.get("dataJob", 0) + 1
-                    )
+                    self.delete_entity(datajob_entity.urn, "dataJob")
                 else:
                     dataJobs[datajob_entity.flow_urn].append(datajob_entity)
 
@@ -376,12 +362,7 @@ class MetadataCleanupSource(Source):
                     logger.info(
                         f"Deleting dataflow {key} because there are not datajobs"
                     )
-                    self.ctx.graph.delete_entity(key, self.config.hard_delete_entities)
-                    self.report.num_aspects_removed += 1
-
-                    self.report.num_aspect_removed_by_type["dataFlow"] = (
-                        self.report.num_aspect_removed_by_type.get("dataFlow", 0) + 1
-                    )
+                    self.delete_entity(key, "dataFlow")
 
             if not scroll_id:
                 break
