@@ -3,8 +3,6 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-import sqlglot
-
 from datahub.ingestion.source.looker.looker_common import (
     ViewFieldValue,
     find_view_from_resolved_includes,
@@ -13,13 +11,14 @@ from datahub.ingestion.source.looker.looker_config import LookerConnectionDefini
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
-    DERIVED_VIEW_PATTERN,
     DERIVED_VIEW_SUFFIX,
     NAME,
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
-from datahub.ingestion.source.looker.str_functions import remove_extra_spaces_and_newlines
+from datahub.ingestion.source.looker.str_functions import (
+    remove_extra_spaces_and_newlines,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -462,7 +461,7 @@ class LookerViewContext:
         # Applying a simple logic to check if sql_table_name contains a sql.
         # if sql_table_name contains sql then its value starts with "(" and checking if "select" is present in side the
         # text
-        if self.sql_table_name().strip().startswith("(") and "select" in self.sql_table_name():
-            return True
-
-        return False
+        return (
+            self.sql_table_name().strip().startswith("(")
+            and "select" in self.sql_table_name()
+        )

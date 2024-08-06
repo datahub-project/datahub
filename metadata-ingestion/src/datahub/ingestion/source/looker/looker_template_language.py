@@ -10,9 +10,6 @@ from datahub.ingestion.source.looker.looker_liquid_tag import (
     create_template,
 )
 from datahub.ingestion.source.looker.lookml_config import DERIVED_VIEW_PATTERN
-from datahub.ingestion.source.looker.str_functions import (
-    remove_extra_spaces_and_newlines,
-)
 
 logger = logging.getLogger(__name__)
 
