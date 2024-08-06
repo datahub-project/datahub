@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
+import static com.linkedin.datahub.graphql.TestUtils.verifyIngestProposal;
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -136,9 +137,7 @@ public class UpdateGlobalSettingsResolverTest {
     expectedProposal.setEntityType(Constants.GLOBAL_SETTINGS_ENTITY_NAME);
     expectedProposal.setAspect(GenericRecordUtils.serializeAspect(returnedInfo));
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
-            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false));
+    verifyIngestProposal(mockClient, 1, expectedProposal);
   }
 
   @Test

@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.UI_SOURCE;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -78,7 +79,7 @@ public class AspectUtils {
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
-    SystemMetadata systemMetadata = new SystemMetadata();
+    SystemMetadata systemMetadata = createDefaultSystemMetadata();
     StringMap properties = new StringMap();
     properties.put(APP_SOURCE, UI_SOURCE);
     systemMetadata.setProperties(properties);

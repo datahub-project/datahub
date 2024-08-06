@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.propagate;
 
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
+
 import com.google.common.collect.Sets;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -545,8 +547,7 @@ public class PropagateTermsStep implements UpgradeStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(editableSchemaMetadata));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    SystemMetadata systemMetadata =
-        new SystemMetadata().setRunId(runId).setLastObserved(System.currentTimeMillis());
+    SystemMetadata systemMetadata = createDefaultSystemMetadata(runId);
     proposal.setSystemMetadata(systemMetadata);
 
     _entityService.ingestProposal(systemOpContext, proposal, auditStamp, false);

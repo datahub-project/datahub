@@ -13,6 +13,7 @@ import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.generateSystemMetadataIfEmpty;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -20,6 +21,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import com.linkedin.data.template.SetMode;
@@ -257,19 +259,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         MetricRegistry.name(this.getClass(), "batchGet"));
   }
 
-  private SystemMetadata populateDefaultFieldsIfEmpty(@Nullable SystemMetadata systemMetadata) {
-    SystemMetadata result = systemMetadata;
-    if (result == null) {
-      result = new SystemMetadata();
-    }
-
-    if (result.getLastObserved() == 0) {
-      result.setLastObserved(System.currentTimeMillis());
-    }
-
-    return result;
-  }
-
   @Action(name = ACTION_INGEST)
   @Nonnull
   @WithSpan
@@ -297,7 +286,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
     }
 
-    SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
+    SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(providedSystemMetadata);
 
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
@@ -358,7 +347,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final List<SystemMetadata> finalSystemMetadataList =
         Arrays.stream(systemMetadataList)
-            .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
+            .map(SystemMetadataUtils::generateSystemMetadataIfEmpty)
             .collect(Collectors.toList());
 
     return RestliUtil.toTask(

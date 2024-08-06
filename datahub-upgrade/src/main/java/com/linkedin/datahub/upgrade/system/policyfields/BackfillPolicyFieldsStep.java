@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.policyfields;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -25,7 +26,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -234,9 +234,7 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
                   null,
                   infoAspect,
                   null,
-                  new SystemMetadata()
-                      .setRunId(DEFAULT_RUN_ID)
-                      .setLastObserved(System.currentTimeMillis()),
+                  createDefaultSystemMetadata(),
                   auditStamp,
                   ChangeType.RESTATE)
               .getFirst());

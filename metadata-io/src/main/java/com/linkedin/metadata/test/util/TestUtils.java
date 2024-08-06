@@ -1,6 +1,7 @@
 package com.linkedin.metadata.test.util;
 
 import static com.linkedin.metadata.AcrylConstants.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -70,7 +71,7 @@ public class TestUtils {
     proposal.setChangeType(ChangeType.UPSERT);
 
     // Assumes proposal is generated first without system metadata
-    SystemMetadata systemMetadata = new SystemMetadata();
+    SystemMetadata systemMetadata = createDefaultSystemMetadata();
     StringMap properties = new StringMap();
     properties.put(Constants.APP_SOURCE, Constants.METADATA_TESTS_SOURCE);
     systemMetadata.setProperties(properties);
