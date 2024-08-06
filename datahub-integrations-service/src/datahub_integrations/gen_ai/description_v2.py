@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import boto3
 import datahub.metadata.schema_classes as models
+from aws_assume_role_lib import aws_assume_role_lib
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import AspectBag
 from datahub.metadata.urns import SchemaFieldUrn
@@ -23,18 +24,21 @@ modelId = "anthropic.claude-3-haiku-20240307-v1:0"
 
 @functools.cache
 def get_bedrock_client() -> "BedrockRuntimeClient":
-    # Set up Bedrock client
+    # Set up Bedrock client - the cache decorator ensures that this is a singleton
 
     if "BEDROCK_AWS_ROLE" in os.environ:
-        sts_client = boto3.client("sts")
-        response = sts_client.assume_role(
-            RoleArn=os.environ["BEDROCK_AWS_ROLE"], RoleSessionName="bedrock-client"
-        )
-        credentials = response["Credentials"]
-        boto3_session = boto3.Session(
-            aws_access_key_id=credentials["AccessKeyId"],
-            aws_secret_access_key=credentials["SecretAccessKey"],
-            aws_session_token=credentials["SessionToken"],
+        # When using assume_role(), the tokens from the assume role call expire
+        # after an hour. The boto3 library doesn't have anything out of the
+        # box to support this if you're not using profiles with role chaining,
+        # which is the case for EKS and instance credentials.
+        # The AWS team released the `aws-assume-role-lib` library to bridge
+        # this gap while they figure out how to add this to boto3.
+        # See https://github.com/boto/boto3/issues/443#issuecomment-1574257880
+
+        base_session = boto3.Session()
+
+        boto3_session = aws_assume_role_lib.assume_role(
+            base_session, os.environ["BEDROCK_AWS_ROLE"]
         )
 
     else:
@@ -69,7 +73,7 @@ def call_bedrock_llm(prompt: str, max_tokens: int) -> str:
     response = boto3_bedrock.invoke_model(
         body=json.dumps(body), modelId=modelId, accept=accept, contentType=contentType
     )
-    response_body = json.loads(response.get("body").read())
+    response_body = json.loads(response["body"].read())
 
     # print(response_body)
     outputText = response_body["content"][0]["text"]
