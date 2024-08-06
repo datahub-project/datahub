@@ -198,11 +198,6 @@ class TableData:
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.TAGS, "Can extract ABS object/container tags if enabled")
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
 class ABSSource(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport

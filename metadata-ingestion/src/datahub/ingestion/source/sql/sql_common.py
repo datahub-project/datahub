@@ -320,6 +320,26 @@ class ProfileMetadata:
     "Optionally enabled via `classification.enabled`",
     supported=True,
 )
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Enabled by default",
+    supported=True,
+)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    supported=True,
+)
+@capability(
+    SourceCapability.DESCRIPTIONS,
+    "Enabled by default",
+    supported=True,
+)
+@capability(
+    SourceCapability.DOMAINS,
+    "Enabled by default",
+    supported=True,
+)
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 

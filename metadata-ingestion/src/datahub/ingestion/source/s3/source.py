@@ -220,13 +220,12 @@ class TableData:
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
 @capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
+    SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
 )
+@capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
 class S3Source(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
