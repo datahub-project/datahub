@@ -28,7 +28,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-If you are connecting to a hosted Acryl instance, your sink will look like
+If you are connecting to a hosted DataHub Cloud instance, your sink will look like
 ```yml
 source:
   # source configs

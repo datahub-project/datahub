@@ -23,6 +23,7 @@ from typing import (
 )
 
 import typing_inspect
+from avrogen.dict_wrapper import DictWrapper
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
 from datahub.metadata.schema_classes import (
@@ -412,15 +413,21 @@ def make_lineage_mce(
     return mce
 
 
-def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
-    SnapshotType = type(mce.proposedSnapshot)
-
+def can_add_aspect_to_snapshot(
+    SnapshotType: Type[DictWrapper], AspectType: Type[Aspect]
+) -> bool:
     constructor_annotations = get_type_hints(SnapshotType.__init__)
     aspect_list_union = typing_inspect.get_args(constructor_annotations["aspects"])[0]
 
     supported_aspect_types = typing_inspect.get_args(aspect_list_union)
 
     return issubclass(AspectType, supported_aspect_types)
+
+
+def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
+    SnapshotType = type(mce.proposedSnapshot)
+
+    return can_add_aspect_to_snapshot(SnapshotType, AspectType)
 
 
 def assert_can_add_aspect(

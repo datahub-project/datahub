@@ -57,7 +57,7 @@ const customerCardContent = [
         3. Community-driven project which continually evolves with industry trends and best practices
       </>
     ),
-    to: "https://www.acryldata.io/blog/data-contracts-in-datahub-combining-verifiability-with-holistic-data-management?utm_source=datahub&utm_medium=referral&utm_content=blog",
+    to: "https://youtu.be/wsCFnElN_Wo?si=i-bNAQAsbHJq5O9-",
   },
   {
     customer: "Airtel",
@@ -75,7 +75,7 @@ const customerCardContent = [
         DataHub to take their data mesh implementation to the next level.
       </>
     ),
-    to: "https://youtu.be/wsCFnElN_Wo?si=i-bNAQAsbHJq5O9-",
+    to: "https://www.youtube.com/watch?v=yr24mM91BN4",
   },
 ];
 

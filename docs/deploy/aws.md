@@ -76,7 +76,7 @@ First, if you did not use eksctl to setup the kubernetes cluster, make sure to g
 Download the IAM policy document for allowing the controller to make calls to AWS APIs on your behalf.
 
 ```
-curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.0/docs/install/iam_policy.json
+curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
 ```
 
 Create an IAM policy based on the policy document by running the following.
@@ -148,13 +148,9 @@ datahub-frontend:
       alb.ingress.kubernetes.io/certificate-arn: <<certificate-arn>>
       alb.ingress.kubernetes.io/inbound-cidrs: 0.0.0.0/0
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
-      alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
     hosts:
       - host: <<host-name>>
-        redirectPaths:
-          - path: /*
-            name: ssl-redirect
-            port: use-annotation
         paths:
           - /*
 ```
