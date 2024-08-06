@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 IS_LOCAL = os.environ.get("CI", "false") == "false"
 
 DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
+PLUGINS_FOLDER = pathlib.Path(__file__).parent / "plugins"
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
 
@@ -110,7 +111,7 @@ def _wait_for_dag_finish(
 
 @contextlib.contextmanager
 def _run_airflow(
-    tmp_path: pathlib.Path, dags_folder: pathlib.Path, is_v1: bool
+    tmp_path: pathlib.Path, dags_folder: pathlib.Path, plugins_folder: pathlib.Path, is_v1: bool
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -132,6 +133,7 @@ def _run_airflow(
         # Point airflow to the DAGs folder.
         "AIRFLOW__CORE__LOAD_EXAMPLES": "False",
         "AIRFLOW__CORE__DAGS_FOLDER": str(dags_folder),
+        "AIRFLOW__CORE__PLUGINS_FOLDER": str(plugins_folder),
         "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION": "False",
         # Have the Airflow API use username/password authentication.
         "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
@@ -272,6 +274,7 @@ test_cases = [
     DagTestCase("basic_iolets"),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True),
+    DagTestCase("custom_operator_dag", v2_only=True),
 ]
 
 
@@ -340,7 +343,7 @@ def test_airflow_plugin(
     dag_id = test_case.dag_id
 
     with _run_airflow(
-        tmp_path, dags_folder=DAGS_FOLDER, is_v1=is_v1
+        tmp_path, dags_folder=DAGS_FOLDER, plugins_folder=PLUGINS_FOLDER, is_v1=is_v1
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         subprocess.check_call(
@@ -422,6 +425,7 @@ if __name__ == "__main__":
     with _run_airflow(
         tmp_path=pathlib.Path(tempfile.mkdtemp("airflow-plugin-test")),
         dags_folder=DAGS_FOLDER,
+        plugins_folder=PLUGINS_FOLDER,
         is_v1=not HAS_AIRFLOW_LISTENER_API,
     ) as airflow_instance:
         # input("Press enter to exit...")
