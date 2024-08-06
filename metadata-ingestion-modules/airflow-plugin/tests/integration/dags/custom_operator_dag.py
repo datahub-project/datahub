@@ -1,6 +1,5 @@
-from custom_operator import CustomOperator
-
 from airflow import DAG
+from custom_operator import CustomOperator
 
 default_args = {
     "owner": "airflow",
