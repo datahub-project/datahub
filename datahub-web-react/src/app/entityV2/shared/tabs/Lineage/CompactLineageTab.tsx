@@ -94,6 +94,10 @@ const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
 const Results = styled.div`
     flex: 1;
     overflow: auto;
+    display: flex;
+    & > div {
+        width: 100%;
+    }
 `;
 
 enum LevelFilterType {
