@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import typing
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -403,6 +404,8 @@ def ensure_has_system_metadata(
     if event.systemMetadata is None:
         event.systemMetadata = SystemMetadataClass()
     metadata = event.systemMetadata
+    if metadata.lastObserved == 0:
+        metadata.lastObserved = int(time.time() * 1000)
     if metadata.properties is None:
         metadata.properties = {}
     props = metadata.properties
