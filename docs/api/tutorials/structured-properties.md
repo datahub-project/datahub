@@ -68,9 +68,9 @@ mutation createStructuredProperty {
       description: "Retention Time is used to figure out how long to retain records in a dataset",
       valueType: "urn:li:dataType:number",
       allowedValues: [
-				{numberValue: 30, description: "30 days, usually reserved for datasets that are ephemeral and contain pii"},
-      	{numberValue: 90, description:"description: Use this for datasets that drive monthly reporting but contain pii"},
-    		{numberValue: 365, description:"Use this for non-sensitive data that can be retained for longer"}
+        {numberValue: 30, description: "30 days, usually reserved for datasets that are ephemeral and contain pii"},
+        {numberValue: 90, description:"description: Use this for datasets that drive monthly reporting but contain pii"},
+        {numberValue: 365, description:"Use this for non-sensitive data that can be retained for longer"}
       ],
       cardinality: SINGLE,
       entityTypes: ["urn:li:entityType:dataset", "urn:li:entityType:dataFlow"],
@@ -385,20 +385,29 @@ This action will set/replace all structured properties on the entity. See PATCH 
 
 ```graphql
 mutation upsertStructuredProperties {
-	upsertStructuredProperties(
-		input: {
-			assetUrn: "urn:li:mydataset1",
-			structuredPropertyInputParams: [{
-				structuredPropertyUrn: "urn:li:structuredProperty:mystructuredproperty",
-				values: [{stringValue: "123"}]
-			}]
-		}
-	) {
-	properties {
-		structuredProperty {urn}
-		}
-	}
+  upsertStructuredProperties(
+    input: {
+      assetUrn: "urn:li:mydataset1",
+      structuredPropertyInputParams: [
+        {
+          structuredPropertyUrn: "urn:li:structuredProperty:mystructuredproperty",
+          values: [
+            {
+              stringValue: "123"
+            }
+          ]
+        }
+      ]
+    }
+  ) {
+    properties {
+      structuredProperty {
+        urn
+      }
+    }
+  }
 }
+
 ```
 
 </TabItem>
@@ -858,19 +867,29 @@ In this example, we'll add the property back with a different value, preserving 
 mutation updateStructuredProperty {
   updateStructuredProperty(
     input: {
-      urn:"urn:li:structuredProperty:retentionTime"
+      urn: "urn:li:structuredProperty:retentionTime",
       displayName: "Retention Time",
       description: "Retention Time is used to figure out how long to retain records in a dataset",
       newAllowedValues: [
-				{numberValue: 30, description: "30 days, usually reserved for datasets that are ephemeral and contain pii"},
-      	{numberValue: 90, description:"description: Use this for datasets that drive monthly reporting but contain pii"},
-    		{numberValue: 365, description:"Use this for non-sensitive data that can be retained for longer"}
-      ],
-		}
+        {
+          numberValue: 30,
+          description: "30 days, usually reserved for datasets that are ephemeral and contain pii"
+        },
+        {
+          numberValue: 90,
+          description: "Use this for datasets that drive monthly reporting but contain pii"
+        },
+        {
+          numberValue: 365,
+          description: "Use this for non-sensitive data that can be retained for longer"
+        }
+      ]
+    }
   ) {
     urn
   }
 }
+
 ```
 
 </TabItem>

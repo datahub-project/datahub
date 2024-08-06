@@ -9,7 +9,6 @@ Documentation Forms are a way for end-users to fill out all mandatory attributes
 
 Learn more about forms in the [Documentation Forms Feature Guide](../../../docs/features/feature-guides/documentation-forms.md).
 
-
 ### Goal Of This Guide
 This guide will show you how to 
 - Create, Update, Read, and Delete a form
@@ -19,7 +18,6 @@ This guide will show you how to
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
 For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
-
 
 <Tabs>
 <TabItem value="CLI" label="CLI">
@@ -31,10 +29,8 @@ Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
 2. Set the server to your sandbox instance, `https://{your-instance-address}/gms`
 3. Set the token to your access token
 
-
 </TabItem>
 </Tabs>
-
 
 ## Create a Form
 
@@ -43,14 +39,14 @@ Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
 
 ```graphql
 mutation createForm {
-	createForm(
-		input: {
-			id: "metadataInitiative2024",
-			name: "Metadata Initiative 2024",
+  createForm(
+    input: {
+      id: "metadataInitiative2024",
+      name: "Metadata Initiative 2024",
       description: "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out",
       type: VERIFICATION,
       prompts: [
-				{
+        {
           id: "123",
           title: "retentionTime",
           description: "Apply Retention Time structured property to form",
@@ -64,7 +60,7 @@ mutation createForm {
         users: ["urn:li:corpuser:jane@email.com", "urn:li:corpuser:john@email.com"],
         groups: ["urn:li:corpGroup:team@email.com"]
       }
-		}
+    }
   ) {
     urn
   }
@@ -153,14 +149,14 @@ If successful, you should see `Created form urn:li:form:...`
 
 ```graphql
 mutation updateForm {
-	updateForm(
-		input: {
-			urn: "urn:li:form:metadataInitiative2024",
-			name: "Metadata Initiative 2024",
+  updateForm(
+    input: {
+      urn: "urn:li:form:metadataInitiative2024",
+      name: "Metadata Initiative 2024",
       description: "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out",
       type: VERIFICATION,
       promptsToAdd: [
-				{
+        {
           id: "456",
           title: "deprecationDate",
           description: "Deprecation date for dataset",
@@ -171,7 +167,7 @@ mutation updateForm {
         }
       ]
       promptsToRemove: ["123"]
-		}
+    }
   ) {
     urn
   }
@@ -223,10 +219,10 @@ If successful, you should see metadata about your form returned like below.
 
 ```graphql
 mutation deleteForm {
-	deleteForm(
-		input: {
-			urn: "urn:li:form:metadataInitiative2024"
-		}
+  deleteForm(
+    input: {
+      urn: "urn:li:form:metadataInitiative2024"
+    }
   )
 }
 ```
@@ -242,12 +238,12 @@ For assigning a form to a given list of entities:
 
 ```graphql
 mutation batchAssignForm {
-	batchAssignForm(
-		input: {
-			formUrn: "urn:li:form:myform",
-			entityUrns: ["urn:li:dataset:mydataset1", "urn:li:dataset:mydataset2"]
-		}
-	)
+  batchAssignForm(
+    input: {
+      formUrn: "urn:li:form:myform",
+      entityUrns: ["urn:li:dataset:mydataset1", "urn:li:dataset:mydataset2"]
+    }
+  )
 }
 ```
 </TabItem>
@@ -261,12 +257,13 @@ For removing a form from a given list of entities:
 <TabItem value="graphQL" label="GraphQL">
 
 ```graphql
-	batchRemoveForm(
-		input: {
-			formUrn: "urn:li:form:myform",
-			entityUrns: ["urn:li:dataset:mydataset1", "urn:li:dataset:mydataset2"]
-		}
-	)
+mutation batchRemoveForm {
+  batchRemoveForm(
+    input: {
+      formUrn: "urn:li:form:myform",
+      entityUrns: ["urn:li:dataset:mydataset1", "urn:li:dataset:mydataset2"]
+    }
+  )
 }
 ```
 </TabItem>
