@@ -2,7 +2,7 @@ import React from 'react';
 
 import styled from 'styled-components';
 
-import { notification } from 'antd';
+import { Typography, notification } from 'antd';
 import type { NotificationPlacement } from 'antd/es/notification';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 
@@ -53,7 +53,7 @@ export const openErrorNotification = (automationName: string, msg: string, viewL
     notification.error({
         message: (
             <NotificationTitleContainer>
-                <NotificationHeader>PROPAGATION</NotificationHeader>
+                <NotificationHeader>Automation</NotificationHeader>
                 <NotificationTitle>{automationName}</NotificationTitle>
             </NotificationTitleContainer>
         ),
@@ -72,17 +72,11 @@ export const openErrorNotification = (automationName: string, msg: string, viewL
     });
 };
 
-export const openSuccessNotification = (automationName: string, msg: string, viewLogs = false) => {
+export const openSuccessNotification = (msg: string, viewLogs = false) => {
     notification.success({
         message: (
-            <NotificationTitleContainer>
-                <NotificationHeader>PROPAGATION</NotificationHeader>
-                <NotificationTitle>{automationName}</NotificationTitle>
-            </NotificationTitleContainer>
-        ),
-        description: (
             <NotificationDescriptionContainer>
-                <div>{msg}</div>
+                <Typography.Text strong>{msg}</Typography.Text>
                 {viewLogs && <ViewLogsContainer>View Logs</ViewLogsContainer>}
             </NotificationDescriptionContainer>
         ),

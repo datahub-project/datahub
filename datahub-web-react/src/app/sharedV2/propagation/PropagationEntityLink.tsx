@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import { useEntityRegistryV2 } from '../../useEntityRegistry';
+import { useEntityRegistry } from '../../useEntityRegistry';
 import { Entity, EntityType, SchemaFieldEntity } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
 
@@ -11,12 +11,16 @@ const PreviewImage = styled.img<{ size: number }>`
     min-width: ${(props) => props.size}px;
     object-fit: contain;
     background-color: transparent;
-    margin: 0 3px;
+    margin: 0px 4px 0px 0px;
 `;
 
 const StyledLink = styled(Link)`
+    margin-right: 4px;
     display: flex;
     align-items: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 interface Props {
@@ -24,7 +28,7 @@ interface Props {
 }
 
 export default function PropagationEntityLink({ entity }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const isSchemaField = entity.type === EntityType.SchemaField;
     const baseEntity = isSchemaField ? (entity as SchemaFieldEntity).parent : entity;
@@ -42,9 +46,11 @@ export default function PropagationEntityLink({ entity }: Props) {
     }
 
     return (
-        <StyledLink to={entityUrl}>
-            <PreviewImage src={logoUrl} alt="test" size={14} />
-            {entityDisplayName}
-        </StyledLink>
+        <>
+            <StyledLink to={entityUrl}>
+                <PreviewImage src={logoUrl} alt="test" size={14} />
+                {entityDisplayName}
+            </StyledLink>
+        </>
     );
 }

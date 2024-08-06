@@ -5,9 +5,12 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { Input } from 'antd';
 
-import { Step, StepHeader, StepField } from './components';
+import { useAutomationContext } from '../Automations/AutomationProvider';
+import { updateRecipe } from '../Automations/utils/updateRecipe';
+import { getFields } from '@app/automations/utils';
 
-import { getSteps } from './utils';
+import { FormDataType, Connection } from '../types';
+import { Step, StepHeader, StepField } from './components';
 
 import { TermSelector } from './fields/TermSelector';
 import { ConnectionSelector } from './fields/ConnectionSelector';
@@ -17,45 +20,36 @@ import { CustomActionSelector } from './fields/CustomActionSelector';
 import { DataAssetSelector } from './fields/DataAssetSelector';
 import { ConditionSelector } from './fields/ConditionSelector';
 
-export type FormDataType = {
-    terms: string[];
-    connection: string | undefined;
-    conditions: string[];
-    actions: string[];
-    category: string | undefined;
-    source: string[];
-    name: string | undefined;
-    description: string | undefined;
-};
-
 interface Props {
     automation: any;
-    formData: FormDataType;
-    setFormData: (data: FormDataType) => void;
+    isEdit?: boolean;
 }
 
-export const Configure = ({ automation, formData, setFormData }: Props) => {
-    const steps = automation.steps || getSteps(automation);
+export const Configure = ({ automation, isEdit = false }: Props) => {
+    const { formData, setFormData, recipe, setRecipe } = useAutomationContext();
+    const steps = automation.fields || getFields(automation);
     const prevProps = useRef(formData);
 
     // Various field states
-    const [actionSelection, setActionSelection] = useState<string[]>(formData.actions || []);
+    const [actionSelection, setActionSelection] = useState<string[]>(formData?.actions || []);
     const [conditionSelection, setConditionSelection] = useState<string[]>([]);
-    const [initialConditions, setInitialConditions] = useState<string[]>(formData.conditions || []);
-    const [assetTypesSelected, setAssetTypesSelected] = useState<string[]>(formData.source || []);
-    const [termsSelected, setTermsSelected] = useState<string[]>(formData.terms || automation.terms || []);
-    const [connectionSelected, setConnectionSelected] = useState<string | undefined>(formData.connection);
+    const [assetTypesSelected, setAssetTypesSelected] = useState<string[]>(formData?.source || []);
+    const [tagsAndTermsSelected, setTagsAndTermsSelected] = useState<any>(
+        formData?.tagsAndTerms || { terms: [], nodes: [], tags: [] },
+    );
+    const [connectionSelected, setConnectionSelected] = useState<Connection | undefined>(formData?.connection);
+
     const [categorySelected, setCategorySelected] = useState<string | undefined>(
-        formData.category || automation.category,
+        formData?.category || automation.category,
     );
     const [details, setDetails] = useState<any>({
-        name: formData.name || automation.name,
-        description: formData.description || automation.description,
+        name: formData?.name || automation.name,
+        description: formData?.description || automation.description,
     });
 
     // Form Data to be submitted
     const data: FormDataType = {
-        terms: termsSelected,
+        tagsAndTerms: tagsAndTermsSelected,
         connection: connectionSelected,
         conditions: conditionSelection,
         actions: actionSelection,
@@ -69,7 +63,11 @@ export const Configure = ({ automation, formData, setFormData }: Props) => {
     useEffect(() => {
         const prevData = prevProps.current;
         const hasChanged = JSON.stringify(prevData) !== JSON.stringify(data);
-        if (hasChanged) setFormData(data);
+        if (hasChanged) {
+            // Update the context
+            setFormData?.(data);
+            setRecipe?.(updateRecipe(recipe, data));
+        }
         prevProps.current = data;
     }, [data]);
 
@@ -88,35 +86,38 @@ export const Configure = ({ automation, formData, setFormData }: Props) => {
                         return (
                             <StepField key={index}>
                                 {/* Field Label */}
-                                {field.label && <label>{field.label}</label>}
+                                {field.label && <label aria-required={field.isRequired}>{field.label}</label>}
 
                                 {/* Term Selector */}
                                 {field.type === 'termSelector' && (
                                     <TermSelector
-                                        termsSelected={termsSelected}
-                                        setTermsSelected={setTermsSelected}
+                                        tagsAndTermsSelected={tagsAndTermsSelected}
+                                        setTagsAndTermsSelected={setTagsAndTermsSelected}
                                         isRequired={field.isRequired}
+                                        fieldTypes={field.fieldTypes}
+                                        {...field.props}
                                     />
                                 )}
 
                                 {/* Connection Selector */}
                                 {field.type === 'connectionSelector' && (
                                     <ConnectionSelector
-                                        connectionTypes={step.connectionTypes}
                                         connectionSelected={connectionSelected}
                                         setConnectionSelected={setConnectionSelected}
-                                        isRequired={field.isRequired}
+                                        isEdit={isEdit}
+                                        {...field.props}
                                     />
                                 )}
 
                                 {/* Traversal Selector */}
-                                {field.type === 'traversalSelector' && <TraversalSelector />}
+                                {field.type === 'traversalSelector' && <TraversalSelector {...field.props} />}
 
                                 {/* Custom Actions */}
                                 {field.type === 'customActionSelector' && (
                                     <CustomActionSelector
                                         actionSelection={actionSelection}
                                         setActionSelection={setActionSelection}
+                                        {...field.props}
                                     />
                                 )}
 
@@ -125,6 +126,7 @@ export const Configure = ({ automation, formData, setFormData }: Props) => {
                                     <DataAssetSelector
                                         dataAssetSelected={assetTypesSelected}
                                         setDataAssetSelected={setAssetTypesSelected}
+                                        {...field.props}
                                     />
                                 )}
 
@@ -132,9 +134,9 @@ export const Configure = ({ automation, formData, setFormData }: Props) => {
                                 {field.type === 'conditionSelector' && (
                                     <ConditionSelector
                                         selectedAssetTypes={assetTypesSelected}
-                                        initialConditions={initialConditions}
                                         conditionSelection={conditionSelection}
                                         setConditionSelection={setConditionSelection}
+                                        {...field.props}
                                     />
                                 )}
 
@@ -144,6 +146,7 @@ export const Configure = ({ automation, formData, setFormData }: Props) => {
                                         categorySelected={categorySelected}
                                         setCategorySelected={setCategorySelected}
                                         isRequired={field.isRequired}
+                                        {...field.props}
                                     />
                                 )}
 

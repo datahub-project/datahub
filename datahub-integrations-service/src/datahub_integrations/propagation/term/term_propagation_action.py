@@ -15,7 +15,7 @@
 import json
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, TypeVar
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -50,6 +50,8 @@ from datahub_integrations.propagation.propagation_utils import (
     PropagationDirective,
     get_attribution_and_context_from_directive,
 )
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -728,3 +730,15 @@ class TermPropagationAction(ExtendedAction):
 
     def close(self) -> None:
         return super().close()
+
+    def rollbackable_assets(self) -> Iterable[T]:
+        return []
+
+    def rollback_asset(self, asset: T) -> None:
+        return None
+
+    def bootstrappable_assets(self) -> Iterable[T]:
+        return []
+
+    def bootstrap_asset(self, asset: T) -> None:
+        return None

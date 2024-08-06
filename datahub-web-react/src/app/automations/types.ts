@@ -1,4 +1,80 @@
-import { Test } from '../../types.generated';
+import { Test } from '@src/types.generated';
+import { AutomationTypes } from './constants';
+
+/**
+ * Type used to standardize the list of automations regardless of if their a Test or Action.
+ */
+export interface ListAutomationItem {
+    key: string;
+    urn: string;
+    name: string;
+    description: string;
+    category: string;
+    definition: string;
+    type: AutomationTypes;
+    updated: Date;
+    created: Date;
+}
+
+export type TagsAndTermsSelected = {
+    terms: string[];
+    tags: string[];
+    nodes: string[];
+};
+
+export type FormDataType = {
+    tagsAndTerms: TagsAndTermsSelected;
+    connection: Connection | undefined;
+    conditions: string[];
+    actions: string[];
+    category: string | undefined;
+    source: string[];
+    name: string | undefined;
+    description: string | undefined;
+};
+
+export type Connection = {
+    urn: string;
+    data: {
+        // urn: string;  // urn will eventually be moved here
+        account_id: string;
+        name: string;
+        password: string;
+        role: string;
+        warehouse: string;
+        username: string;
+        database: string;
+        schema: string;
+    };
+};
+
+export type FieldDetail = {
+    title: string;
+    description: string;
+    fields: any[];
+    tooltip?: string;
+    config?: any;
+};
+
+export type Field = {
+    type: string;
+    isRequired: boolean;
+};
+
+export type Fields = Record<string, FieldDetail>;
+
+export type AutomationTemplate = {
+    key: string;
+    platform: string;
+    type: string;
+    name: string;
+    description: string;
+    logo: string;
+    fields: FieldDetail[];
+    requiredFields: string[];
+    baseRecipe: any;
+    isDisabled: boolean;
+};
 
 /**
  * A single property predicate as it appears in a deserialized
@@ -87,5 +163,5 @@ export interface TestDefinition {
     actions?: TestActions;
 }
 
-export type TestCategoryType = { name: string; description?: string };
-export type TestCategoryGroupType = { name: string; description?: string; tests: Test[] };
+export type AutomationCategoryType = { name: string; description?: string };
+export type AutomationCategoryGroupType = { name: string; description?: string; tests: Test[] };

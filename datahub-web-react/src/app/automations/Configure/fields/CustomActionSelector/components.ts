@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 
-import { sharedStyles } from '../../../sharedComponents';
+import { sharedStyles } from '@app/automations/sharedComponents';
 
 /*
  * Containers

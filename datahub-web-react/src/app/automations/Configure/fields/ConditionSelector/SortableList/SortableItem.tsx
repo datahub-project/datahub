@@ -7,7 +7,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 // TODO: Bring this into this component so it's fully resuable / self-contained
-import { SortButton } from '../../../../sharedComponents';
+import { SortButton } from '@app/automations/sharedComponents';
 
 interface Props {
     id: UniqueIdentifier;

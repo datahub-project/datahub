@@ -26,7 +26,6 @@ import {
     useIsAppConfigContextLoaded,
     useIsNestedDomainsEnabled,
     useIsDocumentationFormsEnabled,
-    useAppConfig,
 } from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
@@ -44,7 +43,6 @@ import NewForm from './govern/Dashboard/Forms/NewForm';
  */
 export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const appConfig = useAppConfig();
     const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const entities = isNestedDomainsEnabled
@@ -57,8 +55,6 @@ export const SearchRoutes = (): JSX.Element => {
 
     const businessAttributesFlag = useBusinessAttributesFlag();
     const appConfigContextLoaded = useIsAppConfigContextLoaded();
-
-    const { config } = appConfig;
 
     return (
         <FinalSearchablePage>
@@ -108,9 +104,7 @@ export const SearchRoutes = (): JSX.Element => {
                     path={PageRoutes.ACTION_REQUESTS}
                     render={() => (isDocumentationFormsEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
                 />
-                {config.classificationConfig.enabled && (
-                    <Route path={PageRoutes.AUTOMATIONS} render={() => <Automations />} />
-                )}
+                <Route path={PageRoutes.AUTOMATIONS} render={() => <Automations />} />
                 {/* TODO: Remove this route - currently in place for a grafeful redirect to new Automations center */}
                 <Route path={PageRoutes.TESTS} render={() => <ManageTestsPage />} />
                 <Route path={PageRoutes.DATASET_HEALTH_DASHBOARD} render={() => <DatasetHealthPage />} />

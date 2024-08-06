@@ -13,27 +13,29 @@
 # limitations under the License.
 
 import logging
-from typing import Optional, Union
+from typing import Iterable, Optional, TypeVar, Union
 
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import EntityChangeEvent
 from datahub_actions.pipeline.pipeline_context import PipelineContext
-from datahub_actions.plugin.action.tag.tag_propagation_action import (
-    TagPropagationAction,
-    TagPropagationConfig,
-    TagPropagationDirective,
-)
 
 from datahub_integrations.actions.action_extended import (
     AutomationActionConfig,
     ExtendedAction,
 )
 from datahub_integrations.actions.oss.stats_util import EventProcessingStats
-from datahub_integrations.propagation.snowflake.snowflake_util import (
+from datahub_integrations.propagation.snowflake.config import (
+    SnowflakeConnectionConfigPermissive,
+)
+from datahub_integrations.propagation.snowflake.util import (
     SnowflakeTagHelper,
     is_snowflake_urn,
+)
+from datahub_integrations.propagation.tag.tag_propagation_action import (
+    TagPropagationAction,
+    TagPropagationConfig,
+    TagPropagationDirective,
 )
 from datahub_integrations.propagation.term.term_propagation_action import (
     TermPropagationAction,
@@ -43,9 +45,11 @@ from datahub_integrations.propagation.term.term_propagation_action import (
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
+
 
 class SnowflakeTagPropagatorConfig(AutomationActionConfig):
-    snowflake: SnowflakeV2Config
+    snowflake: SnowflakeConnectionConfigPermissive
     tag_propagation: Optional[TagPropagationConfig] = None
     term_propagation: Optional[TermPropagationConfig] = None
 
@@ -74,7 +78,7 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
             self.term_propagator = TermPropagationAction(
                 self.config.term_propagation, ctx
             )
-        self.bootstrap()
+        # self.bootstrap() - Do not auto bootstrap.
 
     def close(self) -> None:
         self.snowflake_tag_helper.close()
@@ -159,13 +163,13 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
                 if not is_snowflake_urn(semantic_event.entityUrn):
                     return
                 propagation_directive: Union[
-                    TermPropagationDirective, TagPropagationDirective
+                    TermPropagationDirective, TagPropagationDirective, None
                 ] = None
                 if self.tag_propagator is not None:
                     propagation_directive = self.tag_propagator.should_propagate(
                         event=event
                     )
-                if self.term_propagator is not None:
+                if self.term_propagator is not None and propagation_directive is None:
                     propagation_directive = self.term_propagator.should_propagate(
                         event=event
                     )
@@ -176,3 +180,15 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
         except Exception as e:
             logger.exception("Error processing event", e)
             self.event_processing_stats.end(event, success=False)
+
+    def rollbackable_assets(self) -> Iterable[T]:
+        return []
+
+    def rollback_asset(self, asset: T) -> None:
+        return None
+
+    def bootstrappable_assets(self) -> Iterable[T]:
+        return []
+
+    def bootstrap_asset(self, asset: T) -> None:
+        return None
