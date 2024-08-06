@@ -6,13 +6,13 @@ import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 
 import { AssertionName } from './AssertionName';
 import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
 import { getAssertionGroupName, getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/builder/hooks';
 import { AssertionTableType, IFilter } from './types';
 
@@ -111,7 +111,7 @@ export const AssertionListTable = ({
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
-            render: (_, record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
+            render: (_, record: any) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
             width: '50%',
             sorter: (a, b) => a.description?.localeCompare(b.description),
         },
@@ -148,18 +148,16 @@ export const AssertionListTable = ({
             width: '10%',
             render: (_, record) => {
                 const isSqlAssertion = record.type === AssertionType.Sql;
-                const assertion = record.assertion;
+                const { assertion } = record;
                 return (
                     !record.groupName && (
                         <ActionsColumn
                             assertion={assertion}
-                            platform={record.platform}
                             monitor={record.monitor}
                             contract={contract}
                             canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
                             canEditMonitor={canEditMonitors}
                             canEditContract
-                            lastEvaluationUrl={record.lastEvaluationUrl}
                             refetch={refetch}
                         />
                     )
@@ -198,9 +196,8 @@ export const AssertionListTable = ({
         }
         if (record.urn === focusAssertionUrn) {
             return 'acryl-selected-assertions-table-row' || 'acryl-assertions-table-row';
-        } else {
-            return 'acryl-assertions-table-row';
         }
+        return 'acryl-assertions-table-row';
     };
 
     return (
@@ -225,11 +222,11 @@ export const AssertionListTable = ({
                                       pagination={false}
                                       showHeader={false}
                                       rowClassName={rowClassName}
-                                      onRow={(record) => {
+                                      onRow={(data) => {
                                           return {
-                                              onClick: !record.groupName
+                                              onClick: !data.groupName
                                                   ? (_) => {
-                                                        setFocusAssertionUrn(record.urn);
+                                                        setFocusAssertionUrn(data.urn);
                                                     }
                                                   : () => null,
                                           };

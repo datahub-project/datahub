@@ -1,6 +1,8 @@
+import React from 'react';
 import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
 import cronstrue from 'cronstrue';
 import styled from 'styled-components';
+import { Typography } from 'antd';
 
 import {
     Assertion,
@@ -47,7 +49,6 @@ import {
 
 import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
-import { Typography } from 'antd';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import { AssertionStatusGroup, AssertionTableType, IFilter, TableRowType } from './types';
 
@@ -68,7 +69,7 @@ export const getSchemaAggregationPlainText = (
             return 'Dataset columns are';
         case AssertionStdAggregation.Native: {
             const fieldNames = fields?.map((field) => decodeSchemaField(field.path)) || [];
-            return ' Dataset columns JSON.stringify(fieldNames) are ';
+            return `Dataset columns ${JSON.stringify(fieldNames)} are `;
         }
         default:
             console.error(`Unsupported schema aggregation assertion ${aggregation} provided.`);
@@ -279,16 +280,6 @@ export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAsse
     const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
     return `Actual table columns ${matchText} ${expectedColumnCount} expected columns`;
-
-    //TODO need to verify whether this is needed or not
-    // <div ref={labelRef}>
-    //     <Typography.Text>
-    //         Actual table columns {matchText} {expectedColumnCount} expected columns
-    //     </Typography.Text>
-    //     {showSchemaSummary && !!assertionInfo.schema && (
-    //         <SchemaSummaryModal schema={assertionInfo.schema} onClose={() => setShowSchemaSummary(false)} />
-    //     )}
-    // </div>
 };
 
 /** below functions are related to Freshness */
@@ -381,9 +372,12 @@ export const getPlainTextDescriptionFromAssertion = (
             primaryLabel = assertionInfo.description || '';
             break;
         case AssertionType.Field:
+            primaryLabel = getFieldAssertionPlainTextDescription(assertionInfo.fieldAssertion as FieldAssertionInfo);
             break;
         case AssertionType.DataSchema:
             primaryLabel = getSchemaAssertionPlainTextDescription(assertionInfo.schemaAssertion as SchemaAssertionInfo);
+            break;
+        default:
             break;
     }
     return primaryLabel;
@@ -424,7 +418,7 @@ const getGroupNameBySummary = (record) => {
     };
     const newSummary = record.summary;
     const list: string[] = [];
-    Object.keys(newSummary).forEach((key, index) => {
+    Object.keys(newSummary).forEach((key) => {
         if (newSummary[key] > 0) {
             list.push(`${newSummary[key]} ${NAME_MAP[key]}`);
         }
@@ -436,6 +430,34 @@ const getGroupNameBySummary = (record) => {
             <Message type="secondary">{list.join(', ')}</Message>
         </TextContainer>
     );
+};
+
+// transform assertions into table data
+const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[]): TableRowType[] => {
+    return assertions.map((assertion: AssertionWithMonitorDetails) => {
+        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+
+        const monitor = assertion.monitor?.relationships?.[0]?.entity;
+        const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
+        const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
+        const rowData: TableRowType = {
+            type: assertion.info?.type,
+            lastUpdated: assertion.info?.lastUpdated as AuditStamp,
+            tags: assertion.tags as GlobalTags,
+            descriptionHTML: null,
+            description: primaryPainTextLabel,
+            urn: assertion.urn,
+            platform: assertion.platform,
+            lastEvaluation: (isCompleted && mostRecentRun) as AssertionRunEvent,
+            lastEvaluationTimeMs: mostRecentRun?.timestampMillis,
+            lastEvaluationResult: (isCompleted && mostRecentRun?.result?.type) as AssertionResultType,
+            lastEvaluationUrl: (isCompleted && mostRecentRun?.result?.externalUrl) || '',
+            assertion: assertion as AssertionWithMonitorDetails,
+            monitor: monitor as Monitor,
+            status: mostRecentRun?.status as AssertionRunStatus,
+        };
+        return rowData;
+    });
 };
 
 // Generate Assertion Group By Status
@@ -457,11 +479,11 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
         });
 
         if (filteredAssertions.length > 0) {
-            const summary = filteredAssertions.reduce((map, assertion) => {
+            const summary = {};
+            filteredAssertions.forEach((assertion) => {
                 const assertionType = assertion?.info?.customAssertion?.type || assertion?.info?.type || 'Unknown';
-                map[assertionType] = (map[assertionType] || 0) + 1;
-                return map;
-            }, {});
+                summary[assertionType] = (summary[assertionType] || 0) + 1;
+            });
             const group: AssertionStatusGroup = {
                 name: status,
                 assertions: mapAssertionData(filteredAssertions),
@@ -497,7 +519,7 @@ export const getFilteredTransformedAssertionData = (
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
 
-        if (searchText && description.indexOf(searchText) == -1) {
+        if (searchText && description.indexOf(searchText) === -1) {
             return false;
         }
         if (type.length > 0 && !type.includes(assertion.info?.type || '')) {
@@ -513,39 +535,13 @@ export const getFilteredTransformedAssertionData = (
     assertionRawData.assertions = assertionsTableData;
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = assertionsByType;
-    for (let item of assertionRawData.groupBy.type || []) {
+    (assertionRawData.groupBy.type || []).forEach((item) => {
         const transformedData = mapAssertionData(item.assertions);
+        // eslint-disable-next-line  no-param-reassign
         item.assertions = transformedData;
+        // eslint-disable-next-line  no-param-reassign
         item.groupName = <AssertionGroupHeader group={item} />;
-    }
+    });
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
     return assertionRawData;
-};
-
-// transform assertions into table data
-const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[]): TableRowType[] => {
-    return assertions.map((assertion: AssertionWithMonitorDetails) => {
-        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
-
-        const monitor = assertion.monitor?.relationships?.[0]?.entity;
-        const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
-        const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
-        const rowData: TableRowType = {
-            type: assertion.info?.type,
-            lastUpdated: assertion.info?.lastUpdated as AuditStamp,
-            tags: assertion.tags as GlobalTags,
-            descriptionHTML: null,
-            description: primaryPainTextLabel,
-            urn: assertion.urn,
-            platform: assertion.platform,
-            lastEvaluation: (isCompleted && mostRecentRun) as AssertionRunEvent,
-            lastEvaluationTimeMs: mostRecentRun?.timestampMillis,
-            lastEvaluationResult: (isCompleted && mostRecentRun?.result?.type) as AssertionResultType,
-            lastEvaluationUrl: (isCompleted && mostRecentRun?.result?.externalUrl) || '',
-            assertion: assertion as AssertionWithMonitorDetails,
-            monitor: monitor as Monitor,
-            status: mostRecentRun?.status as AssertionRunStatus,
-        };
-        return rowData;
-    });
 };

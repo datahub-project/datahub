@@ -1,23 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Tooltip, Typography } from 'antd';
+import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
+import { DataContract } from '@src/types.generated';
+import { PlusOutlined } from '@ant-design/icons';
+import TabToolbar from '@src/app/entity/shared/components/styled/TabToolbar';
+import { useAppConfig } from '@src/app/useAppConfig';
+import styled from 'styled-components';
 
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode';
 import { AssertionWithMonitorDetails, tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '../acrylUtils';
 import { combineEntityDataWithSiblings } from '../../../../../../entity/shared/siblingUtils';
-import styled from 'styled-components';
-import { getFilteredTransformedAssertionData, transformAssertionData } from './utils';
+import { getFilteredTransformedAssertionData } from './utils';
 import { AssertionListTable } from './AssertionListTable';
-import { PlusOutlined } from '@ant-design/icons';
-import TabToolbar from '@src/app/entity/shared/components/styled/TabToolbar';
-import { useAppConfig } from '@src/app/useAppConfig';
 import { AssertionMonitorBuilderDrawer } from '../assertion/builder/AssertionMonitorBuilderDrawer';
 import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '../acrylCacheUtils';
-import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
 import { AssertionTableType, IFilter } from './types';
-import { DataContract } from '@src/types.generated';
 
 const AssertionTitleContainer = styled.div`
     display: flex;
@@ -88,14 +88,6 @@ export const AcrylAssertionList = () => {
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
     const contract: DataContract = contractData?.dataset?.contract as DataContract;
 
-    useEffect(() => {
-        const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
-        const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
-            tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
-        setAssertionMonitorData(assertionsWithMonitorsDetails);
-        getFilteredAssertions(assertionsWithMonitorsDetails);
-    }, [data]);
-
     // get filtered Assertion as per the filter object
     const getFilteredAssertions = (assertions: AssertionWithMonitorDetails[]) => {
         const filteredAssertionData: AssertionTableType = getFilteredTransformedAssertionData(assertions, filter);
@@ -103,10 +95,20 @@ export const AcrylAssertionList = () => {
     };
 
     useEffect(() => {
+        const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
+        const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
+            tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
+        setAssertionMonitorData(assertionsWithMonitorsDetails);
+        getFilteredAssertions(assertionsWithMonitorsDetails);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data]);
+
+    useEffect(() => {
         // after filter change need to get filtered assertions
         if (assertionMonitorData?.length > 0) {
             getFilteredAssertions(assertionMonitorData);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filter]);
 
     const isSiblingMode = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
@@ -165,7 +167,7 @@ export const AcrylAssertionList = () => {
 
     return (
         <>
-            <AssertionTitleSection></AssertionTitleSection>
+            <AssertionTitleSection />
             {loading ? (
                 <AcrylAssertionsSummaryLoading />
             ) : (

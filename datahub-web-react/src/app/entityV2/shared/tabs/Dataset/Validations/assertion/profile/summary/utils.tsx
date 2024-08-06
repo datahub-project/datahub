@@ -22,7 +22,6 @@ import { SchemaAssertionDescription } from '../../../SchemaAssertionDescription'
 import { useEntityRegistry } from '../../../../../../../../useEntityRegistry';
 import { useGetUserQuery } from '../../../../../../../../../graphql/user.generated';
 import { ANTD_GRAY_V2 } from '../../../../../../constants';
-import { getPlainTextDescriptionFromAssertion } from '../../../AssertionList/utils';
 
 /**
  * Returns a text element describing the given assertion

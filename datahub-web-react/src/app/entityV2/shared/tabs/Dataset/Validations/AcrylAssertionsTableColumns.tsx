@@ -9,7 +9,6 @@ import {
     Assertion,
     EntityType,
     DataContract,
-    DataPlatform,
     AssertionSourceType,
     AssertionRunEvent,
     Monitor,
@@ -17,7 +16,6 @@ import {
 import { InferredAssertionPopover } from './InferredAssertionPopover';
 import { InferredAssertionBadge } from './InferredAssertionBadge';
 import { REDESIGN_COLORS } from '../../../constants';
-import { AssertionPlatformAvatar } from './AssertionPlatformAvatar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { isMonitorActive } from './acrylUtils';
 import { isAssertionPartOfContract } from './contract/utils';
@@ -153,13 +151,11 @@ export function DetailsColumn({
 
 interface ActionsColumnProps {
     assertion: Assertion;
-    platform?: DataPlatform;
     monitor?: Monitor;
     contract?: DataContract;
     canEditAssertion: boolean;
     canEditMonitor: boolean;
     canEditContract: boolean;
-    lastEvaluationUrl?: string;
     refetch?: () => void;
 }
 

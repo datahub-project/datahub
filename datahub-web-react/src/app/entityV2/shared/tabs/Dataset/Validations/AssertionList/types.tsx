@@ -1,5 +1,4 @@
 import {
-    Assertion,
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
@@ -39,6 +38,7 @@ export type TableRowType = {
     monitor: Monitor;
     status: AssertionRunStatus; // status;
     groupName?: string;
+    name?: string;
 };
 
 export type AssertionGroupExtended = Omit<AssertionGroup, 'assertions'> & {
@@ -54,7 +54,7 @@ export type AssertionStatusGroup = {
 };
 
 type AssertionGroupByType = {
-    type: any[]; //AssertionGroupExtended[] | AssertionGroup[];
+    type: any[];
     status: AssertionStatusGroup[];
 };
 

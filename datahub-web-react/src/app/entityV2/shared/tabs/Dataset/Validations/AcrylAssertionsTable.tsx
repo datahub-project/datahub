@@ -174,13 +174,11 @@ export const AcrylAssertionsTable = ({
                         {(showMenu && (
                             <ActionsColumn
                                 assertion={record.assertion}
-                                platform={record.platform}
                                 monitor={record.monitor}
                                 contract={contract}
                                 canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
                                 canEditMonitor={canEditMonitors}
                                 canEditContract
-                                lastEvaluationUrl={record.lastEvaluationUrl}
                                 refetch={refetch}
                             />
                         )) ||

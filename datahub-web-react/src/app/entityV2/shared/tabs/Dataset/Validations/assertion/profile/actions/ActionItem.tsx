@@ -1,9 +1,8 @@
 import React from 'react';
 
 import { Tooltip } from 'antd';
-
-import { ActionItemButton } from './styledComponents';
 import { TooltipPlacement } from 'antd/es/tooltip';
+import { ActionItemButton } from './styledComponents';
 
 type Props = {
     primary?: boolean;

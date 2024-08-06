@@ -1,6 +1,6 @@
+import React from 'react';
 import { AuditOutlined } from '@ant-design/icons';
 import { REDESIGN_COLORS } from '@src/app/entity/shared/constants';
-import { EntityType } from '@src/types.generated';
 import { Tooltip } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -10,7 +10,7 @@ const DataContractLogo = styled(AuditOutlined)`
     font-size: 16px;
     color: ${REDESIGN_COLORS.BLUE};
 `;
-export const DataContractBadge = ({ link }) => {
+export const DataContractBadge = ({ link }: { link: string }) => {
     return (
         <Tooltip
             title={

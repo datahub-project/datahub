@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import { getAssertionGroupSummaryIcon } from '../acrylUtils';
 import { AssertionGroup } from '../acrylTypes';
 
 const Container = styled.div`
@@ -32,10 +31,6 @@ const Message = styled(Typography.Text)`
         font-size: 12px;
         margin-left: 8px;
     }
-`;
-
-const SummaryIcon = styled.div`
-    margin-right: 16px;
 `;
 
 type Props = {

@@ -1,6 +1,7 @@
 import React from 'react';
-
 import styled from 'styled-components';
+import { Button, Dropdown, Menu } from 'antd';
+import { MoreOutlined } from '@ant-design/icons';
 
 import { StartStopAction } from './StartStopAction';
 import { Assertion, AssertionRunStatus, DataContract, Monitor } from '../../../../../../../../../types.generated';
@@ -12,8 +13,6 @@ import { SubscribeAction } from './SubscribeAction';
 import { RunAction } from './RunAction';
 import { ExternalUrlAction } from './ExternalUrlAction';
 import { useIsSeparateSiblingsMode } from '../../../../../../useIsSeparateSiblingsMode';
-import { Button, Dropdown, Menu } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
 
 const ActionList = styled.div`
     display: flex;

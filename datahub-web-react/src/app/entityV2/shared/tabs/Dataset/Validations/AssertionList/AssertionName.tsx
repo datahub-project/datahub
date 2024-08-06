@@ -2,20 +2,21 @@ import React from 'react';
 import WarningIcon from '@ant-design/icons/WarningFilled';
 import moment from 'moment';
 import styled from 'styled-components';
-import { InferredAssertionPopover } from '../InferredAssertionPopover';
-import { InferredAssertionBadge } from '../InferredAssertionBadge';
+import { Tooltip, Typography } from 'antd';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { AssertionSourceType, EntityType, DataContract } from '@src/types.generated';
+import { InferredAssertionPopover } from '../InferredAssertionPopover';
+import { InferredAssertionBadge } from '../InferredAssertionBadge';
 import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
 import { AssertionResultDot } from '../assertion/profile/shared/AssertionResultDot';
 import { isMonitorActive } from '../acrylUtils';
 import { AssertionPlatformAvatar } from '../AssertionPlatformAvatar';
 import { isAssertionPartOfContract } from '../contract/utils';
-import { AssertionSourceType, EntityType } from '@src/types.generated';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
-import { Tooltip, Typography } from 'antd';
 import { DataContractBadge } from './DataContractBadge';
+import { TableRowType } from './types';
 
 const StyledAssertionNameContainer = styled.div`
     display: flex;
@@ -43,7 +44,13 @@ const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
 const SMART_ASSERTION_STALE_IN_DAYS = 3;
 
-export const AssertionName = ({ record, groupBy, contract }) => {
+type Props = {
+    record: TableRowType;
+    groupBy: string;
+    contract: DataContract;
+};
+
+export const AssertionName = ({ record, groupBy, contract }: Props) => {
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 
@@ -56,14 +63,14 @@ export const AssertionName = ({ record, groupBy, contract }) => {
 
     // if it is group header then just display group name instead of other fields
     if (groupBy && record.name) {
-        name = record.groupName;
+        name = <>{record.groupName}</>;
         return <Typography.Text>{name}</Typography.Text>;
     }
 
     const disabled = (monitor && !isMonitorActive(monitor)) || false;
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
-    const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
+    const isSmartAssertion = assertionInfo?.source?.type === AssertionSourceType.Inferred;
     const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt
         ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days')
         : undefined;
