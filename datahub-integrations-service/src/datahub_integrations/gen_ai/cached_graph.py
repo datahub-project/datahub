@@ -1,3 +1,5 @@
+from typing import Any
+
 import cachetools
 import cachetools.keys
 from datahub.ingestion.graph.client import DataHubGraph
@@ -24,7 +26,7 @@ class _CachedGraph:
             for method in CACHEABLE_METHODS
         }
 
-    def __getattribute__(self, name: str):
+    def __getattribute__(self, name: str) -> Any:
         cached_methods = super().__getattribute__("_cached_methods")
         if name in cached_methods:
             return cached_methods[name]
@@ -36,6 +38,7 @@ def make_cached_graph(graph: DataHubGraph, ttl: int = 0) -> DataHubGraph:
     if isinstance(graph, _CachedGraph):
         return graph  # type: ignore
 
+    cache: cachetools.Cache
     if ttl:
         cache = cachetools.TTLCache(ttl=ttl, maxsize=1000)
     else:

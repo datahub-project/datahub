@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import boto3
 import datahub.metadata.schema_classes as models
@@ -99,7 +99,7 @@ def filter_schema_fields(schema_field, urn):
 
 def get_upstream_metadata(
     graph_client: DataHubGraph, upstreams: List[str]
-) -> List[Dict[str, str]]:
+) -> List[Dict[str, str | None]]:
     upstreams_metadata = []
     for urn in upstreams:
         schema_field_urn = SchemaFieldUrn.from_string(urn)
@@ -120,11 +120,15 @@ def get_upstream_metadata(
     return upstreams_metadata
 
 
-def get_upstream_lineage_info(column_urns, finegrained_lineages, graph_client):
-    lineage_info = {}
+def get_upstream_lineage_info(
+    column_urns: list[str],
+    finegrained_lineages: List[models.FineGrainedLineageClass],
+    graph_client: DataHubGraph,
+) -> dict[str, list[dict[str, Any]]]:
+    lineage_info: dict[str, list[dict[str, str | None]]] = {}
     for lineage in finegrained_lineages:
         downstreams = lineage.downstreams
-        for downstream in downstreams:
+        for downstream in downstreams or []:
             column_urn = downstream
             if column_urn in column_urns:
                 if lineage.query is not None:
@@ -132,9 +136,11 @@ def get_upstream_lineage_info(column_urns, finegrained_lineages, graph_client):
                 else:
                     query = {}
                 upstreams = lineage.upstreams
+                if not upstreams:
+                    continue
                 upstreams_with_metadata = get_upstream_metadata(graph_client, upstreams)
                 if upstreams_with_metadata == []:
-                    upstream_dict = {
+                    upstream_dict: dict = {
                         "lineage": lineage.upstreams,
                         "query": query,
                         "transform_operation": lineage.transformOperation,
@@ -210,7 +216,7 @@ def get_table_domain_info(domain_urns, graph_client):
     return domain_info
 
 
-def get_ownership_info(owners: List[models.OwnerClass]):
+def get_ownership_info(owners: List[models.OwnerClass]) -> list[dict]:
     owners_info = []
     for owner in owners:
         owner_name = owner.owner.split(":")[-1]
@@ -326,7 +332,9 @@ def extract_metadata_for_urn(
     # Upstream Lineage Information
     upstream_lineages = entity.get("upstreamLineage")
     if upstream_lineages is None or upstream_lineages.fineGrainedLineages is None:
-        upstream_lineage_info = {column: [] for column in column_metadata.keys()}
+        upstream_lineage_info: dict[str, list] = {
+            column: [] for column in column_metadata.keys()
+        }
     else:
         finegrained_lineages = upstream_lineages.fineGrainedLineages
         upstream_lineage_info = get_upstream_lineage_info(
