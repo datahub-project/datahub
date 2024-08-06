@@ -11,6 +11,7 @@ describe("managing secrets for ingestion creation", () => {
     // Navigate to the manage ingestion page → secrets
     cy.loginWithCredentials();
     cy.goToIngestionPage();
+    cy.clickOptionWithText("Secrets");
 
     // Create a new secret
     cy.clickOptionWithTestId("create-secret-button");

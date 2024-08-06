@@ -27,13 +27,14 @@ from deprecated import deprecated
 from pydantic import BaseModel
 from requests.models import HTTPError
 
-from datahub.cli.cli_utils import get_url_and_token
+from datahub.cli import config_utils
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
@@ -86,20 +87,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
-
-
-class DatahubClientConfig(ConfigModel):
-    """Configuration class for holding connectivity to datahub gms"""
-
-    server: str = "http://localhost:8080"
-    token: Optional[str] = None
-    timeout_sec: Optional[int] = None
-    retry_status_codes: Optional[List[int]] = None
-    retry_max_times: Optional[int] = None
-    extra_headers: Optional[Dict[str, str]] = None
-    ca_certificate_path: Optional[str] = None
-    client_certificate_path: Optional[str] = None
-    disable_ssl_verification: bool = False
 
 
 # Alias for backwards compatibility.
@@ -176,7 +163,7 @@ class DataHubGraph(DatahubRestEmitter):
         """Get the public-facing base url of the frontend
 
         This url can be used to construct links to the frontend. The url will not include a trailing slash.
-        Note: Only supported with Acryl Cloud.
+        Note: Only supported with DataHub Cloud.
         """
 
         if not self.server_config:
@@ -514,8 +501,8 @@ class DataHubGraph(DatahubRestEmitter):
         responds to these calls, and will be fixed automatically when the server-side issue is fixed.
 
         :param str entity_urn: The urn of the entity
-        :param List[Type[Aspect]] aspect_type_list: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
-        :param List[str] aspects_list: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
+        :param aspects: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
+        :param aspect_types: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
         :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
         :raises HttpError: if the HTTP response is not a 200
         """
@@ -540,8 +527,10 @@ class DataHubGraph(DatahubRestEmitter):
 
         return result
 
-    def get_entity_semityped(self, entity_urn: str) -> AspectBag:
-        """Get all non-timeseries aspects for an entity (experimental).
+    def get_entity_semityped(
+        self, entity_urn: str, aspects: Optional[List[str]] = None
+    ) -> AspectBag:
+        """Get (all) non-timeseries aspects for an entity.
 
         This method is called "semityped" because it returns aspects as a dictionary of
         properly typed objects. While the returned dictionary is constrained using a TypedDict,
@@ -551,11 +540,12 @@ class DataHubGraph(DatahubRestEmitter):
         something, even if the entity doesn't actually exist in DataHub.
 
         :param entity_urn: The urn of the entity
+        :param aspects: Optional list of aspect names being requested (e.g. ["schemaMetadata", "datasetProperties"])
         :returns: A dictionary of aspect name to aspect value. If an aspect is not found, it will
             not be present in the dictionary. The entity's key aspect will always be present.
         """
 
-        response_json = self.get_entity_raw(entity_urn)
+        response_json = self.get_entity_raw(entity_urn, aspects)
 
         # Now, we parse the response into proper aspect objects.
         result: AspectBag = {}
@@ -582,6 +572,9 @@ class DataHubGraph(DatahubRestEmitter):
     @property
     def _aspect_count_endpoint(self):
         return f"{self.config.server}/aspects?action=getCount"
+
+    # def _session(self) -> Session:
+    #    return super()._session
 
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
@@ -620,7 +613,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_connection_json(self, urn: str) -> Optional[dict]:
         """Retrieve a connection config.
 
-        This is only supported with Acryl Cloud.
+        This is only supported with DataHub Cloud.
 
         Args:
             urn: The urn of the connection.
@@ -665,7 +658,7 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> None:
         """Set a connection config.
 
-        This is only supported with Acryl Cloud.
+        This is only supported with DataHub Cloud.
 
         Args:
             urn: The urn of the connection.
@@ -926,7 +919,7 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> Iterable[dict]:
         """Fetch all results that match all of the given filters.
 
-        Note: Only supported with Acryl Cloud.
+        Note: Only supported with DataHub Cloud.
 
         Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
         Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
@@ -1121,6 +1114,7 @@ class DataHubGraph(DatahubRestEmitter):
         query: str,
         variables: Optional[Dict] = None,
         operation_name: Optional[str] = None,
+        format_exception: bool = True,
     ) -> Dict:
         url = f"{self.config.server}/api/graphql"
 
@@ -1137,7 +1131,10 @@ class DataHubGraph(DatahubRestEmitter):
         )
         result = self._post_generic(url, body)
         if result.get("errors"):
-            raise GraphError(f"Error executing graphql query: {result['errors']}")
+            if format_exception:
+                raise GraphError(f"Error executing graphql query: {result['errors']}")
+            else:
+                raise GraphError(result["errors"])
 
         return result["data"]
 
@@ -1763,7 +1760,7 @@ class DataHubGraph(DatahubRestEmitter):
 
 
 def get_default_graph() -> DataHubGraph:
-    (url, token) = get_url_and_token()
-    graph = DataHubGraph(DatahubClientConfig(server=url, token=token))
+    graph_config = config_utils.load_client_config()
+    graph = DataHubGraph(graph_config)
     graph.test_connection()
     return graph

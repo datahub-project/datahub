@@ -89,6 +89,16 @@ query getGlobalViewsSettings {
     }
 }
 
+query getDocPropagationSettings {
+    docPropagationSettings {
+        docColumnPropagation
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
+}
+
+mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!) {
+    updateDocPropagationSettings(input: $input)
 }
