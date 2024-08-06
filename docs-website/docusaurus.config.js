@@ -147,8 +147,8 @@ module.exports = {
               label: "YouTube",
             },
             {
-              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi",
-              label: "Case Studies",
+              href: "/adoption-stories",
+              label: "Adoption Stories",
             },
             {
               href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg",
