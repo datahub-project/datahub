@@ -405,8 +405,8 @@ mutation testAssertion($input: TestAssertionInput!) {
     }
 }
 
-mutation runAssertion($urn: String!, $saveResult: Boolean) {
-    runAssertion(urn: $urn, saveResult: $saveResult) {
+mutation runAssertion($urn: String!, $saveResult: Boolean, $async: Boolean) {
+    runAssertion(urn: $urn, saveResult: $saveResult, async: $async) {
         ...assertionResultDetails
     }
 }

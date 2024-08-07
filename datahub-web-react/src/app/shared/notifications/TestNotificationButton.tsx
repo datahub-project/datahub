@@ -9,12 +9,13 @@ import {
 } from '@src/graphql/connection.generated';
 
 import { TestNotificationModal } from './TestNotificationModal';
-import { getDestinationId, usePollForData } from './utils';
+import { getDestinationId } from './utils';
 import {
     NotificationConnectionTestResult,
     NotificationConnectionTestStructuredReport,
     TestNotificationConfig,
 } from './types';
+import { usePollForData } from '../polling/utils';
 
 const SendButton = styled(Button)`
     margin-top: 8px;
