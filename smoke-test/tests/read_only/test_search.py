@@ -210,7 +210,22 @@ def test_openapi_v2_entity(entity_type):
 @pytest.mark.read_only
 @pytest.mark.parametrize(
     "entity_type",
-    ["corpGroup"],
+    [
+        "dataset",
+        "dashboard",
+        "dataJob",
+        "dataFlow",
+        "container",
+        "tag",
+        "corpUser",
+        "mlFeature",
+        "glossaryTerm",
+        "domain",
+        "mlPrimaryKey",
+        "mlFeatureTable",
+        "glossaryNode",
+        "mlModel",
+    ],
 )
 def test_openapi_v1_entity(entity_type):
     frontend_session = get_frontend_session()
