@@ -32,7 +32,7 @@ const ScrollingCustomers = ({ noOverlay = true, spacing, ...rest }) => {
             to={customer.link.href}
             target={customer.link.blank ? '_blank' : '_self'}
             rel={customer.link.blank ? 'noopener noreferrer' : ''}
-            style={{ minWidth: 'max-content', padding: '0 3.25rem' }}
+            style={{ minWidth: 'max-content', padding: '0 1.8rem' }}
           >
             <img
               src={customer.logo.asset._ref}
