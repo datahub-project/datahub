@@ -757,6 +757,12 @@ class TableauSiteSource:
         ] = self.config.get_tableau_auth(self.site.content_url)
         self.server.auth.sign_in(tableau_auth)
 
+    @property
+    def site_content_url(self) -> Optional[str]:
+        if self.site and self.site.content_url:
+            return self.site.content_url
+        return None
+
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
             return
@@ -2524,7 +2530,9 @@ class TableauSiteSource:
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
         if sheet.get(c.PATH):
-            site_part = f"/site/{self.site.content_url}" if self.site else ""
+            site_part = (
+                f"/site/{self.site_content_url}" if self.site_content_url else ""
+            )
             sheet_external_url = (
                 f"{self.config.connect_uri}/#{site_part}/views/{sheet.get(c.PATH)}"
             )
@@ -2535,7 +2543,7 @@ class TableauSiteSource:
             and sheet[c.CONTAINED_IN_DASHBOARDS][0].get(c.PATH)
         ):
             # sheet contained in dashboard
-            site_part = f"/t/{self.site.content_url}" if self.site else ""
+            site_part = f"/t/{self.site_content_url}" if self.site_content_url else ""
             dashboard_path = sheet[c.CONTAINED_IN_DASHBOARDS][0][c.PATH]
             sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{quote(sheet.get(c.NAME, ''), safe='')}"
         else:
@@ -2667,7 +2675,7 @@ class TableauSiteSource:
             else None
         )
 
-        site_part = f"/site/{self.site.content_url}" if self.site else ""
+        site_part = f"/site/{self.site_content_url}" if self.site_content_url else ""
         workbook_uri = workbook.get("uri")
         workbook_part = (
             workbook_uri[workbook_uri.index("/workbooks/") :] if workbook_uri else None
@@ -2826,7 +2834,7 @@ class TableauSiteSource:
         updated_at = dashboard.get(c.UPDATED_AT, datetime.now())
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
-        site_part = f"/site/{self.site.content_url}" if self.site else ""
+        site_part = f"/site/{self.site_content_url}" if self.site_content_url else ""
         dashboard_external_url = (
             f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get(c.PATH, '')}"
         )
