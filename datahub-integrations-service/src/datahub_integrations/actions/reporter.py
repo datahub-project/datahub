@@ -10,8 +10,6 @@ from datahub.metadata.schema_classes import DataHubActionStatusClass
 from datahub_actions.pipeline.pipeline import Pipeline
 from loguru import logger
 
-from datahub_integrations.actions.action_extended import ExtendedAction
-
 # Import the necessary classes from the open source codebase
 from datahub_integrations.actions.oss.stats_util import (
     ActionStageReport,
@@ -31,9 +29,7 @@ class ActionStatsReporter:
         self.graph = graph
         self.stage = stage
 
-        # TODO: Loosen this to ReportingAction.
-        # Will also need to be changed in action_runner.py.
-        assert isinstance(self.pipeline.action, ExtendedAction)
+        assert isinstance(self.pipeline.action, ReportingAction)
         self.action: ReportingAction = self.pipeline.action
         self.action_urn = self.action.action_urn
 

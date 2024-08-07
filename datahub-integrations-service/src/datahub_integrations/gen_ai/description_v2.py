@@ -7,10 +7,11 @@ import time
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import boto3
+import botocore.config
 import datahub.metadata.schema_classes as models
 from aws_assume_role_lib import aws_assume_role_lib
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import AspectBag
+from datahub.metadata.schema_classes import AspectBag, UpstreamClass
 from datahub.metadata.urns import SchemaFieldUrn
 from loguru import logger
 
@@ -18,13 +19,17 @@ if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
 
 
-# modelId = "anthropic.claude-3-sonnet-20240229-v1:0"
+# modelId = "anthropic.claude-3-5-sonnet-20240620-v1:0"
 modelId = "anthropic.claude-3-haiku-20240307-v1:0"
+TABLE_UPSTREAM_MAX_COUNT = 5
 
 
 @functools.cache
 def get_bedrock_client() -> "BedrockRuntimeClient":
     # Set up Bedrock client - the cache decorator ensures that this is a singleton
+
+    # Increase the read and connect timeouts, since Bedrock can be slow.
+    config = botocore.config.Config(read_timeout=300, connect_timeout=60)
 
     if "BEDROCK_AWS_ROLE" in os.environ:
         # When using assume_role(), the tokens from the assume role call expire
@@ -47,7 +52,7 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
             aws_secret_access_key=os.environ["BEDROCK_AWS_SECRET_ACCESS_KEY"],
         )
 
-    return boto3_session.client("bedrock-runtime")  # type: ignore
+    return boto3_session.client("bedrock-runtime", config=config)  # type: ignore
 
 
 def call_bedrock_llm(prompt: str, max_tokens: int) -> str:
@@ -61,10 +66,7 @@ def call_bedrock_llm(prompt: str, max_tokens: int) -> str:
             }
         ],
         "max_tokens": max_tokens,
-        # "max_tokens_to_sample": 300,
-        # "temperature": 0.5,
-        # "top_k": 250,
-        # "top_p": 1,
+        "temperature": 0.3,
     }
     accept = "application/json"
     contentType = "application/json"
@@ -90,18 +92,30 @@ def get_lineage_query(graph_client: DataHubGraph, urn: str) -> dict:
     return {"value": query, "language": language}
 
 
-def filter_schema_fields(schema_field, urn):
+def remove_nulls(obj: dict) -> dict:
+    return {k: v for k, v in obj.items() if v is not None}
+
+
+def filter_schema_fields(schema_field: models.SchemaFieldClass) -> dict:
     filtered_schema_metadata = {
         "description": schema_field.description,
         "created": schema_field.created,
         "nativeDataType": schema_field.nativeDataType,
-        "isPartOfKey": schema_field.isPartOfKey,
-        "isPartitioningKey": schema_field.isPartitioningKey,
+        **(
+            {"isPartOfKey": schema_field.isPartOfKey}
+            if schema_field.isPartOfKey
+            else {}
+        ),
+        **(
+            {"isPartitioningKey": schema_field.isPartitioningKey}
+            if schema_field.isPartitioningKey
+            else {}
+        ),
     }
-    return filtered_schema_metadata
+    return remove_nulls(filtered_schema_metadata)
 
 
-def get_upstream_metadata(
+def get_column_upstream_metadata(
     graph_client: DataHubGraph, upstreams: List[str]
 ) -> List[Dict[str, str | None]]:
     upstreams_metadata = []
@@ -124,7 +138,36 @@ def get_upstream_metadata(
     return upstreams_metadata
 
 
-def get_upstream_lineage_info(
+def get_table_upstream_lineage_info(
+    upstreams: List[UpstreamClass], graph_client: DataHubGraph
+):
+    table_upstream_lineage_info = []
+    for upstream_table_count, upstream in enumerate(upstreams):
+        if upstream_table_count == TABLE_UPSTREAM_MAX_COUNT:
+            break
+        dataset_urn = upstream.dataset
+        entity = graph_client.get_entity_semityped(dataset_urn)
+        upstream_table_name, upstream_table_description = (
+            get_table_name_and_description(entity=entity, urn=dataset_urn)
+        )
+        if upstream.query is not None:
+            query = get_lineage_query(graph_client, upstream.query)
+        else:
+            query = {}
+        lineage_type = upstream.type
+        table_upstream_lineage_info.append(
+            {
+                "upstream_table_urn": dataset_urn,
+                "upstream_table_name": upstream_table_name,
+                "upstream_table_description": upstream_table_description,
+                "query": query,
+                "lineage_type": lineage_type,
+            }
+        )
+    return table_upstream_lineage_info
+
+
+def get_upstream_finegrained_lineage_info(
     column_urns: list[str],
     finegrained_lineages: List[models.FineGrainedLineageClass],
     graph_client: DataHubGraph,
@@ -135,26 +178,30 @@ def get_upstream_lineage_info(
         for downstream in downstreams or []:
             column_urn = downstream
             if column_urn in column_urns:
-                if lineage.query is not None:
-                    query = get_lineage_query(graph_client, lineage.query)
-                else:
-                    query = {}
+                # Queries are included in the table lineage object.
+                # if lineage.query is not None:
+                #     query = get_lineage_query(graph_client, lineage.query)
+                # else:
+                #     query = {}
                 upstreams = lineage.upstreams
                 if not upstreams:
                     continue
-                upstreams_with_metadata = get_upstream_metadata(graph_client, upstreams)
+                upstreams_with_metadata = get_column_upstream_metadata(
+                    graph_client, upstreams
+                )
                 if upstreams_with_metadata == []:
                     upstream_dict: dict = {
                         "lineage": lineage.upstreams,
-                        "query": query,
+                        # "query": query,
                         "transform_operation": lineage.transformOperation,
                     }
                 else:
                     upstream_dict = {
                         "lineage": upstreams_with_metadata,
-                        "query": query,
+                        # "query": query,
                         "transform_operation": lineage.transformOperation,
                     }
+                upstream_dict = remove_nulls(upstream_dict)
                 if column_urn in lineage_info.keys():
                     lineage_info[column_urn].extend(upstream_dict)
                 else:
@@ -185,7 +232,7 @@ def get_sample_values(urn, graph_client):
     return sample_values
 
 
-def get_table_name_and_description(entity, graph_client, urn):
+def get_table_name_and_description(entity, urn):
     dataset_properties = entity.get("datasetPoperties")
     if dataset_properties is None:
         dataset_key = entity.get("datasetKey")
@@ -319,13 +366,7 @@ def extract_metadata_for_urn(
 ) -> Dict[str, dict]:
     assert "schemaMetadata" in entity, "Schema metadata not found in the entity"
     column_metadata = {
-        f"urn:li:schemaField:({urn},{field.fieldPath})": filter_schema_fields(
-            field, urn
-        )
-        for field in entity["schemaMetadata"].fields
-    }
-    column_types = {
-        f"urn:li:schemaField:({urn},{field.fieldPath})": field.nativeDataType
+        f"urn:li:schemaField:({urn},{field.fieldPath})": filter_schema_fields(field)
         for field in entity["schemaMetadata"].fields
     }
     column_descriptions = {
@@ -341,11 +382,21 @@ def extract_metadata_for_urn(
         }
     else:
         finegrained_lineages = upstream_lineages.fineGrainedLineages
-        upstream_lineage_info = get_upstream_lineage_info(
+        upstream_lineage_info = get_upstream_finegrained_lineage_info(
             column_urns=list(column_metadata.keys()),
             finegrained_lineages=finegrained_lineages,
             graph_client=graph_client,
         )
+
+    # Table upstream lineage information
+    if upstream_lineages is None:
+        table_upstream_lineage_info = None
+    else:
+        table_upstream_lineage_info = get_table_upstream_lineage_info(
+            upstreams=upstream_lineages.upstreams, graph_client=graph_client
+        )
+
+    # TODO: Downstream lineage information
 
     # Tags:
     table_level_tags, column_level_tags = get_table_and_column_level_tags(
@@ -359,7 +410,7 @@ def extract_metadata_for_urn(
 
     # Table name and description:
     table_name, table_description = get_table_name_and_description(
-        entity=entity, graph_client=graph_client, urn=urn
+        entity=entity, urn=urn
     )
 
     # View Information:
@@ -389,27 +440,50 @@ def extract_metadata_for_urn(
     # Column Sample Values:
     column_sample_values = get_sample_values(urn=urn, graph_client=graph_client)
 
-    column_info = {
+    extracted_table_info = {
+        "column_names": column_names,
         "column_metadata": column_metadata,
-        "column_types": column_types,
         "column_descriptions": column_descriptions,
         "column_upstream_lineages": upstream_lineage_info,
-        "column_names": column_names,
         "column_sample_values": column_sample_values,
-        "column_level_tags": column_level_tags,
-        "column_level_glossary_terms": column_level_terms,
-        "table_level_tags": table_level_tags,
-        "table_level_glossary_terms": table_level_terms,
+        "column_tags": column_level_tags,
+        "column_glossary_terms": column_level_terms,
+        "table_tags": table_level_tags,
+        "table_glossary_terms": table_level_terms,
         "table_view_properties": table_view_properties,
         "table_name": table_name,
         "table_description": table_description,
         "table_domains_info": table_domain_info,
         "table_owners_info": table_owners_info,
+        "table_upstream_lineage_info": table_upstream_lineage_info,
     }
-    return column_info
+    return extracted_table_info
 
 
-def generate_column_descriptions_for_urn(
+def transform_table_info_for_llm(extracted_table_info):
+    column_level_keys = [key for key in extracted_table_info.keys() if "column" in key]
+    table_level_keys = [key for key in extracted_table_info.keys() if "table" in key]
+    column_urns = extracted_table_info.get("column_names").keys()
+    column_info: dict[str, dict] = {}
+    for column in column_urns:
+        column_name = SchemaFieldUrn.from_string(column).field_path
+        column_info[column_name] = {}
+        for key in column_level_keys:
+            value = extracted_table_info.get(key)
+            if value is None or value.get(column) is None:
+                continue
+            else:
+                new_key = key.replace("column_", "")
+                if new_key == "names":
+                    new_key = "column_name"
+                column_info[column_name][new_key] = value[column]
+    table_info = {
+        key.replace("table_", ""): extracted_table_info[key] for key in table_level_keys
+    }
+    return table_info, column_info
+
+
+def generate_entity_descriptions_for_urn(
     graph_client: DataHubGraph, urn: str, model_config: dict = {}
 ) -> Tuple[str, dict]:
     """
@@ -418,69 +492,78 @@ def generate_column_descriptions_for_urn(
 
     # try:
     entity = graph_client.get_entity_semityped(urn)
-    column_info = extract_metadata_for_urn(entity, urn, graph_client)
-    prompt = f"""\
-Provided a datahub column and table details, generate a concise description for the table in one or two paragraphs and also for each field/column of the table in a sentence or a paragraph for each column without fail, make sure that in the description of each column the information given below like 'tags', 'glossary terms', 'upstream lineages', 'types' etc are also used if relevant. While generating output, strictly adhere to the Response output structure mentioned in below details.
-Include the table description in the same output dictionary where key for table description is "table_description"
-Table Level Information to include in the table description :
-    Table_Name: {column_info['table_name']}
-    Table_Description: {column_info['table_description']}
-    Table_Tags: {column_info['table_level_tags']}
-    Table_Glossary_Terms: {column_info['table_level_glossary_terms']}
-    Table_View_Information: {column_info['table_view_properties']}
-    Table_Owner_Information: {column_info['table_owners_info']}
-    Table_Domains_Information: {column_info['table_domains_info']}
+    extracted_entity_info = extract_metadata_for_urn(entity, urn, graph_client)
+    table_info, column_info = transform_table_info_for_llm(extracted_entity_info)
+    prompt = f'''\
+You are tasked with generating concise descriptions for a DataHub table and its columns based on provided metadata. Here is the information you will be working with:
 
-Column Level Information to include in the column descriptions:
-    Column urns: {column_info["column_metadata"].keys()}
-    Schema_Information: {column_info["column_metadata"]}
-    Column_Display_Names: {column_info["column_names"]}
-    Column_Types: {column_info["column_types"]}
-    Column_Descriptions: {column_info["column_descriptions"]}
-    Column_Upstream_Lineage_Information: {column_info["column_upstream_lineages"]}
-    Column_Tags: {column_info['column_level_tags']}
-    Column_Glossary_Terms: {column_info['column_level_glossary_terms']}
-    Column_Sample_Values : {column_info['column_sample_values']}
+<table_info>
+{table_info}
+</table_info>
 
+<column_info>
+{column_info}
+</column_info>
 
-Response output structure: {Dict[str, str]} Create a proper parsable dictionary.
-keys: Column_Display_Names.
-values: inferred description of the column.
+Generate the descriptions as follows:
 
-Sample_Output: {{
-    "table_description": "detailed summary of the table.",
-    "column_displayname1": "summary.",
-    "column_displayname2": "summary",
-    "column_displayname3": "summary",
-    "column_displayname4": "summary",
-    "column_displayname5": "summary",
-    "column_displayname6": "summary",
+1. Table Description:
+   Create a few paragraphs of Markdown-formatted text that includes:
+   a) A summary of the primary purpose and business importance of the table.
+   b) If metadata is available, a summary of the upstream tables and transformations applied.
+   c) A summary of the downstream tables (consumers) and general use cases for the table. Only include information that can be substantiated by the provided metadata.
+   d) Technical notes and usage tips, including the table type (fact or dimension) and grain if available.
+   e) A note on whether the table directly contains any PII data. Do not provide recommendations related to access control, monitoring, or governance.
+
+   Format any references to other entities as markdown links, using the entity URN as the link. For example: [table_name](urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table_name,PROD))
+   Use Markdown section as appropriate.
+
+2. Column Descriptions:
+   For each column, create a concise description of one or two sentences. Prefer elliptical sentences that are direct and to the point. If available, include details about how the column was generated or calculated.
+
+When writing the descriptions:
+- Aim for a technical yet informative tone, suitable for a data catalog.
+- Avoid weak words like "suggests" or "could be". Only include information you are confident about based on the provided metadata.
+- Be concise and to the point.
+
+Provide your output in the following dictionary format:
+
+{{
+    "table_description": """
+[Your multi-line table description here]
+""",
+    "column_name1": "Column description",
+    "column_name2": "Column description",
+    ...
 }}
-    """
+
+Ensure that the dictionary is properly formatted and parsable. Use the column display names as keys for the column descriptions. Include the table description with the key "table_description".\
+'''
     # print(prompt)
-    column_descriptions = call_bedrock_llm(
-        prompt, max_tokens=model_config.get("max_tokens", 1500)
+    entity_descriptions = call_bedrock_llm(
+        prompt, max_tokens=model_config.get("max_tokens", 3000)
     )
     # except Exception as e:
     #     print(f"Exception occured while generating column descriptions for urn: {urn} {e}")
     #     return None
-    return column_descriptions, column_info
+    return entity_descriptions, extracted_entity_info
 
 
 def parse_llm_output(text: str) -> tuple[str | None, Dict[str, str] | None]:
     match = re.search(r"\{[^}]*\}", text, re.DOTALL)
     if match:
         dict_str = match.group(0)
-        dict_str_cleaned = dict_str.replace("\n", " ").strip()
+        # dict_str_cleaned = dict_str.replace("\n", " ").strip()
+        dict_str_cleaned = dict_str.strip()
         dict_str_cleaned = re.sub("(?<=[a-z])'(?=[a-z])", "\\'", dict_str_cleaned)
         try:
             extracted_dict: dict = ast.literal_eval(dict_str_cleaned)
-
-            table_description = extracted_dict.pop("table_description")
+            table_description: str = extracted_dict.pop("table_description")
+            table_description = table_description.strip("'\"").strip()
             return table_description, extracted_dict
 
         except (SyntaxError, ValueError) as e:
-            logger.info("Error evaluating dictionary:", e)
+            logger.info(f"Error evaluating dictionary: {e}. Text: {text}")
             return None, None
     else:
         logger.info("No dictionary found in the text.")

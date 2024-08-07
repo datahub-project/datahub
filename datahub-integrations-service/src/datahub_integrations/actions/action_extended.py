@@ -57,13 +57,7 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
     """
 
     def __init__(self, config: AutomationActionConfig, ctx: PipelineContext):
-        self.ctx: PipelineContext = ctx
-
-        self.action_urn: str
-        if not ctx.pipeline_name.startswith("urn:li:dataHubAction"):
-            self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
-        else:
-            self.action_urn = ctx.pipeline_name
+        super().__init__(ctx)
 
         self._stats = ActionStageReport()
 

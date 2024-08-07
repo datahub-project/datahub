@@ -13,6 +13,7 @@ from datahub_actions.event.event_registry import (
     EntityChangeEvent,
     MetadataChangeLogEvent,
 )
+from datahub_actions.pipeline.pipeline_context import PipelineContext
 from pydantic import BaseModel
 
 
@@ -164,6 +165,19 @@ class ActionStageReport(BaseModel):
 
 
 class ReportingAction(Action, abc.ABC):
+    def __init__(self, ctx: PipelineContext):
+        super().__init__()
+        self.ctx = ctx
+
+        self.action_urn: str
+        if "urn:li:dataHubAction:" in ctx.pipeline_name:
+            # The pipeline name might get a prefix before the urn:li:... part.
+            # We need to remove that prefix to get the urn:li:dataHubAction part.
+            action_urn_part = ctx.pipeline_name.split("urn:li:dataHubAction:")[1]
+            self.action_urn = f"urn:li:dataHubAction:{action_urn_part}"
+        else:
+            self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
+
     @abc.abstractmethod
     def get_report(self) -> ActionStageReport:
         pass

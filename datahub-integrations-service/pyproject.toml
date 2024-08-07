@@ -27,6 +27,7 @@ dependencies = [
 	"reactpy",
 	"reactpy-router",
 	# AI.
+	"tenacity",
 	"openai",
 	"openai_function_call",
 	"boto3",

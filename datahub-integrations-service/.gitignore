@@ -6,6 +6,8 @@ junit.*.xml
 generated/
 clients/java/src/
 /lockfiles/
+llm_output*.json
+llm_output*.csv
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python

@@ -144,7 +144,7 @@ def main() -> None:
 
         # Run the reporter.
         reporter = None
-        if isinstance(pipeline.action, ExtendedAction):
+        if isinstance(pipeline.action, ReportingAction):
             reporter = ActionStatsReporter(
                 pipeline, graph=pipeline.action.ctx.graph.graph, stage=stage
             )
