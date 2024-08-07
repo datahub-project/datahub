@@ -52,6 +52,10 @@ module.exports = {
   },
 
   themeConfig: {
+    colorMode: {
+      disableSwitch: true,
+      defaultMode: 'light',
+    },
     navbar: {
       title: null,
       logo: {
