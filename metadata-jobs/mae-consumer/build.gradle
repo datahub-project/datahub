@@ -26,10 +26,14 @@ dependencies {
     implementation project(':metadata-events:mxe-utils-avro')
     implementation project(':datahub-graphql-core')
 
-    implementation externalDependency.elasticSearchRest
+    implementation (externalDependency.elasticSearchRest){
+        exclude group: 'org.apache.lucene', module: 'lucene-core'
+    }
+    implementation externalDependency.luceneCore
     implementation externalDependency.kafkaAvroSerde
     implementation externalDependency.protobuf
     implementation externalDependency.neo4jJavaDriver
+    implementation externalDependency.javaxInject
 
     implementation externalDependency.springKafka
     implementation externalDependency.annotationApi

@@ -25,7 +25,10 @@ dependencies {
     implementation project(':metadata-dao-impl:kafka-producer')
     implementation spec.product.pegasus.restliClient
     implementation spec.product.pegasus.restliCommon
-    implementation externalDependency.elasticSearchRest
+    implementation (externalDependency.elasticSearchRest){
+        exclude group: 'org.apache.lucene', module: 'lucene-core'
+    }
+    implementation externalDependency.luceneCore
     implementation externalDependency.protobuf
 
     implementation externalDependency.springKafka
