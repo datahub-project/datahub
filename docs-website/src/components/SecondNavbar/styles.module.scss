@@ -1,7 +1,6 @@
 .secondNavbar {
   background-color: #fff;
   border-bottom: 1px solid #eaeaea;
-  position: relative;
   z-index: 10;
   color: black;
 
@@ -12,26 +11,27 @@
 }
 
 .container {
-  padding: 0.5rem 1rem; 
+  padding: 0rem 1rem; 
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  height: 60px;
 }
 
 .coreCloudSwitch {
   display: flex;
-  align-items: center; 
+  height: 60px;
+  width: var(--doc-sidebar-width);
 }
 
 .docsSwitchButton {
+  display: flex;
   align-items: center;
   padding: 0.5rem 1rem;
   font-weight: 500;
   font-size: 1.1rem;
   color: black; 
   text-decoration: none;
-  border: none;
-  background: none;
+  height: 60px;
 
   &:hover {
     cursor: pointer;
@@ -53,12 +53,12 @@
 }
 
 .searchBox,
-.colorModeToggle,
-.versionDropdown {
+.colorModeToggle {
   padding: 0.5rem 1rem; 
 }
 
-.navbar__items--right {
+.navbarItemsRight {
   display: flex;
+  margin-left: auto;
   align-items: center;
 }

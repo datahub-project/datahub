@@ -10,9 +10,7 @@ import DocsVersionDropdownNavbarItem from '../../theme/NavbarItem/DocsVersionDro
 
 function SecondNavbar() {
   const { colorMode, setColorMode } = useColorMode();
-  const { versions } = useThemeConfig();
   const location = useLocation(); 
-
   const isDocsPath = location.pathname.startsWith('/docs');
 
   if (!isDocsPath) {
@@ -35,7 +33,8 @@ function SecondNavbar() {
           >
             DataHub Cloud
           </Link>
-          <div className={styles.versionDropdown}>
+        </div>
+        <div className={styles.versionDropdown}>
             <DocsVersionDropdownNavbarItem
               docsPluginId="default"
               dropdownItemsBefore={[]}
@@ -44,11 +43,7 @@ function SecondNavbar() {
               mobile={false}
             />
           </div>
-        </div>
-        <div className="navbar__items navbar__items--right">
-          <div className={styles.searchBox}>
-            <SearchBar />
-          </div>
+        <div className={clsx(styles.navbarItemsRight)}>
           <div className={styles.colorModeToggle}>
             <ColorModeToggle
               className="clean-btn toggleButton_node_modules-@docusaurus-theme-classic-lib-theme-ColorModeToggle-styles-module"
@@ -57,6 +52,9 @@ function SecondNavbar() {
               aria-live="polite"
               onChange={() => setColorMode(colorMode === 'dark' ? 'light' : 'dark')}
             />
+          </div>
+          <div className={styles.searchBox}>
+            <SearchBar />
           </div>
         </div>
       </div>
