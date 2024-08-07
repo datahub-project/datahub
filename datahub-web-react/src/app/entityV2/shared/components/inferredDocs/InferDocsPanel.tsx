@@ -6,6 +6,7 @@ import { useEntityData } from '@src/app/entity/shared/EntityContext';
 
 import { ANTD_GRAY } from '../../constants';
 import { useInferDocumentationForItem, useIsDocumentationInferenceEnabled } from './utils';
+import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 
 const InferencePanelContainer = styled.div`
     padding: 16px;
@@ -43,7 +44,11 @@ const InferencePanelHeader = styled.div`
 `;
 
 const InferencePanelBody = styled.div`
-    margin-bottom: 24px;
+    margin-bottom: 8px;
+
+    .remirror-editor.ProseMirror {
+        padding: 0px !important;
+    }
 `;
 
 const InferencePanelDescription = styled(Typography.Text)`
@@ -137,7 +142,9 @@ export default function InferDocsPanel({ onInsertDescription, forColumnPath, inf
             <InferencePanelBody>
                 {isLoading && <Skeleton active title={false} paragraph={{ rows: 3 }} />}
                 {generatedDescription && !isLoading && (
-                    <InferencePanelDescription>{generatedDescription}</InferencePanelDescription>
+                    <InferencePanelDescription>
+                        <Editor className="inferred-documentation-editor" content={generatedDescription} readOnly />
+                    </InferencePanelDescription>
                 )}
             </InferencePanelBody>
             <InferencePanelFooter>
