@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import Iterable, Optional, TypeVar, Union
+from typing import Iterable, Optional, Union
 
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -25,6 +25,7 @@ from datahub_integrations.actions.action_extended import (
     ExtendedAction,
 )
 from datahub_integrations.actions.oss.stats_util import EventProcessingStats
+from datahub_integrations.propagation.propagation_utils import SelectedAsset
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
 )
@@ -45,8 +46,6 @@ from datahub_integrations.propagation.term.term_propagation_action import (
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
-
 
 class SnowflakeTagPropagatorConfig(AutomationActionConfig):
     snowflake: SnowflakeConnectionConfigPermissive
@@ -54,11 +53,11 @@ class SnowflakeTagPropagatorConfig(AutomationActionConfig):
     term_propagation: Optional[TermPropagationConfig] = None
 
 
-class SnowflakeTagPropagatorAction(ExtendedAction):
+class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
     def __init__(self, config: SnowflakeTagPropagatorConfig, ctx: PipelineContext):
         super().__init__(config=config, ctx=ctx)
 
-        self.event_processing_stats = EventProcessingStats()
+        self._stats.event_processing_stats = EventProcessingStats()
 
         self.config: SnowflakeTagPropagatorConfig = config
         self.ctx = ctx
@@ -78,7 +77,6 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
             self.term_propagator = TermPropagationAction(
                 self.config.term_propagation, ctx
             )
-        # self.bootstrap() - Do not auto bootstrap.
 
     def close(self) -> None:
         self.snowflake_tag_helper.close()
@@ -92,34 +90,26 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
     def name(self) -> str:
         return "SnowflakeTagPropagator"
 
-    def bootstrap(self) -> None:
-        # First process configuration to understand what are the terms that need
-        # to be propagated
-        self.process_all_assets(operation="ADD")
+    # def process_all_assets(self, operation: str) -> None:
+    #     extra_filters = [
+    #         {
+    #             "field": "platform",
+    #             "condition": "EQUAL",
+    #             "values": ["urn:li:dataPlatform:snowflake"],
+    #         }
+    #     ]
+    #     if self.term_propagator is not None:
+    #         for term_propagation_directive in self.term_propagator.process_all_assets(
+    #             operation, extra_filters=extra_filters
+    #         ):
+    #             self.process_directive(term_propagation_directive)
 
-    def rollback(self) -> None:
-        self.process_all_assets(operation="REMOVE")
-
-    def process_all_assets(self, operation: str) -> None:
-        extra_filters = [
-            {
-                "field": "platform",
-                "condition": "EQUAL",
-                "values": ["urn:li:dataPlatform:snowflake"],
-            }
-        ]
-        if self.term_propagator is not None:
-            for term_propagation_directive in self.term_propagator.process_all_assets(
-                operation, extra_filters=extra_filters
-            ):
-                self.process_directive(term_propagation_directive)
-
-        if self.tag_propagator is not None:
-            logger.error("Tag Propagation doesn't support bootstrap or rollback yet")
-            # for tag_propagation_directive in self.tag_propagator.process_all_assets(
-            #     operation, extra_filters=extra_filters
-            # ):
-            #     self.process_directive(tag_propagation_directive)
+    #     if self.tag_propagator is not None:
+    #         logger.error("Tag Propagation doesn't support bootstrap or rollback yet")
+    #         # for tag_propagation_directive in self.tag_propagator.process_all_assets(
+    #         #     operation, extra_filters=extra_filters
+    #         # ):
+    #         #     self.process_directive(tag_propagation_directive)
 
     def process_directive(
         self, directive: Union[TermPropagationDirective, TagPropagationDirective]
@@ -154,8 +144,11 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
                 )
 
     def act(self, event: EventEnvelope) -> None:
-        self.event_processing_stats.start(event)
+        if not self._stats.event_processing_stats:
+            self._stats.event_processing_stats = EventProcessingStats()
+        self._stats.event_processing_stats.start(event)
         try:
+            logger.info(f"Snowflake Propagator: Received event {event}")
             if event.event_type == "EntityChangeEvent_v1":
                 assert isinstance(event.event, EntityChangeEvent)
                 assert self.ctx.graph is not None
@@ -176,19 +169,74 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
 
                 if propagation_directive is not None:
                     self.process_directive(propagation_directive)
-            self.event_processing_stats.end(event, success=True)
+            self._stats.event_processing_stats.end(event, success=True)
         except Exception as e:
             logger.exception("Error processing event", e)
-            self.event_processing_stats.end(event, success=False)
+            self._stats.event_processing_stats.end(event, success=False)
 
-    def rollbackable_assets(self) -> Iterable[T]:
-        return []
+    def rollbackable_assets(self) -> Iterable[SelectedAsset]:
+        yield from self.bootstrappable_assets()
 
-    def rollback_asset(self, asset: T) -> None:
+    def rollback_asset(self, asset: SelectedAsset) -> None:
+        if self.term_propagator is not None:
+            for term_propagation_directive in self.term_propagator.process_one_asset(
+                asset, "REMOVE"
+            ):
+                self.process_directive(term_propagation_directive)
+
+        if self.tag_propagator is not None:
+            # for tag_propagation_directive in self.tag_propagator.process_one_asset(
+            #     asset, "REMOVE"
+            # ):
+            #     self.process_directive(tag_propagation_directive)
+            pass
+
         return None
 
-    def bootstrappable_assets(self) -> Iterable[T]:
-        return []
+    def bootstrappable_assets(self) -> Iterable[SelectedAsset]:
 
-    def bootstrap_asset(self, asset: T) -> None:
-        return None
+        asset_filters = {}
+        if self.term_propagator is not None:
+            asset_filters = self.term_propagator.asset_filters()
+
+        if self.tag_propagator is not None:
+            raise NotImplementedError("Tag Propagation doesn't support bootstrap yet")
+            # tag_asset_filters = self.tag_propagator.asset_filters()
+            # if asset_filters:
+            #     for target_entity_type, index_filters in tag_asset_filters:
+            #         if target_entity_type in asset_filters:
+            #             for index_name, filters in tag_asset_filters[
+            #                 target_entity_type
+            #             ].items():
+            #                 if index_name in asset_filters[target_entity_type]:
+            #                     asset_filters[target_entity_type][index_name].extend(
+            #                         filters
+            #                     )
+            #                 else:
+            #                     asset_filters[target_entity_type][index_name] = filters
+            #         else:
+            #             asset_filters[target_entity_type] = index_filters
+
+        for target_entity_type, index_filters in asset_filters.items():
+            for index_name, filters in index_filters.items():
+                logger.info(f"Index {index_name} has filters: {filters}")
+                for urn in self.ctx.graph.graph.get_urns_by_filter(
+                    entity_types=[index_name],
+                    platform="urn:li:dataPlatform:snowflake",
+                    extra_or_filters=filters,
+                ):
+                    yield SelectedAsset(urn=urn, target_entity_type=target_entity_type)
+
+    def bootstrap_asset(self, asset: SelectedAsset) -> None:
+        if self.term_propagator is not None:
+            for term_propagation_directive in self.term_propagator.process_one_asset(
+                asset, "ADD"
+            ):
+                self.process_directive(term_propagation_directive)
+
+        if self.tag_propagator is not None:
+            # for tag_propagation_directive in self.tag_propagator.process_one_asset(
+            #     asset, "ADD"
+            # ):
+            #     self.process_directive(tag_propagation_directive)
+            pass

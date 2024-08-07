@@ -15,10 +15,11 @@
 import json
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, TypeVar
+from typing import Dict, Iterable, List, Optional, Set, TypeVar
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import SearchFilterRule
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     EditableSchemaFieldInfoClass,
@@ -47,7 +48,9 @@ from datahub_integrations.actions.action_extended import (
 )
 from datahub_integrations.actions.oss.stats_util import EventProcessingStats
 from datahub_integrations.propagation.propagation_utils import (
+    ComposablePropagator,
     PropagationDirective,
+    SelectedAsset,
     get_attribution_and_context_from_directive,
 )
 
@@ -107,9 +110,14 @@ class TermPropagationConfig(AutomationActionConfig):
         description="List of target entities to propagate terms from and to.",
         example=["schemaField"],
     )
+    term_resolution_caching_ttl_sec: int = Field(
+        default=60,  # 1 minute
+        description="Term groups -> terms are resolved and cached for this duration in milliseconds.",
+        example=60,
+    )
 
 
-class TermPropagationAction(ExtendedAction):
+class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator):
     def __init__(self, config: TermPropagationConfig, ctx: PipelineContext):
         super().__init__(config=config, ctx=ctx)
         self.config: TermPropagationConfig = config
@@ -146,6 +154,9 @@ class TermPropagationAction(ExtendedAction):
             logger.info(
                 f"[Config] Will propagate all terms in groups {self.config.term_groups}"
             )
+        self.cached_terms = self._get_all_terms()
+        self.cached_terms_ts_sec = int(time.time())
+        logger.info(f"Resolved terms : {self.all_terms}")
         self.event_processing_stats = EventProcessingStats()
 
     def name(self) -> str:
@@ -174,11 +185,14 @@ class TermPropagationAction(ExtendedAction):
 
     def _get_term_groups_expanded_to_terms(self) -> Iterable[str]:
         """
-        Get all terms in the term groups
+        Get all terms in the term groups.
+        Will recurse down term group hierarchy to get all terms.
         """
 
         def __get_terms_in_group(group: str) -> Set[str]:
-            terms = self.ctx.graph.get_relationships(group, "OUTGOING", "IsPartOf")
+            terms = self.ctx.graph.get_relationships(
+                entity_urn=group, direction="INCOMING", relationship_types=["IsPartOf"]
+            )
             expanded_terms = set()
             if terms:
                 for term in terms:
@@ -192,17 +206,22 @@ class TermPropagationAction(ExtendedAction):
         if self.config.term_groups:
             for term_group in self.config.term_groups:
                 expanded_terms.update(__get_terms_in_group(term_group))
-            return expanded_terms
         return expanded_terms
 
-    def _process_asset(
-        self, asset_urn: str, terms: List[str], target_entity_type: str, operation: str
+    def process_one_asset(
+        self, asset: SelectedAsset, operation: str
     ) -> Iterable[TermPropagationDirective]:
+        terms = self.all_terms
+        asset_urn = asset.urn
+        target_entity_type = asset.target_entity_type
         if target_entity_type == "schemaField" and asset_urn.startswith(
             "urn:li:dataset"
         ):
             # Schema Fields are special, we need to extract terms from dataset
             # aspects
+
+            field_terms_map: dict[str, List[GlossaryTermAssociationClass]] = {}
+
             editable_schema_metadata = self.ctx.graph.graph.get_aspect(
                 asset_urn, EditableSchemaMetadataClass
             )
@@ -212,7 +231,7 @@ class TermPropagationAction(ExtendedAction):
             )
 
             if schema_metadata and schema_metadata.fields:
-                field_terms_map: dict[str, List[GlossaryTermAssociationClass]] = {
+                field_terms_map = {
                     field.fieldPath: [
                         term
                         for term in field.glossaryTerms.terms
@@ -221,6 +240,7 @@ class TermPropagationAction(ExtendedAction):
                     for field in schema_metadata.fields
                     if field.glossaryTerms
                 }
+                logger.debug(f"Field terms map: {field_terms_map}")
 
             if (
                 editable_schema_metadata
@@ -237,6 +257,7 @@ class TermPropagationAction(ExtendedAction):
                         if field.glossaryTerms
                     }
                 )
+                logger.debug(f"Post update: Field terms map: {field_terms_map}")
 
             for field_path, field_terms in field_terms_map.items():
                 field_urn = make_schema_field_urn(asset_urn, field_path)
@@ -247,7 +268,7 @@ class TermPropagationAction(ExtendedAction):
                         operation=operation,
                         entity=field_urn,
                         actor=term.actor,
-                        origin=asset_urn,
+                        origin=field_urn,
                     )
                     yield term_propagation_directive
         elif target_entity_type in [
@@ -279,40 +300,62 @@ class TermPropagationAction(ExtendedAction):
         else:
             logger.error(f"Unsupported target entity type {target_entity_type}")
 
-    def bootstrap(self) -> None:
-        # First process configuration to understand what are the terms that need
-        # to be propagated
-        for directive in self.process_all_assets(operation="ADD"):
-            self.process_directive(directive)
-
-    def rollback(self) -> None:
-        for directive in self.process_all_assets(operation="REMOVE"):
-            self.process_directive(directive)
-
-    def process_all_assets(
-        self,
-        operation: str,
-        extra_filters: Optional[List[Dict[Any, Any]]] = None,
-    ) -> Iterable[TermPropagationDirective]:
-        """
-        Process all assets in the graph based on term propagation configuration and return term propagation directives
-        Caller can pass in extra filters to narrow down the search
-        """
+    def _get_all_terms(self) -> List[str]:
         all_terms: List[str] = []
         if self.config.target_terms:
             all_terms.extend(self._get_target_terms_expanded())
 
         if self.config.term_groups:
+            logger.info("Will propagate terms from term groups")
             all_terms.extend(self._get_term_groups_expanded_to_terms())
 
-        if all_terms:
-            logger.info(f"Will propagate terms {all_terms}")
-        else:
-            logger.info("Will propagate all terms")
+        logger.info(f"Will propagate terms {all_terms}")
+        return list(set(all_terms))
 
-        # Then query the search index
-        # to find all the entities that have these terms
-        or_filters: List[Dict[str, Any]] = []
+    @property
+    def all_terms(self) -> List[str]:
+        if (
+            self.cached_terms_ts_sec
+            < int(time.time()) - self.config.term_resolution_caching_ttl_sec
+        ):
+            self.cached_terms = self._get_all_terms()
+            self.cached_terms_ts_sec = int(time.time())
+
+        return self.cached_terms
+
+    def identify_assets(self) -> Iterable[SelectedAsset]:
+        asset_filters = self.asset_filters()
+        for entity_type, index_filters in asset_filters.items():
+            for index, filters in index_filters.items():
+                for asset_urn in self.ctx.graph.graph.get_urns_by_filter(
+                    entity_types=[index], extra_or_filters=filters
+                ):
+                    yield SelectedAsset(urn=asset_urn, target_entity_type=entity_type)
+
+    def bootstrappable_assets(self) -> Iterable[SelectedAsset]:
+        return self.identify_assets()
+
+    def bootstrap_asset(self, asset: SelectedAsset) -> None:
+        logger.info(f"Bootstrapping asset {asset}")
+        for directive in self.process_one_asset(
+            asset=asset,
+            operation="ADD",
+        ):
+            self.process_directive(directive)
+
+    def rollbackable_assets(self) -> Iterable[SelectedAsset]:
+        return self.identify_assets()
+
+    def rollback_asset(self, asset: SelectedAsset) -> None:
+        for directive in self.process_one_asset(
+            asset=asset,
+            operation="REMOVE",
+        ):
+            self.process_directive(directive)
+
+    def asset_filters(self) -> Dict[str, Dict[str, List[SearchFilterRule]]]:
+
+        asset_filters: Dict[str, Dict[str, List[SearchFilterRule]]] = {}
 
         entity_index_field_map = {
             "schemaField": {
@@ -334,10 +377,12 @@ class TermPropagationAction(ExtendedAction):
                 "dataFlow": ["glossaryTerms"],
             },
         }
+
         for entity_type in self.config.target_entities:
             index_field_map = entity_index_field_map.get(entity_type, {})
+            asset_filters[entity_type] = {}
             for index, index_fields in index_field_map.items():
-                or_filters = []
+                or_filters: List[SearchFilterRule] = []
                 for index_field in index_fields:
                     or_filters.extend(
                         [
@@ -346,22 +391,16 @@ class TermPropagationAction(ExtendedAction):
                                 "values": [term],
                                 "condition": "IN",
                             }
-                            for term in all_terms
+                            for term in self.all_terms
                         ]
                     )
-                assets = self.ctx.graph.graph.get_urns_by_filter(
-                    entity_types=[index],
-                    extraFilters=extra_filters,
-                    extra_or_filters=or_filters,
-                )
-                for asset in assets:
-                    yield from self._process_asset(
-                        asset, all_terms, entity_type, operation
-                    )
+                asset_filters[entity_type][index] = or_filters
+        return asset_filters
 
     def should_propagate(
         self, event: EventEnvelope
     ) -> Optional[TermPropagationDirective]:
+        logger.info(f"Term Propagator: Received event {event}")
         if event.event_type == "EntityChangeEvent_v1":
             assert isinstance(event.event, EntityChangeEvent)
             logger.info(f"Received event {event}")
@@ -373,9 +412,10 @@ class TermPropagationAction(ExtendedAction):
                 and self.config.enabled
             ):
                 assert semantic_event.modifier
-                for target_term in self.config.target_terms or [
-                    semantic_event.modifier
-                ]:
+                logger.info(
+                    f"Checking for {semantic_event.modifier} in {self.all_terms}"
+                )
+                for target_term in self.all_terms or [semantic_event.modifier]:
                     # a cheap way to handle optionality and always propagate if config is not set
                     # Check which terms have connectivity to the target term
                     if (
@@ -654,13 +694,21 @@ class TermPropagationAction(ExtendedAction):
             )
 
     def act(self, event: EventEnvelope) -> None:
-        """This method responds to changes to glossary terms and propagates them to downstream entities"""
-
-        logger.info(f"Received event {event}")
-        term_propagation_directive = self.should_propagate(event)
-        logger.info(f"Term propagation directive: {term_propagation_directive}")
-        if term_propagation_directive:
-            self.process_directive(term_propagation_directive)
+        """This method responds to changes to glossary terms and propagates them
+        to downstream entities"""
+        if not self._stats.event_processing_stats:
+            self._stats.event_processing_stats = EventProcessingStats()
+        self._stats.event_processing_stats.start(event)
+        success = False
+        try:
+            logger.info(f"Received event {event}")
+            term_propagation_directive = self.should_propagate(event)
+            logger.info(f"Term propagation directive: {term_propagation_directive}")
+            if term_propagation_directive:
+                self.process_directive(term_propagation_directive)
+            success = True
+        finally:
+            self._stats.event_processing_stats.end(event, success=success)
 
     def process_directive(
         self, term_propagation_directive: TermPropagationDirective
@@ -730,15 +778,3 @@ class TermPropagationAction(ExtendedAction):
 
     def close(self) -> None:
         return super().close()
-
-    def rollbackable_assets(self) -> Iterable[T]:
-        return []
-
-    def rollback_asset(self, asset: T) -> None:
-        return None
-
-    def bootstrappable_assets(self) -> Iterable[T]:
-        return []
-
-    def bootstrap_asset(self, asset: T) -> None:
-        return None

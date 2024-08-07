@@ -371,7 +371,7 @@ class DocPropagationAction(Action):
             mutation_needed = True
 
         if mutation_needed:
-            logger.info(
+            logger.debug(
                 f"Will emit documentation change proposal for {schema_field_urn} with {field_doc}"
             )
             return MetadataChangeProposalWrapper(
@@ -587,7 +587,6 @@ class DocPropagationAction(Action):
                                     context=context,
                                 )
                                 if maybe_mcp:
-                                    logger.info("yielding mcp")
                                     yield maybe_mcp
                         elif parent_urn.startswith("urn:li:chart"):
                             logger.warning(

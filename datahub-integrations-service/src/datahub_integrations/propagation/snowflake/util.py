@@ -62,8 +62,13 @@ class SnowflakeTagHelper(Closeable):
         parent = term_info.parentNode
         while parent:
             node_info = graph.graph.get_aspect(parent, GlossaryNodeInfoClass)
-            parent_name = node_info.name
-            parent = node_info.parentNode
+            parent_name = Urn.create_from_string(parent).get_entity_id_as_string()
+            if node_info:
+                parent = node_info.parentNode
+                if node_info.name:
+                    parent_name = node_info.name
+            else:
+                parent = None
             term_name = f"{parent_name}.{term_name}"
 
         return term_name

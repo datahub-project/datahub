@@ -1,0 +1,25 @@
+version: 1
+source: DataHub
+owners:
+  users:
+    - datahub
+url: 'https://github.com/datahub-project/datahub/'
+nodes:
+  - name: TestGlossaryNode1
+    description: A test glossary node
+    terms:
+      - name: TestTerm1_1
+        description: Test Term 1
+      - name: TestTerm1_2
+        description: Test Term 2
+  - name: TestGlossaryNode2
+    description: Another test glossary node
+    terms:
+      - name: TestTerm2_1
+        description: Test Term 1 in node 2
+        inherits:
+          - TestGlossaryNode1.TestTerm1_1
+      - name: TestTerm2_2
+        description: Test Term 2 in node 2
+      - name: TestTerm2_3
+        description: Test Term 3 in node 2

@@ -128,10 +128,9 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
                         future.result()
                     except Exception as e:
                         logger.error(f"Error bootstrapping dataset: {e}")
-                        breakpoint()
                         success = False
-        except Exception:
-            logger.error("Error bootstrapping action: ", exc_info=True)
+        except Exception as e:
+            logger.error(f"Error bootstrapping action: {e}", exc_info=True)
             success = False
 
         self.bootstrapping = False
