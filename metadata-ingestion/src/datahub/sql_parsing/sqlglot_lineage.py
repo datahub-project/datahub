@@ -220,7 +220,7 @@ def _table_level_lineage(
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
             _TableName.from_sqlglot_table(expr.this)
-            for expr in statement.find_all(sqlglot.exp.Drop)
+            for expr in ([statement] if isinstance(statement, sqlglot.exp.Drop) else [])
             if isinstance(expr.this, sqlglot.exp.Table)
             and expr.this.this
             and expr.this.name
