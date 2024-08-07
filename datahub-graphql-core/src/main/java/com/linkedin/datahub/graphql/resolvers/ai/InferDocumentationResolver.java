@@ -113,7 +113,8 @@ public class InferDocumentationResolver
               entityUrn.getEntityType(),
               entityUrn,
               Set.of(Constants.DOCUMENTATION_ASPECT_NAME));
-      if (response != null) {
+      if (response != null
+          && response.getAspects().containsKey(Constants.DOCUMENTATION_ASPECT_NAME)) {
         existingDocData =
             response.getAspects().get(Constants.DOCUMENTATION_ASPECT_NAME).getValue().data();
       }
