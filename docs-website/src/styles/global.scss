@@ -325,6 +325,7 @@ div[class^="announcementBar"] {
 /* Search */
 
 [data-theme="light"] .DocSearch {
+  display: none;
   /* --docsearch-primary-color: var(--ifm-color-primary); */
   /* --docsearch-text-color: var(--ifm-font-color-base); */
   --docsearch-muted-color: var(--ifm-color-secondary-darkest);
@@ -343,6 +344,7 @@ div[class^="announcementBar"] {
 }
 
 [data-theme="dark"] .DocSearch {
+  display: none;
   --docsearch-text-color: var(--ifm-font-color-base);
   --docsearch-muted-color: var(--ifm-color-secondary-darkest);
   --docsearch-container-background: rgba(71, 71, 71, 0.7);
