@@ -1233,3 +1233,23 @@ DROP TABLE my_schema.my_table
         dialect="sqlite",
         expected_file=RESOURCE_DIR / "test_sqlite_drop_table.json",
     )
+
+
+def test_sqlite_drop_view() -> None:
+    assert_sql_result(
+        """\
+DROP VIEW my_schema.my_view
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_drop_view.json",
+    )
+
+
+def test_snowflake_drop_schema() -> None:
+    assert_sql_result(
+        """\
+DROP SCHEMA my_schema
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_drop_schema.json",
+    )
