@@ -2,9 +2,20 @@ import pathlib
 
 import pytest
 
+import datahub.testing.check_sql_parser_result as checker
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
+
+
+@pytest.fixture(autouse=True)
+def set_update_sql_parser(
+    pytestconfig: pytest.Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    update_golden = pytestconfig.getoption("--update-golden-files")
+
+    if update_golden:
+        monkeypatch.setattr(checker, "UPDATE_FILES", True)
 
 
 def test_invalid_sql():
@@ -1211,4 +1222,14 @@ ALTER TABLE `my-bq-project.covid_data.covid_deaths` drop COLUMN patient_name
     """,
         dialect="bigquery",
         expected_file=RESOURCE_DIR / "test_bigquery_alter_table_column.json",
+    )
+
+
+def test_sqlite_drop_table() -> None:
+    assert_sql_result(
+        """\
+DROP TABLE my_schema.my_table
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_drop_table.json",
     )

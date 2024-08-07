@@ -198,6 +198,7 @@ def _table_level_lineage(
             sqlglot.exp.Delete,
             sqlglot.exp.Merge,
             sqlglot.exp.AlterTable,
+            sqlglot.exp.Drop,
         )
         # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
         # the `this` on the INSERT part isn't a table.
