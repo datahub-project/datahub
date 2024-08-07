@@ -273,7 +273,7 @@ class SQLServerSource(SQLAlchemySource):
         config = SQLServerConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_ucs(self, inspector: Inspector, key: str) -> List[UpstreamClass]:
+    def get_upstreams(self, inspector: Inspector, key: str) -> List[UpstreamClass]:
         if not self.config.mssql_lineage:
             return []
         result = []
@@ -395,8 +395,7 @@ class SQLServerSource(SQLAlchemySource):
                       , d.is_updated
                       , d.is_select_all
                       , d.is_all_columns_found
-                    FROM dependencies AS d
-                    WHERE d.referenced_database_name != 'msdb';
+                    FROM dependencies AS d;
             END TRY
             BEGIN CATCH
                 IF ERROR_NUMBER() = 2020 or ERROR_NUMBER() = 942
@@ -664,7 +663,7 @@ class SQLServerSource(SQLAlchemySource):
         db_name = self.get_db_name(inspector)
         _key = f"{db_name}.{schema}.{table}"
 
-        upstreams = self.get_ucs(inspector=inspector, key=_key)
+        upstreams = self.get_upstreams(inspector=inspector, key=_key)
         if upstreams:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -696,7 +695,7 @@ class SQLServerSource(SQLAlchemySource):
         db_name = self.get_db_name(inspector)
         _key = f"{db_name}.{schema}.{view}"
 
-        upstreams = self.get_ucs(inspector=inspector, key=_key)
+        upstreams = self.get_upstreams(inspector=inspector, key=_key)
         if upstreams:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
