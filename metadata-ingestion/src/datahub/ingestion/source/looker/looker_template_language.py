@@ -260,6 +260,7 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
         return result
 
     def transform(self, view: dict) -> dict:
+
         if DATAHUB_TRANSFORMED_SQL_TABLE_NAME in view:
             return {
                 DATAHUB_TRANSFORMED_SQL_TABLE_NAME: self._apply_regx(
@@ -267,7 +268,7 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
                 )
             }
 
-        if DERIVED_TABLE in view and DATAHUB_TRANSFORMED_SQL in view:
+        if DERIVED_TABLE in view and DATAHUB_TRANSFORMED_SQL in view[DERIVED_TABLE]:
             return {
                 DERIVED_TABLE: {
                     DATAHUB_TRANSFORMED_SQL: self._apply_regx(
