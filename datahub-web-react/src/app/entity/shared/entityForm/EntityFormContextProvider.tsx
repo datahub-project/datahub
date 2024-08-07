@@ -46,6 +46,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
      */
 
     const {
+        refetchForBulk,
         loading,
         data: {
             form,
@@ -299,6 +300,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
                 isInFormContext,
                 loading: isLoading,
                 refetch: handleRefetch,
+                refetchForBulk,
                 shouldRefetch,
                 setShouldRefetch,
                 submission,

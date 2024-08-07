@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -26,6 +27,8 @@ import com.linkedin.form.FormType;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.FormsPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
 import com.linkedin.metadata.authorization.OwnershipUtils;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.FormKey;
@@ -506,9 +509,36 @@ public class FormService extends BaseService {
       @Nullable final FormPromptResponse promptResponse,
       @Nullable Urn actorUrn)
       throws Exception {
-    final Forms forms = getEntityForms(opContext, entityUrn);
-    ingestCompletedFormResponse(
-        opContext, entityUrn, formUrn, formPromptId, forms, promptResponse, actorUrn);
+    // TODO: determine if we want to do this. it may be nice in non-async cases to update forms
+    // while updated prompts right away instead of waiting for MCL hook to update forms
+    if (_appSource != null && _appSource.equals(METADATA_TESTS_SOURCE)) {
+      patchCompletedFormResponse(
+          opContext, entityUrn, formUrn, formPromptId, promptResponse, actorUrn);
+    } else {
+      final Forms forms = getEntityForms(opContext, entityUrn);
+      ingestCompletedFormResponse(
+          opContext, entityUrn, formUrn, formPromptId, forms, promptResponse, actorUrn);
+    }
+  }
+
+  private void patchCompletedFormResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nullable final FormPromptResponse promptResponse,
+      @Nullable Urn actorUrn)
+      throws Exception {
+    FormPromptAssociation promptAssociation = new FormPromptAssociation();
+    promptAssociation.setId(formPromptId);
+    final Urn finalActorUrn = getActorUrn(opContext, actorUrn);
+    promptAssociation.setLastModified(
+        new AuditStamp().setActor(finalActorUrn).setTime(System.currentTimeMillis()));
+    promptAssociation.setResponse(promptResponse, SetMode.IGNORE_NULL);
+
+    MetadataChangeProposal formInfoPatch =
+        new FormsPatchBuilder().urn(entityUrn).completePrompt(formUrn, promptAssociation).build();
+    ingestChangeProposals(opContext, ImmutableList.of(formInfoPatch), _isAsync);
   }
 
   private void ingestCompletedFormResponse(
@@ -559,6 +589,15 @@ public class FormService extends BaseService {
       @Nonnull final PrimitivePropertyValueArray values,
       @Nullable final Urn actorUrn)
       throws Exception {
+    final Urn finalActorUrn = getActorUrn(opContext, actorUrn);
+    AuditStamp lastModified =
+        new AuditStamp().setActor(finalActorUrn).setTime(System.currentTimeMillis());
+
+    if (_appSource != null && _appSource.equals(METADATA_TESTS_SOURCE)) {
+      patchStructuredProperties(opContext, entityUrn, structuredPropertyUrn, values, lastModified);
+      return;
+    }
+
     final EntityResponse response =
         entityClient.getV2(
             opContext,
@@ -581,7 +620,6 @@ public class FormService extends BaseService {
             .filter(assignment -> !assignment.getPropertyUrn().equals(structuredPropertyUrn))
             .collect(Collectors.toList());
 
-    final Urn finalActorUrn = getActorUrn(opContext, actorUrn);
     StructuredPropertyValueAssignment assignment = new StructuredPropertyValueAssignment();
     assignment.setValues(values);
     assignment.setPropertyUrn(structuredPropertyUrn);
@@ -607,6 +645,21 @@ public class FormService extends BaseService {
     } catch (Exception e) {
       throw new RuntimeException("Failed to submit form response", e);
     }
+  }
+
+  private void patchStructuredProperties(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn structuredPropertyUrn,
+      @Nonnull final PrimitivePropertyValueArray values,
+      @Nonnull final AuditStamp lastModified)
+      throws Exception {
+    MetadataChangeProposal patchMcp =
+        new StructuredPropertiesPatchBuilder()
+            .urn(entityUrn)
+            .setProperty(structuredPropertyUrn, values, lastModified)
+            .build();
+    ingestChangeProposals(opContext, ImmutableList.of(patchMcp), _isAsync);
   }
 
   private void ingestForms(
@@ -1221,6 +1274,11 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nullable Urn actorUrn)
       throws Exception {
+    if (_appSource != null && _appSource.equals(METADATA_TESTS_SOURCE)) {
+      patchVerifyForm(opContext, entityUrn, formUrn, actorUrn);
+      return true;
+    }
+
     final FormInfo formInfo = getFormInfo(opContext, formUrn);
     if (!formInfo.getType().equals(FormType.VERIFICATION)) {
       throw new UnsupportedOperationException(
@@ -1250,6 +1308,23 @@ public class FormService extends BaseService {
 
     ingestForms(opContext, entityUrn, formsAspect);
     return true;
+  }
+
+  private void patchVerifyForm(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn formUrn,
+      @Nullable Urn actorUrn)
+      throws Exception {
+    FormVerificationAssociation verificationAssociation = new FormVerificationAssociation();
+    verificationAssociation.setForm(formUrn);
+    final Urn finalActorUrn = getActorUrn(opContext, actorUrn);
+    verificationAssociation.setLastModified(
+        new AuditStamp().setActor(finalActorUrn).setTime(System.currentTimeMillis()));
+
+    MetadataChangeProposal formsPatch =
+        new FormsPatchBuilder().urn(entityUrn).verifyForm(verificationAssociation).build();
+    ingestChangeProposals(opContext, ImmutableList.of(formsPatch), _isAsync);
   }
 
   private boolean isFormInCompletedForms(

@@ -58,7 +58,9 @@ public class FormsTemplate extends CompoundKeyTemplate<Forms> {
     if (transformedNode.get(INCOMPLETE_FORMS_FIELD_NAME) != null) {
       transformedNode =
           arrayFieldToMap(
-              baseNode, INCOMPLETE_FORMS_FIELD_NAME, Collections.singletonList(URN_FIELD_NAME));
+              transformedNode,
+              INCOMPLETE_FORMS_FIELD_NAME,
+              Collections.singletonList(URN_FIELD_NAME));
       transformedNode
           .get(INCOMPLETE_FORMS_FIELD_NAME)
           .elements()

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.METADATA_TESTS_SOURCE;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
 
@@ -14,6 +15,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.OwnershipPatchBuilder;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -117,7 +119,7 @@ public class OwnerService extends BaseService {
       throws Exception {
     final List<MetadataChangeProposal> changes =
         buildAddOwnersProposals(
-            opContext, ownerUrns, resources, ownershipType, ownershipTypeUrn, actorUrn);
+            opContext, ownerUrns, resources, ownershipType, ownershipTypeUrn, appSource, actorUrn);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
@@ -145,7 +147,19 @@ public class OwnerService extends BaseService {
       List<ResourceReference> resources,
       OwnershipType ownershipType,
       Urn ownershipTypeUrn,
+      @Nullable String appSource,
       @Nullable Urn actorUrn) {
+
+    final Urn finalActorUrn =
+        actorUrn != null
+            ? actorUrn
+            : UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr());
+    AuditStamp lastModified =
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(finalActorUrn);
+
+    if (appSource != null && appSource.equals(METADATA_TESTS_SOURCE)) {
+      return patchAddOwners(ownerUrns, resources, ownershipType, ownershipTypeUrn, lastModified);
+    }
 
     final Map<Urn, Ownership> ownershipAspects =
         getOwnershipAspects(
@@ -161,20 +175,33 @@ public class OwnerService extends BaseService {
         return null;
       }
 
-      final Urn finalActorUrn =
-          actorUrn != null
-              ? actorUrn
-              : UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr());
       if (!owners.hasOwners()) {
         owners.setOwners(new OwnerArray());
-        owners.setLastModified(
-            new AuditStamp().setTime(System.currentTimeMillis()).setActor(finalActorUrn));
+        owners.setLastModified(lastModified);
       }
       addOwnersIfNotExists(owners, ownerUrns, ownershipType, ownershipTypeUrn);
       proposals.add(
           buildMetadataChangeProposal(resource.getUrn(), Constants.OWNERSHIP_ASPECT_NAME, owners));
     }
     return proposals;
+  }
+
+  List<MetadataChangeProposal> patchAddOwners(
+      List<com.linkedin.common.urn.Urn> ownerUrns,
+      List<ResourceReference> resources,
+      OwnershipType ownershipType,
+      Urn ownershipTypeUrn,
+      AuditStamp lastModified) {
+    final List<MetadataChangeProposal> mcps = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+      OwnershipPatchBuilder patchBuilder = new OwnershipPatchBuilder().urn(resource.getUrn());
+      for (Urn ownerUrn : ownerUrns) {
+        patchBuilder.addOwner(ownerUrn, ownershipType, ownershipTypeUrn);
+      }
+      patchBuilder.addLastModified(lastModified);
+      mcps.add(patchBuilder.build());
+    }
+    return mcps;
   }
 
   @VisibleForTesting

@@ -66,6 +66,7 @@ public class OwnerServiceTest {
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
             OwnershipType.NONE,
             null,
+            null,
             null);
 
     OwnerArray expected =
@@ -108,6 +109,7 @@ public class OwnerServiceTest {
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
             OwnershipType.NONE,
+            null,
             null,
             null);
 

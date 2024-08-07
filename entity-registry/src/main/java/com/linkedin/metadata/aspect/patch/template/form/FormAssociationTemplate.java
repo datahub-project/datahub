@@ -49,7 +49,9 @@ public class FormAssociationTemplate extends CompoundKeyTemplate<Forms> {
     if (transformedNode.get(INCOMPLETE_PROMPTS_FIELD_NAME) != null) {
       transformedNode =
           arrayFieldToMap(
-              baseNode, INCOMPLETE_PROMPTS_FIELD_NAME, Collections.singletonList(ID_FIELD_NAME));
+              transformedNode,
+              INCOMPLETE_PROMPTS_FIELD_NAME,
+              Collections.singletonList(ID_FIELD_NAME));
     }
 
     if (transformedNode.get(COMPLETED_PROMPTS_FIELD_NAME) != null) {
@@ -61,7 +63,7 @@ public class FormAssociationTemplate extends CompoundKeyTemplate<Forms> {
     }
 
     // Combine incomplete/completed prompts into one prompts list with an isComplete flag attached
-    // to each
+    // to each. This is necessary for patching when we don't know which list the item is in.
     JsonNode promptsMap = createPromptsMap(transformedNode);
 
     ((ObjectNode) transformedNode).set(PROMPTS_FIELD_NAME, promptsMap);

@@ -21,6 +21,7 @@ export type EntityFormContextType = {
     isInFormContext: boolean;
     loading: boolean;
     refetch: () => Promise<any>;
+    refetchForBulk: () => void;
     shouldRefetch: boolean;
     setShouldRefetch: (bool: boolean) => void;
     submission: {
@@ -115,6 +116,7 @@ export const DEFAULT_CONTEXT = {
     isInFormContext: false,
     loading: true,
     refetch: () => Promise.resolve({}),
+    refetchForBulk: () => null,
     shouldRefetch: false,
     setShouldRefetch: (_: boolean) => null,
     submission: {

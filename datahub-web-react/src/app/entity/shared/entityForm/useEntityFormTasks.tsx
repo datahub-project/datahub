@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 export const BULK_VERIFY_ID = 'bulkVerify';
 const TASK_TO_ID_MAP_KEY = 'taskToIdMap';
 const ACTIVE_TASKS_KEY = 'activeTasks';
-const LOCAL_STORAGE_TIMEOUT_MINS = 0;
+const LOCAL_STORAGE_TIMEOUT_MINS = 30;
 
 export function useEntityFormTasks(formUrn: string) {
     const localStorageTasksKey = `${formUrn}-${ACTIVE_TASKS_KEY}`;
