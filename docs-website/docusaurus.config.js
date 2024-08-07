@@ -64,21 +64,21 @@ module.exports = {
         srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
       },
       items: [
-        {
-          type: "dropdown",
-          label: "Product",
-          position: "right",
-          items: [
-            {
-              href: "/",
-              label: "DataHub Core",
-            },
-            {
-              to: "/cloud",
-              label: "DataHub Cloud",
-            },    
-          ],
-        },
+        // {
+        //   type: "dropdown",
+        //   label: "Product",
+        //   position: "right",
+        //   items: [
+        //     {
+        //       href: "/",
+        //       label: "DataHub Core",
+        //     },
+        //     {
+        //       to: "/cloud",
+        //       label: "DataHub Cloud",
+        //     },    
+        //   ],
+        // },
         {
           to: "/integrations",
           activeBasePath: "integrations",
