@@ -1,17 +1,23 @@
 import React from 'react';
-import { useThemeConfig } from '@docusaurus/theme-common';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { useColorMode } from '@docusaurus/theme-common';
 import SearchBar from '@theme/SearchBar';
-import ColorModeToggle from '@theme/ColorModeToggle'; 
+import ColorModeToggle from '@theme/ColorModeToggle';
 import styles from './styles.module.scss';
-import DocsVersionDropdownNavbarItem from '../../theme/NavbarItem/DocsVersionDropdownNavbarItem';
+import DocsVersionDropdownNavbarItem from '@theme/NavbarItem/DocsVersionDropdownNavbarItem';
+import { useDocsSidebar } from '@docusaurus/theme-common/internal';
+
+const useCurrentSidebarId = () => {
+  const sidebar = useDocsSidebar();
+  return sidebar?.name || '';
+};
 
 function SecondNavbar() {
   const { colorMode, setColorMode } = useColorMode();
-  const location = useLocation(); 
+  const location = useLocation();
   const isDocsPath = location.pathname.startsWith('/docs');
+  const currentSidebarId = useCurrentSidebarId();
 
   if (!isDocsPath) {
     return null;
@@ -22,27 +28,27 @@ function SecondNavbar() {
       <div className={styles.container}>
         <div className={styles.coreCloudSwitch}>
           <Link
-            className={clsx(styles.docsSwitchButton, location.pathname.includes('/docs/features') && styles.activeButton)}
+            className={clsx(styles.docsSwitchButton, currentSidebarId === 'overviewSidebar' && styles.activeButton)}
             to="/docs/features"
           >
             DataHub Core
           </Link>
           <Link
-            className={clsx(styles.docsSwitchButton, location.pathname.includes('/docs/managed-datahub/welcome-acryl') && styles.activeButton)}
+            className={clsx(styles.docsSwitchButton, currentSidebarId === 'acrylSidebar' && styles.activeButton)}
             to="/docs/managed-datahub/managed-datahub-overview"
           >
             DataHub Cloud
           </Link>
         </div>
         <div className={styles.versionDropdown}>
-            <DocsVersionDropdownNavbarItem
-              docsPluginId="default"
-              dropdownItemsBefore={[]}
-              dropdownItemsAfter={[]}
-              dropdownActiveClassDisabled={false}
-              mobile={false}
-            />
-          </div>
+          <DocsVersionDropdownNavbarItem
+            docsPluginId="default"
+            dropdownItemsBefore={[]}
+            dropdownItemsAfter={[]}
+            dropdownActiveClassDisabled={false}
+            mobile={false}
+          />
+        </div>
         <div className={clsx(styles.navbarItemsRight)}>
           <div className={styles.colorModeToggle}>
             <ColorModeToggle

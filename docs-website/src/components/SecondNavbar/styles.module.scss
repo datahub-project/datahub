@@ -10,28 +10,28 @@
   }
 }
 
-.container {
-  padding: 0rem 1rem; 
+.container,
+.coreCloudSwitch,
+.docsSwitchButton {
   display: flex;
   align-items: center;
-  height: 60px;
+  height: 50px;
+}
+
+.container {
+  padding: 0rem 1rem; 
 }
 
 .coreCloudSwitch {
-  display: flex;
-  height: 60px;
   width: var(--doc-sidebar-width);
 }
 
 .docsSwitchButton {
-  display: flex;
-  align-items: center;
   padding: 0.5rem 1rem;
   font-weight: 500;
   font-size: 1.1rem;
   color: black; 
   text-decoration: none;
-  height: 60px;
 
   &:hover {
     cursor: pointer;
