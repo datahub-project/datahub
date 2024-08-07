@@ -1,7 +1,7 @@
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, List, Set
+from typing import Any, ClassVar, Dict, List, Optional, Set
 
 from deepmerge import always_merger
 from liquid import Undefined
@@ -113,25 +113,43 @@ class LookMLViewTransformer(ABC):
     def __init__(self, source_config: LookMLSourceConfig):
         self.source_config = source_config
 
-    @abstractmethod
     def transform(self, view: dict) -> dict:
-        pass
+        value_to_transform: Optional[str] = None
 
-
-class AddTransformedKeys(LookMLViewTransformer):
-    """
-    All transformers work either on sql_table_name or derived_table.sql attribute of views and
-    hence copy them to another key to perform transformation action.
-    """
-
-    def transform(self, view: dict) -> dict:
         if SQL_TABLE_NAME in view:
-            return {DATAHUB_TRANSFORMED_SQL_TABLE_NAME: view[SQL_TABLE_NAME]}
+            # Give precedence to already processed transformed sql_table_name to apply more transformation
+            value_to_transform = view.get(
+                DATAHUB_TRANSFORMED_SQL_TABLE_NAME, view[SQL_TABLE_NAME]
+            )
 
         if DERIVED_TABLE in view and SQL in view[DERIVED_TABLE]:
-            return {DERIVED_TABLE: {DATAHUB_TRANSFORMED_SQL: view[DERIVED_TABLE][SQL]}}
+            # Give precedence to already processed transformed view.derived.sql to apply more transformation
+            value_to_transform = view[DERIVED_TABLE].get(
+                DATAHUB_TRANSFORMED_SQL, view[DERIVED_TABLE][SQL]
+            )
+
+        if value_to_transform is None:
+            return {}
+
+        logger.debug(f"value to transform = {value_to_transform}")
+
+        transformed_value: str = self._apply_transformation(
+            value=value_to_transform, view=view
+        )
+
+        logger.debug(f"transformed value = {transformed_value}")
+
+        if SQL_TABLE_NAME in view and value_to_transform:
+            return {DATAHUB_TRANSFORMED_SQL_TABLE_NAME: transformed_value}
+
+        if DERIVED_TABLE in view and SQL in view[DERIVED_TABLE] and value_to_transform:
+            return {DERIVED_TABLE: {DATAHUB_TRANSFORMED_SQL: transformed_value}}
 
         return {}
+
+    @abstractmethod
+    def _apply_transformation(self, value: str, view: dict) -> str:
+        pass
 
 
 class LiquidVariableTransformer(LookMLViewTransformer):
@@ -139,29 +157,11 @@ class LiquidVariableTransformer(LookMLViewTransformer):
     Replace the liquid variables with their values.
     """
 
-    def transform(self, view: dict) -> dict:
-        if DATAHUB_TRANSFORMED_SQL_TABLE_NAME in view:
-            return {
-                DATAHUB_TRANSFORMED_SQL_TABLE_NAME: resolve_liquid_variable(
-                    text=view[DATAHUB_TRANSFORMED_SQL_TABLE_NAME],
-                    liquid_variable=self.source_config.liquid_variable,
-                )
-            }  # keeping original sql_table_name as is to avoid any visualization issue later
-
-        if DERIVED_TABLE in view and DATAHUB_TRANSFORMED_SQL in view[DERIVED_TABLE]:
-            # In sql we don't need to remove the extra spaces as sql parser takes care of extra spaces and \n
-            # while generating URN from sql
-            return {
-                DERIVED_TABLE: {
-                    DATAHUB_TRANSFORMED_SQL: resolve_liquid_variable(
-                        text=view[DERIVED_TABLE][DATAHUB_TRANSFORMED_SQL],
-                        liquid_variable=self.source_config.liquid_variable,
-                    )  # keeping original sql as is, so that on UI sql will be shown same is it is visible on looker
-                    # portal
-                }
-            }
-
-        return {}
+    def _apply_transformation(self, value: str, view: dict) -> str:
+        return resolve_liquid_variable(
+            text=value,
+            liquid_variable=self.source_config.liquid_variable,
+        )
 
 
 class IncompleteSqlTransformer(LookMLViewTransformer):
@@ -170,16 +170,11 @@ class IncompleteSqlTransformer(LookMLViewTransformer):
     IncompleteSqlTransformer will complete the view's sql.
     """
 
-    def transform(self, view: dict) -> dict:
-        if (
-            DERIVED_TABLE not in view
-            or DATAHUB_TRANSFORMED_SQL not in view[DERIVED_TABLE]
-        ):
-            return {}
+    def _apply_transformation(self, value: str, view: dict) -> str:
 
         # Looker supports sql fragments that omit the SELECT and FROM parts of the query
         # Add those in if we detect that it is missing
-        sql_query: str = view[DERIVED_TABLE][DATAHUB_TRANSFORMED_SQL]
+        sql_query: str = value
 
         if not re.search(r"SELECT\s", sql_query, flags=re.I):
             # add a SELECT clause at the beginning
@@ -187,40 +182,24 @@ class IncompleteSqlTransformer(LookMLViewTransformer):
 
         if not re.search(r"FROM\s", sql_query, flags=re.I):
             # add a FROM clause at the end
-            sql_query = f"{sql_query} FROM {view['name']}"
+            sql_query = f"{sql_query} FROM {view[NAME]}"
 
-        return {"derived_table": {"datahub_transformed_sql": sql_query}}
+        return sql_query
 
 
 class DropDerivedViewPatternTransformer(LookMLViewTransformer):
     """
     drop ${} from datahub_transformed_sql_table_name and  view["derived_table"]["datahub_transformed_sql_table_name"] values.
 
-    Example: transform ${view_name}.sql_table_name to view_name.sql_table_name
+    Example: transform ${employee_income_source.SQL_TABLE_NAME} to employee_income_source.SQL_TABLE_NAME
     """
 
-    def transform(self, view: dict) -> dict:
-        if DATAHUB_TRANSFORMED_SQL_TABLE_NAME in view:
-            return {
-                DATAHUB_TRANSFORMED_SQL_TABLE_NAME: re.sub(
-                    DERIVED_VIEW_PATTERN,
-                    r"\1",
-                    view[DATAHUB_TRANSFORMED_SQL_TABLE_NAME],
-                )
-            }
-
-        if DERIVED_TABLE in view and DATAHUB_TRANSFORMED_SQL in view[DERIVED_TABLE]:
-            return {
-                DERIVED_TABLE: {
-                    DATAHUB_TRANSFORMED_SQL: re.sub(
-                        DERIVED_VIEW_PATTERN,
-                        r"\1",
-                        view[DERIVED_TABLE][DATAHUB_TRANSFORMED_SQL],
-                    )
-                }
-            }
-
-        return {}
+    def _apply_transformation(self, value: str, view: dict) -> str:
+        return re.sub(
+            DERIVED_VIEW_PATTERN,
+            r"\1",
+            value,
+        )
 
 
 class LookMlIfCommentTransformer(LookMLViewTransformer):
@@ -254,25 +233,8 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
 
         return result
 
-    def transform(self, view: dict) -> dict:
-
-        if DATAHUB_TRANSFORMED_SQL_TABLE_NAME in view:
-            return {
-                DATAHUB_TRANSFORMED_SQL_TABLE_NAME: self._apply_regx(
-                    value=view[DATAHUB_TRANSFORMED_SQL_TABLE_NAME]
-                )
-            }
-
-        if DERIVED_TABLE in view and DATAHUB_TRANSFORMED_SQL in view[DERIVED_TABLE]:
-            return {
-                DERIVED_TABLE: {
-                    DATAHUB_TRANSFORMED_SQL: self._apply_regx(
-                        value=view[DERIVED_TABLE][DATAHUB_TRANSFORMED_SQL]
-                    )
-                }
-            }
-
-        return {}
+    def _apply_transformation(self, value: str, view: dict) -> str:
+        return self._apply_regx(value)
 
 
 class TransformedLookMlView:
@@ -315,12 +277,9 @@ def process_lookml_template_language(
         return
 
     transformers: List[LookMLViewTransformer] = [
-        AddTransformedKeys(
-            source_config=source_config
-        ),  # Add new key to perform transformation action
         LookMlIfCommentTransformer(
             source_config=source_config
-        ),  # First evaluate the -- if -- comments
+        ),  # First evaluate the -- if -- comments. Looker does the same
         LiquidVariableTransformer(
             source_config=source_config
         ),  # Now resolve liquid variables
