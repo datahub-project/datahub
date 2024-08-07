@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
 import { Tabs, Typography } from 'antd';
-import styled from 'styled-components';
+import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
+import styled from 'styled-components';
 import { useUserContext } from '../../context/useUserContext';
-import { Layout, Header } from './components';
-import FormsTab from './Forms/FormsTab';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { useAppConfig } from '../../useAppConfig';
-import AnalyticsTab from './AnalyticsTab';
-import { MissingPermissions } from './charts/AuxViews';
 import { useIsThemeV2 } from '../../useIsThemeV2';
+import AnalyticsTab from './AnalyticsTab';
+import FormsTab from './Forms/FormsTab';
+import { MissingPermissions } from './charts/AuxViews';
+import { Header, Layout } from './components';
 
 const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
     height: 100%;
