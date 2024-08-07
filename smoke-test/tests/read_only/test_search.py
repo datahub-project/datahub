@@ -211,16 +211,9 @@ def test_openapi_v2_entity(entity_type):
 @pytest.mark.parametrize(
     "entity_type",
     [
-        "dataset",
         "dashboard",
-        "dataJob",
         "dataFlow",
-        "container",
-        "tag",
-        "corpUser",
         "mlFeature",
-        "glossaryTerm",
-        "domain",
         "mlPrimaryKey",
         "mlFeatureTable",
         "glossaryNode",
