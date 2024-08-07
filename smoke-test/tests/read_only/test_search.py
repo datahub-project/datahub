@@ -5,6 +5,9 @@ from tests.test_result_msg import add_datahub_stats
 from tests.utils import get_frontend_session, get_frontend_url, get_gms_url
 
 BASE_URL_V3 = f"{get_gms_url()}/openapi/v3"
+BASE_URL_V2 = f"{get_gms_url()}/openapi/v2"
+BASE_URL_V1 = f"{get_gms_url()}/openapi/v1"
+
 
 default_headers = {
     "Content-Type": "application/json",
@@ -146,6 +149,82 @@ def test_openapi_v3_entity(entity_type):
 
     session = requests.Session()
     url = f"{BASE_URL_V3}/entity/{entity_type}/{first_urn}"
+    response = session.get(url, headers=default_headers)
+    response.raise_for_status()
+    actual_data = response.json()
+    print(f"Entity Data for URN {first_urn}: {actual_data}")
+
+    expected_data = {"urn": first_urn}
+
+    assert (
+        actual_data["urn"] == expected_data["urn"]
+    ), f"Mismatch: expected {expected_data}, got {actual_data}"
+
+
+@pytest.mark.read_only
+@pytest.mark.parametrize(
+    "entity_type",
+    [
+        "dataset",
+        "dashboard",
+        "dataJob",
+        "dataFlow",
+        "container",
+        "tag",
+        "corpUser",
+        "mlFeature",
+        "glossaryTerm",
+        "domain",
+        "mlPrimaryKey",
+        "corpGroup",
+        "mlFeatureTable",
+        "glossaryNode",
+        "mlModel",
+    ],
+)
+def test_openapi_v2_entity(entity_type):
+    frontend_session = get_frontend_session()
+    search_result = _get_search_result(frontend_session, entity_type)
+    num_entities = search_result["total"]
+    if num_entities == 0:
+        print(f"[WARN] No results for {entity_type}")
+        return
+    entities = search_result["searchResults"]
+
+    first_urn = entities[0]["entity"]["urn"]
+
+    session = requests.Session()
+    url = f"{BASE_URL_V2}/entity/{entity_type}/{first_urn}"
+    response = session.get(url, headers=default_headers)
+    response.raise_for_status()
+    actual_data = response.json()
+    print(f"Entity Data for URN {first_urn}: {actual_data}")
+
+    expected_data = {"urn": first_urn}
+
+    assert (
+        actual_data["urn"] == expected_data["urn"]
+    ), f"Mismatch: expected {expected_data}, got {actual_data}"
+
+
+@pytest.mark.read_only
+@pytest.mark.parametrize(
+    "entity_type",
+    ["corpGroup"],
+)
+def test_openapi_v1_entity(entity_type):
+    frontend_session = get_frontend_session()
+    search_result = _get_search_result(frontend_session, entity_type)
+    num_entities = search_result["total"]
+    if num_entities == 0:
+        print(f"[WARN] No results for {entity_type}")
+        return
+    entities = search_result["searchResults"]
+
+    first_urn = entities[0]["entity"]["urn"]
+
+    session = requests.Session()
+    url = f"{BASE_URL_V1}/entity/{entity_type}/{first_urn}"
     response = session.get(url, headers=default_headers)
     response.raise_for_status()
     actual_data = response.json()
