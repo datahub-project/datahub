@@ -1582,7 +1582,11 @@
 },
 {
     "entityType": "dataset",
+<<<<<<< HEAD
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.environment_activity_logs,PROD)",
+=======
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.rent_as_employee_income_source,PROD)",
+>>>>>>> master
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1600,13 +1604,21 @@
 },
 {
     "entityType": "dataset",
+<<<<<<< HEAD
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.environment_activity_logs,PROD)",
+=======
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.rent_as_employee_income_source,PROD)",
+>>>>>>> master
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
         "json": {
             "materialized": false,
+<<<<<<< HEAD
             "viewLogic": "view: environment_activity_logs {\n  sql_table_name:  -- if prod -- prod.staging_app.stg_app__activity_logs\n                   -- if dev -- {{ _user_attributes['dev_database_prefix'] }}analytics.{{ _user_attributes['dev_schema_prefix'] }}staging_app.stg_app__activity_logs\n                   ;;\n\n  dimension: generated_message_id {\n    group_label: \"IDs\"\n    primary_key: yes\n    type: number\n    sql: ${TABLE}.\"GENERATED_MESSAGE_ID\" ;;\n  }\n}\n",
+=======
+            "viewLogic": "view: rent_as_employee_income_source {\n  sql_table_name: (\n         SELECT id,\n                name,\n                source\n         FROM ${employee_income_source.SQL_TABLE_NAME}\n         WHERE source = \"RENT\"\n         ORDER BY source desc\n         LIMIT 10\n  );;\n\n\n  dimension: id {\n    type: number\n    sql: ${TABLE}.id ;;\n  }\n\n  dimension: name {\n    type: string\n    sql: ${TABLE}.name ;;\n  }\n\n  dimension: source {\n    type: string\n    sql: ${TABLE}.source ;;\n  }\n}",
+>>>>>>> master
             "viewLanguage": "lookml"
         }
     },
@@ -1618,7 +1630,11 @@
 },
 {
     "entityType": "dataset",
+<<<<<<< HEAD
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.environment_activity_logs,PROD)",
+=======
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.rent_as_employee_income_source,PROD)",
+>>>>>>> master
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1635,7 +1651,11 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+<<<<<<< HEAD
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.environment_activity_logs,PROD)",
+=======
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.rent_as_employee_income_source,PROD)",
+>>>>>>> master
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
@@ -1657,7 +1677,11 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
+<<<<<<< HEAD
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres, prod.staging_app.stg_app__activity_logs,PROD)",
+=======
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.employee_income_source,PROD)",
+>>>>>>> master
                                 "type": "VIEW"
                             }
                         ],
@@ -1665,11 +1689,41 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
+<<<<<<< HEAD
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres, prod.staging_app.stg_app__activity_logs,PROD),generated_message_id)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.environment_activity_logs,PROD),generated_message_id)"
+=======
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.employee_income_source,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.rent_as_employee_income_source,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.employee_income_source,PROD),name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.rent_as_employee_income_source,PROD),name)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.employee_income_source,PROD),source)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.rent_as_employee_income_source,PROD),source)"
+>>>>>>> master
                                 ],
                                 "confidenceScore": 1.0
                             }
@@ -1678,6 +1732,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+<<<<<<< HEAD
                         "schemaName": "environment_activity_logs",
                         "platform": "urn:li:dataPlatform:looker",
                         "version": 0,
@@ -1898,6 +1953,9 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "employee_income_source_as_per_env",
+=======
+                        "schemaName": "rent_as_employee_income_source",
+>>>>>>> master
                         "platform": "urn:li:dataPlatform:looker",
                         "version": 0,
                         "created": {
@@ -1977,6 +2035,7 @@
                                     ]
                                 },
                                 "isPartOfKey": false
+<<<<<<< HEAD
                             },
                             {
                                 "fieldPath": "income",
@@ -1998,6 +2057,8 @@
                                     ]
                                 },
                                 "isPartOfKey": false
+=======
+>>>>>>> master
                             }
                         ],
                         "primaryKeys": []
@@ -2006,10 +2067,17 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+<<<<<<< HEAD
                             "looker.file.path": "employee_income_source_as_per_env.view.lkml",
                             "looker.model": "data"
                         },
                         "name": "employee_income_source_as_per_env",
+=======
+                            "looker.file.path": "rent_as_employee_income_source.view.lkml",
+                            "looker.model": "data"
+                        },
+                        "name": "rent_as_employee_income_source",
+>>>>>>> master
                         "tags": []
                     }
                 }
@@ -2024,7 +2092,11 @@
 },
 {
     "entityType": "dataset",
+<<<<<<< HEAD
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.employee_income_source_as_per_env,PROD)",
+=======
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.rent_as_employee_income_source,PROD)",
+>>>>>>> master
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {

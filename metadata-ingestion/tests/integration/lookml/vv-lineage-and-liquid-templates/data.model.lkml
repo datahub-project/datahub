@@ -8,6 +8,7 @@ include: "employee_tax_report.view.lkml"
 include: "employee_salary_rating.view.lkml"
 include: "environment_activity_logs.view.lkml"
 include: "employee_income_source_as_per_env.view.lkml"
+include: "rent_as_employee_income_source.view.lkml"
 
 explore: activity_logs {
 }
@@ -31,4 +32,7 @@ explore: environment_activity_logs {
 }
 
 explore: employee_income_source_as_per_env {
+}
+
+explore: rent_as_employee_income_source {
 }

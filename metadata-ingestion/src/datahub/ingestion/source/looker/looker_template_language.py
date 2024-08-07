@@ -25,9 +25,6 @@ from datahub.ingestion.source.looker.lookml_config import (
     DERIVED_VIEW_PATTERN,
     LookMLSourceConfig,
 )
-from datahub.ingestion.source.looker.str_functions import (
-    remove_extra_spaces_and_newlines,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -146,9 +143,7 @@ class LiquidVariableTransformer(LookMLViewTransformer):
         if DATAHUB_TRANSFORMED_SQL_TABLE_NAME in view:
             return {
                 DATAHUB_TRANSFORMED_SQL_TABLE_NAME: resolve_liquid_variable(
-                    text=remove_extra_spaces_and_newlines(
-                        view[DATAHUB_TRANSFORMED_SQL_TABLE_NAME]
-                    ),
+                    text=view[DATAHUB_TRANSFORMED_SQL_TABLE_NAME],
                     liquid_variable=self.source_config.liquid_variable,
                 )
             }  # keeping original sql_table_name as is to avoid any visualization issue later
