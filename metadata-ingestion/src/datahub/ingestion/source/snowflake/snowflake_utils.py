@@ -127,6 +127,8 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
         ):
             return False
+        if _is_sys_table(dataset_name):
+            return False
 
         if len(dataset_params) != 3:
             self.structured_reporter.info(
@@ -176,6 +178,11 @@ def _combine_identifier_parts(
     return f"{db_name}.{schema_name}.{table_name}"
 
 
+def _is_sys_table(table_name: str) -> bool:
+    # Often will look like `SYS$_UNPIVOT_VIEW1737` or `sys$_pivot_view19`.
+    return table_name.lower().startswith("sys$")
+
+
 # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
 # For example "test-database"."test-schema".test_table
 # whereas we generate urns without quotes even for quoted identifiers for backward compatibility
@@ -186,12 +193,13 @@ def _cleanup_qualified_name(
 ) -> str:
     name_parts = qualified_name.split(".")
     if len(name_parts) != 3:
-        structured_reporter.info(
-            title="Unexpected dataset pattern",
-            message="We failed to parse a Snowflake qualified name into its constituent parts. "
-            "DB/schema/table filtering may not work as expected on these entities.",
-            context=f"{qualified_name} has {len(name_parts)} parts",
-        )
+        if not _is_sys_table(qualified_name):
+            structured_reporter.info(
+                title="Unexpected dataset pattern",
+                message="We failed to parse a Snowflake qualified name into its constituent parts. "
+                "DB/schema/table filtering may not work as expected on these entities.",
+                context=f"{qualified_name} has {len(name_parts)} parts",
+            )
         return qualified_name.replace('"', "")
     return _combine_identifier_parts(
         db_name=name_parts[0].strip('"'),

@@ -440,7 +440,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 yield from self._process_tag(tag)
 
         if not snowflake_schema.views and not snowflake_schema.tables:
-            self.structured_reporter.warning(
+            self.structured_reporter.info(
                 title="No tables/views found in schema",
                 message="If tables exist, please grant REFERENCES or SELECT permissions on them.",
                 context=f"{db_name}.{schema_name}",
