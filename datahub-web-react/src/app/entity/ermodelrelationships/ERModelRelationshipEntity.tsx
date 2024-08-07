@@ -18,6 +18,7 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import './preview/ERModelRelationshipAction.less';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { useAppConfig } from '../../useAppConfig';
 
 /**
  * Definition of the DataHub ErModelRelationship entity.
@@ -44,7 +45,10 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
         return <img src={ermodelrelationshipIcon} style={{ height: '16px', width: '16px' }} alt="" />;
     };
 
-    isSearchEnabled = () => true;
+    isSearchEnabled = () => {
+        const appConfig = useAppConfig();
+        return appConfig.config.featureFlags.erModelRelationshipFeatureEnabled;
+    };
 
     isBrowseEnabled = () => false;
 
@@ -54,7 +58,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
 
     getPathName = () => 'erModelRelationship';
 
-    getCollectionName = () => '';
+    getCollectionName = () => 'ER-Model-Relationships';
 
     getEntityName = () => 'ER-Model-Relationship';
 
