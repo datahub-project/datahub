@@ -24,4 +24,15 @@ record TestResult {
       */
       FAILURE
     }
+
+    /**
+    * The md5 of the test definition that was used to compute this result.
+    * See TestInfo.testDefinition.md5 for more information.
+    */
+    testDefinitionMd5: optional string
+
+    /**
+    * The audit stamp of when the result was computed, including the actor who computed it.
+    */
+    lastComputed: optional AuditStamp
 }
