@@ -3,35 +3,38 @@
   border-bottom: 1px solid #eaeaea;
   position: relative;
   z-index: 10;
+  color: black;
+
+  &.darkMode {
+    background-color: #000; 
+    color: #fff; 
+  }
 }
 
 .container {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .coreCloudSwitch {
   display: flex;
-  gap: 10px;
   max-width: var(--doc-sidebar-width);
 }
 
 .docsSwitchButton {
   align-items: center;
-  padding: 10px 15px;
-  color: black;
+  padding: 1.2rem;
   font-weight: 500;
   font-size: 1.1rem;
+  color: black; // Default color for light mode
   text-decoration: none;
   border: none;
   background: none;
-  position: relative;
 
   &:hover {
     cursor: pointer;
     text-decoration: none;
     z-index: 11; 
+    color: #007bff; // Hover color for light mode
   }
 }
 
@@ -40,6 +43,20 @@
   z-index: 11; 
 }
 
+.darkMode .docsSwitchButton {
+  color: white; 
+
+  &:hover {
+    color: #4db5ff; 
+  }
+}
+
 .searchBox {
-  margin-left: auto;
+  padding: 1rem;
+}
+
+.colorModeToggle {
+  margin: 0px 20px;
+  align-items: right;
+  z-index: 12; 
 }
