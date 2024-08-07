@@ -1109,7 +1109,7 @@ public class FormService extends BaseService {
    * @param formDefinition the form definition, which contains information about which prompts are
    *     required.
    */
-  private boolean isFormCompleted(
+  public boolean isFormCompleted(
       @Nonnull final FormAssociation form, @Nonnull final FormInfo formDefinition) {
     final List<String> requiredPromptsIds =
         formDefinition.getPrompts().stream()
@@ -1620,5 +1620,27 @@ public class FormService extends BaseService {
     return actorUrn != null
         ? actorUrn
         : UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr());
+  }
+
+  public Map<Urn, FormInfo> batchFetchForms(
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> urns) {
+    try {
+      Map<Urn, EntityResponse> batchResponse =
+          this.entityClient.batchGetV2(
+              opContext, FORM_ENTITY_NAME, urns, ImmutableSet.of(FORM_INFO_ASPECT_NAME));
+      Map<Urn, FormInfo> formInfoMap = new HashMap<>();
+      for (Map.Entry<Urn, EntityResponse> entry : batchResponse.entrySet()) {
+        if (entry.getValue().getAspects().containsKey(FORM_INFO_ASPECT_NAME)) {
+          FormInfo formInfo =
+              new FormInfo(
+                  entry.getValue().getAspects().get(FORM_INFO_ASPECT_NAME).getValue().data());
+          formInfoMap.put(entry.getKey(), formInfo);
+        }
+      }
+      return formInfoMap;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to batch fetch forms with urns %s", urns), e);
+    }
   }
 }

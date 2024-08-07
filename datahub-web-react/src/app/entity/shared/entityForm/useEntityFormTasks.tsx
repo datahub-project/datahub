@@ -23,7 +23,7 @@ export function useEntityFormTasks(formUrn: string) {
             // task is complete
             const taskUrn = task.urn;
             const lastRunTime = task?.results.lastRunTimestampMillis;
-            if (moment(lastRunTime).add(LOCAL_STORAGE_TIMEOUT_MINS, 'seconds') < moment()) {
+            if (moment(lastRunTime).add(LOCAL_STORAGE_TIMEOUT_MINS, 'minutes') < moment()) {
                 removeFromLocalStorage(taskUrn);
             } else {
                 // add tasks within timeout window to complete tasks

@@ -68,6 +68,25 @@ public class FormsPatchBuilder extends AbstractMultiFieldPatchBuilder<FormsPatch
     }
   }
 
+  public FormsPatchBuilder setFormIncomplete(@Nonnull FormAssociation formAssociation) {
+    try {
+      ObjectNode formNode =
+          (ObjectNode) new ObjectMapper().readTree(RecordUtils.toJsonString(formAssociation));
+      formNode.set(IS_COMPLETE_FIELD, instance.booleanNode(false));
+      JsonNode promptsMap = FormAssociationTemplate.createPromptsMap(formNode);
+      formNode.set(PROMPTS_FIELD, promptsMap);
+      pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(),
+              "/" + FORMS_FIELD + "/" + formAssociation.getUrn(),
+              formNode));
+      return this;
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException(
+          "Failed to mark form as incomplete, failed to parse provided aspect json.", e);
+    }
+  }
+
   public FormsPatchBuilder verifyForm(
       @Nonnull FormVerificationAssociation verificationAssociation) {
     try {
