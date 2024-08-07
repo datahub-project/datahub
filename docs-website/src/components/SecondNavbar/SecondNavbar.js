@@ -29,7 +29,7 @@ function SecondNavbar() {
           </Link>
           <Link
             className={clsx(styles.docsSwitchButton, location.pathname.includes('/docs/managed-datahub/welcome-acryl') && styles.activeButton)}
-            to="/docs/managed-datahub/welcome-acryl"
+            to="/docs/managed-datahub/managed-datahub-overview"
           >
             DataHub Cloud
           </Link>

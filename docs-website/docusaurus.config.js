@@ -154,7 +154,7 @@ module.exports = {
           position: "right",
         },
         {
-          href: "/",
+          href: "/cloud",
           html: "<div class='button button--primary button--md'>Try DataHub Cloud Free</div>",
           position: "right",
         },
