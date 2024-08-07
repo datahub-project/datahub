@@ -929,6 +929,9 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
             subTypes {
                 typeNames
             }
+            privileges {
+                ...entityPrivileges
+            }
         }
         ... on Dashboard {
             platform {

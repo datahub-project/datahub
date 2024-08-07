@@ -45,7 +45,6 @@ export const PropertiesTab = ({ properties }: Props) => {
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
-
     const propertyTableColumns = [
         {
             width: 210,
@@ -58,7 +57,10 @@ export const PropertiesTab = ({ properties }: Props) => {
         },
     ];
 
-    if (entityData?.privileges?.canEditProperties) {
+    const canEditProperties =
+        entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
+
+    if (canEditProperties) {
         propertyTableColumns.push({
             title: '',
             width: '10%',

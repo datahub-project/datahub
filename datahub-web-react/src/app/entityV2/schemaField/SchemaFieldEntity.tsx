@@ -17,6 +17,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
 import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
 export class SchemaFieldEntity implements Entity<SchemaField> {
@@ -54,6 +55,10 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                     name: 'Lineage',
                     component: LineageTab,
                     icon: PartitionOutlined,
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
