@@ -13,6 +13,7 @@
 
 .container {
   display: flex;
+  padding-top: 1rem;
 }
 
 .coreCloudSwitch {
@@ -22,7 +23,7 @@
 
 .docsSwitchButton {
   align-items: center;
-  padding: 1.2rem;
+  padding: 0rem 1rem 1rem 1rem;
   font-weight: 500;
   font-size: 1.1rem;
   color: black; // Default color for light mode
@@ -52,11 +53,12 @@
 }
 
 .searchBox {
-  padding: 1rem;
+  padding: 0rem 1rem 1rem 1rem;
 }
 
 .colorModeToggle {
-  margin: 0px 20px;
-  align-items: right;
-  z-index: 12; 
+  padding: 0rem 1rem 1rem 1rem;
+}
+
+.versionDropdown {
 }

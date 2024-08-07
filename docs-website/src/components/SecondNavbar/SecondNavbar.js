@@ -6,6 +6,7 @@ import { useColorMode } from '@docusaurus/theme-common';
 import SearchBar from '@theme/SearchBar';
 import ColorModeToggle from '@theme/ColorModeToggle'; 
 import styles from './styles.module.scss';
+import DocsVersionDropdownNavbarItem from '../../theme/NavbarItem/DocsVersionDropdownNavbarItem';
 
 function SecondNavbar() {
   const { colorMode, setColorMode } = useColorMode();
@@ -32,6 +33,17 @@ function SecondNavbar() {
               >
                 DataHub Cloud
               </Link>
+            </div>
+
+            {/* Version dropdown */}
+            <div className={styles.versionDropdown}>
+              <DocsVersionDropdownNavbarItem
+                docsPluginId="default"
+                dropdownItemsBefore={[]}
+                dropdownItemsAfter={[]}
+                dropdownActiveClassDisabled={false}
+                mobile={false}
+              />
             </div>
 
             {/* Light/Dark mode toggle */}
