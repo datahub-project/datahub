@@ -3,9 +3,9 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Sparkle } from 'phosphor-react';
 import InferenceDetailsIndicator from '@src/app/sharedV2/inferred/InferenceDetailsIndicator';
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
+import InferDocsButton from '@src/app/entityV2/shared/components/inferredDocs/InferDocsButton';
 import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../../graphql/proposals.generated';
 import {
@@ -38,34 +38,6 @@ const AddNewDescription = styled.div`
     }
 `;
 
-const AiSparkle = styled(Sparkle)`
-    height: 12px;
-    width: 12px;
-    margin-right: 4px;
-`;
-
-const InferDescriptionButton = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0px;
-    margin-top: 12px;
-    padding: 8px 4px;
-    border-radius: 4px;
-    width: 132px;
-    background-color: #f1f3fd;
-    color: #5c3fd1;
-    span,
-    path {
-        color: #5c3fd1;
-    }
-    :hover,
-    :hover span,
-    :hover path {
-        cursor: pointer;
-        color: ${REDESIGN_COLORS.HOVER_PURPLE};
-    }
-`;
 const StyledPlusOutlined = styled(PlusOutlined)`
     && {
         font-size: 10px;
@@ -192,15 +164,13 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                     <AddDescriptionText>Add Description</AddDescriptionText>
                                 </AddNewDescription>,
                                 shouldShowInferenceButton && (
-                                    <InferDescriptionButton
+                                    <InferDocsButton
+                                        style={{ height: 32, width: 132, marginTop: 12 }}
                                         onClick={() => {
                                             setInferOnModalVisible(true);
                                             setIsModalVisible(true);
                                         }}
-                                    >
-                                        <AiSparkle />
-                                        <AddDescriptionText>Generate With AI</AddDescriptionText>
-                                    </InferDescriptionButton>
+                                    />
                                 ),
                             ]}
                         <DescriptionWrapper>

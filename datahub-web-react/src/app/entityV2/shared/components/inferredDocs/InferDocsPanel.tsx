@@ -7,23 +7,12 @@ import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '../../constants';
 import { useInferDocumentationForItem, useIsDocumentationInferenceEnabled } from './utils';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
+import InferDocsButton from './InferDocsButton';
 
 const InferencePanelContainer = styled.div`
     padding: 16px;
     background-color: ${ANTD_GRAY[2]};
     border-radius: 8px;
-`;
-const GenerateButton = styled.button`
-    background-color: #f1f3fd;
-    color: #5c3fd1;
-    width: 140px;
-    height: 40px;
-    justify-content: center;
-    align-items: center;
-    display: flex;
-    border-radius: 8px;
-    cursor: pointer;
-    border: 0;
 `;
 
 const AiSparkle = styled(Sparkle)`
@@ -163,9 +152,6 @@ export default function InferDocsPanel({ onInsertDescription, forColumnPath, inf
             </InferencePanelFooter>
         </InferencePanelContainer>
     ) : (
-        <GenerateButton type="button" onClick={() => generateSuggestion()}>
-            <AiSparkle />
-            Generate with AI
-        </GenerateButton>
+        <InferDocsButton onClick={generateSuggestion} />
     );
 }

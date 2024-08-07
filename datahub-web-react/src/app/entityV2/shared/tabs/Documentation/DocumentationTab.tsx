@@ -5,7 +5,6 @@ import { useLocation } from 'react-router-dom';
 import { EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Divider, Typography } from 'antd';
 import styled from 'styled-components';
-import { Sparkle } from 'phosphor-react';
 import InferenceDetailsPill from '@src/app/sharedV2/inferred/InferenceDetailsPill';
 
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
@@ -24,6 +23,7 @@ import {
     useShouldShowInferDocumentationButton,
 } from '../../components/inferredDocs/utils';
 import { getAssetDescriptionDetails } from './utils';
+import InferDocsButton from '../../components/inferredDocs/InferDocsButton';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;
@@ -61,14 +61,6 @@ const EmptyTabWrapper = styled.div`
     flex-direction: column;
     justify-content: center;
     height: 100%;
-`;
-
-const AiSparkle = styled(Sparkle)`
-    height: 12px;
-    width: 12px;
-    margin-right: 4px;
-    position: relative;
-    top: 2px;
 `;
 
 interface Props {
@@ -152,19 +144,15 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             <PlusOutlined /> Add Documentation
                         </PrimaryButton>
                         {shouldShowInferenceButton && (
-                            <PrimaryButton
-                                type="primary"
-                                size="large"
-                                data-testid="add-documentation"
+                            <InferDocsButton
+                                style={{ display: 'inline-block', top: 3, marginLeft: 8, height: 40 }}
                                 onClick={() =>
                                     routeToTab({
                                         tabName: 'Documentation',
                                         tabParams: { editing: true, inferOnMount: true },
                                     })
                                 }
-                            >
-                                <AiSparkle /> Generate with AI
-                            </PrimaryButton>
+                            />
                         )}
                     </EmptyTab>
                 </EmptyTabWrapper>
