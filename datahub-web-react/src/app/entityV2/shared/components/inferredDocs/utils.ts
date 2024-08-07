@@ -10,6 +10,7 @@ export const useInferDocumentationForItem = ({ entityUrn, columnPath }: { entity
         const result = await inferDocumentation({
             variables: {
                 urn: entityUrn,
+                saveResult: false,
             },
         });
         const maybeColumnsJSON = result.data?.inferDocumentation?.columnDescriptions?.jsonBlob;

@@ -164,6 +164,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         inferDocumentation({
             variables: {
                 urn: mutationUrn,
+                saveResult: false,
             },
         })
             .then(({ data, errors }) => {

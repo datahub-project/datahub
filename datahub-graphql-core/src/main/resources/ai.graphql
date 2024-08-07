@@ -4,7 +4,7 @@ extend type Mutation {
     """
     Infer documentation for a given entity
     """
-    inferDocumentation(urn: String!): InferredDocumentation
+    inferDocumentation(urn: String!, saveResult: Boolean): InferredDocumentation
 }
 
 """

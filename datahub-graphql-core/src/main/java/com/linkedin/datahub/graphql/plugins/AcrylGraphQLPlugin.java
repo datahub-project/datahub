@@ -413,7 +413,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "deleteSubscription",
                     new DeleteSubscriptionResolver(this.subscriptionService, this.entityClient))
                 .dataFetcher(
-                    "inferDocumentation", new InferDocumentationResolver(this.integrationsService))
+                    "inferDocumentation",
+                    new InferDocumentationResolver(this.integrationsService, this.entityClient))
                 .dataFetcher(
                     "batchSubmitFormPrompt", new BatchSubmitFormPromptResolver(this.formService))
                 .dataFetcher(
