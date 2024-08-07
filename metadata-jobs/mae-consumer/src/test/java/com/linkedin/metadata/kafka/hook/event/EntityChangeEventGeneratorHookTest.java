@@ -1435,6 +1435,10 @@ public class EntityChangeEventGeneratorHookTest {
     // No previous incident aspect.
     _entityChangeEventHook.invoke(event);
 
+    final Map<String, Object> parameters = new HashMap<>();
+    parameters.put(ENTITY_REF, info.getEntities().toString());
+    parameters.put(INCIDENT_TYPE, info.getType().toString());
+
     // Create Platform Event
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -1443,7 +1447,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.INCIDENT,
             ChangeOperation.ACTIVE,
             null,
-            ImmutableMap.of("entities", entities.toString()),
+            parameters,
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -1481,8 +1485,13 @@ public class EntityChangeEventGeneratorHookTest {
     event.setEntityUrn(incidentUrn); // Urn.createFromString(TEST_DATASET_URN));
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
     event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevInfo));
+
     // No previous incident aspect.
     _entityChangeEventHook.invoke(event);
+
+    final Map<String, Object> parameters = new HashMap<>();
+    parameters.put(ENTITY_REF, info.getEntities().toString());
+    parameters.put(INCIDENT_TYPE, info.getType().toString());
 
     // Create Platform Event
     PlatformEvent platformEvent =
@@ -1492,7 +1501,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.INCIDENT,
             ChangeOperation.RESOLVED,
             null,
-            ImmutableMap.of("entities", entities.toString()),
+            parameters,
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -1533,6 +1542,13 @@ public class EntityChangeEventGeneratorHookTest {
     // No previous incident aspect.
     _entityChangeEventHook.invoke(event);
 
+    final Map<String, Object> parameters = new HashMap<>();
+    parameters.put(ENTITY_REF, info.getEntities().toString());
+    parameters.put(INCIDENT_TYPE, info.getType().toString());
+    parameters.put(INCIDENT_TITLE, info.getTitle());
+    parameters.put(INCIDENT_DESCRIPTION, info.getDescription());
+    parameters.put(INCIDENT_STATUS_MESSAGE, info.getStatus().getMessage());
+
     // Create Platform Event
     PlatformEvent platformEvent =
         createChangeEvent(
@@ -1541,7 +1557,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.INCIDENT,
             ChangeOperation.ACTIVE,
             null,
-            ImmutableMap.of("entities", entities.toString()),
+            parameters,
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
