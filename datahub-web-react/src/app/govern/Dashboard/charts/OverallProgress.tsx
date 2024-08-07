@@ -69,10 +69,7 @@ export const OverallProgress = () => {
         <ChartGroup>
             <SecondaryHeading>Overall Progress</SecondaryHeading>
             <Row>
-                <ChartCard
-                    title="Overall Documentation Progress By Assigned Date"
-                    chart={<OverallDocProgressByDate />}
-                />
+                <ChartCard title="Progress By Assigned Date" chart={<OverallDocProgressByDate />} />
             </Row>
         </ChartGroup>
     );

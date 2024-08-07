@@ -13,6 +13,7 @@ import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCar
 export const StyledList = styled(List)`
     height: 100%;
     flex: 1;
+    overflow: auto;
 
     .ant-list-items > .ant-list-item {
         padding-right: 0px;

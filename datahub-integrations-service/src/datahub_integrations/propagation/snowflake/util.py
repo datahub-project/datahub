@@ -15,7 +15,6 @@
 import logging
 
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeConfig
 from datahub.metadata._urns.urn_defs import (
     DatasetUrn,
     GlossaryTermUrn,
@@ -26,6 +25,10 @@ from datahub.metadata.schema_classes import GlossaryNodeInfoClass, GlossaryTermI
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from sqlalchemy import create_engine
+
+from datahub_integrations.propagation.snowflake.config import (
+    SnowflakeConnectionConfigPermissive,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -42,8 +45,8 @@ def is_snowflake_urn(urn: str) -> bool:
 
 
 class SnowflakeTagHelper(Closeable):
-    def __init__(self, config: SnowflakeConfig):
-        self.config: SnowflakeConfig = config
+    def __init__(self, config: SnowflakeConnectionConfigPermissive):
+        self.config: SnowflakeConnectionConfigPermissive = config
         url = self.config.get_sql_alchemy_url()
         self.engine = create_engine(url, **self.config.get_options())
 
@@ -59,8 +62,13 @@ class SnowflakeTagHelper(Closeable):
         parent = term_info.parentNode
         while parent:
             node_info = graph.graph.get_aspect(parent, GlossaryNodeInfoClass)
-            parent_name = node_info.name
-            parent = node_info.parentNode
+            parent_name = Urn.create_from_string(parent).get_entity_id_as_string()
+            if node_info:
+                parent = node_info.parentNode
+                if node_info.name:
+                    parent_name = node_info.name
+            else:
+                parent = None
             term_name = f"{parent_name}.{term_name}"
 
         return term_name

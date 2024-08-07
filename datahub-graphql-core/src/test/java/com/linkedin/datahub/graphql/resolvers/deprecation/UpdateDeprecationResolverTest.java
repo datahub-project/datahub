@@ -59,7 +59,7 @@ public class UpdateDeprecationResolverTest {
                     .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
@@ -83,7 +83,7 @@ public class UpdateDeprecationResolverTest {
         MutationUtils.buildMetadataChangeProposalWithUrn(
             UrnUtils.getUrn(TEST_ENTITY_URN), DEPRECATION_ASPECT_NAME, newDeprecation);
 
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), eq(proposal), eq(false));
+    verifyIngestProposal(mockClient, 1, proposal);
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -120,7 +120,7 @@ public class UpdateDeprecationResolverTest {
                                 new EnvelopedAspect()
                                     .setValue(new Aspect(originalDeprecation.data())))))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
@@ -144,7 +144,7 @@ public class UpdateDeprecationResolverTest {
         MutationUtils.buildMetadataChangeProposalWithUrn(
             UrnUtils.getUrn(TEST_ENTITY_URN), DEPRECATION_ASPECT_NAME, newDeprecation);
 
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), eq(proposal), eq(false));
+    verifyIngestProposal(mockClient, 1, proposal);
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -169,7 +169,7 @@ public class UpdateDeprecationResolverTest {
                     .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(false);
 
@@ -190,7 +190,7 @@ public class UpdateDeprecationResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     UpdateDeprecationResolver resolver = new UpdateDeprecationResolver(mockClient, mockService);
 
     // Execute resolver
@@ -206,7 +206,7 @@ public class UpdateDeprecationResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .ingestProposal(any(), Mockito.any(), anyBoolean());

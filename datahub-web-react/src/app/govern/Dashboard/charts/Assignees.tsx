@@ -198,7 +198,7 @@ export const Assignees = () => {
                         <ChartCard title="Under Performing Owners" chart={<DocProgressByAssigneeLeastPerforming />} />
                     </Row>
                 )}
-                <ChartCard title="Documentation Progress By Assignee" chart={<DocProgressByAssignee />} flex={2} />
+                <ChartCard title="Progress By Assignee" chart={<DocProgressByAssignee />} flex={2} />
             </Row>
         </ChartGroup>
     );

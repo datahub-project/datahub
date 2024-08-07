@@ -1,40 +1,27 @@
-import { env } from '../constants';
-
-import { TEST_CATEGORY_NAME_TO_INFO } from './constants';
-
-import { snowflakeTagPropagation, termPropagation, documentationPropagation, custom } from './recipes';
-
-import { AutomationTypes } from '../utils';
-
 // Images
-import SnowflakeLogo from '../../../images/snowflakelogo.png';
-import AcrylLogo from '../../../images/acryl-logo.svg';
+import SnowflakeLogo from '@images/snowflakelogo.png';
+import AcrylLogo from '@images/acryl-logo.svg';
 
-export type Field = {
-    type: string;
-    isRequired: boolean;
-};
+import { EntityType } from '@src/types.generated';
 
-export type Step = {
-    title: string;
-    description: string;
-    fields: any[];
-    tooltip?: string;
-    config?: any;
-};
+import { AutomationTypes } from '@app/automations/constants';
+import type { AutomationTemplate, Fields } from '@app/automations/types';
 
-export type Steps = Record<string, Step>;
+// Recipes
+import recipes from '@src/app/automations/recipes';
 
-const { hideMetadataTests } = env;
-
-// Define some steps that automations can include
-const steps: Steps = {
+// Define the available fields that can be used in the create/update automation form
+const steps: Fields = {
     choose_terms: {
-        title: 'Select Terms',
-        description: 'Choose the terms that you want to propagate.',
+        title: 'Select Tags & Terms',
+        description:
+            'Choose the tags and glossary terms to propagate to Snowflake. If none are selected, ALL will be propagated.',
         fields: [
             {
                 type: 'termSelector',
+                props: {
+                    fieldTypes: [EntityType.Tag, EntityType.GlossaryTerm],
+                },
                 isRequired: true,
             },
         ],
@@ -93,12 +80,12 @@ const steps: Steps = {
     select_destination: {
         title: 'Select Destination Connection',
         description: 'Choose the destination connection where the terms will be propagated.',
-        config: {
-            connectionTypes: ['snowflake'],
-        },
         fields: [
             {
                 type: 'connectionSelector',
+                props: {
+                    connectionTypes: ['snowflake'],
+                },
                 isRequired: true,
             },
         ],
@@ -125,15 +112,16 @@ const steps: Steps = {
     },
 };
 
-// Define the automations that are available for selection
-export const selectableAutomations = [
+// Define the available automation templates that can be used to create a new automation
+export const automationTemplates: AutomationTemplate[] = [
     {
         key: 'snowflake_tag_propagation',
+        platform: 'snowflake',
         type: AutomationTypes.ACTION,
         name: 'Snowflake Tag Propagation',
-        description: 'This automation allows you to propagate tags from one Snowflake table to another.',
+        description: 'Sync Tags and Glossary Terms to Snowflake Table and Column Tags',
         logo: SnowflakeLogo,
-        steps: [
+        fields: [
             { ...steps.choose_terms },
             // { ...steps.select_source },
             // { ...steps.select_conditions },
@@ -141,71 +129,59 @@ export const selectableAutomations = [
             { ...steps.details },
         ],
         requiredFields: ['name', 'terms', 'connection'],
-        baseRecipe: snowflakeTagPropagation as any,
+        baseRecipe: recipes.snowflakeTagPropagation as any,
         isDisabled: false,
     },
     {
         key: 'term_propagation',
+        platform: 'acryl',
         type: AutomationTypes.ACTION,
-        name: 'Term Propagation',
-        description: 'This automation allows you to propagate terms via lineage.',
+        name: 'Glossary Term Propagation',
+        description: 'Propagate Glossary Terms to downstream assets and columns automatically',
         logo: AcrylLogo,
-        steps: [
+        fields: [
             // { ...steps.choose_terms },
             // { ...steps.select_source },
             // { ...steps.select_traversal },
             { ...steps.details },
         ],
         requiredFields: ['name'],
-        baseRecipe: termPropagation as any,
+        baseRecipe: recipes.termPropagation as any,
         isDisabled: false,
     },
     {
-        key: 'documentation_propagation',
+        key: 'column_documentation_propagation',
+        platform: 'acryl',
         type: AutomationTypes.ACTION,
-        name: 'Documentation Propagation',
-        description: 'This automation propagates column level documentation.',
+        name: 'Column Documentation Propagation',
+        description: 'Propagate descriptions to downstream columns automatically',
         logo: AcrylLogo,
-        steps: [
-            // { ...steps.choose_terms },
-            // { ...steps.select_data_assets },
-            // { ...steps.select_conditions },
-            { ...steps.details },
-        ],
+        fields: [{ ...steps.details }],
         requiredFields: ['name'],
-        baseRecipe: documentationPropagation as any,
+        baseRecipe: recipes.columnLevelDocPropagation as any,
         isDisabled: false,
     },
-    {
-        key: 'custom',
-        type: AutomationTypes.TEST,
-        name: 'Custom Automation',
-        description: 'This automation allows you create a metdata test.',
-        logo: AcrylLogo,
-        steps: [
-            { ...steps.select_data_assets },
-            { ...steps.select_conditions },
-            { ...steps.select_custom_actions },
-            { ...steps.details },
-        ],
-        requiredFields: ['name'],
-        baseRecipe: custom as any,
-        isDisabled: hideMetadataTests,
-    },
+    // This completely threw exception on click. Hiding since we have metadata tests still.
+    // {
+    //     key: 'custom',
+    //     platform: 'acryl',
+    //     type: AutomationTypes.TEST,
+    //     name: 'Custom Automation',
+    //     description: 'This automation allows you create a metdata test.',
+    //     logo: AcrylLogo,
+    //     fields: [
+    //         { ...steps.select_data_assets },
+    //         { ...steps.select_conditions },
+    //         { ...steps.select_custom_actions },
+    //         { ...steps.details },
+    //     ],
+    //     requiredFields: ['name'],
+    //     baseRecipe: recipes.custom as any,
+    //     isDisabled: hideMetadataTests,
+    // },
 ];
 
-// Get the steps for the automation type
-export const getSteps = (key) => selectableAutomations.filter((automation) => automation.key === key)[0]?.steps;
-
-// Get the data of the automation type
-export const getAutomationData = (key, type) => {
-    const automation = selectableAutomations.filter((auto) => {
-        return auto.key === key || auto.baseRecipe?.action?.type === type;
-    });
-    return automation ? automation[0] : undefined;
-};
-
-// Returns true if the category name is "well-supported" (e.g. a built in), false otherwise.
-export const isSupportedCategory = (categoryName) => {
-    return TEST_CATEGORY_NAME_TO_INFO.get(categoryName) !== undefined;
+// Return the available automation templates
+export const useGetAutomationTemplates = () => {
+    return automationTemplates;
 };

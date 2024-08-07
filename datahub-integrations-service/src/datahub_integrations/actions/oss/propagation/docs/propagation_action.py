@@ -15,7 +15,7 @@
 import json
 import logging
 import time
-from typing import Any, List, Optional
+from typing import Any, Iterable, List, Optional
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
@@ -305,16 +305,16 @@ class DocPropagationAction(Action):
         dataset_urn: str,
         field_doc: Optional[str],
         context: SourceDetails,
-    ) -> None:
+    ) -> Optional[MetadataChangeProposalWrapper]:
         if context.origin == schema_field_urn:
             # No need to propagate to self
-            return
+            return None
 
         if not dataset_urn.startswith("urn:li:dataset"):
             logger.error(
                 f"Invalid dataset urn {dataset_urn}. Must start with urn:li:dataset"
             )
-            return
+            return None
 
         auditStamp = AuditStampClass(
             time=int(time.time() * 1000.0), actor=self.actor_urn
@@ -374,12 +374,17 @@ class DocPropagationAction(Action):
             logger.debug(
                 f"Will emit documentation change proposal for {schema_field_urn} with {field_doc}"
             )
-            graph.graph.emit(
-                MetadataChangeProposalWrapper(
-                    entityUrn=schema_field_urn,
-                    aspect=documentations,
-                )
+            return MetadataChangeProposalWrapper(
+                entityUrn=schema_field_urn,
+                aspect=documentations,
             )
+        return None
+        # graph.graph.emit(
+        #     MetadataChangeProposalWrapper(
+        #         entityUrn=schema_field_urn,
+        #         aspect=documentations,
+        #     )
+        # )
 
     def refresh_config(self, event: Optional[EventEnvelope] = None) -> None:
         """
@@ -510,6 +515,15 @@ class DocPropagationAction(Action):
         return result
 
     def act(self, event: EventEnvelope) -> None:
+        for mcp in self.act_async(event):
+            self.ctx.graph.graph.emit(mcp)
+
+    def act_async(
+        self, event: EventEnvelope
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """
+        Process the event asynchronously and return the change proposals
+        """
         self.refresh_config(event)
         if not self.config.enabled or not self.config.columns_enabled:
             logger.warning("Doc propagation is disabled. skipping event")
@@ -564,7 +578,7 @@ class DocPropagationAction(Action):
                             ):
                                 # we only propagate if there is only one
                                 # upstream field and that's us
-                                self.modify_docs_on_columns(
+                                maybe_mcp = self.modify_docs_on_columns(
                                     self.ctx.graph,
                                     doc_propagation_directive.operation,
                                     field,
@@ -572,6 +586,8 @@ class DocPropagationAction(Action):
                                     field_doc=doc_propagation_directive.doc_string,
                                     context=context,
                                 )
+                                if maybe_mcp:
+                                    yield maybe_mcp
                         elif parent_urn.startswith("urn:li:chart"):
                             logger.warning(
                                 "Charts are expected to have fields that are dataset schema fields. Skipping for now..."
@@ -593,7 +609,7 @@ class DocPropagationAction(Action):
                                 sibling
                             ).get_entity_id()[0]
                             self._stats.increment_assets_impacted(sibling)
-                            self.modify_docs_on_columns(
+                            maybe_mcp = self.modify_docs_on_columns(
                                 self.ctx.graph,
                                 doc_propagation_directive.operation,
                                 schema_field_urn=sibling,
@@ -601,6 +617,8 @@ class DocPropagationAction(Action):
                                 field_doc=doc_propagation_directive.doc_string,
                                 context=context,
                             )
+                            if maybe_mcp:
+                                yield maybe_mcp
             else:
                 logger.debug("No doc propagation directive")
             stats.end(event, success=True)

@@ -1,4 +1,4 @@
-import { EntityType } from '../../../../../types.generated';
+import { EntityType } from '@src/types.generated';
 import { OperatorId } from '../ConditionSelector/operators';
 
 /**

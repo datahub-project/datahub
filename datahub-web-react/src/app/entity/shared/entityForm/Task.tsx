@@ -59,17 +59,20 @@ interface Props {
 
 export default function Task({ task, isComplete, allTasks }: Props) {
     const {
+        setShouldRefetch,
+        refetchForBulk,
         prompt: { selectedPromptId },
         form: { formView },
-        search: { refetch },
     } = useEntityFormContext();
     const associatedPromptId = useMemo(() => getAssociatedPromptId(task.urn), [task.urn]);
 
     function handleReload() {
-        if (formView === FormView.BULK_VERIFY && associatedPromptId === BULK_VERIFY_ID) {
-            refetch();
-        } else if (selectedPromptId === associatedPromptId) {
-            refetch();
+        if (
+            (formView === FormView.BULK_VERIFY && associatedPromptId === BULK_VERIFY_ID) ||
+            selectedPromptId === associatedPromptId
+        ) {
+            refetchForBulk();
+            setShouldRefetch(true);
         }
     }
 

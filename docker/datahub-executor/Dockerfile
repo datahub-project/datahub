@@ -54,6 +54,24 @@ odbcinst -q -d -n "ODBC Driver 18 for SQL Server" || { echo 'ODBC Driver 18 for 
 
 EOF
 
+RUN if [ $(arch) = "x86_64" ]; then \
+    mkdir /opt/oracle && \
+    cd /opt/oracle && \
+    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/216000/instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
+    unzip instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
+    rm instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
+    sh -c "echo /opt/oracle/instantclient_21_6 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
+    ldconfig; \
+    else \
+    mkdir /opt/oracle && \
+    cd /opt/oracle && \
+    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/191000/instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
+    unzip instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
+    rm instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
+    sh -c "echo /opt/oracle/instantclient_19_10 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
+    ldconfig; \
+    fi;
+
 USER datahub
 RUN uv pip install --no-cache -e .
 

@@ -27,8 +27,11 @@ dependencies = [
 	"reactpy",
 	"reactpy-router",
 	# AI.
+	"tenacity",
 	"openai",
 	"openai_function_call",
+	"boto3",
+	"aws-assume-role-lib",
 	# Email notifications.
 	"sendgrid",
 	# Reporting.
@@ -55,6 +58,7 @@ dev = [
 	"types-setuptools",
 	"types-cachetools",
 	"types-PyYAML",
+	"mypy-boto3-bedrock-runtime",
 	"isort",
 	"faker",
 	"anyio",

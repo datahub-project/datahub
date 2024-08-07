@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.action.execution;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 import com.linkedin.action.DataHubActionConfig;
 import com.linkedin.action.DataHubActionInfo;
@@ -15,6 +14,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateActionPipelineInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.key.DataHubActionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -26,7 +26,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.json.JSONObject;
 
 @AllArgsConstructor
 @Slf4j
@@ -79,7 +78,7 @@ public class UpsertActionPipelineResolver implements DataFetcher<CompletableFutu
               log.info("Action Info aspect = {}", actionInfo);
 
               final MetadataChangeProposal proposal =
-                  buildMetadataChangeProposalWithUrn(
+                  AspectUtils.buildSynchronousMetadataChangeProposal(
                       actionPipelineUrn, Constants.ACTIONS_PIPELINE_INFO_ASPECT_NAME, actionInfo);
 
               String result =
@@ -90,6 +89,7 @@ public class UpsertActionPipelineResolver implements DataFetcher<CompletableFutu
                     String.format("Failed to reload action pipeline %s", result),
                     DataHubGraphQLErrorCode.SERVER_ERROR);
               }
+
               return result;
             } catch (Exception e) {
               log.error("Failed to ingest action pipeline", e);
@@ -100,12 +100,5 @@ public class UpsertActionPipelineResolver implements DataFetcher<CompletableFutu
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
         });
-  }
-
-  private static JSONObject getActionBlock(String type, String recipe) {
-    JSONObject actionBlock = new JSONObject();
-    actionBlock.put("type", type);
-    actionBlock.put("config", new JSONObject(recipe));
-    return actionBlock;
   }
 }

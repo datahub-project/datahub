@@ -6,6 +6,7 @@ fragment ActionInfo on ActionPipeline {
     details {
         type
         name
+        description
         config {
             recipe
             executorId
@@ -35,6 +36,11 @@ query getActionPipeline($urn: String!) {
 query getActionPipelineStatus($urn: String!) {
     actionPipeline(urn: $urn) {
         status
+        details {
+            name
+            state
+            description
+        }
     }
 }
 
@@ -60,4 +66,8 @@ mutation rollbackActionPipeline($urn: String!) {
 
 mutation deleteActionPipeline($urn: String!) {
     deleteActionPipeline(urn: $urn)
+}
+
+mutation bootstrapActionPipeline($urn: String!) {
+    bootstrapActionPipeline(urn: $urn)
 }

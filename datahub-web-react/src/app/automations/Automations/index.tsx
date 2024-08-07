@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 
 import { uniq, orderBy } from 'lodash';
 
-import { useListTestsQuery } from '../../../graphql/test.generated';
-import { useListActionPipelinesQuery } from '../../../graphql/actionPipeline.generated';
-
+import { Button } from '@components';
 import {
     AutomationsPageContainer,
     AutomationsSidebar,
@@ -16,82 +14,50 @@ import {
     AutomationsBody,
 } from './components';
 
-import { LargeButtonPrimary } from '../sharedComponents';
-
 import { env } from '../constants';
-import { simplifyDataForListView } from '../utils';
+
+import { AutomationsContextProvider, useAutomationsContext } from './AutomationsProvider';
 
 import { AutomationsListCard } from './ListCard';
-import { AutomationModal } from './Modal';
 
-export const Automations = () => {
+import { AutomationContextProvider } from './AutomationProvider';
+import { AutomationCreateModal } from './CreateModal';
+
+import { EmptyState } from './EmptyState';
+
+const AutomationPage = () => {
     // Rollout Variables (UI only)
-    const { hideSidebar, hideMetadataTests } = env;
+    const { hideSidebar } = env;
+
+    // Get list from context
+    const { automations, isLoading } = useAutomationsContext();
 
     // Create Modal State
-    const [isOpen, setIsOpen] = useState(false);
-
-    // Fetch metadata tests
-    const { data: metadataTestsData } = useListTestsQuery({
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-            },
-        },
-        skip: hideMetadataTests,
-    });
-
-    // Fetch action pipelines
-    const { data: actionPipelinesData } = useListActionPipelinesQuery({
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-            },
-        },
-    });
-
-    // Raw Data
-    const metadataTests = metadataTestsData?.listTests?.tests || [];
-    const actionPipelines = actionPipelinesData?.listActionPipelines?.actionPipelines || [];
-
-    // Simplify Data for List View
-    const simplifiedMetadataTests = simplifyDataForListView(metadataTests);
-    const simplifiedActionPipelines = simplifyDataForListView(actionPipelines);
-
-    // All Automations
-    const allAutomations = [...simplifiedActionPipelines, ...simplifiedMetadataTests];
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
 
     // Get Categories
-    const categories = uniq(allAutomations.map((automation: any) => automation.category));
+    const categories = uniq(automations.map((automation: any) => automation.category));
 
     // Build tabs
     const tabs: any = [
         {
             key: 'all',
             label: 'All',
-            data: allAutomations,
-            count: allAutomations.length,
+            data: automations,
+            count: automations.length,
         },
     ];
-
     categories.forEach((category: string) => {
         tabs.push({
             key: category,
             label: category,
-            data: allAutomations.filter((automation: any) => automation.category === category),
-            count: allAutomations.filter((automation: any) => automation.category === category).length,
+            data: automations.filter((automation: any) => automation.category === category),
+            count: automations.filter((automation: any) => automation.category === category).length,
         });
     });
 
     const [activeTab, setActiveTab] = useState(tabs[0].key);
     const data = tabs.filter((tab) => tab.key === activeTab)[0].data || [];
-
-    // Data states
-    // const isLoading = testsLoading || actionsLoading;
-    // const isError = testsError || actionsError;
-    // const noData = allAutomations.length === 0;
 
     return (
         <>
@@ -105,12 +71,12 @@ export const Automations = () => {
                     <AutomationsContentHeader>
                         <div>
                             <h1>Automations</h1>
-                            <p>Monitor policies and automate actions across data assets.</p>
+                            <p>Manage automated actions across your data assets</p>
                         </div>
                         <div>
-                            <LargeButtonPrimary onClick={() => setIsOpen(!isOpen)}>
-                                Create an Automation
-                            </LargeButtonPrimary>
+                            <Button size="lg" icon="Add" onClick={() => setIsCreateOpen(!isCreateOpen)}>
+                                Create
+                            </Button>
                         </div>
                     </AutomationsContentHeader>
                     <AutomationsContentBody>
@@ -131,10 +97,20 @@ export const Automations = () => {
                                 <AutomationsListCard key={item.key} automation={item} />
                             ))}
                         </AutomationsBody>
+                        {!isLoading && data && data.length === 0 && <EmptyState />}
                     </AutomationsContentBody>
                 </AutomationsContent>
             </AutomationsPageContainer>
-            <AutomationModal isOpen={isOpen} setIsOpen={setIsOpen} />
+            <AutomationContextProvider>
+                <AutomationCreateModal isOpen={isCreateOpen} setIsOpen={setIsCreateOpen} />
+            </AutomationContextProvider>
         </>
     );
 };
+
+// Export the Automations Page with the context provider
+export const Automations = () => (
+    <AutomationsContextProvider>
+        <AutomationPage />
+    </AutomationsContextProvider>
+);

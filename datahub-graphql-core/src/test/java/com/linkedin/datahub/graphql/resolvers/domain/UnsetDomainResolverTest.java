@@ -58,7 +58,7 @@ public class UnsetDomainResolverTest {
                     .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
@@ -76,8 +76,7 @@ public class UnsetDomainResolverTest {
         MutationUtils.buildMetadataChangeProposalWithUrn(
             UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+    verifyIngestProposal(mockClient, 1, proposal);
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -113,7 +112,7 @@ public class UnsetDomainResolverTest {
                                 new EnvelopedAspect()
                                     .setValue(new Aspect(originalDomains.data())))))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
@@ -131,8 +130,7 @@ public class UnsetDomainResolverTest {
         MutationUtils.buildMetadataChangeProposalWithUrn(
             UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+    verifyIngestProposal(mockClient, 1, proposal);
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -158,7 +156,7 @@ public class UnsetDomainResolverTest {
                     .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                     .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(false);
 
@@ -178,7 +176,7 @@ public class UnsetDomainResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     UnsetDomainResolver resolver = new UnsetDomainResolver(mockClient, mockService);
 
     // Execute resolver

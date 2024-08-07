@@ -7,7 +7,7 @@ import React from 'react';
 
 import { Select } from 'antd';
 
-import { useGetSearchResultsQuery } from '../../../../../graphql/search.generated';
+import { useGetSearchResultsQuery } from '@graphql/search.generated';
 
 // Clean data
 const cleanData = (data: any) =>

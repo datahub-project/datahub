@@ -148,8 +148,13 @@ mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
     removeBusinessAttribute(input: $input)
 }
 
-mutation suggestDescription($urn: String!) {
-    suggestDescription(urn: $urn)
+mutation inferDocumentation($urn: String!, $saveResult: Boolean) {
+    inferDocumentation(urn: $urn, saveResult: $saveResult) {
+        entityDescription
+        columnDescriptions {
+            jsonBlob
+        }
+    }
 }
 
 mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!) {

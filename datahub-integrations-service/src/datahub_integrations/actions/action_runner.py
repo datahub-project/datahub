@@ -34,7 +34,7 @@ assert telemetry_instance
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-REPORTING_FREQ_SEC = 20
+REPORTING_FREQ_SEC = 10
 
 
 def make_api(pipeline: Pipeline) -> fastapi.FastAPI:
@@ -144,7 +144,7 @@ def main() -> None:
 
         # Run the reporter.
         reporter = None
-        if isinstance(pipeline.action, ExtendedAction):
+        if isinstance(pipeline.action, ReportingAction):
             reporter = ActionStatsReporter(
                 pipeline, graph=pipeline.action.ctx.graph.graph, stage=stage
             )

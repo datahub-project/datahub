@@ -106,7 +106,7 @@ const ALL_GUIDES = [
         title: 'Connect Sources',
         url: 'https://datahubproject.io/docs/ui-ingestion',
         icon: ApiOutlined,
-        personas: [PersonaType.TECHNICAL_USER],
+        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER],
     },
     {
         id: 'features',
@@ -117,6 +117,7 @@ const ALL_GUIDES = [
             PersonaType.TECHNICAL_USER,
             PersonaType.BUSINESS_USER,
             PersonaType.DATA_STEWARD,
+            PersonaType.DATA_ENGINEER,
             PersonaType.DATA_LEADER,
         ],
     },
@@ -125,7 +126,7 @@ const ALL_GUIDES = [
         title: 'How-To Tutorials',
         url: 'https://youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg&utm_source=acryl_datahub_app&utm_content=tutorials',
         icon: OndemandVideoOutlined,
-        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_STEWARD],
+        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER, PersonaType.DATA_STEWARD],
     },
     {
         id: 'case-studies',
@@ -141,6 +142,7 @@ const ALL_GUIDES = [
         icon: AutoStoriesOutlinedIcon,
         personas: [
             PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_ENGINEER,
             PersonaType.BUSINESS_USER,
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,

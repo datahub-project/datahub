@@ -13,6 +13,9 @@ import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDescription';
 import { sanitizeRichText } from './editor/utils';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
+import InferDocsPanel from '../../../components/inferredDocs/InferDocsPanel';
+import { getAssetDescriptionDetails } from '../utils';
+import { useIsDocumentationInferenceEnabled } from '../../../components/inferredDocs/utils';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
@@ -31,11 +34,16 @@ const EditorSourceWrapper = styled.div`
     flex: 1;
 `;
 
+const InferDocsPanelWrapper = styled.div`
+    padding: 16px;
+`;
+
 type DescriptionEditorProps = {
+    inferOnMount?: boolean;
     onComplete?: () => void;
 };
 
-export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
+export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEditorProps) => {
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
@@ -44,15 +52,24 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
+
+    const { displayedDescription, isUsingDocumentationAspect } = getAssetDescriptionDetails({
+        entityProperties: entityData,
+        enableInferredDescriptions: useIsDocumentationInferenceEnabled(),
+        defaultDescription: '',
+    });
+
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
     const description = editedDescriptions.hasOwnProperty(mutationUrn)
         ? editedDescriptions[mutationUrn]
-        : entityData?.editableProperties?.description || entityData?.properties?.description || '';
+        : displayedDescription;
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
     // Key to force re-render of the editor when the description is updated from server data. Only needed for full page refreshes mid edit
     const [editorKey, setEditorKey] = useState(0);
-    const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(mutationUrn));
+    const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(
+        editedDescriptions.hasOwnProperty(mutationUrn) || isUsingDocumentationAspect,
+    );
     const [confirmCloseModalVisible, setConfirmCloseModalVisible] = useState(false);
 
     /**
@@ -190,12 +207,22 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     return !loading ? (
         <>
             <EditorSourceWrapper>
-                <EditorContainer key={editorKey}>
+                <EditorContainer>
                     <Editor
+                        key={editorKey}
                         content={updatedDescription}
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
                     />
+                    <InferDocsPanelWrapper>
+                        <InferDocsPanel
+                            inferOnMount={inferOnMount}
+                            onInsertDescription={(desc) => {
+                                handleEditorChange(updatedDescription + desc);
+                                setEditorKey((v) => v + 1);
+                            }}
+                        />
+                    </InferDocsPanelWrapper>
                 </EditorContainer>
                 <SourceDescription />
             </EditorSourceWrapper>

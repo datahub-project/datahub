@@ -10,6 +10,7 @@ import com.linkedin.metadata.kafka.hook.assertion.AssertionActionsHook;
 import com.linkedin.metadata.kafka.hook.assertion.AssertionsSummaryHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.form.FormAssignmentHook;
+import com.linkedin.metadata.kafka.hook.form.FormCompletionHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.notification.NotificationGeneratorHook;
@@ -110,6 +111,11 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
         1,
         metadataChangeLogProcessor.getHooks().stream()
             .filter(hook -> hook instanceof DefaultNotificationSettingsHook)
+            .count());
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof FormCompletionHook)
             .count());
   }
 }

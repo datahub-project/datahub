@@ -67,6 +67,28 @@ export const SNOWFLAKE_ROLE = {
     required: true,
 };
 
+export const SNOWFLAKE_DATABASE = {
+    name: 'database',
+    label: 'Database',
+    tooltip: null,
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.database',
+    placeholder: 'Optional - select a specific database to propagate tags to',
+    rules: null,
+    required: false,
+};
+
+export const SNOWFLAKE_SCHEMA = {
+    name: 'schema',
+    label: 'Schema',
+    tooltip: null,
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.schema',
+    placeholder: 'Optional - select a specific schema to propagate tags to',
+    rules: null,
+    required: false,
+};
+
 export const fields = [
     SNOWFLAKE_CONNECTION_NAME,
     SNOWFLAKE_ACCOUNT_ID,
@@ -74,4 +96,6 @@ export const fields = [
     SNOWFLAKE_USERNAME,
     SNOWFLAKE_PASSWORD,
     SNOWFLAKE_ROLE,
+    // SNOWFLAKE_DATABASE, - Not yet supported on backend.
+    // SNOWFLAKE_SCHEMA, - Not yet supported on backend.
 ];

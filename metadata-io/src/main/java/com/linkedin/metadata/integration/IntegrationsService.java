@@ -389,7 +389,7 @@ public class IntegrationsService {
     }
   }
 
-  public SuggestedDescription suggestDescription(Urn entity) {
+  public SuggestedDescription inferDocumentation(Urn entity) {
     try {
       var response = this.aiApi.suggestDescriptionWithHttpInfo(entity.toString());
       if (response.getStatusCode() != HttpStatus.SC_OK) {

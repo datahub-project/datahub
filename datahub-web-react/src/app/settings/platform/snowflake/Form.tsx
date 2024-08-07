@@ -49,11 +49,15 @@ export interface SnowflakeFormValues {
     role?: string;
     username?: string;
     warehouse?: string;
+    database?: string;
+    schema?: string;
 }
 
 interface Props {
     snowflakeConnectionId?: string;
     postSave?: () => void;
+    defaultFormValues?: SnowflakeFormValues;
+    handleChange?: (value: any) => void;
 }
 
 export const decodeJson = (json: string) => {
@@ -72,17 +76,24 @@ export const decodeJson = (json: string) => {
     }
 };
 
-export const SnowflakeConnectionForm = ({ snowflakeConnectionId, postSave }: Props) => {
+export const SnowflakeConnectionForm = ({
+    snowflakeConnectionId,
+    defaultFormValues,
+    handleChange,
+    postSave,
+}: Props) => {
     const [form] = Form.useForm();
 
     // Form values
     const [formValues, setFormValues] = useState<SnowflakeFormValues>({
-        account_id: undefined,
-        name: undefined,
-        password: undefined,
-        role: undefined,
-        username: undefined,
-        warehouse: undefined,
+        account_id: defaultFormValues?.account_id,
+        name: defaultFormValues?.name,
+        password: defaultFormValues?.password,
+        role: defaultFormValues?.role,
+        username: defaultFormValues?.username,
+        warehouse: defaultFormValues?.warehouse,
+        database: defaultFormValues?.database,
+        schema: defaultFormValues?.schema,
     });
 
     // Mutation to create/update connection
@@ -117,7 +128,6 @@ export const SnowflakeConnectionForm = ({ snowflakeConnectionId, postSave }: Pro
         data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
 
     const updateFormValues = (changedValues: any, allValues: any) => setFormValues({ ...allValues, ...changedValues });
-
     const updateFormValue = (field, value) => form.setFieldsValue({ [field]: value });
 
     const handleSave = () => {
@@ -135,7 +145,7 @@ export const SnowflakeConnectionForm = ({ snowflakeConnectionId, postSave }: Pro
             },
         })
             .then(() => {
-                message.success({ content: 'Success!', duration: 2 });
+                message.success({ content: 'Saved connection details!', duration: 2 });
             })
             .catch((e: unknown) => {
                 message.destroy();
@@ -159,8 +169,11 @@ export const SnowflakeConnectionForm = ({ snowflakeConnectionId, postSave }: Pro
             role: formValues.role,
             username: formValues.username,
             warehouse: formValues.warehouse,
+            database: formValues.database,
+            schema: formValues.schema,
         });
-    }, [form, formValues]);
+        handleChange?.(formValues);
+    }, [form, formValues, handleChange]);
 
     const isAllRequiredFieldsFilled = Object.values(formValues).every((value) => value);
 

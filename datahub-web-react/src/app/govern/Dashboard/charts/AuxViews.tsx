@@ -1,8 +1,8 @@
 import React from 'react';
 
 import { Skeleton } from 'antd';
+import { FcHighPriority, FcLeave, FcMediumPriority } from 'react-icons/fc';
 import styled from 'styled-components';
-import { FcLeave, FcHighPriority, FcMediumPriority } from 'react-icons/fc';
 
 import { Body, PrimaryHeading } from '../components';
 
@@ -106,6 +106,33 @@ export const MissingPermissions = () => (
                     </p>
                     <p>Contact your admin to gain access.</p>
                 </div>
+            </FlexWrapper>
+        </Body>
+    </Container>
+);
+
+const LoadingPermissionsWrapper = styled.div`
+    text-align: center;
+    font-size: 18px;
+    width: 500px;
+`;
+
+const LoadingPermissionsSpacer = styled.div`
+    margin-top: 20px;
+`;
+
+// View if permissions are still loading
+export const LoadingPermissions = () => (
+    <Container>
+        <Body>
+            <FlexWrapper>
+                <LoadingPermissionsWrapper>
+                    <PrimaryHeading>Loading</PrimaryHeading>
+                    <LoadingPermissionsSpacer />
+                    <Skeleton title={false} paragraph={{ rows: 4 }} active />
+                    <Skeleton title={false} paragraph={{ rows: 4 }} active />
+                    <Skeleton title={false} paragraph={{ rows: 4 }} active />
+                </LoadingPermissionsWrapper>
             </FlexWrapper>
         </Body>
     </Container>

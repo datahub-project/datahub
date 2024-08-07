@@ -16,11 +16,11 @@ acryl-datahub-actions==0.0.18
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
-acryl-datahub-classify==0.0.10
+acryl-datahub-classify==0.0.11
     # via
     #   -r requirements.txt
     #   acryl-datahub
-acryl-sqlglot==24.0.1.dev7
+acryl-sqlglot==25.3.1.dev3
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -92,6 +92,11 @@ avro-gen3==0.7.13
     # via
     #   -r requirements.txt
     #   acryl-datahub
+aws-assume-role-lib==2.10.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 beautifulsoup4==4.12.3
     # via
     #   -r requirements.txt
@@ -111,6 +116,7 @@ boto3==1.34.91
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+    #   aws-assume-role-lib
 botocore==1.34.91
     # via
     #   -r requirements.txt
@@ -529,6 +535,8 @@ murmurhash==1.0.10
     #   spacy
     #   thinc
 mypy==1.10.0
+    # via acryl-datahub-integrations (pyproject.toml)
+mypy-boto3-bedrock-runtime==1.34.149
     # via acryl-datahub-integrations (pyproject.toml)
 mypy-extensions==1.0.0
     # via
@@ -956,7 +964,7 @@ sqlalchemy==1.4.52
     #   -r requirements.txt
     #   acryl-datahub
     #   snowflake-sqlalchemy
-sqlglotrs==0.2.5
+sqlglotrs==0.2.7
     # via
     #   -r requirements.txt
     #   acryl-sqlglot
@@ -991,6 +999,11 @@ tabulate==0.9.0
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+tenacity==9.0.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 termcolor==2.4.0
     # via
     #   -r requirements.txt
@@ -1085,6 +1098,7 @@ typing-extensions==4.11.0
     #   great-expectations
     #   inflect
     #   mypy
+    #   mypy-boto3-bedrock-runtime
     #   pydantic
     #   pygithub
     #   python-utils

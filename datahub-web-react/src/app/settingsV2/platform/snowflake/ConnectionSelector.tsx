@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-import { Select } from 'antd';
+import { Form, Select } from 'antd';
 import styled from 'styled-components';
+import { Connection } from '@app/automations/types';
 
-import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
-import { useConnectionQuery } from '../../../../graphql/connection.generated';
-import { EntityType } from '../../../../types.generated';
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { useConnectionQuery } from '@graphql/connection.generated';
+import { EntityType } from '@src/types.generated';
 
-import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
+import FormField from '@app/ingest/source/builder/RecipeForm/FormField';
+import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+
 import { PLATFORM } from './SnowflakeIntegration';
 import { decodeJson, SnowflakeConnectionForm } from './Form';
 
+import { fields } from './constants';
 import { TestConnection } from './TestConnection';
 
 const Wrapper = styled.div`
@@ -22,19 +26,46 @@ const Wrapper = styled.div`
 const SelectWrapper = styled.div`
     display: flex;
     flex-direction: row;
+    justify-content: space-between;
     gap: 16px;
+
+    .ant-form-item {
+        margin-bottom: 0;
+        flex: 1;
+    }
+
+    .ant-form-item-row {
+        align-items: center;
+    }
+
+    .ant-form-item-label > label {
+        height: auto;
+        margin-bottom: 0;
+        margin-right: 8px;
+    }
+
+    .ant-form-item-label > label::after {
+        display: none;
+    }
 `;
 
 interface Props {
     handleChange: (value: any) => void;
+    connectionSelected: Connection;
+    updateConnectionDetails: (value: { database: string; schema: string }) => void;
 }
 
-export const SnowflakeConnectionSelector = ({ handleChange }: Props) => {
-    const [selectedConnection, setSelectedConnection] = useState<string | undefined>(undefined);
-    const [configValues, setConfigValues] = useState<any>({}); // Config values for the selected connection
+export const SnowflakeConnectionSelector = ({ connectionSelected, updateConnectionDetails, handleChange }: Props) => {
+    const [connectionUrn, setConnectionUrn] = useState<string>(connectionSelected?.urn);
+
+    const [formValues, setFormValues] = useState<{ database: string; schema: string }>({
+        database: connectionSelected?.data.database,
+        schema: connectionSelected?.data.schema,
+    });
+    const [form] = Form.useForm();
 
     const selectConnection = (value: string) => {
-        setSelectedConnection(value);
+        setConnectionUrn(value);
     };
 
     // Get list of connections
@@ -64,35 +95,88 @@ export const SnowflakeConnectionSelector = ({ handleChange }: Props) => {
         }),
     );
 
+    const optionLabels = options.reduce((acc, curr) => ({ ...acc, [curr.value]: curr.label }), {});
+
     // Fetch connection if when selected
     useConnectionQuery({
         variables: {
-            urn: selectedConnection || '',
+            urn: connectionUrn || '',
         },
         onCompleted: (connData) => {
             if (connData?.connection?.details?.json) {
                 const json = decodeJson(connData.connection.details.json.blob);
-                setConfigValues(json);
-                handleChange(json);
+                handleChange({ urn: connectionUrn, data: json });
             }
         },
-        skip: !selectedConnection,
+        skip: !connectionUrn || connectionUrn === 'new',
     });
+
+    // We display optional fields
+    const optionalFields = useMemo(() => {
+        return fields.filter((field) => !field.required);
+    }, []);
+
+    useEffect(() => {
+        setFormValues({
+            database: connectionSelected?.data.database,
+            schema: connectionSelected?.data.schema,
+        });
+    }, [connectionSelected?.data]);
+
+    useEffect(() => {
+        form.setFieldsValue({
+            database: formValues.database,
+            schema: formValues.schema,
+        });
+    }, [form, formValues]);
+
+    const updateFormValues = (changedValues: any, allValues: any) => {
+        setFormValues({ ...allValues, ...changedValues });
+    };
+
+    const getConnectionLabel = () => {
+        return connectionSelected?.data.name || optionLabels[connectionUrn];
+    };
+
+    const postSave = (newConnectionData: any) => {
+        setConnectionUrn('');
+        handleChange({ urn: '', data: newConnectionData });
+    };
+
+    const preTest = () => {
+        // Pushing the updated db and schema, just before test connection
+        // TODO: Push them after a successful connection
+        updateConnectionDetails({ database: formValues.database, schema: formValues.schema });
+    };
 
     return (
         <Wrapper>
-            <SelectWrapper>
-                <Select
-                    style={{ flex: 1 }}
-                    options={options}
-                    placeholder="Select a connection"
-                    onChange={(value) => selectConnection(value)}
-                    loading={loading}
-                    showSearch
-                />
-                {selectedConnection && selectedConnection !== 'new' && <TestConnection configValues={configValues} />}
-            </SelectWrapper>
-            {selectedConnection === 'new' && <SnowflakeConnectionForm />}
+            <Select
+                style={{ flex: 1 }}
+                options={options}
+                placeholder="Select a connection"
+                onChange={(value) => selectConnection(value)}
+                loading={loading}
+                showSearch
+                value={getConnectionLabel()}
+            />
+            {connectionUrn && connectionUrn !== 'new' && (
+                <Form form={form} onValuesChange={updateFormValues}>
+                    <SelectWrapper>
+                        {optionalFields.map((field) => (
+                            <FormField
+                                key={field.name}
+                                field={field}
+                                secrets={[]}
+                                refetchSecrets={() => {}}
+                                updateFormValue={() => {}}
+                            />
+                        ))}
+                        <TestConnection configValues={connectionSelected?.data || {}} preTest={preTest} />
+                    </SelectWrapper>
+                </Form>
+            )}
+            {connectionUrn === 'new' && <SnowflakeConnectionForm postSave={postSave} />}
         </Wrapper>
     );
 };

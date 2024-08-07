@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Checkbox } from 'antd';
 
-import { CheckboxGroup, CustomCheckboxLabel } from '../../../sharedComponents';
+import { CheckboxGroup, CustomCheckboxLabel } from '@app/automations/sharedComponents';
 
 const CheckboxLabel = ({ label, description }: any) => (
     <CustomCheckboxLabel>

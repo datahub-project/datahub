@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../constants';
+import InferDocsPanel from '../inferredDocs/InferDocsPanel';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
@@ -20,33 +21,40 @@ const StyledViewer = styled(Editor)`
 `;
 
 const OriginalDocumentation = styled(Form.Item)`
-    margin-bottom: 0;
+    margin-bottom: 12px;
 `;
 
 type Props = {
     title: string;
-    description?: string | undefined;
-    original?: string | undefined;
-    propagatedDescription?: string | undefined;
+    fieldPath?: string;
+    description?: string;
+    original?: string;
+    propagatedDescription?: string;
+    inferredDescription?: string;
     onClose: () => void;
     onSubmit: (description: string) => void;
     onPropose?: (description: string) => void;
     isAddDesc?: boolean;
     showPropose?: boolean;
+    inferOnMount?: boolean;
 };
 
 export default function UpdateDescriptionModal({
     title,
     description,
+    fieldPath,
     original,
     propagatedDescription,
+    inferredDescription,
     onClose,
     onSubmit,
     onPropose,
     isAddDesc,
     showPropose,
+    inferOnMount,
 }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
+    const [editorKey, setEditorKey] = useState(0);
 
     return (
         <Modal
@@ -74,9 +82,6 @@ export default function UpdateDescriptionModal({
             }
         >
             <Form layout="vertical">
-                <Form.Item>
-                    <StyledEditor content={updatedDesc} onChange={setDesc} />
-                </Form.Item>
                 {!isAddDesc && description && original && (
                     <OriginalDocumentation label={<FormLabel>Original:</FormLabel>}>
                         <StyledViewer content={original || ''} readOnly />
@@ -86,6 +91,25 @@ export default function UpdateDescriptionModal({
                     <OriginalDocumentation label={<FormLabel>Propagated:</FormLabel>}>
                         <StyledViewer content={propagatedDescription || ''} readOnly />
                     </OriginalDocumentation>
+                )}
+                {!isAddDesc && description && inferredDescription && (
+                    <OriginalDocumentation label={<FormLabel>AI Generated:</FormLabel>}>
+                        <StyledViewer content={inferredDescription || ''} readOnly />
+                    </OriginalDocumentation>
+                )}
+                <Form.Item>
+                    <StyledEditor key={editorKey} content={updatedDesc} onChange={setDesc} />
+                </Form.Item>
+
+                {fieldPath && (
+                    <InferDocsPanel
+                        forColumnPath={fieldPath}
+                        inferOnMount={inferOnMount}
+                        onInsertDescription={(desc) => {
+                            setDesc(updatedDesc + desc);
+                            setEditorKey((key) => key + 1);
+                        }}
+                    />
                 )}
             </Form>
         </Modal>

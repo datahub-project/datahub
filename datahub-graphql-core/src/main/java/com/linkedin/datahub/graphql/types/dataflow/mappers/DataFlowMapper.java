@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Documentation;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -28,6 +29,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
@@ -131,6 +133,10 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
     mappingHelper.mapToResult(
         ORIGIN_ASPECT_NAME,
         (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
+    mappingHelper.mapToResult(
+        DOCUMENTATION_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setDocumentation(DocumentationMapper.map(context, new Documentation(dataMap))));
     mappingHelper.mapToResult(
         LINEAGE_FEATURES_ASPECT_NAME,
         (entity, dataMap) ->

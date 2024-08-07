@@ -38,7 +38,7 @@ public class SetTagColorResolverTest {
   public void testGetSuccessExistingProperties() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     // Test setting the domain
     final TagProperties oldTagProperties = new TagProperties().setName("Test Tag");
@@ -69,8 +69,7 @@ public class SetTagColorResolverTest {
         MutationUtils.buildMetadataChangeProposalWithUrn(
             UrnUtils.getUrn(TEST_ENTITY_URN), TAG_PROPERTIES_ASPECT_NAME, newTagProperties);
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+    verifyIngestProposal(mockClient, 1, proposal);
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -80,7 +79,7 @@ public class SetTagColorResolverTest {
   public void testGetFailureNoExistingProperties() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     // Test setting the domain
     Mockito.when(
@@ -135,7 +134,7 @@ public class SetTagColorResolverTest {
                             ImmutableMap.of(
                                 Constants.TAG_PROPERTIES_ASPECT_NAME, oldTagPropertiesAspect)))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(false);
 
@@ -155,7 +154,7 @@ public class SetTagColorResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     SetTagColorResolver resolver = new SetTagColorResolver(mockClient, mockService);
 
     // Execute resolver

@@ -2,6 +2,7 @@ package com.datahub.authentication.post;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.AspectUtils.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.linkedin.common.Media;
 import com.linkedin.common.MediaType;
@@ -13,7 +14,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.key.PostKey;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.post.PostContent;
 import com.linkedin.post.PostContentType;
 import com.linkedin.post.PostInfo;
@@ -96,7 +96,7 @@ public class PostService {
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(POST_ENTITY_NAME, postKey, POST_INFO_ASPECT_NAME, postInfo);
 
-    proposal.setSystemMetadata(new SystemMetadata().setLastObserved(System.currentTimeMillis()));
+    proposal.setSystemMetadata(createDefaultSystemMetadata());
 
     _entityClient.ingestProposal(opContext, proposal);
 

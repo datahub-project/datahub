@@ -13,6 +13,7 @@ const ActiveTasksWrapper = styled.div`
     border: 1px solid #ebecf0;
     border-radius: 12px 12px 0px 0px;
     overflow: hidden;
+    z-index: 100;
 `;
 
 const Header = styled.div`

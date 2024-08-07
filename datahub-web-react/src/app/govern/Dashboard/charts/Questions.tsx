@@ -99,10 +99,7 @@ export const Questions = () => {
         <ChartGroup>
             <SecondaryHeading>Questions</SecondaryHeading>
             <Row>
-                <ChartCard
-                    title="Marketing Documentation Form Progress by Question"
-                    chart={<DocumentationProgressByQuestion />}
-                />
+                <ChartCard title="Progress by Question" chart={<DocumentationProgressByQuestion />} />
             </Row>
         </ChartGroup>
     );

@@ -403,6 +403,8 @@ bootstrap:
     enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
   backfillBrowsePathsV2:
     enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
+  defaultPersonas:
+    enabled: ${BOOTSTRAP_DEFAULT_PERSONAS:false} # Enables ingesting default personas
   reprocessDefaultBrowsePathsV2:
     enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false} # reprocess V2 browse paths which were set to the default: {"path":[{"id":"Default"}]}
   policies:
@@ -632,6 +634,7 @@ springdoc.api-docs.groups.enabled: true
 forms:
   hook:
     enabled: ${FORMS_HOOK_ENABLED:true}
+    completionEnabled: ${FORMS_COMPLETION_HOOK_ENABLED:true}
 
 businessAttribute:
   fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:20000}

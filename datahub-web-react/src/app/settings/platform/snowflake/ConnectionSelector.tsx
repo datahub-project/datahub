@@ -26,11 +26,13 @@ const SelectWrapper = styled.div`
 `;
 
 interface Props {
+    connectionSelected: any; // this is a map of connection details
     handleChange: (value: any) => void;
+    showFields?: boolean;
 }
 
-export const SnowflakeConnectionSelector = ({ handleChange }: Props) => {
-    const [selectedConnection, setSelectedConnection] = useState<string | undefined>(undefined);
+export const SnowflakeConnectionSelector = ({ connectionSelected, handleChange, showFields = false }: Props) => {
+    const [selectedConnection, setSelectedConnection] = useState<string | undefined>(connectionSelected?.urn);
     const [configValues, setConfigValues] = useState<any>({}); // Config values for the selected connection
 
     const selectConnection = (value: string) => {
@@ -76,8 +78,18 @@ export const SnowflakeConnectionSelector = ({ handleChange }: Props) => {
                 handleChange(json);
             }
         },
-        skip: !selectedConnection,
+        skip: !selectedConnection || selectedConnection === 'new',
     });
+
+    const showFieldsByDefault = showFields && connectionSelected;
+
+    if (showFieldsByDefault) {
+        return (
+            <Wrapper>
+                <SnowflakeConnectionForm defaultFormValues={connectionSelected} handleChange={handleChange} />
+            </Wrapper>
+        );
+    }
 
     return (
         <Wrapper>
@@ -92,7 +104,7 @@ export const SnowflakeConnectionSelector = ({ handleChange }: Props) => {
                 />
                 {selectedConnection && selectedConnection !== 'new' && <TestConnection configValues={configValues} />}
             </SelectWrapper>
-            {selectedConnection === 'new' && <SnowflakeConnectionForm />}
+            {selectedConnection === 'new' && <SnowflakeConnectionForm handleChange={handleChange} />}
         </Wrapper>
     );
 };

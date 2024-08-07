@@ -39,7 +39,7 @@ public class BatchAddTagsResolverTest {
 
   @Test
   public void testGetSuccessNoExistingTags() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -115,7 +115,7 @@ public class BatchAddTagsResolverTest {
                     ImmutableList.of(
                         new TagAssociation().setTag(TagUrn.createFromString(TEST_TAG_1_URN)))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -184,7 +184,7 @@ public class BatchAddTagsResolverTest {
 
   @Test
   public void testGetFailureTagDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -218,7 +218,7 @@ public class BatchAddTagsResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -263,7 +263,7 @@ public class BatchAddTagsResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     BatchAddTagsResolver resolver = new BatchAddTagsResolver(mockService);
 
@@ -286,7 +286,7 @@ public class BatchAddTagsResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)

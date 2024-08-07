@@ -41,7 +41,7 @@ import com.linkedin.datahub.graphql.resolvers.action.execution.StopActionPipelin
 import com.linkedin.datahub.graphql.resolvers.action.execution.UpsertActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
-import com.linkedin.datahub.graphql.resolvers.ai.SuggestDescriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.ai.InferDocumentationResolver;
 import com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
@@ -413,7 +413,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "deleteSubscription",
                     new DeleteSubscriptionResolver(this.subscriptionService, this.entityClient))
                 .dataFetcher(
-                    "suggestDescription", new SuggestDescriptionResolver(this.integrationsService))
+                    "inferDocumentation",
+                    new InferDocumentationResolver(this.integrationsService, this.entityClient))
                 .dataFetcher(
                     "batchSubmitFormPrompt", new BatchSubmitFormPromptResolver(this.formService))
                 .dataFetcher(
