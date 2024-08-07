@@ -91,6 +91,15 @@ public class KafkaEventConsumerFactory {
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
+    customizedProperties.put(
+        ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG,
+        kafkaConfiguration.getConsumer().getSessionTimeout());
+    customizedProperties.put(
+        ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG,
+        kafkaConfiguration.getConsumer().getMaxPollInterval());
+    customizedProperties.put(
+        ConsumerConfig.MAX_POLL_RECORDS_CONFIG,
+        kafkaConfiguration.getConsumer().getMaxPollRecords());
 
     return customizedProperties;
   }
