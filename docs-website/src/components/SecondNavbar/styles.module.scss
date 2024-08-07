@@ -1,0 +1,45 @@
+.secondNavbar {
+  background-color: #fff;
+  border-bottom: 1px solid #eaeaea;
+  position: relative;
+  z-index: 10;
+}
+
+.container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.coreCloudSwitch {
+  display: flex;
+  gap: 10px;
+  max-width: var(--doc-sidebar-width);
+}
+
+.docsSwitchButton {
+  align-items: center;
+  padding: 10px 15px;
+  color: black;
+  font-weight: 500;
+  font-size: 1.1rem;
+  text-decoration: none;
+  border: none;
+  background: none;
+  position: relative;
+
+  &:hover {
+    cursor: pointer;
+    text-decoration: none;
+    z-index: 11; 
+  }
+}
+
+.activeButton {
+  border-bottom: 2px solid #007bff;
+  z-index: 11; 
+}
+
+.searchBox {
+  margin-left: auto;
+}

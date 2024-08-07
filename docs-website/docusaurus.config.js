@@ -95,7 +95,7 @@ module.exports = {
               label: "Use Cases",
             },
             {
-              to: "/",
+              to: "/adoption-stories",
               label: "Adoption Stories",
             },
             {
@@ -328,7 +328,7 @@ module.exports = {
             require.resolve("./src/styles/global.scss"),
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
-            require.resolve("./src/components/SecondNavbar/secondnavbar.scss"),
+            require.resolve("./src/components/SecondNavbar/styles.module.scss"),
           ],
         },
         pages: {
