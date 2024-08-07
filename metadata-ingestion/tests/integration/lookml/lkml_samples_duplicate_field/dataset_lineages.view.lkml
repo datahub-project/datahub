@@ -40,6 +40,7 @@ view: dataset_lineages {
 
   dimension: version {
     type: number
+    tags: ["softVersion"]
     sql: ${TABLE}."VERSION" ;;
   }
 

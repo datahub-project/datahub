@@ -22,6 +22,7 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericTimeseriesAspect;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -56,6 +57,7 @@ public class TimeseriesController {
 
   @GetMapping(value = "/{entityName}/{aspectName}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<GenericScrollResult<GenericTimeseriesAspect>> getAspects(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("aspectName") String aspectName,
       @RequestParam(value = "count", defaultValue = "10") Integer count,
@@ -76,7 +78,9 @@ public class TimeseriesController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getAspects", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "getAspects", entityName),
             authorizationChain,
             authentication,
             true);

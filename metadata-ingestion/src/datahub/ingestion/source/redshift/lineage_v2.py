@@ -1,6 +1,5 @@
 import collections
 import logging
-import traceback
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import redshift_connector
@@ -105,7 +104,15 @@ class RedshiftSqlLineageV2:
             for schema, tables in schemas.items()
             for table in tables
         }
-        self.aggregator.is_temp_table = lambda urn: urn not in self.known_urns
+        self.aggregator._is_temp_table = (
+            lambda name: DatasetUrn.create_from_ids(
+                self.platform,
+                name,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            ).urn()
+            not in self.known_urns
+        )
 
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
@@ -241,8 +248,10 @@ class RedshiftSqlLineageV2:
                     processor(lineage_row)
         except Exception as e:
             self.report.warning(
-                f"lineage-v2-extract-{lineage_type.name}",
-                f"Error was {e}, {traceback.format_exc()}",
+                title="Failed to extract some lineage",
+                message=f"Failed to extract lineage of type {lineage_type.name}",
+                context=f"Query: '{query}'",
+                exc=e,
             )
             self._lineage_v1.report_status(f"extract-{lineage_type.name}", False)
 
@@ -409,3 +418,9 @@ class RedshiftSqlLineageV2:
     def generate(self) -> Iterable[MetadataWorkUnit]:
         for mcp in self.aggregator.gen_metadata():
             yield mcp.as_workunit()
+        if len(self.aggregator.report.observed_query_parse_failures) > 0:
+            self.report.report_warning(
+                title="Failed to extract some SQL lineage",
+                message="Unexpected error(s) while attempting to extract lineage from SQL queries. See the full logs for more details.",
+                context=f"Query Parsing Failures: {self.aggregator.report.observed_query_parse_failures}",
+            )

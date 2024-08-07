@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
 from datahub.cli import cli_utils, env_utils
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.run.pipeline import Pipeline
 from joblib import Parallel, delayed
 
@@ -23,7 +23,7 @@ def get_frontend_session():
 
 
 def login_as(username: str, password: str):
-    return cli_utils.get_session_login_as(
+    return cli_utils.get_frontend_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
     )
 
@@ -120,7 +120,7 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
 
 @functools.lru_cache(maxsize=1)
 def get_datahub_graph() -> DataHubGraph:
-    return DataHubGraph(DatahubClientConfig(server=get_gms_url()))
+    return get_default_graph()
 
 
 def delete_urn(urn: str) -> None:

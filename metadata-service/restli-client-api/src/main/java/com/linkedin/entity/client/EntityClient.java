@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
+import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToSystemAspectMap;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.VersionedUrn;
@@ -12,6 +13,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
@@ -601,5 +603,14 @@ public interface EntityClient {
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
     return entityResponseToAspectMap(batchGetV2(opContext, entityName, urns, aspectNames));
+  }
+
+  @Nonnull
+  default Map<Urn, Map<String, SystemAspect>> getLatestSystemAspect(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      throws RemoteInvocationException, URISyntaxException {
+    String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    return entityResponseToSystemAspectMap(
+        batchGetV2(opContext, entityName, urns, aspectNames), opContext.getEntityRegistry());
   }
 }

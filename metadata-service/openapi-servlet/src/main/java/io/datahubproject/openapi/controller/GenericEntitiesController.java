@@ -13,6 +13,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -48,20 +49,17 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.models.GenericAspect;
 import io.datahubproject.openapi.models.GenericEntity;
 import io.datahubproject.openapi.models.GenericEntityScrollResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,7 +78,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
 public abstract class GenericEntitiesController<
-    E extends GenericEntity, S extends GenericEntityScrollResult<E>> {
+    A extends GenericAspect,
+    E extends GenericEntity<A>,
+    S extends GenericEntityScrollResult<A, E>> {
   public static final String NOT_FOUND_HEADER = "Not-Found-Reason";
   protected static final SearchFlags DEFAULT_SEARCH_FLAGS =
       new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
@@ -113,10 +113,38 @@ public abstract class GenericEntitiesController<
       @Nullable String scrollId)
       throws URISyntaxException;
 
-  protected abstract List<E> buildEntityList(
+  protected List<E> buildEntityList(
       @Nonnull OperationContext opContext,
       List<Urn> urns,
       Set<String> aspectNames,
+      boolean withSystemMetadata)
+      throws URISyntaxException {
+
+    LinkedHashMap<Urn, Map<String, Long>> versionMap =
+        resolveAspectNames(
+            urns.stream()
+                .map(
+                    urn ->
+                        Map.entry(
+                            urn,
+                            aspectNames.stream()
+                                .map(aspectName -> Map.entry(aspectName, 0L))
+                                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (a, b) -> {
+                          throw new IllegalStateException("Duplicate key");
+                        },
+                        LinkedHashMap::new)),
+            0L);
+    return buildEntityVersionedAspectList(opContext, versionMap, withSystemMetadata);
+  }
+
+  protected abstract List<E> buildEntityVersionedAspectList(
+      @Nonnull OperationContext opContext,
+      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
       boolean withSystemMetadata)
       throws URISyntaxException;
 
@@ -136,6 +164,7 @@ public abstract class GenericEntitiesController<
   @GetMapping(value = "/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Scroll entities")
   public ResponseEntity<S> getEntities(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspects1,
       @RequestParam(value = "aspects", defaultValue = "") Set<String> aspects2,
@@ -149,7 +178,9 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
       @RequestParam(value = "skipCache", required = false, defaultValue = "false")
-          Boolean skipCache)
+          Boolean skipCache,
+      @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
+          Boolean includeSoftDelete)
       throws URISyntaxException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -163,7 +194,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getEntities", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "getEntities", entityName),
             authorizationChain,
             authentication,
             true);
@@ -182,7 +215,8 @@ public abstract class GenericEntitiesController<
         searchService.scrollAcrossEntities(
             opContext
                 .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
-                .withSearchFlags(flags -> flags.setSkipCache(skipCache)),
+                .withSearchFlags(flags -> flags.setSkipCache(skipCache))
+                .withSearchFlags(flags -> flags.setIncludeSoftDeleted(includeSoftDelete)),
             List.of(entitySpec.getName()),
             query,
             null,
@@ -210,6 +244,7 @@ public abstract class GenericEntitiesController<
       value = "/{entityName}/{entityUrn:urn:li:.+}",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<E> getEntity(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspects1,
@@ -228,7 +263,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getEntity", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "getEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -250,6 +287,7 @@ public abstract class GenericEntitiesController<
       method = {RequestMethod.HEAD})
   @Operation(summary = "Entity exists")
   public ResponseEntity<Object> headEntity(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable(value = "includeSoftDelete", required = false) Boolean includeSoftDelete)
@@ -265,7 +303,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("headEntity", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "headEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -280,10 +320,12 @@ public abstract class GenericEntitiesController<
       value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}",
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get an entity's generic aspect.")
-  public ResponseEntity<Object> getAspect(
+  public ResponseEntity<A> getAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
+      @RequestParam(value = "version", required = false, defaultValue = "0") Long version,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata)
       throws URISyntaxException {
@@ -298,18 +340,30 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "getAspect", entityName),
             authorizationChain,
             authentication,
             true);
 
-    return buildEntityList(opContext, List.of(urn), Set.of(aspectName), withSystemMetadata).stream()
+    final List<E> resultList;
+    if (version == 0) {
+      resultList = buildEntityList(opContext, List.of(urn), Set.of(aspectName), withSystemMetadata);
+    } else {
+      resultList =
+          buildEntityVersionedAspectList(
+              opContext,
+              new LinkedHashMap<>(Map.of(urn, Map.of(aspectName, version))),
+              withSystemMetadata);
+    }
+
+    return resultList.stream()
         .findFirst()
         .flatMap(
             e ->
                 e.getAspects().entrySet().stream()
-                    .filter(
-                        entry -> entry.getKey().equals(lookupAspectSpec(urn, aspectName).getName()))
+                    .filter(entry -> entry.getKey().equalsIgnoreCase(aspectName))
                     .map(Map.Entry::getValue)
                     .findFirst())
         .map(ResponseEntity::ok)
@@ -322,6 +376,7 @@ public abstract class GenericEntitiesController<
       method = {RequestMethod.HEAD})
   @Operation(summary = "Whether an entity aspect exists.")
   public ResponseEntity<Object> headAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
@@ -338,7 +393,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("headAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "headAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -352,7 +409,9 @@ public abstract class GenericEntitiesController<
   @DeleteMapping(value = "/{entityName}/{entityUrn:urn:li:.+}")
   @Operation(summary = "Delete an entity")
   public void deleteEntity(
-      @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn)
+      HttpServletRequest request,
+      @PathVariable("entityName") String entityName,
+      @PathVariable("entityUrn") String entityUrn)
       throws InvalidUrnException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -366,7 +425,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("deleteEntity", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "deleteEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -378,6 +439,7 @@ public abstract class GenericEntitiesController<
   @PostMapping(value = "/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Create a batch of entities.")
   public ResponseEntity<List<E>> createEntity(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @RequestParam(value = "async", required = false, defaultValue = "true") Boolean async,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
@@ -396,7 +458,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("createEntity", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "createEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -415,6 +479,7 @@ public abstract class GenericEntitiesController<
   @DeleteMapping(value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}")
   @Operation(summary = "Delete an entity aspect.")
   public void deleteAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName)
@@ -430,7 +495,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("deleteAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "deleteAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -445,15 +512,16 @@ public abstract class GenericEntitiesController<
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Create an entity aspect.")
   public ResponseEntity<E> createAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
-      @RequestParam(value = "createIfNotExists", required = false, defaultValue = "false")
+      @RequestParam(value = "createIfNotExists", required = false, defaultValue = "true")
           Boolean createIfNotExists,
       @RequestBody @Nonnull String jsonAspect)
-      throws URISyntaxException {
+      throws URISyntaxException, JsonProcessingException {
 
     Urn urn = validatedUrn(entityUrn);
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -467,7 +535,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("createAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "createAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -505,6 +575,7 @@ public abstract class GenericEntitiesController<
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Patch an entity aspect. (Experimental)")
   public ResponseEntity<E> patchAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
@@ -528,7 +599,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("patchAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "patchAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -581,23 +654,62 @@ public abstract class GenericEntitiesController<
             opContext, urn, aspect, includeSoftDelete != null ? includeSoftDelete : false);
   }
 
-  protected Set<AspectSpec> resolveAspectNames(Set<Urn> urns, Set<String> requestedAspectNames) {
-    if (requestedAspectNames.isEmpty()) {
-      return urns.stream()
-          .flatMap(u -> entityRegistry.getEntitySpec(u.getEntityType()).getAspectSpecs().stream())
-          .collect(Collectors.toSet());
-    } else {
-      // ensure key is always present
-      return Stream.concat(
-              urns.stream()
-                  .flatMap(
-                      urn ->
-                          requestedAspectNames.stream()
-                              .map(aspectName -> lookupAspectSpec(urn, aspectName))),
-              urns.stream()
-                  .map(u -> entityRegistry.getEntitySpec(u.getEntityType()).getKeyAspectSpec()))
-          .collect(Collectors.toSet());
-    }
+  /**
+   * Given a map with aspect names from the API, normalized them into actual aspect names (casing
+   * fixes)
+   *
+   * @param requestedAspectNames requested aspects
+   * @param <T> map values
+   * @return updated map
+   */
+  protected <T> LinkedHashMap<Urn, Map<String, T>> resolveAspectNames(
+      LinkedHashMap<Urn, Map<String, T>> requestedAspectNames, @Nonnull T defaultValue) {
+    return requestedAspectNames.entrySet().stream()
+        .map(
+            entry -> {
+              final Urn urn = entry.getKey();
+              if (entry.getValue().isEmpty() || entry.getValue().containsKey("")) {
+                // All aspects specified
+                Set<String> allNames =
+                    entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpecs().stream()
+                        .map(AspectSpec::getName)
+                        .collect(Collectors.toSet());
+                return Map.entry(
+                    urn,
+                    allNames.stream()
+                        .map(
+                            aspectName ->
+                                Map.entry(
+                                    aspectName, entry.getValue().getOrDefault("", defaultValue)))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+              } else {
+                final Map<String, String> normalizedNames =
+                    entry.getValue().keySet().stream()
+                        .map(
+                            requestAspectName ->
+                                Map.entry(
+                                    requestAspectName,
+                                    lookupAspectSpec(urn, requestAspectName).getName()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                return Map.entry(
+                    urn,
+                    entry.getValue().entrySet().stream()
+                        .filter(reqEntry -> normalizedNames.containsKey(reqEntry.getKey()))
+                        .map(
+                            reqEntry ->
+                                Map.entry(
+                                    normalizedNames.get(reqEntry.getKey()), reqEntry.getValue()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+              }
+            })
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (a, b) -> {
+                  throw new IllegalStateException("Duplicate key");
+                },
+                LinkedHashMap::new));
   }
 
   protected Map<String, Pair<RecordTemplate, SystemMetadata>> toAspectMap(
@@ -630,7 +742,9 @@ public abstract class GenericEntitiesController<
       Boolean createIfNotExists,
       String jsonAspect,
       Actor actor)
-      throws URISyntaxException {
+      throws JsonProcessingException {
+    JsonNode jsonNode = objectMapper.readTree(jsonAspect);
+    String aspectJson = jsonNode.get("value").toString();
     return ChangeItemImpl.builder()
         .urn(entityUrn)
         .aspectName(aspectSpec.getName())
@@ -638,7 +752,7 @@ public abstract class GenericEntitiesController<
         .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
         .recordTemplate(
             GenericRecordUtils.deserializeAspect(
-                ByteString.copyString(jsonAspect, StandardCharsets.UTF_8),
+                ByteString.copyString(aspectJson, StandardCharsets.UTF_8),
                 GenericRecordUtils.JSON,
                 aspectSpec))
         .build(aspectRetriever);
