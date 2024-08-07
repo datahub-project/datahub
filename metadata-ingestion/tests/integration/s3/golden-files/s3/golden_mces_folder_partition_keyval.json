@@ -7,16 +7,25 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
+                "number_of_partitions": "1",
+                "partitions": "{'min_partition': {'id': [('partition_key[0]', 'year'), ('partition[0]', '2022'), ('partition_key[1]', 'month'), ('partition[1]', 'jan')], 'creation_time': '2020-04-14 07:06:20+00:00', 'modification_time': '2020-04-14 07:06:20+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}, 'max_partition': {'id': [('partition_key[0]', 'year'), ('partition[0]', '2022'), ('partition_key[1]', 'month'), ('partition[1]', 'jan')], 'creation_time': '2020-04-14 07:06:20+00:00', 'modification_time': '2020-04-14 07:06:20+00:00', 'size': '14540', 'sample_file': 's3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json'}}"
             },
             "name": "folder_aaa.pokemon_abilities_json",
             "description": "",
+            "created": {
+                "time": 1586847980000
+            },
+            "lastModified": {
+                "time": 1586847980000
+            },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -541,28 +550,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1615443388097,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586847960000
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -582,7 +571,33 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "partitionsSummary",
+    "aspect": {
+        "json": {
+            "minPartition": {
+                "partition": "partition_key[0]=year/partition[0]=2022/partition_key[1]=month/partition[1]=jan",
+                "createdTime": 1586847980000,
+                "lastModifiedTime": 1586847980000
+            },
+            "maxPartition": {
+                "partition": "partition_key[0]=year/partition[0]=2022/partition_key[1]=month/partition[1]=jan",
+                "createdTime": 1586847980000,
+                "lastModifiedTime": 1586847980000
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -597,22 +612,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "operation",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:s3"
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847990000
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -629,7 +652,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -644,109 +684,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "s3",
-                "env": "UAT",
-                "folder_abs_path": "my-test-bucket/folder_a"
-            },
-            "name": "folder_a"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:s3"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
-                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -766,7 +705,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -781,22 +737,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:s3"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -813,22 +755,116 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "UAT",
+                "folder_abs_path": "my-test-bucket/folder_a"
+            },
+            "name": "folder_a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "container": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -852,7 +888,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -872,7 +909,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -887,22 +957,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:s3"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -919,22 +975,24 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "container": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+            "platform": "urn:li:dataPlatform:s3"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -962,7 +1020,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -977,7 +1036,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -992,7 +1052,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1024,7 +1085,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json"
+        "runId": "folder_partition_keyval.json",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

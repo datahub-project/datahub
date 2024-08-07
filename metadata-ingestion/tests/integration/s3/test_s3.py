@@ -15,6 +15,48 @@ from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
+FILE_LIST_FOR_VALIDATION = [
+    "folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
+    "folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
+    "folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
+    "folder_a/folder_aa/folder_aaa/countries_json.json",
+    "folder_a/folder_aa/folder_aaa/food_parquet.parquet",
+    "folder_a/folder_aa/folder_aaa/small.csv",
+    "folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=jan/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=jan/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=april/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=april/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/food_csv/part1.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part2.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part1.parquet",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
+    "folder_a/folder_aa/folder_aaa/no_extension/small",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=jan/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=jan/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=april/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=april/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/_temporary/dummy.json",
+]
+
 
 @pytest.fixture(scope="module", autouse=True)
 def bucket_names():
@@ -60,10 +102,13 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
         current_time_sec = datetime.strptime(
             FROZEN_TIME, "%Y-%m-%d %H:%M:%S"
         ).timestamp()
+        file_list = []
         for root, _dirs, files in os.walk(test_resources_dir):
+            _dirs.sort()
             for file in sorted(files):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, test_resources_dir)
+                file_list.append(rel_path)
                 bkt.upload_file(full_path, rel_path)
                 s3_client.put_object_tagging(
                     Bucket=bucket_name,
@@ -77,6 +122,9 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
                 )
                 current_time_sec += 10
                 key.last_modified = datetime.fromtimestamp(current_time_sec)
+
+        # This is used to make sure the list of files are the same in the test as locally
+        assert file_list == FILE_LIST_FOR_VALIDATION
     yield
 
 
