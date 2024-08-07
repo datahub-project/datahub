@@ -100,12 +100,14 @@ export type EntityFormContextType = {
         byQuestion: {
             showFinishRemainingAssets: boolean; // some assets for prompt have response
             showContinueToNextQuestion: boolean; // all assets for prompt have response
+            showGoToPreviousQuestion: boolean; // done with final question for completion form and form is not done
+            showContinueToVerification: boolean; // done with final question for verification form
             showCompleted: boolean; // all assets have response for all prompts, NOT verify form type
             showVerifyCTAHeader: boolean; // at least 1 asset has a response is ready for verification
             showVerifyCTA: boolean; // all assets have response to all prompts & ready for verification
         };
         bulkVerify: {
-            showReturnToQuestions: boolean; // all eligible assets verified, need to finish other assets not eligible
+            showReturnToQuestions: boolean; // all ready assets verified, need to finish other assets not ready
             showFinishRemainingAssets: boolean; // some assets are verified
             showCompleted: boolean; // all assets are verified
         };
@@ -195,6 +197,8 @@ export const DEFAULT_CONTEXT = {
         byQuestion: {
             showFinishRemainingAssets: false,
             showContinueToNextQuestion: false,
+            showGoToPreviousQuestion: false,
+            showContinueToVerification: false,
             showCompleted: false,
             showVerifyCTAHeader: false,
             showVerifyCTA: false,
