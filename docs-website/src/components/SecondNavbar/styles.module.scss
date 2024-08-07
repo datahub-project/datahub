@@ -12,21 +12,23 @@
 }
 
 .container {
+  padding: 0.5rem 1rem; 
   display: flex;
-  padding-top: 1rem;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .coreCloudSwitch {
   display: flex;
-  max-width: var(--doc-sidebar-width);
+  align-items: center; 
 }
 
 .docsSwitchButton {
   align-items: center;
-  padding: 0rem 1rem 1rem 1rem;
+  padding: 0.5rem 1rem;
   font-weight: 500;
   font-size: 1.1rem;
-  color: black; // Default color for light mode
+  color: black; 
   text-decoration: none;
   border: none;
   background: none;
@@ -34,28 +36,29 @@
   &:hover {
     cursor: pointer;
     text-decoration: none;
-    z-index: 11; 
-    color: #007bff; // Hover color for light mode
+    color: #007bff;
   }
 }
 
 .activeButton {
   border-bottom: 2px solid #007bff;
-  z-index: 11; 
 }
 
 .darkMode .docsSwitchButton {
-  color: white; 
+  color: white;
 
   &:hover {
-    color: #4db5ff; 
+    color: #4db5ff;
   }
 }
 
-.searchBox {
-  padding: 0rem 1rem 1rem 1rem;
+.searchBox,
+.colorModeToggle,
+.versionDropdown {
+  padding: 0.5rem 1rem; 
 }
 
-.colorModeToggle {
-  padding: 0rem 1rem 1rem 1rem;
+.navbar__items--right {
+  display: flex;
+  align-items: center;
 }
