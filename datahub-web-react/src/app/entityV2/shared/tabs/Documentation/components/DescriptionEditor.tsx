@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import styled from 'styled-components/macro';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
@@ -53,16 +53,16 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
 
-    const { displayedDescription, isUsingDocumentationAspect } = getAssetDescriptionDetails({
+    let { displayedDescription, isUsingDocumentationAspect } = getAssetDescriptionDetails({
         entityProperties: entityData,
         enableInferredDescriptions: useIsDocumentationInferenceEnabled(),
         defaultDescription: '',
     });
 
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
-    const description = editedDescriptions.hasOwnProperty(mutationUrn)
-        ? editedDescriptions[mutationUrn]
-        : displayedDescription;
+    const shouldUseEditedDescription = editedDescriptions.hasOwnProperty(mutationUrn);
+    const description = shouldUseEditedDescription ? editedDescriptions[mutationUrn] : displayedDescription;
+    isUsingDocumentationAspect = !shouldUseEditedDescription && isUsingDocumentationAspect;
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
     // Key to force re-render of the editor when the description is updated from server data. Only needed for full page refreshes mid edit
@@ -92,10 +92,14 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
      * If the documentation editor is refreshed mid edit, then this component will load without a description. if that description
      * comes in on the next frame, we need to update updatedDescription
      */
+    const hasInitializedDescriptionRef = useRef(!updatedDescription);
     useEffect(() => {
-        if (description && !updatedDescription) {
+        if (description && !updatedDescription && !hasInitializedDescriptionRef.current) {
             setUpdatedDescription(description);
             setEditorKey((prevKey) => prevKey + 1);
+            hasInitializedDescriptionRef.current = true;
+        } else if (updatedDescription) {
+            hasInitializedDescriptionRef.current = true;
         }
     }, [description, updatedDescription]);
 
