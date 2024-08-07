@@ -499,3 +499,28 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_rename.json",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_create_table_query_mcps(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=True,
+    )
+
+    aggregator.add_observed_query(
+        query="create or replace table `dataset.foo` (date_utc timestamp, revenue int);",
+        default_db="dev",
+        default_schema="public",
+        query_timestamp=datetime.now(),
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_create_table_query_mcps.json",
+    )

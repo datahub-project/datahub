@@ -4,13 +4,16 @@ import pathlib
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Iterable, List, Optional, TypedDict, Union
+from typing import Dict, Iterable, List, MutableMapping, Optional, TypedDict
 
 from google.cloud.bigquery import Client
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    get_time_bucket,
+)
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
@@ -32,13 +35,18 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
-    PreparsedQuery,
     SqlAggregatorReport,
     SqlParsingAggregator,
 )
-from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedDict,
+    FileBackedList,
+)
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +81,7 @@ class BigQueryJob(TypedDict):
     total_bytes_processed: int
     dml_statistics: Optional[DMLJobStatistics]
     session_id: Optional[str]
+    query_hash: Optional[str]
 
 
 class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
@@ -98,13 +107,22 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     include_query_usage_statistics: bool = False
     include_operations: bool = True
 
+    region_qualifiers: List[str] = Field(
+        default=["region-us", "region-eu"],
+        description="BigQuery regions to be scanned for bigquery jobs. See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs) for details.",
+    )
+
 
 @dataclass
 class BigQueryQueriesExtractorReport(Report):
     query_log_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
+    audit_log_preprocessing_timer: PerfTimer = field(default_factory=PerfTimer)
     audit_log_load_timer: PerfTimer = field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
     num_queries_by_project: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+
+    num_total_queries: int = 0
+    num_unique_queries: int = 0
 
 
 class BigQueryQueriesExtractor:
@@ -197,7 +215,7 @@ class BigQueryQueriesExtractor:
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
 
-        queries: FileBackedList[Union[PreparsedQuery, ObservedQuery]]
+        queries: FileBackedList[ObservedQuery]
         if use_cached_audit_log:
             logger.info("Using cached audit log")
             shared_connection = ConnectionWrapper(audit_log_file)
@@ -207,7 +225,7 @@ class BigQueryQueriesExtractor:
 
             shared_connection = ConnectionWrapper(audit_log_file)
             queries = FileBackedList(shared_connection)
-            entry: Union[PreparsedQuery, ObservedQuery]
+            entry: ObservedQuery
 
             with self.report.query_log_fetch_timer:
                 for project in get_projects(
@@ -216,22 +234,62 @@ class BigQueryQueriesExtractor:
                     for entry in self.fetch_query_log(project):
                         self.report.num_queries_by_project[project.id] += 1
                         queries.append(entry)
+                self.report.num_total_queries = len(queries)
+
+        with self.report.audit_log_preprocessing_timer:
+            # Preprocessing stage that deduplicates the queries using query hash per usage bucket
+            queries_deduped: MutableMapping[str, Dict[int, ObservedQuery]]
+            queries_deduped = self.deduplicate_queries(queries)
+            self.report.num_unique_queries = len(queries_deduped)
 
         with self.report.audit_log_load_timer:
-            for i, query in enumerate(queries):
-                if i % 1000 == 0:
-                    logger.info(f"Added {i} query log entries to SQL aggregator")
-                self.aggregator.add(query)
+            i = 0
+            # Is FileBackedDict OrderedDict ? i.e. keys / values are retrieved in same order as added ?
+            # Does aggregator expect to see queries in same order as they were executed ?
+            for query_instances in queries_deduped.values():
+                for _, query in query_instances.items():
+                    if i > 0 and i % 1000 == 0:
+                        logger.info(f"Added {i} query log entries to SQL aggregator")
+
+                    self.aggregator.add(query)
+                    i += 1
 
         yield from auto_workunit(self.aggregator.gen_metadata())
 
-    def fetch_query_log(
-        self, project: BigqueryProject
-    ) -> Iterable[Union[PreparsedQuery, ObservedQuery]]:
+    def deduplicate_queries(
+        self, queries: FileBackedList[ObservedQuery]
+    ) -> MutableMapping[str, Dict[int, ObservedQuery]]:
+        queries_deduped: FileBackedDict[Dict[int, ObservedQuery]] = FileBackedDict()
+        for query in queries:
+            time_bucket = (
+                datetime_to_ts_millis(
+                    get_time_bucket(query.timestamp, self.config.window.bucket_duration)
+                )
+                if query.timestamp
+                else 0
+            )
+            query_hash = get_query_fingerprint(
+                query.query, self.identifiers.platform, fast=True
+            )
+            query.query_hash = query_hash
+            if query_hash not in queries_deduped:
+                queries_deduped[query_hash] = {time_bucket: query}
+            else:
+                seen_query = queries_deduped[query_hash]
+                if time_bucket not in seen_query:
+                    seen_query[time_bucket] = query
+                else:
+                    observed_query = seen_query[time_bucket]
+                    observed_query.usage_multiplier += 1
+                    observed_query.timestamp = query.timestamp
+                queries_deduped[query_hash] = seen_query
+
+        return queries_deduped
+
+    def fetch_query_log(self, project: BigqueryProject) -> Iterable[ObservedQuery]:
 
         # Multi-regions from https://cloud.google.com/bigquery/docs/locations#supported_locations
-        regions = ["region-us", "region-eu"]
-        # TODO: support other regions as required - via a config
+        regions = self.config.region_qualifiers
 
         for region in regions:
             # Each region needs to be a different query
@@ -265,10 +323,7 @@ class BigQueryQueriesExtractor:
                     else:
                         yield entry
 
-    def _parse_audit_log_row(
-        self, row: BigQueryJob
-    ) -> Union[ObservedQuery, PreparsedQuery]:
-
+    def _parse_audit_log_row(self, row: BigQueryJob) -> ObservedQuery:
         timestamp: datetime = row["creation_time"]
         timestamp = timestamp.astimezone(timezone.utc)
 
@@ -284,6 +339,8 @@ class BigQueryQueriesExtractor:
             ),
             default_db=row["project_id"],
             default_schema=None,
+            # Not using BQ query hash as it's not always present
+            # query_hash=row["query_hash"],
         )
 
         return entry
@@ -319,7 +376,8 @@ def _build_enriched_query_log_query(
             total_bytes_billed,
             total_bytes_processed,
             dml_statistics,
-            session_info.session_id as session_id
+            session_info.session_id as session_id,
+            query_info.query_hashes.normalized_literals as query_hash
         FROM
             `{project_id}`.`{region}`.INFORMATION_SCHEMA.JOBS
         WHERE
@@ -327,4 +385,5 @@ def _build_enriched_query_log_query(
             creation_time <= '{audit_end_time}' AND
             error_result is null AND
             not CONTAINS_SUBSTR(query, '.INFORMATION_SCHEMA.')
+        ORDER BY creation_time
     """

@@ -83,7 +83,10 @@ class LoggedQuery:
     default_schema: Optional[str]
 
 
-ObservedQuery = LoggedQuery
+@dataclasses.dataclass
+class ObservedQuery(LoggedQuery):
+    query_hash: Optional[str] = None
+    usage_multiplier: int = 1
 
 
 @dataclasses.dataclass
@@ -489,8 +492,10 @@ class SqlParsingAggregator(Closeable):
                 default_db=item.default_db,
                 default_schema=item.default_schema,
                 session_id=item.session_id,
+                usage_multiplier=item.usage_multiplier,
                 query_timestamp=item.timestamp,
                 user=CorpUserUrn.from_string(item.user) if item.user else None,
+                query_hash=item.query_hash,
             )
         else:
             raise ValueError(f"Cannot add unknown item type: {type(item)}")
@@ -634,6 +639,7 @@ class SqlParsingAggregator(Closeable):
         usage_multiplier: int = 1,
         is_known_temp_table: bool = False,
         require_out_table_schema: bool = False,
+        query_hash: Optional[str] = None,
     ) -> None:
         """Add an observed query to the aggregator.
 
@@ -677,8 +683,7 @@ class SqlParsingAggregator(Closeable):
             if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
                 self.report.num_observed_queries_column_timeout += 1
 
-        query_fingerprint = parsed.query_fingerprint
-
+        query_fingerprint = query_hash or parsed.query_fingerprint
         self.add_preparsed_query(
             PreparsedQuery(
                 query_id=query_fingerprint,
@@ -1149,6 +1154,9 @@ class SqlParsingAggregator(Closeable):
         upstream_aspect.fineGrainedLineages = (
             upstream_aspect.fineGrainedLineages or None
         )
+
+        if not upstream_aspect.upstreams and not upstream_aspect.fineGrainedLineages:
+            return
 
         yield MetadataChangeProposalWrapper(
             entityUrn=downstream_urn,
