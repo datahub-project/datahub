@@ -12,7 +12,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.AspectsDoGetTimeseriesAspectValuesRequestBuilder;
-import com.linkedin.entity.AspectsDoIngestProposalRequestBuilder;
+import com.linkedin.entity.AspectsDoIngestProposalBatchRequestBuilder;
 import com.linkedin.entity.AspectsGetRequestBuilder;
 import com.linkedin.entity.AspectsRequestBuilders;
 import com.linkedin.entity.EntitiesBatchGetRequestBuilder;
@@ -50,6 +50,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.ListResult;
@@ -66,7 +67,9 @@ import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.MetadataChangeProposalArray;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
@@ -1047,23 +1050,36 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         .getValues();
   }
 
-  /**
-   * Ingest a MetadataChangeProposal event.
-   *
-   * @return the urn string ingested
-   */
+  @Nonnull
   @Override
-  public String ingestProposal(
+  public List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
-      @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      final boolean async)
+      @Nonnull Collection<MetadataChangeProposal> metadataChangeProposals,
+      boolean async)
       throws RemoteInvocationException {
-    final AspectsDoIngestProposalRequestBuilder requestBuilder =
+    final AspectsDoIngestProposalBatchRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS
-            .actionIngestProposal()
-            .proposalParam(metadataChangeProposal)
+            .actionIngestProposalBatch()
+            .proposalsParam(new MetadataChangeProposalArray(metadataChangeProposals))
             .asyncParam(String.valueOf(async));
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    String result =
+        sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return metadataChangeProposals.stream()
+        .map(
+            proposal -> {
+              if ("success".equals(result)) {
+                if (proposal.getEntityUrn() != null) {
+                  return proposal.getEntityUrn().toString();
+                } else {
+                  EntitySpec entitySpec =
+                      opContext.getEntityRegistry().getEntitySpec(proposal.getEntityType());
+                  return EntityKeyUtils.getUrnFromProposal(proposal, entitySpec.getKeyAspectSpec())
+                      .toString();
+                }
+              }
+              return null;
+            })
+        .collect(Collectors.toList());
   }
 
   @Override

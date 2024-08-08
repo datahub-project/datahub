@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
+import static com.linkedin.datahub.graphql.TestUtils.verifyIngestProposal;
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -66,13 +67,11 @@ public class UpsertIngestionSourceResolverTest {
             .setExecutorId(TEST_INPUT.getConfig().getExecutorId())
             .setDebugMode(TEST_INPUT.getConfig().getDebugMode()));
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
-            any(),
-            Mockito.eq(
-                MutationUtils.buildMetadataChangeProposalWithUrn(
-                    TEST_INGESTION_SOURCE_URN, INGESTION_INFO_ASPECT_NAME, info)),
-            Mockito.eq(false));
+    verifyIngestProposal(
+        mockClient,
+        1,
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            TEST_INGESTION_SOURCE_URN, INGESTION_INFO_ASPECT_NAME, info));
   }
 
   @Test

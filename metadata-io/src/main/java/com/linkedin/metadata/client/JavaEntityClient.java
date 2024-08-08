@@ -12,7 +12,6 @@ import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
@@ -24,6 +23,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -48,6 +48,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -60,6 +61,7 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -68,6 +70,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -738,35 +741,54 @@ public class JavaEntityClient implements EntityClient {
     return response.getValues();
   }
 
-  // TODO: Factor out ingest logic into a util that can be accessed by the java client and the
-  // resource
   @Override
-  public String ingestProposal(
+  @Nonnull
+  public List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
-      @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      final boolean async)
-      throws RemoteInvocationException {
+      @Nonnull Collection<MetadataChangeProposal> metadataChangeProposals,
+      boolean async) {
     String actorUrnStr =
         opContext.getSessionAuthentication().getActor() != null
             ? opContext.getSessionAuthentication().getActor().toUrnStr()
             : Constants.UNKNOWN_ACTOR;
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(UrnUtils.getUrn(actorUrnStr));
+    final AuditStamp auditStamp = AuditStampUtils.createAuditStamp(actorUrnStr);
 
     AspectsBatch batch =
         AspectsBatchImpl.builder()
-            .mcps(
-                List.of(metadataChangeProposal), auditStamp, opContext.getRetrieverContext().get())
+            .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get())
             .build();
 
-    Optional<IngestResult> one =
-        entityService.ingestProposal(opContext, batch, async).stream().findFirst();
+    Map<BatchItem, List<IngestResult>> resultMap =
+        entityService.ingestProposal(opContext, batch, async).stream()
+            .collect(Collectors.groupingBy(IngestResult::getRequest));
 
-    Urn urn = one.map(IngestResult::getUrn).orElse(metadataChangeProposal.getEntityUrn());
-    if (one.isPresent()) {
-      tryIndexRunId(opContext, urn, metadataChangeProposal.getSystemMetadata());
-    }
-    return urn.toString();
+    // Update runIds
+    batch.getItems().stream()
+        .filter(resultMap::containsKey)
+        .forEach(
+            requestItem -> {
+              List<IngestResult> results = resultMap.get(requestItem);
+              Optional<Urn> resultUrn =
+                  results.stream().map(IngestResult::getUrn).filter(Objects::nonNull).findFirst();
+              resultUrn.ifPresent(
+                  urn -> tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
+            });
+
+    // Preserve ordering
+    return batch.getItems().stream()
+        .map(
+            requestItem -> {
+              if (resultMap.containsKey(requestItem)) {
+                List<IngestResult> results = resultMap.get(requestItem);
+                return results.stream()
+                    .filter(r -> r.getUrn() != null)
+                    .findFirst()
+                    .map(r -> r.getUrn().toString())
+                    .orElse(null);
+              }
+              return null;
+            })
+        .collect(Collectors.toList());
   }
 
   @SneakyThrows
