@@ -57,7 +57,7 @@ a). In the `Provisioning` tab, configure the DataHub-SCIM endpoint as shown belo
 <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/scimConfig1.png"/>
 </p>
   
-* Note: the Bearer token would be a [personal access token generated from DataHub](../../docs/authentication/personal-access-tokens.md#creating-personal-access-tokens).
+Note: the Bearer token would be a [personal access token generated from DataHub](../../docs/authentication/personal-access-tokens.md#creating-personal-access-tokens)
 
 b). Configure the `To App` section as shown below:
 
