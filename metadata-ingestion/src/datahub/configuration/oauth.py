@@ -24,11 +24,11 @@ class OAuthConfiguration(ConfigModel):
         default=False,
     )
     client_secret: Optional[SecretStr] = Field(
-        description="client secret of the application if use_certificate = false"
+        None, description="client secret of the application if use_certificate = false"
     )
     encoded_oauth_public_key: Optional[str] = Field(
-        description="base64 encoded certificate content if use_certificate = true"
+        None, description="base64 encoded certificate content if use_certificate = true"
     )
     encoded_oauth_private_key: Optional[str] = Field(
-        description="base64 encoded private key content if use_certificate = true"
+        None, description="base64 encoded private key content if use_certificate = true"
     )

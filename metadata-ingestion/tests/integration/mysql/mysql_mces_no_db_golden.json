@@ -16,7 +16,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -31,7 +32,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -46,7 +48,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +66,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -78,7 +82,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -93,7 +98,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -141,7 +147,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -153,7 +159,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -165,7 +171,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=14)",
+                                "nativeDataType": "VARCHAR(14)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -177,7 +183,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=16)",
+                                "nativeDataType": "VARCHAR(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -189,8 +195,19 @@
                                         "com.linkedin.pegasus2avro.schema.EnumType": {}
                                     }
                                 },
-                                "nativeDataType": "ENUM('M', 'F')",
+                                "nativeDataType": "ENUM('M','F')",
                                 "recursive": false,
+                                "glossaryTerms": {
+                                    "terms": [
+                                        {
+                                            "urn": "urn:li:glossaryTerm:Gender"
+                                        }
+                                    ],
+                                    "auditStamp": {
+                                        "time": 1586847600000,
+                                        "actor": "urn:li:corpuser:datahub"
+                                    }
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -201,7 +218,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -213,7 +230,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -230,7 +248,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -250,7 +269,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -265,7 +285,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -313,7 +334,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -325,7 +346,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -337,7 +358,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -349,7 +370,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -361,7 +382,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -378,7 +400,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -398,7 +421,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -549,12 +573,14 @@
                         "1989-08-24"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -964,12 +990,14 @@
                         "1993-02-09"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -989,7 +1017,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1004,7 +1033,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1019,7 +1049,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1036,7 +1067,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1053,7 +1085,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1068,7 +1101,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1083,7 +1117,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1131,7 +1166,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=500)",
+                                "nativeDataType": "VARCHAR(500)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1143,7 +1178,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1155,7 +1190,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1167,7 +1202,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "LONGTEXT()",
+                                "nativeDataType": "LONGTEXT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1179,7 +1214,7 @@
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "DATETIME(fsp=6)",
+                                "nativeDataType": "DATETIME(6)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1191,7 +1226,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255)",
+                                "nativeDataType": "VARCHAR(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1203,7 +1238,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255)",
+                                "nativeDataType": "VARCHAR(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1215,7 +1250,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1232,7 +1268,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1249,7 +1286,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1269,7 +1307,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1284,7 +1323,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1333,7 +1373,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1346,7 +1386,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1358,7 +1398,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=150)",
+                                "nativeDataType": "VARCHAR(150)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1370,7 +1410,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=150)",
+                                "nativeDataType": "VARCHAR(150)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1382,7 +1422,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1394,7 +1434,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1406,7 +1446,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DOUBLE(asdecimal=True)",
+                                "nativeDataType": "DOUBLE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1418,7 +1458,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1435,7 +1476,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1452,7 +1494,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1472,7 +1515,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1487,7 +1531,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1538,7 +1583,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1550,7 +1595,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1562,7 +1607,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=150)",
+                                "nativeDataType": "VARCHAR(150)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1574,7 +1619,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DOUBLE(asdecimal=True)",
+                                "nativeDataType": "DOUBLE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1586,7 +1631,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1603,7 +1649,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1620,7 +1667,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1637,7 +1685,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1657,7 +1706,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1677,7 +1727,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1692,7 +1743,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1707,7 +1759,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1724,7 +1777,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1739,7 +1793,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1754,7 +1809,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1802,7 +1858,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1814,7 +1870,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1826,7 +1882,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1838,7 +1894,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1850,8 +1906,19 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
+                                "glossaryTerms": {
+                                    "terms": [
+                                        {
+                                            "urn": "urn:li:glossaryTerm:Email_Address"
+                                        }
+                                    ],
+                                    "auditStamp": {
+                                        "time": 1586847600000,
+                                        "actor": "urn:li:corpuser:datahub"
+                                    }
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -1862,7 +1929,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "FLOAT()",
+                                "nativeDataType": "FLOAT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1874,7 +1941,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1891,7 +1959,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1911,7 +1980,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1926,7 +1996,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1974,7 +2045,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1986,7 +2057,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1998,7 +2069,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -2022,7 +2093,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2039,7 +2111,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2059,7 +2132,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2140,10 +2214,17 @@
                 },
                 {
                     "fieldPath": "email_address",
-                    "uniqueCount": 0,
-                    "nullCount": 5,
-                    "nullProportion": 1,
-                    "sampleValues": []
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Bedecs@xyz.com",
+                        "Gratacos@xyz.com",
+                        "Axen@xyz.com",
+                        "Lee@xyz.com",
+                        "Donnell@xyz.com"
+                    ]
                 },
                 {
                     "fieldPath": "priority",
@@ -2177,12 +2258,14 @@
                         "3.8"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2203,37 +2286,26 @@
                 {
                     "fieldPath": "id",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "min": "None",
-                    "max": "None",
-                    "mean": "None",
-                    "median": "None",
-                    "stdev": "0.0",
-                    "sampleValues": []
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "description",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "sampleValues": []
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "customer_id",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "min": "None",
-                    "max": "None",
-                    "mean": "None",
-                    "median": "None",
-                    "stdev": "0.0",
-                    "sampleValues": []
+                    "nullCount": 0
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2253,7 +2325,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2268,7 +2341,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2283,7 +2357,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2300,7 +2375,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2315,7 +2391,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2330,7 +2407,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2378,7 +2456,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "SET('a', 'b', 'c', 'd')",
+                                "nativeDataType": "SET('a','b','c','d')",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -2390,7 +2468,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2407,7 +2486,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2427,7 +2507,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2442,7 +2523,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2490,7 +2572,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -2502,7 +2584,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2519,7 +2602,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2539,7 +2623,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2560,15 +2645,16 @@
                 {
                     "fieldPath": "col",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "sampleValues": []
+                    "nullCount": 0
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2589,15 +2675,119 @@
                 {
                     "fieldPath": "dummy",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "sampleValues": []
+                    "nullCount": 0
+                }
+            ],
+            "sizeInBytes": 16384
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),doubleVal)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),doubleVal)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),path)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),path)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),urn)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),urn)"
+                    ],
+                    "confidenceScore": 1.0
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Email_Address",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Email_Address"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Gender",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Gender"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

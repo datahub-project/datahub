@@ -6,7 +6,7 @@ import pytest
 
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import wait_for_port
+from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
 
 @pytest.fixture(scope="module")
@@ -22,12 +22,13 @@ def mssql_runner(docker_compose_runner, pytestconfig):
         time.sleep(5)
 
         # Run the setup.sql file to populate the database.
-        command = "docker exec testsqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql"
-        ret = subprocess.run(
-            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+        command = "docker exec testsqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql"
+        ret = subprocess.run(command, shell=True, capture_output=True)
         assert ret.returncode == 0
         yield docker_services
+
+    # The image is pretty large, so we remove it after the test.
+    cleanup_image("mcr.microsoft.com/mssql/server")
 
 
 SOURCE_FILES_PATH = "./tests/integration/sql_server/source_files"

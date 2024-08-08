@@ -1,12 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.ownership;
 
-import com.datahub.authentication.Authentication;
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.testng.Assert.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateOwnershipTypeInput;
-import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.OwnershipTypeService;
@@ -15,15 +19,11 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class CreateOwnershipTypeResolverTest {
 
-  private static final CreateOwnershipTypeInput TEST_INPUT = new CreateOwnershipTypeInput(
-      "Custom ownership",
-      "A custom ownership description for testing purposes");
+  private static final CreateOwnershipTypeInput TEST_INPUT =
+      new CreateOwnershipTypeInput(
+          "Custom ownership", "A custom ownership description for testing purposes");
 
   private static final Urn TEST_OWNERSHIP_TYPE_URN =
       Urn.createFromTuple(Constants.OWNERSHIP_TYPE_ENTITY_NAME, "test");
@@ -45,10 +45,12 @@ public class CreateOwnershipTypeResolverTest {
     assertEquals(ownershipType.getInfo().getDescription(), TEST_INPUT.getDescription());
     assertEquals(ownershipType.getType(), EntityType.CUSTOM_OWNERSHIP_TYPE);
 
-    Mockito.verify(mockService, Mockito.times(1)).createOwnershipType(
-        Mockito.eq(TEST_INPUT.getName()),
-        Mockito.eq(TEST_INPUT.getDescription()),
-        Mockito.any(Authentication.class), Mockito.anyLong());
+    Mockito.verify(mockService, Mockito.times(1))
+        .createOwnershipType(
+            any(),
+            Mockito.eq(TEST_INPUT.getName()),
+            Mockito.eq(TEST_INPUT.getDescription()),
+            Mockito.anyLong());
   }
 
   @Test
@@ -65,20 +67,16 @@ public class CreateOwnershipTypeResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
   public void testCreateOwnershipTypeServiceException() throws Exception {
     // Create resolver
     OwnershipTypeService mockService = Mockito.mock(OwnershipTypeService.class);
-    Mockito.doThrow(RuntimeException.class).when(mockService).createOwnershipType(
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class),
-        Mockito.anyLong());
+    Mockito.doThrow(RuntimeException.class)
+        .when(mockService)
+        .createOwnershipType(any(), Mockito.any(), Mockito.any(), Mockito.anyLong());
 
     CreateOwnershipTypeResolver resolver = new CreateOwnershipTypeResolver(mockService);
 
@@ -93,12 +91,13 @@ public class CreateOwnershipTypeResolverTest {
 
   private OwnershipTypeService initMockService() {
     OwnershipTypeService service = Mockito.mock(OwnershipTypeService.class);
-    Mockito.when(service.createOwnershipType(
-        Mockito.eq(TEST_INPUT.getName()),
-        Mockito.eq(TEST_INPUT.getDescription()),
-        Mockito.any(Authentication.class),
-        Mockito.anyLong()
-    )).thenReturn(TEST_OWNERSHIP_TYPE_URN);
+    Mockito.when(
+            service.createOwnershipType(
+                any(),
+                Mockito.eq(TEST_INPUT.getName()),
+                Mockito.eq(TEST_INPUT.getDescription()),
+                Mockito.anyLong()))
+        .thenReturn(TEST_OWNERSHIP_TYPE_URN);
     return service;
   }
 }

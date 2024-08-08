@@ -12,6 +12,8 @@ import ExpandingStat from './ExpandingStat';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
+    @media (min-width: 1160px) {
+        white-space: nowrap;
 `;
 
 const PopoverContent = styled.div`
@@ -28,6 +30,7 @@ type Props = {
     lastUpdatedMs?: number | null;
     color?: string;
     mode?: 'normal' | 'tooltip-content';
+    shouldWrap?: boolean;
 };
 
 export const DatasetStatsSummary = ({
@@ -40,6 +43,7 @@ export const DatasetStatsSummary = ({
     lastUpdatedMs,
     color,
     mode = 'normal',
+    shouldWrap,
 }: Props) => {
     const isTooltipMode = mode === 'tooltip-content';
     const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
@@ -103,5 +107,5 @@ export const DatasetStatsSummary = ({
         ),
     ].filter((stat) => stat);
 
-    return <>{statsViews.length > 0 && <StatsSummary stats={statsViews} />}</>;
+    return <>{statsViews.length > 0 && <StatsSummary stats={statsViews} shouldWrap={shouldWrap} />}</>;
 };

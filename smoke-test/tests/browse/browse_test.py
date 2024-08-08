@@ -1,9 +1,6 @@
-import time
-
 import pytest
-import requests_wrapper as requests
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
 
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
 
 TEST_DATASET_1_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-1,PROD)"
 TEST_DATASET_2_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-2,PROD)"
@@ -28,7 +25,6 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_get_browse_paths(frontend_session, ingest_cleanup_data):
-
     # Iterate through each browse path, starting with the root
 
     get_browse_paths_query = """query browse($input: BrowseInput!) {\n
@@ -51,7 +47,9 @@ def test_get_browse_paths(frontend_session, ingest_cleanup_data):
     # /prod -- There should be one entity
     get_browse_paths_json = {
         "query": get_browse_paths_query,
-        "variables": {"input": { "type": "DATASET", "path": ["prod"], "start": 0, "count": 100 } },
+        "variables": {
+            "input": {"type": "DATASET", "path": ["prod"], "start": 0, "count": 100}
+        },
     }
 
     response = frontend_session.post(
@@ -67,12 +65,19 @@ def test_get_browse_paths(frontend_session, ingest_cleanup_data):
 
     browse = res_data["data"]["browse"]
     print(browse)
-    assert browse["entities"] == [{ "urn": TEST_DATASET_3_URN }]
+    assert browse["entities"] == [{"urn": TEST_DATASET_3_URN}]
 
     # /prod/kafka1
     get_browse_paths_json = {
         "query": get_browse_paths_query,
-        "variables": {"input": { "type": "DATASET", "path": ["prod", "kafka1"], "start": 0, "count": 10 } },
+        "variables": {
+            "input": {
+                "type": "DATASET",
+                "path": ["prod", "kafka1"],
+                "start": 0,
+                "count": 10,
+            }
+        },
     }
 
     response = frontend_session.post(
@@ -88,16 +93,27 @@ def test_get_browse_paths(frontend_session, ingest_cleanup_data):
 
     browse = res_data["data"]["browse"]
     assert browse == {
-      "total": 3,
-      "entities": [{ "urn": TEST_DATASET_1_URN }, { "urn": TEST_DATASET_2_URN }, { "urn": TEST_DATASET_3_URN }],
-      "groups": [],
-      "metadata": { "path": ["prod", "kafka1"], "totalNumEntities": 0 }
+        "total": 3,
+        "entities": [
+            {"urn": TEST_DATASET_1_URN},
+            {"urn": TEST_DATASET_2_URN},
+            {"urn": TEST_DATASET_3_URN},
+        ],
+        "groups": [],
+        "metadata": {"path": ["prod", "kafka1"], "totalNumEntities": 0},
     }
 
     # /prod/kafka2
     get_browse_paths_json = {
         "query": get_browse_paths_query,
-        "variables": {"input": { "type": "DATASET", "path": ["prod", "kafka2"], "start": 0, "count": 10 } },
+        "variables": {
+            "input": {
+                "type": "DATASET",
+                "path": ["prod", "kafka2"],
+                "start": 0,
+                "count": 10,
+            }
+        },
     }
 
     response = frontend_session.post(
@@ -113,10 +129,8 @@ def test_get_browse_paths(frontend_session, ingest_cleanup_data):
 
     browse = res_data["data"]["browse"]
     assert browse == {
-      "total": 2,
-      "entities": [{ "urn": TEST_DATASET_1_URN }, { "urn": TEST_DATASET_2_URN }],
-      "groups": [],
-      "metadata": { "path": ["prod", "kafka2"], "totalNumEntities": 0 }
+        "total": 2,
+        "entities": [{"urn": TEST_DATASET_1_URN}, {"urn": TEST_DATASET_2_URN}],
+        "groups": [],
+        "metadata": {"path": ["prod", "kafka2"], "totalNumEntities": 0},
     }
-
-

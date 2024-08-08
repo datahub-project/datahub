@@ -18,8 +18,8 @@ import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID } from '../onboarding/config/DomainsOnboardingConfig';
 import { getElasticCappedTotalValueText } from '../entity/shared/constants';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import { IconStyleType } from '../entity/Entity';
 import { DomainOwnersColumn, DomainListMenuColumn, DomainNameColumn } from './DomainListColumns';
+import DomainIcon from './DomainIcon';
 
 const DomainsContainer = styled.div``;
 
@@ -82,7 +82,6 @@ export const DomainsList = () => {
         }, 2000);
     };
 
-    const logoIcon = entityRegistry.getIcon(EntityType.Domain, 12, IconStyleType.ACCENT);
     const allColumns = [
         {
             title: 'Name',
@@ -91,7 +90,14 @@ export const DomainsList = () => {
             sorter: (sourceA, sourceB) => {
                 return sourceA.name.localeCompare(sourceB.name);
             },
-            render: DomainNameColumn(logoIcon),
+            render: DomainNameColumn(
+                <DomainIcon
+                    style={{
+                        fontSize: 12,
+                        color: '#BFBFBF',
+                    }}
+                />,
+            ),
         },
         {
             title: 'Owners',

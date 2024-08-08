@@ -9,7 +9,7 @@
             "customProperties": {
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
                 "number_of_files": "1",
-                "size_in_bytes": "1024"
+                "size_in_bytes": "619"
             },
             "name": "chord_progressions_avro.avro",
             "description": "",
@@ -47,62 +47,62 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=double].Progression Quality",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FirstChord",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "double",
+                    "nativeDataType": "FirstChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=long].1st chord",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "long",
+                    "nativeDataType": "FourthChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=long].2nd chord",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].SecondChord",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "long",
+                    "nativeDataType": "SecondChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=long].3rd chord",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].ThirdChord",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "long",
+                    "nativeDataType": "ThirdChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=string].4th chord",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=string].ProgressionQuality",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "string",
+                    "nativeDataType": "ProgressionQuality",
                     "recursive": false,
                     "isPartOfKey": false
                 }

@@ -1,0 +1,9 @@
+datahub_api:  # Only necessary if using a non-DataHub sink, e.g. the file sink
+  server: http://localhost:8080
+  timeout_sec: 60
+source:
+  type: sql-queries
+  config:
+    platform: "snowflake"
+    default_db: "SNOWFLAKE"
+    query_file: "./queries.json"

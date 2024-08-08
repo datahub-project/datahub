@@ -15,18 +15,17 @@ from typing import (
     Union,
 )
 
-import entrypoints
 import typing_inspect
 
 from datahub import __package_name__
 from datahub.configuration.common import ConfigurationError
 
-T = TypeVar("T")
+if sys.version_info < (3, 10):
+    from importlib_metadata import entry_points
+else:
+    from importlib.metadata import entry_points
 
-# TODO: The `entrypoints` library is in maintenance mode and is not actively developed.
-# We should switch to importlib.metadata once we drop support for Python 3.7.
-# See https://entrypoints.readthedocs.io/en/latest/ and
-# https://docs.python.org/3/library/importlib.metadata.html.
+T = TypeVar("T")
 
 
 def _is_importable(path: str) -> bool:
@@ -141,16 +140,8 @@ class PluginRegistry(Generic[T]):
         self._entrypoints.append(entry_point_key)
 
     def _load_entrypoint(self, entry_point_key: str) -> None:
-        entry_point: entrypoints.EntryPoint
-        for entry_point in entrypoints.get_group_all(entry_point_key):
-            name = entry_point.name
-
-            if entry_point.object_name is None:
-                path = entry_point.module_name
-            else:
-                path = f"{entry_point.module_name}:{entry_point.object_name}"
-
-            self.register_lazy(name, path)
+        for entry_point in entry_points(group=entry_point_key):
+            self.register_lazy(entry_point.name, entry_point.value)
 
     def _materialize_entrypoints(self) -> None:
         for entry_point_key in self._entrypoints:
@@ -192,6 +183,12 @@ class PluginRegistry(Generic[T]):
         else:
             # If it's not an exception, then it's a registered type.
             return tp
+
+    def get_optional(self, key: str) -> Optional[Type[T]]:
+        try:
+            return self.get(key)
+        except Exception:
+            return None
 
     def summary(
         self, verbose: bool = True, col_width: int = 15, verbose_col_width: int = 20

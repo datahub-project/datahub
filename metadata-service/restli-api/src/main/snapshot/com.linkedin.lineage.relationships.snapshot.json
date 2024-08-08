@@ -141,8 +141,9 @@
           }, {
             "name" : "degree",
             "type" : "int",
-            "doc" : "Degree of relationship (number of hops to get to entity)",
-            "default" : 1
+            "doc" : "Degree of relationship (number of hops to get to entity)\nDeprecated by degrees. degree field is populated by min(degrees) for backward compatibility.",
+            "default" : 1,
+            "deprecated" : true
           }, {
             "name" : "createdOn",
             "type" : "long",
@@ -168,6 +169,29 @@
             "type" : "boolean",
             "doc" : "Whether this lineage edge is a manual edge.",
             "optional" : true
+          }, {
+            "name" : "degrees",
+            "type" : {
+              "type" : "array",
+              "items" : "int"
+            },
+            "doc" : "The different depths at which this entity is discovered in the lineage graph.\nMarked as optional to maintain backward compatibility, but is filled out by implementations. \nReplaces the deprecated field \"degree\".\n",
+            "optional" : true
+          }, {
+            "name" : "explored",
+            "type" : "boolean",
+            "doc" : "Marks this relationship as explored during the graph walk",
+            "optional" : true
+          }, {
+            "name" : "truncatedChildren",
+            "type" : "boolean",
+            "doc" : "Indicates this destination node has additional unexplored child relationships",
+            "optional" : true
+          }, {
+            "name" : "ignoredAsHop",
+            "type" : "boolean",
+            "doc" : "Whether this relationship was ignored as a hop while performing the graph walk",
+            "optional" : true
           } ]
         }
       },
@@ -180,10 +204,12 @@
     "path" : "/relationships",
     "schema" : "com.linkedin.common.EntityRelationships",
     "doc" : "Rest.li entry point: /relationships?type={entityType}&direction={direction}&types={types}\n\ngenerated from: com.linkedin.metadata.resources.lineage.Relationships",
+    "resourceClass" : "com.linkedin.metadata.resources.lineage.Relationships",
     "simple" : {
       "supports" : [ "delete", "get" ],
       "methods" : [ {
         "method" : "get",
+        "javaMethodName" : "get",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
@@ -204,6 +230,7 @@
         } ]
       }, {
         "method" : "delete",
+        "javaMethodName" : "delete",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
@@ -211,6 +238,7 @@
       } ],
       "actions" : [ {
         "name" : "getLineage",
+        "javaMethodName" : "getLineage",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -9,10 +10,9 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 
-
 /**
- * Resolver responsible for hard deleting a particular DataHub Ingestion Source. Requires MANAGE_INGESTION
- * privilege.
+ * Resolver responsible for hard deleting a particular DataHub Ingestion Source. Requires
+ * MANAGE_INGESTION privilege.
  */
 public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFuture<String>> {
 
@@ -28,15 +28,23 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
     if (IngestionAuthUtils.canManageIngestion(context)) {
       final String ingestionSourceUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(ingestionSourceUrn);
-      return CompletableFuture.supplyAsync(() -> {
-        try {
-          _entityClient.deleteEntity(urn, context.getAuthentication());
-          return ingestionSourceUrn;
-        } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to perform delete against ingestion source with urn %s", ingestionSourceUrn), e);
-        }
-      });
+      return GraphQLConcurrencyUtils.supplyAsync(
+          () -> {
+            try {
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
+              return ingestionSourceUrn;
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format(
+                      "Failed to perform delete against ingestion source with urn %s",
+                      ingestionSourceUrn),
+                  e);
+            }
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    throw new AuthorizationException(
+        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }

@@ -1,0 +1,17 @@
+namespace com.linkedin.datacontract
+
+import com.linkedin.common.Urn
+
+/**
+ * Expectations for a logical schema
+ */
+record SchemaContract {
+  /**
+   * The assertion representing the schema contract.
+   */
+  @Relationship = {
+    "name": "IncludesSchemaAssertion",
+    "entityTypes": [ "assertion" ]
+  }
+  assertion: Urn
+}

@@ -1,7 +1,9 @@
+import { PageRoutes } from '../../conf/Global';
 import { useDeleteAssertionMutation } from '../../graphql/assertion.generated';
 import { useDeleteDataProductMutation } from '../../graphql/dataProduct.generated';
 import { useDeleteDomainMutation } from '../../graphql/domain.generated';
 import { useDeleteGlossaryEntityMutation } from '../../graphql/glossary.generated';
+import { useDeleteBusinessAttributeMutation } from '../../graphql/businessAttribute.generated';
 import { useRemoveGroupMutation } from '../../graphql/group.generated';
 import { useDeleteTagMutation } from '../../graphql/tag.generated';
 import { useRemoveUserMutation } from '../../graphql/user.generated';
@@ -18,10 +20,11 @@ export const getEntityProfileDeleteRedirectPath = (type: EntityType, entityData:
     switch (type) {
         case EntityType.CorpGroup:
         case EntityType.CorpUser:
-        case EntityType.Domain:
         case EntityType.Tag:
             // Return Home.
             return '/';
+        case EntityType.Domain:
+            return `${PageRoutes.DOMAINS}`;
         case EntityType.GlossaryNode:
         case EntityType.GlossaryTerm:
             // Return to glossary page.
@@ -32,6 +35,8 @@ export const getEntityProfileDeleteRedirectPath = (type: EntityType, entityData:
                 return `/domain/${domain.urn}/Data Products`;
             }
             return '/';
+        case EntityType.BusinessAttribute:
+            return `${PageRoutes.BUSINESS_ATTRIBUTE}`;
         default:
             return () => undefined;
     }
@@ -61,6 +66,8 @@ export const getDeleteEntityMutation = (type: EntityType) => {
             return useDeleteGlossaryEntityMutation;
         case EntityType.DataProduct:
             return useDeleteDataProductMutation;
+        case EntityType.BusinessAttribute:
+            return useDeleteBusinessAttributeMutation;
         default:
             return () => undefined;
     }

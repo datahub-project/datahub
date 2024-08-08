@@ -67,15 +67,6 @@ docker system prune
 
 </details>
 
-<details>
-<summary>
-Still stuck?
-</summary>
-
-Hop over to our [Slack community](https://slack.datahubproject.io) and ask for help in the [#troubleshoot](https://datahubspace.slack.com/archives/C029A3M079U) channel!
-
-</details>
-
 ## How can I confirm if all Docker containers are running as expected after a quickstart?
 
 If you set up the `datahub` CLI tool (see [here](../../metadata-ingestion/README.md)), you can use the built-in check utility:
@@ -88,10 +79,10 @@ You can list all Docker containers in your local by running `docker container ls
 
 ```
 CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS              PORTS                                                      NAMES
-979830a342ce        linkedin/datahub-mce-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mce-consumer
-3abfc72e205d        linkedin/datahub-frontend-react:latest              "datahub-frontend…"   10 hours ago        Up 10 hours         0.0.0.0:9002->9002/tcp                                     datahub-frontend
-50b2308a8efd        linkedin/datahub-mae-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mae-consumer
-4d6b03d77113        linkedin/datahub-gms:latest                         "bash -c 'dockerize …"   10 hours ago        Up 10 hours         0.0.0.0:8080->8080/tcp                                     datahub-gms
+979830a342ce        acryldata/datahub-mce-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mce-consumer
+3abfc72e205d        acryldata/datahub-frontend-react:latest              "datahub-frontend…"   10 hours ago        Up 10 hours         0.0.0.0:9002->9002/tcp                                     datahub-frontend
+50b2308a8efd        acryldata/datahub-mae-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mae-consumer
+4d6b03d77113        acryldata/datahub-gms:latest                         "bash -c 'dockerize …"   10 hours ago        Up 10 hours         0.0.0.0:8080->8080/tcp                                     datahub-gms
 c267c287a235        landoop/schema-registry-ui:latest                     "/run.sh"                10 hours ago        Up 10 hours         0.0.0.0:8000->8000/tcp                                     schema-registry-ui
 4b38899cc29a        confluentinc/cp-schema-registry:5.2.1                 "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:8081->8081/tcp                                     schema-registry
 37c29781a263        confluentinc/cp-kafka:5.2.1                           "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:9092->9092/tcp, 0.0.0.0:29092->29092/tcp           broker
@@ -99,7 +90,7 @@ c267c287a235        landoop/schema-registry-ui:latest                     "/run.
 943e60f9b4d0        neo4j:4.0.6                                           "/sbin/tini -g -- /d…"   10 hours ago        Up 10 hours         0.0.0.0:7474->7474/tcp, 7473/tcp, 0.0.0.0:7687->7687/tcp   neo4j
 6d79b6f02735        confluentinc/cp-zookeeper:5.2.1                       "/etc/confluent/dock…"   10 hours ago        Up 10 hours         2888/tcp, 0.0.0.0:2181->2181/tcp, 3888/tcp                 zookeeper
 491d9f2b2e9e        docker.elastic.co/elasticsearch/elasticsearch:5.6.8   "/bin/bash bin/es-do…"   10 hours ago        Up 10 hours         0.0.0.0:9200->9200/tcp, 9300/tcp                           elasticsearch
-ce14b9758eb3        mysql:5.7
+ce14b9758eb3        mysql:8.2
 ```
 
 Also you can check individual Docker container logs by running `docker logs <<container_name>>`. For `datahub-gms`, you should see a log similar to this at the end of the initialization:
@@ -255,7 +246,7 @@ ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_
 ## I've modified the default user.props file to include a custom username and password, but I don't see the new user(s) inside the Users & Groups tab. Why not?
 
 Currently, `user.props` is a file used by the JAAS PropertyFileLoginModule solely for the purpose of **Authentication**. The file is not used as an source from which to
-ingest additional metadata about the user. For that, you'll need to ingest some custom information about your new user using the Rest.li APIs or the [File-based ingestion source](../generated/ingestion/sources/file.md).
+ingest additional metadata about the user. For that, you'll need to ingest some custom information about your new user using the Rest.li APIs or the [Metadata File ingestion source](../generated/ingestion/sources/metadata-file.md).
 
 For an example of a file that ingests user information, check out [single_mce.json](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/mce_files/single_mce.json), which ingests a single user object into DataHub. Notice that the "urn" field provided
 will need to align with the custom username you've provided in user.props file. For example, if your user.props file contains:

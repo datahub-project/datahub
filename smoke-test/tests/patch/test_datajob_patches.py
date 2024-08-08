@@ -37,16 +37,12 @@ def test_datajob_ownership_patch(wait_for_healthchecks):
 
 # Tags
 def test_datajob_tags_patch(wait_for_healthchecks):
-    helper_test_dataset_tags_patch(
-        _make_test_datajob_urn(), DataJobPatchBuilder
-    )
+    helper_test_dataset_tags_patch(_make_test_datajob_urn(), DataJobPatchBuilder)
 
 
 # Terms
 def test_dataset_terms_patch(wait_for_healthchecks):
-    helper_test_entity_terms_patch(
-        _make_test_datajob_urn(), DataJobPatchBuilder
-    )
+    helper_test_entity_terms_patch(_make_test_datajob_urn(), DataJobPatchBuilder)
 
 
 # Custom Properties
@@ -85,10 +81,12 @@ def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
 
     with DataHubGraph(DataHubGraphConfig()) as graph:
         graph.emit_mcp(mcpw)
-        inputoutput_lineage_read: DataJobInputOutputClass = graph.get_aspect(
+        inputoutput_lineage_read = graph.get_aspect(
             entity_urn=datajob_urn,
             aspect_type=DataJobInputOutputClass,
         )
+        assert inputoutput_lineage_read is not None
+        assert inputoutput_lineage_read.inputDatasetEdges is not None
         assert (
             inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
             == other_dataset_urn
@@ -106,6 +104,8 @@ def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
             entity_urn=datajob_urn,
             aspect_type=DataJobInputOutputClass,
         )
+        assert inputoutput_lineage_read is not None
+        assert inputoutput_lineage_read.inputDatasetEdges is not None
         assert len(inputoutput_lineage_read.inputDatasetEdges) == 2
         assert (
             inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn
@@ -128,6 +128,8 @@ def test_datajob_inputoutput_dataset_patch(wait_for_healthchecks):
             entity_urn=datajob_urn,
             aspect_type=DataJobInputOutputClass,
         )
+        assert inputoutput_lineage_read is not None
+        assert inputoutput_lineage_read.inputDatasetEdges is not None
         assert len(inputoutput_lineage_read.inputDatasetEdges) == 1
         assert (
             inputoutput_lineage_read.inputDatasetEdges[0].destinationUrn

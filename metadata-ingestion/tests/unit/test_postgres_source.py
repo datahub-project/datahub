@@ -65,23 +65,6 @@ def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
     assert create_engine_mock.call_args_list[0][0][0] == "custom_url"
 
 
-def test_database_alias_takes_precendence():
-    config = PostgresConfig.parse_obj(
-        {
-            **_base_config(),
-            "database_alias": "ops_database",
-            "database": "postgres",
-        }
-    )
-    mock_inspector = mock.MagicMock()
-    assert (
-        PostgresSource(config, PipelineContext(run_id="test")).get_identifier(
-            schema="superset", entity="logs", inspector=mock_inspector
-        )
-        == "ops_database.superset.logs"
-    )
-
-
 def test_database_in_identifier():
     config = PostgresConfig.parse_obj({**_base_config(), "database": "postgres"})
     mock_inspector = mock.MagicMock()

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.filter;
 
+import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.restli.common.HttpMethod;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.filter.Filter;
@@ -20,11 +21,9 @@ public class RestliLoggingFilter implements Filter {
     return CompletableFuture.completedFuture(null);
   }
 
-
   @Override
   public CompletableFuture<Void> onResponse(
-      final FilterRequestContext requestContext,
-      final FilterResponseContext responseContext) {
+      final FilterRequestContext requestContext, final FilterResponseContext responseContext) {
     logResponse(requestContext, responseContext);
     return CompletableFuture.completedFuture(null);
   }
@@ -35,13 +34,14 @@ public class RestliLoggingFilter implements Filter {
       final FilterRequestContext requestContext,
       final FilterResponseContext responseContext) {
     logResponse(requestContext, responseContext);
-    log.error("Rest.li error: ", th);
+    if (!(th instanceof NonExceptionHttpErrorResponse)) {
+      log.error("Rest.li error: ", th);
+    }
     return CompletableFuture.completedFuture(null);
   }
 
   private void logResponse(
-      final FilterRequestContext requestContext,
-      final FilterResponseContext responseContext) {
+      final FilterRequestContext requestContext, final FilterResponseContext responseContext) {
     long startTime = (long) requestContext.getFilterScratchpad().get(START_TIME);
     long endTime = System.currentTimeMillis();
     long duration = endTime - startTime;
@@ -54,5 +54,4 @@ public class RestliLoggingFilter implements Filter {
 
     log.info("{} {} - {} - {} - {}ms", httpMethod, uri, method, status.getCode(), duration);
   }
-
 }

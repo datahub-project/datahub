@@ -9,6 +9,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional
 import click
 import requests
 from pydantic.fields import Field
+from requests.adapters import HTTPAdapter, Retry
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -189,7 +190,7 @@ class AzureADSource(StatefulIngestionSourceBase):
     would like to take actions like adding them to a group or assigning them a role.
 
     For instructions on how to do configure Azure AD OIDC SSO, please read the documentation
-    [here](https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react-azure).
+    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-registration-in-microsoft-azure-portal).
 
     ### Extracting DataHub Users
 
@@ -263,11 +264,19 @@ class AzureADSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
-        super(AzureADSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = AzureADSourceReport(
             filtered_tracking=self.config.filtered_tracking
         )
+        session = requests.Session()
+        retries = Retry(
+            total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        self.session = session
         self.token_data = {
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
@@ -488,13 +497,13 @@ class AzureADSource(StatefulIngestionSourceBase):
         yield from self._get_azure_ad_data(kind=kind)
 
     def _get_azure_ad_data(self, kind: str) -> Iterable[List]:
-        headers = {"Authorization": "Bearer {}".format(self.token)}
+        headers = {"Authorization": f"Bearer {self.token}"}
         #           'ConsistencyLevel': 'eventual'}
         url = self.config.graph_url + kind
         while True:
             if not url:
                 break
-            response = requests.get(url, headers=headers)
+            response = self.session.get(url, headers=headers)
             if response.status_code == 200:
                 json_data = json.loads(response.text)
                 try:
@@ -505,13 +514,14 @@ class AzureADSource(StatefulIngestionSourceBase):
                 yield json_data["value"]
             else:
                 error_str = (
+                    f"Request URL: {url}. "
                     f"Response status code: {str(response.status_code)}. "
                     f"Response content: {str(response.content)}"
                 )
                 logger.debug(f"URL = {url}")
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_ad_data_", error_str)
-                continue
+                raise Exception(f"Unable to get {url}, error {response.status_code}")
 
     def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
         result, error_str = None, None

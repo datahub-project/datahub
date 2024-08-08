@@ -21,7 +21,7 @@ type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 500;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 200;
 
 export default function DownloadAsCsvModal({
     downloadSearchResults,
@@ -130,6 +130,7 @@ export default function DownloadAsCsvModal({
                         Close
                     </Button>
                     <Button
+                        data-testid="csv-modal-download-button"
                         onClick={() => {
                             setShowDownloadAsCsvModal(false);
                             triggerCsvDownload(saveAsTitle);
@@ -142,6 +143,7 @@ export default function DownloadAsCsvModal({
             }
         >
             <Input
+                data-testid="download-as-csv-input"
                 placeholder="datahub.csv"
                 value={saveAsTitle}
                 onChange={(e) => {

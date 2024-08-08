@@ -9,8 +9,8 @@ and uses DataHub S3 Data Lake integration source under the hood. Refer section [
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
 | Source Concept                             | DataHub Concept                                                                            | Notes                |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------ | -------------------- |
-| `"Google Cloud Storage"`                   | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataPlatform/) |                      |
+| ------------------------------------------ |--------------------------------------------------------------------------------------------| -------------------- |
+| `"Google Cloud Storage"`                   | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataplatform/) |                      |
 | GCS object / Folder containing GCS objects | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            |                      |
 | GCS bucket                                 | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `GCS bucket` |
 | GCS folder                                 | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `Folder`     |
@@ -21,13 +21,14 @@ Supported file types are as follows:
 
 - CSV
 - TSV
+- JSONL
 - JSON
 - Parquet
 - Apache Avro
 
 Schemas for Parquet and Avro files are extracted as provided.
 
-Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
+Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TSV and JSONL files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 

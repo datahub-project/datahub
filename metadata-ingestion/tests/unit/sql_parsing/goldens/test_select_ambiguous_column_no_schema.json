@@ -1,0 +1,43 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "ac169845f106faeb32c4c1598b239b689947eaa906d72d65d5aed241c05ade2b",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,t1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,t2,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "a",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "b",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "c",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": []
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT A, B, C FROM t1 INNER JOIN t2 ON t1.id = t2.id"
+    }
+}

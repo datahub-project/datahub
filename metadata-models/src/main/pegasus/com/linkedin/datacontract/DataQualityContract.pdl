@@ -1,0 +1,20 @@
+namespace com.linkedin.datacontract
+
+import com.linkedin.common.Urn
+
+
+/**
+ * A data quality contract pertaining to a physical data asset
+ * Data Quality contracts are used to make assertions about data quality metrics for a physical data asset
+ */
+record DataQualityContract {
+  /**
+   * The assertion representing the Data Quality contract.
+   * E.g. a table or column-level assertion.
+   */
+  @Relationship = {
+    "name": "IncludesDataQualityAssertion",
+    "entityTypes": [ "assertion" ]
+  }
+  assertion: Urn
+}

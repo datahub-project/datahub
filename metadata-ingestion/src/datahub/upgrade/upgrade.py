@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import functools
 import logging
 import sys
 from datetime import datetime, timedelta, timezone
@@ -13,7 +12,7 @@ from pydantic import BaseModel
 from termcolor import colored
 
 from datahub import __version__
-from datahub.cli import cli_utils
+from datahub.cli.config_utils import load_client_config
 from datahub.ingestion.graph.client import DataHubGraph
 
 log = logging.getLogger(__name__)
@@ -24,18 +23,18 @@ T = TypeVar("T")
 
 class VersionStats(BaseModel, arbitrary_types_allowed=True):
     version: Version
-    release_date: Optional[datetime]
+    release_date: Optional[datetime] = None
 
 
 class ServerVersionStats(BaseModel):
     current: VersionStats
-    latest: Optional[VersionStats]
-    current_server_type: Optional[str]
+    latest: Optional[VersionStats] = None
+    current_server_type: Optional[str] = None
 
 
 class ClientVersionStats(BaseModel):
     current: VersionStats
-    latest: Optional[VersionStats]
+    latest: Optional[VersionStats] = None
 
 
 class DataHubVersionStats(BaseModel):
@@ -102,16 +101,18 @@ async def get_github_stats():
             return (latest_server_version, latest_server_date)
 
 
-async def get_server_config(gms_url: str, token: str) -> dict:
+async def get_server_config(gms_url: str, token: Optional[str]) -> dict:
     import aiohttp
 
-    async with aiohttp.ClientSession(
-        headers={
-            "X-RestLi-Protocol-Version": "2.0.0",
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        }
-    ) as session:
+    headers = {
+        "X-RestLi-Protocol-Version": "2.0.0",
+        "Content-Type": "application/json",
+    }
+
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    async with aiohttp.ClientSession() as session:
         config_endpoint = f"{gms_url}/config"
         async with session.get(config_endpoint) as dh_response:
             dh_response_json = await dh_response.json()
@@ -127,7 +128,9 @@ async def get_server_version_stats(
     if not server:
         try:
             # let's get the server from the cli config
-            host, token = cli_utils.get_url_and_token()
+            client_config = load_client_config()
+            host = client_config.server
+            token = client_config.token
             server_config = await get_server_config(host, token)
             log.debug(f"server_config:{server_config}")
         except Exception as e:
@@ -140,10 +143,12 @@ async def get_server_version_stats(
     current_server_release_date = None
     if server_config:
         server_version_string = (
-            server_config.get("versions", {}).get("linkedin/datahub", {}).get("version")
+            server_config.get("versions", {})
+            .get("acryldata/datahub", {})
+            .get("version")
         )
         commit_hash = (
-            server_config.get("versions", {}).get("linkedin/datahub", {}).get("commit")
+            server_config.get("versions", {}).get("acryldata/datahub", {}).get("commit")
         )
         server_type = server_config.get("datahub", {}).get("serverType", "unknown")
         if server_type == "quickstart" and commit_hash:
@@ -374,17 +379,14 @@ def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         async def run_inner_func():
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None, functools.partial(func, *args, **kwargs)
-            )
+            return func(*args, **kwargs)
 
         async def run_func_check_upgrade():
             version_stats_future = asyncio.ensure_future(retrieve_version_stats())
-            the_one_future = asyncio.ensure_future(run_inner_func())
-            ret = await the_one_future
+            main_func_future = asyncio.ensure_future(run_inner_func())
+            ret = await main_func_future
 
-            # the one future has returned
+            # the main future has returned
             # we check the other futures quickly
             try:
                 version_stats = await asyncio.wait_for(version_stats_future, 0.5)

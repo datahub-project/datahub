@@ -9,7 +9,6 @@ import javax.annotation.Nonnull;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 @Value
 public class Features {
@@ -18,7 +17,8 @@ public class Features {
   public enum Name {
     SEARCH_BACKEND_SCORE, // Score returned by search backend
     NUM_ENTITIES_PER_TYPE, // Number of entities per entity type
-    RANK_WITHIN_TYPE; // Rank within the entity type
+    RANK_WITHIN_TYPE,
+    ONLY_MATCH_CUSTOM_PROPERTIES; // Rank within the entity type
   }
 
   public Double getNumericFeature(Name featureName, double defaultValue) {
@@ -54,11 +54,15 @@ public class Features {
   }
 
   @Nonnull
-  public static List<Features> merge(@Nonnull List<Features> featureList1, @Nonnull List<Features> featureList2) {
+  public static List<Features> merge(
+      @Nonnull List<Features> featureList1, @Nonnull List<Features> featureList2) {
     if (featureList1.size() != featureList2.size()) {
-      throw new IllegalArgumentException(String.format("Expected both lists to have the same number of elements. %s != %s",
+      throw new IllegalArgumentException(
+          String.format(
+              "Expected both lists to have the same number of elements. %s != %s",
               featureList1.size(), featureList2.size()));
     }
-    return Streams.zip(featureList1.stream(), featureList2.stream(), Features::merge).collect(Collectors.toList());
+    return Streams.zip(featureList1.stream(), featureList2.stream(), Features::merge)
+        .collect(Collectors.toList());
   }
 }

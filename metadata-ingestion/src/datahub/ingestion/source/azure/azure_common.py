@@ -1,6 +1,7 @@
 from typing import Dict, Optional, Union
 
 from azure.identity import ClientSecretCredential
+from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
 from pydantic import Field, root_validator
 
@@ -8,7 +9,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 
 
-class AdlsSourceConfig(ConfigModel):
+class AzureConnectionConfig(ConfigModel):
     """
     Common Azure credentials config.
 
@@ -51,13 +52,22 @@ class AdlsSourceConfig(ConfigModel):
             folder_path = f"/{folder_path}"
         return f"abfss://{self.container_name}@{self.account_name}.dfs.core.windows.net{folder_path}"
 
+    # TODO DEX-1010
     def get_filesystem_client(self) -> FileSystemClient:
-        return self.get_service_client().get_file_system_client(self.container_name)
+        return self.get_data_lake_service_client().get_file_system_client(
+            file_system=self.container_name
+        )
 
-    def get_service_client(self) -> DataLakeServiceClient:
+    def get_blob_service_client(self):
+        return BlobServiceClient(
+            account_url=f"https://{self.account_name}.blob.core.windows.net",
+            credential=f"{self.get_credentials()}",
+        )
+
+    def get_data_lake_service_client(self) -> DataLakeServiceClient:
         return DataLakeServiceClient(
             account_url=f"https://{self.account_name}.dfs.core.windows.net",
-            credential=self.get_credentials(),
+            credential=f"{self.get_credentials()}",
         )
 
     def get_credentials(

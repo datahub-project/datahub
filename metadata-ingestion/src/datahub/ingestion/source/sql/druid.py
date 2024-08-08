@@ -32,7 +32,7 @@ DruidDialect.get_table_names = get_table_names
 
 class DruidConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = "druid"
+    scheme: str = "druid"
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=["^(lookup|sysgit|view).*"]),
         description="regex patterns for schemas to filter in ingestion.",

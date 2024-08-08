@@ -8,7 +8,6 @@ import javax.annotation.Nonnull;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
 
-
 /**
  * Annotation indicating how the search results should be ranked by the underlying search service
  */
@@ -35,26 +34,31 @@ public class SearchScoreAnnotation {
   }
 
   @Nonnull
-  public static SearchScoreAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj,
-      @Nonnull final String schemaFieldName, @Nonnull final String context) {
+  public static SearchScoreAnnotation fromPegasusAnnotationObject(
+      @Nonnull final Object annotationObj,
+      @Nonnull final String schemaFieldName,
+      @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
       throw new ModelValidationException(
-          String.format("Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
               ANNOTATION_NAME, context));
     }
 
     Map map = (Map) annotationObj;
     final Optional<String> fieldName = AnnotationUtils.getField(map, "fieldName", String.class);
     final Optional<Double> weight = AnnotationUtils.getField(map, "weight", Double.class);
-    final Optional<Double> defaultValue = AnnotationUtils.getField(map, "defaultValue", Double.class);
+    final Optional<Double> defaultValue =
+        AnnotationUtils.getField(map, "defaultValue", Double.class);
     final Optional<String> modifierStr = AnnotationUtils.getField(map, "modifier", String.class);
     if (modifierStr.isPresent() && !EnumUtils.isValidEnum(Modifier.class, modifierStr.get())) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared at %s: Invalid field 'modifier'. Invalid modifier provided. Valid modifiers are %s",
-          ANNOTATION_NAME, context, Arrays.toString(Modifier.values())));
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid field 'modifier'. Invalid modifier provided. Valid modifiers are %s",
+              ANNOTATION_NAME, context, Arrays.toString(Modifier.values())));
     }
     final Optional<Modifier> modifier = modifierStr.map(Modifier::valueOf);
-    return new SearchScoreAnnotation(fieldName.orElse(schemaFieldName), weight.orElse(1.0), defaultValue.orElse(0.0),
-        modifier);
+    return new SearchScoreAnnotation(
+        fieldName.orElse(schemaFieldName), weight.orElse(1.0), defaultValue.orElse(0.0), modifier);
   }
 }

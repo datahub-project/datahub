@@ -1,5 +1,7 @@
 {
     "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "58d404ff045cd7d48c59383145619c04dbbc8ead2ffdf2b7236b7546e81e27fc",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],
@@ -8,7 +10,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTAL_AGG"
+                "column": "total_agg",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DOUBLE"
             },
             "upstreams": [
                 {
@@ -20,7 +28,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "ORDERKEY"
+                "column": "orderkey",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
             },
             "upstreams": [
                 {
@@ -32,7 +46,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "CUSTKEY"
+                "column": "custkey",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
             },
             "upstreams": [
                 {
@@ -44,7 +64,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "ORDERSTATUS"
+                "column": "orderstatus",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "TEXT"
             },
             "upstreams": [
                 {
@@ -56,7 +82,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTALPRICE"
+                "column": "totalprice",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "FLOAT"
             },
             "upstreams": [
                 {
@@ -68,7 +100,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "ORDERDATE"
+                "column": "orderdate",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                },
+                "native_column_type": "DATE"
             },
             "upstreams": [
                 {
@@ -80,7 +118,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "ORDERPRIORITY"
+                "column": "orderpriority",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "TEXT"
             },
             "upstreams": [
                 {
@@ -92,7 +136,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "CLERK"
+                "column": "clerk",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "TEXT"
             },
             "upstreams": [
                 {
@@ -104,7 +154,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "SHIPPRIORITY"
+                "column": "shippriority",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
             },
             "upstreams": [
                 {
@@ -116,7 +172,13 @@
         {
             "downstream": {
                 "table": null,
-                "column": "COMMENT"
+                "column": "comment",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "TEXT"
             },
             "upstreams": [
                 {
@@ -125,5 +187,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT SUM(totalprice) AS total_agg, * FROM snowflake_sample_data.tpch_sf1.orders WHERE orderdate = ?"
+    }
 }

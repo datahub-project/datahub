@@ -5,18 +5,15 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.function.Function;
 
-
-/**
- * Optional step for removing Aspect V2 table.
- */
+/** Optional step for removing Aspect V2 table. */
 public class ClearAspectV2TableStep implements UpgradeStep {
 
-  private final EbeanServer _server;
+  private final Database _server;
 
-  public ClearAspectV2TableStep(final EbeanServer server) {
+  public ClearAspectV2TableStep(final Database server) {
     _server = server;
   }
 

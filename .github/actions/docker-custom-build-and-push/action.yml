@@ -20,7 +20,7 @@ inputs:
     required: false
 
   images:
-    # e.g. linkedin/datahub-gms
+    # e.g. acryldata/datahub-gms
     description: "List of Docker images to use as base name for tags"
     required: true
   build-args:
@@ -55,7 +55,7 @@ runs:
 
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v5
       if: ${{ inputs.publish != 'true' }}
       with:
         context: ${{ inputs.context }}
@@ -70,27 +70,36 @@ runs:
         push: false
         cache-from: type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: type=inline
+    - name: Single Tag
+      if: ${{ inputs.publish != 'true' }}
+      shell: bash
+      run: |
+        TAGS="""
+        ${{ steps.docker_meta.outputs.tags }}
+        """
+        echo "SINGLE_TAG=$(echo $TAGS | tr '\n' ' ' | awk -F' ' '{ print $1 }')" >> $GITHUB_OUTPUT
+      id: single_tag
     - name: Upload image locally for testing (if not publishing)
       uses: ishworkh/docker-image-artifact-upload@v1
       if: ${{ inputs.publish != 'true' }}
       with:
-        image: ${{ steps.docker_meta.outputs.tags }}
+        image: ${{ steps.single_tag.outputs.SINGLE_TAG }}
 
     # Code for building multi-platform images and pushing to Docker Hub.
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@v3
       if: ${{ inputs.publish == 'true' }}
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@v3
       if: ${{ inputs.publish == 'true' }}
     - name: Login to DockerHub
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       if: ${{ inputs.publish == 'true' }}
       with:
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}
     - name: Build and Push Multi-Platform image
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@v5
       if: ${{ inputs.publish == 'true' }}
       with:
         context: ${{ inputs.context }}

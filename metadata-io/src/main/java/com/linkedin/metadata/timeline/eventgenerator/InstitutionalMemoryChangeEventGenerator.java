@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
@@ -19,10 +21,8 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
-
-
-public class InstitutionalMemoryChangeEventGenerator extends EntityChangeEventGenerator<InstitutionalMemory> {
+public class InstitutionalMemoryChangeEventGenerator
+    extends EntityChangeEventGenerator<InstitutionalMemory> {
 
   private static final String INSTITUTIONAL_MEMORY_ADDED_FORMAT =
       "Institutional Memory '%s' with documentation of '%s' has been added: '%s'";
@@ -31,17 +31,22 @@ public class InstitutionalMemoryChangeEventGenerator extends EntityChangeEventGe
   private static final String INSTITUTIONAL_MEMORY_MODIFIED_FORMAT =
       "Documentation of Institutional Memory '%s' of  '%s' has been changed from '%s' to '%s'.";
 
-  private static List<ChangeEvent> computeDiffs(InstitutionalMemory baseInstitutionalMemory,
-      InstitutionalMemory targetInstitutionalMemory, String entityUrn, AuditStamp auditStamp) {
+  private static List<ChangeEvent> computeDiffs(
+      InstitutionalMemory baseInstitutionalMemory,
+      InstitutionalMemory targetInstitutionalMemory,
+      String entityUrn,
+      AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
 
     sortElementsByUrl(baseInstitutionalMemory);
     sortElementsByUrl(targetInstitutionalMemory);
     InstitutionalMemoryMetadataArray baseElements =
-        (baseInstitutionalMemory != null) ? baseInstitutionalMemory.getElements()
+        (baseInstitutionalMemory != null)
+            ? baseInstitutionalMemory.getElements()
             : new InstitutionalMemoryMetadataArray();
     InstitutionalMemoryMetadataArray targetElements =
-        (targetInstitutionalMemory != null) ? targetInstitutionalMemory.getElements()
+        (targetInstitutionalMemory != null)
+            ? targetInstitutionalMemory.getElements()
             : new InstitutionalMemoryMetadataArray();
 
     int baseIdx = 0;
@@ -53,46 +58,60 @@ public class InstitutionalMemoryChangeEventGenerator extends EntityChangeEventGe
       if (comparison == 0) {
         if (!baseElement.getDescription().equals(targetElement.getDescription())) {
           // InstitutionalMemory description has changed.
-          changeEvents.add(ChangeEvent.builder()
-              .modifier(baseElement.getUrl().toString())
-              .entityUrn(entityUrn)
-              .category(ChangeCategory.DOCUMENTATION)
-              .operation(ChangeOperation.MODIFY)
-              .semVerChange(SemanticChangeType.PATCH)
-              .description(String.format(INSTITUTIONAL_MEMORY_MODIFIED_FORMAT, baseElement.getUrl(), entityUrn,
-                  baseElement.getDescription(), targetElement.getDescription()))
-              .auditStamp(auditStamp)
-              .build());
+          changeEvents.add(
+              ChangeEvent.builder()
+                  .modifier(baseElement.getUrl().toString())
+                  .entityUrn(entityUrn)
+                  .category(ChangeCategory.DOCUMENTATION)
+                  .operation(ChangeOperation.MODIFY)
+                  .semVerChange(SemanticChangeType.PATCH)
+                  .description(
+                      String.format(
+                          INSTITUTIONAL_MEMORY_MODIFIED_FORMAT,
+                          baseElement.getUrl(),
+                          entityUrn,
+                          baseElement.getDescription(),
+                          targetElement.getDescription()))
+                  .auditStamp(auditStamp)
+                  .build());
         }
         ++baseIdx;
         ++targetIdx;
       } else if (comparison < 0) {
         // InstitutionalMemory got removed.
-        changeEvents.add(ChangeEvent.builder()
-            .modifier(baseElement.getUrl().toString())
-            .entityUrn(entityUrn)
-            .category(ChangeCategory.DOCUMENTATION)
-            .operation(ChangeOperation.REMOVE)
-            .semVerChange(SemanticChangeType.MINOR)
-            .description(
-                String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), entityUrn,
-                    baseElement.getDescription()))
-            .auditStamp(auditStamp)
-            .build());
+        changeEvents.add(
+            ChangeEvent.builder()
+                .modifier(baseElement.getUrl().toString())
+                .entityUrn(entityUrn)
+                .category(ChangeCategory.DOCUMENTATION)
+                .operation(ChangeOperation.REMOVE)
+                .semVerChange(SemanticChangeType.MINOR)
+                .description(
+                    String.format(
+                        INSTITUTIONAL_MEMORY_REMOVED_FORMAT,
+                        baseElement.getUrl(),
+                        entityUrn,
+                        baseElement.getDescription()))
+                .auditStamp(auditStamp)
+                .build());
         ++baseIdx;
       } else {
         // InstitutionalMemory got added..
-        changeEvents.add(ChangeEvent.builder()
-            .modifier(targetElement.getUrl().toString())
-            .entityUrn(entityUrn)
-            .category(ChangeCategory.DOCUMENTATION)
-            .operation(ChangeOperation.ADD)
-            .semVerChange(SemanticChangeType.MINOR)
-            .description(
-                String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), entityUrn,
-                    targetElement.getDescription()))
-            .auditStamp(auditStamp)
-            .build());
+        changeEvents.add(
+            ChangeEvent.builder()
+                .modifier(targetElement.getUrl().toString())
+                .entityUrn(entityUrn)
+                .category(ChangeCategory.DOCUMENTATION)
+                .operation(ChangeOperation.ADD)
+                .semVerChange(SemanticChangeType.MINOR)
+                .description(
+                    String.format(
+                        INSTITUTIONAL_MEMORY_ADDED_FORMAT,
+                        targetElement.getUrl(),
+                        entityUrn,
+                        targetElement.getDescription()))
+                .auditStamp(auditStamp)
+                .build());
         ++targetIdx;
       }
     }
@@ -100,34 +119,42 @@ public class InstitutionalMemoryChangeEventGenerator extends EntityChangeEventGe
     while (baseIdx < baseElements.size()) {
       // InstitutionalMemory got removed.
       InstitutionalMemoryMetadata baseElement = baseElements.get(baseIdx);
-      changeEvents.add(ChangeEvent.builder()
-          .modifier(baseElement.getUrl().toString())
-          .entityUrn(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .operation(ChangeOperation.REMOVE)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), entityUrn,
-                  baseElement.getDescription()))
-          .auditStamp(auditStamp)
-          .build());
+      changeEvents.add(
+          ChangeEvent.builder()
+              .modifier(baseElement.getUrl().toString())
+              .entityUrn(entityUrn)
+              .category(ChangeCategory.DOCUMENTATION)
+              .operation(ChangeOperation.REMOVE)
+              .semVerChange(SemanticChangeType.MINOR)
+              .description(
+                  String.format(
+                      INSTITUTIONAL_MEMORY_REMOVED_FORMAT,
+                      baseElement.getUrl(),
+                      entityUrn,
+                      baseElement.getDescription()))
+              .auditStamp(auditStamp)
+              .build());
       ++baseIdx;
     }
     while (targetIdx < targetElements.size()) {
       // Newly added owners.
       InstitutionalMemoryMetadata targetElement = targetElements.get(targetIdx);
       // InstitutionalMemory got added..
-      changeEvents.add(ChangeEvent.builder()
-          .modifier(targetElement.getUrl().toString())
-          .entityUrn(entityUrn)
-          .category(ChangeCategory.DOCUMENTATION)
-          .operation(ChangeOperation.ADD)
-          .semVerChange(SemanticChangeType.MINOR)
-          .description(
-              String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), entityUrn,
-                  targetElement.getDescription()))
-          .auditStamp(auditStamp)
-          .build());
+      changeEvents.add(
+          ChangeEvent.builder()
+              .modifier(targetElement.getUrl().toString())
+              .entityUrn(entityUrn)
+              .category(ChangeCategory.DOCUMENTATION)
+              .operation(ChangeOperation.ADD)
+              .semVerChange(SemanticChangeType.MINOR)
+              .description(
+                  String.format(
+                      INSTITUTIONAL_MEMORY_ADDED_FORMAT,
+                      targetElement.getUrl(),
+                      entityUrn,
+                      targetElement.getDescription()))
+              .auditStamp(auditStamp)
+              .build());
       ++targetIdx;
     }
     return changeEvents;
@@ -145,20 +172,26 @@ public class InstitutionalMemoryChangeEventGenerator extends EntityChangeEventGe
       return;
     }
     List<InstitutionalMemoryMetadata> elements = new ArrayList<>(institutionalMemory.getElements());
-    elements.sort(Comparator.comparing(InstitutionalMemoryMetadata::getUrl, Comparator.comparing(Url::toString)));
+    elements.sort(
+        Comparator.comparing(
+            InstitutionalMemoryMetadata::getUrl, Comparator.comparing(Url::toString)));
     institutionalMemory.setElements(new InstitutionalMemoryMetadataArray(elements));
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+  public ChangeTransaction getSemanticDiff(
+      EntityAspect previousValue,
+      EntityAspect currentValue,
+      ChangeCategory element,
+      JsonPatch rawDiff,
+      boolean rawDiffsRequested) {
 
     if (currentValue == null) {
       throw new IllegalArgumentException("EntityAspect currentValue should not be null");
     }
 
-    if (!previousValue.getAspect().equals(INSTITUTIONAL_MEMORY_ASPECT_NAME) || !currentValue.getAspect()
-        .equals(INSTITUTIONAL_MEMORY_ASPECT_NAME)) {
+    if (!previousValue.getAspect().equals(INSTITUTIONAL_MEMORY_ASPECT_NAME)
+        || !currentValue.getAspect().equals(INSTITUTIONAL_MEMORY_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + INSTITUTIONAL_MEMORY_ASPECT_NAME);
     }
 
@@ -166,7 +199,9 @@ public class InstitutionalMemoryChangeEventGenerator extends EntityChangeEventGe
     InstitutionalMemory targetInstitutionalMemory = getInstitutionalMemoryFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.DOCUMENTATION) {
-      changeEvents.addAll(computeDiffs(baseInstitutionalMemory, targetInstitutionalMemory, currentValue.getUrn(), null));
+      changeEvents.addAll(
+          computeDiffs(
+              baseInstitutionalMemory, targetInstitutionalMemory, currentValue.getUrn(), null));
     }
 
     // Assess the highest change at the transaction(schema) level.

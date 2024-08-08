@@ -1,7 +1,7 @@
 import dataclasses
 from dataclasses import dataclass
 from os import PathLike
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 
 import pytest
 from freezegun import freeze_time
@@ -10,18 +10,29 @@ from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
-from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig
+from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.sql.sql_types import (
     ATHENA_SQL_TYPES_MAP,
     TRINO_SQL_TYPES_MAP,
     resolve_athena_modified_type,
     resolve_trino_modified_type,
 )
-from tests.test_helpers import mce_helpers
+from tests.test_helpers import mce_helpers, test_connection_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
+
+_default_dbt_source_args = {
+    # Needed to avoid needing to access datahub server.
+    "write_semantics": "OVERRIDE",
+}
+
+
+@pytest.fixture(scope="module")
+def test_resources_dir(pytestconfig):
+    # TODO: Move this into a constant based on __file__.
+    return pytestconfig.rootpath / "tests/integration/dbt"
 
 
 @dataclass
@@ -32,6 +43,7 @@ class DbtTestConfig:
     manifest_file: str = "dbt_manifest.json"
     catalog_file: str = "dbt_catalog.json"
     sources_file: str = "dbt_sources.json"
+    run_results_files: List[str] = dataclasses.field(default_factory=list)
     source_config_modifiers: Dict[str, Any] = dataclasses.field(default_factory=dict)
     sink_config_modifiers: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
@@ -41,22 +53,26 @@ class DbtTestConfig:
         test_resources_dir: PathLike,
         tmp_path: PathLike,
     ) -> None:
-        self.manifest_path = f"{dbt_metadata_uri_prefix}/{self.manifest_file}"
-        self.catalog_path = f"{dbt_metadata_uri_prefix}/{self.catalog_file}"
-        self.sources_path = f"{dbt_metadata_uri_prefix}/{self.sources_file}"
-        self.target_platform = "postgres"
+        manifest_path = f"{dbt_metadata_uri_prefix}/{self.manifest_file}"
+        catalog_path = f"{dbt_metadata_uri_prefix}/{self.catalog_file}"
+        sources_path = f"{dbt_metadata_uri_prefix}/{self.sources_file}"
+        run_results_paths = [
+            f"{dbt_metadata_uri_prefix}/{file}" for file in self.run_results_files
+        ]
+        target_platform = "postgres"
 
         self.output_path = f"{tmp_path}/{self.output_file}"
 
         self.golden_path = f"{test_resources_dir}/{self.golden_file}"
         self.source_config = dict(
             {
-                "manifest_path": self.manifest_path,
-                "catalog_path": self.catalog_path,
-                "sources_path": self.sources_path,
-                "target_platform": self.target_platform,
+                "manifest_path": manifest_path,
+                "catalog_path": catalog_path,
+                "sources_path": sources_path,
+                "run_results_paths": run_results_paths,
+                "target_platform": target_platform,
                 "enable_meta_mapping": False,
-                "write_semantics": "OVERRIDE",
+                **_default_dbt_source_args,
                 "meta_mapping": {
                     "owner": {
                         "match": "^@(.*)",
@@ -162,9 +178,9 @@ class DbtTestConfig:
             "dbt-column-meta-mapping",  # this also tests snapshot support
             "dbt_test_column_meta_mapping.json",
             "dbt_test_column_meta_mapping_golden.json",
-            catalog_file="sample_dbt_catalog.json",
-            manifest_file="sample_dbt_manifest.json",
-            sources_file="sample_dbt_sources.json",
+            catalog_file="sample_dbt_catalog_1.json",
+            manifest_file="sample_dbt_manifest_1.json",
+            sources_file="sample_dbt_sources_1.json",
             source_config_modifiers={
                 "enable_meta_mapping": True,
                 "column_meta_mapping": {
@@ -190,22 +206,53 @@ class DbtTestConfig:
                 },
             },
         ),
+        DbtTestConfig(
+            "dbt-model-performance",
+            "dbt_test_model_performance.json",
+            "dbt_test_test_model_performance_golden.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            manifest_file="sample_dbt_manifest_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            run_results_files=["sample_dbt_run_results_2.json"],
+            source_config_modifiers={},
+        ),
+        DbtTestConfig(
+            "dbt-prefer-sql-parser-lineage",
+            "dbt_test_prefer_sql_parser_lineage.json",
+            "dbt_test_prefer_sql_parser_lineage_golden.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            manifest_file="sample_dbt_manifest_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            run_results_files=["sample_dbt_run_results_2.json"],
+            source_config_modifiers={
+                "prefer_sql_parser_lineage": True,
+                "skip_sources_in_lineage": True,
+                "entities_enabled": {"sources": "NO"},
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
-def test_dbt_ingest(dbt_test_config, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_dbt_ingest(
+    dbt_test_config,
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
+):
     config: DbtTestConfig = dbt_test_config
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
-    with open(test_resources_dir / "dbt_manifest.json", "r") as f:
+    with open(test_resources_dir / "dbt_manifest.json") as f:
         requests_mock.get("http://some-external-repo/dbt_manifest.json", text=f.read())
 
-    with open(test_resources_dir / "dbt_catalog.json", "r") as f:
+    with open(test_resources_dir / "dbt_catalog.json") as f:
         requests_mock.get("http://some-external-repo/dbt_catalog.json", text=f.read())
 
-    with open(test_resources_dir / "dbt_sources.json", "r") as f:
+    with open(test_resources_dir / "dbt_sources.json") as f:
         requests_mock.get("http://some-external-repo/dbt_sources.json", text=f.read())
 
     config.set_paths(
@@ -233,11 +280,48 @@ def test_dbt_ingest(dbt_test_config, pytestconfig, tmp_path, mock_time, requests
     )
 
 
+@pytest.mark.parametrize(
+    "config_dict, is_success",
+    [
+        (
+            {
+                "manifest_path": "dbt_manifest.json",
+                "catalog_path": "dbt_catalog.json",
+                "target_platform": "postgres",
+            },
+            True,
+        ),
+        (
+            {
+                "manifest_path": "dbt_manifest.json",
+                "catalog_path": "dbt_catalog-this-file-does-not-exist.json",
+                "target_platform": "postgres",
+            },
+            False,
+        ),
+    ],
+)
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
-def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+def test_dbt_test_connection(test_resources_dir, config_dict, is_success):
+    config_dict["manifest_path"] = str(
+        (test_resources_dir / config_dict["manifest_path"]).resolve()
+    )
+    config_dict["catalog_path"] = str(
+        (test_resources_dir / config_dict["catalog_path"]).resolve()
+    )
+    report = test_connection_helpers.run_test_connection(DBTCoreSource, config_dict)
+    if is_success:
+        test_connection_helpers.assert_basic_connectivity_success(report)
+    else:
+        test_connection_helpers.assert_basic_connectivity_failure(
+            report, "No such file or directory"
+        )
 
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "dbt_test_events.json"
     golden_path = test_resources_dir / "dbt_test_events_golden.json"
@@ -247,6 +331,7 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
             source=SourceConfig(
                 type="dbt",
                 config=DBTCoreConfig(
+                    **_default_dbt_source_args,
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -257,8 +342,6 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
                     test_results_path=str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
                     ),
-                    # this is just here to avoid needing to access datahub server
-                    write_semantics="OVERRIDE",
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -340,9 +423,9 @@ def test_resolve_athena_modified_type(data_type, expected_data_type):
 
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
-def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
-
+def test_dbt_tests_only_assertions(
+    test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
+):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "test_only_assertions.json"
 
@@ -351,6 +434,7 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
             source=SourceConfig(
                 type="dbt",
                 config=DBTCoreConfig(
+                    **_default_dbt_source_args,
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -361,8 +445,6 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
                     test_results_path=str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
                     ),
-                    # this is just here to avoid needing to access datahub server
-                    write_semantics="OVERRIDE",
                     entities_enabled=DBTEntitiesEnabled(
                         test_results=EmitDirective.ONLY
                     ),
@@ -418,10 +500,8 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_only_test_definitions_and_results(
-    pytestconfig, tmp_path, mock_time, **kwargs
+    test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
 ):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
-
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "test_only_definitions_and_assertions.json"
 
@@ -430,6 +510,7 @@ def test_dbt_only_test_definitions_and_results(
             source=SourceConfig(
                 type="dbt",
                 config=DBTCoreConfig(
+                    **_default_dbt_source_args,
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -440,8 +521,6 @@ def test_dbt_only_test_definitions_and_results(
                     test_results_path=str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
                     ),
-                    # this is just here to avoid needing to access datahub server
-                    write_semantics="OVERRIDE",
                     entities_enabled=DBTEntitiesEnabled(
                         sources=EmitDirective.NO,
                         seeds=EmitDirective.NO,

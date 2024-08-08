@@ -1,6 +1,5 @@
 package auth;
 
-
 import com.typesafe.config.Config;
 
 public class CookieConfigs {
@@ -16,12 +15,18 @@ public class CookieConfigs {
   private final boolean _authCookieSecure;
 
   public CookieConfigs(final Config configs) {
-    _ttlInHours = configs.hasPath(SESSION_TTL_CONFIG_PATH) ? configs.getInt(SESSION_TTL_CONFIG_PATH)
-        : DEFAULT_SESSION_TTL_HOURS;
-    _authCookieSameSite = configs.hasPath(AUTH_COOKIE_SAME_SITE) ? configs.getString(AUTH_COOKIE_SAME_SITE)
-        : DEFAULT_AUTH_COOKIE_SAME_SITE;
-    _authCookieSecure = configs.hasPath(AUTH_COOKIE_SECURE) ? configs.getBoolean(AUTH_COOKIE_SECURE)
-        : DEFAULT_AUTH_COOKIE_SECURE;
+    _ttlInHours =
+        configs.hasPath(SESSION_TTL_CONFIG_PATH)
+            ? configs.getInt(SESSION_TTL_CONFIG_PATH)
+            : DEFAULT_SESSION_TTL_HOURS;
+    _authCookieSameSite =
+        configs.hasPath(AUTH_COOKIE_SAME_SITE)
+            ? configs.getString(AUTH_COOKIE_SAME_SITE)
+            : DEFAULT_AUTH_COOKIE_SAME_SITE;
+    _authCookieSecure =
+        configs.hasPath(AUTH_COOKIE_SECURE)
+            ? configs.getBoolean(AUTH_COOKIE_SECURE)
+            : DEFAULT_AUTH_COOKIE_SECURE;
   }
 
   public int getTtlInHours() {

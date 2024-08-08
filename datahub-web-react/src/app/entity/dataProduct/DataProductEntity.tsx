@@ -51,7 +51,7 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     isSearchEnabled = () => true;
 
-    isBrowseEnabled = () => false;
+    isBrowseEnabled = () => true;
 
     isLineageEnabled = () => false;
 
@@ -62,6 +62,8 @@ export class DataProductEntity implements Entity<DataProduct> {
     getEntityName = () => 'Data Product';
 
     getCollectionName = () => 'Data Products';
+
+    useEntityQuery = useGetDataProductQuery;
 
     renderProfile = (urn: string) => (
         <EntityProfile
@@ -87,40 +89,41 @@ export class DataProductEntity implements Entity<DataProduct> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarViewDefinitionSection,
-                    display: {
-                        // to do - change when we have a GetDataProductQuery
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                    properties: {
-                        updateOnly: true,
-                    },
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarViewDefinitionSection,
+            display: {
+                // to do - change when we have a GetDataProductQuery
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties?.logic && true) || false,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+            properties: {
+                updateOnly: true,
+            },
+        },
+    ];
 
     renderPreview = (_: PreviewType, data: DataProduct) => {
         return (

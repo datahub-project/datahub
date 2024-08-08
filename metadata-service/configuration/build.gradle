@@ -1,14 +1,21 @@
 plugins {
-    id 'java'
+    id 'java-library'
 }
+apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {
-    compile externalDependency.jacksonDataBind
+    implementation externalDependency.jacksonDataBind
 
     implementation externalDependency.slf4jApi
-    implementation externalDependency.springCore
+
+    // Newer Spring libraries require JDK17 classes, allow for JDK11
+    compileOnly externalDependency.springBootAutoconfigureJdk11
 
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok
+}
+
+processResources.configure {
+  finalizedBy printVersionDetails // always print version details
 }

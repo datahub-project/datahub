@@ -1,0 +1,53 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+import com.linkedin.dataset.DatasetFilter
+
+/**
+* Attributes defining a Freshness Assertion.
+**/
+record FreshnessAssertionInfo {
+    /**
+     * The type of the freshness assertion being monitored.
+     */
+    @Searchable = {}
+    type: enum FreshnessAssertionType {
+      /**
+       * An Freshness based on Operations performed on a particular Dataset (insert, update, delete, etc) and sourced from an audit log, as
+       * opposed to based on the highest watermark in a timestamp column (e.g. a query). Only valid when entity is of type "dataset".
+       */
+       DATASET_CHANGE
+       /**
+       * An Freshness based on a successful execution of a Data Job.
+       */
+       DATA_JOB_RUN
+    }
+
+    /**
+    * The entity targeted by this Freshness check.
+    */
+    @Searchable = {
+      "fieldType": "URN"
+    }
+    @Relationship = {
+      "name": "Asserts",
+      "entityTypes": [ "dataset", "dataJob" ]
+    }
+    entity: Urn
+
+    /**
+    * Produce FAILURE Assertion Result if the asset is not updated on the cadence and within the time range described by the schedule.
+    */
+    @Searchable = {
+      "/type": {
+        "fieldName": "scheduleType"
+      }
+    }
+    schedule: FreshnessAssertionSchedule
+
+    /**
+     * A definition of the specific filters that should be applied, when performing monitoring.
+     * If not provided, there is no filter, and the full table is under consideration.
+     */
+    filter: optional DatasetFilter
+}

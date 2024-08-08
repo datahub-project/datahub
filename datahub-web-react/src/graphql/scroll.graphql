@@ -158,6 +158,9 @@ fragment downloadSearchResults on Entity {
         deprecation {
             ...deprecationFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataFlow {
         flowId
@@ -225,6 +228,9 @@ fragment downloadSearchResults on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on GlossaryTerm {
@@ -408,6 +414,7 @@ fragment downloadScrollAcrossLineageResult on ScrollAcrossLineageResults {
     count
     total
     searchResults {
+        degree
         entity {
             ...downloadSearchResults
         }

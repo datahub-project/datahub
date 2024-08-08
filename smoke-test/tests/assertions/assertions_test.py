@@ -2,13 +2,12 @@ import json
 import urllib
 
 import pytest
-import requests_wrapper as requests
 import tenacity
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
-from datahub.ingestion.sink.file import FileSink, FileSinkConfig
+from datahub.ingestion.sink.file import FileSink
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionStdAggregation
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -23,7 +22,15 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
 )
-from tests.utils import delete_urns_from_file, get_gms_url, ingest_file_via_rest, wait_for_healthcheck_util, get_sleep_info
+
+import requests_wrapper as requests
+from tests.utils import (
+    delete_urns_from_file,
+    get_gms_url,
+    get_sleep_info,
+    ingest_file_via_rest,
+    wait_for_healthcheck_util,
+)
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -209,7 +216,7 @@ def create_test_data(test_file):
     )
 
     fileSink: FileSink = FileSink.create(
-        FileSinkConfig(filename=test_file), ctx=PipelineContext(run_id="test-file")
+        {"filename": test_file}, ctx=PipelineContext(run_id="test-file")
     )
     for mcp in [mcp1, mcp2, mcp3, mcp4, mcp5, mcp6, mcp7]:
         fileSink.write_record_async(

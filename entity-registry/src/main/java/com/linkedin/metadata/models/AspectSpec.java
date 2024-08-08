@@ -23,36 +23,59 @@ public class AspectSpec {
   private final Map<String, RelationshipFieldSpec> _relationshipFieldSpecs;
   private final Map<String, TimeseriesFieldSpec> _timeseriesFieldSpecs;
   private final Map<String, TimeseriesFieldCollectionSpec> _timeseriesFieldCollectionSpecs;
+  private final Map<String, SearchableRefFieldSpec> _searchableRefFieldSpecs;
 
   // Classpath & Pegasus-specific: Temporary.
   private final RecordDataSchema _schema;
   private final Class<RecordTemplate> _aspectClass;
-  @Setter @Getter
-  private String registryName = "unknownRegistry";
-  @Setter @Getter
-  private ComparableVersion registryVersion = new ComparableVersion("0.0.0.0-dev");
+  @Setter @Getter private String registryName = "unknownRegistry";
+  @Setter @Getter private ComparableVersion registryVersion = new ComparableVersion("0.0.0.0-dev");
 
-  public AspectSpec(@Nonnull final AspectAnnotation aspectAnnotation,
+  public AspectSpec(
+      @Nonnull final AspectAnnotation aspectAnnotation,
       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
       @Nonnull final List<SearchScoreFieldSpec> searchScoreFieldSpecs,
       @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpecs,
       @Nonnull final List<TimeseriesFieldSpec> timeseriesFieldSpecs,
       @Nonnull final List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs,
+      @Nonnull final List<SearchableRefFieldSpec> searchableRefFieldSpecs,
       final RecordDataSchema schema,
       final Class<RecordTemplate> aspectClass) {
     _aspectAnnotation = aspectAnnotation;
-    _searchableFieldSpecs = searchableFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
-    _searchScoreFieldSpecs = searchScoreFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
-    _relationshipFieldSpecs = relationshipFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
-    _timeseriesFieldSpecs = timeseriesFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getTimeseriesFieldAnnotation().getStatName(), spec -> spec,
-            (val1, val2) -> val1));
-    _timeseriesFieldCollectionSpecs = timeseriesFieldCollectionSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getTimeseriesFieldCollectionAnnotation().getCollectionName(), spec -> spec,
-            (val1, val2) -> val1));
+    _searchableFieldSpecs =
+        searchableFieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
+    _searchableRefFieldSpecs =
+        searchableRefFieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
+    _searchScoreFieldSpecs =
+        searchScoreFieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
+    _relationshipFieldSpecs =
+        relationshipFieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
+    _timeseriesFieldSpecs =
+        timeseriesFieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getTimeseriesFieldAnnotation().getStatName(),
+                    spec -> spec,
+                    (val1, val2) -> val1));
+    _timeseriesFieldCollectionSpecs =
+        timeseriesFieldCollectionSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getTimeseriesFieldCollectionAnnotation().getCollectionName(),
+                    spec -> spec,
+                    (val1, val2) -> val1));
     _schema = schema;
     _aspectClass = aspectClass;
   }
@@ -95,6 +118,10 @@ public class AspectSpec {
 
   public List<SearchableFieldSpec> getSearchableFieldSpecs() {
     return new ArrayList<>(_searchableFieldSpecs.values());
+  }
+
+  public List<SearchableRefFieldSpec> getSearchableRefFieldSpecs() {
+    return new ArrayList<>(_searchableRefFieldSpecs.values());
   }
 
   public List<SearchScoreFieldSpec> getSearchScoreFieldSpecs() {

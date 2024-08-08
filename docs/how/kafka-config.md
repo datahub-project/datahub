@@ -52,16 +52,21 @@ Also see [Kafka Connect Security](https://docs.confluent.io/current/connect/secu
 
 By default, DataHub relies on the a set of Kafka topics to operate. By default, they have the following names:
 
-- **MetadataChangeProposal_v1**
-- **FailedMetadataChangeProposal_v1**
-- **MetadataChangeLog_Versioned_v1**
-- **MetadataChangeLog_Timeseries_v1**
-- **DataHubUsageEvent_v1**: User behavior tracking event for UI
+1. **MetadataChangeProposal_v1**
+2. **FailedMetadataChangeProposal_v1**
+3. **MetadataChangeLog_Versioned_v1**
+4. **MetadataChangeLog_Timeseries_v1**
+5. **DataHubUsageEvent_v1**: User behavior tracking event for UI
 6. (Deprecated) **MetadataChangeEvent_v4**: Metadata change proposal messages
 7. (Deprecated) **MetadataAuditEvent_v4**: Metadata change log messages
 8. (Deprecated) **FailedMetadataChangeEvent_v4**: Failed to process #1 event
+9. **MetadataGraphEvent_v4**:
+10. **MetadataGraphEvent_v4**:
+11. **PlatformEvent_v1**:
+12. **DataHubUpgradeHistory_v1**: Notifies the end of DataHub Upgrade job so dependants can act accordingly (_eg_, startup).
+    Note this topic requires special configuration: **Infinite retention**. Also, 1 partition is enough for the occasional traffic.
 
-These topics are discussed at more length in [Metadata Events](../what/mxe.md).
+How Metadata Events relate to these topics is discussed at more length in [Metadata Events](../what/mxe.md).
 
 We've included environment variables to customize the name each of these topics, for cases where an organization has naming rules for your topics.
 

@@ -1,0 +1,43 @@
+{
+    "query_type": "UPDATE",
+    "query_type_props": {},
+    "query_fingerprint": "bd1279a3a8d360045a0522a2c3b98d8f937edba4ca14c3851acba1fd3554849d",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                "column": "orderkey",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                "column": "totalprice",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": []
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "UPDATE snowflake_sample_data.tpch_sf1.orders SET orderkey = ?, totalprice = ? WHERE orderkey = ?"
+    }
+}

@@ -31,6 +31,17 @@ type Props = {
 export default function UpdateDescriptionModal({ title, description, original, onClose, onSubmit, isAddDesc }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
 
+    const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (
+            event.key === 'ArrowDown' ||
+            event.key === 'ArrowUp' ||
+            event.key === 'ArrowRight' ||
+            event.key === 'ArrowLeft'
+        ) {
+            event.stopPropagation();
+        }
+    };
+
     return (
         <Modal
             title={title}
@@ -41,7 +52,11 @@ export default function UpdateDescriptionModal({ title, description, original, o
             footer={
                 <>
                     <Button onClick={onClose}>Cancel</Button>
-                    <Button onClick={() => onSubmit(updatedDesc)} disabled={updatedDesc === description}>
+                    <Button
+                        onClick={() => onSubmit(updatedDesc)}
+                        disabled={updatedDesc === description}
+                        data-testid="description-modal-update-button"
+                    >
                         Update
                     </Button>
                 </>
@@ -49,7 +64,12 @@ export default function UpdateDescriptionModal({ title, description, original, o
         >
             <Form layout="vertical">
                 <Form.Item>
-                    <StyledEditor content={updatedDesc} onChange={setDesc} />
+                    <StyledEditor
+                        content={updatedDesc}
+                        onChange={setDesc}
+                        dataTestId="description-editor"
+                        onKeyDown={handleEditorKeyDown}
+                    />
                 </Form.Item>
                 {!isAddDesc && description && original && (
                     <Form.Item label={<FormLabel>Original:</FormLabel>}>

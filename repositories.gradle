@@ -1,15 +1,31 @@
 repositories {
     gradlePluginPortal()
     mavenLocal()
-    mavenCentral()
-    maven {
-        url "https://packages.confluent.io/maven/"
+
+    if (project.hasProperty('apacheMavenRepositoryUrl')) {
+        maven { url project.getProperty('apacheMavenRepositoryUrl') }
+    } else {
+        mavenCentral()
     }
-    maven {
-        url "https://plugins.gradle.org/m2/"
+
+    if (project.hasProperty('confluentMavenRepositoryUrl')) {
+        maven {
+            url project.getProperty('confluentMavenRepositoryUrl')
+        }
+    } else {
+        maven {
+            url "https://packages.confluent.io/maven/"
+        }
     }
-    maven {
-        url "https://linkedin.jfrog.io/artifactory/open-source/" // GMA, pegasus
+
+    if (project.hasProperty('linkedinOpenSourceRepositoryUrl')) {
+        maven {
+            url project.getProperty('linkedinOpenSourceRepositoryUrl')
+        }
+    } else {
+        maven {
+            url "https://linkedin.jfrog.io/artifactory/open-source/" // GMA, pegasus
+        }
     }
 }
 

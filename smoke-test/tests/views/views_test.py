@@ -1,15 +1,10 @@
 import pytest
-import time
 import tenacity
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    get_gms_url,
-    ingest_file_via_rest,
-    get_sleep_info,
-)
+
+from tests.utils import get_frontend_url, get_sleep_info
 
 sleep_sec, sleep_times = get_sleep_info()
+
 
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
@@ -21,7 +16,6 @@ def test_healthchecks(wait_for_healthchecks):
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_more_views(frontend_session, list_views_json, query_name, before_count):
-
     # Get new count of Views
     response = frontend_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=list_views_json
@@ -40,11 +34,11 @@ def _ensure_more_views(frontend_session, list_views_json, query_name, before_cou
     assert after_count == before_count + 1
     return after_count
 
+
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_less_views(frontend_session, list_views_json, query_name, before_count):
-
     # Get new count of Views
     response = frontend_session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=list_views_json
@@ -65,7 +59,6 @@ def _ensure_less_views(frontend_session, list_views_json, query_name, before_cou
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_delete_global_view(frontend_session):
-
     # Get count of existing views
     list_global_views_json = {
         "query": """query listGlobalViews($input: ListGlobalViewsInput!) {\n
@@ -111,18 +104,18 @@ def test_create_list_delete_global_view(frontend_session):
     new_view_name = "Test View"
     new_view_description = "Test Description"
     new_view_definition = {
-      "entityTypes": ["DATASET", "DASHBOARD"],
-      "filter": {
-        "operator": "AND",
-        "filters": [
-          {
-            "field": "tags",
-            "values": ["urn:li:tag:test"],
-            "negated": False,
-            "condition": "EQUAL"
-          }
-        ]
-      }
+        "entityTypes": ["DATASET", "DASHBOARD"],
+        "filter": {
+            "operator": "AND",
+            "filters": [
+                {
+                    "field": "tags",
+                    "values": ["urn:li:tag:test"],
+                    "negated": False,
+                    "condition": "EQUAL",
+                }
+            ],
+        },
     }
 
     # Create new View
@@ -137,7 +130,7 @@ def test_create_list_delete_global_view(frontend_session):
                 "viewType": "GLOBAL",
                 "name": new_view_name,
                 "description": new_view_description,
-                "definition": new_view_definition
+                "definition": new_view_definition,
             }
         },
     }
@@ -162,16 +155,12 @@ def test_create_list_delete_global_view(frontend_session):
         before_count=before_count,
     )
 
-    delete_json = {"urn": view_urn}
-
     # Delete the View
     delete_view_json = {
         "query": """mutation deleteView($urn: String!) {\n
             deleteView(urn: $urn)
         }""",
-        "variables": {
-            "urn": view_urn
-        },
+        "variables": {"urn": view_urn},
     }
 
     response = frontend_session.post(
@@ -189,9 +178,10 @@ def test_create_list_delete_global_view(frontend_session):
     )
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_create_list_delete_global_view"])
+@pytest.mark.dependency(
+    depends=["test_healthchecks", "test_create_list_delete_global_view"]
+)
 def test_create_list_delete_personal_view(frontend_session):
-
     # Get count of existing views
     list_my_views_json = {
         "query": """query listMyViews($input: ListMyViewsInput!) {\n
@@ -237,18 +227,18 @@ def test_create_list_delete_personal_view(frontend_session):
     new_view_name = "Test View"
     new_view_description = "Test Description"
     new_view_definition = {
-      "entityTypes": ["DATASET", "DASHBOARD"],
-      "filter": {
-        "operator": "AND",
-        "filters": [
-          {
-            "field": "tags",
-            "values": ["urn:li:tag:test"],
-            "negated": False,
-            "condition": "EQUAL"
-          }
-        ]
-      }
+        "entityTypes": ["DATASET", "DASHBOARD"],
+        "filter": {
+            "operator": "AND",
+            "filters": [
+                {
+                    "field": "tags",
+                    "values": ["urn:li:tag:test"],
+                    "negated": False,
+                    "condition": "EQUAL",
+                }
+            ],
+        },
     }
 
     # Create new View
@@ -263,7 +253,7 @@ def test_create_list_delete_personal_view(frontend_session):
                 "viewType": "PERSONAL",
                 "name": new_view_name,
                 "description": new_view_description,
-                "definition": new_view_definition
+                "definition": new_view_definition,
             }
         },
     }
@@ -293,9 +283,7 @@ def test_create_list_delete_personal_view(frontend_session):
         "query": """mutation deleteView($urn: String!) {\n
             deleteView(urn: $urn)
         }""",
-        "variables": {
-            "urn": view_urn
-        },
+        "variables": {"urn": view_urn},
     }
 
     response = frontend_session.post(
@@ -312,25 +300,27 @@ def test_create_list_delete_personal_view(frontend_session):
         before_count=new_count,
     )
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_create_list_delete_personal_view"])
-def test_update_global_view(frontend_session):
 
+@pytest.mark.dependency(
+    depends=["test_healthchecks", "test_create_list_delete_personal_view"]
+)
+def test_update_global_view(frontend_session):
     # First create a view
     new_view_name = "Test View"
     new_view_description = "Test Description"
     new_view_definition = {
-      "entityTypes": ["DATASET", "DASHBOARD"],
-      "filter": {
-        "operator": "AND",
-        "filters": [
-          {
-            "field": "tags",
-            "values": ["urn:li:tag:test"],
-            "negated": False,
-            "condition": "EQUAL"
-          }
-        ]
-      }
+        "entityTypes": ["DATASET", "DASHBOARD"],
+        "filter": {
+            "operator": "AND",
+            "filters": [
+                {
+                    "field": "tags",
+                    "values": ["urn:li:tag:test"],
+                    "negated": False,
+                    "condition": "EQUAL",
+                }
+            ],
+        },
     }
 
     # Create new View
@@ -345,7 +335,7 @@ def test_update_global_view(frontend_session):
                 "viewType": "PERSONAL",
                 "name": new_view_name,
                 "description": new_view_description,
-                "definition": new_view_definition
+                "definition": new_view_definition,
             }
         },
     }
@@ -366,18 +356,18 @@ def test_update_global_view(frontend_session):
     new_view_name = "New Test View"
     new_view_description = "New Test Description"
     new_view_definition = {
-      "entityTypes": ["DATASET", "DASHBOARD", "CHART", "DATA_FLOW"],
-      "filter": {
-        "operator": "OR",
-        "filters": [
-          {
-            "field": "glossaryTerms",
-            "values": ["urn:li:glossaryTerm:test"],
-            "negated": True,
-            "condition": "CONTAIN"
-          }
-        ]
-      }
+        "entityTypes": ["DATASET", "DASHBOARD", "CHART", "DATA_FLOW"],
+        "filter": {
+            "operator": "OR",
+            "filters": [
+                {
+                    "field": "glossaryTerms",
+                    "values": ["urn:li:glossaryTerm:test"],
+                    "negated": True,
+                    "condition": "CONTAIN",
+                }
+            ],
+        },
     }
 
     update_view_json = {
@@ -391,8 +381,8 @@ def test_update_global_view(frontend_session):
             "input": {
                 "name": new_view_name,
                 "description": new_view_description,
-                "definition": new_view_definition
-            }
+                "definition": new_view_definition,
+            },
         },
     }
 
@@ -411,9 +401,7 @@ def test_update_global_view(frontend_session):
         "query": """mutation deleteView($urn: String!) {\n
             deleteView(urn: $urn)
         }""",
-        "variables": {
-            "urn": view_urn
-        },
+        "variables": {"urn": view_urn},
     }
 
     response = frontend_session.post(

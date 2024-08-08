@@ -1,11 +1,12 @@
 import pytest
 import tenacity
+
 from tests.utils import (
-    get_frontend_url,
-    wait_for_healthcheck_util,
     get_frontend_session,
-    get_sleep_info,
+    get_frontend_url,
     get_root_urn,
+    get_sleep_info,
+    wait_for_healthcheck_util,
 )
 
 TEST_POLICY_NAME = "Updated Platform Policy"
@@ -94,7 +95,6 @@ def _ensure_policy_present(frontend_session, new_urn):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_frontend_policy_operations(frontend_session):
-
     json = {
         "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
             createPolicy(input: $input) }""",

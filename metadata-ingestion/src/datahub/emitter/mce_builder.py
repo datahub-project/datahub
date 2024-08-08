@@ -1,27 +1,31 @@
 """Convenience functions for creating MCEs"""
+
+import hashlib
 import json
 import logging
 import os
 import re
 import time
+from datetime import datetime
 from enum import Enum
-from hashlib import md5
 from typing import (
     TYPE_CHECKING,
     Any,
+    Iterable,
     List,
     Optional,
+    Tuple,
     Type,
     TypeVar,
     Union,
-    cast,
     get_type_hints,
+    overload,
 )
 
 import typing_inspect
+from avrogen.dict_wrapper import DictWrapper
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
-from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
     AuditStampClass,
@@ -49,6 +53,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.tag_urn import TagUrn
 
 logger = logging.getLogger(__name__)
 Aspect = TypeVar("Aspect", bound=AspectAbstract)
@@ -78,6 +83,23 @@ class OwnerType(Enum):
 def get_sys_time() -> int:
     # TODO deprecate this
     return int(time.time() * 1000)
+
+
+@overload
+def make_ts_millis(ts: None) -> None:
+    ...
+
+
+@overload
+def make_ts_millis(ts: datetime) -> int:
+    ...
+
+
+def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
+    # TODO: This duplicates the functionality of datetime_to_ts_millis
+    if ts is None:
+        return None
+    return int(ts.timestamp() * 1000)
 
 
 def make_data_platform_urn(platform: str) -> str:
@@ -159,11 +181,24 @@ def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
     return None
 
 
+class _DatahubKeyJSONEncoder(json.JSONEncoder):
+    # overload method default
+    def default(self, obj: Any) -> Any:
+        if hasattr(obj, "guid"):
+            return obj.guid()
+        # Call the default method for other types
+        return json.JSONEncoder.default(self, obj)
+
+
 def datahub_guid(obj: dict) -> str:
-    obj_str = json.dumps(
-        pre_json_transform(obj), separators=(",", ":"), sort_keys=True
-    ).encode("utf-8")
-    return md5(obj_str).hexdigest()
+    json_key = json.dumps(
+        obj,
+        separators=(",", ":"),
+        sort_keys=True,
+        cls=_DatahubKeyJSONEncoder,
+    )
+    md5_hash = hashlib.md5(json_key.encode("utf-8"))
+    return str(md5_hash.hexdigest())
 
 
 def make_assertion_urn(assertion_id: str) -> str:
@@ -180,20 +215,20 @@ def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:
 
 def make_user_urn(username: str) -> str:
     """
-    Makes a user urn if the input is not a user urn already
+    Makes a user urn if the input is not a user or group urn already
     """
     return (
         f"urn:li:corpuser:{username}"
-        if not username.startswith("urn:li:corpuser:")
+        if not username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
         else username
     )
 
 
 def make_group_urn(groupname: str) -> str:
     """
-    Makes a group urn if the input is not a group urn already
+    Makes a group urn if the input is not a user or group urn already
     """
-    if groupname and groupname.startswith("urn:li:corpGroup:"):
+    if groupname and groupname.startswith(("urn:li:corpGroup:", "urn:li:corpuser:")):
         return groupname
     else:
         return f"urn:li:corpGroup:{groupname}"
@@ -205,12 +240,15 @@ def make_tag_urn(tag: str) -> str:
     """
     if tag and tag.startswith("urn:li:tag:"):
         return tag
-    else:
-        return f"urn:li:tag:{tag}"
+    return str(TagUrn(tag))
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
     return f"urn:li:{owner_type.value}:{owner}"
+
+
+def make_ownership_type_urn(type: str) -> str:
+    return f"urn:li:ownershipType:{type}"
 
 
 def make_term_urn(term: str) -> str:
@@ -330,26 +368,21 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     )
 
 
-def is_valid_ownership_type(ownership_type: Optional[str]) -> bool:
-    return ownership_type is not None and ownership_type in [
-        OwnershipTypeClass.TECHNICAL_OWNER,
-        OwnershipTypeClass.BUSINESS_OWNER,
-        OwnershipTypeClass.DATA_STEWARD,
-        OwnershipTypeClass.NONE,
-        OwnershipTypeClass.DEVELOPER,
-        OwnershipTypeClass.DATAOWNER,
-        OwnershipTypeClass.DELEGATE,
-        OwnershipTypeClass.PRODUCER,
-        OwnershipTypeClass.CONSUMER,
-        OwnershipTypeClass.STAKEHOLDER,
+def _get_enum_options(_class: Type[object]) -> Iterable[str]:
+    return [
+        f
+        for f in dir(_class)
+        if not callable(getattr(_class, f)) and not f.startswith("_")
     ]
 
 
-def validate_ownership_type(ownership_type: Optional[str]) -> str:
-    if is_valid_ownership_type(ownership_type):
-        return cast(str, ownership_type)
-    else:
-        raise ValueError(f"Unexpected ownership type: {ownership_type}")
+def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
+    if ownership_type.startswith("urn:li:"):
+        return OwnershipTypeClass.CUSTOM, ownership_type
+    ownership_type = ownership_type.upper()
+    if ownership_type in _get_enum_options(OwnershipTypeClass):
+        return ownership_type, None
+    raise ValueError(f"Unexpected ownership type: {ownership_type}")
 
 
 def make_lineage_mce(
@@ -380,15 +413,21 @@ def make_lineage_mce(
     return mce
 
 
-def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
-    SnapshotType = type(mce.proposedSnapshot)
-
+def can_add_aspect_to_snapshot(
+    SnapshotType: Type[DictWrapper], AspectType: Type[Aspect]
+) -> bool:
     constructor_annotations = get_type_hints(SnapshotType.__init__)
     aspect_list_union = typing_inspect.get_args(constructor_annotations["aspects"])[0]
 
     supported_aspect_types = typing_inspect.get_args(aspect_list_union)
 
     return issubclass(AspectType, supported_aspect_types)
+
+
+def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
+    SnapshotType = type(mce.proposedSnapshot)
+
+    return can_add_aspect_to_snapshot(SnapshotType, AspectType)
 
 
 def assert_can_add_aspect(
@@ -444,7 +483,7 @@ def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
 
 def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
     return GlobalTagsClass(
-        tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
+        tags=[TagAssociationClass(make_tag_urn(tag)) for tag in tags]
     )
 
 

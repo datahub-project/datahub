@@ -12,7 +12,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -34,7 +35,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +65,19 @@
             },
             "fields": [
                 {
-                    "fieldPath": "2",
+                    "fieldPath": "Sampling Date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Site ID",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -75,7 +89,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "3",
+                    "fieldPath": "Park ID",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -83,102 +97,6 @@
                         }
                     },
                     "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Br \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Ca \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Cl \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Cond (\u00b5S/cm)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "DO (mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "DOC [mg/L C]",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "F \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "K \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -207,7 +125,91 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "Mg \n(mg/L)",
+                    "fieldPath": "Water Temp (\u00b0C)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Cond (\u00b5S/cm)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "pH",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DO (mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Secchi Depth (m)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "UV Absorbance, 254nm",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DOC [mg/L C]",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "SUVA, 254nm",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -243,91 +245,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "Na \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "PO4-P \n(mg P/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Park ID",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "SO4-S \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "SUVA, 254nm",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Sampling Date",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Secchi Depth (m)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Site ID",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -363,7 +281,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "UV Absorbance, 254nm",
+                    "fieldPath": "Cl \n(mg/L)",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -375,7 +293,79 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "Water Temp (\u00b0C)",
+                    "fieldPath": "SO4-S \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "F \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Br \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Na \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "K \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Ca \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Mg \n(mg/L)",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -423,7 +413,19 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "pH",
+                    "fieldPath": "2",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "3",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -439,7 +441,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -460,7 +463,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -481,7 +485,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -496,7 +501,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -512,7 +518,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -529,7 +536,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -549,7 +557,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -570,7 +579,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -585,7 +595,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -601,7 +612,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -618,7 +630,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -633,7 +646,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -657,7 +671,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -678,7 +693,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -693,7 +709,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -709,7 +726,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -726,7 +744,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -741,7 +760,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -769,7 +789,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -790,7 +811,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -805,7 +827,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -821,7 +844,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -838,7 +862,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -853,7 +878,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -885,7 +911,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -906,7 +933,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -921,7 +949,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -937,7 +966,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -954,7 +984,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -969,7 +1000,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1005,7 +1037,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1026,7 +1059,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1041,7 +1075,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1057,7 +1092,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1074,7 +1110,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1089,7 +1126,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1129,7 +1167,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1150,7 +1189,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1165,7 +1205,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1181,7 +1222,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1198,7 +1240,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1213,7 +1256,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1257,7 +1301,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1278,7 +1323,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1293,7 +1339,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1309,7 +1356,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1326,7 +1374,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1341,7 +1390,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1389,7 +1439,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1404,7 +1455,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2701,7 +2753,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2753,7 +2806,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2769,7 +2823,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2782,7 +2837,7 @@
             "customProperties": {
                 "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
                 "number_of_files": "1",
-                "size_in_bytes": "1024"
+                "size_in_bytes": "619"
             },
             "name": "chord_progressions_avro.avro",
             "description": "",
@@ -2791,7 +2846,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2820,62 +2876,62 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=double].Progression Quality",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FirstChord",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "double",
+                    "nativeDataType": "FirstChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=long].1st chord",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "long",
+                    "nativeDataType": "FourthChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=long].2nd chord",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].SecondChord",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "long",
+                    "nativeDataType": "SecondChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=long].3rd chord",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].ThirdChord",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "long",
+                    "nativeDataType": "ThirdChord",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Root].[type=string].4th chord",
-                    "nullable": true,
+                    "fieldPath": "[version=2.0].[type=Record].[type=string].ProgressionQuality",
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "string",
+                    "nativeDataType": "ProgressionQuality",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -2884,7 +2940,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2905,7 +2962,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2920,7 +2978,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2939,7 +2998,58 @@
             "columnCount": 5,
             "fieldProfiles": [
                 {
-                    "fieldPath": "1st chord",
+                    "fieldPath": "FirstChord",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 0.17857142857142858,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "1",
+                            "frequency": 19
+                        },
+                        {
+                            "value": "2",
+                            "frequency": 3
+                        },
+                        {
+                            "value": "4",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "5",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "6",
+                            "frequency": 3
+                        }
+                    ],
+                    "sampleValues": [
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "1",
+                        "2",
+                        "4",
+                        "5",
+                        "6",
+                        "6",
+                        "6"
+                    ]
+                },
+                {
+                    "fieldPath": "SecondChord",
                     "uniqueCount": 5,
                     "uniqueProportion": 0.17857142857142858,
                     "nullCount": 0,
@@ -2990,7 +3100,7 @@
                     ]
                 },
                 {
-                    "fieldPath": "2nd chord",
+                    "fieldPath": "ThirdChord",
                     "uniqueCount": 7,
                     "uniqueProportion": 0.25,
                     "nullCount": 0,
@@ -3049,7 +3159,7 @@
                     ]
                 },
                 {
-                    "fieldPath": "3rd chord",
+                    "fieldPath": "FourthChord",
                     "uniqueCount": 6,
                     "uniqueProportion": 0.21428571428571427,
                     "nullCount": 0,
@@ -3104,7 +3214,7 @@
                     ]
                 },
                 {
-                    "fieldPath": "4th chord",
+                    "fieldPath": "ProgressionQuality",
                     "uniqueCount": 20,
                     "uniqueProportion": 0.7142857142857143,
                     "nullCount": 0,
@@ -3213,48 +3323,14 @@
                         "Sweet",
                         "Wistful"
                     ]
-                },
-                {
-                    "fieldPath": "Progression Quality",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.03571428571428571,
-                    "nullCount": 0,
-                    "nullProportion": 0.0,
-                    "distinctValueFrequencies": [
-                        {
-                            "value": "NaN",
-                            "frequency": 28
-                        }
-                    ],
-                    "sampleValues": [
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan",
-                        "nan"
-                    ]
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3306,7 +3382,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3322,7 +3399,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3344,7 +3422,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3437,7 +3516,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3458,7 +3538,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3473,7 +3554,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3823,7 +3905,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3875,7 +3958,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3897,7 +3981,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3913,7 +3998,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3982,7 +4068,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4003,7 +4090,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4018,7 +4106,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4051,7 +4140,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4103,7 +4193,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4125,7 +4216,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4218,7 +4310,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4239,7 +4332,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4255,7 +4349,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4270,7 +4365,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4574,7 +4670,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4626,7 +4723,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4648,7 +4746,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4664,7 +4763,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4757,7 +4857,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4778,7 +4879,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4793,7 +4895,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4956,7 +5059,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5008,7 +5112,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5030,7 +5135,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5435,7 +5541,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5456,7 +5563,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5471,7 +5579,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7631,7 +7740,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7683,7 +7793,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7699,7 +7810,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7714,7 +7826,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7729,7 +7842,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7744,7 +7858,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7759,7 +7874,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7774,7 +7890,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7789,7 +7906,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7804,7 +7922,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

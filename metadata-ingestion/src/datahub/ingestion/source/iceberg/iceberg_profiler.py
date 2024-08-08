@@ -1,17 +1,26 @@
-from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Iterable, Union, cast
 
-from iceberg.api import types as IcebergTypes
-from iceberg.api.data_file import DataFile
-from iceberg.api.manifest_file import ManifestFile
-from iceberg.api.schema import Schema
-from iceberg.api.snapshot import Snapshot
-from iceberg.api.table import Table
-from iceberg.api.types import Conversions, NestedField, Type, TypeID
-from iceberg.core.base_table import BaseTable
-from iceberg.core.filesystem import FileSystemInputFile
-from iceberg.core.manifest_reader import ManifestReader
-from iceberg.exceptions.exceptions import FileSystemNotFound
+from pyiceberg.conversions import from_bytes
+from pyiceberg.schema import Schema
+from pyiceberg.table import Table
+from pyiceberg.types import (
+    DateType,
+    DecimalType,
+    DoubleType,
+    FloatType,
+    IcebergType,
+    IntegerType,
+    LongType,
+    TimestampType,
+    TimestamptzType,
+    TimeType,
+)
+from pyiceberg.utils.datetime import (
+    days_to_date,
+    to_human_time,
+    to_human_timestamp,
+    to_human_timestamptz,
+)
 
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -51,15 +60,18 @@ class IcebergProfiler:
         schema: Schema,
         aggregator: Callable,
         aggregated_values: Dict[int, Any],
-        manifest_values: Dict[int, Any],
+        manifest_values: Dict[int, bytes],
     ) -> None:
         for field_id, value_encoded in manifest_values.items():  # type: int, Any
-            field: NestedField = schema.find_field(field_id)
-            # Bounds in manifests can reference historical field IDs that are not part of the current schema.
-            # We simply not profile those since we only care about the current snapshot.
-            if field and IcebergProfiler._is_numeric_type(field.type):
-                value_decoded = Conversions.from_byte_buffer(field.type, value_encoded)
-                if value_decoded:
+            try:
+                field = schema.find_field(field_id)
+            except ValueError:
+                # Bounds in manifests can reference historical field IDs that are not part of the current schema.
+                # We simply not profile those since we only care about the current snapshot.
+                continue
+            if IcebergProfiler._is_numeric_type(field.field_type):
+                value_decoded = from_bytes(field.field_type, value_encoded)
+                if value_decoded is not None:
                     agg_value = aggregated_values.get(field_id)
                     aggregated_values[field_id] = (
                         aggregator(agg_value, value_decoded)
@@ -97,12 +109,23 @@ class IcebergProfiler:
         Yields:
             Iterator[Iterable[MetadataWorkUnit]]: Workunits related to datasetProfile.
         """
-        if not table.snapshots() or not isinstance(table, BaseTable):
+        current_snapshot = table.current_snapshot()
+        if not current_snapshot:
             # Table has no data, cannot profile, or we can't get current_snapshot.
             return
 
-        row_count: int = int(table.current_snapshot().summary["total-records"])
-        column_count: int = len(table.schema()._id_to_name)
+        row_count = (
+            int(current_snapshot.summary.additional_properties["total-records"])
+            if current_snapshot.summary
+            else 0
+        )
+        column_count = len(
+            [
+                field.field_id
+                for field in table.schema().fields
+                if field.field_type.is_primitive
+            ]
+        )
         dataset_profile = DatasetProfileClass(
             timestampMillis=get_sys_time(),
             rowCount=row_count,
@@ -110,47 +133,44 @@ class IcebergProfiler:
         )
         dataset_profile.fieldProfiles = []
 
-        field_paths: Dict[int, str] = table.schema()._id_to_name
-        current_snapshot: Snapshot = table.current_snapshot()
-        total_count: int = 0
+        total_count = 0
         null_counts: Dict[int, int] = {}
         min_bounds: Dict[int, Any] = {}
         max_bounds: Dict[int, Any] = {}
-        manifest: ManifestFile
         try:
-            for manifest in current_snapshot.manifests:
-                manifest_input_file = FileSystemInputFile.from_location(
-                    manifest.manifest_path, table.ops.conf
-                )
-                manifest_reader = ManifestReader.read(manifest_input_file)
-                data_file: DataFile
-                for data_file in manifest_reader.iterator():
+            for manifest in current_snapshot.manifests(table.io):
+                for manifest_entry in manifest.fetch_manifest_entry(table.io):
+                    data_file = manifest_entry.data_file
                     if self.config.include_field_null_count:
                         null_counts = self._aggregate_counts(
-                            null_counts, data_file.null_value_counts()
+                            null_counts, data_file.null_value_counts
                         )
                     if self.config.include_field_min_value:
                         self._aggregate_bounds(
                             table.schema(),
                             min,
                             min_bounds,
-                            data_file.lower_bounds(),
+                            data_file.lower_bounds,
                         )
                     if self.config.include_field_max_value:
                         self._aggregate_bounds(
                             table.schema(),
                             max,
                             max_bounds,
-                            data_file.upper_bounds(),
+                            data_file.upper_bounds,
                         )
-                    total_count += data_file.record_count()
-        # TODO Work on error handling to provide better feedback.  Iceberg exceptions are weak...
-        except FileSystemNotFound as e:
-            raise Exception("Error loading table manifests") from e
+                    total_count += data_file.record_count
+        except Exception as e:
+            # Catch any errors that arise from attempting to read the Iceberg table's manifests
+            # This will prevent stateful ingestion from being blocked by an error (profiling is not critical)
+            self.report.report_warning(
+                "profiling",
+                f"Error while profiling dataset {dataset_name}: {e}",
+            )
         if row_count:
             # Iterating through fieldPaths introduces unwanted stats for list element fields...
-            for field_id, field_path in field_paths.items():
-                field: NestedField = table.schema().find_field(field_id)
+            for field_path, field_id in table.schema()._name_to_id.items():
+                field = table.schema().find_field(field_id)
                 column_profile = DatasetFieldProfileClass(fieldPath=field_path)
                 if self.config.include_field_null_count:
                     column_profile.nullCount = cast(int, null_counts.get(field_id, 0))
@@ -160,16 +180,16 @@ class IcebergProfiler:
 
                 if self.config.include_field_min_value:
                     column_profile.min = (
-                        self._renderValue(
-                            dataset_name, field.type, min_bounds.get(field_id)
+                        self._render_value(
+                            dataset_name, field.field_type, min_bounds.get(field_id)
                         )
                         if field_id in min_bounds
                         else None
                     )
                 if self.config.include_field_max_value:
                     column_profile.max = (
-                        self._renderValue(
-                            dataset_name, field.type, max_bounds.get(field_id)
+                        self._render_value(
+                            dataset_name, field.field_type, max_bounds.get(field_id)
                         )
                         if field_id in max_bounds
                         else None
@@ -181,24 +201,18 @@ class IcebergProfiler:
             aspect=dataset_profile,
         ).as_workunit()
 
-    # The following will eventually be done by the Iceberg API (in the new Python refactored API).
-    def _renderValue(
-        self, dataset_name: str, value_type: Type, value: Any
+    def _render_value(
+        self, dataset_name: str, value_type: IcebergType, value: Any
     ) -> Union[str, None]:
         try:
-            if value_type.type_id == TypeID.TIMESTAMP:
-                if value_type.adjust_to_utc:
-                    # TODO Deal with utc when required
-                    microsecond_unix_ts = value
-                else:
-                    microsecond_unix_ts = value
-                return datetime.fromtimestamp(microsecond_unix_ts / 1000000.0).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
-            elif value_type.type_id == TypeID.DATE:
-                return (datetime(1970, 1, 1, 0, 0) + timedelta(value - 1)).strftime(
-                    "%Y-%m-%d"
-                )
+            if isinstance(value_type, TimestampType):
+                return to_human_timestamp(value)
+            if isinstance(value_type, TimestamptzType):
+                return to_human_timestamptz(value)
+            elif isinstance(value_type, DateType):
+                return days_to_date(value).strftime("%Y-%m-%d")
+            elif isinstance(value_type, TimeType):
+                return to_human_time(value)
             return str(value)
         except Exception as e:
             self.report.report_warning(
@@ -208,17 +222,18 @@ class IcebergProfiler:
             return None
 
     @staticmethod
-    def _is_numeric_type(type: Type) -> bool:
+    def _is_numeric_type(type: IcebergType) -> bool:
         return isinstance(
             type,
             (
-                IcebergTypes.DateType,
-                IcebergTypes.DecimalType,
-                IcebergTypes.DoubleType,
-                IcebergTypes.FloatType,
-                IcebergTypes.IntegerType,
-                IcebergTypes.LongType,
-                IcebergTypes.TimestampType,
-                IcebergTypes.TimeType,
+                DateType,
+                DecimalType,
+                DoubleType,
+                FloatType,
+                IntegerType,
+                LongType,
+                TimestampType,
+                TimestamptzType,
+                TimeType,
             ),
         )

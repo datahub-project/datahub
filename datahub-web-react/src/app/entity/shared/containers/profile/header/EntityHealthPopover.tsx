@@ -50,28 +50,29 @@ type Props = {
     health: Health[];
     baseUrl: string;
     children: React.ReactNode;
+    fontSize?: number;
+    placement?: any;
 };
 
-export const EntityHealthPopover = ({ health, baseUrl, children }: Props) => {
-    const icon = getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED);
-    const message = getHealthSummaryMessage(health);
+export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, placement = 'right' }: Props) => {
     return (
         <Popover
             content={
                 <>
                     <Header>
-                        <Icon>{icon}</Icon> <Title>{message}</Title>
+                        <Icon>{getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize)}</Icon>{' '}
+                        <Title>{getHealthSummaryMessage(health)}</Title>
                     </Header>
                     <StyledDivider />
                     {health.map((h) => (
-                        <StatusContainer>
+                        <StatusContainer key={h.type}>
                             <EntityHealthStatus type={h.type} message={h.message || undefined} baseUrl={baseUrl} />
                         </StatusContainer>
                     ))}
                 </>
             }
             color="#262626"
-            placement="right"
+            placement={placement}
             zIndex={10000000}
         >
             {children}

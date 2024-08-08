@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Value;
 
-
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Value
 @Builder
@@ -17,15 +16,21 @@ import lombok.Value;
 public class UpsertAspectRequest {
 
   @JsonProperty("entityType")
-  @Schema(required = true, description = "The name of the entity matching with its definition in the entity registry")
+  @Schema(
+      required = true,
+      description = "The name of the entity matching with its definition in the entity registry")
   String entityType;
 
   @JsonProperty("entityUrn")
-  @Schema(description = "Urn of the entity to be updated with the corresponding aspect, required if entityKey is null")
+  @Schema(
+      description =
+          "Urn of the entity to be updated with the corresponding aspect, required if entityKey is null")
   String entityUrn;
 
   @JsonProperty("entityKeyAspect")
-  @Schema(description = "A key aspect referencing the entity to be updated, required if entityUrn is null")
+  @Schema(
+      description =
+          "A key aspect referencing the entity to be updated, required if entityUrn is null")
   OneOfGenericAspectValue entityKeyAspect;
 
   @JsonProperty("aspect")
@@ -33,7 +38,5 @@ public class UpsertAspectRequest {
   OneOfGenericAspectValue aspect;
 
   @JsonPOJOBuilder(withPrefix = "")
-  public static class UpsertAspectRequestBuilder {
-
-  }
+  public static class UpsertAspectRequestBuilder {}
 }

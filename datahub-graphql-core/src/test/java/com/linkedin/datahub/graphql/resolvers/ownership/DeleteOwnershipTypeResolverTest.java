@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.ownership;
 
-import com.datahub.authentication.Authentication;
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.testng.Assert.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -13,11 +16,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.testng.Assert.*;
-
 
 public class DeleteOwnershipTypeResolverTest {
 
@@ -41,11 +39,8 @@ public class DeleteOwnershipTypeResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(1)).deleteOwnershipType(
-        Mockito.eq(TEST_URN),
-        anyBoolean(),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockService, Mockito.times(1))
+        .deleteOwnershipType(any(), Mockito.eq(TEST_URN), anyBoolean());
   }
 
   @Test
@@ -62,21 +57,17 @@ public class DeleteOwnershipTypeResolverTest {
 
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(0)).deleteOwnershipType(
-        Mockito.eq(TEST_URN),
-        anyBoolean(),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockService, Mockito.times(0))
+        .deleteOwnershipType(any(), Mockito.eq(TEST_URN), anyBoolean());
   }
 
   @Test
   public void testGetOwnershipTypeServiceException() throws Exception {
     // Create resolver
     OwnershipTypeService mockService = Mockito.mock(OwnershipTypeService.class);
-    Mockito.doThrow(RuntimeException.class).when(mockService).deleteOwnershipType(
-        Mockito.any(),
-        anyBoolean(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RuntimeException.class)
+        .when(mockService)
+        .deleteOwnershipType(any(), Mockito.any(), anyBoolean());
 
     DeleteOwnershipTypeResolver resolver = new DeleteOwnershipTypeResolver(mockService);
 
@@ -93,15 +84,14 @@ public class DeleteOwnershipTypeResolverTest {
   private static OwnershipTypeService initOwnershipTypeService() {
     OwnershipTypeService mockService = Mockito.mock(OwnershipTypeService.class);
 
-    OwnershipTypeInfo testInfo = new OwnershipTypeInfo()
-        .setName("test-name")
-        .setDescription("test-description")
-        .setCreated(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L))
-        .setLastModified(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L));
+    OwnershipTypeInfo testInfo =
+        new OwnershipTypeInfo()
+            .setName("test-name")
+            .setDescription("test-description")
+            .setCreated(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L))
+            .setLastModified(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L));
 
-    Mockito.when(mockService.getOwnershipTypeInfo(
-            Mockito.eq(TEST_URN),
-            Mockito.any(Authentication.class)))
+    Mockito.when(mockService.getOwnershipTypeInfo(any(), Mockito.eq(TEST_URN)))
         .thenReturn(testInfo);
 
     return mockService;

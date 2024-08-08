@@ -4,7 +4,11 @@ plugins {
 }
 
 repositories {
-    mavenCentral()
+    if (project.hasProperty('apacheMavenRepositoryUrl')) {
+        maven { url project.getProperty('apacheMavenRepositoryUrl') }
+    } else {
+        mavenCentral()
+    }
     mavenLocal()
 }
 
@@ -59,10 +63,6 @@ protobuf {
 
 task publishSchema(dependsOn: build) {
     description "Publishes protobuf schema in the `main` sourceSet to DataHub"
-
-    def javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(11)
-    }
 
     fileTree("schema").matching {
         exclude "protobuf/meta/**"

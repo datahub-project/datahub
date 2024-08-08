@@ -10,6 +10,8 @@ nodes:
     knowledge_links:
       - label: Wiki link for classification
         url: "https://en.wikipedia.org/wiki/Classification"
+    custom_properties:
+      is_confidential: true
     terms:
       - name: Sensitive
         description: Sensitive Data
@@ -70,7 +72,7 @@ nodes:
           - Shipping.CountryCode
           - Shipping.StreetAddress
         custom_properties:
-          - is_used_for_compliance_tracking: true
+          is_used_for_compliance_tracking: true
         knowledge_links:
           - url: "https://en.wikipedia.org/wiki/Address"
             label: Wiki link

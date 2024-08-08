@@ -43,7 +43,7 @@ def upsert(file: Path, override_editable: bool) -> None:
     with get_default_graph() as emitter:
         for group_config in group_configs:
             try:
-                datahub_group = CorpGroup.parse_obj(config_dict)
+                datahub_group = CorpGroup.parse_obj(group_config)
                 for mcp in datahub_group.generate_mcp(
                     generation_config=CorpGroupGenerationConfig(
                         override_editable=override_editable, datahub_graph=emitter

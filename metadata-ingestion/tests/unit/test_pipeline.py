@@ -1,5 +1,5 @@
 import pathlib
-from typing import Any, Iterable, List, Optional, cast
+from typing import Iterable, List, cast
 from unittest.mock import patch
 
 import pytest
@@ -11,7 +11,9 @@ from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -24,17 +26,22 @@ from tests.test_helpers.sink_helpers import RecordingSinkReport
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
+# TODO: It seems like one of these tests writes to ~/.datahubenv or otherwise sets
+# some global config, which impacts other tests.
+pytestmark = pytest.mark.random_order(disabled=True)
 
-class TestPipeline(object):
+
+class TestPipeline:
+    @patch("confluent_kafka.Consumer", autospec=True)
     @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
     @freeze_time(FROZEN_TIME)
-    def test_configure(self, mock_sink, mock_source):
+    def test_configure(self, mock_sink, mock_source, mock_consumer):
         pipeline = Pipeline.create(
             {
                 "source": {
                     "type": "kafka",
-                    "config": {"connection": {"bootstrap": "localhost:9092"}},
+                    "config": {"connection": {"bootstrap": "fake-dns-name:9092"}},
                 },
                 "sink": {"type": "console"},
             }
@@ -54,27 +61,61 @@ class TestPipeline(object):
         "datahub.ingestion.graph.client.DataHubGraph.get_config",
         return_value={"noCode": True},
     )
-    def test_configure_without_sink(self, mock_emitter, mock_graph):
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_without_sink(
+        self, mock_emitter, mock_graph, mock_load_client_config
+    ):
         pipeline = Pipeline.create(
             {
                 "source": {
                     "type": "file",
-                    "config": {"filename": "test_file.json"},
+                    "config": {"path": "test_file.json"},
                 },
             }
         )
-        # assert that the default sink config is for a DatahubRestSink
-        assert isinstance(pipeline.config.sink, DynamicTypedConfig)
-        assert pipeline.config.sink.type == "datahub-rest"
-        assert pipeline.config.sink.config == {
-            "server": "http://localhost:8080",
-            "token": Optional[Any],
-            # value is read from ~/datahubenv which may be None or not
-        } or pipeline.config.sink.config == {
-            "server": "http://localhost:8080",
-            "token": None,
-            # value is read from ~/datahubenv which may be None or not
-        }
+        # assert that the default sink is a DatahubRestSink
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink.config.server == "http://fake-gms-server:8080"
+        assert pipeline.sink.config.token is None
+
+    @freeze_time(FROZEN_TIME)
+    @patch(
+        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-internal-server:8080"),
+    )
+    @patch(
+        "datahub.cli.config_utils.get_system_auth",
+        return_value="Basic user:pass",
+    )
+    def test_configure_without_sink_use_system_auth(
+        self, mock_emitter, mock_graph, mock_load_client_config, mock_get_system_auth
+    ):
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        # assert that the default sink is a DatahubRestSink
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink.config.server == "http://fake-internal-server:8080"
+        assert pipeline.sink.config.token is None
+        assert (
+            pipeline.sink.emitter._session.headers["Authorization"] == "Basic user:pass"
+        )
 
     @freeze_time(FROZEN_TIME)
     @patch(
@@ -92,7 +133,7 @@ class TestPipeline(object):
             {
                 "source": {
                     "type": "file",
-                    "config": {"filename": "test_events.json"},
+                    "config": {"path": "test_events.json"},
                 },
                 "sink": {
                     "type": "datahub-rest",
@@ -130,7 +171,7 @@ class TestPipeline(object):
             {
                 "source": {
                     "type": "file",
-                    "config": {"filename": "test_events.json"},
+                    "config": {"path": "test_events.json"},
                 },
                 "sink": {
                     "type": "datahub-rest",
@@ -214,7 +255,10 @@ class TestPipeline(object):
                 "transformers": [
                     {
                         "type": "simple_add_dataset_ownership",
-                        "config": {"owner_urns": ["urn:li:corpuser:foo"]},
+                        "config": {
+                            "owner_urns": ["urn:li:corpuser:foo"],
+                            "ownership_type": "urn:li:ownershipType:__system__technical_owner",
+                        },
                     }
                 ],
                 "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},

@@ -5,7 +5,7 @@ import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContain
 import LineageEntityView from '../manage/LineageEntityView';
 
 const mockEntityRegistry = getTestEntityRegistry();
-jest.mock('../../useEntityRegistry', () => ({
+vi.mock('../../useEntityRegistry', () => ({
     useEntityRegistry: () => mockEntityRegistry,
 }));
 

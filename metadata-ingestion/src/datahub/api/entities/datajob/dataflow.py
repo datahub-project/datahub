@@ -1,18 +1,10 @@
 import logging
 from dataclasses import dataclass, field
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Union,
-    cast,
-)
+from typing import Callable, Dict, Iterable, List, Optional, Set, cast
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.source_common import ALL_ENV_TYPES
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -28,10 +20,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
-
-if TYPE_CHECKING:
-    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
-    from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +53,7 @@ class DataFlow:
     url: Optional[str] = None
     tags: Set[str] = field(default_factory=set)
     owners: Set[str] = field(default_factory=set)
+    group_owners: Set[str] = field(default_factory=set)
     platform_instance: Optional[str] = None
     env: Optional[str] = None
 
@@ -92,17 +81,20 @@ class DataFlow:
         )
 
     def generate_ownership_aspect(self):
+        owners = {builder.make_user_urn(owner) for owner in self.owners} | {
+            builder.make_group_urn(owner) for owner in self.group_owners
+        }
         ownership = OwnershipClass(
             owners=[
                 OwnerClass(
-                    owner=builder.make_user_urn(owner),
+                    owner=urn,
                     type=OwnershipTypeClass.DEVELOPER,
                     source=OwnershipSourceClass(
                         type=OwnershipSourceTypeClass.SERVICE,
                         # url=dag.filepath,
                     ),
                 )
-                for owner in (self.owners or [])
+                for urn in (owners or [])
             ],
             lastModified=AuditStampClass(
                 time=0, actor=builder.make_user_urn(self.orchestrator)
@@ -119,7 +111,20 @@ class DataFlow:
         )
         return [tags]
 
+    def _get_env(self) -> Optional[str]:
+        env: Optional[str] = None
+        if self.cluster in ALL_ENV_TYPES:
+            env = self.cluster
+        elif self.env in ALL_ENV_TYPES:
+            env = self.env
+        else:
+            logger.warning(
+                f"cluster {self.cluster} and {self.env} is not a valid environment type so Environment filter won't work."
+            )
+        return env
+
     def generate_mce(self) -> MetadataChangeEventClass:
+        env = self._get_env()
         flow_mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=str(self.urn),
@@ -129,6 +134,7 @@ class DataFlow:
                         description=self.description,
                         customProperties=self.properties,
                         externalUrl=self.url,
+                        env=env,
                     ),
                     *self.generate_ownership_aspect(),
                     *self.generate_tags_aspect(),
@@ -139,6 +145,7 @@ class DataFlow:
         return flow_mce
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+        env = self._get_env()
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataFlowInfoClass(
@@ -146,6 +153,7 @@ class DataFlow:
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
+                env=env,
             ),
         )
         yield mcp
@@ -166,7 +174,7 @@ class DataFlow:
 
     def emit(
         self,
-        emitter: Union["DatahubRestEmitter", "DatahubKafkaEmitter"],
+        emitter: Emitter,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """

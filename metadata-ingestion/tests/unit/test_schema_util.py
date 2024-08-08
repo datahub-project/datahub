@@ -6,7 +6,12 @@ from pathlib import Path
 from typing import Dict, List, Type
 
 import pytest
+from freezegun import freeze_time
 
+from datahub.emitter.mce_builder import (
+    make_global_tag_aspect_with_tag_list,
+    make_glossary_terms_aspect_from_urn_list,
+)
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
@@ -15,6 +20,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
+from datahub.utilities.mapping import OperationProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -771,3 +777,106 @@ def test_ignore_exceptions():
 """
     fields: List[SchemaField] = avro_schema_to_mce_fields(malformed_schema)
     assert not fields
+
+
+@freeze_time("2023-09-12")
+def test_avro_schema_to_mce_fields_with_field_meta_mapping():
+    schema = """
+{
+  "type": "record",
+  "name": "Payment",
+  "namespace": "some.event.namespace",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "amount", "type": "double", "doc": "amountDoc","has_pii": "False"},
+    {"name": "name","type": "string","default": "","has_pii": "True"},
+    {"name": "phoneNumber",
+     "type": [{
+         "type": "record",
+         "name": "PhoneNumber",
+         "doc": "testDoc",
+         "fields": [{
+             "name": "areaCode",
+             "type": "string",
+             "doc": "areaCodeDoc",
+             "default": ""
+             }, {
+             "name": "countryCode",
+             "type": "string",
+             "default": ""
+             }, {
+             "name": "prefix",
+             "type": "string",
+             "default": ""
+             }, {
+             "name": "number",
+             "type": "string",
+             "default": ""
+             }]
+         },
+         "null"
+     ],
+     "default": "null",
+     "has_pii": "True",
+     "glossary_field": "TERM_PhoneNumber"
+    },
+    {"name": "address",
+     "type": [{
+         "type": "record",
+         "name": "Address",
+         "fields": [{
+             "name": "street",
+             "type": "string",
+             "default": ""
+             }]
+         },
+         "null"
+     ],
+      "doc": "addressDoc",
+      "default": "null",
+      "has_pii": "True",
+      "glossary_field": "TERM_Address"
+    }
+  ]
+}
+"""
+    processor = OperationProcessor(
+        operation_defs={
+            "has_pii": {
+                "match": "True",
+                "operation": "add_tag",
+                "config": {"tag": "has_pii_test"},
+            },
+            "glossary_field": {
+                "match": "TERM_(.*)",
+                "operation": "add_term",
+                "config": {"term": "{{ $match }}"},
+            },
+        }
+    )
+    fields = avro_schema_to_mce_fields(schema, meta_mapping_processor=processor)
+    expected_field_paths = [
+        "[version=2.0].[type=Payment].[type=string].id",
+        "[version=2.0].[type=Payment].[type=double].amount",
+        "[version=2.0].[type=Payment].[type=string].name",
+        "[version=2.0].[type=Payment].[type=PhoneNumber].phoneNumber",
+        "[version=2.0].[type=Payment].[type=PhoneNumber].phoneNumber.[type=string].areaCode",
+        "[version=2.0].[type=Payment].[type=PhoneNumber].phoneNumber.[type=string].countryCode",
+        "[version=2.0].[type=Payment].[type=PhoneNumber].phoneNumber.[type=string].prefix",
+        "[version=2.0].[type=Payment].[type=PhoneNumber].phoneNumber.[type=string].number",
+        "[version=2.0].[type=Payment].[type=Address].address",
+        "[version=2.0].[type=Payment].[type=Address].address.[type=string].street",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+
+    pii_tag_aspect = make_global_tag_aspect_with_tag_list(["has_pii_test"])
+    assert fields[1].globalTags is None
+    assert fields[2].globalTags == pii_tag_aspect
+    assert fields[3].globalTags == pii_tag_aspect
+    assert fields[3].glossaryTerms == make_glossary_terms_aspect_from_urn_list(
+        ["urn:li:glossaryTerm:PhoneNumber"]
+    )
+    assert fields[8].globalTags == pii_tag_aspect
+    assert fields[8].glossaryTerms == make_glossary_terms_aspect_from_urn_list(
+        ["urn:li:glossaryTerm:Address"]
+    )

@@ -4,13 +4,16 @@ import os
 from freezegun import freeze_time
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
-    BQ_AUDIT_V2,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
+    unquote_and_decode_unicode_escape_seq,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 FROZEN_TIME = "2021-07-20 00:00:00"
 
@@ -111,10 +114,15 @@ AND
     OR
     protoPayload.metadata.tableDataRead.reason = "JOB"
 )"""  # noqa: W293
-    source = BigQueryUsageExtractor(
-        config, BigQueryV2Report(), dataset_urn_builder=lambda _: ""
-    )
-    filter: str = source._generate_filter(BQ_AUDIT_V2)
+
+    corrected_start_time = config.start_time - config.max_query_duration
+    corrected_end_time = config.end_time + config.max_query_duration
+    filter: str = BigQueryUsageExtractor(
+        config,
+        BigQueryV2Report(),
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        dataset_urn_builder=lambda x: "",
+    )._generate_filter(corrected_start_time, corrected_end_time)
     assert filter == expected_filter
 
 
@@ -143,10 +151,10 @@ def test_bigquery_table_sanitasitation():
     assert new_table_ref.dataset == "dataset-4567"
 
     table_ref = BigQueryTableRef(
-        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20222110")
+        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20221210")
     )
     new_table_identifier = table_ref.table_identifier
-    assert new_table_identifier.table == "foo_20222110"
+    assert new_table_identifier.table == "foo_20221210"
     assert new_table_identifier.is_sharded_table()
     assert new_table_identifier.get_table_display_name() == "foo"
     assert new_table_identifier.project_id == "project-1234"
@@ -171,3 +179,62 @@ def test_bigquery_table_sanitasitation():
     assert table_identifier.dataset == "dataset-4567"
     assert table_identifier.table == "foo_2016*"
     assert table_identifier.get_table_display_name() == "foo"
+
+
+def test_unquote_and_decode_unicode_escape_seq():
+
+    # Test with a string that starts and ends with quotes and has Unicode escape sequences
+    input_string = '"Hello \\u003cWorld\\u003e"'
+    expected_output = "Hello <World>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that does not start and end with quotes
+    input_string = "Hello \\u003cWorld\\u003e"
+    expected_output = "Hello <World>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with an empty string
+    input_string = ""
+    expected_output = ""
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that does not have Unicode escape sequences
+    input_string = "No escape sequences here"
+    expected_output = "No escape sequences here"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that starts and ends with quotes but does not have escape sequences
+    input_string = '"No escape sequences here"'
+    expected_output = "No escape sequences here"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with invalid Unicode escape sequences
+    input_string = '"No escape \\u123 sequences here"'
+    expected_output = "No escape \\u123 sequences here"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that has multiple Unicode escape sequences
+    input_string = '"Hello \\u003cWorld\\u003e \\u003cAgain\\u003e \\u003cAgain\\u003e \\u003cAgain\\u003e"'
+    expected_output = "Hello <World> <Again> <Again> <Again>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that has a Unicode escape sequence at the beginning
+    input_string = '"Hello \\utest"'
+    expected_output = "Hello \\utest"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with special characters
+    input_string = (
+        '"Hello \\u003cWorld\\u003e \\u003cçãâÁÁà|{}()[].,/;\\+=--_*&%$#@!?\\u003e"'
+    )
+    expected_output = "Hello <World> <çãâÁÁà|{}()[].,/;\\+=--_*&%$#@!?>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output

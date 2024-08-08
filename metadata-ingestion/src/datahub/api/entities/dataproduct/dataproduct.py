@@ -2,25 +2,15 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from ruamel.yaml import YAML
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -30,6 +20,8 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
     KafkaAuditHeaderClass,
     MetadataChangeProposalClass,
     OwnerClass,
@@ -42,9 +34,6 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urns.urn import Urn
-
-if TYPE_CHECKING:
-    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 
 
 def patch_list(
@@ -82,23 +71,18 @@ class Ownership(ConfigModel):
     type: str
 
     @pydantic.validator("type")
-    def ownership_type_must_be_mappable(cls, v: str) -> str:
-        _ownership_types = [
-            OwnershipTypeClass.BUSINESS_OWNER,
-            OwnershipTypeClass.CONSUMER,
-            OwnershipTypeClass.DATA_STEWARD,
-            OwnershipTypeClass.DATAOWNER,
-            OwnershipTypeClass.DELEGATE,
-            OwnershipTypeClass.DEVELOPER,
-            OwnershipTypeClass.NONE,
-            OwnershipTypeClass.PRODUCER,
-            OwnershipTypeClass.STAKEHOLDER,
-            OwnershipTypeClass.TECHNICAL_OWNER,
-        ]
-        if v.upper() not in _ownership_types:
-            raise ValueError(f"Ownership type {v} not in {_ownership_types}")
+    def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
+        _, _ = builder.validate_ownership_type(v)
+        return v
 
-        return v.upper()
+
+class InstitutionMemoryElement(ConfigModel):
+    url: str
+    description: str
+
+
+class InstitutionMemory(ConfigModel):
+    elements: Optional[List[InstitutionMemoryElement]] = None
 
 
 class DataProduct(ConfigModel):
@@ -108,6 +92,7 @@ class DataProduct(ConfigModel):
         id (str): The id of the Data Product
         domain (str): The domain that the Data Product belongs to. Either as a name or a fully-qualified urn.
         owners (Optional[List[str, Ownership]]): A list of owners and their types.
+        institutional_memory (Optional[InstitutionMemory]): A list of institutional memory elements
         display_name (Optional[str]): The name of the Data Product to display in the UI
         description (Optional[str]): A documentation string for the Data Product
         tags (Optional[List[str]]): An array of tags (either bare ids or urns) for the Data Product
@@ -117,10 +102,11 @@ class DataProduct(ConfigModel):
 
     id: str
     domain: str
-    _resolved_domain_urn: Optional[str]
+    _resolved_domain_urn: Optional[str] = None
     assets: Optional[List[str]] = None
     display_name: Optional[str] = None
     owners: Optional[List[Union[str, Ownership]]] = None
+    institutional_memory: Optional[InstitutionMemory] = None
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
@@ -168,9 +154,13 @@ class DataProduct(ConfigModel):
             )
         else:
             assert isinstance(owner, Ownership)
+            ownership_type, ownership_type_urn = builder.validate_ownership_type(
+                owner.type
+            )
             return OwnerClass(
                 owner=builder.make_user_urn(owner.id),
-                type=owner.type,
+                type=ownership_type,
+                typeUrn=ownership_type_urn,
             )
 
     def _generate_properties_mcp(
@@ -225,7 +215,6 @@ class DataProduct(ConfigModel):
     def generate_mcp(
         self, upsert: bool
     ) -> Iterable[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
-
         if self._resolved_domain_urn is None:
             raise Exception(
                 f"Unable to generate MCP-s because we were unable to resolve the domain {self.domain} to an urn."
@@ -275,6 +264,22 @@ class DataProduct(ConfigModel):
             )
             yield mcp
 
+        if self.institutional_memory and self.institutional_memory.elements:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=InstitutionalMemoryClass(
+                    elements=[
+                        InstitutionalMemoryMetadataClass(
+                            url=element.url,
+                            description=element.description,
+                            createStamp=self._mint_auditstamp("yaml"),
+                        )
+                        for element in self.institutional_memory.elements
+                    ]
+                ),
+            )
+            yield mcp
+
         # Finally emit status
         yield MetadataChangeProposalWrapper(
             entityUrn=self.urn, aspect=StatusClass(removed=False)
@@ -282,7 +287,7 @@ class DataProduct(ConfigModel):
 
     def emit(
         self,
-        emitter: Union[DatahubRestEmitter, "DatahubKafkaEmitter"],
+        emitter: Emitter,
         upsert: bool,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
@@ -300,7 +305,7 @@ class DataProduct(ConfigModel):
         cls,
         file: Path,
         graph: DataHubGraph,
-    ) -> "DataProduct":
+    ) -> DataProduct:
         with open(file) as fp:
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             orig_dictionary = yaml.load(fp)
@@ -315,7 +320,7 @@ class DataProduct(ConfigModel):
             return parsed_data_product
 
     @classmethod
-    def from_datahub(cls, graph: DataHubGraph, id: str) -> "DataProduct":
+    def from_datahub(cls, graph: DataHubGraph, id: str) -> DataProduct:
         data_product_properties: Optional[
             DataProductPropertiesClass
         ] = graph.get_aspect(id, DataProductPropertiesClass)
@@ -328,6 +333,8 @@ class DataProduct(ConfigModel):
             for o in owners.owners:
                 if o.type == OwnershipTypeClass.TECHNICAL_OWNER:
                     yaml_owners.append(o.owner)
+                elif o.type == OwnershipTypeClass.CUSTOM:
+                    yaml_owners.append(Ownership(id=o.owner, type=str(o.typeUrn)))
                 else:
                     yaml_owners.append(Ownership(id=o.owner, type=str(o.type)))
         glossary_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
@@ -369,7 +376,7 @@ class DataProduct(ConfigModel):
             if isinstance(new_owner, Ownership):
                 new_owner_type_map[new_owner.id] = new_owner.type
             else:
-                new_owner_type_map[new_owner] = "TECHNICAL_OWNER"
+                new_owner_type_map[new_owner] = OwnershipTypeClass.TECHNICAL_OWNER
         owners_matched = set()
         patches_add: list = []
         patches_drop: dict = {}
@@ -399,14 +406,14 @@ class DataProduct(ConfigModel):
                         owners_matched.add(owner_urn)
                         if new_owner_type_map[owner_urn] != o.type:
                             patches_replace[i] = {
-                                "id": o,
+                                "id": o.id,
                                 "type": new_owner_type_map[owner_urn],
                             }
                     else:
                         patches_drop[i] = o
 
         # Figure out what if any are new owners to add
-        new_owners_to_add = set(o for o in new_owner_type_map) - set(owners_matched)
+        new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)
         if new_owners_to_add:
             for new_owner in new_owners_to_add:
                 new_owner_type = new_owner_type_map[new_owner]
@@ -440,7 +447,6 @@ class DataProduct(ConfigModel):
         original_dataproduct: DataProduct,
         output_file: Path,
     ) -> bool:
-
         update_needed = False
         if not original_dataproduct._original_yaml_dict:
             raise Exception("Original Data Product was not loaded from yaml")
@@ -523,7 +529,6 @@ class DataProduct(ConfigModel):
         self,
         file: Path,
     ) -> None:
-
         with open(file, "w") as fp:
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             yaml.indent(mapping=2, sequence=4, offset=2)

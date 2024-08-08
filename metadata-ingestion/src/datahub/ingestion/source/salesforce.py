@@ -83,7 +83,7 @@ class SalesforceProfilingConfig(ConfigModel):
 
 
 class SalesforceConfig(DatasetSourceConfigMixin):
-    platform = "salesforce"
+    platform: str = "salesforce"
 
     auth: SalesforceAuthType = SalesforceAuthType.USERNAME_PASSWORD
 
@@ -198,6 +198,14 @@ FIELD_TYPE_MAPPING = {
     capability_name=SourceCapability.DELETION_DETECTION,
     description="Not supported yet",
     supported=False,
+)
+@capability(
+    capability_name=SourceCapability.SCHEMA_METADATA,
+    description="Enabled by default",
+)
+@capability(
+    capability_name=SourceCapability.TAGS,
+    description="Enabled by default",
 )
 class SalesforceSource(Source):
     base_url: str
@@ -353,7 +361,7 @@ class SalesforceSource(Source):
             self.base_url
             + "tooling/query/?q=SELECT Description, Language, ManageableState, "
             + "CreatedDate, CreatedBy.Username, LastModifiedDate, LastModifiedBy.Username "
-            + "FROM CustomObject where DeveloperName='{0}'".format(sObjectDeveloperName)
+            + f"FROM CustomObject where DeveloperName='{sObjectDeveloperName}'"
         )
         custom_objects_response = self.sf._call_salesforce("GET", query_url).json()
         if len(custom_objects_response["records"]) > 0:
@@ -537,11 +545,23 @@ class SalesforceSource(Source):
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(self, field: dict, customField: dict) -> str:
-        desc = field["Label"]
-        if field.get("FieldDefinition", {}).get("Description"):
-            desc = "{0}\n\n{1}".format(desc, field["FieldDefinition"]["Description"])
-        if field.get("InlineHelpText"):
-            desc = "{0}\n\n{1}".format(desc, field["InlineHelpText"])
+        if "Label" not in field or field["Label"] is None:
+            desc = ""
+        elif field["Label"].startswith("#"):
+            desc = "\\" + field["Label"]
+        else:
+            desc = field["Label"]
+
+        text = field.get("FieldDefinition", {}).get("Description", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
+
+        text = field.get("InlineHelpText", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
+
         return desc
 
     # Here jsonProps is used to add additional salesforce field level properties.
@@ -573,10 +593,12 @@ class SalesforceSource(Source):
 
         fieldTags: List[str] = self.get_field_tags(fieldName, field)
 
+        description = self._get_field_description(field, customField)
+
         schemaField = SchemaFieldClass(
             fieldPath=fieldPath,
             type=SchemaFieldDataTypeClass(type=TypeClass()),  # type:ignore
-            description=self._get_field_description(field, customField),
+            description=description,
             # nativeDataType is set to data type shown on salesforce user interface,
             # not the corresponding API data type names.
             nativeDataType=field["FieldDefinition"]["DataType"],
@@ -642,7 +664,7 @@ class SalesforceSource(Source):
             + "Precision, Scale, Length, Digits ,FieldDefinition.IsIndexed, IsUnique,"
             + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
             + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText "
-            + "FROM EntityParticle WHERE EntityDefinitionId='{0}'".format(
+            + "FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
                 sObject["DurableId"]
             )
         )
@@ -651,16 +673,14 @@ class SalesforceSource(Source):
             "GET", sObject_fields_query_url
         ).json()
 
-        logger.debug(
-            "Received Salesforce {sObject} fields response".format(sObject=sObjectName)
-        )
+        logger.debug(f"Received Salesforce {sObjectName} fields response")
 
         sObject_custom_fields_query_url = (
             self.base_url
             + "tooling/query?q=SELECT "
             + "DeveloperName,CreatedDate,CreatedBy.Username,InlineHelpText,"
             + "LastModifiedDate,LastModifiedBy.Username "
-            + "FROM CustomField WHERE EntityDefinitionId='{0}'".format(
+            + "FROM CustomField WHERE EntityDefinitionId='{}'".format(
                 sObject["DurableId"]
             )
         )

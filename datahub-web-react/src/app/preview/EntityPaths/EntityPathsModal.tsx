@@ -39,6 +39,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
 
     return (
         <StyledModal
+            data-testid="entity-paths-modal"
             title={
                 <Header>
                     Column path{paths.length > 1 && 's'} from{' '}

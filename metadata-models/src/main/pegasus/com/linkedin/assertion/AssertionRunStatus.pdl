@@ -1,0 +1,12 @@
+namespace com.linkedin.assertion
+
+
+/**
+* The lifecycle status of an assertion run.
+*/
+enum AssertionRunStatus {
+  /**
+   * The Assertion Run has completed
+   */
+  COMPLETE
+}

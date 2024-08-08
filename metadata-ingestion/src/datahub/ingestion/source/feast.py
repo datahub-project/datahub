@@ -1,8 +1,3 @@
-import sys
-
-if sys.version_info < (3, 8):
-    raise ImportError("Feast is only supported on Python 3.8+")
-
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
@@ -101,6 +96,8 @@ class FeastRepositorySourceConfig(ConfigModel):
 @platform_name("Feast")
 @config_class(FeastRepositorySourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @dataclass
 class FeastRepositorySource(Source):

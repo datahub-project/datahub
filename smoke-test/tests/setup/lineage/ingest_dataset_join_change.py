@@ -1,8 +1,6 @@
 from typing import List
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn,
-)
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     NumberTypeClass,
@@ -17,10 +15,7 @@ from tests.setup.lineage.constants import (
     TIMESTAMP_MILLIS_EIGHT_DAYS_AGO,
     TIMESTAMP_MILLIS_ONE_DAY_AGO,
 )
-from tests.setup.lineage.helper_classes import (
-    Field,
-    Dataset,
-)
+from tests.setup.lineage.helper_classes import Dataset, Field
 from tests.setup.lineage.utils import (
     create_node,
     create_upstream_edge,

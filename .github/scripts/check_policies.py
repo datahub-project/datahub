@@ -20,7 +20,7 @@ for policy in all_policies:
     elif urn == "urn:li:dataHubPolicy:editor-platform-policy":
         editor_platform_policy_privileges = policy["info"]["privileges"]
     elif urn == "urn:li:dataHubPolicy:7":
-        all_user_platform_policy_privilges = policy["info"]["privileges"]
+        all_user_platform_policy_privileges = policy["info"]["privileges"]
     try:
         doc_type = policy["info"]["type"]
         privileges = policy["info"]["privileges"]
@@ -54,10 +54,22 @@ diff_policies = set(platform_privileges).difference(
 )
 assert len(diff_policies) == 0, f"Missing privileges for root user are {diff_policies}"
 
-diff_policies = set(editor_platform_policy_privileges).difference(
-    set(all_user_platform_policy_privilges)
-)
-assert "MANAGE_POLICIES" not in all_user_platform_policy_privilges
-assert (
-    len(diff_policies) == 0
-), f"Missing privileges for all user policies are {diff_policies}"
+# All users privileges checks
+assert "MANAGE_POLICIES" not in all_user_platform_policy_privileges
+assert "MANAGE_USERS_AND_GROUPS" not in all_user_platform_policy_privileges
+assert "MANAGE_SECRETS" not in all_user_platform_policy_privileges
+assert "MANAGE_USER_CREDENTIALS" not in all_user_platform_policy_privileges
+assert "MANAGE_ACCESS_TOKENS" not in all_user_platform_policy_privileges
+assert "EDIT_ENTITY" not in all_user_platform_policy_privileges
+assert "DELETE_ENTITY" not in all_user_platform_policy_privileges
+
+# Editor checks
+assert "MANAGE_POLICIES" not in editor_platform_policy_privileges
+assert "MANAGE_USERS_AND_GROUPS" not in editor_platform_policy_privileges
+assert "MANAGE_SECRETS" not in editor_platform_policy_privileges
+assert "MANAGE_USER_CREDENTIALS" not in editor_platform_policy_privileges
+assert "MANAGE_ACCESS_TOKENS" not in editor_platform_policy_privileges
+# These don't prevent a user from modifying entities they are an asset owner of, i.e. their own profile info
+assert "EDIT_CONTACT_INFO" not in editor_platform_policy_privileges
+assert "EDIT_USER_PROFILE" not in editor_platform_policy_privileges
+assert "EDIT_ENTITY_OWNERS" not in editor_platform_policy_privileges

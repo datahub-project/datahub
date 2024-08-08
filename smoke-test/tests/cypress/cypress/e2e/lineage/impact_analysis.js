@@ -2,34 +2,38 @@ import { getTimestampMillisNumDaysAgo } from "../../support/commands";
 
 const JAN_1_2021_TIMESTAMP = 1609553357755;
 const JAN_1_2022_TIMESTAMP = 1641089357755;
-const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)';
+const DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
 const TIMESTAMP_MILLIS_14_DAYS_AGO = getTimestampMillisNumDaysAgo(14);
 const TIMESTAMP_MILLIS_7_DAYS_AGO = getTimestampMillisNumDaysAgo(7);
 const TIMESTAMP_MILLIS_NOW = getTimestampMillisNumDaysAgo(0);
-const GNP_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,economic_data.gnp,PROD)";
-const TRANSACTION_ETL_URN = "urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)";
-const MONTHLY_TEMPERATURE_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)";
-
+const GNP_DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,economic_data.gnp,PROD)";
+const TRANSACTION_ETL_URN =
+  "urn:li:dataJob:(urn:li:dataFlow:(airflow,bq_etl,prod),transaction_etl)";
+const MONTHLY_TEMPERATURE_DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)";
 
 const startAtDataSetLineage = () => {
-    cy.login();
-    cy.goToDataset(
-      DATASET_URN,
-      "SampleCypressKafkaDataset"
-    );
-    cy.openEntityTab("Lineage")
-}
+  cy.login();
+  cy.goToDataset(DATASET_URN, "SampleCypressKafkaDataset");
+  cy.openEntityTab("Lineage");
+};
 
 describe("impact analysis", () => {
+  beforeEach(() => {
+    cy.on("uncaught:exception", (err, runnable) => false);
+  });
+
   it("can see 1 hop of lineage by default", () => {
-    startAtDataSetLineage()
+    startAtDataSetLineage();
 
     cy.ensureTextNotPresent("User Creations");
     cy.ensureTextNotPresent("User Deletions");
   });
 
   it("can see lineage multiple hops away", () => {
-    startAtDataSetLineage()
+    startAtDataSetLineage();
     // click to show more relationships now that we default to 1 degree of dependency
     cy.clickOptionWithText("3+");
 
@@ -38,7 +42,7 @@ describe("impact analysis", () => {
   });
 
   it("can filter the lineage results as well", () => {
-    startAtDataSetLineage()
+    startAtDataSetLineage();
     // click to show more relationships now that we default to 1 degree of dependency
     cy.clickOptionWithText("3+");
 
@@ -46,11 +50,11 @@ describe("impact analysis", () => {
 
     cy.clickOptionWithText("Add Filter");
 
-    cy.clickOptionWithTestId('adv-search-add-filter-description');
+    cy.clickOptionWithTestId("adv-search-add-filter-description");
 
     cy.get('[data-testid="edit-text-input"]').type("fct_users_deleted");
 
-    cy.clickOptionWithTestId('edit-text-done-btn');
+    cy.clickOptionWithTestId("edit-text-done-btn");
 
     cy.ensureTextNotPresent("User Creations");
     cy.waitTextVisible("User Deletions");
@@ -59,7 +63,7 @@ describe("impact analysis", () => {
   it("can view column level impact analysis and turn it off", () => {
     cy.login();
     cy.visit(
-      `/dataset/${DATASET_URN}/Lineage?column=%5Bversion%3D2.0%5D.%5Btype%3Dboolean%5D.field_bar&is_lineage_mode=false`
+      `/dataset/${DATASET_URN}/Lineage?column=%5Bversion%3D2.0%5D.%5Btype%3Dboolean%5D.field_bar&is_lineage_mode=false`,
     );
 
     // impact analysis can take a beat- don't want to time out here
@@ -81,11 +85,10 @@ describe("impact analysis", () => {
     cy.contains("Baz Chart 1");
   });
 
-
   it("can filter lineage edges by time", () => {
     cy.login();
     cy.visit(
-      `/dataset/${DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${JAN_1_2021_TIMESTAMP}&end_time_millis=${JAN_1_2022_TIMESTAMP}`
+      `/dataset/${DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${JAN_1_2021_TIMESTAMP}&end_time_millis=${JAN_1_2022_TIMESTAMP}`,
     );
 
     // impact analysis can take a beat- don't want to time out here
@@ -101,7 +104,7 @@ describe("impact analysis", () => {
     cy.login();
     // Between 14 days ago and 7 days ago, only transactions was an input
     cy.visit(
-      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`
+      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     // Downstream
     cy.contains("aggregated");
@@ -111,7 +114,7 @@ describe("impact analysis", () => {
     cy.contains("user_profile").should("not.exist");
     // 1 day ago, factor_income was removed from the join
     cy.visit(
-      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`
+      `/tasks/${TRANSACTION_ETL_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     // Downstream
     cy.contains("aggregated");
@@ -125,14 +128,14 @@ describe("impact analysis", () => {
     cy.login();
     // Between 14 days ago and 7 days ago, only temperature_etl_1 was an iput
     cy.visit(
-      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`
+      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     cy.lineageTabClickOnUpstream();
     cy.contains("temperature_etl_1");
     cy.contains("temperature_etl_2").should("not.exist");
     // Since 7 days ago, temperature_etl_1 has been replaced by temperature_etl_2
     cy.visit(
-      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`
+      `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     cy.lineageTabClickOnUpstream();
     cy.contains("temperature_etl_1").should("not.exist");
@@ -143,14 +146,14 @@ describe("impact analysis", () => {
     cy.login();
     // 8 days ago, both gdp and factor_income were joined to create gnp
     cy.visit(
-      `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`
+      `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     cy.lineageTabClickOnUpstream();
     cy.contains("gdp");
     cy.contains("factor_income");
     // 1 day ago, factor_income was removed from the join
     cy.visit(
-      `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`
+      `/dataset/${GNP_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     cy.lineageTabClickOnUpstream();
     cy.contains("gdp");

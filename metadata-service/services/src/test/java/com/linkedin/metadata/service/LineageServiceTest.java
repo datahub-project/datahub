@@ -1,8 +1,9 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
-import com.datahub.authentication.Authentication;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.testng.Assert.*;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.chart.ChartDataSourceType;
@@ -31,11 +32,13 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,29 +49,34 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
-
 public class LineageServiceTest {
   private static AuditStamp _auditStamp;
-  private static EntityClient _mockClient;
+  private static SystemEntityClient _mockClient;
   private LineageService _lineageService;
-  private static final Authentication AUTHENTICATION =
-      new Authentication(new Actor(ActorType.USER, "test"), "");
+  private static OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
   private static final String SOURCE_FIELD_NAME = "source";
   private static final String UI_SOURCE = "UI";
   private static final String ACTOR_URN = "urn:li:corpuser:test";
-  private static final String DATASET_URN_1 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test1,DEV)";
-  private static final String DATASET_URN_2 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test2,DEV)";
-  private static final String DATASET_URN_3 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test3,DEV)";
-  private static final String DATASET_URN_4 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test4,DEV)";
+  private static final String DATASET_URN_1 =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,test1,DEV)";
+  private static final String DATASET_URN_2 =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,test2,DEV)";
+  private static final String DATASET_URN_3 =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,test3,DEV)";
+  private static final String DATASET_URN_4 =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,test4,DEV)";
   private static final String CHART_URN_1 = "urn:li:chart:(looker,baz1)";
   private static final String CHART_URN_2 = "urn:li:chart:(looker,baz2)";
   private static final String CHART_URN_3 = "urn:li:chart:(looker,baz3)";
   private static final String DASHBOARD_URN_1 = "urn:li:dashboard:(airflow,id1)";
   private static final String DASHBOARD_URN_2 = "urn:li:dashboard:(airflow,id2)";
-  private static final String DATAJOB_URN_1 = "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test1)";
-  private static final String DATAJOB_URN_2 = "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test2)";
-  private static final String DATAJOB_URN_3 = "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test3)";
+  private static final String DATAJOB_URN_1 =
+      "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test1)";
+  private static final String DATAJOB_URN_2 =
+      "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test2)";
+  private static final String DATAJOB_URN_3 =
+      "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test3)";
   private Urn actorUrn;
   private Urn datasetUrn1;
   private Urn datasetUrn2;
@@ -87,7 +95,7 @@ public class LineageServiceTest {
   public void setupTest() {
     DateTimeUtils.setCurrentMillisFixed(123L);
     _auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(ACTOR_URN)).setTime(123L);
-    _mockClient = Mockito.mock(EntityClient.class);
+    _mockClient = Mockito.mock(SystemEntityClient.class);
     actorUrn = UrnUtils.getUrn(ACTOR_URN);
     datasetUrn1 = UrnUtils.getUrn(DATASET_URN_1);
     datasetUrn2 = UrnUtils.getUrn(DATASET_URN_2);
@@ -110,99 +118,114 @@ public class LineageServiceTest {
   // Adds upstream for dataset1 to dataset2 and removes edge to dataset3
   @Test
   public void testUpdateDatasetLineage() throws Exception {
-    Mockito.when(_mockClient.exists(datasetUrn1, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn3, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn3))).thenReturn(true);
 
-    UpstreamLineage upstreamLineage = createUpstreamLineage(new ArrayList<>(Arrays.asList(DATASET_URN_3, DATASET_URN_4)));
+    UpstreamLineage upstreamLineage =
+        createUpstreamLineage(new ArrayList<>(Arrays.asList(DATASET_URN_3, DATASET_URN_4)));
 
-    Mockito.when(_mockClient.getV2(
-            Mockito.eq(Constants.DATASET_ENTITY_NAME),
-            Mockito.eq(datasetUrn1),
-            Mockito.eq(ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)),
-            Mockito.eq(AUTHENTICATION)
-        ))
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(datasetUrn1),
+                eq(ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(datasetUrn1)
                 .setEntityName(Constants.DATASET_ENTITY_NAME)
-                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                    Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(upstreamLineage.data()))
-                )))
-        );
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(upstreamLineage.data()))))));
 
     final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn2);
     final List<Urn> upstreamUrnsToRemove = Collections.singletonList(datasetUrn3);
-    _lineageService.updateDatasetLineage(datasetUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION);
+    _lineageService.updateDatasetLineage(
+        opContext, datasetUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
 
     // upstreamLineage without dataset3, keep dataset4, add dataset2
-    final UpstreamLineage updatedDataset1UpstreamLineage = createUpstreamLineage(new ArrayList<>(Arrays.asList(DATASET_URN_4, DATASET_URN_2)));
+    final UpstreamLineage updatedDataset1UpstreamLineage =
+        createUpstreamLineage(new ArrayList<>(Arrays.asList(DATASET_URN_4, DATASET_URN_2)));
     final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
     proposal1.setEntityUrn(UrnUtils.getUrn(DATASET_URN_1));
     proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
     proposal1.setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
     proposal1.setAspect(GenericRecordUtils.serializeAspect(updatedDataset1UpstreamLineage));
     proposal1.setChangeType(ChangeType.UPSERT);
-    Mockito.verify(_mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.eq(AUTHENTICATION),
-        Mockito.eq(false)
-    );
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal1), eq(false));
   }
 
   @Test
   public void testFailUpdateWithMissingDataset() throws Exception {
-    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(false);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2)))
+        .thenReturn(false);
 
     final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn2);
     final List<Urn> upstreamUrnsToRemove = Collections.singletonList(datasetUrn3);
-    assertThrows(IllegalArgumentException.class, () ->
-        _lineageService.updateDatasetLineage(datasetUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateDatasetLineage(
+                opContext, datasetUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
   @Test
   public void testFailUpdateDatasetWithInvalidEdge() throws Exception {
-    Mockito.when(_mockClient.exists(chartUrn1, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
 
     final List<Urn> upstreamUrnsToAdd = Collections.singletonList(chartUrn1);
     final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(RuntimeException.class, () ->
-        _lineageService.updateDatasetLineage(datasetUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _lineageService.updateDatasetLineage(
+                opContext, datasetUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
-  // Adds upstream for chart1 to dataset3 and removes edge to dataset1 while keeping edge to dataset2
+  // Adds upstream for chart1 to dataset3 and removes edge to dataset1 while keeping edge to
+  // dataset2
   @Test
   public void testUpdateChartLineage() throws Exception {
-    Mockito.when(_mockClient.exists(chartUrn1, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn1, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn3, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn3))).thenReturn(true);
 
-    ChartInfo chartInfo = createChartInfo(chartUrn1, Arrays.asList(datasetUrn1, datasetUrn2), Collections.emptyList());
+    ChartInfo chartInfo =
+        createChartInfo(
+            chartUrn1, Arrays.asList(datasetUrn1, datasetUrn2), Collections.emptyList());
 
-    Mockito.when(_mockClient.getV2(
-            Mockito.eq(Constants.CHART_ENTITY_NAME),
-            Mockito.eq(chartUrn1),
-            Mockito.eq(ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME)),
-            Mockito.eq(AUTHENTICATION)
-        ))
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.CHART_ENTITY_NAME),
+                eq(chartUrn1),
+                eq(ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(chartUrn1)
                 .setEntityName(Constants.CHART_ENTITY_NAME)
-                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                    Constants.CHART_INFO_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(chartInfo.data()))
-                )))
-        );
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.CHART_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(chartInfo.data()))))));
 
     final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn3);
     final List<Urn> upstreamUrnsToRemove = Collections.singletonList(datasetUrn2);
-    _lineageService.updateChartLineage(chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION);
+    _lineageService.updateChartLineage(
+        opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
 
     // chartInfo with dataset1 in inputs and dataset3 in inputEdges
-    ChartInfo updatedChartInfo = createChartInfo(chartUrn1, Collections.singletonList(datasetUrn1), Collections.singletonList(datasetUrn3));
+    ChartInfo updatedChartInfo =
+        createChartInfo(
+            chartUrn1,
+            Collections.singletonList(datasetUrn1),
+            Collections.singletonList(datasetUrn3));
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(chartUrn1);
@@ -210,80 +233,87 @@ public class LineageServiceTest {
     proposal.setAspectName(Constants.CHART_INFO_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(updatedChartInfo));
     proposal.setChangeType(ChangeType.UPSERT);
-    Mockito.verify(_mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.eq(AUTHENTICATION),
-        Mockito.eq(false)
-    );
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
   }
 
   @Test
   public void testFailUpdateChartWithMissingDataset() throws Exception {
-    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(false);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2)))
+        .thenReturn(false);
 
     final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn2);
     final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(IllegalArgumentException.class, () ->
-        _lineageService.updateChartLineage(chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateChartLineage(
+                opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
   @Test
   public void testFailUpdateChartWithInvalidEdge() throws Exception {
-    Mockito.when(_mockClient.exists(chartUrn2, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, chartUrn2)).thenReturn(true);
 
     // charts can't have charts upstream of them
     final List<Urn> upstreamUrnsToAdd = Collections.singletonList(chartUrn2);
     final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(RuntimeException.class, () ->
-        _lineageService.updateChartLineage(chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _lineageService.updateChartLineage(
+                opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
   // Adds upstreams for dashboard to dataset2 and chart2 and removes edge to dataset1 and chart1
   @Test
   public void testUpdateDashboardLineage() throws Exception {
-    Mockito.when(_mockClient.exists(dashboardUrn1, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn1, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(chartUrn1, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(chartUrn2, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(dashboardUrn1)))
+        .thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn2))).thenReturn(true);
 
     // existing dashboardInfo has upstreams to dataset1, dataset3, chart1, chart3
-    DashboardInfo dashboardInfo = createDashboardInfo(
-        dashboardUrn1,
-        Arrays.asList(chartUrn1, chartUrn3),
-        Collections.emptyList(),
-        Arrays.asList(datasetUrn1, datasetUrn3),
-        Collections.emptyList()
-    );
+    DashboardInfo dashboardInfo =
+        createDashboardInfo(
+            dashboardUrn1,
+            Arrays.asList(chartUrn1, chartUrn3),
+            Collections.emptyList(),
+            Arrays.asList(datasetUrn1, datasetUrn3),
+            Collections.emptyList());
 
-    Mockito.when(_mockClient.getV2(
-            Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
-            Mockito.eq(dashboardUrn1),
-            Mockito.eq(ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME)),
-            Mockito.eq(AUTHENTICATION)
-        ))
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DASHBOARD_ENTITY_NAME),
+                eq(dashboardUrn1),
+                eq(ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(dashboardUrn1)
                 .setEntityName(Constants.DASHBOARD_ENTITY_NAME)
-                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                    Constants.DASHBOARD_INFO_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(dashboardInfo.data()))
-                )))
-        );
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.DASHBOARD_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(dashboardInfo.data()))))));
 
     final List<Urn> upstreamUrnsToAdd = Arrays.asList(datasetUrn2, chartUrn2);
     final List<Urn> upstreamUrnsToRemove = Arrays.asList(datasetUrn1, chartUrn1);
-    _lineageService.updateDashboardLineage(dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION);
+    _lineageService.updateDashboardLineage(
+        opContext, dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
 
-    // dashboardInfo with chartUrn3 in charts, chartUrn2 in chartEdges, datasetUrn3 in datasets, datasetUrn2 in datasetEdges
-    DashboardInfo updatedDashboardInfo = createDashboardInfo(
-        dashboardUrn1,
-        Collections.singletonList(chartUrn3),
-        Collections.singletonList(chartUrn2),
-        Arrays.asList(datasetUrn3),
-        Collections.singletonList(datasetUrn2)
-    );
+    // dashboardInfo with chartUrn3 in charts, chartUrn2 in chartEdges, datasetUrn3 in datasets,
+    // datasetUrn2 in datasetEdges
+    DashboardInfo updatedDashboardInfo =
+        createDashboardInfo(
+            dashboardUrn1,
+            Collections.singletonList(chartUrn3),
+            Collections.singletonList(chartUrn2),
+            Arrays.asList(datasetUrn3),
+            Collections.singletonList(datasetUrn2));
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(dashboardUrn1);
@@ -291,107 +321,116 @@ public class LineageServiceTest {
     proposal.setAspectName(Constants.DASHBOARD_INFO_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(updatedDashboardInfo));
     proposal.setChangeType(ChangeType.UPSERT);
-    Mockito.verify(_mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.eq(AUTHENTICATION),
-        Mockito.eq(false)
-    );
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
   }
 
   @Test
   public void testFailUpdateDashboardWithMissingDataset() throws Exception {
-    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(false);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn2)).thenReturn(false);
 
     final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn2);
     final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(IllegalArgumentException.class, () ->
-        _lineageService.updateDashboardLineage(dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateDashboardLineage(
+                opContext, dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
   @Test
   public void testFailUpdateDashboardWithInvalidEdge() throws Exception {
-    Mockito.when(_mockClient.exists(dashboardUrn2, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, dashboardUrn2)).thenReturn(true);
 
     // dashboards can't have dashboards upstream of them
     final List<Urn> upstreamUrnsToAdd = Collections.singletonList(dashboardUrn2);
     final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(RuntimeException.class, () ->
-        _lineageService.updateDashboardLineage(dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _lineageService.updateDashboardLineage(
+                opContext, dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
-  // Adds upstream datajob3, upstream dataset3, downstream dataset4, removes upstream datajob2, upstream dataset1, downstream dataset1
+  // Adds upstream datajob3, upstream dataset3, downstream dataset4, removes upstream datajob2,
+  // upstream dataset1, downstream dataset1
   // has existing upstream datajob2, upstream dataset1 and dataset2, downstream dataset4
   // Should result in upstream datajob3, upstream dataset3 and dataset2, downstream dataset5
   @Test
   public void testUpdateDataJobLineage() throws Exception {
-    Mockito.when(_mockClient.exists(datajobUrn1, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datajobUrn3, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn3, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datajobUrn2, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn4, AUTHENTICATION)).thenReturn(true);
-    Mockito.when(_mockClient.exists(datasetUrn1, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datajobUrn1)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datajobUrn3)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn3)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datajobUrn2)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn2)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn4)).thenReturn(true);
+    Mockito.when(_mockClient.exists(opContext, datasetUrn1)).thenReturn(true);
 
-    DataJobInputOutput firstDataJobInputOutput = createDataJobInputOutput(
-        datajobUrn1,
-        Arrays.asList(datasetUrn1, datasetUrn2),
-        Collections.emptyList(),
-        Collections.singletonList(datajobUrn2),
-        Collections.emptyList(),
-        Collections.singletonList(datasetUrn1),
-        Collections.emptyList()
-    );
+    DataJobInputOutput firstDataJobInputOutput =
+        createDataJobInputOutput(
+            datajobUrn1,
+            Arrays.asList(datasetUrn1, datasetUrn2),
+            Collections.emptyList(),
+            Collections.singletonList(datajobUrn2),
+            Collections.emptyList(),
+            Collections.singletonList(datasetUrn1),
+            Collections.emptyList());
 
-    DataJobInputOutput secondDataJobInputOutput = createDataJobInputOutput(
-        datajobUrn1,
-        Arrays.asList(datasetUrn1),
-        Arrays.asList(datasetUrn3),
-        Collections.emptyList(),
-        Arrays.asList(datajobUrn3),
-        Arrays.asList(datasetUrn1),
-        Collections.emptyList()
-    );
+    DataJobInputOutput secondDataJobInputOutput =
+        createDataJobInputOutput(
+            datajobUrn1,
+            Arrays.asList(datasetUrn1),
+            Arrays.asList(datasetUrn3),
+            Collections.emptyList(),
+            Arrays.asList(datajobUrn3),
+            Arrays.asList(datasetUrn1),
+            Collections.emptyList());
 
-    Mockito.when(_mockClient.getV2(
-            Mockito.eq(Constants.DATA_JOB_ENTITY_NAME),
-            Mockito.eq(datajobUrn1),
-            Mockito.eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)),
-            Mockito.eq(AUTHENTICATION)
-        ))
+    Mockito.when(
+            _mockClient.getV2(
+                any(OperationContext.class),
+                eq(Constants.DATA_JOB_ENTITY_NAME),
+                eq(datajobUrn1),
+                eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(datajobUrn1)
                 .setEntityName(Constants.DATA_JOB_ENTITY_NAME)
-                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                    Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(firstDataJobInputOutput.data()))
-                ))),
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(firstDataJobInputOutput.data()))))),
             new EntityResponse()
                 .setUrn(datajobUrn1)
                 .setEntityName(Constants.DATA_JOB_ENTITY_NAME)
-                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                    Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(secondDataJobInputOutput.data()))
-                )))
-        );
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(secondDataJobInputOutput.data()))))));
 
     final List<Urn> upstreamUrnsToAdd = Arrays.asList(datajobUrn3, datasetUrn3);
     final List<Urn> upstreamUrnsToRemove = Arrays.asList(datajobUrn2, datasetUrn2);
-    _lineageService.updateDataJobUpstreamLineage(datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION);
+    _lineageService.updateDataJobUpstreamLineage(
+        opContext, datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
 
     final List<Urn> downstreamUrnsToAdd = Arrays.asList(datasetUrn4);
     final List<Urn> downstreamUrnsToRemove = Arrays.asList(datasetUrn1);
-    _lineageService.updateDataJobDownstreamLineage(datajobUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn, AUTHENTICATION);
+    _lineageService.updateDataJobDownstreamLineage(
+        opContext, datajobUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn);
 
-    DataJobInputOutput updatedDataJobInputOutput = createDataJobInputOutput(
-        datajobUrn1,
-        Arrays.asList(datasetUrn1),
-        Arrays.asList(datasetUrn3),
-        Collections.emptyList(),
-        Arrays.asList(datajobUrn3),
-        Collections.emptyList(),
-        Collections.singletonList(datasetUrn4)
-    );
+    DataJobInputOutput updatedDataJobInputOutput =
+        createDataJobInputOutput(
+            datajobUrn1,
+            Arrays.asList(datasetUrn1),
+            Arrays.asList(datasetUrn3),
+            Collections.emptyList(),
+            Arrays.asList(datajobUrn3),
+            Collections.emptyList(),
+            Collections.singletonList(datasetUrn4));
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(datajobUrn1);
@@ -399,53 +438,66 @@ public class LineageServiceTest {
     proposal.setAspectName(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(updatedDataJobInputOutput));
     proposal.setChangeType(ChangeType.UPSERT);
-    Mockito.verify(_mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.eq(AUTHENTICATION),
-        Mockito.eq(false)
-    );
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false));
   }
 
   @Test
   public void testFailUpdateUpstreamDataJobWithMissingUrnToAdd() throws Exception {
-    Mockito.when(_mockClient.exists(datajobUrn3, AUTHENTICATION)).thenReturn(false);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datajobUrn3)))
+        .thenReturn(false);
 
     final List<Urn> upstreamUrnsToAdd = Arrays.asList(datajobUrn3);
     final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(IllegalArgumentException.class, () ->
-        _lineageService.updateDataJobUpstreamLineage(dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateDataJobUpstreamLineage(
+                opContext, dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
   @Test
   public void testFailUpdateUpstreamDataJobWithInvalidEdge() throws Exception {
-    Mockito.when(_mockClient.exists(dashboardUrn2, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(dashboardUrn2)))
+        .thenReturn(true);
 
     // dataJobs can't have dashboards upstream of them
     final List<Urn> upstreamUrnsToAdd = Collections.singletonList(dashboardUrn2);
     final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(RuntimeException.class, () ->
-        _lineageService.updateDataJobUpstreamLineage(datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _lineageService.updateDataJobUpstreamLineage(
+                opContext, datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
   @Test
   public void testFailUpdateDownstreamDataJobWithMissingUrnToAdd() throws Exception {
-    Mockito.when(_mockClient.exists(datasetUrn1, AUTHENTICATION)).thenReturn(false);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1)))
+        .thenReturn(false);
 
     final List<Urn> downstreamUrnsToAdd = Arrays.asList(datasetUrn1);
     final List<Urn> downstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(IllegalArgumentException.class, () ->
-        _lineageService.updateDataJobDownstreamLineage(dashboardUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _lineageService.updateDataJobDownstreamLineage(
+                opContext, dashboardUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn));
   }
 
   @Test
   public void testFailUpdateDownstreamDataJobWithInvalidEdge() throws Exception {
-    Mockito.when(_mockClient.exists(dashboardUrn2, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(dashboardUrn2)))
+        .thenReturn(true);
 
     // dataJobs can't have dashboards downstream of them
     final List<Urn> downstreamUrnsToAdd = Collections.singletonList(dashboardUrn2);
     final List<Urn> downstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(RuntimeException.class, () ->
-        _lineageService.updateDataJobUpstreamLineage(datajobUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _lineageService.updateDataJobUpstreamLineage(
+                opContext, datajobUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn));
   }
 
   private UpstreamLineage createUpstreamLineage(List<String> upstreamUrns) throws Exception {
@@ -466,7 +518,8 @@ public class LineageServiceTest {
     return upstreamLineage;
   }
 
-  private ChartInfo createChartInfo(Urn entityUrn, List<Urn> inputsToAdd, List<Urn> inputEdgesToAdd) throws Exception {
+  private ChartInfo createChartInfo(Urn entityUrn, List<Urn> inputsToAdd, List<Urn> inputEdgesToAdd)
+      throws Exception {
     ChartInfo chartInfo = new ChartInfo();
     ChartDataSourceTypeArray inputs = new ChartDataSourceTypeArray();
     for (Urn input : inputsToAdd) {
@@ -489,8 +542,8 @@ public class LineageServiceTest {
       List<Urn> chartsToAdd,
       List<Urn> chartEdgesToAdd,
       List<Urn> datasetsToAdd,
-      List<Urn> datasetEdgesToAdd
-  ) throws Exception {
+      List<Urn> datasetEdgesToAdd)
+      throws Exception {
     final DashboardInfo dashboardInfo = new DashboardInfo();
 
     final ChartUrnArray charts = new ChartUrnArray();
@@ -525,8 +578,8 @@ public class LineageServiceTest {
       List<Urn> inputDatajobsToAdd,
       List<Urn> inputDatajobEdgesToAdd,
       List<Urn> outputDatasetsToAdd,
-      List<Urn> outputDatasetEdgesToAdd
-      ) throws Exception {
+      List<Urn> outputDatasetEdgesToAdd)
+      throws Exception {
     final DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
 
     final DatasetUrnArray inputDatasets = new DatasetUrnArray();
@@ -571,8 +624,7 @@ public class LineageServiceTest {
   private void addNewEdge(
       @Nonnull final Urn upstreamUrn,
       @Nonnull final Urn downstreamUrn,
-      @Nonnull final EdgeArray edgeArray
-  ) {
+      @Nonnull final EdgeArray edgeArray) {
     final Edge newEdge = new Edge();
     newEdge.setDestinationUrn(upstreamUrn);
     newEdge.setSourceUrn(downstreamUrn);

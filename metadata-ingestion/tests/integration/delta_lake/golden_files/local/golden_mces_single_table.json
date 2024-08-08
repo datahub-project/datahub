@@ -44,9 +44,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "bar",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -55,12 +54,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "foo",
+                                "fieldPath": "[version=2.0].[type=int].bar",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -69,12 +67,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "zip",
+                                "fieldPath": "[version=2.0].[type=string].zip",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -83,7 +80,7 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -93,7 +90,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -113,7 +111,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -128,7 +127,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -143,7 +143,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -160,7 +161,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -175,7 +177,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -195,7 +198,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -210,7 +214,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -225,7 +230,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -242,7 +248,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -257,7 +264,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -277,7 +285,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -297,7 +306,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -312,7 +322,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -327,7 +338,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -344,7 +356,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -359,7 +372,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -383,7 +397,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -403,7 +418,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -418,7 +434,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -433,7 +450,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -450,7 +468,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -465,7 +484,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -493,7 +513,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -513,7 +534,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -528,7 +550,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -543,7 +566,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -560,7 +584,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -575,7 +600,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -607,7 +633,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -622,7 +649,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -643,14 +671,16 @@
                 "engineInfo": "local Delta-Standalone/0.4.0",
                 "isBlindAppend": "True",
                 "isolationLevel": "Serializable",
-                "readVersion": "3"
+                "readVersion": "3",
+                "version": "4"
             },
             "lastUpdatedTimestamp": 1655831477768
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -686,7 +716,169 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "single_table.json"
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
+                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
+                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+                },
+                {
+                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
+                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
+                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+                },
+                {
+                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
+                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
+                },
+                {
+                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
+                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
+                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+                },
+                {
+                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
+                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
+                },
+                {
+                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
+                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
+                },
+                {
+                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
+                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
+                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+                },
+                {
+                    "id": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
+                    "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
+                },
+                {
+                    "id": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
+                    "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
+                },
+                {
+                    "id": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
+                    "urn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
+                },
+                {
+                    "id": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+                    "urn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

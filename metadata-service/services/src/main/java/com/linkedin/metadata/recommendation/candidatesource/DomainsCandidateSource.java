@@ -1,21 +1,22 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
 
 @Slf4j
 public class DomainsCandidateSource extends EntitySearchAggregationSource {
 
   private static final String DOMAINS = "domains";
 
-  public DomainsCandidateSource(EntitySearchService entitySearchService) {
-    super(entitySearchService);
+  public DomainsCandidateSource(
+      EntitySearchService entitySearchService, EntityRegistry entityRegistry) {
+    super(entitySearchService, entityRegistry);
   }
 
   @Override
@@ -34,7 +35,8 @@ public class DomainsCandidateSource extends EntitySearchAggregationSource {
   }
 
   @Override
-  public boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+  public boolean isEligible(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     return requestContext.getScenario() == ScenarioType.HOME;
   }
 
@@ -53,4 +55,3 @@ public class DomainsCandidateSource extends EntitySearchAggregationSource {
     return true;
   }
 }
-

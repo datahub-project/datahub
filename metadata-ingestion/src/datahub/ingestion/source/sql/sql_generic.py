@@ -44,7 +44,7 @@ class BaseView:
     comment: Optional[str]
     created: Optional[datetime]
     last_altered: Optional[datetime]
-    view_definition: str
+    view_definition: Optional[str]
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
     column_count: Optional[int] = None
@@ -64,7 +64,7 @@ class SQLAlchemyGenericConfig(SQLCommonConfig):
 
 @platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class SQLAlchemyGenericSource(SQLAlchemySource):

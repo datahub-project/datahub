@@ -1,15 +1,14 @@
 package com.linkedin.metadata.utils.metrics;
 
 import com.codahale.metrics.Counter;
+import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.codahale.metrics.jmx.JmxReporter;
 
-
 public class MetricUtils {
-  private MetricUtils() {
-  }
+  private MetricUtils() {}
 
   public static final String DELIMITER = "_";
 
@@ -31,7 +30,8 @@ public class MetricUtils {
 
   public static void exceptionCounter(Class<?> klass, String metricName, Throwable t) {
     String[] splitClassName = t.getClass().getName().split("[.]");
-    String snakeCase = splitClassName[splitClassName.length - 1].replaceAll("([A-Z][a-z])", DELIMITER + "$1");
+    String snakeCase =
+        splitClassName[splitClassName.length - 1].replaceAll("([A-Z][a-z])", DELIMITER + "$1");
 
     counter(klass, metricName).inc();
     counter(klass, metricName + DELIMITER + snakeCase).inc();
@@ -47,5 +47,10 @@ public class MetricUtils {
 
   public static Timer timer(String metricName) {
     return REGISTRY.timer(MetricRegistry.name(metricName));
+  }
+
+  public static <T extends Gauge<?>> T gauge(
+      Class<?> clazz, String metricName, MetricRegistry.MetricSupplier<T> supplier) {
+    return REGISTRY.gauge(MetricRegistry.name(clazz, metricName), supplier);
   }
 }

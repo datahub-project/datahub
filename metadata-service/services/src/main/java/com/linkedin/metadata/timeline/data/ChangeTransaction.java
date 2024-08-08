@@ -8,7 +8,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
-
 @Getter
 @Builder
 public class ChangeTransaction {
@@ -19,10 +18,11 @@ public class ChangeTransaction {
   String semVer;
   SemanticChangeType semVerChange;
   List<ChangeEvent> changeEvents;
+
   @ArraySchema(schema = @Schema(implementation = PatchOperation.class))
   JsonPatch rawDiff;
-  @Setter
-  String versionStamp;
+
+  @Setter String versionStamp;
 
   public void setSemanticVersion(String semanticVersion) {
     this.semVer = semanticVersion;

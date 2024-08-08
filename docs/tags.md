@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Tags
+# Tags
 
 <FeatureAvailability/>
 
@@ -28,25 +28,25 @@ You can create these privileges by creating a new [Metadata Policy](./authorizat
 To add a tag at the dataset or container level, simply navigate to the page for that entity and click on the **Add Tag** button.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/add-tag.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/add-tag.png"/>
 </p>
 
 Type in the name of the tag you want to add. You can add a new tag, or add a tag that already exists (the autocomplete will pull up the tag if it already exists).
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/add-tag-search.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/add-tag-search.png"/>
 </p>
 
 Click on the "Add" button and you'll see the tag has been added!
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/added-tag.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/added-tag.png"/>
 </p>
 
 If you would like to add a tag at the schema level, hover over the "Tags" column for a schema until the "Add Tag" button shows up, and then follow the same flow as above.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/add-schema-tag.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/add-schema-tag.png"/>
 </p>
 
 ### Removing a Tag
@@ -58,7 +58,7 @@ To remove a tag, simply click on the "X" button in the tag. Then click "Yes" whe
 You can search for a tag in the search bar, and even filter entities by the presence of a specific tag.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/search-tag.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/search-tag.png"/>
 </p>
 
 ## Additional Resources
@@ -104,7 +104,7 @@ Usage and applications:
 
 Domains are a set of top-level categories usually aligned to business units/disciplines to which the assets are most relevant. They rely on central or distributed management. A single domain is assigned per data asset.
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 
 ### Related Features
 

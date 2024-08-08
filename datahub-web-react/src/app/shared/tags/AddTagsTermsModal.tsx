@@ -19,6 +19,9 @@ import { useGetRecommendations } from '../recommendation';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '../../entity/shared/utils';
 import { TagTermLabel } from './TagTermLabel';
 import { ENTER_KEY_CODE } from '../constants';
+import { getModalDomContainer } from '../../../utils/focus';
+import ParentEntities from '../../search/filters/ParentEntities';
+import { getParentEntities } from '../../search/filters/utils';
 
 export enum OperationType {
     ADD,
@@ -50,15 +53,15 @@ const StyleTag = styled(CustomTag)`
     line-height: 16px;
 `;
 
-export const BrowserWrapper = styled.div<{ isHidden: boolean }>`
+export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`
     background-color: white;
     border-radius: 5px;
     box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
-    max-height: 380px;
+    max-height: ${(props) => (props.maxHeight ? props.maxHeight : '380')}px;
     overflow: auto;
     position: absolute;
     transition: opacity 0.2s;
-    width: 480px;
+    width: ${(props) => (props.width ? props.width : '480px')};
     z-index: 1051;
     ${(props) =>
         props.isHidden &&
@@ -66,6 +69,12 @@ export const BrowserWrapper = styled.div<{ isHidden: boolean }>`
         opacity: 0;
         height: 0;
     `}
+`;
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 `;
 
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
@@ -138,7 +147,10 @@ export default function EditTagTermsModal({
         const tagOrTermComponent = <TagTermLabel entity={entity} />;
         return (
             <Select.Option data-testid="tag-term-option" value={entity.urn} key={entity.urn} name={displayName}>
-                {tagOrTermComponent}
+                <SearchResultContainer>
+                    <ParentEntities parentEntities={getParentEntities(entity) || []} />
+                    {tagOrTermComponent}
+                </SearchResultContainer>
             </Select.Option>
         );
     };
@@ -448,6 +460,7 @@ export default function EditTagTermsModal({
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <TagSelect

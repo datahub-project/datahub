@@ -2,15 +2,13 @@ import logging
 from typing import Iterable, Union
 
 from datahub.configuration.common import ConfigModel
-from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Extractor, WorkUnit
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
-    SystemMetadata,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,8 +24,7 @@ def _try_reformat_with_black(code: str) -> str:
 
 
 class WorkUnitRecordExtractorConfig(ConfigModel):
-    set_system_metadata = True
-    unpack_mces_into_mcps = False
+    unpack_mces_into_mcps: bool = False
 
 
 class WorkUnitRecordExtractor(
@@ -62,10 +59,6 @@ class WorkUnitRecordExtractor(
                     MetadataChangeProposalWrapper,
                 ),
             ):
-                if self.config.set_system_metadata:
-                    workunit.metadata.systemMetadata = SystemMetadata(
-                        lastObserved=get_sys_time(), runId=self.ctx.run_id
-                    )
                 if (
                     isinstance(workunit.metadata, MetadataChangeEvent)
                     and len(workunit.metadata.proposedSnapshot.aspects) == 0
@@ -84,11 +77,6 @@ class WorkUnitRecordExtractor(
                 {
                     "workunit_id": workunit.id,
                 },
-            )
-        elif isinstance(workunit, UsageStatsWorkUnit):
-            logger.error(
-                "Dropping deprecated `UsageStatsWorkUnit`. "
-                "Emit a `MetadataWorkUnit` with the `datasetUsageStatistics` aspect instead."
             )
         else:
             raise ValueError(f"unknown WorkUnit type {type(workunit)}")

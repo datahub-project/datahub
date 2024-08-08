@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
 import { Dataset, Entity, Maybe, SiblingProperties } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
+import { useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {
@@ -24,7 +25,9 @@ function cleanHelper(obj, visited) {
         if ((v && typeof v === 'object' && !Object.keys(v).length) || v === null || v === undefined || v === '') {
             if (Array.isArray(object)) {
                 object.splice(Number(k), 1);
-            } else {
+            } else if (Object.getOwnPropertyDescriptor(object, k)?.configurable) {
+                // TODO(hsheth2): Not sure why we needed to add the above "configurable" check.
+                // However, I was getting errors when it was not present in dev mode (but not in prod mode).
                 delete object[k];
             }
         }
@@ -116,6 +119,9 @@ const customMerge = (isPrimary, key) => {
     // take the platform & siblings of whichever entity we're merging with, rather than the primary
     if (key === 'platform' || key === 'siblings') {
         return (secondary, primary) => (isPrimary ? primary : secondary);
+    }
+    if (key === 'forms') {
+        return (_secondary, primary) => primary;
     }
     if (
         key === 'tags' ||
@@ -262,8 +268,9 @@ export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';
 
 // used to determine whether sibling entities should be shown merged or not
 export function useIsSeparateSiblingsMode() {
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
 
-    return params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
+    return showSeparateSiblings || params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
 }

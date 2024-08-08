@@ -1,0 +1,14 @@
+namespace com.linkedin.structured
+
+/**
+ * Properties about an entity governed by StructuredPropertyDefinition
+ */
+@Aspect = {
+   "name": "structuredProperties"
+}
+record StructuredProperties {
+  /**
+   * Custom property bag.
+   */
+  properties: array[StructuredPropertyValueAssignment]
+}

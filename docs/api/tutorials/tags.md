@@ -78,6 +78,14 @@ Expected Response:
 
 </TabItem>
 
+<TabItem value="java" label="Java">
+
+```java
+{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/TagCreate.java show_path_as_comment }}
+```
+
+</TabItem>
+
 <TabItem value="python" label="Python">
 
 ```python
@@ -266,6 +274,8 @@ Expected Response:
 </Tabs>
 
 ### Add Tags to a Column of a dataset
+
+In the example below `subResource` is `fieldPath` in the schema.
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL">

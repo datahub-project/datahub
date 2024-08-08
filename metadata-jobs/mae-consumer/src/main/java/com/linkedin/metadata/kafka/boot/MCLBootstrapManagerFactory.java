@@ -17,7 +17,6 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
-
 @Configuration
 @Conditional(MetadataChangeLogProcessorCondition.class)
 public class MCLBootstrapManagerFactory {
@@ -26,8 +25,7 @@ public class MCLBootstrapManagerFactory {
   @Qualifier("dataHubUpgradeKafkaListener")
   private BootstrapDependency _dataHubUpgradeKafkaListener;
 
-  @Autowired
-  private ConfigurationProvider _configurationProvider;
+  @Autowired private ConfigurationProvider _configurationProvider;
 
   @Value("${bootstrap.upgradeDefaultBrowsePaths.enabled}")
   private Boolean _upgradeDefaultBrowsePathsEnabled;
@@ -36,8 +34,8 @@ public class MCLBootstrapManagerFactory {
   @Scope("singleton")
   @Nonnull
   protected BootstrapManager createInstance() {
-    final WaitForSystemUpdateStep waitForSystemUpdateStep = new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener,
-        _configurationProvider);
+    final WaitForSystemUpdateStep waitForSystemUpdateStep =
+        new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
 
     final List<BootstrapStep> finalSteps = ImmutableList.of(waitForSystemUpdateStep);
 

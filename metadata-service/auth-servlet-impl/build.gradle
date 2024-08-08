@@ -1,17 +1,29 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+}
 
 dependencies {
-  compile project(':metadata-auth:auth-api')
-  compile project(':metadata-service:factories')
+  implementation project(':metadata-auth:auth-api')
+  implementation project(':metadata-service:auth-impl')
+  implementation project(':metadata-service:factories')
 
-  compile externalDependency.springCore
-  compile externalDependency.springWeb
-  compile externalDependency.springWebMVC
-  compile externalDependency.graphqlJava
-  compile externalDependency.springBeans
-  compile externalDependency.springContext
+  implementation externalDependency.springCore
+  implementation externalDependency.springWeb
+  implementation externalDependency.springWebMVC
+  implementation externalDependency.graphqlJava
+  implementation externalDependency.springBeans
+  implementation externalDependency.springContext
+  implementation externalDependency.guice
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.springBootTest
+}
+
+test {
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
 }

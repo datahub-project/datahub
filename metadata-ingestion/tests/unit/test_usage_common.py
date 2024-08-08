@@ -1,6 +1,5 @@
 import time
 from datetime import datetime
-from unittest import mock
 
 import pytest
 from freezegun import freeze_time
@@ -12,6 +11,7 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import (
+    DEFAULT_QUERIES_CHARACTER_LIMIT,
     BaseUsageConfig,
     GenericAggregatedDataset,
     convert_usage_aggregation_class,
@@ -183,14 +183,16 @@ def test_make_usage_workunit():
         top_n_queries=10,
         format_sql_queries=False,
         include_top_n_queries=True,
+        queries_character_limit=DEFAULT_QUERIES_CHARACTER_LIMIT,
     )
 
     ts_timestamp = int(floored_ts.timestamp() * 1000)
     assert (
         wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
     )
-    assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
-    du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    du: DatasetUsageStatisticsClass = wu.metadata.aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries
     assert du.topSqlQueries.pop() == test_query
@@ -218,13 +220,15 @@ def test_query_formatting():
         top_n_queries=10,
         format_sql_queries=True,
         include_top_n_queries=True,
+        queries_character_limit=DEFAULT_QUERIES_CHARACTER_LIMIT,
     )
     ts_timestamp = int(floored_ts.timestamp() * 1000)
     assert (
         wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
     )
-    assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
-    du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    du: DatasetUsageStatisticsClass = wu.metadata.aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries
     assert du.topSqlQueries.pop() == formatted_test_query
@@ -234,7 +238,7 @@ def test_query_trimming():
     test_email: str = "test_email@test.com"
     test_query: str = "select * from test where a > 10 and b > 20 order by a asc"
     top_n_queries: int = 10
-    total_budget_for_query_list: int = 200
+    queries_character_limit: int = 200
     event_time = datetime(2020, 1, 1)
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
     resource = "test_db.test_schema.test_table"
@@ -251,15 +255,16 @@ def test_query_trimming():
         top_n_queries=top_n_queries,
         format_sql_queries=False,
         include_top_n_queries=True,
-        total_budget_for_query_list=total_budget_for_query_list,
+        queries_character_limit=queries_character_limit,
     )
 
     ts_timestamp = int(floored_ts.timestamp() * 1000)
     assert (
         wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
     )
-    assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
-    du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    du: DatasetUsageStatisticsClass = wu.metadata.aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries
     assert du.topSqlQueries.pop() == "select * from te ..."
@@ -267,11 +272,7 @@ def test_query_trimming():
 
 def test_top_n_queries_validator_fails():
     with pytest.raises(ValidationError) as excinfo:
-        with mock.patch(
-            "datahub.ingestion.source.usage.usage_common.TOTAL_BUDGET_FOR_QUERY_LIST",
-            20,
-        ):
-            BaseUsageConfig(top_n_queries=2)
+        BaseUsageConfig(top_n_queries=2, queries_character_limit=20)
     assert "top_n_queries is set to 2 but it can be maximum 1" in str(excinfo.value)
 
 
@@ -294,14 +295,16 @@ def test_make_usage_workunit_include_top_n_queries():
         top_n_queries=10,
         format_sql_queries=False,
         include_top_n_queries=False,
+        queries_character_limit=DEFAULT_QUERIES_CHARACTER_LIMIT,
     )
 
     ts_timestamp = int(floored_ts.timestamp() * 1000)
     assert (
         wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
     )
-    assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
-    du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    du: DatasetUsageStatisticsClass = wu.metadata.aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries is None
 

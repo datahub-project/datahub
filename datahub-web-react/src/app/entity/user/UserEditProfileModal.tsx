@@ -138,6 +138,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         placeholder="John Smith"
                         value={data.name}
                         onChange={(event) => setData({ ...data, name: event.target.value })}
+                        disabled={readOnlyModeEnabled}
                     />
                 </Form.Item>
                 <Form.Item
@@ -150,6 +151,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         placeholder="Data Analyst"
                         value={data.title}
                         onChange={(event) => setData({ ...data, title: event.target.value })}
+                        disabled={readOnlyModeEnabled}
                     />
                 </Form.Item>
                 <Tooltip
@@ -180,6 +182,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         placeholder="Product Engineering"
                         value={data.team}
                         onChange={(event) => setData({ ...data, team: event.target.value })}
+                        disabled={readOnlyModeEnabled}
                     />
                 </Form.Item>
                 <Form.Item
@@ -203,6 +206,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         placeholder="john.smith@example.com"
                         value={data.email}
                         onChange={(event) => setData({ ...data, email: event.target.value })}
+                        disabled={readOnlyModeEnabled}
                     />
                 </Form.Item>
                 <Form.Item
@@ -215,6 +219,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         placeholder="john_smith"
                         value={data.slack}
                         onChange={(event) => setData({ ...data, slack: event.target.value })}
+                        disabled={readOnlyModeEnabled}
                     />
                 </Form.Item>
                 <Form.Item
@@ -236,6 +241,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         placeholder="444-999-9999"
                         value={data.phone}
                         onChange={(event) => setData({ ...data, phone: event.target.value })}
+                        disabled={readOnlyModeEnabled}
                     />
                 </Form.Item>
             </Form>

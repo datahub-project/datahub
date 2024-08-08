@@ -1,0 +1,35 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * The source of an assertion
+ */
+record AssertionSource {
+    /**
+     * The type of the Assertion Source
+     */
+    @Searchable = {
+       "fieldName": "sourceType"
+    }
+    type:  enum AssertionSourceType {
+      /**
+       * The assertion was defined natively on DataHub by a user.
+       */
+      NATIVE
+      /**
+       * The assertion was defined and managed externally of DataHub.
+       */
+      EXTERNAL
+      /**
+       * The assertion was inferred, e.g. from offline AI / ML models.
+       */
+      INFERRED
+    }
+
+    /**
+      * The time at which the assertion was initially created and the author who created it.
+      * This field is only present for Native assertions created after this field was introduced.
+      */
+    created: optional AuditStamp
+}

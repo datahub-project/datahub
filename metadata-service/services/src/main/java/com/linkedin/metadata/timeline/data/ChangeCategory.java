@@ -5,17 +5,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
 public enum ChangeCategory {
-  //description, institutionalmemory, properties docs, field level docs/description etc.
+  // description, institutionalmemory, properties docs, field level docs/description etc.
   DOCUMENTATION,
-  //(field or top level) add term, remove term, etc.
+  // (field or top level) add term, remove term, etc.
   GLOSSARY_TERM,
-  //add new owner, remove owner, change ownership type etc.
+  // add new owner, remove owner, change ownership type etc.
   OWNER,
-  //new field, remove field, field type change,
+  // new field, remove field, field type change,
   TECHNICAL_SCHEMA,
-  //(field or top level) add tag, remove tag,
+  // (field or top level) add tag, remove tag,
   TAG,
   // Update the domain for an entity
   DOMAIN,
@@ -24,7 +23,9 @@ public enum ChangeCategory {
   // Entity Lifecycle events (create, soft delete, hard delete)
   LIFECYCLE,
   // Run event
-  RUN;
+  RUN,
+
+  BUSINESS_ATTRIBUTE;
 
   public static final Map<List<String>, ChangeCategory> COMPOUND_CATEGORIES;
 

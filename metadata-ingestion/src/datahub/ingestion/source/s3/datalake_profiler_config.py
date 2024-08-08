@@ -72,7 +72,7 @@ class DataLakeProfilerConfig(ConfigModel):
         description="Whether to profile for the sample values for all columns.",
     )
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def ensure_field_level_settings_are_normalized(
         cls: "DataLakeProfilerConfig", values: Dict[str, Any]
     ) -> Dict[str, Any]:

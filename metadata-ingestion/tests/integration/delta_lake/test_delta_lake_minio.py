@@ -9,6 +9,8 @@ from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+pytestmark = pytest.mark.integration_batch_2
+
 FROZEN_TIME = "2020-04-14 07:00:00"
 MINIO_PORT = 9000
 
@@ -64,7 +66,7 @@ def populate_minio(pytestconfig, s3_bkt):
         pytestconfig.rootpath / "tests/integration/delta_lake/test_data/"
     )
 
-    for root, dirs, files in os.walk(test_resources_dir):
+    for root, _dirs, files in os.walk(test_resources_dir):
         for file in files:
             full_path = os.path.join(root, file)
             rel_path = os.path.relpath(full_path, test_resources_dir)
@@ -72,7 +74,6 @@ def populate_minio(pytestconfig, s3_bkt):
     yield
 
 
-@pytest.mark.slow_integration
 @freezegun.freeze_time("2023-01-01 00:00:00+00:00")
 def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir):
     # Run the metadata ingestion pipeline.

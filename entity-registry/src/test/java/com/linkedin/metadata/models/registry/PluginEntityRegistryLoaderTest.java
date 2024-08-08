@@ -1,8 +1,12 @@
 package com.linkedin.metadata.models.registry;
 
+import static com.linkedin.metadata.models.registry.TestConstants.*;
+import static org.testng.Assert.*;
+
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -14,7 +18,6 @@ import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.EventAnnotation;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
 import com.linkedin.metadata.models.registry.config.LoadStatus;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.util.Pair;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -28,122 +31,138 @@ import javax.annotation.Nullable;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.models.registry.TestConstants.*;
-import static org.testng.Assert.*;
-
-
 public class PluginEntityRegistryLoaderTest {
 
   @Test
   public void testEntityRegistry() throws FileNotFoundException, InterruptedException {
-    EntityRegistry baseEntityRegistry = new EntityRegistry() {
-      @Nonnull
-      @Override
-      public EntitySpec getEntitySpec(@Nonnull String entityName) {
-        return null;
-      }
+    EntityRegistry baseEntityRegistry =
+        new EntityRegistry() {
+          @Nonnull
+          @Override
+          public EntitySpec getEntitySpec(@Nonnull String entityName) {
+            return null;
+          }
 
-      @Nonnull
-      @Override
-      public EventSpec getEventSpec(@Nonnull String eventName) {
-        return null;
-      }
+          @Nonnull
+          @Override
+          public EventSpec getEventSpec(@Nonnull String eventName) {
+            return null;
+          }
 
-      @Nonnull
-      @Override
-      public Map<String, EntitySpec> getEntitySpecs() {
-        return null;
-      }
+          @Nonnull
+          @Override
+          public Map<String, EntitySpec> getEntitySpecs() {
+            return null;
+          }
 
-      @Nonnull
-      @Override
-      public Map<String, AspectSpec> getAspectSpecs() {
-        return new HashMap<>();
-      }
+          @Nonnull
+          @Override
+          public Map<String, AspectSpec> getAspectSpecs() {
+            return new HashMap<>();
+          }
 
-      @Nonnull
-      @Override
-      public Map<String, EventSpec> getEventSpecs() {
-        return null;
-      }
+          @Nonnull
+          @Override
+          public Map<String, EventSpec> getEventSpecs() {
+            return null;
+          }
 
-      @Nonnull
-      @Override
-      public AspectTemplateEngine getAspectTemplateEngine() {
-        return new AspectTemplateEngine();
-      }
-    };
+          @Nonnull
+          @Override
+          public AspectTemplateEngine getAspectTemplateEngine() {
+            return new AspectTemplateEngine();
+          }
+        };
 
     MergedEntityRegistry configEntityRegistry = new MergedEntityRegistry(baseEntityRegistry);
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY).withBaseRegistry(configEntityRegistry).start(true);
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, null)
+            .withBaseRegistry(configEntityRegistry)
+            .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
     EntityRegistryLoadResult loadResult =
-        pluginEntityRegistryLoader.getPatchRegistries().get(TestConstants.TEST_REGISTRY).get(TEST_VERSION).getSecond();
+        pluginEntityRegistryLoader
+            .getPatchRegistries()
+            .get(TestConstants.TEST_REGISTRY)
+            .get(TEST_VERSION)
+            .getSecond();
     assertNotNull(loadResult);
     assertEquals(loadResult.getLoadResult(), LoadStatus.FAILURE);
   }
 
   private EntityRegistry getBaseEntityRegistry() {
     final AspectSpec keyAspectSpec =
-        new AspectSpec(new AspectAnnotation("datasetKey", false, false, null), Collections.emptyList(),
-            Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
+        new AspectSpec(
+            new AspectAnnotation("datasetKey", false, false, null),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
             (RecordDataSchema) DataSchemaFactory.getInstance().getAspectSchema("datasetKey").get(),
             DataSchemaFactory.getInstance().getAspectClass("datasetKey").get());
 
     final Map<String, EntitySpec> entitySpecMap = new HashMap<>(1);
     List<AspectSpec> aspectSpecList = new ArrayList<>(1);
     aspectSpecList.add(keyAspectSpec);
-    EntitySpec baseEntitySpec = new DefaultEntitySpec(aspectSpecList, new EntityAnnotation("dataset", "datasetKey"),
-        (RecordDataSchema) DataSchemaFactory.getInstance().getEntitySchema("dataset").get());
+    EntitySpec baseEntitySpec =
+        new DefaultEntitySpec(
+            aspectSpecList,
+            new EntityAnnotation("dataset", "datasetKey"),
+            (RecordDataSchema) DataSchemaFactory.getInstance().getEntitySchema("dataset").get());
 
     entitySpecMap.put("dataset", baseEntitySpec);
 
     final Map<String, EventSpec> eventSpecMap = new HashMap<>(1);
-    EventSpec baseEventSpec = new DefaultEventSpec("testEvent", new EventAnnotation("testEvent"),
-        (RecordDataSchema) DataSchemaFactory.getInstance().getEventSchema("testEvent").get());
+    EventSpec baseEventSpec =
+        new DefaultEventSpec(
+            "testEvent",
+            new EventAnnotation("testEvent"),
+            (RecordDataSchema) DataSchemaFactory.getInstance().getEventSchema("testEvent").get());
     eventSpecMap.put("testevent", baseEventSpec);
 
-    EntityRegistry baseEntityRegistry = new EntityRegistry() {
+    EntityRegistry baseEntityRegistry =
+        new EntityRegistry() {
 
-      @Nonnull
-      @Override
-      public EntitySpec getEntitySpec(@Nonnull String entityName) {
-        assertEquals(entityName, "dataset");
-        return baseEntitySpec;
-      }
+          @Nonnull
+          @Override
+          public EntitySpec getEntitySpec(@Nonnull String entityName) {
+            assertEquals(entityName, "dataset");
+            return baseEntitySpec;
+          }
 
-      @Nullable
-      @Override
-      public EventSpec getEventSpec(@Nonnull String eventName) {
-        assertEquals(eventName, "testEvent");
-        return baseEventSpec;
-      }
+          @Nullable
+          @Override
+          public EventSpec getEventSpec(@Nonnull String eventName) {
+            assertEquals(eventName, "testEvent");
+            return baseEventSpec;
+          }
 
-      @Nonnull
-      @Override
-      public Map<String, EntitySpec> getEntitySpecs() {
-        return entitySpecMap;
-      }
+          @Nonnull
+          @Override
+          public Map<String, EntitySpec> getEntitySpecs() {
+            return entitySpecMap;
+          }
 
-      @Nonnull
-      @Override
-      public Map<String, AspectSpec> getAspectSpecs() {
-        return new HashMap<>();
-      }
+          @Nonnull
+          @Override
+          public Map<String, AspectSpec> getAspectSpecs() {
+            return new HashMap<>();
+          }
 
-      @Nonnull
-      @Override
-      public Map<String, EventSpec> getEventSpecs() {
-        return eventSpecMap;
-      }
+          @Nonnull
+          @Override
+          public Map<String, EventSpec> getEventSpecs() {
+            return eventSpecMap;
+          }
 
-      @Nonnull
-      @Override
-      public AspectTemplateEngine getAspectTemplateEngine() {
-        return new AspectTemplateEngine();
-      }
-    };
+          @Nonnull
+          @Override
+          public AspectTemplateEngine getAspectTemplateEngine() {
+            return new AspectTemplateEngine();
+          }
+        };
     return baseEntityRegistry;
   }
 
@@ -152,12 +171,21 @@ public class PluginEntityRegistryLoaderTest {
 
     MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(getBaseEntityRegistry());
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(BASE_DIRECTORY).withBaseRegistry(mergedEntityRegistry).start(true);
+        new PluginEntityRegistryLoader(BASE_DIRECTORY, 60, null)
+            .withBaseRegistry(mergedEntityRegistry)
+            .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
     EntityRegistryLoadResult loadResult =
-        pluginEntityRegistryLoader.getPatchRegistries().get(TEST_REGISTRY).get(TEST_VERSION).getSecond();
+        pluginEntityRegistryLoader
+            .getPatchRegistries()
+            .get(TEST_REGISTRY)
+            .get(TEST_VERSION)
+            .getSecond();
     assertNotNull(loadResult);
-    assertEquals(loadResult.getLoadResult(), LoadStatus.SUCCESS, "load failed with " + loadResult.getFailureReason());
+    assertEquals(
+        loadResult.getLoadResult(),
+        LoadStatus.SUCCESS,
+        "load failed with " + loadResult.getFailureReason());
 
     Map<String, EntitySpec> entitySpecs = mergedEntityRegistry.getEntitySpecs();
 
@@ -165,7 +193,8 @@ public class PluginEntityRegistryLoaderTest {
     assertEquals(entitySpec.getName(), "dataset");
     assertEquals(entitySpec.getKeyAspectSpec().getName(), "datasetKey");
     Optional<DataSchema> dataSchema =
-        Optional.ofNullable(entitySpecs.get("dataset").getAspectSpec("datasetKey").getPegasusSchema());
+        Optional.ofNullable(
+            entitySpecs.get("dataset").getAspectSpec("datasetKey").getPegasusSchema());
     assertTrue(dataSchema.isPresent(), "datasetKey");
     assertNotNull(entitySpec.getAspectSpec("testDataQualityRules"));
     assertEquals(entitySpecs.values().size(), 1);
@@ -179,37 +208,65 @@ public class PluginEntityRegistryLoaderTest {
 
   @Test
   /**
-   * Tests that we can load up entity registries that represent safe evolutions as well as decline to load registries that represent unsafe evolutions.
-   *
-   */ public void testEntityRegistryVersioning() throws InterruptedException {
+   * Tests that we can load up entity registries that represent safe evolutions as well as decline
+   * to load registries that represent unsafe evolutions.
+   */
+  public void testEntityRegistryVersioning() throws InterruptedException {
     MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(getBaseEntityRegistry());
     String multiversionPluginDir = "src/test_plugins/";
 
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(multiversionPluginDir).withBaseRegistry(mergedEntityRegistry).start(true);
-    Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>> loadedRegistries =
-        pluginEntityRegistryLoader.getPatchRegistries();
+        new PluginEntityRegistryLoader(multiversionPluginDir, 60, null)
+            .withBaseRegistry(mergedEntityRegistry)
+            .start(true);
+    Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>
+        loadedRegistries = pluginEntityRegistryLoader.getPatchRegistries();
 
     String registryName = "mycompany-dq-model";
     assertTrue(loadedRegistries.containsKey(registryName));
     assertTrue(loadedRegistries.get(registryName).containsKey(new ComparableVersion("0.0.1")));
-    System.out.println(loadedRegistries.get(registryName).get(new ComparableVersion("0.0.1")).getSecond().getFailureReason());
+    System.out.println(
+        loadedRegistries
+            .get(registryName)
+            .get(new ComparableVersion("0.0.1"))
+            .getSecond()
+            .getFailureReason());
 
-    assertEquals(loadedRegistries.get(registryName).get(new ComparableVersion("0.0.1")).getSecond().getLoadResult(),
+    assertEquals(
+        loadedRegistries
+            .get(registryName)
+            .get(new ComparableVersion("0.0.1"))
+            .getSecond()
+            .getLoadResult(),
         LoadStatus.SUCCESS);
-    assertEquals(loadedRegistries.get(registryName).get(new ComparableVersion("0.0.2")).getSecond().getLoadResult(),
+    assertEquals(
+        loadedRegistries
+            .get(registryName)
+            .get(new ComparableVersion("0.0.2"))
+            .getSecond()
+            .getLoadResult(),
         LoadStatus.SUCCESS);
-    assertEquals(loadedRegistries.get(registryName).get(new ComparableVersion("0.0.3")).getSecond().getLoadResult(),
+    assertEquals(
+        loadedRegistries
+            .get(registryName)
+            .get(new ComparableVersion("0.0.3"))
+            .getSecond()
+            .getLoadResult(),
         LoadStatus.FAILURE);
-    assertTrue(loadedRegistries.get(registryName)
-        .get(new ComparableVersion("0.0.3"))
-        .getSecond()
-        .getFailureReason()
-        .contains("new record removed required fields type"));
+    assertTrue(
+        loadedRegistries
+            .get(registryName)
+            .get(new ComparableVersion("0.0.3"))
+            .getSecond()
+            .getFailureReason()
+            .contains("new record removed required fields type"));
 
     assertTrue(mergedEntityRegistry.getEntitySpec("dataset").hasAspect("dataQualityRules"));
     RecordDataSchema dataSchema =
-        mergedEntityRegistry.getEntitySpec("dataset").getAspectSpec("dataQualityRules").getPegasusSchema();
+        mergedEntityRegistry
+            .getEntitySpec("dataset")
+            .getAspectSpec("dataQualityRules")
+            .getPegasusSchema();
     ArrayDataSchema arrayDataSchema =
         (ArrayDataSchema) dataSchema.getField("rules").getType().getDereferencedDataSchema();
     // Aspect Schema should be the same as version 0.0.2, checking to see that all fields exist

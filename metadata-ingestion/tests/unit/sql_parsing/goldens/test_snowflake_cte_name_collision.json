@@ -1,0 +1,53 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "f5250fa91f43bbe0d7d5a6fc0d2806a4f989952e2114725cf9a274ec09857171",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "col2",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(16777216)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
+                    "column": "col2"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "col1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(16777216)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)",
+                    "column": "col1"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH cte_alias AS (SELECT col1, col2 FROM table1) SELECT table2.col2, cte_alias.col1 FROM table2 JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2"
+    }
+}

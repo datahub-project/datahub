@@ -28,7 +28,9 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -261,12 +263,12 @@ class ConfluentJDBCSourceConnector:
     KNOWN_NONTOPICROUTING_TRANSFORMS = (
         KAFKA_NONTOPICROUTING_TRANSFORMS
         + [
-            "org.apache.kafka.connect.transforms.{}".format(t)
+            f"org.apache.kafka.connect.transforms.{t}"
             for t in KAFKA_NONTOPICROUTING_TRANSFORMS
         ]
         + CONFLUENT_NONTOPICROUTING_TRANSFORMS
         + [
-            "io.confluent.connect.transforms.{}".format(t)
+            f"io.confluent.connect.transforms.{t}"
             for t in CONFLUENT_NONTOPICROUTING_TRANSFORMS
         ]
     )
@@ -312,9 +314,9 @@ class ConfluentJDBCSourceConnector:
             transform = {"name": name}
             transforms.append(transform)
             for key in self.connector_manifest.config.keys():
-                if key.startswith("transforms.{}.".format(name)):
+                if key.startswith(f"transforms.{name}."):
                     transform[
-                        key.replace("transforms.{}.".format(name), "")
+                        key.replace(f"transforms.{name}.", "")
                     ] = self.connector_manifest.config[key]
 
         return self.JdbcParser(
@@ -727,7 +729,7 @@ class DebeziumSourceConnector:
             source_platform = parser.source_platform
             server_name = parser.server_name
             database_name = parser.database_name
-            topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
+            topic_naming_pattern = rf"({server_name})\.(\w+\.\w+)"
 
             if not self.connector_manifest.topic_names:
                 return lineages
@@ -771,6 +773,7 @@ class BigQuerySinkConnector:
         project: str
         target_platform: str
         sanitizeTopics: str
+        transforms: list
         topicsToTables: Optional[str] = None
         datasets: Optional[str] = None
         defaultDataset: Optional[str] = None
@@ -786,6 +789,20 @@ class BigQuerySinkConnector:
     ) -> BQParser:
         project = connector_manifest.config["project"]
         sanitizeTopics = connector_manifest.config.get("sanitizeTopics", "false")
+        transform_names = (
+            self.connector_manifest.config.get("transforms", "").split(",")
+            if self.connector_manifest.config.get("transforms")
+            else []
+        )
+        transforms = []
+        for name in transform_names:
+            transform = {"name": name}
+            transforms.append(transform)
+            for key in self.connector_manifest.config.keys():
+                if key.startswith(f"transforms.{name}."):
+                    transform[
+                        key.replace(f"transforms.{name}.", "")
+                    ] = self.connector_manifest.config[key]
 
         if "defaultDataset" in connector_manifest.config:
             defaultDataset = connector_manifest.config["defaultDataset"]
@@ -795,6 +812,7 @@ class BigQuerySinkConnector:
                 target_platform="bigquery",
                 sanitizeTopics=sanitizeTopics.lower() == "true",
                 version="v2",
+                transforms=transforms,
             )
         else:
             # version 1.6.x and similar configs supported
@@ -807,6 +825,7 @@ class BigQuerySinkConnector:
                 datasets=datasets,
                 target_platform="bigquery",
                 sanitizeTopics=sanitizeTopics.lower() == "true",
+                transforms=transforms,
             )
 
     def get_list(self, property: str) -> Iterable[Tuple[str, str]]:
@@ -865,6 +884,18 @@ class BigQuerySinkConnector:
             table = self.sanitize_table_name(table)
         return f"{dataset}.{table}"
 
+    def apply_transformations(
+        self, topic: str, transforms: List[Dict[str, str]]
+    ) -> str:
+        for transform in transforms:
+            if transform["type"] == "org.apache.kafka.connect.transforms.RegexRouter":
+                regex = transform["regex"]
+                replacement = transform["replacement"]
+                pattern = re.compile(regex)
+                if pattern.match(topic):
+                    topic = pattern.sub(replacement, topic, count=1)
+        return topic
+
     def _extract_lineages(self):
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)
@@ -872,31 +903,133 @@ class BigQuerySinkConnector:
             return lineages
         target_platform = parser.target_platform
         project = parser.project
-
+        transforms = parser.transforms
         self.connector_manifest.flow_property_bag = self.connector_manifest.config
-
         # Mask/Remove properties that may reveal credentials
         if "keyfile" in self.connector_manifest.flow_property_bag:
             del self.connector_manifest.flow_property_bag["keyfile"]
 
         for topic in self.connector_manifest.topic_names:
-            dataset_table = self.get_dataset_table_for_topic(topic, parser)
+            transformed_topic = self.apply_transformations(topic, transforms)
+            dataset_table = self.get_dataset_table_for_topic(transformed_topic, parser)
             if dataset_table is None:
                 self.report_warning(
                     self.connector_manifest.name,
-                    f"could not find target dataset for topic {topic}, please check your connector configuration",
+                    f"could not find target dataset for topic {transformed_topic}, please check your connector configuration",
                 )
                 continue
             target_dataset = f"{project}.{dataset_table}"
 
             lineages.append(
                 KafkaConnectLineage(
-                    source_dataset=topic,
+                    source_dataset=transformed_topic,
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform=target_platform,
                 )
             )
+        self.connector_manifest.lineages = lineages
+        return
+
+
+@dataclass
+class SnowflakeSinkConnector:
+    connector_manifest: ConnectorManifest
+    report: KafkaConnectSourceReport
+
+    def __init__(
+        self, connector_manifest: ConnectorManifest, report: KafkaConnectSourceReport
+    ) -> None:
+        self.connector_manifest = connector_manifest
+        self.report = report
+        self._extract_lineages()
+
+    @dataclass
+    class SnowflakeParser:
+        database_name: str
+        schema_name: str
+        topics_to_tables: Dict[str, str]
+
+    def report_warning(self, key: str, reason: str) -> None:
+        logger.warning(f"{key}: {reason}")
+        self.report.report_warning(key, reason)
+
+    def get_table_name_from_topic_name(self, topic_name: str) -> str:
+        """
+        This function converts the topic name to a valid Snowflake table name using some rules.
+        Refer below link for more info
+        https://docs.snowflake.com/en/user-guide/kafka-connector-overview#target-tables-for-kafka-topics
+        """
+        table_name = re.sub("[^a-zA-Z0-9_]", "_", topic_name)
+        if re.match("^[^a-zA-Z_].*", table_name):
+            table_name = "_" + table_name
+        # Connector  may append original topic's hash code as suffix for conflict resolution
+        # if generated table names for 2 topics are similar. This corner case is not handled here.
+        # Note that Snowflake recommends to choose topic names that follow the rules for
+        # Snowflake identifier names so this case is not recommended by snowflake.
+        return table_name
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> SnowflakeParser:
+        database_name = connector_manifest.config["snowflake.database.name"]
+        schema_name = connector_manifest.config["snowflake.schema.name"]
+
+        # Fetch user provided topic to table map
+        provided_topics_to_tables: Dict[str, str] = {}
+        if connector_manifest.config.get("snowflake.topic2table.map"):
+            for each in connector_manifest.config["snowflake.topic2table.map"].split(
+                ","
+            ):
+                topic, table = each.split(":")
+                provided_topics_to_tables[topic.strip()] = table.strip()
+
+        topics_to_tables: Dict[str, str] = {}
+        # Extract lineage for only those topics whose data ingestion started
+        for topic in connector_manifest.topic_names:
+            if topic in provided_topics_to_tables:
+                # If user provided which table to get mapped with this topic
+                topics_to_tables[topic] = provided_topics_to_tables[topic]
+            else:
+                # Else connector converts topic name to a valid Snowflake table name.
+                topics_to_tables[topic] = self.get_table_name_from_topic_name(topic)
+
+        return self.SnowflakeParser(
+            database_name=database_name,
+            schema_name=schema_name,
+            topics_to_tables=topics_to_tables,
+        )
+
+    def _extract_lineages(self):
+        self.connector_manifest.flow_property_bag = self.connector_manifest.config
+
+        # For all snowflake sink connector properties, refer below link
+        # https://docs.snowflake.com/en/user-guide/kafka-connector-install#configuring-the-kafka-connector
+        # remove private keys, secrets from properties
+        secret_properties = [
+            "snowflake.private.key",
+            "snowflake.private.key.passphrase",
+            "value.converter.basic.auth.user.info",
+        ]
+        for k in secret_properties:
+            if k in self.connector_manifest.flow_property_bag:
+                del self.connector_manifest.flow_property_bag[k]
+
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+
+        for topic, table in parser.topics_to_tables.items():
+            target_dataset = f"{parser.database_name}.{parser.schema_name}.{table}"
+            lineages.append(
+                KafkaConnectLineage(
+                    source_dataset=topic,
+                    source_platform=KAFKA,
+                    target_dataset=target_dataset,
+                    target_platform="snowflake",
+                )
+            )
+
         self.connector_manifest.lineages = lineages
         return
 
@@ -985,13 +1118,15 @@ def transform_connector_config(
     for k, v in connector_config.items():
         for key, value in lookupsByProvider.items():
             if key in v:
-                connector_config[k] = v.replace(key, value)
+                connector_config[k] = connector_config[k].replace(key, value)
 
 
 @platform_name("Kafka Connect")
 @config_class(KafkaConnectSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class KafkaConnectSource(StatefulIngestionSourceBase):
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
@@ -1128,6 +1263,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     "io.confluent.connect.s3.S3SinkConnector"
                 ):
                     connector_manifest = ConfluentS3SinkConnector(
+                        connector_manifest=connector_manifest, report=self.report
+                    ).connector_manifest
+                elif connector_manifest.config.get("connector.class").__eq__(
+                    "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+                ):
+                    connector_manifest = SnowflakeSinkConnector(
                         connector_manifest=connector_manifest, report=self.report
                     ).connector_manifest
                 else:

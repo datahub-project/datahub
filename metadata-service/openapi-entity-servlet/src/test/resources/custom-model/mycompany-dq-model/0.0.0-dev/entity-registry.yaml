@@ -1,0 +1,8 @@
+id: mycompany-dq-model
+entities:
+  - name: dataset
+    aspects:
+      - customDataQualityRules
+  - name: container
+    aspects:
+      - customDataQualityRules

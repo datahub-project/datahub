@@ -65,20 +65,34 @@ class BaseTimeWindowConfig(ConfigModel):
                 assert delta < timedelta(
                     0
                 ), "Relative start time should start with minus sign (-) e.g. '-2 days'."
-                assert abs(delta) > get_bucket_duration_delta(
+                assert abs(delta) >= get_bucket_duration_delta(
                     values["bucket_duration"]
                 ), "Relative start time should be in terms of configured bucket duration. e.g '-2 days' or '-2 hours'."
-                return values["end_time"] + delta
+
+                # The end_time's default value is not yet populated, in which case
+                # we can just manually generate it here.
+                if "end_time" not in values:
+                    values["end_time"] = datetime.now(tz=timezone.utc)
+
+                return get_time_bucket(
+                    values["end_time"] + delta, values["bucket_duration"]
+                )
             except humanfriendly.InvalidTimespan:
+                # We do not floor start_time to the bucket start time if absolute start time is specified.
+                # If user has specified absolute start time in recipe, it's most likely that he means it.
                 return parse_absolute_time(v)
 
         return v
 
     @pydantic.validator("start_time", "end_time")
     def ensure_timestamps_in_utc(cls, v: datetime) -> datetime:
-        assert (
-            v.tzinfo == timezone.utc
-        ), 'timezone is not UTC; try adding a "Z" to the value e.g. "2021-07-20T00:00:00Z"'
+        if v.tzinfo is None:
+            raise ValueError(
+                "Timestamps must be in UTC. Try adding a 'Z' to the value e.g. '2021-07-20T00:00:00Z'"
+            )
+
+        # If the timestamp is timezone-aware but not in UTC, convert it to UTC.
+        v = v.astimezone(timezone.utc)
 
         return v
 

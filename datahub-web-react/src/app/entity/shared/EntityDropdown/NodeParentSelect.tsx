@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Select } from 'antd';
-import { useGetSearchResultsLazyQuery } from '../../../../graphql/search.generated';
-import { EntityType, GlossaryNode } from '../../../../types.generated';
+import styled from 'styled-components';
+import { EntityType, GlossaryNode, SearchResult } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useEntityData } from '../EntityContext';
 import ClickOutside from '../../../shared/ClickOutside';
 import GlossaryBrowser from '../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
+import useParentSelector from './useParentSelector';
+import ParentEntities from '../../../search/filters/ParentEntities';
+import { getParentGlossary } from '../../../glossary/utils';
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+`;
 
 // filter out entity itself and its children
 export function filterResultsForMove(entity: GlossaryNode, entityUrn: string) {
@@ -21,65 +30,34 @@ interface Props {
     selectedParentUrn: string;
     setSelectedParentUrn: (parent: string) => void;
     isMoving?: boolean;
+    autofocus?: boolean;
 }
 
 function NodeParentSelect(props: Props) {
     const { selectedParentUrn, setSelectedParentUrn, isMoving } = props;
-    const [selectedParentName, setSelectedParentName] = useState('');
-    const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
     const entityRegistry = useEntityRegistry();
     const { entityData, urn: entityDataUrn, entityType } = useEntityData();
 
-    const [nodeSearch, { data: nodeData }] = useGetSearchResultsLazyQuery();
-    let nodeSearchResults = nodeData?.search?.searchResults || [];
-    if (isMoving) {
-        nodeSearchResults = nodeSearchResults.filter((r) =>
-            filterResultsForMove(r.entity as GlossaryNode, entityDataUrn),
-        );
-    }
+    const {
+        searchResults,
+        searchQuery,
+        isFocusedOnInput,
+        selectedParentName,
+        selectParentFromBrowser,
+        onSelectParent,
+        handleSearch,
+        clearSelectedParent,
+        setIsFocusedOnInput,
+    } = useParentSelector({
+        entityType: EntityType.GlossaryNode,
+        entityData,
+        selectedParentUrn,
+        setSelectedParentUrn,
+    });
 
-    useEffect(() => {
-        if (entityData && selectedParentUrn === entityDataUrn) {
-            const displayName = entityRegistry.getDisplayName(EntityType.GlossaryNode, entityData);
-            setSelectedParentName(displayName);
-        }
-    }, [entityData, entityRegistry, selectedParentUrn, entityDataUrn]);
-
-    function handleSearch(text: string) {
-        setSearchQuery(text);
-        nodeSearch({
-            variables: {
-                input: {
-                    type: EntityType.GlossaryNode,
-                    query: text,
-                    start: 0,
-                    count: 5,
-                },
-            },
-        });
-    }
-
-    function onSelectParentNode(parentNodeUrn: string) {
-        const selectedNode = nodeSearchResults.find((result) => result.entity.urn === parentNodeUrn);
-        if (selectedNode) {
-            setSelectedParentUrn(parentNodeUrn);
-            const displayName = entityRegistry.getDisplayName(selectedNode.entity.type, selectedNode.entity);
-            setSelectedParentName(displayName);
-        }
-    }
-
-    function clearSelectedParent() {
-        setSelectedParentUrn('');
-        setSelectedParentName('');
-        setSearchQuery('');
-    }
-
-    function selectNodeFromBrowser(urn: string, displayName: string) {
-        setIsFocusedOnInput(false);
-        setSelectedParentUrn(urn);
-        setSelectedParentName(displayName);
-    }
+    const nodeSearchResults: SearchResult[] = searchResults.filter((r) =>
+        filterResultsForMove(r.entity as GlossaryNode, entityDataUrn),
+    );
 
     const isShowingGlossaryBrowser = !searchQuery && isFocusedOnInput;
     const shouldHideSelf = isMoving && entityType === EntityType.GlossaryNode;
@@ -91,15 +69,19 @@ function NodeParentSelect(props: Props) {
                 allowClear
                 filterOption={false}
                 value={selectedParentName}
-                onSelect={onSelectParentNode}
+                onSelect={onSelectParent}
                 onSearch={handleSearch}
                 onClear={clearSelectedParent}
                 onFocus={() => setIsFocusedOnInput(true)}
                 dropdownStyle={isShowingGlossaryBrowser || !searchQuery ? { display: 'none' } : {}}
+                autoFocus={props.autofocus}
             >
                 {nodeSearchResults?.map((result) => (
                     <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
-                        {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                        <SearchResultContainer>
+                            <ParentEntities parentEntities={getParentGlossary(result.entity, entityRegistry)} />
+                            {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                        </SearchResultContainer>
                     </Select.Option>
                 ))}
             </Select>
@@ -107,7 +89,7 @@ function NodeParentSelect(props: Props) {
                 <GlossaryBrowser
                     isSelecting
                     hideTerms
-                    selectNode={selectNodeFromBrowser}
+                    selectNode={selectParentFromBrowser}
                     nodeUrnToHide={shouldHideSelf ? entityData?.urn : undefined}
                 />
             </BrowserWrapper>

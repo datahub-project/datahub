@@ -7,16 +7,19 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyEditedSource;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityServiceFactory.class})
+@Import({
+  RestHighLevelClientFactory.class,
+  IndexConventionFactory.class,
+  EntityServiceFactory.class
+})
 public class RecentlyEditedCandidateSourceFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -28,7 +31,7 @@ public class RecentlyEditedCandidateSourceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Bean(name = "recentlyEditedCandidateSource")
   @Nonnull

@@ -2,25 +2,41 @@ import collections
 import logging
 import time
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
+import cachetools
 import pydantic.error_wrappers
 import redshift_connector
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.time_window_config import get_time_bucket
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    get_time_bucket,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftTable,
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantUsageRunSkipHandler,
+)
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
+from datahub.ingestion.source_report.ingestion_stage import (
+    USAGE_EXTRACTION_OPERATIONAL_STATS,
+    USAGE_EXTRACTION_USAGE_AGGREGATION,
+)
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -28,88 +44,6 @@ logger = logging.getLogger(__name__)
 
 REDSHIFT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-
-# Add this join to the sql query for more metrics on completed queries
-# LEFT JOIN svl_query_metrics_summary sqms ON ss.query = sqms.query
-# Reference: https://docs.aws.amazon.com/redshift/latest/dg/r_SVL_QUERY_METRICS_SUMMARY.html
-
-# this sql query joins stl_scan over table info,
-# querytext, and user info to get usage stats
-# using non-LEFT joins here to limit the results to
-# queries run by the user on user-defined tables.
-REDSHIFT_USAGE_QUERY_TEMPLATE: str = """
-SELECT DISTINCT ss.userid as userid,
-       ss.query as query,
-       sui.usename as username,
-       ss.tbl as tbl,
-       sq.querytxt as querytxt,
-       sti.database as database,
-       sti.schema as schema,
-       sti.table as table,
-       sq.starttime as starttime,
-       sq.endtime as endtime
-FROM stl_scan ss
-  JOIN svv_table_info sti ON ss.tbl = sti.table_id
-  JOIN stl_query sq ON ss.query = sq.query
-  JOIN svl_user_info sui ON sq.userid = sui.usesysid
-WHERE ss.starttime >= '{start_time}'
-AND ss.starttime < '{end_time}'
-AND sti.database = '{database}'
-AND sq.aborted = 0
-ORDER BY ss.endtime DESC;
-""".strip()
-
-REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE: str = """
-  (SELECT
-      DISTINCT si.userid AS userid,
-      si.query AS query,
-      si.rows AS rows,
-      sui.usename AS username,
-      si.tbl AS tbl,
-      sq.querytxt AS querytxt,
-      sti.database AS database,
-      sti.schema AS schema,
-      sti.table AS table,
-      sq.starttime AS starttime,
-      sq.endtime AS endtime,
-      'insert' AS operation_type
-    FROM
-      stl_insert si
-      JOIN svv_table_info sti ON si.tbl = sti.table_id
-      JOIN stl_query sq ON si.query = sq.query
-      JOIN svl_user_info sui ON sq.userid = sui.usesysid
-    WHERE
-      si.starttime >= '{start_time}'
-      AND si.starttime < '{end_time}'
-      AND si.rows > 0
-      AND sq.aborted = 0)
-UNION
-  (SELECT
-      DISTINCT sd.userid AS userid,
-      sd.query AS query,
-      sd.rows AS ROWS,
-      sui.usename AS username,
-      sd.tbl AS tbl,
-      sq.querytxt AS querytxt,
-      sti.database AS database,
-      sti.schema AS schema,
-      sti.table AS table,
-      sq.starttime AS starttime,
-      sq.endtime AS endtime,
-      'delete' AS operation_type
-    FROM
-      stl_delete sd
-      JOIN svv_table_info sti ON sd.tbl = sti.table_id
-      JOIN stl_query sq ON sd.query = sq.query
-      JOIN svl_user_info sui ON sq.userid = sui.usesysid
-    WHERE
-      sd.starttime >= '{start_time}'
-      AND sd.starttime < '{end_time}'
-      AND sd.rows > 0
-      AND sq.aborted = 0)
-ORDER BY
-  endtime DESC
-""".strip()
 
 RedshiftTableRef = str
 AggregatedDataset = GenericAggregatedDataset[RedshiftTableRef]
@@ -170,18 +104,60 @@ class RedshiftUsageExtractor:
         connection: redshift_connector.Connection,
         report: RedshiftReport,
         dataset_urn_builder: Callable[[str], str],
+        redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
     ):
         self.config = config
         self.report = report
         self.connection = connection
         self.dataset_urn_builder = dataset_urn_builder
 
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = (
+            self.report.usage_start_time,
+            self.report.usage_end_time,
+        ) = self.get_time_window()
+
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
+        if self.config.is_serverless:
+            self.queries = RedshiftServerlessQuery()
+
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
+
+    def _should_ingest_usage(self):
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "usage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+
+        return True
+
     def get_usage_workunits(
         self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
     ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_usage():
+            return
         yield from auto_empty_dataset_usage_statistics(
             self._get_workunits_internal(all_tables),
-            config=self.config,
+            config=BaseTimeWindowConfig(
+                start_time=self.start_time,
+                end_time=self.end_time,
+                bucket_duration=self.config.bucket_duration,
+            ),
             dataset_urns={
                 self.dataset_urn_builder(f"{database}.{schema}.{table.name}")
                 for database in all_tables
@@ -190,14 +166,23 @@ class RedshiftUsageExtractor:
             },
         )
 
+        if self.redundant_run_skip_handler:
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time,
+                self.config.end_time,
+                self.config.bucket_duration,
+            )
+
     def _get_workunits_internal(
         self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
     ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
         self.report.num_usage_stat_skipped = 0
-        self.report.num_operational_stats_skipped = 0
+        self.report.num_operational_stats_filtered = 0
 
         if self.config.include_operational_stats:
+            self.report.report_ingestion_stage_start(USAGE_EXTRACTION_OPERATIONAL_STATS)
             with PerfTimer() as timer:
                 # Generate operation aspect workunits
                 yield from self._gen_operation_aspect_workunits(
@@ -208,9 +193,10 @@ class RedshiftUsageExtractor:
                 ] = round(timer.elapsed_seconds(), 2)
 
         # Generate aggregate events
-        query: str = REDSHIFT_USAGE_QUERY_TEMPLATE.format(
-            start_time=self.config.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
-            end_time=self.config.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
+        self.report.report_ingestion_stage_start(USAGE_EXTRACTION_USAGE_AGGREGATION)
+        query: str = self.queries.usage_query(
+            start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
             database=self.config.database,
         )
         access_events_iterable: Iterable[
@@ -235,9 +221,9 @@ class RedshiftUsageExtractor:
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         # Generate access events
-        query: str = REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE.format(
-            start_time=self.config.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
-            end_time=self.config.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
+        query: str = self.queries.operation_aspect_query(
+            start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
         )
         access_events_iterable: Iterable[
             RedshiftAccessEvent
@@ -246,8 +232,13 @@ class RedshiftUsageExtractor:
         )
 
         # Generate operation aspect work units from the access events
-        yield from self._gen_operation_aspect_workunits_from_access_events(
-            access_events_iterable, all_tables=all_tables
+        yield from (
+            mcpw.as_workunit()
+            for mcpw in self._drop_repeated_operations(
+                self._gen_operation_aspect_workunits_from_access_events(
+                    access_events_iterable, all_tables=all_tables
+                )
+            )
         )
 
     def _should_process_event(
@@ -301,10 +292,6 @@ class RedshiftUsageExtractor:
                     self.report.num_usage_stat_skipped += 1
                     continue
 
-                # Replace database name with the alias name if one is provided in the config.
-                if self.config.database_alias:
-                    access_event.database = self.config.database_alias
-
                 if not self._should_process_event(access_event, all_tables=all_tables):
                     self.report.num_usage_stat_skipped += 1
                     continue
@@ -312,11 +299,61 @@ class RedshiftUsageExtractor:
                 yield access_event
             results = cursor.fetchmany()
 
+    def _drop_repeated_operations(
+        self, events: Iterable[MetadataChangeProposalWrapper]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Drop repeated operations on the same entity.
+
+        ASSUMPTION: Events are ordered by lastUpdatedTimestamp, descending.
+
+        Operations are only dropped if they were within 1 minute of each other,
+        and have the same operation type, user, and entity.
+
+        This is particularly useful when we see a string of insert operations
+        that are all really part of the same overall operation.
+        """
+
+        OPERATION_CACHE_MAXSIZE = 1000
+        DROP_WINDOW_SEC = 10
+
+        # All timestamps are in milliseconds.
+        timestamp_low_watermark = 0
+
+        def timer():
+            return -timestamp_low_watermark
+
+        # dict of entity urn -> (last event's actor, operation type)
+        # TODO: Remove the type ignore and use TTLCache[key_type, value_type] directly once that's supported in Python 3.9.
+        last_events: Dict[str, Tuple[Optional[str], str]] = cachetools.TTLCache(  # type: ignore[assignment]
+            maxsize=OPERATION_CACHE_MAXSIZE, ttl=DROP_WINDOW_SEC * 1000, timer=timer
+        )
+
+        for event in events:
+            assert isinstance(event.aspect, OperationClass)
+
+            timestamp_low_watermark = min(
+                timestamp_low_watermark, event.aspect.lastUpdatedTimestamp
+            )
+
+            urn = event.entityUrn
+            assert urn
+            assert isinstance(event.aspect.operationType, str)
+            value: Tuple[Optional[str], str] = (
+                event.aspect.actor,
+                event.aspect.operationType,
+            )
+            if urn in last_events and last_events[urn] == value:
+                self.report.num_repeated_operations_dropped += 1
+                continue
+
+            last_events[urn] = value
+            yield event
+
     def _gen_operation_aspect_workunits_from_access_events(
         self,
         events_iterable: Iterable[RedshiftAccessEvent],
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         self.report.num_operational_stats_workunits_emitted = 0
         for event in events_iterable:
             if not (
@@ -330,7 +367,7 @@ class RedshiftUsageExtractor:
                 continue
 
             if not self._should_process_event(event, all_tables=all_tables):
-                self.report.num_operational_stats_skipped += 1
+                self.report.num_operational_stats_filtered += 1
                 continue
 
             assert event.operation_type in ["insert", "delete"]
@@ -352,7 +389,7 @@ class RedshiftUsageExtractor:
             resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
             yield MetadataChangeProposalWrapper(
                 entityUrn=self.dataset_urn_builder(resource), aspect=operation_aspect
-            ).as_workunit()
+            )
             self.report.num_operational_stats_workunits_emitted += 1
 
     def _aggregate_access_events(
@@ -391,4 +428,9 @@ class RedshiftUsageExtractor:
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
+            self.config.queries_character_limit,
         )
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)

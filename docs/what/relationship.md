@@ -102,9 +102,6 @@ For one, the actual direction doesn’t really impact the execution of graph que
 
 That being said, generally there’s a more "natural way" to specify the direction of a relationship, which closely relate to how the metadata is stored. For example, the membership information for an LDAP group is generally stored as a list in group’s metadata. As a result, it’s more natural to model a `HasMember` relationship that points from a group to a member, instead of a `IsMemberOf` relationship pointing from member to group.
 
-Since all relationships are explicitly declared, it’s fairly easy for a user to discover what relationships are available and their directionality by inspecting 
-the [relationships directory](../../metadata-models/src/main/pegasus/com/linkedin/metadata/relationship). It’s also possible to provide a UI for the catalog of entities and relationships for analysts who are interested in building complex graph queries to gain insights into the metadata.
-
 ## High Cardinality Relationships
 
 See [this doc](../advanced/high-cardinality.md) for suggestions on how to best model relationships with high cardinality.

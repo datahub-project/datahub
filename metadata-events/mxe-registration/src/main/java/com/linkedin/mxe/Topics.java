@@ -19,10 +19,7 @@ public class Topics {
   public static final String DEV_METADATA_CHANGE_EVENT = "MetadataChangeEvent_v4_dev";
   public static final String DEV_FAILED_METADATA_CHANGE_EVENT = "FailedMetadataChangeEvent_v4_dev";
 
-  /**
-   *  aspect-specific MAE topics.
-   *  format : METADATA_AUDIT_EVENT_<URN>_<ASPECT>
-   */
+  /** aspect-specific MAE topics. format : METADATA_AUDIT_EVENT_<URN>_<ASPECT> */
   // MAE topics for CorpGroup entity.
   public static final String METADATA_AUDIT_EVENT_CORPGROUP_CORPGROUPINFO =
       "MetadataAuditEvent_CorpGroup_CorpGroupInfo_v1";
@@ -30,12 +27,10 @@ public class Topics {
   // MAE topics for CorpUser entity.
   public static final String METADATA_AUDIT_EVENT_CORPUSER_CORPUSEREDITABLEINFO =
       "MetadataAuditEvent_CorpUser_CorpUserEditableInfo_v2";
-  public static final String METADATA_AUDIT_EVENT_CORPUSER_CORPUSERINFO = "MetadataAuditEvent_CorpUser_CorpUserInfo_v2";
+  public static final String METADATA_AUDIT_EVENT_CORPUSER_CORPUSERINFO =
+      "MetadataAuditEvent_CorpUser_CorpUserInfo_v2";
 
-  /**
-   *  aspect-specific MCE topics.
-   *  format : METADATA_CHANGE_EVENT_<URN>_<ASPECT>
-   */
+  /** aspect-specific MCE topics. format : METADATA_CHANGE_EVENT_<URN>_<ASPECT> */
   // MCE topics for CorpGroup entity.
   public static final String METADATA_CHANGE_EVENT_CORPGROUP_CORPGROUPINFO =
       "MetadataChangeEvent_CorpGroup_CorpGroupInfo_v1";
@@ -46,10 +41,7 @@ public class Topics {
   public static final String METADATA_CHANGE_EVENT_CORPUSER_CORPUSERINFO =
       "MetadataChangeEvent_CorpUser_CorpUserInfo_v1";
 
-  /**
-   *  aspect-specific FMCE topics.
-   *  format : FAILED_METADATA_CHANGE_EVENT_<URN>_<ASPECT>
-   */
+  /** aspect-specific FMCE topics. format : FAILED_METADATA_CHANGE_EVENT_<URN>_<ASPECT> */
   // FMCE topics for CorpGroup entity.
   public static final String FAILED_METADATA_CHANGE_EVENT_CORPGROUP_CORPGROUPINFO =
       "FailedMetadataChangeEvent_CorpGroup_CorpGroupInfo_v1";

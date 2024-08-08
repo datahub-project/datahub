@@ -19,6 +19,5 @@ public class AuthenticationContext {
     AUTHENTICATION.remove();
   }
 
-  private AuthenticationContext() {
-  }
+  private AuthenticationContext() {}
 }

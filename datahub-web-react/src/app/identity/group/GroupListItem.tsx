@@ -3,16 +3,19 @@ import React from 'react';
 import styled from 'styled-components';
 import { List, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import { CorpGroup, EntityType, OriginType } from '../../../types.generated';
+import { CorpGroup, DataHubRole, EntityType, OriginType } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import EntityDropdown from '../../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../../entity/shared/EntityDropdown/EntityDropdown';
 import { getElasticCappedTotalValueText } from '../../entity/shared/constants';
+import SelectRoleGroup from './SelectRoleGroup';
 
 type Props = {
     group: CorpGroup;
     onDelete?: () => void;
+    selectRoleOptions: Array<DataHubRole>;
+    refetch?: () => void;
 };
 
 const GroupItemContainer = styled.div`
@@ -35,18 +38,27 @@ const GroupItemButtonGroup = styled.div`
     align-items: center;
 `;
 
-export default function GroupListItem({ group, onDelete }: Props) {
+export default function GroupListItem({ group, onDelete, selectRoleOptions, refetch }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
     const isExternalGroup: boolean = group.origin?.type === OriginType.External;
     const externalGroupType: string = group.origin?.externalType || 'outside DataHub';
+    const castedCorpUser = group as any;
+    const groupRelationships = castedCorpUser?.roles?.relationships;
+    const userRole =
+        groupRelationships && groupRelationships.length > 0 && (groupRelationships[0]?.entity as DataHubRole);
+    const groupRoleUrn = userRole && userRole.urn;
 
     return (
         <List.Item>
             <GroupItemContainer>
                 <Link to={`${entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}`}>
                     <GroupHeaderContainer>
-                        <CustomAvatar size={32} name={displayName} />
+                        <CustomAvatar
+                            size={32}
+                            name={displayName}
+                            photoUrl={group?.editableProperties?.pictureLink || undefined}
+                        />
                         <div style={{ marginLeft: 16, marginRight: 16 }}>
                             <div>
                                 <Typography.Text>{displayName}</Typography.Text>
@@ -66,6 +78,12 @@ export default function GroupListItem({ group, onDelete }: Props) {
                             <LockOutlined />
                         </Tooltip>
                     )}
+                    <SelectRoleGroup
+                        group={group}
+                        groupRoleUrn={groupRoleUrn || ''}
+                        selectRoleOptions={selectRoleOptions}
+                        refetch={refetch}
+                    />
                     <EntityDropdown
                         urn={group.urn}
                         entityType={EntityType.CorpGroup}

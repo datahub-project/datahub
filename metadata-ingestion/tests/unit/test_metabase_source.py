@@ -1,12 +1,15 @@
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.metabase import MetabaseConfig, MetabaseSource
+from datahub.ingestion.source.metabase import (
+    MetabaseConfig,
+    MetabaseReport,
+    MetabaseSource,
+)
 
 
 class TestMetabaseSource(MetabaseSource):
     def __init__(self, ctx: PipelineContext, config: MetabaseConfig):
         self.config = config
-        self.report = SourceReport()
+        self.report = MetabaseReport()
 
 
 def test_get_platform_instance():
@@ -40,3 +43,12 @@ def test_get_platform_instance():
 
     # database_id_to_instance_map is missing, platform_instance_map is defined and key missing
     assert metabase.get_platform_instance("missing-platform", 999) is None
+
+
+def test_set_display_uri():
+    display_uri = "some_host:1234"
+
+    config = MetabaseConfig.parse_obj({"display_uri": display_uri})
+
+    assert config.connect_uri == "localhost:3000"
+    assert config.display_uri == display_uri

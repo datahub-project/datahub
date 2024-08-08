@@ -1,5 +1,5 @@
 import subprocess
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
 import pytest
@@ -16,6 +16,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
+pytestmark = pytest.mark.integration_batch_1
 FROZEN_TIME = "2021-10-25 13:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
@@ -87,9 +88,7 @@ def test_resources_dir(pytestconfig):
 def loaded_kafka_connect(kafka_connect_runner):
     # # Setup mongo cluster
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-init.js"
-    ret = subprocess.run(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
 
     # Creating MySQL source with no transformations , only topic prefix
@@ -166,7 +165,7 @@ def loaded_kafka_connect(kafka_connect_runner):
                             "query": "select * from member",
                             "topic.prefix": "query-topic",
                             "tasks.max": "1",
-                            "connection.url": "${env:MYSQL_CONNECTION_URL}"
+                            "connection.url": "jdbc:mysql://foo:datahub@test_mysql:${env:MYSQL_PORT}/${env:MYSQL_DB}"
                         }
                     }
                     """,
@@ -297,9 +296,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     assert r.status_code == 201  # Created
 
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-populate.js"
-    ret = subprocess.run(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
 
     # Creating S3 Sink source
@@ -336,6 +333,30 @@ def loaded_kafka_connect(kafka_connect_runner):
     r.raise_for_status()
     assert r.status_code == 201
 
+    # Creating BigQuery sink connector
+    r = requests.post(
+        KAFKA_CONNECT_ENDPOINT,
+        headers={"Content-Type": "application/json"},
+        data="""{
+            "name": "bigquery-sink-connector",
+            "config": {
+                "connector.class": "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector",
+                "autoCreateTables": "true",
+                "transforms.TableNameTransformation.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.TableNameTransformation.replacement": "my_dest_table_name",
+                "topics": "kafka-topic-name",
+                "transforms.TableNameTransformation.regex": ".*",
+                "transforms": "TableNameTransformation",
+                "name": "bigquery-sink-connector",
+                "project": "my-gcp-project",
+                "defaultDataset": "mybqdataset",
+                "datasets": "kafka-topic-name=mybqdataset"
+            }
+        }
+        """,
+    )
+    assert r.status_code == 201  # Created
+
     # Give time for connectors to process the table data
     kafka_connect_runner.wait_until_responsive(
         timeout=30,
@@ -345,7 +366,6 @@ def loaded_kafka_connect(kafka_connect_runner):
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 def test_kafka_connect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -363,7 +383,6 @@ def test_kafka_connect_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 def test_kafka_connect_mongosourceconnect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -381,7 +400,6 @@ def test_kafka_connect_mongosourceconnect_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 def test_kafka_connect_s3sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -399,7 +417,6 @@ def test_kafka_connect_s3sink_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
 def test_kafka_connect_ingest_stateful(
     loaded_kafka_connect, pytestconfig, tmp_path, mock_datahub_graph, test_resources_dir
 ):
@@ -422,7 +439,17 @@ def test_kafka_connect_ingest_stateful(
                         "provider": "env",
                         "path_key": "MYSQL_CONNECTION_URL",
                         "value": "jdbc:mysql://test_mysql:3306/librarydb",
-                    }
+                    },
+                    {
+                        "provider": "env",
+                        "path_key": "MYSQL_PORT",
+                        "value": "3306",
+                    },
+                    {
+                        "provider": "env",
+                        "path_key": "MYSQL_DB",
+                        "value": "librarydb",
+                    },
                 ],
                 "stateful_ingestion": {
                     "enabled": True,
@@ -534,3 +561,122 @@ def test_kafka_connect_ingest_stateful(
         "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.member)",
     ]
     assert sorted(deleted_job_urns) == sorted(difference_job_urns)
+
+
+def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
+    api_vs_response = {
+        "http://localhost:28083": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "version": "7.4.0-ccs",
+                "commit": "30969fa33c185e880b9e02044761dfaac013151d",
+                "kafka_cluster_id": "MDgRZlZhSZ-4fXhwRR79bw",
+            },
+        },
+    }
+
+    api_vs_response.update(override_data or {})
+
+    for url in api_vs_response.keys():
+        request_mock.register_uri(
+            api_vs_response[url]["method"],
+            url,
+            json=api_vs_response[url]["json"],
+            status_code=api_vs_response[url]["status_code"],
+        )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_snowflake_sink_ingest(
+    pytestconfig, tmp_path, mock_time, requests_mock
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+    override_data = {
+        "http://localhost:28083/connectors": {
+            "method": "GET",
+            "status_code": 200,
+            "json": ["snowflake_sink1"],
+        },
+        "http://localhost:28083/connectors/snowflake_sink1": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "snowflake_sink1",
+                "config": {
+                    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+                    "snowflake.database.name": "kafka_db",
+                    "snowflake.schema.name": "kafka_schema",
+                    "snowflake.topic2table.map": "topic1:table1",
+                    "tasks.max": "1",
+                    "topics": "topic1,_topic+2",
+                    "snowflake.user.name": "kafka_connector_user_1",
+                    "snowflake.private.key": "rrSnqU=",
+                    "name": "snowflake_sink1",
+                    "snowflake.url.name": "bcaurux-lc62744.snowflakecomputing.com:443",
+                },
+                "tasks": [{"connector": "snowflake_sink1", "task": 0}],
+                "type": "sink",
+            },
+        },
+        "http://localhost:28083/connectors/snowflake_sink1/topics": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"snowflake_sink1": {"topics": ["topic1", "_topic+2"]}},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "kafka-connect-test",
+            "source": {
+                "type": "kafka-connect",
+                "config": {
+                    "platform_instance": "connect-instance-1",
+                    "connect_uri": KAFKA_CONNECT_SERVER,
+                    "connector_patterns": {
+                        "allow": [
+                            "snowflake_sink1",
+                        ]
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/kafka_connect_snowflake_sink_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "kafka_connect_snowflake_sink_mces_golden.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_snowflake_sink_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_bigquery_sink_ingest(
+    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (
+        test_resources_dir / "kafka_connect_bigquery_sink_to_file.yml"
+    ).resolve()
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_mces.json",
+        golden_path=test_resources_dir / "kafka_connect_bigquery_sink_mces_golden.json",
+        ignore_paths=[],
+    )

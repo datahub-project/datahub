@@ -19,13 +19,13 @@ To do so, navigate to the **Users & Groups** section inside of Settings page. He
 do not have the correct privileges to invite users, this button will be disabled.
 
 <p align="center">
-  <img width="100%" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/invite-users-button.png"/>
+  <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/invite-users-button.png"/>
 </p>
 
 To invite new users, simply share the link with others inside your organization.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/invite-users-popup.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/invite-users-popup.png"/>
 </p>
 
 When a new user visits the link, they will be directed to a sign up screen where they can create their DataHub account.
@@ -37,13 +37,13 @@ and click **Reset user password** inside the menu dropdown on the right hand sid
 `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide.md) in order to reset passwords.
 
 <p align="center">
-  <img width="100%" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/reset-user-password-button.png"/>
+  <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/reset-user-password-button.png"/>
 </p>
 
 To reset the password, simply share the password reset link with the user who needs to change their password. Password reset links expire after 24 hours.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/reset-user-password-popup.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/reset-user-password-popup.png"/>
 </p>
 
 # Configuring Single Sign-On with OpenID Connect
@@ -60,7 +60,7 @@ and many more.
 
 This option is strongly recommended for production deployments of DataHub.
 
-### Managed DataHub
+### DataHub Cloud
 
 Single Sign-On can be configured and enabled by navigating to **Settings** > **SSO** > **OIDC**. Note
 that a user must have the **Manage Platform Settings** [Platform Privilege](../../authorization/access-policies-guide.md)
@@ -134,7 +134,7 @@ For example, to mount a user.props file that is stored on my local filesystem at
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-head}
     .....
     # The new stuff
     volumes:

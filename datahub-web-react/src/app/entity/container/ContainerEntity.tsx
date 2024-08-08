@@ -63,11 +63,13 @@ export class ContainerEntity implements Entity<Container> {
 
     getCollectionName = () => 'Containers';
 
+    useEntityQuery = useGetContainerQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Container}
-            useEntityQuery={useGetContainerQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
@@ -84,33 +86,35 @@ export class ContainerEntity implements Entity<Container> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                // TODO: Add back once entity-level recommendations are complete.
-                // {
-                //    component: SidebarRecommendationsSection,
-                // },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        // TODO: Add back once entity-level recommendations are complete.
+        // {
+        //    component: SidebarRecommendationsSection,
+        // },
+    ];
 
     renderPreview = (_: PreviewType, data: Container) => {
         const genericProperties = this.getGenericEntityProperties(data);
@@ -167,6 +171,7 @@ export class ContainerEntity implements Entity<Container> {
     getOverridePropertiesFromEntity = (data: Container) => {
         return {
             name: this.displayName(data),
+            externalUrl: data.properties?.externalUrl,
             entityCount: data.entities?.total,
         };
     };
@@ -194,7 +199,7 @@ export class ContainerEntity implements Entity<Container> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Container}
-            useEntityQuery={useGetContainerQuery}
+            useEntityQuery={this.useEntityQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );

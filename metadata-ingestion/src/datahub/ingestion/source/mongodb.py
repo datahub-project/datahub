@@ -1,9 +1,9 @@
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
 import bson.timestamp
-import pymongo
 import pymongo.collection
 from packaging import version
 from pydantic import PositiveInt, validator
@@ -11,7 +11,16 @@ from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -21,14 +30,21 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
     construct_schema,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulIngestionConfigBase,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -44,7 +60,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
     UnionTypeClass,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    DatasetPropertiesClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +71,18 @@ logger = logging.getLogger(__name__)
 # See https://docs.mongodb.com/manual/reference/local-database/ and
 # https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
-DENY_DATABASE_LIST = set(["admin", "config", "local"])
+DENY_DATABASE_LIST = {"admin", "config", "local"}
 
 
-class MongoDBConfig(EnvConfigMixin):
+class HostingEnvironment(Enum):
+    SELF_HOSTED = "SELF_HOSTED"
+    ATLAS = "ATLAS"
+    AWS_DOCUMENTDB = "AWS_DOCUMENTDB"
+
+
+class MongoDBConfig(
+    PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase
+):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     connect_uri: str = Field(
@@ -74,7 +101,7 @@ class MongoDBConfig(EnvConfigMixin):
     )
     schemaSamplingSize: Optional[PositiveInt] = Field(
         default=1000,
-        description="Number of documents to use when inferring schema size. If set to `0`, all documents will be scanned.",
+        description="Number of documents to use when inferring schema size. If set to `null`, all documents will be scanned.",
     )
     useRandomSampling: bool = Field(
         default=True,
@@ -87,6 +114,11 @@ class MongoDBConfig(EnvConfigMixin):
     # errors out with "16793600" as the maximum size supported.
     maxDocumentSize: Optional[PositiveInt] = Field(default=16793600, description="")
 
+    hostingEnvironment: Optional[HostingEnvironment] = Field(
+        default=HostingEnvironment.SELF_HOSTED,
+        description="Hosting environment of MongoDB, default is SELF_HOSTED, currently support `SELF_HOSTED`, `ATLAS`, `AWS_DOCUMENTDB`",
+    )
+
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for databases to filter in ingestion.",
@@ -95,6 +127,8 @@ class MongoDBConfig(EnvConfigMixin):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for collections to filter in ingestion.",
     )
+    # Custom Stateful Ingestion settings
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("maxDocumentSize")
     def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
@@ -104,7 +138,7 @@ class MongoDBConfig(EnvConfigMixin):
 
 
 @dataclass
-class MongoDBSourceReport(SourceReport):
+class MongoDBSourceReport(StaleEntityRemovalSourceReport):
     filtered: List[str] = field(default_factory=list)
 
     def report_dropped(self, name: str) -> None:
@@ -125,6 +159,7 @@ PYMONGO_TYPE_TO_MONGO_TYPE = {
     bson.timestamp.Timestamp: "timestamp",
     bson.dbref.DBRef: "dbref",
     bson.objectid.ObjectId: "oid",
+    bson.Decimal128: "numberDecimal",
     "mixed": "mixed",
 }
 
@@ -141,6 +176,7 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
     bson.timestamp.Timestamp: TimeTypeClass,
     bson.dbref.DBRef: BytesTypeClass,
     bson.objectid.ObjectId: BytesTypeClass,
+    bson.Decimal128: NumberTypeClass,
     dict: RecordTypeClass,
     "mixed": UnionTypeClass,
 }
@@ -151,7 +187,7 @@ def construct_schema_pymongo(
     delimiter: str,
     use_random_sampling: bool,
     max_document_size: int,
-    is_version_gte_4_4: bool,
+    should_add_document_size_filter: bool,
     sample_size: Optional[int] = None,
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
@@ -166,15 +202,19 @@ def construct_schema_pymongo(
             the PyMongo collection
         delimiter:
             string to concatenate field names by
+        use_random_sampling:
+            boolean to indicate if random sampling should be added to aggregation
+        max_document_size:
+            maximum size of the document that will be considered for generating the schema.
+        should_add_document_size_filter:
+            boolean to indicate if document size filter should be added to aggregation
         sample_size:
             number of items in the collection to sample
             (reads entire collection if not provided)
-        max_document_size:
-            maximum size of the document that will be considered for generating the schema.
     """
 
     aggregations: List[Dict] = []
-    if is_version_gte_4_4:
+    if should_add_document_size_filter:
         doc_size_field = "temporary_doc_size_field"
         # create a temporary field to store the size of the document. filter on it and then remove it.
         aggregations = [
@@ -184,13 +224,15 @@ def construct_schema_pymongo(
         ]
     if use_random_sampling:
         # get sample documents in collection
-        aggregations.append({"$sample": {"size": sample_size}})
+        if sample_size:
+            aggregations.append({"$sample": {"size": sample_size}})
         documents = collection.aggregate(
             aggregations,
             allowDiskUse=True,
         )
     else:
-        aggregations.append({"$limit": sample_size})
+        if sample_size:
+            aggregations.append({"$limit": sample_size})
         documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
@@ -199,9 +241,10 @@ def construct_schema_pymongo(
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
-class MongoDBSource(Source):
+class MongoDBSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
@@ -222,7 +265,7 @@ class MongoDBSource(Source):
     mongo_client: MongoClient
 
     def __init__(self, ctx: PipelineContext, config: MongoDBConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = MongoDBSourceReport()
 
@@ -238,7 +281,8 @@ class MongoDBSource(Source):
             **self.config.options,
         }
 
-        self.mongo_client = pymongo.MongoClient(self.config.connect_uri, **options)  # type: ignore
+        # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
+        self.mongo_client = MongoClient(self.config.connect_uri, datetime_conversion="DATETIME_AUTO", **options)  # type: ignore
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient
@@ -248,6 +292,14 @@ class MongoDBSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MongoDBSource":
         config = MongoDBConfig.parse_obj(config_dict)
         return cls(ctx, config)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_pymongo_type_string(
         self, field_type: Union[Type, str], collection_name: str
@@ -265,8 +317,9 @@ class MongoDBSource(Source):
         try:
             type_string = PYMONGO_TYPE_TO_MONGO_TYPE[field_type]
         except KeyError:
-            self.report.report_warning(
-                collection_name, f"unable to map type {field_type} to metadata schema"
+            self.report.warning(
+                message="Unrecognized column types found",
+                context=f"Collection: {collection_name}, field type {field_type}",
             )
             PYMONGO_TYPE_TO_MONGO_TYPE[field_type] = "unknown"
             type_string = "unknown"
@@ -289,8 +342,9 @@ class MongoDBSource(Source):
         TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
-            self.report.report_warning(
-                collection_name, f"unable to map type {field_type} to metadata schema"
+            self.report.warning(
+                message="Unrecognized column type found",
+                context=f"Collection: {collection_name}, field type {field_type}",
             )
             TypeClass = NullTypeClass
 
@@ -320,18 +374,29 @@ class MongoDBSource(Source):
                     self.report.report_dropped(dataset_name)
                     continue
 
-                dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.config.env})"
-
-                dataset_snapshot = DatasetSnapshot(
-                    urn=dataset_urn,
-                    aspects=[],
+                dataset_urn = make_dataset_urn_with_platform_instance(
+                    platform=platform,
+                    name=dataset_name,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
                 )
+
+                # Initialize data_platform_instance with a default value
+                data_platform_instance = None
+                if self.config.platform_instance:
+                    data_platform_instance = DataPlatformInstanceClass(
+                        platform=make_data_platform_urn(platform),
+                        instance=make_dataplatform_instance_urn(
+                            platform, self.config.platform_instance
+                        ),
+                    )
 
                 dataset_properties = DatasetPropertiesClass(
                     tags=[],
                     customProperties={},
                 )
-                dataset_snapshot.aspects.append(dataset_properties)
+
+                schema_metadata: Optional[SchemaMetadata] = None
 
                 if self.config.enableSchemaInference:
                     assert self.config.maxDocumentSize is not None
@@ -340,7 +405,7 @@ class MongoDBSource(Source):
                         delimiter=".",
                         use_random_sampling=self.config.useRandomSampling,
                         max_document_size=self.config.maxDocumentSize,
-                        is_version_gte_4_4=self.is_server_version_gte_4_4(),
+                        should_add_document_size_filter=self.should_add_document_size_filter(),
                         sample_size=self.config.schemaSamplingSize,
                     )
 
@@ -355,14 +420,10 @@ class MongoDBSource(Source):
                     if collection_schema_size > max_schema_size:
                         # downsample the schema, using frequency as the sort key
                         self.report.report_warning(
-                            key=dataset_urn,
-                            reason=f"Downsampling the collection schema because it has {collection_schema_size} fields. Threshold is {max_schema_size}",
+                            title="Too many schema fields",
+                            message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
+                            context=f"Schema Size: {collection_schema_size}, Collection: {dataset_urn}",
                         )
-                        collection_fields = sorted(
-                            collection_schema.values(),
-                            key=lambda x: x["count"],
-                            reverse=True,
-                        )[0:max_schema_size]
                         # Add this information to the custom properties so user can know they are looking at downsampled schema
                         dataset_properties.customProperties[
                             "schema.downsampled"
@@ -376,8 +437,12 @@ class MongoDBSource(Source):
                     )
                     # append each schema field (sort so output is consistent)
                     for schema_field in sorted(
-                        collection_fields, key=lambda x: x["delimited_name"]
-                    ):
+                        collection_fields,
+                        key=lambda x: (
+                            -x["count"],
+                            x["delimited_name"],
+                        ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
+                    )[0:max_schema_size]:
                         field = SchemaField(
                             fieldPath=schema_field["delimited_name"],
                             nativeDataType=self.get_pymongo_type_string(
@@ -402,13 +467,20 @@ class MongoDBSource(Source):
                         fields=canonical_schema,
                     )
 
-                    dataset_snapshot.aspects.append(schema_metadata)
-
                 # TODO: use list_indexes() or index_information() to get index information
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
 
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                yield MetadataWorkUnit(id=dataset_name, mce=mce)
+                yield from [
+                    mcp.as_workunit()
+                    for mcp in MetadataChangeProposalWrapper.construct_many(
+                        entityUrn=dataset_urn,
+                        aspects=[
+                            schema_metadata,
+                            dataset_properties,
+                            data_platform_instance,
+                        ],
+                    )
+                ]
 
     def is_server_version_gte_4_4(self) -> bool:
         try:
@@ -426,6 +498,18 @@ class MongoDBSource(Source):
             logger.error("Error while getting version of the mongodb server %s", e)
 
         return False
+
+    def is_hosted_on_aws_documentdb(self) -> bool:
+        return self.config.hostingEnvironment == HostingEnvironment.AWS_DOCUMENTDB
+
+    def should_add_document_size_filter(self) -> bool:
+        # the operation $bsonsize is only available in server version greater than 4.4
+        # and is not supported by AWS DocumentDB, we should only add this operation to
+        # aggregation for mongodb that doesn't run on AWS DocumentDB and version is greater than 4.4
+        # https://docs.aws.amazon.com/documentdb/latest/developerguide/mongo-apis.html
+        return (
+            self.is_server_version_gte_4_4() and not self.is_hosted_on_aws_documentdb()
+        )
 
     def get_report(self) -> MongoDBSourceReport:
         return self.report

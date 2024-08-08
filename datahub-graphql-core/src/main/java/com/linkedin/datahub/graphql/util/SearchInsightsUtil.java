@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 
-
 public class SearchInsightsUtil {
 
   public static List<SearchInsight> getInsightsFromFeatures(@Nullable final DoubleMap features) {
@@ -18,5 +17,5 @@ public class SearchInsightsUtil {
     return Collections.emptyList();
   }
 
-  private SearchInsightsUtil() { }
+  private SearchInsightsUtil() {}
 }

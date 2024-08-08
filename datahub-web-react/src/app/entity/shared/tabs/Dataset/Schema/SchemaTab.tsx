@@ -76,6 +76,14 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
         [schemaMetadata],
     );
 
+    const hasProperties = useMemo(
+        () =>
+            entityWithSchema?.schemaMetadata?.fields?.some(
+                (schemaField) => !!schemaField.schemaFieldEntity?.structuredProperties?.properties?.length,
+            ),
+        [entityWithSchema],
+    );
+
     const [showKeySchema, setShowKeySchema] = useState(false);
     const [showSchemaAuditView, setShowSchemaAuditView] = useState(false);
 
@@ -140,8 +148,15 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
         }
     }, [hasValueSchema, hasKeySchema, setShowKeySchema]);
 
+    const sortedFields = schemaMetadata?.fields?.slice().sort((a, b) => {
+        if (a.isPartitioningKey === b.isPartitioningKey) {
+            return 0;
+        }
+        return a.isPartitioningKey ? -1 : 1;
+    });
+
     const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
-        schemaMetadata?.fields,
+        sortedFields,
         editableSchemaMetadata,
         filterText,
         entityRegistry,
@@ -150,9 +165,6 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
     const rows = useMemo(() => {
         return groupByFieldPath(filteredRows, { showKeySchema });
     }, [showKeySchema, filteredRows]);
-
-    const lastUpdated = getSchemaBlameData?.getSchemaBlame?.version?.semanticVersionTimestamp;
-    const lastObserved = versionedDatasetData.data?.versionedDataset?.schema?.lastObserved;
 
     const schemaFieldBlameList: Array<SchemaFieldBlame> =
         (getSchemaBlameData?.getSchemaBlame?.schemaFieldBlameList as Array<SchemaFieldBlame>) || [];
@@ -167,8 +179,6 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 hasKeySchema={hasKeySchema}
                 showKeySchema={showKeySchema}
                 setShowKeySchema={setShowKeySchema}
-                lastObserved={lastObserved}
-                lastUpdated={lastUpdated}
                 selectedVersion={selectedVersion}
                 versionList={versionList}
                 showSchemaAuditView={showSchemaAuditView}
@@ -195,13 +205,13 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                                 <SchemaTable
                                     schemaMetadata={schemaMetadata}
                                     rows={rows}
-                                    editMode={editMode}
                                     editableSchemaMetadata={editableSchemaMetadata}
                                     usageStats={usageStats}
                                     schemaFieldBlameList={schemaFieldBlameList}
                                     showSchemaAuditView={showSchemaAuditView}
                                     expandedRowsFromFilter={expandedRowsFromFilter as any}
                                     filterText={filterText as any}
+                                    hasProperties={hasProperties}
                                 />
                             </SchemaEditableContext.Provider>
                         </>

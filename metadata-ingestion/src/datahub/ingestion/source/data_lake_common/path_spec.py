@@ -11,6 +11,7 @@ from wcmatch import pathlib
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 # hide annoying debug errors from py4j
@@ -18,7 +19,14 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
-SUPPORTED_COMPRESSIONS: List[str] = ["gz", "bz2"]
+
+# These come from the smart_open library.
+SUPPORTED_COMPRESSIONS: List[str] = [
+    "gz",
+    "bz2",
+    # We have a monkeypatch on smart_open that aliases .gzip to .gz.
+    "gzip",
+]
 
 
 class PathSpec(ConfigModel):
@@ -38,6 +46,7 @@ class PathSpec(ConfigModel):
     )
 
     default_extension: Optional[str] = Field(
+        default=None,
         description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
     )
 
@@ -54,6 +63,11 @@ class PathSpec(ConfigModel):
     sample_files: bool = Field(
         default=True,
         description="Not listing all the files but only taking a handful amount of sample file to infer the schema. File count and file size calculation will be disabled. This can affect performance significantly if enabled",
+    )
+
+    allow_double_stars: bool = Field(
+        default=False,
+        description="Allow double stars in the include path. This can affect performance significantly if enabled",
     )
 
     def allowed(self, path: str) -> bool:
@@ -94,7 +108,7 @@ class PathSpec(ConfigModel):
         # glob_include = self.glob_include.rsplit("/", 1)[0]
         glob_include = self.glob_include
 
-        for i in range(slash_to_remove_from_glob):
+        for _ in range(slash_to_remove_from_glob):
             glob_include = glob_include.rsplit("/", 1)[0]
 
         logger.debug(f"Checking dir to inclusion: {path}")
@@ -119,11 +133,18 @@ class PathSpec(ConfigModel):
     def get_named_vars(self, path: str) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_include.parse(path)
 
-    @pydantic.validator("include")
-    def validate_no_double_stars(cls, v: str) -> str:
-        if "**" in v:
+    @pydantic.root_validator()
+    def validate_no_double_stars(cls, values: Dict) -> Dict:
+        if "include" not in values:
+            return values
+
+        if (
+            values.get("include")
+            and "**" in values["include"]
+            and not values.get("allow_double_stars")
+        ):
             raise ValueError("path_spec.include cannot contain '**'")
-        return v
+        return values
 
     @pydantic.validator("file_types", always=True)
     def validate_file_types(cls, v: Optional[List[str]]) -> List[str]:
@@ -149,7 +170,8 @@ class PathSpec(ConfigModel):
     def turn_off_sampling_for_non_s3(cls, v, values):
         is_s3 = is_s3_uri(values.get("include") or "")
         is_gcs = is_gcs_uri(values.get("include") or "")
-        if not is_s3 and not is_gcs:
+        is_abs = is_abs_uri(values.get("include") or "")
+        if not is_s3 and not is_gcs and not is_abs:
             # Sampling only makes sense on s3 and gcs currently
             v = False
         return v
@@ -194,6 +216,10 @@ class PathSpec(ConfigModel):
         return is_gcs_uri(self.include)
 
     @cached_property
+    def is_abs(self):
+        return is_abs_uri(self.include)
+
+    @cached_property
     def compiled_include(self):
         parsable_include = PathSpec.get_parsable_include(self.include)
         logger.debug(f"parsable_include: {parsable_include}")
@@ -207,7 +233,7 @@ class PathSpec(ConfigModel):
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_path_spec(cls, values: Dict) -> Dict[str, Any]:
         # validate that main fields are populated
         required_fields = ["include", "file_types", "default_extension"]

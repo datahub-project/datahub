@@ -2,12 +2,11 @@ package com.linkedin.metadata.config.search.custom;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import java.util.Collections;
+import java.util.List;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-
-import java.util.List;
-
 
 @Builder(toBuilder = true)
 @Getter
@@ -15,9 +14,11 @@ import java.util.List;
 @JsonDeserialize(builder = CustomSearchConfiguration.CustomSearchConfigurationBuilder.class)
 public class CustomSearchConfiguration {
 
-  private List<QueryConfiguration> queryConfigurations;
+  @Builder.Default private List<QueryConfiguration> queryConfigurations = Collections.emptyList();
+
+  @Builder.Default
+  private List<AutocompleteConfiguration> autocompleteConfigurations = Collections.emptyList();
 
   @JsonPOJOBuilder(withPrefix = "")
-  public static class CustomSearchConfigurationBuilder {
-  }
+  public static class CustomSearchConfigurationBuilder {}
 }

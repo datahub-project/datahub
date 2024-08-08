@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.timeline;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.GetSchemaVersionListInput;
 import com.linkedin.datahub.graphql.generated.GetSchemaVersionListResult;
 import com.linkedin.datahub.graphql.types.timeline.mappers.SchemaVersionListMapper;
@@ -16,14 +19,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
 /*
 Returns the most recent changes made to each column in a dataset at each dataset version.
  */
 @Slf4j
-public class GetSchemaVersionListResolver implements DataFetcher<CompletableFuture<GetSchemaVersionListResult>> {
+public class GetSchemaVersionListResolver
+    implements DataFetcher<CompletableFuture<GetSchemaVersionListResult>> {
   private final TimelineService _timelineService;
 
   public GetSchemaVersionListResolver(TimelineService timelineService) {
@@ -31,7 +32,8 @@ public class GetSchemaVersionListResolver implements DataFetcher<CompletableFutu
   }
 
   @Override
-  public CompletableFuture<GetSchemaVersionListResult> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<GetSchemaVersionListResult> get(
+      final DataFetchingEnvironment environment) throws Exception {
     final GetSchemaVersionListInput input =
         bindArgument(environment.getArgument("input"), GetSchemaVersionListInput.class);
 
@@ -39,23 +41,29 @@ public class GetSchemaVersionListResolver implements DataFetcher<CompletableFutu
     final long startTime = 0;
     final long endTime = 0;
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        final Set<ChangeCategory> changeCategorySet = new HashSet<>();
-        changeCategorySet.add(ChangeCategory.TECHNICAL_SCHEMA);
-        Urn datasetUrn = Urn.createFromString(datasetUrnString);
-        List<ChangeTransaction> changeTransactionList =
-            _timelineService.getTimeline(datasetUrn, changeCategorySet, startTime, endTime, null, null, false);
-        return SchemaVersionListMapper.map(changeTransactionList);
-      } catch (URISyntaxException u) {
-        log.error(
-            String.format("Failed to list schema blame data, likely due to the Urn %s being invalid", datasetUrnString),
-            u);
-        return null;
-      } catch (Exception e) {
-        log.error("Failed to list schema blame data", e);
-        return null;
-      }
-    });
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> {
+          try {
+            final Set<ChangeCategory> changeCategorySet = new HashSet<>();
+            changeCategorySet.add(ChangeCategory.TECHNICAL_SCHEMA);
+            Urn datasetUrn = Urn.createFromString(datasetUrnString);
+            List<ChangeTransaction> changeTransactionList =
+                _timelineService.getTimeline(
+                    datasetUrn, changeCategorySet, startTime, endTime, null, null, false);
+            return SchemaVersionListMapper.map(changeTransactionList);
+          } catch (URISyntaxException u) {
+            log.error(
+                String.format(
+                    "Failed to list schema blame data, likely due to the Urn %s being invalid",
+                    datasetUrnString),
+                u);
+            return null;
+          } catch (Exception e) {
+            log.error("Failed to list schema blame data", e);
+            return null;
+          }
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

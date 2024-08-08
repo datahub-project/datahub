@@ -13,11 +13,8 @@ from tabulate import tabulate
 from datahub.cli import cli_utils
 from datahub.configuration.datetimes import ClickDatetime
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
-from datahub.ingestion.graph.client import (
-    DataHubGraph,
-    RemovedStatusFilter,
-    get_default_graph,
-)
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
@@ -35,6 +32,12 @@ _DELETE_WITH_REFERENCES_TYPES = {
     "domain",
     "glossaryTerm",
     "glossaryNode",
+    "form",
+}
+
+_RECURSIVE_DELETE_TYPES = {
+    "container",
+    "dataPlatformInstance",
 }
 
 
@@ -120,6 +123,8 @@ def by_registry(
     Delete all metadata written using the given registry id and version pair.
     """
 
+    client = get_default_graph()
+
     if soft and not dry_run:
         raise click.UsageError(
             "Soft-deleting with a registry-id is not yet supported. Try --dry-run to see what you will be deleting, before issuing a hard-delete using the --hard flag"
@@ -135,7 +140,10 @@ def by_registry(
             unsafe_entity_count,
             unsafe_entities,
         ) = cli_utils.post_rollback_endpoint(
-            registry_delete, "/entities?action=deleteAll"
+            client._session,
+            client.config.server,
+            registry_delete,
+            "/entities?action=deleteAll",
         )
 
     if not dry_run:
@@ -253,6 +261,12 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
 )
 @click.option("--query", required=False, type=str, help="Elasticsearch query string")
 @click.option(
+    "--recursive",
+    required=False,
+    is_flag=True,
+    help="Recursively delete all contained entities (only for containers and dataPlatformInstances)",
+)
+@click.option(
     "--start-time",
     required=False,
     type=ClickDatetime(),
@@ -298,6 +312,7 @@ def by_filter(
     platform: Optional[str],
     entity_type: Optional[str],
     query: Optional[str],
+    recursive: bool,
     start_time: Optional[datetime],
     end_time: Optional[datetime],
     batch_size: int,
@@ -308,7 +323,12 @@ def by_filter(
 
     # Validate the cli arguments.
     _validate_user_urn_and_filters(
-        urn=urn, entity_type=entity_type, platform=platform, env=env, query=query
+        urn=urn,
+        entity_type=entity_type,
+        platform=platform,
+        env=env,
+        query=query,
+        recursive=recursive,
     )
     soft_delete_filter = _validate_user_soft_delete_flags(
         soft=soft, aspect=aspect, only_soft_deleted=only_soft_deleted
@@ -327,11 +347,29 @@ def by_filter(
     logger.info(f"Using {graph}")
 
     # Determine which urns to delete.
+    delete_by_urn = bool(urn) and not recursive
     if urn:
-        delete_by_urn = True
         urns = [urn]
+
+        if recursive:
+            # Add children urns to the list.
+            if guess_entity_type(urn) == "dataPlatformInstance":
+                urns.extend(
+                    graph.get_urns_by_filter(
+                        platform_instance=urn,
+                        status=soft_delete_filter,
+                        batch_size=batch_size,
+                    )
+                )
+            else:
+                urns.extend(
+                    graph.get_urns_by_filter(
+                        container=urn,
+                        status=soft_delete_filter,
+                        batch_size=batch_size,
+                    )
+                )
     else:
-        delete_by_urn = False
         urns = list(
             graph.get_urns_by_filter(
                 entity_types=[entity_type] if entity_type else None,
@@ -348,20 +386,22 @@ def by_filter(
             )
             return
 
+    # Print out a summary of the urns to be deleted and confirm with the user.
+    if not delete_by_urn:
         urns_by_type: Dict[str, List[str]] = {}
         for urn in urns:
             entity_type = guess_entity_type(urn)
             urns_by_type.setdefault(entity_type, []).append(urn)
         if len(urns_by_type) > 1:
             # Display a breakdown of urns by entity type if there's multiple.
-            click.echo("Filter matched urns of multiple entity types")
+            click.echo("Found urns of multiple entity types")
             for entity_type, entity_urns in urns_by_type.items():
                 click.echo(
                     f"- {len(entity_urns)} {entity_type} urn(s). Sample: {choices(entity_urns, k=min(5, len(entity_urns)))}"
                 )
         else:
             click.echo(
-                f"Filter matched {len(urns)} {entity_type} urn(s). Sample: {choices(urns, k=min(5, len(urns)))}"
+                f"Found {len(urns)} {entity_type} urn(s). Sample: {choices(urns, k=min(5, len(urns)))}"
             )
 
         if not force and not dry_run:
@@ -403,6 +443,7 @@ def _validate_user_urn_and_filters(
     platform: Optional[str],
     env: Optional[str],
     query: Optional[str],
+    recursive: bool,
 ) -> None:
     # Check urn / filters options.
     if urn:
@@ -421,6 +462,21 @@ def _validate_user_urn_and_filters(
     elif env and not (platform or entity_type):
         logger.warning(
             f"Using --env without other filters will delete all metadata in the {env} environment. Please use with caution."
+        )
+
+    # Check recursive flag.
+    if recursive:
+        if not urn:
+            raise click.UsageError(
+                "The --recursive flag can only be used with a single urn."
+            )
+        elif guess_entity_type(urn) not in _RECURSIVE_DELETE_TYPES:
+            raise click.UsageError(
+                f"The --recursive flag can only be used with these entity types: {_RECURSIVE_DELETE_TYPES}."
+            )
+    elif urn and guess_entity_type(urn) in _RECURSIVE_DELETE_TYPES:
+        logger.warning(
+            f"This will only delete {urn}. Use --recursive to delete all contained entities."
         )
 
 

@@ -8,7 +8,6 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import analytics, { EventType } from '../analytics';
 import { decodeUrn } from './shared/utils';
 import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
-import { Message } from '../shared/Message';
 import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
 import { ErrorSection } from '../shared/error/ErrorSection';
 import { VIEW_ENTITY_PAGE } from './shared/constants';
@@ -34,7 +33,7 @@ export const EntityPage = ({ entityType }: Props) => {
     const isLineageSupported = entity.isLineageEnabled();
     const isLineageMode = useIsLineageMode();
     const authenticatedUserUrn = useUserContext()?.user?.urn;
-    const { loading, error, data } = useGetGrantedPrivilegesQuery({
+    const { error, data } = useGetGrantedPrivilegesQuery({
         variables: {
             input: {
                 actorUrn: authenticatedUserUrn as string,
@@ -71,7 +70,6 @@ export const EntityPage = ({ entityType }: Props) => {
 
     return (
         <>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {error && <ErrorSection />}
             {data && !canViewEntityPage && <UnauthorizedPage />}
             {canViewEntityPage &&

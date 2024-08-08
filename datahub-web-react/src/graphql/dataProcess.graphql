@@ -18,6 +18,7 @@ fragment runResults on DataProcessInstanceResult {
                 nativeResultType
             }
             timestampMillis
+            durationMillis
         }
         inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 20 }) {
             ...runRelationshipResults
@@ -83,6 +84,9 @@ fragment runRelationshipResults on EntityRelationshipsResult {
                 }
                 dataPlatformInstance {
                     ...dataPlatformInstanceFields
+                }
+                subTypes {
+                    typeNames
                 }
                 editableProperties {
                     description

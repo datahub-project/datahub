@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.types.role.mappers;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -9,20 +12,20 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.policy.DataHubRoleInfo;
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.*;
-
+import javax.annotation.Nullable;
 
 public class DataHubRoleMapper implements ModelMapper<EntityResponse, DataHubRole> {
 
   public static final DataHubRoleMapper INSTANCE = new DataHubRoleMapper();
 
-  public static DataHubRole map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static DataHubRole map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public DataHubRole apply(@Nonnull final EntityResponse entityResponse) {
+  public DataHubRole apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final DataHubRole result = new DataHubRole();
 
     result.setUrn(entityResponse.getUrn().toString());
