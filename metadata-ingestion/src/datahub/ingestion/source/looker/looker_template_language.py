@@ -10,6 +10,7 @@ from liquid.exceptions import LiquidSyntaxError
 from datahub.ingestion.source.looker.looker_constant import (
     DATAHUB_TRANSFORMED_SQL,
     DATAHUB_TRANSFORMED_SQL_TABLE_NAME,
+    DERIVED_DOT_SQL,
     DERIVED_TABLE,
     NAME,
     SQL,
@@ -116,13 +117,20 @@ class LookMLViewTransformer(ABC):
     def transform(self, view: dict) -> dict:
         value_to_transform: Optional[str] = None
 
-        if SQL_TABLE_NAME in view:
-            # Give precedence to already processed transformed sql_table_name to apply more transformation
+        # is_attribute_supported check is required because not all transformer works on all attributes in current
+        # case mostly all transformer works on sql_table_name and derived.sql attributes,
+        # however IncompleteSqlTransformer only transform the derived.sql attribute
+        if SQL_TABLE_NAME in view and self.is_attribute_supported(SQL_TABLE_NAME):
+            # Give precedence to already processed transformed view.sql_table_name to apply more transformation
             value_to_transform = view.get(
                 DATAHUB_TRANSFORMED_SQL_TABLE_NAME, view[SQL_TABLE_NAME]
             )
 
-        if DERIVED_TABLE in view and SQL in view[DERIVED_TABLE]:
+        if (
+            DERIVED_TABLE in view
+            and SQL in view[DERIVED_TABLE]
+            and self.is_attribute_supported(DERIVED_DOT_SQL)
+        ):
             # Give precedence to already processed transformed view.derived.sql to apply more transformation
             value_to_transform = view[DERIVED_TABLE].get(
                 DATAHUB_TRANSFORMED_SQL, view[DERIVED_TABLE][SQL]
@@ -151,6 +159,9 @@ class LookMLViewTransformer(ABC):
     def _apply_transformation(self, value: str, view: dict) -> str:
         pass
 
+    def is_attribute_supported(self, attribute: str) -> bool:
+        return attribute in [DERIVED_DOT_SQL, SQL_TABLE_NAME]
+
 
 class LiquidVariableTransformer(LookMLViewTransformer):
     """
@@ -167,8 +178,11 @@ class LiquidVariableTransformer(LookMLViewTransformer):
 class IncompleteSqlTransformer(LookMLViewTransformer):
     """
     lookml view may contain the fragment of sql, however for lineage generation we need a complete sql.
-    IncompleteSqlTransformer will complete the view's sql.
+    IncompleteSqlTransformer will complete the view's derived.sql.
     """
+
+    def is_attribute_supported(self, attribute: str) -> bool:
+        return attribute in [DERIVED_DOT_SQL]
 
     def _apply_transformation(self, value: str, view: dict) -> str:
         if DERIVED_TABLE not in view or SQL not in view[DERIVED_TABLE]:
