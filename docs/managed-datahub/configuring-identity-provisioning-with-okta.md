@@ -57,7 +57,7 @@ a). In the `Provisioning` tab, configure the DataHub-SCIM endpoint as shown belo
 <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/scimConfig1.png"/>
 </p>
   
-Note: the Bearer token would be a [personal access token generated from DataHub](../../docs/authentication/personal-access-tokens.md#creating-personal-access-tokens)
+**Note**: the Bearer token would be a [personal access token generated from DataHub](../../docs/authentication/personal-access-tokens.md#creating-personal-access-tokens)
 
 b). Configure the `To App` section as shown below:
 
@@ -65,7 +65,7 @@ b). Configure the `To App` section as shown below:
 <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/scimConfig2.png"/>
 </p>
 
-* Note: We are not pushing passwords to DataHub over SCIM, since we are assuming SSO with OIDC as mentioned earlier.
+**Note**: We are not pushing passwords to DataHub over SCIM, since we are assuming SSO with OIDC as mentioned earlier.
 
 ### 3. Add a custom attribute to represent roles
 a). Navigate to `Directory` -> `Profile Editor`, and select the user-profile of this new application.
