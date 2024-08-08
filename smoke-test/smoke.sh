@@ -25,6 +25,7 @@ source venv/bin/activate
 source ./set-cypress-creds.sh
 
 export DATAHUB_GMS_URL=http://localhost:8080
+export ELASTIC_ID_HASH_ALGO="MD5"
 
 # no_cypress_suite0, no_cypress_suite1, cypress_suite1, cypress_rest
 if [[ -z "${TEST_STRATEGY}" ]]; then
