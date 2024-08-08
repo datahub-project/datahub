@@ -8,17 +8,18 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 ## Overview
+This document covers the steps required to enable SCIM provisioning from Okta to DataHub.
+
 This document assumes you are using OIDC for SSO with DataHub.
 Since Okta doesn't currently support SCIM with OIDC, you would need to create an additional SWA-app-integration to enable SCIM provisioning.
-The rest of this document specifies the steps required for such a configuration.
 
-On completion of this setup Okta will automatically push changes to the assigned groups/users (and their roles) from Okta to DataHub.
+On completing the steps in this guide, Okta will start automatically pushing changes to users/groups of this SWA-app-integration to DataHub, thereby simplifying provisioning of users/groups in DataHub.
 
 ### Why SCIM provisioning? 
 Let us look at an example of the flows enabled through SCIM provisioning.
 
 Consider the following configuration in Okta
-- A group `governance-team` group
+- A group `governance-team`
 - And it has two members `john` and `sid`
 - And the group has role `Reader`
 
@@ -98,6 +99,7 @@ Once the above steps are completed, user assignments/unassignments to the DataHu
 >Note that when users are unassigned or deactivated in Okta, the corresponding users in DataHub are also deactivated (marked "suspended").
 But when a user is *deleted* in Okta, the corresponding user in DataHub does *not* get deleted.
 Refer the Okta documentation on [Delete (Deprovision)](https://developer.okta.com/docs/concepts/scim/#delete-deprovision) for more details.
+
 ### 5. (Optional): Configure push groups
 When groups are assigned to the app, Okta pushes the group-members as users to DataHub, but the group itself isn't pushed.
 To push group information to DataHub, configure the `Push Groups` tab accordingly as shown below:
