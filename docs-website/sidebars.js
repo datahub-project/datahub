@@ -531,8 +531,8 @@ module.exports = {
           "SCIM Provisioning": [
             "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
             "docs/managed-datahub/configuring-identity-provisioning-with-okta",
-          ]
-        }
+          ],
+        },
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
         "docs/advanced/db-retention",
