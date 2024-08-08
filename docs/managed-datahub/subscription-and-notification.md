@@ -11,7 +11,7 @@ Email will work out of box. For installing the DataHub Slack App, see:
 👉 [Configure Slack for Notifications](slack/saas-slack-setup.md)
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-notifications-in-Slack.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-notifications-in-slack.png"/>
 </p>
 
 This feature is especially useful in helping you stay on top of any upstream changes that could impact the assets you or your stakeholders rely on. It eliminates the need for you and your team to manually check for upstream changes, or for upstream stakeholders to identify and notify impacted users.
@@ -27,14 +27,13 @@ Datahub provides three levels of notifications:
 - **User-level** (described in other sections)
 
 **Setting Platform-Level Notifications:**
-  - Note: this requires appropriate permissions.
-  - Go to `Settings` > `Notifications` (under the `Platform` section, not `My Notifications`).
+This requires appropriate permissions. Go to `Settings` > `Notifications` (under the `Platform` section, not `My Notifications`).
 
 **Platform-level Notifications:**
-  - Platform-level notifications are applied to all assets within Datahub.
-  - Example: If "An owner is added or removed from a data asset" is ticked, the designated Slack channel or email will receive notifications for any such changes across all assets.
+Platform-level notifications are applied to all assets within Datahub.
+Example: If "An owner is added or removed from a data asset" is ticked, the designated Slack channel or email will receive notifications for any such changes across all assets.
 
-**Our Recommendations**
+**Our Recommendations:**
 
 Notifying on tag changes for every asset in the platform would be noisy, and so we recommend to use these platform-level notifications only where appropriate. For example, we recommend notifications for ingestion failures routed to a central Slack channel or email. This will help you proactively ensure your Datahub metadata stays fresh.
 
