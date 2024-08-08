@@ -99,7 +99,9 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
 
     const isEditableDatasetNameEnabled = useIsEditableDatasetNameEnabled();
     const canEditName =
-        isEditableDatasetNameEnabled && isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+        isEditableDatasetNameEnabled &&
+        isNameEditable &&
+        getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
     const entityRegistry = useEntityRegistry();
 
     return (

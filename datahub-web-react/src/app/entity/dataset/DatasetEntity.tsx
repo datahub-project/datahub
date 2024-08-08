@@ -220,7 +220,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
-            isNameEditable={true}
+            isNameEditable
         />
     );
 
