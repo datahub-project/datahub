@@ -223,7 +223,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             # when creating the pyodata.Client, the metadata is automatically parsed and validated
             session, _ = SACSource.get_sac_connection(config)
 
-            # test the Data Import Service Service separately here, because it requires specific properties when configuring the OAuth client
+            # test the Data Import Service separately here, because it requires specific properties when configuring the OAuth client
             response = session.get(url=f"{config.tenant_url}/api/v1/dataimport/models")
             response.raise_for_status()
 
