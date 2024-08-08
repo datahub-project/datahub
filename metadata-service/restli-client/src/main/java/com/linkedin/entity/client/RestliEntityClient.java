@@ -50,6 +50,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.ListResult;
@@ -66,6 +67,7 @@ import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposalArray;
 import com.linkedin.mxe.PlatformEvent;
@@ -1063,7 +1065,20 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     String result =
         sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
     return metadataChangeProposals.stream()
-        .map(proposal -> "success".equals(result) ? proposal.getEntityUrn().toString() : null)
+        .map(
+            proposal -> {
+              if ("success".equals(result)) {
+                if (proposal.getEntityUrn() != null) {
+                  return proposal.getEntityUrn().toString();
+                } else {
+                  EntitySpec entitySpec =
+                      opContext.getEntityRegistry().getEntitySpec(proposal.getEntityType());
+                  return EntityKeyUtils.getUrnFromProposal(proposal, entitySpec.getKeyAspectSpec())
+                      .toString();
+                }
+              }
+              return null;
+            })
         .collect(Collectors.toList());
   }
 
