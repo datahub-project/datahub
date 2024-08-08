@@ -30,4 +30,23 @@ record GlossaryTermAssociation {
    */
   context: optional string
 
+  /**
+   * Information about who, why, and how this metadata was applied
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "termAttributionDates",
+        "fieldType": "DATETIME"
+      },
+    "/actor": {
+        "fieldName": "termAttributionActors",
+        "fieldType": "URN"
+      },
+    "/source": {
+        "fieldName": "termAttributionSources",
+        "fieldType": "URN"
+      },
+  }
+  attribution: optional MetadataAttribution
+
 }

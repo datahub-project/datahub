@@ -149,11 +149,11 @@ def init(use_password: bool = False) -> None:
         )
     else:
         token = click.prompt(
-            "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
+            "Enter your DataHub access token",
             type=str,
             default="",
         )
-    write_gms_config(host, token)
+    write_gms_config(host, token, merge_with_previous=False)
 
     click.echo(f"Written to {DATAHUB_CONFIG_PATH}")
 

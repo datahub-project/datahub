@@ -11,7 +11,7 @@ describe("managing secrets for ingestion creation", () => {
     // Navigate to the manage ingestion page → secrets
     cy.loginWithCredentials();
     cy.goToIngestionPage();
-    cy.openEntityTab("Secrets");
+    cy.clickOptionWithText("Secrets");
 
     // Create a new secret
     cy.clickOptionWithTestId("create-secret-button");
@@ -28,6 +28,7 @@ describe("managing secrets for ingestion creation", () => {
 
     // Create an ingestion source using a secret
     cy.goToIngestionPage();
+    cy.clickOptionWithId('[data-node-key="Sources"]');
     cy.get("#ingestion-create-source").click();
     cy.clickOptionWithText("Snowflake");
     cy.waitTextVisible("Snowflake Details");
@@ -60,10 +61,10 @@ describe("managing secrets for ingestion creation", () => {
 
     // Remove ingestion source
     cy.goToIngestionPage();
-    cy.get('[data-testid="delete-button"]').first().click();
+    cy.clickOptionWithId('[data-node-key="Sources"]');
+    cy.get('[aria-label="delete"]').first().click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
     cy.get("button").contains("Yes").click();
-    cy.waitTextVisible("Removed ingestion source.");
     cy.ensureTextNotPresent(ingestion_source_name);
 
     // Verify secret is not present during ingestion source creation for password dropdown
@@ -99,10 +100,10 @@ describe("managing secrets for ingestion creation", () => {
 
     // Remove ingestion source and secret
     cy.goToIngestionPage();
-    cy.get('[data-testid="delete-button"]').first().click();
+    cy.clickOptionWithId('[data-node-key="Sources"]');
+    cy.get('[aria-label="delete"]').first().click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
     cy.get("button").contains("Yes").click();
-    cy.waitTextVisible("Removed ingestion source.");
     cy.ensureTextNotPresent(ingestion_source_name);
     cy.clickOptionWithText("Secrets");
     cy.waitTextVisible(`secretname${number}`);

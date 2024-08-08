@@ -13,7 +13,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -28,15 +27,16 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.v3.models.AspectItem;
 import io.datahubproject.openapi.v3.models.GenericAspectV3;
 import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
 import io.datahubproject.openapi.v3.models.GenericEntityV3;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -67,6 +67,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/v3/entity")
 @Slf4j
+@Hidden
 public class EntityController
     extends GenericEntitiesController<
         GenericAspectV3, GenericEntityV3, GenericEntityScrollResultV3> {
@@ -141,9 +142,25 @@ public class EntityController
           .map(
               u ->
                   GenericEntityV3.builder()
-                      .build(objectMapper, u, toAspectMap(u, aspects.get(u), withSystemMetadata)))
+                      .build(
+                          objectMapper, u, toAspectItemMap(u, aspects.get(u), withSystemMetadata)))
           .collect(Collectors.toList());
     }
+  }
+
+  private Map<String, AspectItem> toAspectItemMap(
+      Urn urn, List<EnvelopedAspect> aspects, boolean withSystemMetadata) {
+    return aspects.stream()
+        .map(
+            a ->
+                Map.entry(
+                    a.getName(),
+                    AspectItem.builder()
+                        .aspect(toRecordTemplate(lookupAspectSpec(urn, a.getName()), a))
+                        .systemMetadata(withSystemMetadata ? a.getSystemMetadata() : null)
+                        .auditStamp(withSystemMetadata ? a.getCreated() : null)
+                        .build()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Override
@@ -154,15 +171,21 @@ public class EntityController
     Map<Urn, List<IngestResult>> entityMap =
         ingestResults.stream().collect(Collectors.groupingBy(IngestResult::getUrn));
     for (Map.Entry<Urn, List<IngestResult>> urnAspects : entityMap.entrySet()) {
-      Map<String, Pair<RecordTemplate, SystemMetadata>> aspectsMap =
+      Map<String, AspectItem> aspectsMap =
           urnAspects.getValue().stream()
               .map(
                   ingest ->
                       Map.entry(
                           ingest.getRequest().getAspectName(),
-                          Pair.of(
-                              ingest.getRequest().getRecordTemplate(),
-                              withSystemMetadata ? ingest.getRequest().getSystemMetadata() : null)))
+                          AspectItem.builder()
+                              .aspect(ingest.getRequest().getRecordTemplate())
+                              .systemMetadata(
+                                  withSystemMetadata
+                                      ? ingest.getRequest().getSystemMetadata()
+                                      : null)
+                              .auditStamp(
+                                  withSystemMetadata ? ingest.getRequest().getAuditStamp() : null)
+                              .build()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       responseList.add(
           GenericEntityV3.builder().build(objectMapper, urnAspects.getKey(), aspectsMap));
@@ -181,9 +204,12 @@ public class EntityController
             updateAspectResult.getUrn(),
             Map.of(
                 aspectName,
-                Pair.of(
-                    updateAspectResult.getNewValue(),
-                    withSystemMetadata ? updateAspectResult.getNewSystemMetadata() : null)));
+                AspectItem.builder()
+                    .aspect(updateAspectResult.getNewValue())
+                    .systemMetadata(
+                        withSystemMetadata ? updateAspectResult.getNewSystemMetadata() : null)
+                    .auditStamp(withSystemMetadata ? updateAspectResult.getAuditStamp() : null)
+                    .build()));
   }
 
   private List<GenericEntityV3> toRecordTemplates(

@@ -5,7 +5,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 DataHub's Subscriptions and Notifications feature gives you real-time change alerts on data assets of your choice.
-With this feature, you can set up subscriptions to specific changes for an Entity – and DataHub will notify you when those changes happen. Currently, DataHub supports notifications on Slack and email with support for Microsoft Teams subscriptions forthcoming.
+
+With this feature, you can set up subscriptions to specific changes for an Entity – and DataHub will notify you when those changes happen. Currently, DataHub supports notifications on Slack and Email, with support for Microsoft Teams  forthcoming.
+
+Email will work out of box. For installing the DataHub Slack App, see:
+👉 [Configure Slack for Notifications](slack/saas-slack-setup.md)
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-notifications-in-Slack.png"/>
@@ -37,7 +41,8 @@ Notifying on tag changes for every asset in the platform would be noisy, and so 
 
 ## Prerequisites
 
-Once you have [configured Slack within your DataHub instance](./saas-slack-setup.md), you will be able to subscribe to any Entity in DataHub and begin recieving notifications via DM.
+Once you have [configured Slack within your DataHub instance](slack/saas-slack-setup.md), you will be able to subscribe to any Entity in DataHub and begin recieving notifications via DM.
+
 To begin receiving personal notifications, go to Settings > "My Notifications". From here, toggle on Slack Notifications and input your Slack Member ID.
 
 If you want to create and manage group-level Subscriptions for your team, you will need [the following privileges](../../docs/authorization/roles.md#role-privileges):
@@ -196,6 +201,6 @@ To configure multiple channels, as a prereq, ensure you have the appropriate pri
 
 ## Reference
 
-- [DataHub Blog - Simplifying Data Monitoring & Management with Subscriptions and Notifications with Acryl DataHub](https://www.acryldata.io/blog/simplifying-data-monitoring-and-management-with-subscriptions-and-notifications-with-acryl-datahub)
+- [DataHub Blog - Simplifying Data Monitoring & Management with Subscriptions and Notifications with DataHub Cloud](https://www.acryldata.io/blog/simplifying-data-monitoring-and-management-with-subscriptions-and-notifications-with-acryl-datahub)
 - Video Guide - Getting Started with Subscription & Notifications
     <iframe width="560" height="315" src="https://www.loom.com/embed/f02fe71e09494b5e82904c8a47f06ac1?sid=ef041cb7-9c06-4926-8e0c-e948b1dc3af0" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>

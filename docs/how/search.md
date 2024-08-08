@@ -71,7 +71,7 @@ After creating a filter, you can choose whether results should or should not mat
 
 ### Results
 
-Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In Managed DataHub, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
+Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In DataHub Cloud, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
 
 With better metadata comes better results. Learn more about ingestion technical metadata in the [metadata ingestion](../../metadata-ingestion/README.md) guide.
 
@@ -148,24 +148,42 @@ The same GraphQL API that powers the Search UI can be used
 for integrations and programmatic use-cases. 
 
 ```
-# Example query
-{
-  searchAcrossEntities(
-    input: {types: [], query: "*", start: 0, count: 10, filters: [{field: "fieldTags", value: "urn:li:tag:Dimension"}]}
+# Example query - search for datasets matching the example_query_text who have the Dimension tag applied to a schema field and are from the data platform looker
+query searchEntities {
+  search(
+    input: {
+      type: DATASET,
+      query: "example_query_text",
+      orFilters: [
+        {
+          and: [
+            {
+              field: "fieldTags",
+              values: ["urn:li:tag:Dimension"]
+            },
+            {
+              field: "platform",
+              values: ["urn:li:dataPlatform:looker"]
+            }
+          ]
+        }
+      ],
+      start: 0,
+      count: 10
+    }
   ) {
     start
     count
     total
     searchResults {
       entity {
+        urn
         type
         ... on Dataset {
-          urn
-          type
+          name
           platform {
             name
           }
-          name
         }
       }
     }
