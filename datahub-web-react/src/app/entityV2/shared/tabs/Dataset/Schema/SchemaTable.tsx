@@ -6,7 +6,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
 import { useDebounce } from 'react-use';
+import { message } from 'antd';
 
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import {
     EditableSchemaMetadata,
     SchemaField,
@@ -27,6 +29,7 @@ import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import useKeyboardControls from './useKeyboardControls';
 import { ProposedTag, ProposedTerm } from '../../../../../sharedV2/tags/TagTermGroup';
+import { useInferDocumentationForItem } from '../../../components/inferredDocs/utils';
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;
@@ -177,6 +180,8 @@ export default function SchemaTable({
     matches,
     refetch,
 }: Props): JSX.Element {
+    const { urn: entityUrn } = useEntityData();
+
     const [tableHeight, setTableHeight] = useState(0);
     const [schemaSorter, setSchemaSorter] = useState<SorterResult<any> | undefined>(undefined);
 
@@ -186,7 +191,22 @@ export default function SchemaTable({
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
-    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false);
+    const inferDocumentation = useInferDocumentationForItem({
+        entityUrn,
+        saveResult: true,
+    });
+    const onInferSchemaDescriptions = async () => {
+        try {
+            await inferDocumentation();
+            refetch?.();
+        } catch (e: any) {
+            message.error(`Failed to infer schema documentation. ${e.message}`);
+        }
+    };
+
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false, {
+        onInferSchemaDescriptions,
+    });
     const usageStatsRenderer = useUsageStatsRenderer(usageStats, expandedDrawerFieldPath);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,

@@ -53,16 +53,17 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
 
-    let { displayedDescription, isUsingDocumentationAspect } = getAssetDescriptionDetails({
-        entityProperties: entityData,
-        enableInferredDescriptions: useIsDocumentationInferenceEnabled(),
-        defaultDescription: '',
-    });
+    const { displayedDescription, isUsingDocumentationAspect: isUsingDocumentationAspectRaw } =
+        getAssetDescriptionDetails({
+            entityProperties: entityData,
+            enableInferredDescriptions: useIsDocumentationInferenceEnabled(),
+            defaultDescription: '',
+        });
 
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
     const shouldUseEditedDescription = editedDescriptions.hasOwnProperty(mutationUrn);
     const description = shouldUseEditedDescription ? editedDescriptions[mutationUrn] : displayedDescription;
-    isUsingDocumentationAspect = !shouldUseEditedDescription && isUsingDocumentationAspect;
+    const isUsingDocumentationAspect = !shouldUseEditedDescription && isUsingDocumentationAspectRaw;
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
     // Key to force re-render of the editor when the description is updated from server data. Only needed for full page refreshes mid edit

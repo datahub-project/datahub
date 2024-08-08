@@ -25,6 +25,9 @@ const CompactDescription = styled.div`
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
     isCompact: boolean,
+    options?: {
+        onInferSchemaDescriptions?: () => Promise<void>;
+    },
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -91,6 +94,7 @@ export default function useDescriptionRenderer(
                         },
                     }).then(refresh)
                 }
+                onInferDescription={options?.onInferSchemaDescriptions}
                 isReadOnly
                 enableInferenceButton
                 isPropagated={isPropagated}
