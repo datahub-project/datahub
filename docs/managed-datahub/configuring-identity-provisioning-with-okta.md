@@ -42,38 +42,43 @@ a). Create a new [SWA app integration](https://help.okta.com/en-us/content/topic
 Note: this app-integration will only be used for SCIM provisioning. You would continue to use the existing OIDC-app-integration for SSO. 
 
 b). In the `General` tab of the `DataHub-SCIM-SWA` application, check the `Enable SCIM provisioning` option
-    <p>
-    <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/appSettingsEnableScim.png"/>
-    </p>
+
+<p>
+<img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/appSettingsEnableScim.png"/>
+</p>
 
 You may also want to configure the other selections as shown in the above image, so that this application isn't visible to your users.
 
 ### 2. Configure SCIM
 
 a). In the `Provisioning` tab, configure the DataHub-SCIM endpoint as shown below:
-    <p>
-    <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/scimConfig1.png"/>
-    </p>
+
+<p>
+<img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/scimConfig1.png"/>
+</p>
   
 * Note: the Bearer token would be a [personal access token generated from DataHub](../../docs/authentication/personal-access-tokens.md#creating-personal-access-tokens).
 
 b). Configure the `To App` section as shown below:
-    <p>
-    <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/scimConfig2.png"/>
-    </p>
+
+<p>
+<img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/scimConfig2.png"/>
+</p>
 
 * Note: We are not pushing passwords to DataHub over SCIM, since we are assuming SSO with OIDC as mentioned earlier.
 
 ### 3. Add a custom attribute to represent roles
 a). Navigate to `Directory` -> `Profile Editor`, and select the user-profile of this new application.
-    <p>
-    <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/profileEditor.png"/>
-    </p>
+
+<p>
+<img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/profileEditor.png"/>
+</p>
 
 b). Click `Add Attribute` and define a new attribute that will be used to specify the role of a DataHub user.
-    <p>
-    <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/defineRoleAttribute.png"/>
-    </p>
+
+<p>
+<img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/defineRoleAttribute.png"/>
+</p>
 
 * Set value of `External name` to `roles.^[primary==true].value`
 * Set value of `External namespace` to `urn:ietf:params:scim:schemas:core:2.0:User`
@@ -85,9 +90,10 @@ c). Add a similar attribute for groups i.e. repeat step (b) above, but select `A
 
 ### 4. Assign users & groups to the app
 Assign users and groups to the app from the `Assignments` tab:
-    <p>
-    <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/assignUsersGroups.png"/>
-    </p>
+
+<p>
+<img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/assignUsersGroups.png"/>
+</p>
 
 While assigning a user/group, choose an appropriate value for the dataHubRoles/dataHubGroupRoles attribute.
 Note that when a role is selected for a group, the corresponding role is pushed for all users of that group in DataHub.
@@ -103,8 +109,9 @@ Refer the Okta documentation on [Delete (Deprovision)](https://developer.okta.co
 ### 5. (Optional): Configure push groups
 When groups are assigned to the app, Okta pushes the group-members as users to DataHub, but the group itself isn't pushed.
 To push group information to DataHub, configure the `Push Groups` tab accordingly as shown below:
-    <p>
-    <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/pushGroups.png"/>
-    </p>
+
+<p>
+<img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/pushGroups.png"/>
+</p>
 
 Refer to the Okta [Group Push](https://help.okta.com/en-us/content/topics/users-groups-profiles/app-assignments-group-push.htm) documentation for more details.
