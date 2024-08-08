@@ -31,7 +31,7 @@ type Props = {
     refetch?: () => void;
 };
 
-export const AssertionActionList = ({
+export const AssertionListItemActions = ({
     assertion,
     monitor,
     contract,

@@ -79,7 +79,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
 
     return (
         <StyledAssertionNameContainer>
-            {!(groupBy && record.groupName) && (
+            {
                 <AssertionResultPopover
                     assertion={assertion}
                     run={lastEvaluation}
@@ -91,7 +91,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                         <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
                     </Result>
                 </AssertionResultPopover>
-            )}
+            }
             <AssertionDescriptionContainer>
                 <Typography.Paragraph>{name}</Typography.Paragraph>
                 {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (

@@ -24,7 +24,7 @@ import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDo
 import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { AssertionActionList } from './assertion/profile/actions/AssertionActionList';
+import { AssertionListItemActions } from './assertion/profile/actions/AssertionActionList';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -170,7 +170,7 @@ export function ActionsColumn({
 }: ActionsColumnProps) {
     return (
         <ActionButtonContainer>
-            <AssertionActionList
+            <AssertionListItemActions
                 assertion={assertion}
                 monitor={monitor}
                 contract={contract}
