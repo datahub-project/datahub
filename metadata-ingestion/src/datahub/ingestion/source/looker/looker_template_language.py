@@ -171,6 +171,9 @@ class IncompleteSqlTransformer(LookMLViewTransformer):
     """
 
     def _apply_transformation(self, value: str, view: dict) -> str:
+        if DERIVED_TABLE not in view or SQL not in view[DERIVED_TABLE]:
+            # This transformation is only applicable in-case of view contains view.derived.sql
+            return value
 
         # Looker supports sql fragments that omit the SELECT and FROM parts of the query
         # Add those in if we detect that it is missing
