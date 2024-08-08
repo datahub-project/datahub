@@ -96,6 +96,7 @@ import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.generated.MatchedField;
+import com.linkedin.datahub.graphql.generated.MetadataAttribution;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
@@ -284,6 +285,8 @@ import com.linkedin.datahub.graphql.resolvers.search.ScrollAcrossLineageResolver
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
@@ -695,7 +698,8 @@ public class GmsGraphQLEngine {
                 businessAttributeType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     // Extend loadable types with types from the plugins
-    // This allows us to offer search and browse capabilities out of the box for those types
+    // This allows us to offer search and browse capabilities out of the box for
+    // those types
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       this.entityTypes.addAll(plugin.getEntityTypes());
       Collection<? extends LoadableType<?, ?>> pluginLoadableTypes = plugin.getLoadableTypes();
@@ -790,6 +794,7 @@ public class GmsGraphQLEngine {
     configureBusinessAttributeAssociationResolver(builder);
     configureConnectionResolvers(builder);
     configureDeprecationResolvers(builder);
+    configureMetadataAttributionResolver(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -843,7 +848,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1026,6 +1032,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("mlModel", getResolver(mlModelType))
                 .dataFetcher("mlModelGroup", getResolver(mlModelGroupType))
                 .dataFetcher("assertion", getResolver(assertionType))
+                .dataFetcher("form", getResolver(formType))
+                .dataFetcher("view", getResolver(dataHubViewType))
                 .dataFetcher("listPolicies", new ListPoliciesResolver(this.entityClient))
                 .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
@@ -1087,8 +1095,10 @@ public class GmsGraphQLEngine {
                     new BrowseV2Resolver(this.entityClient, this.viewService, this.formService))
                 .dataFetcher("businessAttribute", getResolver(businessAttributeType))
                 .dataFetcher(
-                    "listBusinessAttributes",
-                    new ListBusinessAttributesResolver(this.entityClient)));
+                    "listBusinessAttributes", new ListBusinessAttributesResolver(this.entityClient))
+                .dataFetcher(
+                    "docPropagationSettings",
+                    new DocPropagationSettingsResolver(this.settingsService)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -1340,7 +1350,11 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
               .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
-              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient));
+              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
+              .dataFetcher(
+                  "updateDocPropagationSettings",
+                  new UpdateDocPropagationSettingsResolver(this.settingsService));
+
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(
@@ -1869,7 +1883,9 @@ public class GmsGraphQLEngine {
         "CorpGroup",
         typeWiring ->
             typeWiring
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
@@ -2821,7 +2837,8 @@ public class GmsGraphQLEngine {
   }
 
   private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {
-    // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the Policy type.
+    // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the
+    // Policy type.
     builder.type(
         "ActorFilter",
         typeWiring ->
@@ -3173,5 +3190,21 @@ public class GmsGraphQLEngine {
                 "actorEntity",
                 new EntityTypeResolver(
                     entityTypes, (env) -> ((Deprecation) env.getSource()).getActorEntity())));
+  }
+
+  private void configureMetadataAttributionResolver(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "MetadataAttribution",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "actor",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((MetadataAttribution) env.getSource()).getActor()))
+                .dataFetcher(
+                    "source",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) -> ((MetadataAttribution) env.getSource()).getSource())));
   }
 }

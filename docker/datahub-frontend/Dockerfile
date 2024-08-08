@@ -25,15 +25,17 @@ RUN apk --no-cache --update-cache --available upgrade \
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
-FROM base as prod-install
+FROM base as unpack
 
 COPY ./datahub-frontend.zip /
-RUN unzip datahub-frontend.zip -d /datahub-frontend \
-   && mv /datahub-frontend/main/* /datahub-frontend \
-   && rmdir /datahub-frontend/main \
-   && rm datahub-frontend.zip
+RUN unzip datahub-frontend.zip -d /tmp/out \
+   && mv /tmp/out/main /datahub-frontend
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
+
+FROM base as prod-install
+
+COPY --from=unpack /datahub-frontend/ /datahub-frontend/
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -41,8 +43,7 @@ FROM base as dev-install
 VOLUME [ "/datahub-frontend" ]
 
 FROM ${APP_ENV}-install as final
-COPY ./docker/datahub-frontend/start.sh /
-RUN chown datahub:datahub /start.sh && chmod 755 /start.sh
+COPY --chown=datahub:datahub --chmod=755 ./docker/datahub-frontend/start.sh /
 USER datahub
 
 ARG SERVER_PORT=9002

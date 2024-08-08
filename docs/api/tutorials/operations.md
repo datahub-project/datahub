@@ -7,7 +7,7 @@ import TabItem from '@theme/TabItem';
 
 The Operations APIs allow you to report operational changes that were made to a given Dataset or Table using the 'Operation' concept.
 These operations may be viewed on the Dataset Profile (e.g. as last modified time), accessed via the DataHub GraphQL API, or 
-used to as inputs to Acryl Cloud [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions.md). 
+used as inputs to DataHub Cloud [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions.md). 
 
 ### Goal Of This Guide
 

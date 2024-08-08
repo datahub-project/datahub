@@ -27,7 +27,6 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         self.config = config
         self.data_dictionary = data_dictionary
         self.report = report
-        self.logger = logger
 
         self.tag_cache: Dict[str, _SnowflakeTagCache] = {}
 
@@ -69,16 +68,18 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
     ) -> List[SnowflakeTag]:
         identifier = ""
         if domain == SnowflakeObjectDomain.DATABASE:
-            identifier = self.get_quoted_identifier_for_database(db_name)
+            identifier = self.identifiers.get_quoted_identifier_for_database(db_name)
         elif domain == SnowflakeObjectDomain.SCHEMA:
             assert schema_name is not None
-            identifier = self.get_quoted_identifier_for_schema(db_name, schema_name)
+            identifier = self.identifiers.get_quoted_identifier_for_schema(
+                db_name, schema_name
+            )
         elif (
             domain == SnowflakeObjectDomain.TABLE
         ):  # Views belong to this domain as well.
             assert schema_name is not None
             assert table_name is not None
-            identifier = self.get_quoted_identifier_for_table(
+            identifier = self.identifiers.get_quoted_identifier_for_table(
                 db_name, schema_name, table_name
             )
         else:
@@ -140,7 +141,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         elif self.config.extract_tags == TagOption.with_lineage:
             self.report.num_get_tags_on_columns_for_table_queries += 1
             temp_column_tags = self.data_dictionary.get_tags_on_columns_for_table(
-                quoted_table_name=self.get_quoted_identifier_for_table(
+                quoted_table_name=self.identifiers.get_quoted_identifier_for_table(
                     db_name, schema_name, table_name
                 ),
                 db_name=db_name,

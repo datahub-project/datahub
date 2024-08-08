@@ -55,6 +55,7 @@ export const DEFAULT_APP_CONFIG = {
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
         editableDatasetNameEnabled: false,
+        showSeparateSiblings: false,
     },
 };
 

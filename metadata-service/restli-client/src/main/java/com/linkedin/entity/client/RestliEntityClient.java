@@ -12,7 +12,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.AspectsDoGetTimeseriesAspectValuesRequestBuilder;
-import com.linkedin.entity.AspectsDoIngestProposalRequestBuilder;
+import com.linkedin.entity.AspectsDoIngestProposalBatchRequestBuilder;
 import com.linkedin.entity.AspectsGetRequestBuilder;
 import com.linkedin.entity.AspectsRequestBuilders;
 import com.linkedin.entity.EntitiesBatchGetRequestBuilder;
@@ -67,6 +67,7 @@ import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.MetadataChangeProposalArray;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
@@ -1047,23 +1048,23 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         .getValues();
   }
 
-  /**
-   * Ingest a MetadataChangeProposal event.
-   *
-   * @return the urn string ingested
-   */
+  @Nonnull
   @Override
-  public String ingestProposal(
+  public List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
-      @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      final boolean async)
+      @Nonnull Collection<MetadataChangeProposal> metadataChangeProposals,
+      boolean async)
       throws RemoteInvocationException {
-    final AspectsDoIngestProposalRequestBuilder requestBuilder =
+    final AspectsDoIngestProposalBatchRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS
-            .actionIngestProposal()
-            .proposalParam(metadataChangeProposal)
+            .actionIngestProposalBatch()
+            .proposalsParam(new MetadataChangeProposalArray(metadataChangeProposals))
             .asyncParam(String.valueOf(async));
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    String result =
+        sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return metadataChangeProposals.stream()
+        .map(proposal -> "success".equals(result) ? proposal.getEntityUrn().toString() : null)
+        .collect(Collectors.toList());
   }
 
   @Override

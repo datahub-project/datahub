@@ -40,7 +40,7 @@ public class MoveDomainResolverTest {
   private static final CorpuserUrn TEST_ACTOR_URN = new CorpuserUrn("test");
 
   private MetadataChangeProposal setupTests(
-      DataFetchingEnvironment mockEnv, EntityService mockService, EntityClient mockClient)
+      DataFetchingEnvironment mockEnv, EntityService<?> mockService, EntityClient mockClient)
       throws Exception {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
@@ -77,7 +77,7 @@ public class MoveDomainResolverTest {
 
   @Test
   public void testGetSuccess() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockService.exists(
@@ -100,7 +100,7 @@ public class MoveDomainResolverTest {
 
   @Test
   public void testGetFailureEntityDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
@@ -127,7 +127,7 @@ public class MoveDomainResolverTest {
 
   @Test
   public void testGetFailureParentDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
         .thenReturn(false);
@@ -143,7 +143,7 @@ public class MoveDomainResolverTest {
 
   @Test
   public void testGetFailureParentIsNotDomain() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
         .thenReturn(true);

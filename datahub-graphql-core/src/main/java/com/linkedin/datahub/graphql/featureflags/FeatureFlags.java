@@ -22,4 +22,5 @@ public class FeatureFlags {
   private boolean businessAttributeEntityEnabled = false;
   private boolean dataContractsEnabled = false;
   private boolean editableDatasetNameEnabled = false;
+  private boolean showSeparateSiblings = false;
 }

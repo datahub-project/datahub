@@ -1,7 +1,9 @@
 import { Tabs, Typography } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { IngestionSourceList } from './source/IngestionSourceList';
+import { useAppConfig } from '../useAppConfig';
+import { useUserContext } from '../context/useUserContext';
 import { SecretsList } from './secret/SecretsList';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import {
@@ -48,7 +50,19 @@ export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
      */
+    const me = useUserContext();
+    const { config, loaded } = useAppConfig();
+    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
+    const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
+
+    // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
+    useEffect(() => {
+        if (loaded && me.loaded && !showIngestionTab && selectedTab === TabType.Sources) {
+            setSelectedTab(TabType.Secrets);
+        }
+    }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
     const onClickTab = (newTab: string) => {
         setSelectedTab(TabType[newTab]);
@@ -64,8 +78,8 @@ export const ManageIngestionPage = () => {
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
-                <Tab key={TabType.Sources} tab={TabType.Sources} />
-                <Tab key={TabType.Secrets} tab={TabType.Secrets} />
+                {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
+                {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
             </StyledTabs>
             <ListContainer>{selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}</ListContainer>
         </PageContainer>
