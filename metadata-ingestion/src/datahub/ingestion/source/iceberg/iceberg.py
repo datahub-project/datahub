@@ -53,6 +53,9 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceConfig,
     IcebergSourceReport,
 )
+from datahub.ingestion.source.sql.sql_utils import (
+    get_domain_wu
+)
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -75,6 +78,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -89,7 +93,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     SourceCapability.PLATFORM_INSTANCE,
     "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
 )
-@capability(SourceCapability.DOMAINS, "Currently not supported.", supported=False)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration.")
 @capability(
     SourceCapability.PARTITION_SUPPORT, "Currently not supported.", supported=False
@@ -116,9 +120,16 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.report: IcebergSourceReport = IcebergSourceReport()
         self.config: IcebergSourceConfig = config
 
+        self.domain_registry = None
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[domain_id for domain_id in self.config.domain],
+                graph=self.ctx.graph,
+            )
+
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
-        config = IcebergSourceConfig.parse_obj(config_dict)
+        config = IcebergSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -206,6 +217,14 @@ class IcebergSource(StatefulIngestionSourceBase):
         if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profile_table(dataset_name, dataset_urn, table)
+
+        if self.domain_registry:
+            yield from get_domain_wu(
+                    dataset_name=dataset_name,
+                    entity_urn=dataset_urn,
+                    domain_registry=self.domain_registry,
+                    domain_config=self.config.domain
+                )
 
     def _get_partition_aspect(self, table: Table) -> Optional[str]:
         """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.
