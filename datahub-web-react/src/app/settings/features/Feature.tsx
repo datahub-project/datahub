@@ -134,22 +134,6 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
             </div>
         </FeatureRow>
         <Divider style={{ margin: `8px 0 24px 0` }} />
-        {settings.map((option) => (
-            <>
-                <SettingsOptionRow key={option.key}>
-                    <span>
-                        <OptionTitle>
-                            <span>{option.title}</span>
-                        </OptionTitle>
-                    </span>
-                    <Tooltip title={option.isAvailable ? '' : 'Only available on DataHub Cloud'}>
-                        <Button onClick={option.onClick} disabled={!option.isAvailable}>
-                            {option.buttonText}
-                        </Button>
-                    </Tooltip>
-                </SettingsOptionRow>
-            </>
-        ))}
         <Card style={{ margin: `16px auto` }}>
             {options.map((option, index) => (
                 <>
@@ -175,5 +159,22 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                 </>
             ))}
         </Card>
+        {settings.map((option) => (
+            <>
+                <SettingsOptionRow key={option.key}>
+                    <span>
+                        <OptionTitle>
+                            <span>{option.title}</span>
+                            <DataHubOnlyTag>Only available on DataHub Cloud</DataHubOnlyTag>
+                        </OptionTitle>
+                    </span>
+                    <Tooltip title={option.isAvailable ? '' : 'Only available on DataHub Cloud'}>
+                        <Button onClick={option.onClick} disabled={!option.isAvailable}>
+                            {option.buttonText}
+                        </Button>
+                    </Tooltip>
+                </SettingsOptionRow>
+            </>
+        ))}
     </Card>
 );

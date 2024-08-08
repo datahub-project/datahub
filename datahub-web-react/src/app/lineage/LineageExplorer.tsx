@@ -221,7 +221,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                                 Close
                             </Button>
                             {selectedEntity.type !== EntityType.Restricted && (
-                                <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
+                                <Button href={`${entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}`}>
                                     <InfoCircleOutlined /> View details
                                 </Button>
                             )}
