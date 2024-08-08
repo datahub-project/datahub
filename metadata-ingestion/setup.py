@@ -295,7 +295,8 @@ slack = {"slack-sdk==3.18.1"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.9.0",
+    # 0.22.0 has support for `include_browse` in metadata list apis
+    "databricks-sdk>=0.22.0",
     "pyspark~=3.3.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
