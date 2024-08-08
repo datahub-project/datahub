@@ -57,11 +57,6 @@ export const AcrylValidationsTab = () => {
     const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
     const appConfig = useAppConfig();
 
-    const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
-
-    const combinedData = isHideSiblingMode ? assertionsData : combineEntityDataWithSiblings(assertionsData);
-    const totalAssertions = combinedData?.dataset?.assertions?.assertions?.length || 0;
-
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
 
     // If no tab was selected, select a default tab.
@@ -119,11 +114,13 @@ export const AcrylValidationsTab = () => {
                             key={tab.path}
                             disabled={tab.disabled}
                             selected={selectedTab === tab.path}
-                            onClick={() =>
-                                history.replace(
-                                    `${basePath}/${tab.path}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`,
-                                )
-                            }
+                            onClick={() => {
+                                if (!tab.disabled) {
+                                    history.replace(
+                                        `${basePath}/${tab.path}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`,
+                                    );
+                                }
+                            }}
                         >
                             {tab.title}
                         </TabButton>

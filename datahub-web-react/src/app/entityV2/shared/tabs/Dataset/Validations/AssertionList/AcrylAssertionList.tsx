@@ -1,12 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Tooltip, Typography } from 'antd';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { DataContract } from '@src/types.generated';
-import { PlusOutlined } from '@ant-design/icons';
-import TabToolbar from '@src/app/entity/shared/components/styled/TabToolbar';
-import { useAppConfig } from '@src/app/useAppConfig';
-import styled from 'styled-components';
-
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode';
@@ -18,47 +12,15 @@ import { AssertionMonitorBuilderDrawer } from '../assertion/builder/AssertionMon
 import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '../acrylCacheUtils';
 import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
 import { AssertionTableType, IFilter } from './types';
+import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 
-const AssertionTitleContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-    margin: 20px;
-    height: 50px;
-    div {
-        border-bottom: 0px;
-    }
-`;
-
-const AssertionListTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 0px;
-    }
-`;
-
-const CreateButton = styled(Button)`
-    &&& {
-        background-color: #5c3fd1;
-        height: 40px;
-        color: white;
-        justify-content: center;
-        align-items: center;
-        border-radius: 5px;
-        &:disabled {
-            background-color: #e0e0e0 !important;
-            height: 40px;
-            color: #a0a0a0;
-            opacity: 0.8;
-        }
-    }
-`;
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
 export const AcrylAssertionList = () => {
     const { urn, entityData, entityType } = useEntityData();
-    const { config } = useAppConfig();
 
-    const [showAssertionBuilder, setShowAssertionBuilder] = useState(false);
+    const [showAssertionBuilder, setShowAssertionBuilder] = useState<boolean>(false);
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const [visibleAssertions, setVisibleAssertions] = useState<AssertionTableType>();
@@ -85,7 +47,6 @@ export const AcrylAssertionList = () => {
         fetchPolicy: 'cache-first',
     });
 
-    const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
     const contract: DataContract = contractData?.dataset?.contract as DataContract;
 
     // get filtered Assertion as per the filter object
@@ -111,63 +72,14 @@ export const AcrylAssertionList = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filter]);
 
-    const isSiblingMode = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
-    const isSiblingModeMessage = (
-        <>
-            You cannot create an assertion for a group of assets. <br />
-            <br />
-            To create an assertion for a specific asset in this group, navigate to them using the <b>
-                Composed Of
-            </b>{' '}
-            sidebar section below.
-        </>
-    );
-
-    const isNotAllowedToCreateAssertionMessage = 'You do not have permission to create an assertion for this asset';
-
-    /* We do not enable the create button if the user does not have the privilege, OR if sibling mode is enabled */
     const { privileges } = data?.dataset || {};
-    const canEditAssertions = privileges?.canEditAssertions || false;
     const canEditMonitors = privileges?.canEditMonitors || false;
+    const canEditAssertions = privileges?.canEditAssertions || false;
     const canEditSqlAssertionMonitors = privileges?.canEditSqlAssertionMonitors || false;
-    const isAllowedToCreateAssertion = canEditAssertions && canEditMonitors;
-
-    const disableCreateAssertion = !isAllowedToCreateAssertion || isSiblingMode;
-    const disableCreateAssertionMessage = isSiblingMode ? isSiblingModeMessage : isNotAllowedToCreateAssertionMessage;
-
-    const AssertionTitleSection = () => {
-        return (
-            <AssertionTitleContainer>
-                <div className="left-section">
-                    <AssertionListTitle level={4}>Assertions</AssertionListTitle>
-                    <Typography.Text style={{ fontSize: 11 }}>
-                        View and manage data quality checks for this table
-                    </Typography.Text>
-                </div>
-                {assertionMonitorsEnabled && (
-                    <TabToolbar>
-                        <Tooltip
-                            showArrow={false}
-                            title={(disableCreateAssertion && disableCreateAssertionMessage) || null}
-                        >
-                            <CreateButton
-                                onClick={() => !disableCreateAssertion && setShowAssertionBuilder(true)}
-                                disabled={disableCreateAssertion}
-                                id="create-assertion-btn-main"
-                                className="create-assertion-button"
-                            >
-                                <PlusOutlined /> Create
-                            </CreateButton>
-                        </Tooltip>
-                    </TabToolbar>
-                )}
-            </AssertionTitleContainer>
-        );
-    };
 
     return (
         <>
-            <AssertionTitleSection />
+            <AssertionListTitleContainer privileges={privileges} setShowAssertionBuilder={setShowAssertionBuilder} />
             {loading ? (
                 <AcrylAssertionsSummaryLoading />
             ) : (

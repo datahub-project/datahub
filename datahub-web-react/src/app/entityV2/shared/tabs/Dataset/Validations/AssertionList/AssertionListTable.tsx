@@ -1,67 +1,14 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
-import { Table, Typography, Empty } from 'antd';
-import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
+import { Table, Empty } from 'antd';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 
-import { AssertionName } from './AssertionName';
 import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
-import { getAssertionGroupName, getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
+import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
 import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/builder/hooks';
 import { AssertionTableType, IFilter } from './types';
-
-const StyledTable = styled(Table)`
-    max-width: none;
-    overflow: inherit;
-    height: inherit;
-    &&& .ant-table-thead .ant-table-cell {
-        font-weight: 600;
-        font-size: 12px;
-        color: ${ANTD_GRAY[8]};
-    }
-    &&
-        .ant-table-thead
-        > tr
-        > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
-            [colspan]
-        )::before {
-        border: 1px solid ${ANTD_GRAY[4]};
-    }
-    &&& .ant-table-cell {
-        background-color: transparent;
-    }
-
-    &&& .acryl-selected-assertions-table-row {
-        background-color: ${ANTD_GRAY[4]};
-    }
-
-    .group-header {
-        cursor: pointer;
-        background-color: ${ANTD_GRAY[3]};
-    }
-    &&& .acryl-assertions-table-row {
-        cursor: pointer;
-        background-color: ${ANTD_GRAY[2]};
-        :hover {
-            background-color: ${ANTD_GRAY[3]};
-        }
-    }
-`;
-const CategoryType = styled.div`
-    font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
-`;
-
-const LastRun = styled(Typography.Text)`
-    font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
-`;
+import { useAssertionsTableColumns } from './hooks';
+import { AssertionListStyledTable } from './StyledComponents';
 
 type Props = {
     assertionData: AssertionTableType;
@@ -89,6 +36,17 @@ export const AssertionListTable = ({
         assertionData?.groupBy ? assertionData?.groupBy[groupBy] : [],
     );
 
+    // get columns data from the custom hooks
+    const assertionsTableCols = useAssertionsTableColumns({
+        groupBy,
+        contract,
+        canEditSqlAssertions,
+        canEditAssertions,
+        canEditMonitors,
+        refetch,
+        expandedRowKeys,
+    });
+
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
     const focusedAssertion = assertionData.assertions.find((assertion) => assertion.urn === focusAssertionUrn);
     const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion.assertion) : undefined;
@@ -106,80 +64,6 @@ export const AssertionListTable = ({
     }
     useOpenAssertionDetailModal(setFocusAssertionUrn);
 
-    const assertionsTableCols = [
-        {
-            title: 'Name',
-            dataIndex: 'name',
-            key: 'name',
-            render: (_, record: any) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
-            width: '50%',
-            sorter: (a, b) => a.description?.localeCompare(b.description),
-        },
-        {
-            title: 'Category',
-            dataIndex: 'type',
-            key: 'type',
-            render: (_, record) =>
-                !record.groupName && <CategoryType>{getAssertionGroupName(record?.type)}</CategoryType>,
-            sorter: (a, b) => a.type?.localeCompare(b.type),
-            width: '11%',
-        },
-        {
-            title: 'Last Run',
-            dataIndex: 'lastEvaluation',
-            key: 'lastEvaluation',
-            render: (_, record) => {
-                return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
-            },
-            sorter: (a, b) => (a.lastEvaluationTimeMs || 0) - (b.lastEvaluationTimeMs || 0),
-            width: '12%',
-        },
-        {
-            title: 'Tags',
-            dataIndex: 'tags',
-            key: 'tags',
-            width: '12%',
-            render: (_, record) => <div>{record.tags?.name}</div>,
-        },
-        {
-            title: '',
-            dataIndex: '',
-            key: 'actions',
-            width: '10%',
-            render: (_, record) => {
-                const isSqlAssertion = record.type === AssertionType.Sql;
-                const { assertion } = record;
-                return (
-                    !record.groupName && (
-                        <ActionsColumn
-                            assertion={assertion}
-                            monitor={record.monitor}
-                            contract={contract}
-                            canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
-                            canEditMonitor={canEditMonitors}
-                            canEditContract
-                            refetch={refetch}
-                        />
-                    )
-                );
-            },
-        },
-    ];
-
-    if (groupBy) {
-        assertionsTableCols.push({
-            title: '',
-            key: 'expand',
-            dataIndex: '',
-            width: '2%',
-            render: (_, record) => {
-                return (
-                    record.groupName && (expandedRowKeys.includes(record.name) ? <DownOutlined /> : <RightOutlined />)
-                );
-            },
-        });
-    }
-
     const onAssertionExpand = (_, record) => {
         const key = record.name;
         setExpandedRowKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
@@ -190,7 +74,6 @@ export const AssertionListTable = ({
     };
 
     const rowClassName = (record) => {
-        // return 'row-item';
         if (record.groupName) {
             return 'group-header';
         }
@@ -200,9 +83,19 @@ export const AssertionListTable = ({
         return 'acryl-assertions-table-row';
     };
 
+    const onRowClick = (record) => {
+        return {
+            onClick: !record.groupName
+                ? (_) => {
+                      setFocusAssertionUrn(record.urn);
+                  }
+                : () => null,
+        };
+    };
+
     return (
         <>
-            <StyledTable
+            <AssertionListStyledTable
                 columns={assertionsTableCols}
                 dataSource={groupBy ? getGroupData() : assertionData.assertions || []}
                 locale={{
@@ -222,15 +115,7 @@ export const AssertionListTable = ({
                                       pagination={false}
                                       showHeader={false}
                                       rowClassName={rowClassName}
-                                      onRow={(data) => {
-                                          return {
-                                              onClick: !data.groupName
-                                                  ? (_) => {
-                                                        setFocusAssertionUrn(data.urn);
-                                                    }
-                                                  : () => null,
-                                          };
-                                      }}
+                                      onRow={onRowClick}
                                   />
                               ),
                               onExpand: onAssertionExpand,
@@ -240,13 +125,7 @@ export const AssertionListTable = ({
                           }
                         : undefined
                 }
-                onRow={(record: any) => {
-                    return {
-                        onClick: (_) => {
-                            setFocusAssertionUrn(record.urn);
-                        },
-                    };
-                }}
+                onRow={onRowClick}
             />
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
