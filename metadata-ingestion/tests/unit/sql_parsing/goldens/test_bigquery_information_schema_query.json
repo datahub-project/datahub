@@ -117,10 +117,6 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "data_type"
-                },
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS,PROD)",
-                    "column": "field_path"
                 }
             ]
         },
