@@ -6,18 +6,15 @@ import SearchBar from '@theme/SearchBar';
 import ColorModeToggle from '@theme/ColorModeToggle';
 import styles from './styles.module.scss';
 import DocsVersionDropdownNavbarItem from '@theme/NavbarItem/DocsVersionDropdownNavbarItem';
-import { useDocsSidebar } from '@docusaurus/theme-common/internal';
+import { useDocsSidebar, DocsSidebarProvider } from '@docusaurus/theme-common/internal';
 
-const useCurrentSidebarId = () => {
-  const sidebar = useDocsSidebar();
-  return sidebar?.name || '';
-};
-
-function SecondNavbar() {
+function SecondNavbarContent() {
   const { colorMode, setColorMode } = useColorMode();
   const location = useLocation();
   const isDocsPath = location.pathname.startsWith('/docs');
-  const currentSidebarId = useCurrentSidebarId();
+  
+  const sidebar = useDocsSidebar();
+  const currentSidebarId = sidebar?.name || '';
 
   if (!isDocsPath) {
     return null;
@@ -65,6 +62,14 @@ function SecondNavbar() {
         </div>
       </div>
     </div>
+  );
+}
+
+function SecondNavbar() {
+  return (
+    <DocsSidebarProvider>
+      <SecondNavbarContent />
+    </DocsSidebarProvider>
   );
 }
 
