@@ -79,19 +79,17 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
 
     return (
         <StyledAssertionNameContainer>
-            {
-                <AssertionResultPopover
-                    assertion={assertion}
-                    run={lastEvaluation}
-                    showProfileButton
-                    placement="right"
-                    resultStatusType={ResultStatusType.LATEST}
-                >
-                    <Result>
-                        <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
-                    </Result>
-                </AssertionResultPopover>
-            }
+            <AssertionResultPopover
+                assertion={assertion}
+                run={lastEvaluation}
+                showProfileButton
+                placement="right"
+                resultStatusType={ResultStatusType.LATEST}
+            >
+                <Result>
+                    <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
+                </Result>
+            </AssertionResultPopover>
             <AssertionDescriptionContainer>
                 <Typography.Paragraph>{name}</Typography.Paragraph>
                 {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (

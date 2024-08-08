@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
-import { DataContract } from '@src/types.generated';
+import { DataContract, EntityPrivileges } from '@src/types.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode';
@@ -79,7 +79,10 @@ export const AcrylAssertionList = () => {
 
     return (
         <>
-            <AssertionListTitleContainer privileges={privileges} setShowAssertionBuilder={setShowAssertionBuilder} />
+            <AssertionListTitleContainer
+                privileges={privileges as EntityPrivileges}
+                setShowAssertionBuilder={setShowAssertionBuilder}
+            />
             {loading ? (
                 <AcrylAssertionsSummaryLoading />
             ) : (

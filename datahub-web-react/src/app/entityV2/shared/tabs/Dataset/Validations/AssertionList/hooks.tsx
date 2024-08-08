@@ -1,13 +1,13 @@
-import { useMemo } from 'react';
-import styled from 'styled-components';
-import { AssertionName } from './AssertionName';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import React, { useMemo } from 'react';
 import { Typography } from 'antd';
-import { getAssertionGroupName } from '../acrylUtils';
+import styled from 'styled-components';
+import { DownOutlined, RightOutlined } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { AssertionType } from '@src/types.generated';
+import { AssertionName } from './AssertionName';
+import { getAssertionGroupName } from '../acrylUtils';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
-import { DownOutlined, RightOutlined } from '@ant-design/icons';
 
 const CategoryType = styled.div`
     font-family: Mulish;

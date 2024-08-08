@@ -5,11 +5,9 @@ import styled from 'styled-components';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { REDESIGN_COLORS } from '../../../constants';
-import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
-import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
 import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
 
 const TabTitle = styled.span`
@@ -52,7 +50,7 @@ const DEFAULT_TAB = TabPaths.ASSERTIONS;
 export const AcrylValidationsTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
-    const { urn, entityData } = useEntityData();
+    const { entityData } = useEntityData();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
     const appConfig = useAppConfig();
