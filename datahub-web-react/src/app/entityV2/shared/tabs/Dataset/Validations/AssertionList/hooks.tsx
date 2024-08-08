@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
@@ -94,7 +94,7 @@ export const useAssertionsTableColumns = ({
                 title: '',
                 key: 'expand',
                 dataIndex: '',
-                width: '2%',
+                width: '5%',
                 render: (_, record) => {
                     return (
                         record.groupName &&
@@ -106,4 +106,30 @@ export const useAssertionsTableColumns = ({
 
         return columns;
     }, [groupBy, contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch, expandedRowKeys]);
+};
+
+export const usePinnedTableHeaderProps = () => {
+    // Dynamic height calculation
+    const tableContainerRef = useRef<HTMLDivElement>(null);
+    const [scrollY, setScrollY] = useState<number>(0);
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (tableContainerRef.current) {
+                const containerHeight = tableContainerRef.current.getBoundingClientRect().height;
+                setScrollY(containerHeight - 50);
+            }
+        };
+
+        // Initial calculation
+        handleResize();
+
+        // Recalculate on window resize
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, []);
+    return { tableContainerRef, scrollY };
 };

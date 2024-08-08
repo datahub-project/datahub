@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Table, Empty } from 'antd';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
@@ -7,7 +7,7 @@ import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDra
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
 import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/builder/hooks';
 import { AssertionTableType, IFilter } from './types';
-import { useAssertionsTableColumns } from './hooks';
+import { useAssertionsTableColumns, usePinnedTableHeaderProps } from './hooks';
 import { AssertionListStyledTable } from './StyledComponents';
 
 type Props = {
@@ -34,6 +34,7 @@ export const AssertionListTable = ({
 
     const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(
         assertionData?.groupBy ? assertionData?.groupBy[groupBy] : [],
+        groupBy,
     );
 
     // get columns data from the custom hooks
@@ -93,40 +94,46 @@ export const AssertionListTable = ({
         };
     };
 
+    // get dynamic height for table row data to scroll which help to stick the table header
+    const { tableContainerRef, scrollY } = usePinnedTableHeaderProps();
+
     return (
         <>
-            <AssertionListStyledTable
-                columns={assertionsTableCols}
-                dataSource={groupBy ? getGroupData() : assertionData.assertions || []}
-                locale={{
-                    emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                }}
-                showHeader
-                pagination={false}
-                rowClassName={rowClassName}
-                rowKey="name"
-                expandable={
-                    groupBy
-                        ? {
-                              expandedRowRender: (record: any) => (
-                                  <Table
-                                      columns={assertionsTableCols}
-                                      dataSource={record?.assertions || []}
-                                      pagination={false}
-                                      showHeader={false}
-                                      rowClassName={rowClassName}
-                                      onRow={onRowClick}
-                                  />
-                              ),
-                              onExpand: onAssertionExpand,
-                              expandedRowKeys,
-                              expandRowByClick: true,
-                              expandIcon: () => null,
-                          }
-                        : undefined
-                }
-                onRow={onRowClick}
-            />
+            <div ref={tableContainerRef} style={{ height: '100vh', overflow: 'hidden' }}>
+                <AssertionListStyledTable
+                    columns={assertionsTableCols}
+                    dataSource={groupBy ? getGroupData() : assertionData.assertions || []}
+                    locale={{
+                        emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    }}
+                    showHeader
+                    pagination={false}
+                    rowClassName={rowClassName}
+                    rowKey="name"
+                    expandable={
+                        groupBy
+                            ? {
+                                  expandedRowRender: (record: any) => (
+                                      <Table
+                                          columns={assertionsTableCols}
+                                          dataSource={record?.assertions || []}
+                                          pagination={false}
+                                          showHeader={false}
+                                          rowClassName={rowClassName}
+                                          onRow={onRowClick}
+                                      />
+                                  ),
+                                  onExpand: onAssertionExpand,
+                                  expandedRowKeys,
+                                  expandRowByClick: true,
+                                  expandIcon: () => null,
+                              }
+                            : undefined
+                    }
+                    onRow={onRowClick}
+                    scroll={{ y: scrollY }} // Dynamic scroll height
+                />
+            </div>
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}

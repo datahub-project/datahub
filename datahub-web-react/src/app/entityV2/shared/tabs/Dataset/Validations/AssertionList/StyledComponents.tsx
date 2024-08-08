@@ -4,8 +4,6 @@ import styled from 'styled-components';
 
 export const AssertionListStyledTable = styled(Table)`
     max-width: none;
-    overflow: inherit;
-    height: inherit;
     &&& .ant-table-thead .ant-table-cell {
         font-weight: 600;
         font-size: 12px;
@@ -18,6 +16,9 @@ export const AssertionListStyledTable = styled(Table)`
             [colspan]
         )::before {
         border: 1px solid ${ANTD_GRAY[4]};
+    }
+    &&& .ant-table-thead > tr > th {
+        line-height: 5px;
     }
     &&& .ant-table-cell {
         background-color: transparent;

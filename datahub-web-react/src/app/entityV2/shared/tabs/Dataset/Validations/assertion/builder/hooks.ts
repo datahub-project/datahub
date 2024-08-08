@@ -92,12 +92,14 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
  *  - expandedRowKeys: Array of currently expanded row keys.
  *  - setExpandedRowKeys: Function to manually set the expanded row keys.
  */
-export const useExpandedRowKeys = (groups) => {
+export const useExpandedRowKeys = (groups, isGroupBy) => {
     const location = useLocation();
     const assertionUrnParam = new URLSearchParams(location.search).get('assertion_urn');
     const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
     const [processed, setProcessed] = useState(false);
-
+    if (!isGroupBy) {
+        return { expandedRowKeys, setExpandedRowKeys };
+    }
     useEffect(() => {
         if (assertionUrnParam) {
             const decodedAssertionUrn = decodeURIComponent(assertionUrnParam);
