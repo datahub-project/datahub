@@ -21,6 +21,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
@@ -89,7 +90,10 @@ public class SubscriptionService extends BaseService {
               subscriptionInfo);
       final String subscriptionUrnString =
           this.entityClient.ingestProposal(opContext, proposal, false);
-      final Urn subscriptionUrn = Urn.createFromString(subscriptionUrnString);
+      final Urn subscriptionUrn =
+          subscriptionUrnString.startsWith("urn:")
+              ? Urn.createFromString(subscriptionUrnString)
+              : EntityKeyUtils.convertEntityKeyToUrn(subscriptionKey, SUBSCRIPTION_ENTITY_NAME);
 
       return Map.entry(subscriptionUrn, subscriptionInfo);
     } catch (Exception e) {
