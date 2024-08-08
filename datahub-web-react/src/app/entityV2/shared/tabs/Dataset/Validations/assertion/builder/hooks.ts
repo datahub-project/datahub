@@ -97,30 +97,30 @@ export const useExpandedRowKeys = (groups, isGroupBy) => {
     const assertionUrnParam = new URLSearchParams(location.search).get('assertion_urn');
     const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
     const [processed, setProcessed] = useState(false);
-    if (!isGroupBy) {
-        return { expandedRowKeys, setExpandedRowKeys };
-    }
+
     useEffect(() => {
-        if (assertionUrnParam) {
-            const decodedAssertionUrn = decodeURIComponent(assertionUrnParam);
+        if (isGroupBy) {
+            if (assertionUrnParam) {
+                const decodedAssertionUrn = decodeURIComponent(assertionUrnParam);
 
-            // Find the row key to expand based on the assertion URN
-            const rowKeyToExpand = groups.find((group) =>
-                group.assertions.some((assertion) => assertion.urn === decodedAssertionUrn),
-            )?.name;
+                // Find the row key to expand based on the assertion URN
+                const rowKeyToExpand = groups.find((group) =>
+                    group.assertions.some((assertion) => assertion.urn === decodedAssertionUrn),
+                )?.name;
 
-            if (rowKeyToExpand) {
-                setExpandedRowKeys((prevKeys) => [...prevKeys, rowKeyToExpand]);
+                if (rowKeyToExpand) {
+                    setExpandedRowKeys((prevKeys) => [...prevKeys, rowKeyToExpand]);
+                }
+
+                setProcessed(true);
+            } else if (!processed) {
+                // If no assertion URN is present initially, set expandedRowKeys from groups
+                const allGroupKeys = groups.map((group) => group.name);
+                setExpandedRowKeys(allGroupKeys);
+                setProcessed(true);
             }
-
-            setProcessed(true);
-        } else if (!processed) {
-            // If no assertion URN is present initially, set expandedRowKeys from groups
-            const allGroupKeys = groups.map((group) => group.name);
-            setExpandedRowKeys(allGroupKeys);
-            setProcessed(true);
         }
-    }, [groups, assertionUrnParam, processed]);
+    }, [groups, assertionUrnParam, processed, isGroupBy]);
 
     return { expandedRowKeys, setExpandedRowKeys };
 };
