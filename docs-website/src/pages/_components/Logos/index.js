@@ -81,11 +81,11 @@ const companiesByIndustry = [
   {
     name: "Financial & Fintech",
     companies: [
-      {
-        name: "Saxo Bank",
-        imageUrl: "/img/logos/companies/saxobank.svg",
-        imageSize: "default",
-      },
+      // {
+      //   name: "Saxo Bank",
+      //   imageUrl: "/img/logos/companies/saxobank.svg",
+      //   imageSize: "default",
+      // },
       {
         name: "Klarna",
         imageUrl: "/img/logos/companies/klarna.svg",
