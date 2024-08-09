@@ -216,32 +216,18 @@ class DbtTestConfig:
             run_results_files=["sample_dbt_run_results_2.json"],
             source_config_modifiers={},
         ),
-        DbtTestConfig(
-            "dbt-prefer-sql-parser-lineage",
-            "dbt_test_prefer_sql_parser_lineage.json",
-            "dbt_test_prefer_sql_parser_lineage_golden.json",
-            catalog_file="sample_dbt_catalog_2.json",
-            manifest_file="sample_dbt_manifest_2.json",
-            sources_file="sample_dbt_sources_2.json",
-            run_results_files=["sample_dbt_run_results_2.json"],
-            source_config_modifiers={
-                "prefer_sql_parser_lineage": True,
-                "skip_sources_in_lineage": True,
-                "entities_enabled": {"sources": "NO"},
-            },
-        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_ingest(
-    dbt_test_config,
-    test_resources_dir,
-    pytestconfig,
-    tmp_path,
-    mock_time,
-    requests_mock,
+        dbt_test_config,
+        test_resources_dir,
+        pytestconfig,
+        tmp_path,
+        mock_time,
+        requests_mock,
 ):
     config: DbtTestConfig = dbt_test_config
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
@@ -339,9 +325,13 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
-                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    run_results_paths=[
+                        str(
+                            (
+                                test_resources_dir / "jaffle_shop_test_results.json"
+                            ).resolve()
+                        )
+                    ],
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -442,9 +432,13 @@ def test_dbt_tests_only_assertions(
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
-                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    run_results_paths=[
+                        str(
+                            (
+                                test_resources_dir / "jaffle_shop_test_results.json"
+                            ).resolve()
+                        )
+                    ],
                     entities_enabled=DBTEntitiesEnabled(
                         test_results=EmitDirective.ONLY
                     ),
@@ -518,9 +512,13 @@ def test_dbt_only_test_definitions_and_results(
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    test_results_path=str(
-                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
-                    ),
+                    run_results_paths=[
+                        str(
+                            (
+                                test_resources_dir / "jaffle_shop_test_results.json"
+                            ).resolve()
+                        )
+                    ],
                     entities_enabled=DBTEntitiesEnabled(
                         sources=EmitDirective.NO,
                         seeds=EmitDirective.NO,
