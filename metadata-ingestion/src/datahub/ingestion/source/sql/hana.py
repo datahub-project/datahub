@@ -523,7 +523,7 @@ class HanaSource(SQLAlchemySource):
         }
         lineage = self.get_calculation_view_lineage(root=root, ns=ns, dataset_path=dataset_path, dataset_name=dataset_name)
 
-        columns = self.get_columns(inspector=inspector, schema="SFLIGHT", table_or_view="SFLIGHT")
+        columns = self.get_columns(inspector=inspector, schema=schema, table_or_view=dataset_name)
 
         schema_metadata = SchemaMetadataClass(
             schemaName=f"{schema}.{dataset_name}",
