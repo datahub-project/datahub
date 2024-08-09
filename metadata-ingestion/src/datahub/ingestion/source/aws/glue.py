@@ -912,7 +912,6 @@ class GlueSource(StatefulIngestionSourceBase):
                 account_id=database["CatalogId"], database=database["Name"]
             ),
             extra_properties=parameters,
-            env=self.env,
         )
 
     def add_table_to_database_container(

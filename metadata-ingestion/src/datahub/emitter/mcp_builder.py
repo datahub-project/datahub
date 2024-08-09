@@ -208,7 +208,7 @@ def gen_containers(
             lastModified=TimeStamp(time=last_modified)
             if last_modified is not None
             else None,
-            env=env,
+            env=container_key.env,
         ),
     ).as_workunit()
 
