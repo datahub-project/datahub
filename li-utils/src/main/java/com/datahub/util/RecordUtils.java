@@ -99,6 +99,18 @@ public class RecordUtils {
     return toRecordTemplate(type, dataMap);
   }
 
+  @Nonnull
+  public static DataMap toDataMap(@Nonnull String jsonString) {
+    DataMap dataMap;
+    try {
+      dataMap = DATA_TEMPLATE_CODEC.stringToMap(jsonString);
+    } catch (IOException e) {
+      throw new ModelConversionException("Failed to deserialize DataMap: " + jsonString);
+    }
+
+    return dataMap;
+  }
+
   /**
    * Creates a {@link RecordTemplate} object from a {@link DataMap}.
    *
