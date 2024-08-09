@@ -470,7 +470,7 @@ class DataHubListener:
 
         # We must prefer the task attribute, in case modifications to the task's inlets/outlets
         # were made by the execute() method.
-        if hasattr(task_instance, "task") and task_instance.task:
+        if getattr(task_instance, "task", None):
             task = task_instance.task
         else:
             task = self._task_holder.get_task(task_instance)
