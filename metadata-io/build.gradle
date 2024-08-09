@@ -21,6 +21,7 @@ dependencies {
   api project(':metadata-service:services')
   api project(':metadata-operation-context')
 
+  implementation spec.product.pegasus.restliServer
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator
 
@@ -129,6 +130,7 @@ test {
     // override, testng controlling parallelization
     // increasing >1 will merely run all tests extra times
     maxParallelForks = 1
+    environment "ELASTIC_ID_HASH_ALGO", "MD5"
   }
   useTestNG() {
     suites 'src/test/resources/testng.xml'

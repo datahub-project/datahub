@@ -251,11 +251,6 @@ class BigqueryLineageExtractor:
         else:
             return self.config.start_time, self.config.end_time
 
-    def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        # TODO: Remove this method.
-        # Note that this downgrades the error to a warning.
-        self.report.warning(key, reason)
-
     def _should_ingest_lineage(self) -> bool:
         if (
             self.redundant_run_skip_handler
@@ -265,9 +260,9 @@ class BigqueryLineageExtractor:
             )
         ):
             # Skip this run
-            self.report.report_warning(
-                "lineage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
+            self.report.warning(
+                title="Skipped redundant lineage extraction",
+                message="Skip this run as there was already a run for current ingestion window.",
             )
             return False
 
@@ -345,12 +340,12 @@ class BigqueryLineageExtractor:
                         events, sql_parser_schema_resolver
                     )
             except Exception as e:
-                if project_id:
-                    self.report.lineage_failed_extraction.append(project_id)
-                self.error(
-                    logger,
-                    "lineage",
-                    f"{project_id}: {e}",
+                self.report.lineage_failed_extraction.append(project_id)
+                self.report.warning(
+                    title="Failed to extract lineage",
+                    message="Unexpected error encountered",
+                    context=project_id,
+                    exc=e,
                 )
                 lineage = {}
 
@@ -481,98 +476,88 @@ class BigqueryLineageExtractor:
         # Regions to search for BigQuery tables: projects/{project_id}/locations/{region}
         enabled_regions: List[str] = ["US", "EU"]
 
-        try:
-            lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
+        lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
 
-            data_dictionary = BigQuerySchemaApi(
-                self.report.schema_api_perf, self.config.get_bigquery_client()
+        data_dictionary = BigQuerySchemaApi(
+            self.report.schema_api_perf, self.config.get_bigquery_client()
+        )
+
+        # Filtering datasets
+        datasets = list(data_dictionary.get_datasets_for_project_id(project_id))
+        project_tables = []
+        for dataset in datasets:
+            # Enables only tables where type is TABLE, VIEW or MATERIALIZED_VIEW (not EXTERNAL)
+            project_tables.extend(
+                [
+                    table
+                    for table in data_dictionary.list_tables(dataset.name, project_id)
+                    if table.table_type in ["TABLE", "VIEW", "MATERIALIZED_VIEW"]
+                ]
             )
 
-            # Filtering datasets
-            datasets = list(data_dictionary.get_datasets_for_project_id(project_id))
-            project_tables = []
-            for dataset in datasets:
-                # Enables only tables where type is TABLE, VIEW or MATERIALIZED_VIEW (not EXTERNAL)
-                project_tables.extend(
+        lineage_map: Dict[str, Set[LineageEdge]] = {}
+        curr_date = datetime.now()
+        for project_table in project_tables:
+            # Convert project table to <project_id>.<dataset_id>.<table_id> format
+            table = f"{project_table.project}.{project_table.dataset_id}.{project_table.table_id}"
+
+            if not is_schema_allowed(
+                self.config.dataset_pattern,
+                schema_name=project_table.dataset_id,
+                db_name=project_table.project,
+                match_fully_qualified_schema_name=self.config.match_fully_qualified_names,
+            ) or not self.config.table_pattern.allowed(table):
+                self.report.num_skipped_lineage_entries_not_allowed[
+                    project_table.project
+                ] += 1
+                continue
+
+            logger.info("Creating lineage map for table %s", table)
+            upstreams = set()
+            downstream_table = lineage_v1.EntityReference()
+            # fully_qualified_name in format: "bigquery:<project_id>.<dataset_id>.<table_id>"
+            downstream_table.fully_qualified_name = f"bigquery:{table}"
+            # Searches in different regions
+            for region in enabled_regions:
+                location_request = lineage_v1.SearchLinksRequest(
+                    target=downstream_table,
+                    parent=f"projects/{project_id}/locations/{region.lower()}",
+                )
+                response = lineage_client.search_links(request=location_request)
+                upstreams.update(
                     [
-                        table
-                        for table in data_dictionary.list_tables(
-                            dataset.name, project_id
+                        str(lineage.source.fully_qualified_name).replace(
+                            "bigquery:", ""
                         )
-                        if table.table_type in ["TABLE", "VIEW", "MATERIALIZED_VIEW"]
+                        for lineage in response
                     ]
                 )
 
-            lineage_map: Dict[str, Set[LineageEdge]] = {}
-            curr_date = datetime.now()
-            for project_table in project_tables:
-                # Convert project table to <project_id>.<dataset_id>.<table_id> format
-                table = f"{project_table.project}.{project_table.dataset_id}.{project_table.table_id}"
-
-                if not is_schema_allowed(
-                    self.config.dataset_pattern,
-                    schema_name=project_table.dataset_id,
-                    db_name=project_table.project,
-                    match_fully_qualified_schema_name=self.config.match_fully_qualified_names,
-                ) or not self.config.table_pattern.allowed(table):
-                    self.report.num_skipped_lineage_entries_not_allowed[
-                        project_table.project
-                    ] += 1
-                    continue
-
-                logger.info("Creating lineage map for table %s", table)
-                upstreams = set()
-                downstream_table = lineage_v1.EntityReference()
-                # fully_qualified_name in format: "bigquery:<project_id>.<dataset_id>.<table_id>"
-                downstream_table.fully_qualified_name = f"bigquery:{table}"
-                # Searches in different regions
-                for region in enabled_regions:
-                    location_request = lineage_v1.SearchLinksRequest(
-                        target=downstream_table,
-                        parent=f"projects/{project_id}/locations/{region.lower()}",
-                    )
-                    response = lineage_client.search_links(request=location_request)
-                    upstreams.update(
-                        [
-                            str(lineage.source.fully_qualified_name).replace(
-                                "bigquery:", ""
-                            )
-                            for lineage in response
-                        ]
-                    )
-
-                # Downstream table identifier
-                destination_table_str = str(
-                    BigQueryTableRef(
-                        table_identifier=BigqueryTableIdentifier(*table.split("."))
-                    )
+            # Downstream table identifier
+            destination_table_str = str(
+                BigQueryTableRef(
+                    table_identifier=BigqueryTableIdentifier(*table.split("."))
                 )
-
-                # Only builds lineage map when the table has upstreams
-                logger.debug("Found %d upstreams for table %s", len(upstreams), table)
-                if upstreams:
-                    lineage_map[destination_table_str] = {
-                        LineageEdge(
-                            table=str(
-                                BigQueryTableRef(
-                                    table_identifier=BigqueryTableIdentifier.from_string_name(
-                                        source_table
-                                    )
-                                )
-                            ),
-                            column_mapping=frozenset(),
-                            auditStamp=curr_date,
-                        )
-                        for source_table in upstreams
-                    }
-            return lineage_map
-        except Exception as e:
-            self.error(
-                logger,
-                "lineage-exported-catalog-lineage-api",
-                f"Error: {e}",
             )
-            raise e
+
+            # Only builds lineage map when the table has upstreams
+            logger.debug("Found %d upstreams for table %s", len(upstreams), table)
+            if upstreams:
+                lineage_map[destination_table_str] = {
+                    LineageEdge(
+                        table=str(
+                            BigQueryTableRef(
+                                table_identifier=BigqueryTableIdentifier.from_string_name(
+                                    source_table
+                                )
+                            )
+                        ),
+                        column_mapping=frozenset(),
+                        auditStamp=curr_date,
+                    )
+                    for source_table in upstreams
+                }
+        return lineage_map
 
     def _get_parsed_audit_log_events(self, project_id: str) -> Iterable[QueryEvent]:
         # We adjust the filter values a bit, since we need to make sure that the join

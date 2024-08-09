@@ -52,7 +52,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
   private final DataSchemaFactory dataSchemaFactory;
   @Getter private final PluginFactory pluginFactory;
 
-  @Nullable
+  @Getter @Nullable
   private BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider;
 
   private final Map<String, EntitySpec> entityNameToSpec;

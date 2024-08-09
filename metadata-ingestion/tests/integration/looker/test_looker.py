@@ -94,6 +94,8 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
                         "client_id": "foo",
                         "client_secret": "bar",
                         "extract_usage_history": False,
+                        "platform_instance": "ap-south-1",
+                        "include_platform_instance_in_urns": True,
                     },
                 },
                 "sink": {
@@ -1050,22 +1052,33 @@ def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 ),
             ],
         )
+        config = mock.MagicMock()
+
+        config.view_naming_pattern.replace_variables.return_value = "dataset_lineages"
+        config.platform_name = "snowflake"
+        config.platform_instance = "sales"
+        config.env = "DEV"
 
         looker_explore: Optional[LookerExplore] = looker_common.LookerExplore.from_api(
             model="fake",
             explore_name="my_explore_name",
             client=mocked_client,
             reporter=mock.MagicMock(),
-            source_config=mock.MagicMock(),
+            source_config=config,
         )
 
         assert looker_explore is not None
         assert looker_explore.name == "my_explore_name"
         assert looker_explore.fields is not None
         assert len(looker_explore.fields) == 3
+
         assert (
-            looker_explore.fields[2].upstream_fields[0] == "dataset_lineages.createdon"
+            looker_explore.fields[2].upstream_fields[0].table
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+            "sales.dataset_lineages,DEV)"
         )
+
+        assert looker_explore.fields[2].upstream_fields[0].column == "createdon"
 
 
 @freeze_time(FROZEN_TIME)

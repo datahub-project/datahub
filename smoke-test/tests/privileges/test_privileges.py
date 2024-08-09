@@ -4,11 +4,13 @@ import tenacity
 from tests.privileges.utils import (
     assign_role,
     assign_user_to_group,
+    clear_polices,
     create_group,
     create_user,
     create_user_policy,
     remove_group,
     remove_policy,
+    remove_secret,
     remove_user,
     set_base_platform_privileges_policy_status,
     set_view_dataset_sensitive_info_policy_status,
@@ -64,6 +66,12 @@ def privileges_and_test_user_setup(admin_session):
 
     # Remove test user
     remove_user(admin_session, "urn:li:corpuser:user")
+
+    # Remove secret
+    remove_secret(admin_session, "urn:li:dataHubSecret:TestSecretName")
+
+    # Remove test policies
+    clear_polices(admin_session)
 
     # Restore All users privileges
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)
@@ -319,9 +327,8 @@ def test_privilege_to_create_and_manage_ingestion_source():
     )
 
 
-@pytest.mark.skip(reason="Functionality and test needs to be validated for correctness")
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_privilege_to_create_and_manage_access_tokens():
+def test_privilege_to_create_and_revoke_personal_access_tokens():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
     user_session = login_as("user", "user")
@@ -345,12 +352,14 @@ def test_privilege_to_create_and_manage_access_tokens():
 
     # Assign privileges to the new user to create and manage access tokens
     policy_urn = create_user_policy(
-        "urn:li:corpuser:user", ["MANAGE_ACCESS_TOKENS"], admin_session
+        "urn:li:corpuser:user", ["GENERATE_PERSONAL_ACCESS_TOKENS"], admin_session
     )
 
     # Verify new user can create and manage access token(create, revoke)
     # Create a access token
     _ensure_can_create_access_token(user_session, create_access_token)
+
+    wait_for_writes_to_sync()
 
     # List access tokens first to get token id
     list_access_tokens = {

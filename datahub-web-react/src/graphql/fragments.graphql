@@ -251,6 +251,7 @@ fragment nonRecursiveDatasetFields on Dataset {
         }
     }
     editableProperties {
+        name
         description
     }
     ownership {
@@ -734,6 +735,37 @@ fragment schemaFieldFields on SchemaField {
         businessAttributes {
             businessAttribute {
                 ...businessAttribute
+            }
+        }
+        documentation {
+            documentations {
+                documentation
+                attribution {
+                    time
+                    actor {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                    source {
+                        urn
+                        type
+                    }
+                    sourceDetail {
+                        key
+                        value
+                    }
+                }
+            }
+        }
+        parent {
+            urn
+            type
+            ...entityDisplayNameFields
+            ... on Dataset {
+                platform {
+                    ...platformFields
+                }
             }
         }
     }

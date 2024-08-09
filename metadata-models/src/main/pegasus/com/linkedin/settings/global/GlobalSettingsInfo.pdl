@@ -16,4 +16,12 @@ record GlobalSettingsInfo {
    * Settings related to the Views Feature
    */
    views: optional GlobalViewsSettings
+  /**
+   * Settings related to the documentation propagation feature
+   */
+   docPropagation: DocPropagationFeatureSettings = {
+        "enabled": true
+        "columnPropagationEnabled": true
+   }
+
 }

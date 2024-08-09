@@ -40,7 +40,8 @@ public class OpenAPIV3Generator {
   private static final String NAME_QUERY = "query";
   private static final String NAME_PATH = "path";
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
-  private static final String NAME_ASYNC = "async";
+  private static final String NAME_AUDIT_STAMP = "auditStamp";
+  private static final String NAME_VERSION = "version";
   private static final String NAME_SCROLL_ID = "scrollId";
   private static final String NAME_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String PROPERTY_VALUE = "value";
@@ -76,11 +77,22 @@ public class OpenAPIV3Generator {
     // Components
     final Components components = new Components();
     // --> Aspect components
-    // TODO: Correct handling of SystemMetadata and SortOrder
-    components.addSchemas(
-        "SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
     components.addSchemas("AspectPatch", buildAspectPatchSchema());
+    components.addSchemas(
+        "BatchGetRequestBody",
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .description("Request body for batch get aspects.")
+            .properties(
+                Map.of(
+                    "headers",
+                    new Schema<>()
+                        .type(TYPE_OBJECT)
+                        .additionalProperties(new Schema<>().type(TYPE_STRING))
+                        .description("System headers for the operation.")
+                        .nullable(true)))
+            .nullable(true));
     entityRegistry
         .getAspectSpecs()
         .values()
@@ -107,6 +119,9 @@ public class OpenAPIV3Generator {
                   entityName + ENTITY_RESPONSE_SUFFIX, buildEntitySchema(e, aspectNames, true));
               components.addSchemas(
                   "Scroll" + entityName + ENTITY_RESPONSE_SUFFIX, buildEntityScrollSchema(e));
+              components.addSchemas(
+                  "BatchGet" + entityName + ENTITY_REQUEST_SUFFIX,
+                  buildEntityBatchGetRequestSchema(e, aspectNames));
             });
     // Parameters
     entityRegistry.getEntitySpecs().values().stream()
@@ -128,6 +143,9 @@ public class OpenAPIV3Generator {
                   String.format("/v3/entity/%s", e.getName().toLowerCase()),
                   buildListEntityPath(e));
               paths.addPathItem(
+                  String.format("/v3/entity/%s/batchGet", e.getName().toLowerCase()),
+                  buildBatchGetEntityPath(e));
+              paths.addPathItem(
                   String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
                   buildSingleEntityPath(e));
             });
@@ -146,6 +164,10 @@ public class OpenAPIV3Generator {
                               buildSingleEntityAspectPath(
                                   e, a.getName(), a.getPegasusSchema().getName())));
             });
+    // TODO: Correct handling of SystemMetadata and AuditStamp
+    components.addSchemas(
+        "SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
+    components.addSchemas("AuditStamp", new Schema().type(TYPE_OBJECT).additionalProperties(true));
     return new OpenAPI().openapi("3.0.1").info(info).paths(paths).components(components);
   }
 
@@ -164,7 +186,7 @@ public class OpenAPIV3Generator {
                 .schema(new Schema().type(TYPE_STRING)),
             new Parameter()
                 .in(NAME_QUERY)
-                .name("systemMetadata")
+                .name(NAME_SYSTEM_METADATA)
                 .description("Include systemMetadata with response.")
                 .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter()
@@ -360,6 +382,62 @@ public class OpenAPIV3Generator {
     return result;
   }
 
+  private static PathItem buildBatchGetEntityPath(final EntitySpec entity) {
+    final String upperFirst = toUpperFirst(entity.getName());
+    final PathItem result = new PathItem();
+    // Post Operation
+    final Content requestBatch =
+        new Content()
+            .addMediaType(
+                "application/json",
+                new MediaType()
+                    .schema(
+                        new Schema()
+                            .type(TYPE_ARRAY)
+                            .items(
+                                new Schema()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/%s%s",
+                                            "BatchGet" + upperFirst, ENTITY_REQUEST_SUFFIX)))));
+    final ApiResponse apiBatchGetResponse =
+        new ApiResponse()
+            .description("Get a batch of " + entity.getName() + " entities.")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                new Schema()
+                                    .type(TYPE_ARRAY)
+                                    .items(
+                                        new Schema<>()
+                                            .$ref(
+                                                String.format(
+                                                    "#/components/schemas/%s%s",
+                                                    upperFirst, ENTITY_RESPONSE_SUFFIX))))));
+    result.setPost(
+        new Operation()
+            .summary("Batch Get " + upperFirst + " entities.")
+            .tags(List.of(entity.getName() + " Entity"))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_SYSTEM_METADATA)
+                        .description("Include systemMetadata with response.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
+            .requestBody(
+                new RequestBody()
+                    .description("Batch Get " + entity.getName() + " entities.")
+                    .required(true)
+                    .content(requestBatch))
+            .responses(new ApiResponses().addApiResponse("200", apiBatchGetResponse)));
+
+    return result;
+  }
+
   private static void addExtraParameters(final Components components) {
     components.addParameters(
         "ScrollId" + MODEL_VERSION,
@@ -470,12 +548,12 @@ public class OpenAPIV3Generator {
                           String $ref = schema.get$ref();
                           boolean isNameRequired = requiredNames.contains(name);
                           if ($ref != null && !isNameRequired) {
-                            // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+                            // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
                             // object to allow the
                             // property to be marked as nullable
                             schema.setType(TYPE_OBJECT);
                             schema.set$ref(null);
-                            schema.setAllOf(List.of(new Schema().$ref($ref)));
+                            schema.setAnyOf(List.of(new Schema().$ref($ref)));
                           }
                           schema.setNullable(!isNameRequired);
                         });
@@ -498,17 +576,47 @@ public class OpenAPIV3Generator {
             .required(List.of(PROPERTY_VALUE))
             .addProperty(PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspectName));
     result.addProperty(
-        "systemMetadata",
+        NAME_SYSTEM_METADATA,
         new Schema<>()
             .type(TYPE_OBJECT)
-            .allOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
             .description("System metadata for the aspect.")
+            .nullable(true));
+    result.addProperty(
+        NAME_AUDIT_STAMP,
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "AuditStamp")))
+            .description("Audit stamp for the aspect.")
             .nullable(true));
     return result;
   }
 
   private static Schema buildAspectRefRequestSchema(final String aspectName) {
-    return new Schema<>().$ref(PATH_DEFINITIONS + aspectName);
+    final Schema result =
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .description(ASPECT_DESCRIPTION)
+            .required(List.of(PROPERTY_VALUE))
+            .addProperty(PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspectName));
+    result.addProperty(
+        NAME_SYSTEM_METADATA,
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+            .description("System metadata for the aspect.")
+            .nullable(true));
+
+    Schema stringTypeSchema = new Schema<>();
+    stringTypeSchema.setType(TYPE_STRING);
+    result.addProperty(
+        "headers",
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .additionalProperties(stringTypeSchema)
+            .description("System headers for the operation.")
+            .nullable(true));
+    return result;
   }
 
   private static Schema buildEntitySchema(
@@ -556,8 +664,32 @@ public class OpenAPIV3Generator {
                                 toUpperFirst(entity.getName()), ENTITY_RESPONSE_SUFFIX))));
   }
 
+  private static Schema buildEntityBatchGetRequestSchema(
+      final EntitySpec entity, Set<String> aspectNames) {
+
+    final Map<String, Schema> properties =
+        entity.getAspectSpecMap().entrySet().stream()
+            .filter(a -> aspectNames.contains(a.getValue().getName()))
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    a -> new Schema().$ref("#/components/schemas/BatchGetRequestBody")));
+    properties.put(
+        PROPERTY_URN,
+        new Schema<>().type(TYPE_STRING).description("Unique id for " + entity.getName()));
+
+    properties.put(
+        entity.getKeyAspectName(), new Schema().$ref("#/components/schemas/BatchGetRequestBody"));
+
+    return new Schema<>()
+        .type(TYPE_OBJECT)
+        .description(toUpperFirst(entity.getName()) + " object.")
+        .required(List.of(PROPERTY_URN))
+        .properties(properties);
+  }
+
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
-    // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+    // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
     // object to allow the
     // property to be marked as nullable
     final Schema result = new Schema<>();
@@ -573,7 +705,7 @@ public class OpenAPIV3Generator {
       internalRef =
           String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
-    result.setAllOf(List.of(new Schema().$ref(internalRef)));
+    result.setAnyOf(List.of(new Schema().$ref(internalRef)));
     return result;
   }
 
@@ -616,6 +748,12 @@ public class OpenAPIV3Generator {
             .name(NAME_SYSTEM_METADATA)
             .description("Include systemMetadata with response.")
             .schema(new Schema().type(TYPE_BOOLEAN)._default(false));
+    final Parameter versionParameter =
+        new Parameter()
+            .in(NAME_QUERY)
+            .name(NAME_VERSION)
+            .description("Return a specific aspect version.")
+            .schema(new Schema().type(TYPE_INTEGER)._default(0).minimum(BigDecimal.ZERO));
     final ApiResponse successApiResponse =
         new ApiResponse()
             .description("Success")
@@ -634,7 +772,7 @@ public class OpenAPIV3Generator {
         new Operation()
             .summary(String.format("Get %s for %s.", aspect, entity.getName()))
             .tags(tags)
-            .parameters(List.of(getParameter))
+            .parameters(List.of(getParameter, versionParameter))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse));
     // Head Operation
     final ApiResponse successHeadResponse =
@@ -737,7 +875,7 @@ public class OpenAPIV3Generator {
                 List.of(
                     new Parameter()
                         .in(NAME_QUERY)
-                        .name("systemMetadata")
+                        .name(NAME_SYSTEM_METADATA)
                         .description("Include systemMetadata with response.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .summary(String.format("Patch aspect %s on %s ", aspect, upperFirstEntity))
