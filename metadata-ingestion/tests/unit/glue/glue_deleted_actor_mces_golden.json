@@ -12,7 +12,8 @@
                 "database": "test-database"
             },
             "name": "test-database",
-            "qualifiedName": "arn:aws:glue:eu-east-1:123412341234:database/test-database"
+            "qualifiedName": "arn:aws:glue:eu-east-1:123412341234:database/test-database",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

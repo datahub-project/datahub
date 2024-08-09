@@ -3,6 +3,7 @@ namespace com.linkedin.container
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.TimeStamp
+import com.linkedin.common.FabricType
 
 /**
  * Information about a Asset Container as received from a 3rd party source system
@@ -62,4 +63,16 @@ record ContainerProperties includes CustomProperties, ExternalReference {
     }
   }
   lastModified: optional TimeStamp
+
+    /**
+       * Environment for this container
+       */
+      @Searchable = {
+        "fieldType": "KEYWORD",
+        "addToFilters": true,
+        "filterNameOverride": "Environment",
+        "queryByDefault": false
+      }
+      env: optional FabricType
+    }
 }
