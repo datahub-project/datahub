@@ -313,9 +313,9 @@ class LookerViewContext:
 
         # remove extra spaces and new lines from sql_table_name if it is not a sql
         if not self.is_direct_sql_query_case():
-            table_name = remove_extra_spaces_and_newlines(table_name)
             # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
             table_name = table_name.replace('"', "").replace("`", "").lower()
+            table_name = remove_extra_spaces_and_newlines(table_name).strip()
 
         return table_name
 

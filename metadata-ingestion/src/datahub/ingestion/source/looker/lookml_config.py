@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import pydantic
 from pydantic import root_validator, validator
@@ -172,6 +172,13 @@ class LookMLSourceConfig(
         description="A dictionary containing Liquid variables and their corresponding values, utilized in SQL-defined "
         "derived views. The Liquid template will be resolved in view.derived_table.sql and "
         "view.sql_table_name. Defaults to an empty dictionary.",
+    )
+
+    looker_environment: Literal["prod", "dev"] = Field(
+        "prod",
+        description="A looker prod or dev environment. "
+        "It helps to evaluate looker if comments i.e. -- if prod --. "
+        "All if comments are evaluated to true for configured looker_environment value",
     )
 
     @validator("connection_to_platform_map", pre=True)
