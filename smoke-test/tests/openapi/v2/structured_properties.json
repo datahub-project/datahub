@@ -1,0 +1,72 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/propertyDefinition?createIfNotExists=false",
+      "method": "post",
+      "json": {
+        "qualifiedName": "io.acryl.privacy.retentionTime",
+        "valueType": "urn:li:dataType:datahub.number",
+        "description": "Retention Time is used to figure out how long to retain records in a dataset",
+        "displayName": "Retention Time",
+        "cardinality": "MULTIPLE",
+        "entityTypes": [
+          "urn:li:entityType:datahub.dataset",
+          "urn:li:entityType:datahub.dataFlow"
+        ],
+        "allowedValues": [
+          {
+            "value": {"double": 30},
+            "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+          },
+          {
+            "value": {"double": 60},
+            "description": "Use this for datasets that drive monthly reporting but contain pii"
+          },
+          {
+            "value": {"double": 365},
+            "description": "Use this for non-sensitive data that can be retained for longer"
+          }
+        ]
+      }
+    },
+    "response": {
+      "status_code": 200,
+      "body": {
+        "urn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+        "propertyDefinition": {
+          "value": {
+            "allowedValues": [
+              {
+                "description": "30 days, usually reserved for datasets that are ephemeral and contain pii",
+                "value": {
+                  "double": 30
+                }
+              },
+              {
+                "description": "Use this for datasets that drive monthly reporting but contain pii",
+                "value": {
+                  "double": 60
+                }
+              },
+              {
+                "description": "Use this for non-sensitive data that can be retained for longer",
+                "value": {
+                  "double": 365
+                }
+              }
+            ],
+            "displayName": "Retention Time",
+            "qualifiedName": "io.acryl.privacy.retentionTime",
+            "valueType": "urn:li:dataType:datahub.number",
+            "description": "Retention Time is used to figure out how long to retain records in a dataset",
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset",
+              "urn:li:entityType:datahub.dataFlow"
+            ],
+            "cardinality": "MULTIPLE"
+          }
+        }
+      }
+    }
+  }
+]
