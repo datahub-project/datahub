@@ -48,7 +48,7 @@ public class AspectsBatchImpl implements AspectsBatch {
       final Map<String, Map<String, SystemAspect>> latestAspects) {
 
     // Process proposals to change items
-    Stream<ChangeMCP> mutatedProposalsStream =
+    Stream<? extends BatchItem> mutatedProposalsStream =
         proposedItemsToChangeItemStream(
             items.stream()
                 .filter(item -> item instanceof ProposedItem)
@@ -93,8 +93,9 @@ public class AspectsBatchImpl implements AspectsBatch {
 
     LinkedList<ChangeMCP> newItems =
         applyMCPSideEffects(upsertBatchItems).collect(Collectors.toCollection(LinkedList::new));
-    Map<String, Set<String>> newUrnAspectNames = getNewUrnAspectsMap(getUrnAspectsMap(), newItems);
     upsertBatchItems.addAll(newItems);
+    Map<String, Set<String>> newUrnAspectNames =
+        getNewUrnAspectsMap(getUrnAspectsMap(), upsertBatchItems);
 
     return Pair.of(newUrnAspectNames, upsertBatchItems);
   }

@@ -40,7 +40,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
-
 /**
  * Implementation of {@link EntityRegistry} that builds {@link DefaultEntitySpec} objects from the a
  * {@link Snapshot} Record Template present on the classpath
@@ -52,9 +51,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   private final AspectTemplateEngine _aspectTemplateEngine;
   private final Map<String, AspectSpec> _aspectNameToSpec;
 
-
-  @Getter
-  @Nullable
+  @Getter @Nullable
   private BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider;
 
   private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
@@ -72,9 +69,10 @@ public class SnapshotEntityRegistry implements EntityRegistry {
 
   public SnapshotEntityRegistry(
       BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
-    entityNameToSpec = new EntitySpecBuilder().buildEntitySpecs(new Snapshot().schema())
-        .stream()
-        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entityNameToSpec =
+        new EntitySpecBuilder()
+            .buildEntitySpecs(new Snapshot().schema()).stream()
+                .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
