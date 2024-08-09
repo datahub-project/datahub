@@ -27,7 +27,6 @@ class CustomOperator(BaseOperator):
         context["ti"].task.inlets = inlets
         context["ti"].task.outlets = outlets
 
-
     @staticmethod
     def _get_sf_lineage(input_tables, output_tables):
         """
