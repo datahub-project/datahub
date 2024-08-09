@@ -76,7 +76,7 @@ export default function UpdateDescriptionModal({
                         disabled={updatedDesc === description}
                         data-testid="description-modal-update-button"
                     >
-                        Update
+                        Publish
                     </Button>
                 </>
             }

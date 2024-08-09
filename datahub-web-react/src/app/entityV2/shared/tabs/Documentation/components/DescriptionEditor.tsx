@@ -15,7 +15,10 @@ import { sanitizeRichText } from './editor/utils';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 import InferDocsPanel from '../../../components/inferredDocs/InferDocsPanel';
 import { getAssetDescriptionDetails } from '../utils';
-import { useIsDocumentationInferenceEnabled } from '../../../components/inferredDocs/utils';
+import {
+    useIsDocumentationInferenceEnabled,
+    useShouldShowInferDocumentationButton,
+} from '../../../components/inferredDocs/utils';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
@@ -47,6 +50,9 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
+
+    const shouldShowInferDocsAction = useShouldShowInferDocumentationButton(entityType);
+
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
@@ -219,15 +225,17 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
                     />
-                    <InferDocsPanelWrapper>
-                        <InferDocsPanel
-                            inferOnMount={inferOnMount}
-                            onInsertDescription={(desc) => {
-                                handleEditorChange(updatedDescription + desc);
-                                setEditorKey((v) => v + 1);
-                            }}
-                        />
-                    </InferDocsPanelWrapper>
+                    {shouldShowInferDocsAction && (
+                        <InferDocsPanelWrapper>
+                            <InferDocsPanel
+                                inferOnMount={inferOnMount}
+                                onInsertDescription={(desc) => {
+                                    handleEditorChange(updatedDescription + desc);
+                                    setEditorKey((v) => v + 1);
+                                }}
+                            />
+                        </InferDocsPanelWrapper>
+                    )}
                 </EditorContainer>
                 <SourceDescription />
             </EditorSourceWrapper>
