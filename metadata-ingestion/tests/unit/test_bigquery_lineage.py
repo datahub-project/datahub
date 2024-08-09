@@ -3,13 +3,13 @@ from typing import Dict, List, Set
 
 import pytest
 
-import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
     QueryEvent,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
 from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
     LineageEdge,
@@ -83,7 +83,7 @@ def test_lineage_with_timestamps(lineage_entries: List[QueryEvent]) -> None:
     config = BigQueryV2Config()
     report = BigQueryV2Report()
     extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
-        config, report, lambda x: builder.make_dataset_urn("bigquery", str(x))
+        config, report, BigQueryIdentifierBuilder(config, report)
     )
 
     bq_table = BigQueryTableRef.from_string_name(
@@ -108,7 +108,7 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
     config = BigQueryV2Config(extract_column_lineage=True, incremental_lineage=False)
     report = BigQueryV2Report()
     extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
-        config, report, lambda x: builder.make_dataset_urn("bigquery", str(x))
+        config, report, BigQueryIdentifierBuilder(config, report)
     )
 
     bq_table = BigQueryTableRef.from_string_name(

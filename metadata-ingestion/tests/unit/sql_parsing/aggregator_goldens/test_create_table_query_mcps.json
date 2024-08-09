@@ -1,0 +1,22 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,dev.dataset.foo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1707182625000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "CREATE",
+            "customProperties": {
+                "query_urn": "urn:li:query:f2e61c641cf14eae74147b6280ae40648516c4b7b58cfca6c4f7fb14ab255ce2"
+            },
+            "lastUpdatedTimestamp": 1707182625000
+        }
+    }
+}
+]

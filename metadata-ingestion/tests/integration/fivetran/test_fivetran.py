@@ -9,6 +9,7 @@ from freezegun import freeze_time
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryCredential
 from datahub.ingestion.source.fivetran.config import (
     BigQueryDestinationConfig,
     FivetranSourceConfig,
@@ -16,7 +17,6 @@ from datahub.ingestion.source.fivetran.config import (
 )
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
-from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
