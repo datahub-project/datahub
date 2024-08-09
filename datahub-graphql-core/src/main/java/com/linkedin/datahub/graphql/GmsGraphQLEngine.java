@@ -1196,7 +1196,7 @@ public class GmsGraphQLEngine {
               .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
               .dataFetcher("batchRemoveOwners", new BatchRemoveOwnersResolver(entityService))
               .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
-              .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
+              .dataFetcher("removeLink", new RemoveLinkResolver(entityService, this.entityClient))
               .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
               .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
               .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))

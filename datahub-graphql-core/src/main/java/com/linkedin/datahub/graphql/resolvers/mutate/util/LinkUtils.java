@@ -12,6 +12,7 @@ import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -106,7 +107,8 @@ public class LinkUtils {
     elementsArray.removeIf(link -> link.getUrl().toString().equals(linkUrl));
   }
 
-  public static boolean isAuthorizedToUpdateLinks(@Nonnull QueryContext context, Urn resourceUrn) {
+  public static boolean isAuthorizedToUpdateLinks(
+      @Nonnull QueryContext context, Urn resourceUrn, EntityClient _entityClient) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
@@ -115,11 +117,24 @@ public class LinkUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOC_LINKS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        resourceUrn.getEntityType(),
-        resourceUrn.toString(),
-        orPrivilegeGroups);
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            resourceUrn.getEntityType(),
+            resourceUrn.toString(),
+            orPrivilegeGroups)
+        || canUpdateGlossaryEntityLinks(context, resourceUrn, _entityClient);
+  }
+
+  private static boolean canUpdateGlossaryEntityLinks(
+      @Nonnull QueryContext context, Urn targetUrn, EntityClient _entityClient) {
+    final boolean isGlossaryEntity =
+        targetUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
+            || targetUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME);
+    if (!isGlossaryEntity) {
+      return false;
+    }
+    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
+    return GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
   }
 
   public static Boolean validateAddRemoveInput(
