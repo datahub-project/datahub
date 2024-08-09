@@ -1,7 +1,6 @@
 import json
 import logging
-import os
-import os.path
+import time
 import typing
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -15,7 +14,7 @@ from datahub.cli import config_utils
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
-from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -25,9 +24,6 @@ from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
 
-ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
-ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
-
 # TODO: Many of the methods in this file duplicate logic that already lives
 # in the DataHubGraph client. We should refactor this to use the client instead.
 # For the methods that aren't duplicates, that logic should be moved to the client.
@@ -35,14 +31,6 @@ ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
     return next((el for el in ls if el is not None and el.strip() != ""), None)
-
-
-def get_system_auth() -> Optional[str]:
-    system_client_id = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_ID)
-    system_client_secret = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_SECRET)
-    if system_client_id is not None and system_client_secret is not None:
-        return f"Basic {system_client_id}:{system_client_secret}"
-    return None
 
 
 def parse_run_restli_response(response: requests.Response) -> dict:
@@ -166,10 +154,11 @@ def post_entity(
     aspect_value: Dict,
     cached_session_host: Optional[Tuple[Session, str]] = None,
     is_async: Optional[str] = "false",
+    system_metadata: Union[None, SystemMetadataClass] = None,
 ) -> int:
     endpoint: str = "/aspects/?action=ingestProposal"
 
-    proposal = {
+    proposal: Dict[str, Any] = {
         "proposal": {
             "entityType": entity_type,
             "entityUrn": urn,
@@ -182,6 +171,12 @@ def post_entity(
         },
         "async": is_async,
     }
+
+    if system_metadata is not None:
+        proposal["proposal"]["systemMetadata"] = json.dumps(
+            pre_json_transform(system_metadata.to_obj())
+        )
+
     payload = json.dumps(proposal)
     url = gms_host + endpoint
     curl_command = make_curl_command(session, "POST", url, payload)
@@ -310,20 +305,16 @@ def make_shim_command(name: str, suggestion: str) -> click.Command:
     return command
 
 
-def get_session_login_as(
+def get_frontend_session_login_as(
     username: str, password: str, frontend_url: str
 ) -> requests.Session:
     session = requests.Session()
     headers = {
         "Content-Type": "application/json",
     }
-    system_auth = get_system_auth()
-    if system_auth is not None:
-        session.headers.update({"Authorization": system_auth})
-    else:
-        data = '{"username":"' + username + '", "password":"' + password + '"}'
-        response = session.post(f"{frontend_url}/logIn", headers=headers, data=data)
-        response.raise_for_status()
+    data = '{"username":"' + username + '", "password":"' + password + '"}'
+    response = session.post(f"{frontend_url}/logIn", headers=headers, data=data)
+    response.raise_for_status()
     return session
 
 
@@ -367,7 +358,7 @@ def generate_access_token(
     validity: str = "ONE_HOUR",
 ) -> Tuple[str, str]:
     frontend_url = guess_frontend_url_from_gms_url(gms_url)
-    session = get_session_login_as(
+    session = get_frontend_session_login_as(
         username=username,
         password=password,
         frontend_url=frontend_url,
@@ -413,6 +404,8 @@ def ensure_has_system_metadata(
     if event.systemMetadata is None:
         event.systemMetadata = SystemMetadataClass()
     metadata = event.systemMetadata
+    if metadata.lastObserved == 0:
+        metadata.lastObserved = int(time.time() * 1000)
     if metadata.properties is None:
         metadata.properties = {}
     props = metadata.properties

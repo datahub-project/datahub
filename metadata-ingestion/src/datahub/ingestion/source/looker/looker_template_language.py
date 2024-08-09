@@ -9,9 +9,7 @@ from datahub.ingestion.source.looker.looker_liquid_tag import (
     CustomTagException,
     create_template,
 )
-from datahub.ingestion.source.looker.str_functions import (
-    remove_extra_spaces_and_newlines,
-)
+from datahub.ingestion.source.looker.lookml_config import DERIVED_VIEW_PATTERN
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +92,28 @@ def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
     return text
 
 
+def _drop_derived_view_pattern(value: str) -> str:
+    # Drop ${ and }
+    return re.sub(DERIVED_VIEW_PATTERN, r"\1", value)
+
+
+def _complete_incomplete_sql(raw_view: dict, sql: str) -> str:
+
+    # Looker supports sql fragments that omit the SELECT and FROM parts of the query
+    # Add those in if we detect that it is missing
+    sql_query: str = sql
+
+    if not re.search(r"SELECT\s", sql_query, flags=re.I):
+        # add a SELECT clause at the beginning
+        sql_query = f"SELECT {sql}"
+
+    if not re.search(r"FROM\s", sql_query, flags=re.I):
+        # add a FROM clause at the end
+        sql_query = f"{sql_query} FROM {raw_view['name']}"
+
+    return _drop_derived_view_pattern(sql_query)
+
+
 def resolve_liquid_variable_in_view_dict(
     raw_view: dict, liquid_variable: Dict[Any, Any]
 ) -> None:
@@ -102,14 +122,22 @@ def resolve_liquid_variable_in_view_dict(
 
     for view in raw_view["views"]:
         if "sql_table_name" in view:
-            view["sql_table_name"] = resolve_liquid_variable(
-                text=remove_extra_spaces_and_newlines(view["sql_table_name"]),
+            view["datahub_transformed_sql_table_name"] = resolve_liquid_variable(
+                text=view["sql_table_name"],
                 liquid_variable=liquid_variable,
+            )  # keeping original sql_table_name as is to avoid any visualization issue later
+
+            view["datahub_transformed_sql_table_name"] = _drop_derived_view_pattern(
+                value=view["datahub_transformed_sql_table_name"]
             )
 
         if "derived_table" in view and "sql" in view["derived_table"]:
             # In sql we don't need to remove the extra spaces as sql parser takes care of extra spaces and \n
             # while generating URN from sql
-            view["derived_table"]["sql"] = resolve_liquid_variable(
+            view["derived_table"]["datahub_transformed_sql"] = resolve_liquid_variable(
                 text=view["derived_table"]["sql"], liquid_variable=liquid_variable
+            )  # keeping original sql as is, so that on UI sql will be shown same is it is visible on looker portal
+
+            view["derived_table"]["datahub_transformed_sql"] = _complete_incomplete_sql(
+                raw_view=view, sql=view["derived_table"]["datahub_transformed_sql"]
             )

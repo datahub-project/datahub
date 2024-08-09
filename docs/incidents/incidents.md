@@ -417,9 +417,9 @@ Authorization: Bearer <personal-access-token>
 Also, remember that you can play with an interactive version of the GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
 :::
 
-## Enabling Slack Notifications (Acryl Cloud Only)
+## Enabling Slack Notifications (DataHub Cloud Only)
 
-In Acryl Cloud, you can configure your to send Slack notifications to a specific channel when incidents are raised or their status is changed.
+In DataHub Cloud, you can configure your to send Slack notifications to a specific channel when incidents are raised or their status is changed.
 
 These notifications are also able to tag the immediate asset's owners, along with the owners of downstream assets consuming it.
 
