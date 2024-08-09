@@ -27,6 +27,7 @@ import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRolesStep;
 import com.linkedin.metadata.boot.steps.IngestRootUserStep;
 import com.linkedin.metadata.boot.steps.IngestStructuredPropertyExtensionsStep;
+import com.linkedin.metadata.boot.steps.IngestionMetadataTestResultsActionStep;
 import com.linkedin.metadata.boot.steps.MigrateAssertionsSummaryStep;
 import com.linkedin.metadata.boot.steps.MigrateFreshnessAssertionCronToSinceTheLastCheck;
 import com.linkedin.metadata.boot.steps.MigrateIncidentsSummaryStep;
@@ -36,9 +37,11 @@ import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.UpgradeDefaultBrowsePathsStep;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
+import com.linkedin.metadata.config.ForwardingActionConfiguration;
 import com.linkedin.metadata.config.structuredProperties.extensions.ModelExtensionValidationConfiguration;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
@@ -118,6 +121,8 @@ public class BootstrapManagerFactory {
   private BootstrapDependency _dataHubUpgradeKafkaListener;
 
   @Autowired private ConfigurationProvider _configurationProvider;
+
+  @Autowired private IntegrationsService integrationsService;
 
   @Value("${bootstrap.upgradeDefaultBrowsePaths.enabled}")
   private Boolean _upgradeDefaultBrowsePathsEnabled;
@@ -236,6 +241,14 @@ public class BootstrapManagerFactory {
       finalSteps.add(
           new IngestStructuredPropertyExtensionsStep(
               _entityService, mutator.getStructuredPropertyMappings()));
+    }
+
+    ForwardingActionConfiguration forwardingActionConfiguration =
+        _configurationProvider.getMetadataTests().getForwardingAction();
+    if (forwardingActionConfiguration.isEnabled()) {
+      finalSteps.add(
+          new IngestionMetadataTestResultsActionStep(
+              _entityService, integrationsService, forwardingActionConfiguration));
     }
 
     return new BootstrapManager(finalSteps);

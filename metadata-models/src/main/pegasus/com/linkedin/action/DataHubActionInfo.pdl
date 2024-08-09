@@ -57,4 +57,23 @@ record DataHubActionInfo {
     INACTIVE
   } = "ACTIVE"
 
+   /**
+    * The source or origin of the Action
+    *
+    * Currently CLI and UI do not provide an explicit source.
+    */
+    source: optional record DataHubActionSource {
+         /**
+          * The source type of the ingestion source
+          */
+          @Searchable = {
+            "fieldName": "sourceType"
+          }
+          type: enum DataHubActionRequestSource {
+             /**
+              * A system internal source, e.g. for running search indexing operations, feature computation, etc.
+              */
+             SYSTEM
+          }
+    }
 }

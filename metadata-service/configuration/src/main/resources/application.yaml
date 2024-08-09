@@ -334,6 +334,10 @@ metadataTests:
     enabled: ${METADATA_TESTS_BOOTSTRAP_ENABLED:false}
   elasticSearchExecutor:
     enabled: ${METADATA_TESTS_ELASTICSEARCH_EXECUTOR_ENABLED:true} # Will try to execute test queries through Elastic if query is supported by searchable fields
+  # SAAS Only
+  forwardingAction:
+    enabled: ${METADATA_TESTS_FORWARDING_ACTION_ENABLED:false} # Forwarding integration-service action to target instance for Metadata Test Results and Actions, enables bootstrapping of action request
+    recipe: ${METADATA_TESTS_FORWARDING_ACTION_RECIPE:} # JSON String representing the recipe config
 
 # Notifications config
 notifications:
