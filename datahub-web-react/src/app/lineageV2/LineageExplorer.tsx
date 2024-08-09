@@ -1,3 +1,4 @@
+import useShouldHideTransformations from '@app/lineageV2/useShouldHideTransformations';
 import React, { useContext, useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
@@ -32,6 +33,7 @@ export default function LineageExplorer(props: Props) {
     const [nodeVersion, setNodeVersion] = useState(0);
     const [dataVersion, setDataVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
+    const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
     const context = {
         rootUrn: urn,
         nodes,
@@ -43,6 +45,8 @@ export default function LineageExplorer(props: Props) {
         setDataVersion,
         displayVersion,
         setDisplayVersion,
+        hideTransformations,
+        setHideTransformations,
     };
 
     const loaded = useInitializeNodes(context, urn, type);

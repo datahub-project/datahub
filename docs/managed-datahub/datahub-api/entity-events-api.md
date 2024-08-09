@@ -880,9 +880,14 @@ This event is emitted when an Incident has been created or it's status changes.
 
 #### Parameters
 
-| Name         | Type   | Description                                       | Optional |
-|--------------| ------ |---------------------------------------------------| -------- |
-| entities     | String | The list of entities associated with the incident | False    |
+| Name        | Type   | Description                                       | Optional |
+|-------------| ------ |---------------------------------------------------|----------|
+| entities    | String | The list of entities associated with the incident | False    |
+| type        | String | The type of the incident                          | False    |
+| title       | String | The title of the incident                         | True     |
+| description | String | The description of the incident                   | True     |
+| stage       | String | The lifecycle stage for the incident              | True     |
+| message     | String | The message associated with the incident          | True     |
 
 #### Sample Event
 
@@ -894,6 +899,11 @@ This event is emitted when an Incident has been created or it's status changes.
   "operation": "ACTIVE",
   "parameters": {
     "entities": "[urn:li:dataset:abc, urn:li:dataset:abc2]",
+    "type": "FRESHNESS",
+    "title: "Freshness Assertion `Dataset was updated since the previous check` has failed",
+    "description": "Expected table to be updated since the previous check, but no updates were found.",
+    "stage": "WORK_IN_PROGRESS",
+    "message: "Remediation in progress, expected ETA is 2h",
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",

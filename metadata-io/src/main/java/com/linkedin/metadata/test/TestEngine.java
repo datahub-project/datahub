@@ -386,7 +386,7 @@ public class TestEngine {
     // Step 3 (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
       batchIngestResults(results, mode, partial, batchedTestRunResults, null, true);
-      batchApplyActions(opContext, results);
+      batchApplyActions(opContext, results, null);
     }
 
     return results;
@@ -785,15 +785,22 @@ public class TestEngine {
    */
   private void batchApplyActions(
       @Nonnull OperationContext opContext,
-      @Nonnull final Map<Urn, TestResults> entityUrnToResults) {
+      @Nonnull final Map<Urn, TestResults> entityUrnToResults,
+      @Nullable final TestDefinition testDefinition) {
     // First, aggregate by Action -> URNs, so we can batch the action execution
     // itself.
     Map<TestAction, Set<Urn>> actionToEntityUrns = new HashMap<>();
     for (Map.Entry<Urn, TestResults> entry : entityUrnToResults.entrySet()) {
       addActionsToEntityMap(
-          entry.getKey(), entry.getValue().getPassing(), actionToEntityUrns); // Passing Actions
+          entry.getKey(),
+          entry.getValue().getPassing(),
+          actionToEntityUrns,
+          testDefinition); // Passing Actions
       addActionsToEntityMap(
-          entry.getKey(), entry.getValue().getFailing(), actionToEntityUrns); // Failing Actions
+          entry.getKey(),
+          entry.getValue().getFailing(),
+          actionToEntityUrns,
+          testDefinition); // Failing Actions
     }
 
     // Apply the action for each batch.
@@ -810,12 +817,14 @@ public class TestEngine {
   private void addActionsToEntityMap(
       @Nonnull final Urn entityUrn,
       @Nonnull final List<TestResult> testResults,
-      @Nonnull final Map<TestAction, Set<Urn>> actionToEntityUrns) {
+      @Nonnull final Map<TestAction, Set<Urn>> actionToEntityUrns,
+      @Nullable final TestDefinition testDefinition) {
 
     cacheReadLock.lock();
     try {
       for (TestResult result : testResults) {
-        TestDefinition definition = _testCache.get(result.getTest());
+        TestDefinition definition =
+            testDefinition != null ? testDefinition : _testCache.get(result.getTest());
         if (definition == null) {
           log.warn("Test {} does not exist: Skipping", result.getTest());
           continue;
@@ -1110,7 +1119,7 @@ public class TestEngine {
           mode,
           results.keySet().size(),
           testUrn);
-      batchApplyActions(opContext, results);
+      batchApplyActions(opContext, results, testDefinition);
       log.info("Mode {}: Test {} evaluation done", mode, testUrn);
     }
     log.debug("Test {} has been evaluated. Results keys = {}", testUrn, results.keySet().size());

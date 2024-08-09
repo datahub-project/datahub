@@ -59,7 +59,7 @@ export default function VerificationCTA() {
             {nonOptimisticLoading || verificationDataLoading ? <LoadingOutlined /> : verifyReady}{' '}
             {pluralize(verifyReady, 'asset')}
             <br />
-            eligible for verification {'->'}
+            ready for verification {'->'}
         </StyledButton>
     );
 }

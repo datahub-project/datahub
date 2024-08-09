@@ -34,7 +34,7 @@ import { useUserContext } from './context/useUserContext';
 import DomainRoutesV2 from './domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
 import { GovernDashboard } from './govern/Dashboard/Dashboard';
-import NewForm from './govern/Dashboard/Forms/NewForm';
+import CreateForm from './govern/Dashboard/Forms/CreateForm';
 import { LoadingPermissions } from './govern/Dashboard/charts/AuxViews';
 import { TaskCenter } from './taskCenter/TaskCenter';
 import { useIsThemeV2 } from './useIsThemeV2';
@@ -136,9 +136,9 @@ export const SearchRoutes = (): JSX.Element => {
                     <>
                         <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
 
-                        <Route path={PageRoutes.NEW_FORM} render={() => <NewForm mode="create" />} />
+                        <Route path={PageRoutes.NEW_FORM} render={() => <CreateForm mode="create" />} />
 
-                        <Route path={PageRoutes.EDIT_FORM} render={() => <NewForm mode="edit" />} />
+                        <Route path={PageRoutes.EDIT_FORM} render={() => <CreateForm mode="edit" />} />
                     </>
                 )}
                 <Route component={NoPageFound} />

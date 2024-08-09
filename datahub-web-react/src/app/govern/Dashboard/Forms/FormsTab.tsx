@@ -1,15 +1,16 @@
-import React, { useEffect } from 'react';
-import { Skeleton } from 'antd';
-import styled from 'styled-components';
-import { useHistory } from 'react-router';
 import { NetworkStatus } from '@apollo/client';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { EntityType } from '../../../../types.generated';
-import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
-import { HorizontalListSkeletons } from '../../../homeV2/content/HorizontalListSkeletons';
-import FormCard from './FormCard';
-import { StyledButton } from '../../../shared/share/v2/styledComponents';
+import { Skeleton } from 'antd';
+import React, { useEffect } from 'react';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
 import { PageRoutes } from '../../../../conf/Global';
+import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
+import { EntityType } from '../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
+import { HorizontalListSkeletons } from '../../../homeV2/content/HorizontalListSkeletons';
+import { StyledButton } from '../../../shared/share/v2/styledComponents';
+import FormCard from './FormCard';
+import { ManageFormContextProvider } from './ManageFormContextProvider';
 
 const Container = styled.div`
     display: flex;
@@ -87,33 +88,35 @@ const FormsTab = () => {
     }, [refetch]);
 
     return (
-        <Container>
-            <FormsSection>
-                <SectionHeader>
-                    <HeaderText>All Forms</HeaderText>
-                    <StyledButton
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
-                        $type="filled"
-                        onClick={() => history.push(PageRoutes.NEW_FORM)}
-                    >
-                        Create Form
-                    </StyledButton>
-                </SectionHeader>
-                {isLoading ? (
-                    <SkeletonContainer>
-                        <HorizontalListSkeletons Component={SkeletonCard} showHeader={false} count={4} />
-                        <HorizontalListSkeletons Component={SkeletonCard} showHeader={false} count={4} />
-                    </SkeletonContainer>
-                ) : (
-                    <FormsList>
-                        {formsData.map((form) => {
-                            const formEntity = form.entity as any;
-                            return <FormCard formData={formEntity} />;
-                        })}
-                    </FormsList>
-                )}
-            </FormsSection>
-        </Container>
+        <ManageFormContextProvider>
+            <Container>
+                <FormsSection>
+                    <SectionHeader>
+                        <HeaderText>All Forms</HeaderText>
+                        <StyledButton
+                            $color={REDESIGN_COLORS.TITLE_PURPLE}
+                            $type="filled"
+                            onClick={() => history.push(PageRoutes.NEW_FORM)}
+                        >
+                            Create Form
+                        </StyledButton>
+                    </SectionHeader>
+                    {isLoading ? (
+                        <SkeletonContainer>
+                            <HorizontalListSkeletons Component={SkeletonCard} showHeader={false} count={4} />
+                            <HorizontalListSkeletons Component={SkeletonCard} showHeader={false} count={4} />
+                        </SkeletonContainer>
+                    ) : (
+                        <FormsList>
+                            {formsData.map((form) => {
+                                const formEntity = form.entity as any;
+                                return <FormCard formData={formEntity} />;
+                            })}
+                        </FormsList>
+                    )}
+                </FormsSection>
+            </Container>
+        </ManageFormContextProvider>
     );
 };
 

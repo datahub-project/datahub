@@ -1,4 +1,4 @@
-import { Typography, message, Button } from 'antd';
+import { Typography, message, Button, Skeleton } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -135,6 +135,7 @@ type Props = {
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
     onPropose?: (description: string) => void;
+    onInferDescription?: () => Promise<void>;
     isEdited?: boolean;
     isReadOnly?: boolean;
     isPropagated?: boolean;
@@ -152,6 +153,7 @@ export default function DescriptionField({
     fieldPath,
     onUpdate,
     onPropose,
+    onInferDescription,
     isEdited = false,
     original,
     isReadOnly,
@@ -162,6 +164,8 @@ export default function DescriptionField({
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
     const [inferWhenAddModalMounts, setInferWhenAddModalMounts] = useState(false);
+    const [isInlineInferring, setIsInlineInferring] = useState(false);
+
     const overLimit = removeMarkdown(description).length > 40;
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const onCloseModal = () => {
@@ -299,13 +303,21 @@ export default function DescriptionField({
                 <InferDescriptionButton
                     type="text"
                     onClick={(e) => {
-                        setInferWhenAddModalMounts(true);
-                        setShowAddModal(true);
+                        if (onInferDescription) {
+                            setIsInlineInferring(true);
+                            onInferDescription().finally(() => setIsInlineInferring(false));
+                        } else {
+                            setInferWhenAddModalMounts(true);
+                            setShowAddModal(true);
+                        }
                         e.stopPropagation();
                     }}
                 >
-                    <AiSparkle />
-                    Generate with AI
+                    {isInlineInferring ? (
+                        <Skeleton active title={false} paragraph={{ rows: 1 }} style={{ width: 200 }} />
+                    ) : (
+                        [<AiSparkle />, 'Generate with AI']
+                    )}
                 </InferDescriptionButton>
             )}
         </DescriptionContainer>

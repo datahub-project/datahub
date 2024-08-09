@@ -160,6 +160,7 @@ def _evaluate_assertion(
     result = engine.evaluate(assertion, parameters, context)
 
     # convert assertion and evaluation result to run event
+    # TODO it seems 'raw_info_aspect' is None (at least when triggered via API)
     run_event = build_assertion_run_event(assertion, result)
 
     # convert run_event to a pydantic schema for API return data

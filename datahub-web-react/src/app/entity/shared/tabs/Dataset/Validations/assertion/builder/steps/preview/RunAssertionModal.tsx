@@ -32,6 +32,8 @@ export const RunAssertionModal = ({ urn, visible, handleClose }: Props) => {
         runAssertionMutation({
             variables: {
                 urn,
+                async: true,
+                saveResult: true,
             },
         });
     };

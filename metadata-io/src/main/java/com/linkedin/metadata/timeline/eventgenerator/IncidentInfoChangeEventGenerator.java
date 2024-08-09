@@ -87,6 +87,20 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
   private static Map<String, Object> buildParameters(@Nonnull final IncidentInfo incidentInfo) {
     final Map<String, Object> parameters = new HashMap<>();
     parameters.put(Constants.ENTITY_REF, incidentInfo.getEntities().toString());
+    parameters.put(Constants.INCIDENT_TYPE, incidentInfo.getType().toString());
+    if (incidentInfo.hasTitle()) {
+      parameters.put(Constants.INCIDENT_TITLE, incidentInfo.getTitle());
+    }
+    if (incidentInfo.hasDescription()) {
+      parameters.put(Constants.INCIDENT_DESCRIPTION, incidentInfo.getDescription());
+    }
+    if (incidentInfo.getStatus().hasStage()) {
+      parameters.put(
+          Constants.INCIDENT_STATUS_STAGE, incidentInfo.getStatus().getStage().toString());
+    }
+    if (incidentInfo.getStatus().hasMessage()) {
+      parameters.put(Constants.INCIDENT_STATUS_MESSAGE, incidentInfo.getStatus().getMessage());
+    }
     return ImmutableSortedMap.copyOf(parameters);
   }
 }

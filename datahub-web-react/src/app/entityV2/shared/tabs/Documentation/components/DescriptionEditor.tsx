@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import styled from 'styled-components/macro';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
@@ -15,7 +15,10 @@ import { sanitizeRichText } from './editor/utils';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 import InferDocsPanel from '../../../components/inferredDocs/InferDocsPanel';
 import { getAssetDescriptionDetails } from '../utils';
-import { useIsDocumentationInferenceEnabled } from '../../../components/inferredDocs/utils';
+import {
+    useIsDocumentationInferenceEnabled,
+    useShouldShowInferDocumentationButton,
+} from '../../../components/inferredDocs/utils';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
@@ -47,22 +50,26 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
+
+    const shouldShowInferDocsAction = useShouldShowInferDocumentationButton(entityType);
+
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
 
-    const { displayedDescription, isUsingDocumentationAspect } = getAssetDescriptionDetails({
-        entityProperties: entityData,
-        enableInferredDescriptions: useIsDocumentationInferenceEnabled(),
-        defaultDescription: '',
-    });
+    const { displayedDescription, isUsingDocumentationAspect: isUsingDocumentationAspectRaw } =
+        getAssetDescriptionDetails({
+            entityProperties: entityData,
+            enableInferredDescriptions: useIsDocumentationInferenceEnabled(),
+            defaultDescription: '',
+        });
 
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
-    const description = editedDescriptions.hasOwnProperty(mutationUrn)
-        ? editedDescriptions[mutationUrn]
-        : displayedDescription;
+    const shouldUseEditedDescription = editedDescriptions.hasOwnProperty(mutationUrn);
+    const description = shouldUseEditedDescription ? editedDescriptions[mutationUrn] : displayedDescription;
+    const isUsingDocumentationAspect = !shouldUseEditedDescription && isUsingDocumentationAspectRaw;
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
     // Key to force re-render of the editor when the description is updated from server data. Only needed for full page refreshes mid edit
@@ -92,10 +99,14 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
      * If the documentation editor is refreshed mid edit, then this component will load without a description. if that description
      * comes in on the next frame, we need to update updatedDescription
      */
+    const hasInitializedDescriptionRef = useRef(!updatedDescription);
     useEffect(() => {
-        if (description && !updatedDescription) {
+        if (description && !updatedDescription && !hasInitializedDescriptionRef.current) {
             setUpdatedDescription(description);
             setEditorKey((prevKey) => prevKey + 1);
+            hasInitializedDescriptionRef.current = true;
+        } else if (updatedDescription) {
+            hasInitializedDescriptionRef.current = true;
         }
     }, [description, updatedDescription]);
 
@@ -214,15 +225,17 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
                     />
-                    <InferDocsPanelWrapper>
-                        <InferDocsPanel
-                            inferOnMount={inferOnMount}
-                            onInsertDescription={(desc) => {
-                                handleEditorChange(updatedDescription + desc);
-                                setEditorKey((v) => v + 1);
-                            }}
-                        />
-                    </InferDocsPanelWrapper>
+                    {shouldShowInferDocsAction && (
+                        <InferDocsPanelWrapper>
+                            <InferDocsPanel
+                                inferOnMount={inferOnMount}
+                                onInsertDescription={(desc) => {
+                                    handleEditorChange(updatedDescription + desc);
+                                    setEditorKey((v) => v + 1);
+                                }}
+                            />
+                        </InferDocsPanelWrapper>
+                    )}
                 </EditorContainer>
                 <SourceDescription />
             </EditorSourceWrapper>

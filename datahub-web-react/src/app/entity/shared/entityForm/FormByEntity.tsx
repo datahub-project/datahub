@@ -34,6 +34,7 @@ const FlexWrapper = styled.div`
     max-height: 100%;
     overflow: auto;
     width: 100%;
+    flex: 1;
 `;
 
 interface Props {
@@ -79,8 +80,8 @@ export default function FormByEntity({ formUrn }: Props) {
                     <Form formUrn={formUrn} />
                     {selectedEntityData && (
                         <ProfileSidebar
-                            sidebarSections={sections}
-                            topSection={{ component: () => <EntityInfo formUrn={formUrn} /> }}
+                            sidebarSections={loading ? [] : sections}
+                            topSection={{ component: () => <EntityInfo formUrn={formUrn} loading={loading} /> }}
                             backgroundColor="white"
                         />
                     )}

@@ -26,15 +26,18 @@ export function useGetLineageTimeParams() {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const startTimeMillisString = params[START_TIME_MILLIS_URL_PARAM] as string;
     const endTimeMillisString = params[END_TIME_MILLIS_URL_PARAM] as string;
-    const showAllTimeLineage = params[SHOW_ALL_TIME_LINEAGE_URL_PARAM] as string;
+    const showAllTimeLineage = (params[SHOW_ALL_TIME_LINEAGE_URL_PARAM] as string) === 'true';
 
     let startTimeMillis: number | undefined = startTimeMillisString ? parseInt(startTimeMillisString, 10) : undefined;
     const endTimeMillis: number | undefined = endTimeMillisString ? parseInt(endTimeMillisString, 10) : undefined;
 
     // if show all time or start/end times are not explicitly set, use defaults from instance configuration
-    if (showAllTimeLineage !== 'true' && !startTimeMillis && !endTimeMillis && startTimeMillisDefault) {
+    if (!showAllTimeLineage && !startTimeMillis && !endTimeMillis && startTimeMillisDefault) {
         startTimeMillis = startTimeMillisDefault;
     }
 
-    return { startTimeMillis, endTimeMillis };
+    const isDefault = showAllTimeLineage
+        ? !startTimeMillisDefault
+        : (startTimeMillis ?? null) === (startTimeMillisDefault ?? null) && !endTimeMillis;
+    return { startTimeMillis, endTimeMillis, isDefault };
 }

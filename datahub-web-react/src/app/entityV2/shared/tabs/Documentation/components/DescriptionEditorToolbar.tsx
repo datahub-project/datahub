@@ -9,7 +9,7 @@ const StyledTabToolbar = styled(TabToolbar)`
 `;
 
 const SaveButton = styled(Button)`
-    background-color: ${REDESIGN_COLORS.DARK_PURPLE};
+    background-color: #5c3fd1;
     color: ${ANTD_GRAY[1]};
     box-shadow: none;
     border-color: ${REDESIGN_COLORS.DARK_PURPLE};
@@ -20,7 +20,7 @@ const SaveButton = styled(Button)`
         transition: 0.15s;
         opacity: 0.9;
         border-color: ${REDESIGN_COLORS.DARK_PURPLE};
-        background-color: ${REDESIGN_COLORS.DARK_PURPLE};
+        background-color: ${REDESIGN_COLORS.HOVER_PURPLE};
         color: ${ANTD_GRAY[1]};
     }
 `;
@@ -66,7 +66,7 @@ export const DescriptionEditorToolbar = ({
                 </StyledButton>
             )}
             <SaveButton data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
-                Save
+                Publish
             </SaveButton>
         </StyledTabToolbar>
     );

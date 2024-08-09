@@ -1,4 +1,4 @@
-import { CloseOutlined, EditOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -10,60 +10,64 @@ import { REDESIGN_COLORS } from '../../shared/constants';
 import useDeleteEntity from '../../shared/EntityDropdown/useDeleteEntity';
 
 const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${REDESIGN_COLORS.RED_ERROR};
     font-size: 12px;
     box-shadow: none;
     border: none;
-    padding: 0px 10px;
-    position: absolute;
-    top: 0px;
-    right: 40px;
     display: none;
+    padding: unset;
+    align-items: center;
+    &&& span {
+        font-size: 12px;
+    }
 
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${REDESIGN_COLORS.RED_ERROR};
     }
+`;
+
+const ActionItemWrapper = styled.div`
+    position: absolute;
+    top: 0px;
+    right: 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-right: 8px;
 `;
 
 const ResultWrapper = styled.div`
-    background-color: white;
-    border-radius: 8px;
-    max-width: 1200px;
-    margin: 0 auto 8px auto;
-    padding: 8px 16px;
+    padding: 20px;
     display: flex;
-    width: 100%;
-    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid #ebecf0;
+    background: ${REDESIGN_COLORS.WHITE};
+    border-radius: 10px;
 
     &:hover ${TransparentButton} {
-        display: inline-block;
+        display: flex;
     }
 `;
 
-const StyledButton = styled(Button)`
-    border: none;
+const ButtonsWrapper = styled(Button)`
+    font-size: 14px;
     box-shadow: none;
-    outline: none;
-    height: 18px;
-    width: 18px;
-    padding: 0;
-
-    svg {
-        height: 14px;
-        width: 14px;
-    }
-`;
-
-const ButtonsWrapper = styled.div`
-    margin-left: 16px;
+    border: none;
     display: flex;
-    position: relative;
+    align-items: center;
+    padding: unset;
+    &&& span {
+        font-size: 14px;
+    }
+    &:hover {
+        color: unset;
+    }
 `;
 
 const PreviewWrapper = styled.div`
-    max-width: 94%;
     position: relative;
     flex: 1;
 `;
@@ -89,13 +93,15 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
             <ResultWrapper>
                 <PreviewWrapper>
                     {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.PREVIEW, dataProduct)}
-                    <TransparentButton onClick={onDeleteEntity}>
-                        <CloseOutlined size={5} /> Remove DataProduct
-                    </TransparentButton>
+                    <ActionItemWrapper>
+                        <TransparentButton onClick={onDeleteEntity}>
+                            <DeleteOutlined size={5} /> Delete Data Product
+                        </TransparentButton>
+                        <ButtonsWrapper onClick={() => setIsEditModalVisible(true)}>
+                            <EditOutlined size={5} />
+                        </ButtonsWrapper>
+                    </ActionItemWrapper>
                 </PreviewWrapper>
-                <ButtonsWrapper>
-                    <StyledButton icon={<EditOutlined />} onClick={() => setIsEditModalVisible(true)} />
-                </ButtonsWrapper>
             </ResultWrapper>
             {isEditModalVisible && (
                 <EditDataProductModal

@@ -86,6 +86,7 @@ export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
 }
 
 // TODO: Replace with value from search-across-lineage, once it's available
+// Must be kept in sync with useSearchAcrossLineage
 export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
@@ -130,7 +131,7 @@ export function createFineGrainedOperationRef(
     return createColumnRef(queryUrn, hashString([upstreamsUrn, downstreamsUrn].join('::')).toString());
 }
 
-interface AuditStamp {
+export interface LineageAuditStamp {
     timestamp: number;
     actor?: Entity;
 }
@@ -138,8 +139,8 @@ interface AuditStamp {
 export interface LineageEdge {
     isDisplayed: boolean;
     isManual: boolean;
-    created?: AuditStamp;
-    updated?: AuditStamp;
+    created?: LineageAuditStamp;
+    updated?: LineageAuditStamp;
     via?: Urn;
 }
 
@@ -181,6 +182,8 @@ export interface NodeContext {
     setDataVersion: Dispatch<SetStateAction<number>>;
     displayVersion: [number, Urn[]];
     setDisplayVersion: Dispatch<SetStateAction<[number, Urn[]]>>;
+    hideTransformations: boolean;
+    setHideTransformations: (hide: boolean) => void;
 }
 
 export const LineageNodesContext = React.createContext<NodeContext>({
@@ -197,6 +200,8 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setDataVersion: () => {},
     displayVersion: [0, []],
     setDisplayVersion: () => {},
+    hideTransformations: false,
+    setHideTransformations: () => {},
 });
 
 export function getParents(node: LineageNode, adjacencyList: NodeContext['adjacencyList']): string[] {

@@ -519,6 +519,11 @@ public class Constants {
 
   // Incidents
   public static final String ENTITY_REF = "entities";
+  public static final String INCIDENT_TYPE = "type";
+  public static final String INCIDENT_TITLE = "title";
+  public static final String INCIDENT_DESCRIPTION = "description";
+  public static final String INCIDENT_STATUS_STAGE = "stage";
+  public static final String INCIDENT_STATUS_MESSAGE = "message";
 
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 

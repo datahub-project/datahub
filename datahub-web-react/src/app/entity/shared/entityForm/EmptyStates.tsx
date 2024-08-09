@@ -67,6 +67,54 @@ const ByQuestionContinueToNextQuestion = () => {
     );
 };
 
+const ByQuestionContinueToVerification = () => {
+    const {
+        form: { setFormView },
+    } = useEntityFormContext();
+
+    return (
+        <Flex>
+            <h4>
+                <SmileTwoTone twoToneColor="#11ADA0" />
+                {`Nice! You've set a response for everything on the final question.`}
+            </h4>
+            <p>Continue on to verify assets that are ready.</p>
+            <Button type="primary" onClick={() => setFormView(FormView.BULK_VERIFY)}>
+                <ArrowRightOutlined /> Continue to verification
+            </Button>
+        </Flex>
+    );
+};
+
+const ByQuestionGoToPreviousQueston = () => {
+    const {
+        prompt: { prompts, promptIndex, setSelectedPromptId },
+    } = useEntityFormContext();
+
+    function navigateLeft() {
+        if (prompts) {
+            if (promptIndex === 0) {
+                setSelectedPromptId(prompts?.[(prompts?.length || 0) - 1].id);
+            } else {
+                setSelectedPromptId(prompts?.[promptIndex - 1].id);
+            }
+        }
+    }
+
+    return (
+        <Flex>
+            <h4>
+                <SmileTwoTone twoToneColor="#11ADA0" />
+                {`Nice! You've set a response for everything on the final question.`}
+            </h4>
+            <p>{`Let's go back to finish any remaining questions!`}</p>
+            <Button type="primary" onClick={navigateLeft}>
+                <ArrowLeftOutlined /> Go to previous question
+            </Button>
+        </Flex>
+    );
+};
+
 // NOT VERIFICATION FORM: All assets have response for all prompts
 const ByQuestionCompleted = ({ closeModal }: Omit<Props, 'handleViewRemaining'>) => (
     <Flex>
@@ -81,7 +129,7 @@ const ByQuestionCompleted = ({ closeModal }: Omit<Props, 'handleViewRemaining'>)
     </Flex>
 );
 
-// VERIFICATION FORM: All eligible assets are verified, but some assets need to be completed
+// VERIFICATION FORM: All ready assets are verified, but some assets need to be completed
 const BulkVerifyFinishRemainingAssets = ({ handleViewRemaining }: { handleViewRemaining?: (e: any) => void }) => {
     const {
         counts: {
@@ -95,7 +143,7 @@ const BulkVerifyFinishRemainingAssets = ({ handleViewRemaining }: { handleViewRe
             <p>{`Let's keep going! There are ${verifyReady} ${pluralize(
                 verifyReady,
                 'asset',
-            )} still eligible for verification.`}</p>
+            )} still ready for verification.`}</p>
             <Button type="primary" onClick={handleViewRemaining}>
                 <ArrowRightOutlined /> View Remaining {verifyReady} {pluralize(verifyReady, 'Asset')}
             </Button>
@@ -108,7 +156,7 @@ const BulkVerifyReturnToQuestions = ({ returnToQuestions }: { returnToQuestions:
     <Flex>
         <h4>
             <SmileTwoTone twoToneColor="#11ADA0" />
-            {`Hooray! You've verified all of the assets that were eligible.`}
+            {`Hooray! You've verified all of the assets that were ready.`}
         </h4>
         <p>{`Let's return to questions and add a response for any remaining assets!`}</p>
         <Button type="primary" onClick={returnToQuestions}>
@@ -162,6 +210,8 @@ export const EmptyStates = ({ handleViewRemaining, closeModal }: Props) => {
         return <ByQuestionCompleted closeModal={closeModal} />;
     if (byQuestion.showFinishRemainingAssets)
         return <ByQuestionFinishRemainingAssets handleViewRemaining={handleViewRemaining} />;
+    if (byQuestion.showContinueToVerification) return <ByQuestionContinueToVerification />;
+    if (byQuestion.showGoToPreviousQuestion) return <ByQuestionGoToPreviousQueston />;
     if (byQuestion.showContinueToNextQuestion) return <ByQuestionContinueToNextQuestion />;
 
     /*

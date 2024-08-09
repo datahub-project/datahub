@@ -32,6 +32,7 @@ This is over and above updating-datahub.md file
 
 ### Other Notable Changes
 * Metadata test results should now not appear in entity pages for tests that have been soft deleted.
+* Incident related entity change events now include the type, title, description, stage & message of the incident
 
 ### Environment Variables
 

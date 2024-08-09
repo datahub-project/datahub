@@ -4,17 +4,19 @@ import { Sparkle } from 'phosphor-react';
 
 const GradientAnimation = keyframes`
     0% {
-        opacity: 0.3;
-        background-position: 0% 50%;
+        opacity: 0.4;
+        transform: rotate(0deg);
+        // background-position: 0% 50%;
     }
     50% {
-        opacity: 0.6;
-        background-position: 100% 50%;
-        background-rotation: 45deg;
+        transform: rotate(180deg);
+        opacity: 0.5;
+        // background-position: 100% 50%;
     }
     100% {
-        opacity: 0.3;
-        background-position: 0% 50%;
+        transform: rotate(360deg);
+        opacity: 0.4;
+        // background-position: 0% 50%;
     }
 `;
 
@@ -28,14 +30,16 @@ const GenerateButton = styled.button`
     overflow: hidden;
     cursor: pointer;
     border: 0;
-    box-shadow: none;
+    box-shadow: 0px 0px 8px #3628ff1a;
     font-size: 12px;
     &:hover,
     &:focus {
         box-shadow: none;
         border: 0;
         background-color: #f9f3fd;
+        box-shadow: 0px 0px 16px #2897ff44;
     }
+    transition: box-shadow ease 1s;
     span,
     path,
     line {
@@ -58,18 +62,27 @@ const ButtonBackground = styled.div`
     left: 0;
     height: 100%;
     width: 100%;
-    background: linear-gradient(-45deg, #7839ff, #99dbfd, #4e02f0, #99dbfd);
-    animation: ${GradientAnimation} 10s ease infinite;
-    background-size: 400%;
     z-index: 0;
     padding: 1.5px;
+    ::before {
+        content: '';
+        position: absolute;
+        width: 200%;
+        height: 300px;
+        top: -75px;
+        left: -50%;
+        z-index: -1;
+        background: linear-gradient(-45deg, #7839ff, #ede4ff, #28b6ff, #99dbfd, #4e02f0, #a781f7, #3628ff, #7839ff);
+        animation: ${GradientAnimation} 10s ease infinite;
+        background-size: 100%;
+    }
 `;
 
 const ButtonBackgroundInner = styled.div`
     height: 100%;
     width: 100%;
     background-color: #f1f3fd;
-    opacity: 0.9;
+    opacity: 0.92;
     z-index: 1;
     border-radius: 6px;
 `;

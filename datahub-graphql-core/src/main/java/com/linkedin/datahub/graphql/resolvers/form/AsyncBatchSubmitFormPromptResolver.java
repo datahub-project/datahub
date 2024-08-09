@@ -29,6 +29,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.MetadataTestClient;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
+import com.linkedin.test.TestInterval;
+import com.linkedin.test.TestSchedule;
 import com.linkedin.test.TestSource;
 import com.linkedin.test.TestSourceType;
 import graphql.schema.DataFetcher;
@@ -82,6 +84,9 @@ public class AsyncBatchSubmitFormPromptResolver
     Urn formUrn = UrnUtils.getUrn(input.getInput().getFormUrn());
     testSource.setSourceEntity(formUrn);
     testInfo.setSource(testSource);
+    TestSchedule testSchedule = new TestSchedule();
+    testSchedule.setInterval(TestInterval.NONE);
+    testInfo.setSchedule(testSchedule);
     com.linkedin.test.TestDefinition definition = new com.linkedin.test.TestDefinition();
     definition.setType(TestDefinitionType.JSON);
     definition.setJson(buildJsonTestDefinition(context, input, searchableFieldsToPathSpecs));
