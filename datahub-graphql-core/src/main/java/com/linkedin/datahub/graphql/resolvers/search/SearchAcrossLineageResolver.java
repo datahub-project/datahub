@@ -111,7 +111,8 @@ public class SearchAcrossLineageResolver
     @Nullable
     Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
-    Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+    Long endTimeMillis =
+        ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
 
     final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
     if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
@@ -138,7 +139,10 @@ public class SearchAcrossLineageResolver
                 count);
 
             final Filter filter =
-                ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+                ResolverUtils.buildFilter(
+                    input.getFilters(),
+                    input.getOrFilters(),
+                    context.getOperationContext().getAspectRetriever());
             final SearchFlags searchFlags;
             com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
             if (inputFlags != null) {

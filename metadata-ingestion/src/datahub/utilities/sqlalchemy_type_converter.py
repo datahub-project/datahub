@@ -1,9 +1,12 @@
 import json
 import logging
+import traceback
 import uuid
 from typing import Any, Dict, List, Optional, Type, Union
 
 from sqlalchemy import types
+from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.sql.visitors import Visitable
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -46,7 +49,6 @@ class SqlAlchemyColumnToAvroConverter:
         cls, column_type: Union[types.TypeEngine, STRUCT, MapType], nullable: bool
     ) -> Dict[str, Any]:
         """Determines the concrete AVRO schema type for a SQLalchemy-typed column"""
-
         if isinstance(
             column_type, tuple(cls.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys())
         ):
@@ -80,21 +82,38 @@ class SqlAlchemyColumnToAvroConverter:
             }
         if isinstance(column_type, types.ARRAY):
             array_type = column_type.item_type
+
             return {
                 "type": "array",
                 "items": cls.get_avro_type(column_type=array_type, nullable=nullable),
                 "native_data_type": f"array<{str(column_type.item_type)}>",
             }
         if isinstance(column_type, MapType):
-            key_type = column_type.types[0]
-            value_type = column_type.types[1]
-            return {
-                "type": "map",
-                "values": cls.get_avro_type(column_type=value_type, nullable=nullable),
-                "native_data_type": str(column_type),
-                "key_type": cls.get_avro_type(column_type=key_type, nullable=nullable),
-                "key_native_data_type": str(key_type),
-            }
+            try:
+                key_type = column_type.types[0]
+                value_type = column_type.types[1]
+                return {
+                    "type": "map",
+                    "values": cls.get_avro_type(
+                        column_type=value_type, nullable=nullable
+                    ),
+                    "native_data_type": str(column_type),
+                    "key_type": cls.get_avro_type(
+                        column_type=key_type, nullable=nullable
+                    ),
+                    "key_native_data_type": str(key_type),
+                }
+            except Exception as e:
+                logger.warning(
+                    f"Unable to parse MapType {column_type} the error was: {e}"
+                )
+                return {
+                    "type": "map",
+                    "values": {"type": "null", "_nullable": True},
+                    "native_data_type": str(column_type),
+                    "key_type": {"type": "null", "_nullable": True},
+                    "key_native_data_type": "null",
+                }
         if STRUCT and isinstance(column_type, STRUCT):
             fields = []
             for field_def in column_type._STRUCT_fields:
@@ -108,14 +127,23 @@ class SqlAlchemyColumnToAvroConverter:
                     }
                 )
             struct_name = f"__struct_{str(uuid.uuid4()).replace('-', '')}"
-
-            return {
-                "type": "record",
-                "name": struct_name,
-                "fields": fields,
-                "native_data_type": str(column_type),
-                "_nullable": nullable,
-            }
+            try:
+                return {
+                    "type": "record",
+                    "name": struct_name,
+                    "fields": fields,
+                    "native_data_type": str(column_type),
+                    "_nullable": nullable,
+                }
+            except Exception:
+                # This is a workaround for the case when the struct name is not string convertable because SqlAlchemt throws an error
+                return {
+                    "type": "record",
+                    "name": struct_name,
+                    "fields": fields,
+                    "native_data_type": "map",
+                    "_nullable": nullable,
+                }
 
         return {
             "type": "null",
@@ -150,9 +178,11 @@ class SqlAlchemyColumnToAvroConverter:
 def get_schema_fields_for_sqlalchemy_column(
     column_name: str,
     column_type: types.TypeEngine,
+    inspector: Inspector,
     description: Optional[str] = None,
     nullable: Optional[bool] = True,
     is_part_of_key: Optional[bool] = False,
+    is_partitioning_key: Optional[bool] = False,
 ) -> List[SchemaField]:
     """Creates SchemaFields from a given SQLalchemy column.
 
@@ -181,7 +211,7 @@ def get_schema_fields_for_sqlalchemy_column(
         )
     except Exception as e:
         logger.warning(
-            f"Unable to parse column {column_name} and type {column_type} the error was: {e}"
+            f"Unable to parse column {column_name} and type {column_type} the error was: {e} Traceback: {traceback.format_exc()}"
         )
 
         # fallback description in case any exception occurred
@@ -189,7 +219,10 @@ def get_schema_fields_for_sqlalchemy_column(
             SchemaField(
                 fieldPath=column_name,
                 type=SchemaFieldDataTypeClass(type=NullTypeClass()),
-                nativeDataType=str(column_type),
+                nativeDataType=get_native_data_type_for_sqlalchemy_type(
+                    column_type,
+                    inspector,
+                ),
             )
         ]
 
@@ -208,4 +241,30 @@ def get_schema_fields_for_sqlalchemy_column(
         is_part_of_key if is_part_of_key is not None else False
     )
 
+    schema_fields[0].isPartitioningKey = (
+        is_partitioning_key if is_partitioning_key is not None else False
+    )
+
     return schema_fields
+
+
+def get_native_data_type_for_sqlalchemy_type(
+    column_type: types.TypeEngine, inspector: Inspector
+) -> str:
+    if isinstance(column_type, types.NullType):
+        return column_type.__visit_name__
+
+    try:
+        return column_type.compile(dialect=inspector.dialect)
+    except Exception as e:
+        logger.debug(
+            f"Unable to compile sqlalchemy type {column_type} the error was: {e}"
+        )
+
+        if (
+            isinstance(column_type, Visitable)
+            and column_type.__visit_name__ is not None
+        ):
+            return column_type.__visit_name__
+
+        return repr(column_type)

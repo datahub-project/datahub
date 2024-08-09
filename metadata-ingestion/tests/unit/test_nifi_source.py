@@ -333,9 +333,10 @@ def test_single_user_auth_failed_to_get_token():
     list(source.get_workunits())
 
     assert source.get_report().failures
-    assert "Failed to authenticate" in list(
-        source.get_report().failures[config.site_url]
-    )
+
+    assert "Failed to authenticate" in [
+        failure.message for failure in source.get_report().failures
+    ]
 
 
 def test_kerberos_auth_failed_to_get_token():
@@ -352,9 +353,9 @@ def test_kerberos_auth_failed_to_get_token():
     list(source.get_workunits())
 
     assert source.get_report().failures
-    assert "Failed to authenticate" in list(
-        source.get_report().failures[config.site_url]
-    )
+    assert "Failed to authenticate" in [
+        failure.message for failure in source.get_report().failures
+    ]
 
 
 def test_client_cert_auth_failed():
@@ -372,9 +373,9 @@ def test_client_cert_auth_failed():
     list(source.get_workunits())
 
     assert source.get_report().failures
-    assert "Failed to authenticate" in list(
-        source.get_report().failures[config.site_url]
-    )
+    assert "Failed to authenticate" in [
+        failure.message for failure in source.get_report().failures
+    ]
 
 
 def test_failure_to_create_nifi_flow():
@@ -392,9 +393,9 @@ def test_failure_to_create_nifi_flow():
         list(source.get_workunits())
 
         assert source.get_report().failures
-        assert "Failed to get root process group flow" in list(
-            source.get_report().failures[config.site_url]
-        )
+        assert "Failed to get root process group flow" in [
+            failure.message for failure in source.get_report().failures
+        ]
 
 
 def test_site_url_no_context():

@@ -36,12 +36,12 @@ Please use the following steps when adding/managing content for the docs site.
 - [Feature Guide Template](../docs/_feature-guide-template.md)
 - [Metadata Ingestion Source Template](../metadata-ingestion/source-docs-template.md)
 
-### Self-Hosted vs. Managed DataHub
+### Self-Hosted vs. DataHub Cloud
 
-The docs site includes resources for both self-hosted (aka open-source) DataHub and Managed DataHub alike.
+The docs site includes resources for both self-hosted (aka open-source) DataHub and DataHub Cloud alike.
 
 - All Feature Guides should include the `FeatureAvailability` component within the markdown file itself
-- Features only available via Managed DataHub should have the `saasOnly` class if they are included in `sidebar.js` to display the small "cloud" icon:
+- Features only available via DataHub Cloud should have the `saasOnly` class if they are included in `sidebar.js` to display the small "cloud" icon:
 
 ```
 {

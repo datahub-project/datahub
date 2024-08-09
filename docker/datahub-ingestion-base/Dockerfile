@@ -7,7 +7,7 @@ ARG GITHUB_REPO_URL=https://github.com
 ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
-FROM golang:1-alpine3.18 AS dockerize-binary
+FROM golang:1-alpine3.20 AS dockerize-binary
 
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
@@ -85,18 +85,18 @@ RUN apt-get update && apt-get install -y -qq \
 RUN if [ $(arch) = "x86_64" ]; then \
     mkdir /opt/oracle && \
     cd /opt/oracle && \
-    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/216000/instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
-    unzip instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
-    rm instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
-    sh -c "echo /opt/oracle/instantclient_21_6 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
+    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/2115000/instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
+    unzip instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
+    rm instantclient-basic-linux.x64-21.15.0.0.0dbru.zip && \
+    sh -c "echo /opt/oracle/instantclient_21_15 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
     ldconfig; \
     else \
     mkdir /opt/oracle && \
     cd /opt/oracle && \
-    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/191000/instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
-    unzip instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
-    rm instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
-    sh -c "echo /opt/oracle/instantclient_19_10 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
+    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/1923000/instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
+    unzip instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
+    rm instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip && \
+    sh -c "echo /opt/oracle/instantclient_19_23 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
     ldconfig; \
     fi;
 

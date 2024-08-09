@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
+import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToSystemAspectMap;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.VersionedUrn;
@@ -12,6 +13,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
@@ -36,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -517,27 +518,17 @@ public interface EntityClient {
     return ingestProposal(opContext, metadataChangeProposal, false);
   }
 
-  String ingestProposal(
+  /**
+   * Ingest a MetadataChangeProposal event.
+   *
+   * @return the urn string ingested
+   */
+  default String ingestProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal,
       final boolean async)
-      throws RemoteInvocationException;
-
-  @Deprecated
-  default String wrappedIngestProposal(
-      @Nonnull OperationContext opContext, @Nonnull MetadataChangeProposal metadataChangeProposal) {
-    return wrappedIngestProposal(opContext, metadataChangeProposal, false);
-  }
-
-  default String wrappedIngestProposal(
-      @Nonnull OperationContext opContext,
-      @Nonnull MetadataChangeProposal metadataChangeProposal,
-      final boolean async) {
-    try {
-      return ingestProposal(opContext, metadataChangeProposal, async);
-    } catch (RemoteInvocationException e) {
-      throw new RuntimeException(e);
-    }
+      throws RemoteInvocationException {
+    return batchIngestProposals(opContext, List.of(metadataChangeProposal), async).get(0);
   }
 
   @Deprecated
@@ -548,15 +539,20 @@ public interface EntityClient {
     return batchIngestProposals(opContext, metadataChangeProposals, false);
   }
 
-  default List<String> batchIngestProposals(
+  /**
+   * Ingest a list of proposals in a batch.
+   *
+   * @param opContext operation context
+   * @param metadataChangeProposals list of proposals
+   * @param async async or sync ingestion path
+   * @return ingested urns
+   */
+  @Nonnull
+  List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
       @Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
       final boolean async)
-      throws RemoteInvocationException {
-    return metadataChangeProposals.stream()
-        .map(proposal -> wrappedIngestProposal(opContext, proposal, async))
-        .collect(Collectors.toList());
-  }
+      throws RemoteInvocationException;
 
   @Deprecated
   <T extends RecordTemplate> Optional<T> getVersionedAspect(
@@ -601,5 +597,14 @@ public interface EntityClient {
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
     return entityResponseToAspectMap(batchGetV2(opContext, entityName, urns, aspectNames));
+  }
+
+  @Nonnull
+  default Map<Urn, Map<String, SystemAspect>> getLatestSystemAspect(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      throws RemoteInvocationException, URISyntaxException {
+    String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
+    return entityResponseToSystemAspectMap(
+        batchGetV2(opContext, entityName, urns, aspectNames), opContext.getEntityRegistry());
   }
 }

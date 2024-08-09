@@ -2,8 +2,8 @@ package com.linkedin.metadata.systemmetadata;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -14,6 +14,7 @@ import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -85,10 +86,10 @@ public class ElasticSearchSystemMetadataService
 
   private String toDocId(@Nonnull final String urn, @Nonnull final String aspect) {
     String rawDocId = urn + DOC_DELIMETER + aspect;
-
+    String hashAlgo = System.getenv("ELASTIC_ID_HASH_ALGO");
     try {
       byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
-      MessageDigest md = MessageDigest.getInstance("MD5");
+      MessageDigest md = MessageDigest.getInstance(hashAlgo);
       byte[] thedigest = md.digest(bytesOfRawDocID);
       return Base64.getEncoder().encodeToString(thedigest);
     } catch (NoSuchAlgorithmException e) {
@@ -227,10 +228,10 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
-  public void configure() {
+  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     log.info("Setting up system metadata index");
     try {
-      for (ReindexConfig config : buildReindexConfigs()) {
+      for (ReindexConfig config : buildReindexConfigs(properties)) {
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException ie) {
@@ -239,7 +240,8 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
-  public List<ReindexConfig> buildReindexConfigs() throws IOException {
+  public List<ReindexConfig> buildReindexConfigs(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
     return List.of(
         _indexBuilder.buildReindexState(
             _indexConvention.getIndexName(INDEX_NAME),
@@ -247,18 +249,6 @@ public class ElasticSearchSystemMetadataService
             Collections.emptyMap()));
   }
 
-  @Override
-  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
-      Collection<StructuredPropertyDefinition> properties) throws IOException {
-    return buildReindexConfigs();
-  }
-
-  @Override
-  public void reindexAll() {
-    configure();
-  }
-
-  @VisibleForTesting
   @Override
   public void clear() {
     _esBulkProcessor.deleteByQuery(

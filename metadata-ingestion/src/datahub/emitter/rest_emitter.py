@@ -10,7 +10,8 @@ from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub.cli.cli_utils import fixup_gms_url, get_system_auth
+from datahub.cli import config_utils
+from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -87,7 +88,12 @@ class DataHubRestEmitter(Closeable, Emitter):
         if token:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
         else:
-            system_auth = get_system_auth()
+            # HACK: When no token is provided but system auth env variables are set, we use them.
+            # Ideally this should simply get passed in as config, instead of being sneakily injected
+            # in as part of this constructor.
+            # It works because everything goes through here. The DatahubGraph inherits from the
+            # rest emitter, and the rest sink uses the rest emitter under the hood.
+            system_auth = config_utils.get_system_auth()
             if system_auth is not None:
                 self._session.headers.update({"Authorization": system_auth})
 
@@ -202,6 +208,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             UsageAggregation,
         ],
         callback: Optional[Callable[[Exception, str], None]] = None,
+        async_flag: Optional[bool] = None,
     ) -> None:
         try:
             if isinstance(item, UsageAggregation):
@@ -209,7 +216,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             elif isinstance(
                 item, (MetadataChangeProposal, MetadataChangeProposalWrapper)
             ):
-                self.emit_mcp(item)
+                self.emit_mcp(item, async_flag=async_flag)
             else:
                 self.emit_mce(item)
         except Exception as e:
@@ -228,12 +235,10 @@ class DataHubRestEmitter(Closeable, Emitter):
         snapshot_fqn = (
             f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
         )
-        system_metadata_obj = {}
-        if mce.systemMetadata is not None:
-            system_metadata_obj = {
-                "lastObserved": mce.systemMetadata.lastObserved,
-                "runId": mce.systemMetadata.runId,
-            }
+        ensure_has_system_metadata(mce)
+        # To make lint happy
+        assert mce.systemMetadata is not None
+        system_metadata_obj = mce.systemMetadata.to_obj()
         snapshot = {
             "entity": {"value": {snapshot_fqn: mce_obj}},
             "systemMetadata": system_metadata_obj,
@@ -243,12 +248,39 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._emit_generic(url, payload)
 
     def emit_mcp(
-        self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+        self,
+        mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+        async_flag: Optional[bool] = None,
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposal"
+        ensure_has_system_metadata(mcp)
 
         mcp_obj = pre_json_transform(mcp.to_obj())
-        payload = json.dumps({"proposal": mcp_obj})
+        payload_dict = {"proposal": mcp_obj}
+
+        if async_flag is not None:
+            payload_dict["async"] = "true" if async_flag else "false"
+
+        payload = json.dumps(payload_dict)
+
+        self._emit_generic(url, payload)
+
+    def emit_mcps(
+        self,
+        mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        async_flag: Optional[bool] = None,
+    ) -> None:
+        url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
+        for mcp in mcps:
+            ensure_has_system_metadata(mcp)
+
+        mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
+        payload_dict: dict = {"proposals": mcp_objs}
+
+        if async_flag is not None:
+            payload_dict["async"] = "true" if async_flag else "false"
+
+        payload = json.dumps(payload_dict)
 
         self._emit_generic(url, payload)
 

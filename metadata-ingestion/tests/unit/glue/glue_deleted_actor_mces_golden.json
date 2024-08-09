@@ -18,7 +18,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -33,7 +35,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -48,7 +52,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -65,7 +71,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -80,7 +88,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -221,6 +231,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -232,7 +243,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -249,7 +262,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -264,7 +279,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -284,7 +301,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -426,6 +445,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -437,7 +457,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -454,7 +476,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -469,7 +493,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -489,7 +515,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -504,7 +532,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 },
 {
@@ -519,7 +549,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00"
+        "runId": "glue-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
     }
 }
 ]

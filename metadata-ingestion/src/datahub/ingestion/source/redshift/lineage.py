@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities import memory_footprint
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -128,7 +129,7 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
     Parses an ALTER TABLE ... RENAME TO ... query and returns the schema, previous table name, and new table name.
     """
 
-    parsed_query = sqlglot.parse_one(query, dialect="redshift")
+    parsed_query = parse_statement(query, dialect=get_dialect("redshift"))
     assert isinstance(parsed_query, sqlglot.exp.AlterTable)
     prev_name = parsed_query.this.name
     rename_clause = parsed_query.args["actions"][0]
@@ -661,7 +662,7 @@ class RedshiftLineageExtractor:
         if self.config.resolve_temp_table_in_lineage:
             self._init_temp_table_schema(
                 database=database,
-                temp_tables=self.get_temp_tables(connection=connection),
+                temp_tables=list(self.get_temp_tables(connection=connection)),
             )
 
         populate_calls: List[Tuple[str, LineageCollectorType]] = []
@@ -865,10 +866,19 @@ class RedshiftLineageExtractor:
         for rename_row in RedshiftDataDictionary.get_alter_table_commands(
             connection, query
         ):
-            schema, prev_name, new_name = parse_alter_table_rename(
-                default_schema=self.config.default_schema,
-                query=rename_row.query_text,
-            )
+            # Redshift's system table has some issues where it encodes newlines as \n instead a proper
+            # newline character. This can cause issues in our parser.
+            query_text = rename_row.query_text.replace("\\n", "\n")
+
+            try:
+                schema, prev_name, new_name = parse_alter_table_rename(
+                    default_schema=self.config.default_schema,
+                    query=query_text,
+                )
+            except ValueError as e:
+                logger.info(f"Failed to parse alter table rename: {e}")
+                self.report.num_alter_table_parse_errors += 1
+                continue
 
             prev_urn = make_dataset_urn_with_platform_instance(
                 platform=LineageDatasetPlatform.REDSHIFT.value,
@@ -893,7 +903,7 @@ class RedshiftLineageExtractor:
 
     def get_temp_tables(
         self, connection: redshift_connector.Connection
-    ) -> List[TempTableRow]:
+    ) -> Iterable[TempTableRow]:
         ddl_query: str = self.queries.temp_table_ddl_query(
             start_time=self.config.start_time,
             end_time=self.config.end_time,
@@ -901,15 +911,11 @@ class RedshiftLineageExtractor:
 
         logger.debug(f"Temporary table ddl query = {ddl_query}")
 
-        temp_table_rows: List[TempTableRow] = []
-
         for row in RedshiftDataDictionary.get_temporary_rows(
             conn=connection,
             query=ddl_query,
         ):
-            temp_table_rows.append(row)
-
-        return temp_table_rows
+            yield row
 
     def find_temp_tables(
         self, temp_table_rows: List[TempTableRow], temp_table_names: List[str]

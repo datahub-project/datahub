@@ -5,10 +5,7 @@ import { useSchemaRefetch } from '../SchemaContext';
 import BusinessAttributeGroup from '../../../../../../shared/businessAttribute/BusinessAttributeGroup';
 import { useBusinessAttributesFlag } from '../../../../../../useAppConfig';
 
-export default function useBusinessAttributeRenderer(
-    filterText: string,
-    canEdit: boolean,
-) {
+export default function useBusinessAttributeRenderer(filterText: string, canEdit: boolean) {
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
 

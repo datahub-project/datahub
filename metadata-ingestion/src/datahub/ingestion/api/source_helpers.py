@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
-    Callable,
     Dict,
     Iterable,
     List,
@@ -38,14 +37,12 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, TagUrn, Urn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import telemetry
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns, lowercase_dataset_urns
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.source import SourceReport
-    from datahub.ingestion.source.state.stale_entity_removal_handler import (
-        StaleEntityRemovalHandler,
-    )
 
 logger = logging.getLogger(__name__)
 
@@ -139,39 +136,6 @@ def auto_status_aspect(
         ).as_workunit()
 
 
-def _default_entity_type_fn(wu: MetadataWorkUnit) -> Optional[str]:
-    urn = wu.get_urn()
-    entity_type = guess_entity_type(urn)
-    return entity_type
-
-
-def auto_stale_entity_removal(
-    stale_entity_removal_handler: "StaleEntityRemovalHandler",
-    stream: Iterable[MetadataWorkUnit],
-    entity_type_fn: Callable[
-        [MetadataWorkUnit], Optional[str]
-    ] = _default_entity_type_fn,
-) -> Iterable[MetadataWorkUnit]:
-    """
-    Record all entities that are found, and emit removals for any that disappeared in this run.
-    """
-
-    for wu in stream:
-        urn = wu.get_urn()
-
-        if wu.is_primary_source:
-            entity_type = entity_type_fn(wu)
-            if entity_type is not None:
-                stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
-        else:
-            stale_entity_removal_handler.add_urn_to_skip(urn)
-
-        yield wu
-
-    # Clean up stale entities.
-    yield from stale_entity_removal_handler.gen_removed_entity_workunits()
-
-
 T = TypeVar("T", bound=MetadataWorkUnit)
 
 
@@ -209,13 +173,18 @@ def auto_materialize_referenced_tags_terms(
         yield wu
 
     for urn in sorted(referenced_tags - tags_with_aspects):
-        urn_tp = Urn.from_string(urn)
-        assert isinstance(urn_tp, (TagUrn, GlossaryTermUrn))
+        try:
+            urn_tp = Urn.from_string(urn)
+            assert isinstance(urn_tp, (TagUrn, GlossaryTermUrn))
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=urn_tp.to_key_aspect(),
-        ).as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=urn_tp.to_key_aspect(),
+            ).as_workunit()
+        except InvalidUrnError:
+            logger.info(
+                f"Source produced an invalid urn, so no key aspect will be generated: {urn}"
+            )
 
 
 def auto_lowercase_urns(

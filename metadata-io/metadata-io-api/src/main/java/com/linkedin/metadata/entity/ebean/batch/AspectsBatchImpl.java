@@ -8,6 +8,7 @@ import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
@@ -44,9 +46,20 @@ public class AspectsBatchImpl implements AspectsBatch {
   public Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
       final Map<String, Map<String, SystemAspect>> latestAspects) {
 
+    // Process proposals to change items
+    Stream<ChangeMCP> mutatedProposalsStream =
+        proposedItemsToChangeItemStream(
+            items.stream()
+                .filter(item -> item instanceof ProposedItem)
+                .map(item -> (MCPItem) item)
+                .collect(Collectors.toList()));
+    // Regular change items
+    Stream<? extends BatchItem> changeMCPStream =
+        items.stream().filter(item -> !(item instanceof ProposedItem));
+
     // Convert patches to upserts if needed
     LinkedList<ChangeMCP> upsertBatchItems =
-        items.stream()
+        Stream.concat(mutatedProposalsStream, changeMCPStream)
             .map(
                 item -> {
                   final String urnStr = item.getUrn().toString();
@@ -85,6 +98,17 @@ public class AspectsBatchImpl implements AspectsBatch {
     return Pair.of(newUrnAspectNames, upsertBatchItems);
   }
 
+  private Stream<ChangeMCP> proposedItemsToChangeItemStream(List<MCPItem> proposedItems) {
+    return applyProposalMutationHooks(proposedItems, retrieverContext)
+        .filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
+        .map(
+            mcpItem ->
+                ChangeItemImpl.ChangeItemImplBuilder.build(
+                    mcpItem.getMetadataChangeProposal(),
+                    mcpItem.getAuditStamp(),
+                    retrieverContext.getAspectRetriever()));
+  }
+
   public static class AspectsBatchImplBuilder {
     /**
      * Just one aspect record template
@@ -99,7 +123,7 @@ public class AspectsBatchImpl implements AspectsBatch {
     }
 
     public AspectsBatchImplBuilder mcps(
-        List<MetadataChangeProposal> mcps,
+        Collection<MetadataChangeProposal> mcps,
         AuditStamp auditStamp,
         RetrieverContext retrieverContext) {
 

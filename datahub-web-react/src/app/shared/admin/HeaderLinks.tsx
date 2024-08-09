@@ -75,7 +75,7 @@ export function HeaderLinks(props: Props) {
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showSettings = true;
     const showIngestion =
-        isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
+        isIngestionEnabled && me && (me.platformPrivileges?.manageIngestion || me.platformPrivileges?.manageSecrets);
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -122,20 +122,22 @@ export function HeaderLinks(props: Props) {
                                 <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
                             </Link>
                         </MenuItem>
-                        {businessAttributesFlag && ( <MenuItem key="2">
-                            <Link to="/business-attribute">
-                                <NavTitleContainer>
-                                    <GlobalOutlined
-                                        style={{
-                                            fontSize: 14,
-                                            fontWeight: 'bold',
-                                        }}
-                                    />
-                                    <NavTitleText>Business Attribute</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
-                            </Link>
-                        </MenuItem>)}
+                        {businessAttributesFlag && (
+                            <MenuItem key="2">
+                                <Link to="/business-attribute">
+                                    <NavTitleContainer>
+                                        <GlobalOutlined
+                                            style={{
+                                                fontSize: 14,
+                                                fontWeight: 'bold',
+                                            }}
+                                        />
+                                        <NavTitleText>Business Attribute</NavTitleText>
+                                    </NavTitleContainer>
+                                    <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
+                                </Link>
+                            </MenuItem>
+                        )}
                     </Menu>
                 }
             >
