@@ -15,7 +15,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
 
 logger = logging.getLogger(__name__)
 
-# TODO: Hook this into the standard --update-golden-files mechanism.
 UPDATE_FILES = os.environ.get("UPDATE_SQLPARSER_FILES", "false").lower() == "true"
 
 

@@ -78,17 +78,6 @@
       "description": "<i>“We looked around for data catalog tool, and DataHub was a clear winner.”</i> <br /> <br /> Zynga levels up data management using DataHub, highlighting its role in enhancing data management, tracing data lineage, and ensuring data quality."
     },
     {
-      "name": "Saxo Bank",
-      "slug": "saxo-bank",
-      "imageUrl": "/img/logos/companies/saxobank.svg",
-      "imageSize": "default",
-      "link": "https://blog.datahubproject.io/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f",
-      "linkType": "blog",
-      "tagline": "Enabling Data Discovery in a Data Mesh",
-      "category": "Financial & Fintech",
-      "description": "Saxo Bank adopted DataHub to enhance data quality and streamline governance, facilitating efficient data management through self-service capabilities. <br /><br />By integrating Apache Kafka and Snowflake with DataHub, the bank embraced Data Mesh principles to democratize data, support rapid growth, and improve business processes."
-    },
-    {
       "name": "MediaMarkt Saturn",
       "slug": "mediamarkt-saturn",
       "imageUrl": "/img/logos/companies/mediamarkt-saturn.png",
