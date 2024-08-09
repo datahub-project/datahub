@@ -15,19 +15,19 @@ const PopoverTitle = styled.div`
     font-weight: bold;
     font-size: 14px;
     padding: 6px 0px;
-    color: #EEECFA;
+    color: #eeecfa;
 `;
 
 const PopoverDescription = styled.div`
     max-width: 340px;
     font-size: 14px;
-    color: #EEECFA;
+    color: #eeecfa;
     display: inline;
     padding: 0px 0px 8px 0px;
 `;
 
 const PopoverAttributes = styled.div`
-    display: flex; 
+    display: flex;
 `;
 
 const PopoverAttribute = styled.div`
@@ -37,7 +37,7 @@ const PopoverAttribute = styled.div`
 
 const PopoverAttributeTitle = styled.div`
     font-size: 14px;
-    color: #EEECFA;
+    color: #eeecfa;
     font-weight: bold;
     margin: 8px 0px;
     overflow: hidden;
@@ -65,18 +65,20 @@ export default function PropagationDetails({ sourceDetail }: Props) {
         originEntity || viaEntity ? (
             <PopoverWrapper>
                 <PopoverDescription>
-                    This description was automatically propagated from an upstream column. <PopoverDocumentation>Learn more</PopoverDocumentation>
-
+                    This description was automatically propagated from an upstream column.{' '}
+                    <PopoverDocumentation>Learn more</PopoverDocumentation>
                 </PopoverDescription>
                 <PopoverAttributes>
                     {originEntity && originEntity.urn !== viaEntity?.urn && (
                         <PopoverAttribute>
-                            <PopoverAttributeTitle>Origin</PopoverAttributeTitle><PropagationEntityLink entity={originEntity} />
+                            <PopoverAttributeTitle>Origin</PopoverAttributeTitle>
+                            <PropagationEntityLink entity={originEntity} />
                         </PopoverAttribute>
                     )}
                     {viaEntity && (
                         <PopoverAttribute>
-                            <PopoverAttributeTitle>Via</PopoverAttributeTitle><PropagationEntityLink entity={viaEntity} />
+                            <PopoverAttributeTitle>Via</PopoverAttributeTitle>
+                            <PropagationEntityLink entity={viaEntity} />
                         </PopoverAttribute>
                     )}
                 </PopoverAttributes>
@@ -85,7 +87,7 @@ export default function PropagationDetails({ sourceDetail }: Props) {
 
     return (
         <Popover
-            overlayInnerStyle={{ backgroundColor: "#272D48" }}
+            overlayInnerStyle={{ backgroundColor: '#272D48' }}
             showArrow={false}
             title={
                 <PopoverTitle>

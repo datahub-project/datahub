@@ -77,7 +77,12 @@ export default function UpdateDescriptionModal({
         >
             <Form layout="vertical">
                 <Form.Item>
-                    <StyledEditor content={updatedDesc} onChange={setDesc} dataTestId="description-editor" onKeyDown={handleEditorKeyDown} />
+                    <StyledEditor
+                        content={updatedDesc}
+                        onChange={setDesc}
+                        dataTestId="description-editor"
+                        onKeyDown={handleEditorKeyDown}
+                    />
                 </Form.Item>
                 {!isAddDesc && description && original && (
                     <OriginalDocumentation label={<FormLabel>Original:</FormLabel>}>

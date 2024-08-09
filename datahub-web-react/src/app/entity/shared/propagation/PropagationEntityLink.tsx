@@ -47,10 +47,10 @@ export default function PropagationEntityLink({ entity }: Props) {
 
     return (
         <>
-        <StyledLink to={entityUrl}>
-            <PreviewImage src={logoUrl} alt="test" size={14} />
-            {entityDisplayName}
-        </StyledLink>
+            <StyledLink to={entityUrl}>
+                <PreviewImage src={logoUrl} alt="test" size={14} />
+                {entityDisplayName}
+            </StyledLink>
         </>
     );
 }
