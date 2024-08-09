@@ -40,7 +40,8 @@ public class EntityRegistryFactory {
   @Bean("entityRegistry")
   @Primary
   @Nonnull
-  protected EntityRegistry getInstance(SpringStandardPluginConfiguration springStandardPluginConfiguration)
+  protected EntityRegistry getInstance(
+      SpringStandardPluginConfiguration springStandardPluginConfiguration)
       throws EntityRegistryException {
     BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider =
         (config, loaders) -> new SpringPluginFactory(applicationContext, config, loaders);
