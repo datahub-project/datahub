@@ -41,6 +41,8 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS =
       "auth.oidc.extractJwtAccessTokenClaims";
   public static final String OIDC_PREFERRED_JWS_ALGORITHM = "auth.oidc.preferredJwsAlgorithm";
+  public static final String OIDC_GRANT_TYPE = "auth.oidc.grantType";
+  public static final String OIDC_ACR_VALUES = "auth.oidc.acrValues";
 
   /** Default values */
   private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
@@ -75,7 +77,9 @@ public class OidcConfigs extends SsoConfigs {
   private final Optional<String> customParamResource;
   private final String readTimeout;
   private final Optional<Boolean> extractJwtAccessTokenClaims;
-  private Optional<String> preferredJwsAlgorithm;
+  private final Optional<String> preferredJwsAlgorithm;
+  private final Optional<String> grantType;
+  private final Optional<String> acrValues;
 
   public OidcConfigs(Builder builder) {
     super(builder);
@@ -98,6 +102,8 @@ public class OidcConfigs extends SsoConfigs {
     this.readTimeout = builder.readTimeout;
     this.extractJwtAccessTokenClaims = builder.extractJwtAccessTokenClaims;
     this.preferredJwsAlgorithm = builder.preferredJwsAlgorithm;
+    this.acrValues = builder.acrValues;
+    this.grantType = builder.grantType;
   }
 
   public static class Builder extends SsoConfigs.Builder<Builder> {
@@ -123,6 +129,8 @@ public class OidcConfigs extends SsoConfigs {
     private String readTimeout = DEFAULT_OIDC_READ_TIMEOUT;
     private Optional<Boolean> extractJwtAccessTokenClaims = Optional.empty();
     private Optional<String> preferredJwsAlgorithm = Optional.empty();
+    private Optional<String> grantType = Optional.empty();
+    private Optional<String> acrValues = Optional.empty();
 
     public Builder from(final com.typesafe.config.Config configs) {
       super.from(configs);
@@ -169,6 +177,8 @@ public class OidcConfigs extends SsoConfigs {
           getOptional(configs, OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS).map(Boolean::parseBoolean);
       preferredJwsAlgorithm =
           Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));
+      grantType = Optional.ofNullable(getOptional(configs, OIDC_GRANT_TYPE, null));
+      acrValues = Optional.ofNullable(getOptional(configs, OIDC_ACR_VALUES, null));
       return this;
     }
 
