@@ -216,7 +216,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     SearchSourceBuilder builder = new SearchSourceBuilder();
     SortCriterion sortCriterion =
         new SortCriterion().setOrder(SortOrder.DESCENDING).setField(dateFieldName);
-    ESUtils.buildSortOrder(builder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(builder, Collections.singletonList(sortCriterion), entitySpecs);
     List<SortBuilder<?>> sorts = builder.sorts();
     assertEquals(sorts.size(), 2); // sort by last modified and then by urn
     for (SortBuilder sort : sorts) {
@@ -235,7 +235,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     SearchSourceBuilder nameBuilder = new SearchSourceBuilder();
     SortCriterion nameCriterion =
         new SortCriterion().setOrder(SortOrder.ASCENDING).setField(entityNameField);
-    ESUtils.buildSortOrder(nameBuilder, nameCriterion, entitySpecs);
+    ESUtils.buildSortOrder(nameBuilder, Collections.singletonList(nameCriterion), entitySpecs);
     sorts = nameBuilder.sorts();
     assertEquals(sorts.size(), 2);
     for (SortBuilder sort : sorts) {
@@ -1959,7 +1959,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                 SEARCHABLE_ENTITIES,
                 query,
                 null,
-                criterion,
+                Collections.singletonList(criterion),
                 0,
                 100,
                 null);

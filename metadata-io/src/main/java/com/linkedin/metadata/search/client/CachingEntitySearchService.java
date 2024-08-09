@@ -20,6 +20,7 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.collections.CollectionUtils;
 import org.javatuples.Septet;
 import org.javatuples.Sextet;
 import org.springframework.cache.Cache;
@@ -47,7 +48,7 @@ public class CachingEntitySearchService {
    * @param entityNames the names of the entity to search
    * @param query the search query
    * @param filters the filters to include
-   * @param sortCriterion the sort criterion
+   * @param sortCriteria the sort criteria
    * @param from the start offset
    * @param size the count
    * @param facets list of facets we want aggregations for
@@ -58,12 +59,12 @@ public class CachingEntitySearchService {
       @Nonnull List<String> entityNames,
       @Nonnull String query,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
     return getCachedSearchResults(
-        opContext, entityNames, query, filters, sortCriterion, from, size, facets);
+        opContext, entityNames, query, filters, sortCriteria, from, size, facets);
   }
 
   /**
@@ -115,7 +116,7 @@ public class CachingEntitySearchService {
    * @param entities the names of the entities to search
    * @param query the search query
    * @param filters the filters to include
-   * @param sortCriterion the sort criterion
+   * @param sortCriteria the sort criteria
    * @param scrollId opaque scroll identifier for a scroll request
    * @param keepAlive the string representation of how long to keep point in time alive
    * @param size the count
@@ -126,12 +127,12 @@ public class CachingEntitySearchService {
       @Nonnull List<String> entities,
       @Nonnull String query,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size) {
     return getCachedScrollResults(
-        opContext, entities, query, filters, sortCriterion, scrollId, keepAlive, size);
+        opContext, entities, query, filters, sortCriteria, scrollId, keepAlive, size);
   }
 
   /**
@@ -145,7 +146,7 @@ public class CachingEntitySearchService {
       @Nonnull List<String> entityNames,
       @Nonnull String query,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
@@ -158,7 +159,7 @@ public class CachingEntitySearchService {
                     entityNames,
                     query,
                     filters,
-                    sortCriterion,
+                    sortCriteria,
                     querySize.getFrom(),
                     querySize.getSize(),
                     facets),
@@ -168,7 +169,7 @@ public class CachingEntitySearchService {
                     entityNames,
                     query,
                     filters != null ? toJsonString(filters) : null,
-                    sortCriterion != null ? toJsonString(sortCriterion) : null,
+                    CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
                     facets,
                     querySize),
             enableCache)
@@ -269,7 +270,7 @@ public class CachingEntitySearchService {
       @Nonnull List<String> entities,
       @Nonnull String query,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size) {
@@ -291,7 +292,7 @@ public class CachingEntitySearchService {
                 entities,
                 query,
                 filters != null ? toJsonString(filters) : null,
-                sortCriterion != null ? toJsonString(sortCriterion) : null,
+                CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
                 scrollId,
                 size);
         String json = cache.get(cacheKey, String.class);
@@ -305,7 +306,7 @@ public class CachingEntitySearchService {
                   entities,
                   query,
                   filters,
-                  sortCriterion,
+                  sortCriteria,
                   scrollId,
                   keepAlive,
                   size,
@@ -321,7 +322,7 @@ public class CachingEntitySearchService {
                 entities,
                 query,
                 filters,
-                sortCriterion,
+                sortCriteria,
                 scrollId,
                 keepAlive,
                 size,
@@ -337,12 +338,12 @@ public class CachingEntitySearchService {
       final List<String> entityNames,
       final String input,
       final Filter filters,
-      final SortCriterion sortCriterion,
+      final List<SortCriterion> sortCriteria,
       final int start,
       final int count,
       @Nullable final List<String> facets) {
     return entitySearchService.search(
-        opContext, entityNames, input, filters, sortCriterion, start, count, facets);
+        opContext, entityNames, input, filters, sortCriteria, start, count, facets);
   }
 
   /** Executes the expensive autocomplete query using the {@link EntitySearchService} */
@@ -373,17 +374,17 @@ public class CachingEntitySearchService {
       final List<String> entities,
       final String input,
       final Filter filters,
-      final SortCriterion sortCriterion,
+      final List<SortCriterion> sortCriteria,
       @Nullable final String scrollId,
       @Nullable final String keepAlive,
       final int count,
       final boolean fulltext) {
     if (fulltext) {
       return entitySearchService.fullTextScroll(
-          opContext, entities, input, filters, sortCriterion, scrollId, keepAlive, count);
+          opContext, entities, input, filters, sortCriteria, scrollId, keepAlive, count);
     } else {
       return entitySearchService.structuredScroll(
-          opContext, entities, input, filters, sortCriterion, scrollId, keepAlive, count);
+          opContext, entities, input, filters, sortCriteria, scrollId, keepAlive, count);
     }
   }
 

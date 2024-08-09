@@ -18,8 +18,10 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -65,10 +67,24 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                   context.getOperationContext().getAspectRetriever());
 
           SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
-          SortCriterion sortCriterion =
-              input.getSortInput() != null
-                  ? mapSortCriterion(input.getSortInput().getSortCriterion())
-                  : null;
+          List<SortCriterion> sortCriteria;
+          if (input.getSortInput() != null) {
+            if (input.getSortInput().getSortCriteria() != null) {
+              sortCriteria =
+                  input.getSortInput().getSortCriteria().stream()
+                      .map(SearchUtils::mapSortCriterion)
+                      .collect(Collectors.toList());
+            } else {
+              sortCriteria =
+                  input.getSortInput().getSortCriterion() != null
+                      ? Collections.singletonList(
+                          mapSortCriterion(input.getSortInput().getSortCriterion()))
+                      : Collections.emptyList();
+            }
+
+          } else {
+            sortCriteria = Collections.emptyList();
+          }
 
           try {
             log.debug(
@@ -100,7 +116,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         : baseFilter,
                     start,
                     count,
-                    sortCriterion));
+                    sortCriteria));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

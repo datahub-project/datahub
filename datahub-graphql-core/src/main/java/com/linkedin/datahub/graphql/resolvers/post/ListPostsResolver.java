@@ -18,7 +18,9 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -49,10 +51,11 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            final SortCriterion sortCriterion =
-                new SortCriterion()
-                    .setField(LAST_MODIFIED_FIELD_NAME)
-                    .setOrder(SortOrder.DESCENDING);
+            final List<SortCriterion> sortCriteria =
+                Collections.singletonList(
+                    new SortCriterion()
+                        .setField(LAST_MODIFIED_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING));
 
             // First, get all Post Urns.
             final SearchResult gmsResult =
@@ -61,7 +64,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
                     POST_ENTITY_NAME,
                     query,
                     null,
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
 

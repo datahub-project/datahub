@@ -26,6 +26,7 @@ import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,9 +74,10 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
                       Constants.SECRETS_ENTITY_NAME,
                       query,
                       null,
-                      new SortCriterion()
-                          .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
-                          .setOrder(SortOrder.DESCENDING),
+                      Collections.singletonList(
+                          new SortCriterion()
+                              .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                              .setOrder(SortOrder.DESCENDING)),
                       start,
                       count);
 
