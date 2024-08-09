@@ -31,17 +31,17 @@ const Hero = () => {
           const additionalInfoInput = document.querySelector('#hubspotForm .hs_additional_info .input > textarea');
 
 
-          if (emailInput) emailInput.placeholder = 'Company Email';
-          if (firstNameInput) firstNameInput.placeholder = 'First Name';
-          if (lastNameInput) lastNameInput.placeholder = 'Last Name';
-          if (phoneInput) phoneInput.placeholder = 'Phone';
+          if (emailInput) emailInput.placeholder = 'Company Email*';
+          if (firstNameInput) firstNameInput.placeholder = 'First Name*';
+          if (lastNameInput) lastNameInput.placeholder = 'Last Name*';
+          if (phoneInput) phoneInput.placeholder = 'Phone*';
           if (additionalInfoInput) additionalInfoInput.placeholder = 'How can we help?';
 
           const selectNoEElement = document.getElementById("number_of_employees-ed2447d6-e6f9-4771-8f77-825b114a9421");
           if (selectNoEElement) {
             const disabledOption = selectNoEElement.querySelector('option[disabled]');
             if (disabledOption) {
-              disabledOption.text = "Select Number of Employees"; 
+              disabledOption.text = "Select Number of Employees*"; 
               disabledOption.value = ""; 
             }
           }

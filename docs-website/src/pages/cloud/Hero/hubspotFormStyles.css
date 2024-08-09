@@ -18,6 +18,10 @@
   width: 100%;
 }
 
+#hubspotForm .hs-form ::placeholder {
+  font-style: Manrope;
+}
+
 #hubspotForm .hs-form input[type="submit"] {
   background-color: #171B2B;
   color: #fff; 
@@ -38,4 +42,9 @@
 
 #hubspotForm .hs-form label span {
   display: none;
+}
+
+#hubspotForm .hs-form .hs-error-msgs {
+  font-size: 15px;
+  color: red;
 }
