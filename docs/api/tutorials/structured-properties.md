@@ -158,29 +158,37 @@ curl -X 'POST' -v \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
+	"value": {
 		"qualifiedName": "io.acryl.privacy.retentionTime",
-	  "valueType": "urn:li:dataType:datahub.number",
-	  "description": "Retention Time is used to figure out how long to retain records in a dataset",
-	  "displayName": "Retention Time",
-	  "cardinality": "MULTIPLE",
-	  "entityTypes": [
-        "urn:li:entityType:datahub.dataset",
-        "urn:li:entityType:datahub.dataFlow"
-		  ],
-	  "allowedValues": [
-	    {
-	      "value": {"double": 30},
-	      "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
-	    },
-	    {
-	      "value": {"double": 60},
-	      "description": "Use this for datasets that drive monthly reporting but contain pii"
-	    },
-	    {
-	      "value": {"double": 365},
-	      "description": "Use this for non-sensitive data that can be retained for longer"
-	    }
-	  ]
+		"valueType": "urn:li:dataType:datahub.number",
+		"description": "Retention Time is used to figure out how long to retain records in a dataset",
+		"displayName": "Retention Time",
+		"cardinality": "MULTIPLE",
+		"entityTypes": [
+			"urn:li:entityType:datahub.dataset",
+			"urn:li:entityType:datahub.dataFlow"
+		],
+		"allowedValues": [
+			{
+				"value": {
+					"double": 30
+				},
+				"description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+			},
+			{
+				"value": {
+					"double": 60
+				},
+				"description": "Use this for datasets that drive monthly reporting but contain pii"
+			},
+			{
+				"value": {
+					"double": 365
+				},
+				"description": "Use this for non-sensitive data that can be retained for longer"
+			}
+		]
+	}
 }' | jq
 ```
 
@@ -474,14 +482,16 @@ curl -X 'POST' -v \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-  "properties": [
-    {
-      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
-      "values": [
-        {"double": 60.0}
-      ]
-    }
-  ]
+	"value": {
+		"properties": [
+			{
+			  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+			  "values": [
+				{"double": 60.0}
+			  ]
+			}
+		  ]
+	}
 }' | jq
 ```
 Example Response:
@@ -627,23 +637,25 @@ curl -X 'POST' -v \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-    "qualifiedName": "io.acryl.privacy.retentionTime02",
-    "displayName": "Retention Time 02",
-    "valueType": "urn:li:dataType:datahub.string",
-    "allowedValues": [
-        {
-            "value": {"string": "foo2"},
-            "description": "test foo2 value"
-        },
-        {
-            "value": {"string": "bar2"},
-            "description": "test bar2 value"
-        }
-    ],
-    "cardinality": "SINGLE",
-    "entityTypes": [
-        "urn:li:entityType:datahub.dataset"
-    ]
+	"value": {
+		"qualifiedName": "io.acryl.privacy.retentionTime02",
+		"displayName": "Retention Time 02",
+		"valueType": "urn:li:dataType:datahub.string",
+		"allowedValues": [
+			{
+				"value": {"string": "foo2"},
+				"description": "test foo2 value"
+			},
+			{
+				"value": {"string": "bar2"},
+				"description": "test bar2 value"
+			}
+		],
+		"cardinality": "SINGLE",
+		"entityTypes": [
+			"urn:li:entityType:datahub.dataset"
+		]
+	}
 }' | jq
 ```
 
@@ -686,24 +698,26 @@ Specically, this will set `io.acryl.privacy.retentionTime` as `60.0` and `io.acr
 
 ```shell
 curl -X 'POST' -v \
-  'http://localhost:8080/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
+  'http://localhost:8080/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties?createIfNotExists=false' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-  "properties": [
-    {
-      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
-      "values": [
-        {"double": 60.0}
-      ]
-    },
-    {
-      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime02",
-      "values": [
-        {"string": "bar2"}
-      ]
-    }
-  ]
+	"value": {
+		"properties": [
+			{
+			  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+			  "values": [
+				{"double": 60.0}
+			  ]
+			},
+			{
+			  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime02",
+			  "values": [
+				{"string": "bar2"}
+			  ]
+			}
+		  ]
+	}
 }' | jq
 ```
 
@@ -1111,7 +1125,9 @@ curl -X 'POST' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-"removed": true
+	"value": {
+		"removed": true
+	}
 }' | jq
 ```
 
@@ -1132,11 +1148,13 @@ If you want to **remove the soft delete**, you can do so by either hard deleting
 
 ```shell
 curl -X 'POST' \
-  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/status?systemMetadata=false' \
+  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/status?systemMetadata=false&createIfNotExists=false' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-"removed": false
+	"value": {
+		"removed": true
+	}
 }' | jq
 ```
 
@@ -1271,34 +1289,42 @@ Change the cardinality to `SINGLE` and add a `version`.
 
 ```shell
 curl -X 'POST' -v \
-  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/propertyDefinition' \
+  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/propertyDefinition?createIfNotExists=false' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
+	"value": {
 		"qualifiedName": "io.acryl.privacy.retentionTime",
-	  "valueType": "urn:li:dataType:datahub.number",
-	  "description": "Retention Time is used to figure out how long to retain records in a dataset",
-	  "displayName": "Retention Time",
-	  "cardinality": "SINGLE",
-	  "version": "20240614080000",
-	  "entityTypes": [
-        "urn:li:entityType:datahub.dataset",
-        "urn:li:entityType:datahub.dataFlow"
-		  ],
-	  "allowedValues": [
-	    {
-	      "value": {"double": 30},
-	      "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
-	    },
-	    {
-	      "value": {"double": 60},
-	      "description": "Use this for datasets that drive monthly reporting but contain pii"
-	    },
-	    {
-	      "value": {"double": 365},
-	      "description": "Use this for non-sensitive data that can be retained for longer"
-	    }
-	  ]
+		"valueType": "urn:li:dataType:datahub.number",
+		"description": "Retention Time is used to figure out how long to retain records in a dataset",
+		"displayName": "Retention Time",
+		"cardinality": "SINGLE",
+		"version": "20240614080000",
+		"entityTypes": [
+			"urn:li:entityType:datahub.dataset",
+			"urn:li:entityType:datahub.dataFlow"
+		],
+		"allowedValues": [
+			{
+				"value": {
+					"double": 30
+				},
+				"description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+			},
+			{
+				"value": {
+					"double": 60
+				},
+				"description": "Use this for datasets that drive monthly reporting but contain pii"
+			},
+			{
+				"value": {
+					"double": 365
+				},
+				"description": "Use this for non-sensitive data that can be retained for longer"
+			}
+		]
+	}
 }' | jq
 ```
 
