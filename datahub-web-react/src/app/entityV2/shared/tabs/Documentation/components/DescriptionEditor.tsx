@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { message } from 'antd';
+import { message, Modal } from 'antd';
 import styled from 'styled-components/macro';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
@@ -12,7 +12,6 @@ import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDescription';
 import { sanitizeRichText } from './editor/utils';
-import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 import InferDocsPanel from '../../../components/inferredDocs/InferDocsPanel';
 import { getAssetDescriptionDetails } from '../utils';
 import {
@@ -77,7 +76,8 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
     const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(
         editedDescriptions.hasOwnProperty(mutationUrn) || isUsingDocumentationAspect,
     );
-    const [confirmCloseModalVisible, setConfirmCloseModalVisible] = useState(false);
+    const hasUnsavedChangesRef = useRef(isDescriptionUpdated);
+    hasUnsavedChangesRef.current = isDescriptionUpdated;
 
     /**
      * Auto-Save the description edits to local storage every 5 seconds.
@@ -99,13 +99,14 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
      * If the documentation editor is refreshed mid edit, then this component will load without a description. if that description
      * comes in on the next frame, we need to update updatedDescription
      */
-    const hasInitializedDescriptionRef = useRef(!updatedDescription);
+    const hasInitializedDescriptionRef = useRef(!!updatedDescription);
     useEffect(() => {
-        if (description && !updatedDescription && !hasInitializedDescriptionRef.current) {
+        if (hasInitializedDescriptionRef.current) return;
+        if (updatedDescription) {
+            hasInitializedDescriptionRef.current = true;
+        } else if (description) {
             setUpdatedDescription(description);
             setEditorKey((prevKey) => prevKey + 1);
-            hasInitializedDescriptionRef.current = true;
-        } else if (updatedDescription) {
             hasInitializedDescriptionRef.current = true;
         }
     }, [description, updatedDescription]);
@@ -187,11 +188,44 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
     }
 
     function handleCancel() {
-        const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
-        delete editedDescriptionsLocal[mutationUrn];
-        localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
-        if (onComplete) onComplete();
+        const onCancel = () => {
+            delete editedDescriptions[mutationUrn];
+            if (Object.keys(editedDescriptions).length === 0) {
+                localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
+            } else {
+                localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptions || description));
+            }
+            if (onComplete) onComplete();
+        };
+        if (!hasUnsavedChangesRef.current) {
+            onCancel();
+        } else {
+            Modal.confirm({
+                title: `Discard unsaved changes?`,
+                content: `Your changes will be lost.`,
+                onOk: onCancel,
+                onCancel() {},
+                okText: 'Yes',
+                maskClosable: true,
+                closable: true,
+            });
+        }
     }
+
+    // Prevent closing tab by mistake
+    useEffect(() => {
+        function onBeforeUnload(e) {
+            if (hasUnsavedChangesRef.current) {
+                // This automatically shows the unsaved changes alert.
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        }
+
+        window.addEventListener('beforeunload', onBeforeUnload);
+
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, []);
 
     // Function to handle all changes in Editor
     const handleEditorChange = (editedDescription: string) => {
@@ -201,16 +235,6 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
         } else {
             setIsDescriptionUpdated(true);
         }
-    };
-
-    const handleCloseWithoutSaving = () => {
-        delete editedDescriptions[mutationUrn];
-        if (Object.keys(editedDescriptions).length === 0) {
-            localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
-        } else {
-            localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptions || description));
-        }
-        if (onComplete) onComplete();
     };
 
     const shouldShowProposeButton = getShouldShowProposeButton(entityType);
@@ -246,13 +270,6 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
                 disableSave={!isDescriptionUpdated}
                 showPropose={shouldShowProposeButton}
             />
-            {confirmCloseModalVisible && (
-                <DiscardDescriptionModal
-                    cancelModalVisible={confirmCloseModalVisible}
-                    onDiscard={handleCloseWithoutSaving}
-                    onCancel={() => setConfirmCloseModalVisible(false)}
-                />
-            )}
         </>
     ) : null;
 };
