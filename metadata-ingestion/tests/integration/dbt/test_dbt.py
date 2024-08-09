@@ -216,18 +216,32 @@ class DbtTestConfig:
             run_results_files=["sample_dbt_run_results_2.json"],
             source_config_modifiers={},
         ),
+        DbtTestConfig(
+            "dbt-prefer-sql-parser-lineage",
+            "dbt_test_prefer_sql_parser_lineage.json",
+            "dbt_test_prefer_sql_parser_lineage_golden.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            manifest_file="sample_dbt_manifest_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            run_results_files=["sample_dbt_run_results_2.json"],
+            source_config_modifiers={
+                "prefer_sql_parser_lineage": True,
+                "skip_sources_in_lineage": True,
+                "entities_enabled": {"sources": "NO"},
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_ingest(
-        dbt_test_config,
-        test_resources_dir,
-        pytestconfig,
-        tmp_path,
-        mock_time,
-        requests_mock,
+    dbt_test_config,
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    requests_mock,
 ):
     config: DbtTestConfig = dbt_test_config
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
