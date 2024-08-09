@@ -26,7 +26,7 @@ task environmentSetup(type: Exec) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c', 
     "${python_executable} -m venv ${venv_name} && set -x && " +
-    "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
+    "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0,<72.0.0' && " +
     "touch ${sentinel_file}"
 }
 
