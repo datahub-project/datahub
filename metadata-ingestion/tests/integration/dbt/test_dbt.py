@@ -48,10 +48,10 @@ class DbtTestConfig:
     sink_config_modifiers: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def set_paths(
-        self,
-        dbt_metadata_uri_prefix: PathLike,
-        test_resources_dir: PathLike,
-        tmp_path: PathLike,
+            self,
+            dbt_metadata_uri_prefix: PathLike,
+            test_resources_dir: PathLike,
+            tmp_path: PathLike,
     ) -> None:
         manifest_path = f"{dbt_metadata_uri_prefix}/{self.manifest_file}"
         catalog_path = f"{dbt_metadata_uri_prefix}/{self.catalog_file}"
@@ -216,6 +216,20 @@ class DbtTestConfig:
             run_results_files=["sample_dbt_run_results_2.json"],
             source_config_modifiers={},
         ),
+        DbtTestConfig(
+            "dbt-prefer-sql-parser-lineage",
+            "dbt_test_prefer_sql_parser_lineage.json",
+            "dbt_test_prefer_sql_parser_lineage_golden.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            manifest_file="sample_dbt_manifest_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            run_results_files=["sample_dbt_run_results_2.json"],
+            source_config_modifiers={
+                "prefer_sql_parser_lineage": True,
+                "skip_sources_in_lineage": True,
+                "entities_enabled": {"sources": "NO"},
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
@@ -270,20 +284,20 @@ def test_dbt_ingest(
     "config_dict, is_success",
     [
         (
-            {
-                "manifest_path": "dbt_manifest.json",
-                "catalog_path": "dbt_catalog.json",
-                "target_platform": "postgres",
-            },
-            True,
+                {
+                    "manifest_path": "dbt_manifest.json",
+                    "catalog_path": "dbt_catalog.json",
+                    "target_platform": "postgres",
+                },
+                True,
         ),
         (
-            {
-                "manifest_path": "dbt_manifest.json",
-                "catalog_path": "dbt_catalog-this-file-does-not-exist.json",
-                "target_platform": "postgres",
-            },
-            False,
+                {
+                    "manifest_path": "dbt_manifest.json",
+                    "catalog_path": "dbt_catalog-this-file-does-not-exist.json",
+                    "target_platform": "postgres",
+                },
+                False,
         ),
     ],
 )
@@ -376,8 +390,8 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
 )
 def test_resolve_trino_modified_type(data_type, expected_data_type):
     assert (
-        resolve_trino_modified_type(data_type)
-        == TRINO_SQL_TYPES_MAP[expected_data_type]
+            resolve_trino_modified_type(data_type)
+            == TRINO_SQL_TYPES_MAP[expected_data_type]
     )
 
 
@@ -406,15 +420,15 @@ def test_resolve_trino_modified_type(data_type, expected_data_type):
 )
 def test_resolve_athena_modified_type(data_type, expected_data_type):
     assert (
-        resolve_athena_modified_type(data_type)
-        == ATHENA_SQL_TYPES_MAP[expected_data_type]
+            resolve_athena_modified_type(data_type)
+            == ATHENA_SQL_TYPES_MAP[expected_data_type]
     )
 
 
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_tests_only_assertions(
-    test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
+        test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
 ):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "test_only_assertions.json"
@@ -452,24 +466,24 @@ def test_dbt_tests_only_assertions(
     # Verify the output.
     # No datasets were emitted, and more than 20 events were emitted
     assert (
-        mce_helpers.assert_entity_urn_not_like(
-            entity_type="dataset",
-            regex_pattern="urn:li:dataset:\\(urn:li:dataPlatform:dbt",
-            file=output_file,
-        )
-        > 20
+            mce_helpers.assert_entity_urn_not_like(
+                entity_type="dataset",
+                regex_pattern="urn:li:dataset:\\(urn:li:dataPlatform:dbt",
+                file=output_file,
+            )
+            > 20
     )
     number_of_valid_assertions_in_test_results = 23
     assert (
-        mce_helpers.assert_entity_urn_like(
-            entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
-        )
-        == number_of_valid_assertions_in_test_results
+            mce_helpers.assert_entity_urn_like(
+                entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
+            )
+            == number_of_valid_assertions_in_test_results
     )
 
     # no assertionInfo should be emitted
     with pytest.raises(
-        AssertionError, match="Failed to find aspect_name assertionInfo for urns"
+            AssertionError, match="Failed to find aspect_name assertionInfo for urns"
     ):
         mce_helpers.assert_for_each_entity(
             entity_type="assertion",
@@ -480,21 +494,21 @@ def test_dbt_tests_only_assertions(
 
     # all assertions must have an assertionRunEvent emitted (except for one assertion)
     assert (
-        mce_helpers.assert_for_each_entity(
-            entity_type="assertion",
-            aspect_name="assertionRunEvent",
-            aspect_field_matcher={},
-            file=output_file,
-            exception_urns=["urn:li:assertion:2ff754df689ea951ed2e12cbe356708f"],
-        )
-        == number_of_valid_assertions_in_test_results
+            mce_helpers.assert_for_each_entity(
+                entity_type="assertion",
+                aspect_name="assertionRunEvent",
+                aspect_field_matcher={},
+                file=output_file,
+                exception_urns=["urn:li:assertion:2ff754df689ea951ed2e12cbe356708f"],
+            )
+            == number_of_valid_assertions_in_test_results
     )
 
 
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_only_test_definitions_and_results(
-    test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
+        test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
 ):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "test_only_definitions_and_assertions.json"
@@ -533,38 +547,38 @@ def test_dbt_only_test_definitions_and_results(
     pipeline.raise_from_status()
     # Verify the output. No datasets were emitted
     assert (
-        mce_helpers.assert_entity_urn_not_like(
-            entity_type="dataset",
-            regex_pattern="urn:li:dataset:\\(urn:li:dataPlatform:dbt",
-            file=output_file,
-        )
-        > 20
+            mce_helpers.assert_entity_urn_not_like(
+                entity_type="dataset",
+                regex_pattern="urn:li:dataset:\\(urn:li:dataPlatform:dbt",
+                file=output_file,
+            )
+            > 20
     )
     number_of_assertions = 24
     assert (
-        mce_helpers.assert_entity_urn_like(
-            entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
-        )
-        == number_of_assertions
+            mce_helpers.assert_entity_urn_like(
+                entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
+            )
+            == number_of_assertions
     )
     # all assertions must have an assertionInfo emitted
     assert (
-        mce_helpers.assert_for_each_entity(
-            entity_type="assertion",
-            aspect_name="assertionInfo",
-            aspect_field_matcher={},
-            file=output_file,
-        )
-        == number_of_assertions
+            mce_helpers.assert_for_each_entity(
+                entity_type="assertion",
+                aspect_name="assertionInfo",
+                aspect_field_matcher={},
+                file=output_file,
+            )
+            == number_of_assertions
     )
     # all assertions must have an assertionRunEvent emitted (except for one assertion)
     assert (
-        mce_helpers.assert_for_each_entity(
-            entity_type="assertion",
-            aspect_name="assertionRunEvent",
-            aspect_field_matcher={},
-            file=output_file,
-            exception_urns=["urn:li:assertion:2ff754df689ea951ed2e12cbe356708f"],
-        )
-        == number_of_assertions - 1
+            mce_helpers.assert_for_each_entity(
+                entity_type="assertion",
+                aspect_name="assertionRunEvent",
+                aspect_field_matcher={},
+                file=output_file,
+                exception_urns=["urn:li:assertion:2ff754df689ea951ed2e12cbe356708f"],
+            )
+            == number_of_assertions - 1
     )
