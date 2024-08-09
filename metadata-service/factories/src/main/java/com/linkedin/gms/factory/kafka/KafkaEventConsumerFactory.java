@@ -96,7 +96,7 @@ public class KafkaEventConsumerFactory {
   }
 
   @Bean(name = "kafkaEventConsumer")
-  protected KafkaListenerContainerFactory<?> createInstance(
+  protected KafkaListenerContainerFactory<?> kafkaEventConsumer(
       @Qualifier("kafkaConsumerFactory")
           DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider) {

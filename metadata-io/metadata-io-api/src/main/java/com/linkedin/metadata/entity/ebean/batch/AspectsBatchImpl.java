@@ -123,7 +123,7 @@ public class AspectsBatchImpl implements AspectsBatch {
     }
 
     public AspectsBatchImplBuilder mcps(
-        List<MetadataChangeProposal> mcps,
+        Collection<MetadataChangeProposal> mcps,
         AuditStamp auditStamp,
         RetrieverContext retrieverContext) {
 

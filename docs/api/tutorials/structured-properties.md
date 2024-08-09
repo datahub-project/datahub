@@ -56,7 +56,33 @@ Requirements for OpenAPI are:
 The following code will create a structured property `io.acryl.privacy.retentionTime`. 
 
 <Tabs>
-<TabItem value="CLI" label="CLI" default>
+<TabItem value="graphql" label="graphQL" default>
+
+```graphql
+mutation createStructuredProperty {
+  createStructuredProperty(
+    input: {
+      id: "retentionTime",
+      qualifiedName:"retentionTime",
+      displayName: "Retention Time",
+      description: "Retention Time is used to figure out how long to retain records in a dataset",
+      valueType: "urn:li:dataType:number",
+      allowedValues: [
+        {numberValue: 30, description: "30 days, usually reserved for datasets that are ephemeral and contain pii"},
+        {numberValue: 90, description:"description: Use this for datasets that drive monthly reporting but contain pii"},
+        {numberValue: 365, description:"Use this for non-sensitive data that can be retained for longer"}
+      ],
+      cardinality: SINGLE,
+      entityTypes: ["urn:li:entityType:dataset", "urn:li:entityType:dataFlow"],
+    }
+  ) {
+    urn
+  }
+}
+```
+
+</TabItem>
+<TabItem value="CLI" label="CLI">
 
 Create a yaml file representing the properties you’d like to load. 
 For example, below file represents a property `io.acryl.privacy.retentionTime`. You can see the full example [here](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/structured_properties/struct_props.yaml).
@@ -355,7 +381,37 @@ Example Response:
 This action will set/replace all structured properties on the entity. See PATCH operations to add/remove a single property.
 
 <Tabs>
-<TabItem value="CLI" label="CLI" default>
+<TabItem value="graphQL" label="GraphQL" default>
+
+```graphql
+mutation upsertStructuredProperties {
+  upsertStructuredProperties(
+    input: {
+      assetUrn: "urn:li:mydataset1",
+      structuredPropertyInputParams: [
+        {
+          structuredPropertyUrn: "urn:li:structuredProperty:mystructuredproperty",
+          values: [
+            {
+              stringValue: "123"
+            }
+          ]
+        }
+      ]
+    }
+  ) {
+    properties {
+      structuredProperty {
+        urn
+      }
+    }
+  }
+}
+
+```
+
+</TabItem>
+<TabItem value="CLI" label="CLI">
 
 You can set structured properties to a dataset by creating a dataset yaml file with structured properties. For example, below is a dataset yaml file with structured properties in both the field and dataset level. 
 
@@ -465,6 +521,31 @@ Or you can run the following command to view the properties associated with the 
 ```commandline
 datahub dataset get --urn {urn}
 ```
+
+## Remove Structured Properties From a Dataset
+
+For removing a structured property or list of structured properties from a dataset:
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+mutation removeStructuredProperties {
+  removeStructuredProperties(
+    input: {
+      assetUrn: "urn:li:mydataset1",
+      structuredPropertyUrns: ["urn:li:structuredProperty:mystructuredproperty"]
+    }
+  ) {
+    properties {
+			structuredProperty {urn}
+		}
+  }
+}
+```
+
+</TabItem>  
+</Tabs>
 
 ## Patch Structured Property Value
 
@@ -780,6 +861,38 @@ You can see that the first property has been removed and the second property is 
 In this example, we'll add the property back with a different value, preserving the existing property.
 
 <Tabs>
+<TabItem value="graphql" label="GraphQL">
+
+```graphql
+mutation updateStructuredProperty {
+  updateStructuredProperty(
+    input: {
+      urn: "urn:li:structuredProperty:retentionTime",
+      displayName: "Retention Time",
+      description: "Retention Time is used to figure out how long to retain records in a dataset",
+      newAllowedValues: [
+        {
+          numberValue: 30,
+          description: "30 days, usually reserved for datasets that are ephemeral and contain pii"
+        },
+        {
+          numberValue: 90,
+          description: "Use this for datasets that drive monthly reporting but contain pii"
+        },
+        {
+          numberValue: 365,
+          description: "Use this for non-sensitive data that can be retained for longer"
+        }
+      ]
+    }
+  ) {
+    urn
+  }
+}
+
+```
+
+</TabItem>
 <TabItem value="OpenAPI v2" label="OpenAPI v2">
 
 ```shell

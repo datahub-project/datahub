@@ -47,7 +47,7 @@ from datahub.utilities.type_annotations import get_class_from_annotation
 
 logger = logging.getLogger(__name__)
 
-_MAX_CONTEXT_STRING_LENGTH = 300
+_MAX_CONTEXT_STRING_LENGTH = 1000
 
 
 class SourceCapability(Enum):
