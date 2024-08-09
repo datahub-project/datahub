@@ -9,6 +9,7 @@ fragment entityPreview on Entity {
             ...platformFields
         }
         editableProperties {
+            name
             description
         }
         platformNativeType

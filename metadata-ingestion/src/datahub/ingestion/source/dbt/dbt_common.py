@@ -849,8 +849,11 @@ def get_column_type(
     # if still not found, report the warning
     if TypeClass is None:
         if column_type:
-            report.report_warning(
-                dataset_name, f"unable to map type {column_type} to metadata schema"
+            report.info(
+                title="Unable to map column types to DataHub types",
+                message="Got an unexpected column type. The column's parsed field type will not be populated.",
+                context=f"{dataset_name} - {column_type}",
+                log=False,
             )
         TypeClass = NullTypeClass
 

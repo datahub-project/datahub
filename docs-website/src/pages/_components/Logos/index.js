@@ -168,36 +168,36 @@ export const CompanyLogos = () => (
       modules={[Pagination]}
       className={clsx("mySwiper", styles.companyWrapper)}
     >
-      {companies.map((company, idx) => (
-        <SwiperSlide key={idx}>
-          {company.link ? (
-            <a
-              href={`/adoption-stories#${company.slug}`}
-            >
+      {companies
+        .filter((company) => company.imageUrl) // Filter companies with imageUrl
+        .map((company, idx) => (
+          <SwiperSlide key={idx}>
+            {company.link ? (
+              <a href={`/adoption-stories#${company.slug}`}>
+                <img
+                  src={useBaseUrl(company.imageUrl)}
+                  alt={company.name}
+                  title={company.name}
+                  className={clsx(
+                    styles.companyLogo,
+                    styles.companyLogoWithLink,
+                    styles[company.imageSize]
+                  )}
+                />
+              </a>
+            ) : (
               <img
                 src={useBaseUrl(company.imageUrl)}
                 alt={company.name}
                 title={company.name}
                 className={clsx(
                   styles.companyLogo,
-                  styles.companyLogoWithLink,
                   styles[company.imageSize]
                 )}
               />
-            </a>
-          ) : (
-            <img
-              src={useBaseUrl(company.imageUrl)}
-              alt={company.name}
-              title={company.name}
-              className={clsx(
-                styles.companyLogo,
-                styles[company.imageSize]
-              )}
-            />
-          )}
-        </SwiperSlide>
-      ))}
+            )}
+          </SwiperSlide>
+        ))}
     </Swiper>
   </div>
 );
