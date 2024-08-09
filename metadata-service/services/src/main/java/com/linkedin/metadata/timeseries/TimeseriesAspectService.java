@@ -226,7 +226,7 @@ public interface TimeseriesAspectService {
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nullable Filter filter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count,
       @Nullable Long startTimeMillis,

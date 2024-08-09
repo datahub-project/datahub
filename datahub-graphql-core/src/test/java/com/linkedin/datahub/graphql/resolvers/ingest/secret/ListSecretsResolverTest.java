@@ -15,7 +15,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -24,6 +23,7 @@ import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -44,7 +44,7 @@ public class ListSecretsResolverTest {
                 Mockito.eq(Constants.SECRETS_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(null),
-                Mockito.any(SortCriterion.class),
+                Mockito.any(List.class),
                 Mockito.eq(0),
                 Mockito.eq(20)))
         .thenReturn(
@@ -112,7 +112,7 @@ public class ListSecretsResolverTest {
             Mockito.any(),
             Mockito.eq(""),
             Mockito.eq(null),
-            Mockito.any(SortCriterion.class),
+            Mockito.any(List.class),
             Mockito.anyInt(),
             Mockito.anyInt());
   }
