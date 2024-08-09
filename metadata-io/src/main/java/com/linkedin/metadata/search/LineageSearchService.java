@@ -318,7 +318,7 @@ public class LineageSearchService {
     return (lineageRelationships.size() > cacheConfiguration.getLightningThreshold())
         && input.equals("*")
         && simpleFilters
-        && CollectionUtils.isNotEmpty(sortCriteria);
+        && CollectionUtils.isEmpty(sortCriteria);
   }
 
   @VisibleForTesting
