@@ -1,0 +1,12 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "4eefab57619a812a94030acce0071857561265945e79d798563adb53bd0b9646",
+    "in_tables": [],
+    "out_tables": [],
+    "column_lineage": null,
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "DROP SCHEMA my_schema"
+    }
+}
