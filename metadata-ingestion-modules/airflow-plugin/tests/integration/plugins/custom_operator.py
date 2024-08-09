@@ -19,27 +19,14 @@ class CustomOperator(BaseOperator):
         """
         logger.info("executing other code here")
 
-    def get_openlineage_facets_on_complete(self, task_instance):
-        """
-        Implement _on_complete because execute method does preprocessing on internals.
-
-        This means we won't have to normalize self.source_object and self.source_objects,
-        destination bucket and so on.
-        """
-        from airflow.providers.openlineage.extractors import OperatorLineage
-
-        """
-        Other code....
-        """
         input_tables = ["mydb.schema.tableA", "mydb.schema.tableB"]
         output_tables = ["mydb.schema.tableD"]
 
         inlets, outlets = self._get_sf_lineage(input_tables, output_tables)
 
-        return OperatorLineage(
-            inputs=inlets,
-            outputs=outlets,
-        )
+        context["ti"].task.inlets = inlets
+        context["ti"].task.outlets = outlets
+
 
     @staticmethod
     def _get_sf_lineage(input_tables, output_tables):
