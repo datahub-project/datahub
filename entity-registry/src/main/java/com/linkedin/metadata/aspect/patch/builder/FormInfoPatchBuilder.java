@@ -97,6 +97,25 @@ public class FormInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<FormInf
     return this;
   }
 
+  // Caution - this will overwrite the existing state of prompts
+  public FormInfoPatchBuilder setPrompts(@Nonnull List<FormPrompt> prompts) {
+    // remove existing prompts
+    this.pathValues.add(
+        ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), PATH_DELIM + PROMPTS_FIELD, null));
+    // add empty prompts map
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), PATH_DELIM + PROMPTS_FIELD, instance.objectNode()));
+
+    // add the given prompts
+    try {
+      prompts.forEach(this::addPrompt);
+      return this;
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to set prompts.", e);
+    }
+  }
+
   public FormInfoPatchBuilder setOwnershipForm(boolean isOwnershipForm) {
     this.pathValues.add(
         ImmutableTriple.of(

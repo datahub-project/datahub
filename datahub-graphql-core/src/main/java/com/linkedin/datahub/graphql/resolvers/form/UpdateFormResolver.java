@@ -65,6 +65,9 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
             if (input.getPromptsToRemove() != null) {
               patchBuilder.removePrompts(input.getPromptsToRemove());
             }
+            if (input.getPrompts() != null) {
+              patchBuilder.setPrompts(FormUtils.mapPromptsToAdd(input.getPrompts()));
+            }
             if (input.getActors() != null) {
               if (input.getActors().getOwners() != null) {
                 patchBuilder.setOwnershipForm(input.getActors().getOwners());

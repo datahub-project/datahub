@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.CreatePromptInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FormActorAssignmentInput;
 import com.linkedin.datahub.graphql.generated.FormFilter;
+import com.linkedin.datahub.graphql.generated.OwnershipParamsInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParamsInput;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -28,6 +29,8 @@ import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
 import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
+import com.linkedin.form.OwnershipParams;
+import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
@@ -305,6 +308,9 @@ public class FormUtils {
       result.setStructuredPropertyParams(
           mapStructuredPropertyParams(promptInput.getStructuredPropertyParams()));
     }
+    if (promptInput.getOwnershipParams() != null) {
+      result.setOwnershipParams(mapOwnershipParams(promptInput.getOwnershipParams()));
+    }
     if (promptInput.getRequired() != null) {
       result.setRequired(promptInput.getRequired());
     }
@@ -319,6 +325,16 @@ public class FormUtils {
 
     final StructuredPropertyParams result = new StructuredPropertyParams();
     result.setUrn(UrnUtils.getUrn(paramsInput.getUrn()));
+    return result;
+  }
+
+  @Nonnull
+  public static OwnershipParams mapOwnershipParams(
+      @Nonnull final OwnershipParamsInput paramsInput) {
+    Objects.requireNonNull(paramsInput, "paramsInput must not be null");
+
+    final OwnershipParams result = new OwnershipParams();
+    result.setCardinality(PromptCardinality.valueOf(paramsInput.getCardinality().toString()));
     return result;
   }
 

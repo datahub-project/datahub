@@ -603,6 +603,11 @@ input CreatePromptInput {
     structuredPropertyParams: StructuredPropertyParamsInput
 
     """
+    The params if this prompt type is OWNERSHIP
+    """
+    ownershipParams: OwnershipParamsInput
+
+    """
     Whether this prompt will be required or not. Default is false.
     """
     required: Boolean
@@ -640,6 +645,16 @@ input StructuredPropertyParamsInput {
 }
 
 """
+Input for an ownership type prompt
+"""
+input OwnershipParamsInput {
+    """
+    The cardinality of the ownership prompts (single or multiple) - default is multiple
+    """
+    cardinality: PromptCardinality!
+}
+
+"""
 Input for updating a form
 """
 input UpdateFormInput {
@@ -672,6 +687,12 @@ input UpdateFormInput {
     The IDs of the prompts to remove from this form
     """
     promptsToRemove: [String!]
+
+    """
+    Set the state of prompts on this form with these prompts.
+    Caution! This will overwrite the existing list of prompts for this form.
+    """
+    prompts: [CreatePromptInput!]
 
     """
     Information on how this form should be assigned to users/groups
