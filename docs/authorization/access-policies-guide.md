@@ -15,7 +15,9 @@ There are 2 types of Access Policy within DataHub:
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-policy-type.png"/>
 </p>
 
-**Platform** Policies determine who has platform-level Privileges on DataHub. These include:
+## Platform
+
+Policies determine who has platform-level Privileges on DataHub. These include:
 
 - Managing Users & Groups
 - Viewing the DataHub Analytics Page
@@ -31,7 +33,9 @@ A few Platform Policies in plain English include:
 - The Data Platform team should be allowed to manage users & groups, view platform analytics, & manage policies themselves
 - John from IT should be able to invite new users
 
-**Metadata** policies determine who can do what to which Metadata Entities. For example:
+## Metadata
+
+Metadata policies determine who can do what to which Metadata Entities. For example:
 
 - Who can edit Dataset Documentation & Links?
 - Who can add Owners to a Chart?
@@ -51,17 +55,14 @@ A few **Metadata** Policies in plain English include:
 
 Each of these can be implemented by constructing DataHub Access Policies.
 
-## Access Policies Setup, Prerequisites, and Permissions
+## Using Access Policies
 
-What you need to manage Access Policies on DataHub:
-
+:::note Required Access
 * **Manage Policies** Privilege
 
 This Platform Privilege allows users to create, edit, and remove all Access Policies on DataHub. Therefore, it should only be
 given to those users who will be serving as Admins of the platform. The default `Admin` role has this Privilege.
-
-
-## Using Access Policies
+:::
 
 Policies can be created by first navigating to **Settings > Permissions > Policies**.
 
@@ -270,10 +271,5 @@ Policies only affect REST APIs when the environment variable `REST_API_AUTHORIZA
 Policies are the lowest level primitive for granting Privileges to users on DataHub. 
 
 Roles are built for convenience on top of Policies. Roles grant Privileges to actors indirectly, driven by Policies
-behind the scenes. Both can be used in conjunction to grant Privileges to end users. 
-
-
-
-### Related Features
-
-- [Roles](./roles.md)
+behind the scenes. Both can be used in conjunction to grant Privileges to end users. For more information on roles
+please refer to [Authorization > Roles](./roles.md).
