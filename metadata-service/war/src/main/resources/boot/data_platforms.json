@@ -664,5 +664,15 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/sigmalogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:sac",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "sac",
+      "displayName": "SAP Analytics Cloud",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/saclogo.svg"
+    }
   }
 ]
