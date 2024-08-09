@@ -459,7 +459,7 @@ class DataHubListener:
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
-        task = self._task_holder.get_task(task_instance) or task_instance.task
+        task = task_instance.task or self._task_holder.get_task(task_instance)
         assert task is not None
         dag: "DAG" = task.dag  # type: ignore[assignment]
 
