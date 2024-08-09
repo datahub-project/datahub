@@ -1,0 +1,61 @@
+.hero {
+  .button {
+    margin: 0rem 1rem 2rem 1rem;
+  }
+
+  .hero__title {
+    font-size: 4rem;
+  }
+
+  .hero__secondtitle {
+    font-size: 2rem;
+    font-weight: 300;
+    margin-bottom: 2rem;
+  }
+
+  .hero__subtitle {
+    margin-bottom: 2rem;
+    font-size: 1.75rem;
+    line-height: 2.5rem;
+  }
+
+  .buttonLightBlue {
+    color: #1990FF !important;
+    background: #EAF3FF;
+    border-color: #EAF3FF;
+
+    &:hover {
+      background: #D6E7FF;
+    }
+  }
+
+}
+
+.formContainer {
+  padding: 2rem;
+  margin: 0 auto;
+  background-color:#f6f6f6;
+  align-items: center;
+  max-width: 540px;
+  border-radius: 24px;
+
+  .formContent {
+    width: 90%;
+    margin: 0 auto;
+  }
+
+  .formHeader {
+    justify-content: space-between;
+    text-align: left;
+
+    .formTitle {
+      font-size: 36px;
+      font-weight: 600;
+    }
+  
+    .fontSubtitle {
+      font-size: 20px;
+    }
+  }
+
+}
