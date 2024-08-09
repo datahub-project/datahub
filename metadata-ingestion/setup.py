@@ -328,7 +328,9 @@ plugins: Dict[str, Set[str]] = {
         "gql[requests]>=3.3.0",
     },
     "datahub": mysql | kafka_common,
-    "great-expectations": sql_common | sqllineage_lib,
+    "great-expectations": {
+        f"acryl-datahub-gx-plugin{_self_pin}",
+    },
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
