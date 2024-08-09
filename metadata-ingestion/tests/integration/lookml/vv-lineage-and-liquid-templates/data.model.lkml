@@ -6,6 +6,7 @@ include: "employee_total_income.view.lkml"
 include: "top_10_employee_income_source.view.lkml"
 include: "employee_tax_report.view.lkml"
 include: "employee_salary_rating.view.lkml"
+include: "rent_as_employee_income_source.view.lkml"
 
 explore: activity_logs {
 }
@@ -23,4 +24,7 @@ explore: employee_tax_report {
 }
 
 explore: employee_salary_rating {
+}
+
+explore: rent_as_employee_income_source {
 }
