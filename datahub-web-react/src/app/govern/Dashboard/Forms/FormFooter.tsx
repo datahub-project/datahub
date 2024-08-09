@@ -1,23 +1,19 @@
+import { Button } from '@src/alchemy-components';
+import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
+import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
+import { FormType } from '@src/types.generated';
 import React, { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { Button, Text } from '@components';
-import { ButtonsContainer, FlexBox, FormFooterContainer, NextStepText } from './styledComponents';
 import ManageFormContext from './ManageFormContext';
-import { FormFields } from './formUtils';
-import { useCreateFormMutation, useUpdateFormMutation } from '../../../../graphql/form.generated';
-import { showToastMessage, ToastType } from '../../../sharedV2/toastMessageUtils';
-import { formSteps } from './formSteps';
+import { FooterContainer } from './styledComponents';
 
 const FormFooter = () => {
-    const { currentStep, setCurrentStep, form, setIsFormLoading } = useContext(ManageFormContext);
+    const { form, formValues, setIsFormLoading } = useContext(ManageFormContext);
     const [createForm] = useCreateFormMutation();
     const [updateForm] = useUpdateFormMutation();
     const { urn } = useParams<{ urn: string }>();
 
     const [formUrn, setFormUrn] = useState<string | undefined>();
-
-    const nextStep = formSteps.find((step) => step.number === currentStep + 1);
-    const previousStep = formSteps.find((step) => step.number === currentStep - 1);
 
     useEffect(() => {
         if (urn) {
@@ -30,106 +26,70 @@ const FormFooter = () => {
     };
 
     const showSuccessMessage = () => {
-        showToastMessage(ToastType.SUCCESS, `Saved form.`, 3);
+        showToastMessage(ToastType.SUCCESS, `Form saved!`, 3);
     };
 
-    const saveForm = (formValues: FormFields) => {
+    const saveForm = () => {
         if (form) {
-            if (formUrn) {
-                const updateInput = {
-                    urn: formUrn,
-                    type: formValues.formType,
-                    name: formValues.formName,
-                    description: formValues.formDescription,
-                };
-                setIsFormLoading(true);
+            form.validateFields().then(() => {
+                if (formUrn) {
+                    const updateInput = {
+                        urn: formUrn,
+                        type: formValues.formType,
+                        name: formValues.formName,
+                        description: formValues.formDescription,
+                    };
+                    setIsFormLoading(true);
 
-                return updateForm({
-                    variables: {
-                        input: updateInput,
-                    },
-                })
-                    .then(() => {
-                        return true;
+                    updateForm({
+                        variables: {
+                            input: updateInput,
+                        },
                     })
-                    .catch(() => {
-                        showErrorMessage();
-                        return false;
+                        .then(() => {
+                            showSuccessMessage();
+                        })
+                        .catch(() => {
+                            showErrorMessage();
+                        })
+                        .finally(() => {
+                            setIsFormLoading(false);
+                        });
+                } else {
+                    const createInput = {
+                        type: formValues.formType || FormType.Completion,
+                        name: formValues.formName || '',
+                        description: formValues.formDescription,
+                    };
+                    setIsFormLoading(true);
+
+                    createForm({
+                        variables: {
+                            input: createInput,
+                        },
                     })
-                    .finally(() => {
-                        setIsFormLoading(false);
-                    });
-            }
-
-            const createInput = {
-                type: formValues.formType,
-                name: formValues.formName,
-                description: formValues.formDescription,
-            };
-            setIsFormLoading(true);
-
-            return createForm({
-                variables: {
-                    input: createInput,
-                },
-            })
-                .then((res) => {
-                    setFormUrn(res.data?.createForm.urn);
-                    return true;
-                })
-                .catch(() => {
-                    showErrorMessage();
-                    return false;
-                })
-                .finally(() => {
-                    setIsFormLoading(false);
-                });
+                        .then((res) => {
+                            setFormUrn(res.data?.createForm.urn);
+                            showSuccessMessage();
+                        })
+                        .catch(() => {
+                            showErrorMessage();
+                        })
+                        .finally(() => {
+                            setIsFormLoading(false);
+                        });
+                }
+            });
         }
-        return false;
-    };
-
-    const navigateToNextStep = () => {
-        if (form) {
-            form.validateFields()
-                .then((formValues) => saveForm(formValues))
-                .then((isSuccess) => {
-                    if (isSuccess) {
-                        setCurrentStep(currentStep + 1);
-                        showSuccessMessage();
-                    }
-                });
-        }
-    };
-
-    const navigateToPreviousStep = () => {
-        setCurrentStep(currentStep - 1);
     };
 
     return (
-        <FormFooterContainer>
-            <FlexBox>
-                {nextStep && (
-                    <>
-                        <NextStepText>Next Step</NextStepText>
-                        <Text color="violet" size="md" weight="bold">
-                            {nextStep?.name}
-                        </Text>
-                    </>
-                )}
-            </FlexBox>
-            <ButtonsContainer>
-                {!!previousStep && (
-                    <Button size="lg" variant="outline" onClick={navigateToPreviousStep}>
-                        Back
-                    </Button>
-                )}
-                {!!nextStep && (
-                    <Button size="lg" onClick={navigateToNextStep}>
-                        Next
-                    </Button>
-                )}
-            </ButtonsContainer>
-        </FormFooterContainer>
+        <FooterContainer>
+            <Button variant="outline" onClick={() => saveForm()}>
+                Save
+            </Button>
+            <Button variant="outline">Publish</Button>
+        </FooterContainer>
     );
 };
 

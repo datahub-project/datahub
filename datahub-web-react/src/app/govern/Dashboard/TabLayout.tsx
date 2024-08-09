@@ -55,14 +55,14 @@ export const PageHeading = styled(Typography.Text)`
 
 const documentationTabs = [
     {
-        name: 'Analytics',
-        key: 'analytics',
-        component: <AnalyticsTab />,
-    },
-    {
         name: 'Forms',
         key: 'forms',
         component: <FormsTab />,
+    },
+    {
+        name: 'Analytics',
+        key: 'analytics',
+        component: <AnalyticsTab />,
     },
 ];
 
@@ -82,7 +82,7 @@ export const TabLayout = () => {
     const initialTab = searchParams.get('documentationTab') || '';
 
     const [currentTab, setCurrentTab] = useState(
-        documentationTabs.some((tab) => tab.key === initialTab) ? initialTab : 'analytics',
+        documentationTabs.some((tab) => tab.key === initialTab) ? initialTab : 'forms',
     );
 
     useEffect(() => {

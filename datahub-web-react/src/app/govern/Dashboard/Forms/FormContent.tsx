@@ -1,21 +1,31 @@
-import React, { useContext } from 'react';
-import { FlexBox, FormContentContainer, StepDescription, StepNameHeading } from './styledComponents';
+import { LoadingOutlined } from '@ant-design/icons';
+import React, { useContext, useEffect } from 'react';
+import AddToForm from './AddToForm';
+import CreateFormHeader from './CreateFormHeader';
+import DetailsForm from './DetailsForm';
+import { FormMode } from './formUtils';
 import ManageFormContext from './ManageFormContext';
-import { formSteps } from './formSteps';
+import { ContentContainer, StyledSpin } from './styledComponents';
 
-const FormContent = () => {
-    const { currentStep } = useContext(ManageFormContext);
+interface Props {
+    mode: FormMode;
+}
 
-    const activeStep = formSteps.find((step) => step.number === currentStep);
+const FormContent = ({ mode }: Props) => {
+    const { setFormMode, isFormLoading } = useContext(ManageFormContext);
+
+    useEffect(() => {
+        setFormMode(mode);
+    }, [mode, setFormMode]);
 
     return (
-        <FormContentContainer>
-            <FlexBox>
-                <StepNameHeading>{activeStep?.name}</StepNameHeading>
-                <StepDescription>{activeStep?.description}</StepDescription>
-            </FlexBox>
-            {activeStep && <activeStep.component />}
-        </FormContentContainer>
+        <ContentContainer>
+            <StyledSpin spinning={isFormLoading} indicator={<LoadingOutlined />}>
+                <CreateFormHeader />
+                <DetailsForm />
+                <AddToForm />
+            </StyledSpin>
+        </ContentContainer>
     );
 };
 

@@ -9,8 +9,8 @@ export type FormQuestion = {
 };
 
 export type FormFields = {
-    formType: FormType;
-    formName: string;
+    formType?: FormType;
+    formName?: string;
     formDescription?: string | undefined;
     questions?: FormQuestion[];
 };
