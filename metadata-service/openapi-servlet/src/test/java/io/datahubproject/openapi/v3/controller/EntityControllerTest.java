@@ -114,7 +114,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             eq(List.of("dataset")),
             anyString(),
             nullable(Filter.class),
-            eq(Collections.singletonList(SearchUtil.sortBy("urn", SortOrder.valueOf("DESCENDING")))),
+            eq(
+                Collections.singletonList(
+                    SearchUtil.sortBy("urn", SortOrder.valueOf("DESCENDING")))),
             nullable(String.class),
             nullable(String.class),
             anyInt()))
