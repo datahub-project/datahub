@@ -78,6 +78,14 @@ public class RecordUtils {
     }
   }
 
+  public static String toJsonString(@Nonnull List<? extends RecordTemplate> recordTemplates) {
+    StringBuilder json = new StringBuilder();
+    for (RecordTemplate recordTemplate : recordTemplates) {
+      json.append(toJsonString(recordTemplate));
+    }
+    return json.toString();
+  }
+
   /**
    * Creates a {@link RecordTemplate} object from a serialized JSON string.
    *
