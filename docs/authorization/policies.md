@@ -146,6 +146,7 @@ These privileges are to view & modify any entity within DataHub.
 | Share Entity[^2]                    | Allow actor to share an entity with another DataHub Cloud instance.                                |
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
 [^2]: DataHub Cloud only
 
 ##### Specific entity-level privileges
@@ -171,6 +172,7 @@ These privileges are not generalizable.
 | Dataset      | Edit Data Contract[^2]                    | Allow actor to edit the Data Contract for an entity.                                                                                                                              |
 | Dataset      | Manage Data Contract Proposals[^2]        | Allow actor to manage a proposal for a Data Contract                                                                                                                              |
 | Tag          | Edit Tag Color                            | Allow actor to change the color of a Tag.                                                                                                                                         |
+| Tag          | Associate Tags                            | Allow actor to associate the tag to an asset.                                                                                                                                     |
 | Domain       | Manage Data Products                      | Allow actor to create, edit, and delete Data Products within a Domain                                                                                                             |
 | GlossaryNode | Manage Direct Glossary Children           | Allow actor to create and delete the direct children of this entity.                                                                                                              |
 | GlossaryNode | Manage All Glossary Children              | Allow actor to create and delete everything underneath this entity.                                                                                                               |

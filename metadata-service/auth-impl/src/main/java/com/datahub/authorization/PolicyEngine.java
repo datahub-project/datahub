@@ -245,6 +245,12 @@ public class PolicyEngine {
     }
 
     Set<String> fieldValues = resource.getFieldValues(entityFieldType);
+    //For PolicyMatchCondition.NOT_EQUALS, we need to make sure the condition is not satistified for all of the resources specified
+    if (criterion.getCondition() == PolicyMatchCondition.NOT_EQUALS) {
+      return criterion.getValues()
+        .stream()
+        .allMatch(filterValue -> checkCondition(fieldValues, filterValue, criterion.getCondition()));
+    }
     return criterion.getValues().stream()
         .anyMatch(
             filterValue -> checkCondition(fieldValues, filterValue, criterion.getCondition()));
@@ -254,6 +260,8 @@ public class PolicyEngine {
       Set<String> fieldValues, String filterValue, PolicyMatchCondition condition) {
     if (condition == PolicyMatchCondition.EQUALS) {
       return fieldValues.contains(filterValue);
+    } else if (condition == PolicyMatchCondition.NOT_EQUALS) {
+      return !fieldValues.contains(filterValue);
     }
     log.error("Unsupported condition {}", condition);
     return false;

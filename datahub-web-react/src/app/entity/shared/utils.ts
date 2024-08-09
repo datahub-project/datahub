@@ -97,6 +97,12 @@ function getGraphqlErrorCode(e) {
 
 export const handleBatchError = (urns, e, defaultMessage) => {
     if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
+        if (e.message === 'Only users granted permission to this tag can assign or remove it') {
+            return {
+                content: `${e.message}. The bulk edit being performed will not be saved.`,
+                duration: 3,
+            };
+        }
         return {
             content:
                 'Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.',

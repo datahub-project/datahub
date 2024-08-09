@@ -376,6 +376,11 @@ public class PoliciesConfig {
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
       Privilege.of("EDIT_TAG_COLOR", "Edit Tag Color", "The ability to change the color of a Tag.");
 
+  public static final Privilege ASSOCIATE_TAGS_PRIVILEGE = Privilege.of(
+      "ASSOCIATE_TAGS_PRIVILEGE",
+      "Associate Tags",
+      "The ability to associate this tag to an asset.");
+
   // Group Privileges
   public static final Privilege EDIT_GROUP_MEMBERS_PRIVILEGE =
       Privilege.of(
@@ -565,6 +570,7 @@ public class PoliciesConfig {
               VIEW_ENTITY_PAGE_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_TAG_COLOR_PRIVILEGE,
+              ASSOCIATE_TAGS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE,

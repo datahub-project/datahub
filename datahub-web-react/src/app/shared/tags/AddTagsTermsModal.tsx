@@ -280,7 +280,7 @@ export default function EditTagTermsModal({
             .catch((e) => {
                 message.destroy();
                 message.error(
-                    handleBatchError(urns, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
+                    handleBatchError(resources, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
                 );
             })
             .finally(() => {
@@ -310,7 +310,7 @@ export default function EditTagTermsModal({
             .catch((e) => {
                 message.destroy();
                 message.error(
-                    handleBatchError(urns, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
+                    handleBatchError(resources, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
                 );
             })
             .finally(() => {
@@ -340,7 +340,7 @@ export default function EditTagTermsModal({
             .catch((e) => {
                 message.destroy();
                 message.error(
-                    handleBatchError(urns, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
+                    handleBatchError(resources, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
                 );
             })
             .finally(() => {
@@ -370,7 +370,7 @@ export default function EditTagTermsModal({
             .catch((e) => {
                 message.destroy();
                 message.error(
-                    handleBatchError(urns, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
+                    handleBatchError(resources, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
                 );
             })
             .finally(() => {

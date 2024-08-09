@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Form, Select, Tag, Tooltip, Typography, Tag as CustomTag } from 'antd';
+import { Form, Select, Tag, Tooltip, Typography, Tag as CustomTag, Checkbox } from 'antd';
 import styled from 'styled-components/macro';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -9,13 +9,14 @@ import {
     useGetSearchResultsForMultipleLazyQuery,
     useGetSearchResultsLazyQuery,
 } from '../../../graphql/search.generated';
-import { ResourceFilter, PolicyType, EntityType, Domain, Entity } from '../../../types.generated';
+import { ResourceFilter, PolicyType, EntityType, Domain, Entity, PolicyMatchCondition } from '../../../types.generated';
 import {
     convertLegacyResourceFilter,
     createCriterionValue,
     createCriterionValueWithEntity,
     EMPTY_POLICY,
     getFieldValues,
+    getFieldCondition,
     getFieldValuesOfTags,
     mapResourceTypeToDisplayName,
     mapResourceTypeToEntityType,
@@ -105,6 +106,8 @@ export default function PolicyPrivilegeForm({
     const resourceTypes = getFieldValues(resources.filter, 'TYPE') || [];
     const resourceEntities = getFieldValues(resources.filter, 'URN') || [];
 
+    const matchConditionInitial = getFieldCondition(resources.filter, 'RESOURCE_URN');
+    const [matchCondition, setMatchCondition] = useState(matchConditionInitial);
     const getDisplayName = (entity) => {
         if (!entity) {
             return null;
@@ -180,7 +183,7 @@ export default function PolicyPrivilegeForm({
         };
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'TYPE', [...resourceTypes, createCriterionValue(selectedResourceType)]),
+            filter: setFieldValues(filter, 'TYPE', [...resourceTypes, createCriterionValue(selectedResourceType)], PolicyMatchCondition.Equals),
         });
     };
 
@@ -194,6 +197,7 @@ export default function PolicyPrivilegeForm({
                 filter,
                 'TYPE',
                 resourceTypes?.filter((criterionValue) => criterionValue.value !== deselectedResourceType),
+                PolicyMatchCondition.Equals,
             ),
         });
     };
@@ -211,7 +215,9 @@ export default function PolicyPrivilegeForm({
                     resource,
                     getEntityFromSearchResults(resourceSearchResults, resource) || null,
                 ),
-            ]),
+            ],
+            matchCondition,
+           ),
         });
     };
 
@@ -226,20 +232,40 @@ export default function PolicyPrivilegeForm({
                 filter,
                 'URN',
                 resourceEntities?.filter((criterionValue) => criterionValue.value !== resource),
+                matchCondition,
             ),
         });
     };
 
+    const updateMatchConditionInResources = (excludeResource) => {
+        const filter = resources.filter || {
+            criteria: [],
+        };
+        setResources({
+            ...resources,
+            filter: setFieldValues(
+                filter,
+                'RESOURCE_URN',
+                resourceEntities,
+                excludeResource ? PolicyMatchCondition.NotEquals : PolicyMatchCondition.Equals,
+            ),
+        });
+    };
     // When a domain is selected, add its urn to the list of domains
     const onSelectDomain = (domainUrn, domainObj?: Domain) => {
         const filter = resources.filter || {
             criteria: [],
         };
         const domainEntity = domainObj || getEntityFromSearchResults(domainSearchResults, domainUrn);
-        const updatedFilter = setFieldValues(filter, 'DOMAIN', [
+        const updatedFilter = setFieldValues(
+          filter,
+          'DOMAIN',
+          [
             ...domains,
             createCriterionValueWithEntity(domainUrn, domainEntity || null),
-        ]);
+          ],
+          PolicyMatchCondition.Equals,
+        );
         setResources({
             ...resources,
             filter: updatedFilter,
@@ -262,6 +288,7 @@ export default function PolicyPrivilegeForm({
                 filter,
                 'DOMAIN',
                 domains?.filter((criterionValue) => criterionValue.value !== domain),
+                PolicyMatchCondition.Equals,
             ),
         });
     };
@@ -319,6 +346,23 @@ export default function PolicyPrivilegeForm({
         return displayStr.length > length
             ? `${displayStr.substring(0, Math.min(length, displayStr.length))}...`
             : displayStr;
+    };
+
+    const getResourceText = (policyMatch) => {
+        if (policyMatch === PolicyMatchCondition.Equals) {
+            return (
+                <Typography.Paragraph>
+                    Search for specific resources the policy should apply to. If <b>none</b> is selected, policy is
+                    applied to <b>all</b> resources of the given type.
+                </Typography.Paragraph>
+            );
+        }
+        return (
+            <Typography.Paragraph>
+                Search for specific resource(s) the policy exclusion should apply to. If <b>none</b> is selected, policy
+                is applied to <b>all</b> resources of the given type.
+            </Typography.Paragraph>
+        );
     };
 
     function handleCLickOutside() {
@@ -488,39 +532,57 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Resource</Typography.Text>}>
-                    <Typography.Paragraph>
-                        Search for specific resources the policy should apply to. If <b>none</b> is selected, policy is
-                        applied to <b>all</b> resources of the given type.
-                    </Typography.Paragraph>
-                    <Select
-                        notFoundContent="No search results found"
-                        value={resourceSelectValue}
-                        mode="multiple"
-                        filterOption={false}
-                        placeholder="Apply to ALL resources by default. Select specific resources to apply to."
-                        onSelect={onSelectResource}
-                        onDeselect={onDeselectResource}
-                        onSearch={handleResourceSearch}
-                        tagRender={(tagProps) => (
-                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                <Tooltip title={tagProps.value.toString()}>
-                                    {displayStringWithMaxLength(
-                                        resourceUrnToDisplayName[tagProps.value.toString()] ||
-                                            tagProps.value.toString(),
-                                        75,
-                                    )}
-                                </Tooltip>
-                            </Tag>
-                        )}
-                    >
-                        {resourceSearchResults?.map((result) => (
-                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                {renderSearchResult(result)}
-                            </Select.Option>
-                        ))}
-                    </Select>
-                </Form.Item>
+                <>
+                    <Form.Item label={<Typography.Text strong>Resource Condition</Typography.Text>}>
+                        <Typography.Paragraph>
+                            Selecting the checkbox below will exclude selected resource from the policy. If not
+                            selected, resources selected will be included in the policy.
+                        </Typography.Paragraph>
+                        <Checkbox
+                            checked={matchCondition === PolicyMatchCondition.NotEquals}
+                            onChange={(value) => {
+                                setMatchCondition(
+                                    value?.target?.checked
+                                        ? PolicyMatchCondition.NotEquals
+                                        : PolicyMatchCondition.Equals,
+                                );
+                                updateMatchConditionInResources(value?.target?.checked);
+                            }}
+                        >
+                            Exclude Resources
+                        </Checkbox>
+                    </Form.Item>
+                    <Form.Item label={<Typography.Text strong>Resource</Typography.Text>}>
+                        {getResourceText(matchCondition)}
+                        <Select
+                            notFoundContent="No search results found"
+                            value={resourceSelectValue}
+                            mode="multiple"
+                            filterOption={false}
+                            placeholder="Apply to ALL resources by default. Select specific resources to apply to."
+                            onSelect={onSelectResource}
+                            onDeselect={onDeselectResource}
+                            onSearch={handleResourceSearch}
+                            tagRender={(tagProps) => (
+                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                    <Tooltip title={tagProps.value.toString()}>
+                                        {displayStringWithMaxLength(
+                                            resourceUrnToDisplayName[tagProps.value.toString()] ||
+                                                tagProps.value.toString(),
+                                            75,
+                                        )}
+                                    </Tooltip>
+                                </Tag>
+                            )}
+                        >
+                            {resourceSearchResults?.map((result) => (
+                               <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                 {renderSearchResult(result)}
+                               </Select.Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                </>
             )}
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>Select Tags</Typography.Text>}>

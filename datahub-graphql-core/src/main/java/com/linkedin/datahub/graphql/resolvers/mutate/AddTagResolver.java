@@ -38,6 +38,10 @@ public class AddTagResolver implements DataFetcher<CompletableFuture<Boolean>> {
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
+    if (!LabelUtils.isAuthorizedToAssociateTag(environment.getContext(), tagUrn)) {
+      throw new AuthorizationException("Only users granted permission to this tag can assign or remove it");
+    }
+ 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           LabelUtils.validateResourceAndLabel(
