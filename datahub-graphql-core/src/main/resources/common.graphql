@@ -1,0 +1,49 @@
+"""
+Object containing the documentation aspect for an entity
+"""
+type Documentation {
+    """
+    Structured properties on this entity
+    """
+    documentations: [DocumentationAssociation!]!
+}
+
+"""
+Object containing the documentation aspect for an entity
+"""
+type DocumentationAssociation {
+    """
+    Structured properties on this entity
+    """
+    documentation: String!
+
+    """
+    Information about who, why, and how this metadata was applied
+    """
+    attribution: MetadataAttribution
+}
+
+"""
+Information about who, why, and how this metadata was applied
+"""
+type MetadataAttribution {
+    """
+    The time this metadata was applied
+    """
+    time: Long!
+
+    """
+    The actor responsible for this metadata application
+    """
+    actor: Entity!
+
+    """
+    The source of this metadata application. If propagated, this will be an action.
+    """
+    source: Entity
+
+    """
+    Extra details about how this metadata was applied
+    """
+    sourceDetail: [StringMapEntry!]
+}

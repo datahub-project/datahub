@@ -31,7 +31,11 @@ module.exports = {
           label: "Demo",
           href: "https://demo.datahubproject.io/",
         },
-        "docs/what-is-datahub/customer-stories",
+        {
+          type: "link",
+          label: "Adoption Stories",
+          href: "/adoption-stories",
+        },
         "docs/what-is-datahub/datahub-concepts",
       ],
     },
@@ -252,6 +256,11 @@ module.exports = {
             {
               type: "doc",
               id: "docs/managed-datahub/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
               className: "saasOnly",
             },
           ],
@@ -811,7 +820,6 @@ module.exports = {
     },
     {
       "API & SDK Guides": [
-        "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",

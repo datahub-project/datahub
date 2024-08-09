@@ -8,32 +8,13 @@ import time
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.types import (
-    ArrayType,
-    BinaryType,
-    BooleanType,
-    ByteType,
-    DateType,
-    DecimalType,
-    DoubleType,
-    FloatType,
-    IntegerType,
-    LongType,
-    MapType,
-    NullType,
-    ShortType,
-    StringType,
-    StructField,
-    StructType,
-    TimestampType,
-)
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
@@ -52,7 +33,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders
 from datahub.ingestion.source.aws.s3_util import (
@@ -72,22 +53,13 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    BooleanTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
-    NullTypeClass,
-    NumberTypeClass,
-    RecordTypeClass,
     SchemaField,
-    SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
-    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    MapTypeClass,
     OperationClass,
     OperationTypeClass,
     OtherSchemaClass,
@@ -101,53 +73,10 @@ from datahub.utilities.perf_timer import PerfTimer
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
-# for a list of all types, see https://spark.apache.org/docs/3.0.3/api/python/_modules/pyspark/sql/types.html
-_field_type_mapping = {
-    NullType: NullTypeClass,
-    StringType: StringTypeClass,
-    BinaryType: BytesTypeClass,
-    BooleanType: BooleanTypeClass,
-    DateType: DateTypeClass,
-    TimestampType: TimeTypeClass,
-    DecimalType: NumberTypeClass,
-    DoubleType: NumberTypeClass,
-    FloatType: NumberTypeClass,
-    ByteType: BytesTypeClass,
-    IntegerType: NumberTypeClass,
-    LongType: NumberTypeClass,
-    ShortType: NumberTypeClass,
-    ArrayType: NullTypeClass,
-    MapType: MapTypeClass,
-    StructField: RecordTypeClass,
-    StructType: RecordTypeClass,
-}
 PAGE_SIZE = 1000
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
-
-
-def get_column_type(
-    report: SourceReport, dataset_name: str, column_type: str
-) -> SchemaFieldDataType:
-    """
-    Maps known Spark types to datahub types
-    """
-    TypeClass: Any = None
-
-    for field_type, type_class in _field_type_mapping.items():
-        if isinstance(column_type, field_type):
-            TypeClass = type_class
-            break
-
-    # if still not found, report the warning
-    if TypeClass is None:
-        report.report_warning(
-            dataset_name, f"unable to map type {column_type} to metadata schema"
-        )
-        TypeClass = NullTypeClass
-
-    return SchemaFieldDataType(type=TypeClass())
 
 
 # config flags to emit telemetry for
@@ -220,13 +149,12 @@ class TableData:
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
 @capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
+    SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
 )
+@capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
 class S3Source(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -491,9 +419,7 @@ class S3Source(StatefulIngestionSourceBase):
                         if not is_fieldpath_v2
                         else f"[version=2.0].[type=string].{partition_key}",
                         nativeDataType="string",
-                        type=SchemaFieldDataType(StringTypeClass())
-                        if not is_fieldpath_v2
-                        else SchemaFieldDataTypeClass(type=StringTypeClass()),
+                        type=SchemaFieldDataTypeClass(StringTypeClass()),
                         isPartitioningKey=True,
                         nullable=True,
                         recursive=False,

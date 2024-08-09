@@ -18,8 +18,6 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.metadata.service",
       "com.datahub.event",
       "com.linkedin.gms.factory.kafka",
-      "com.linkedin.gms.factory.kafka.common",
-      "com.linkedin.gms.factory.kafka.schemaregistry",
       "com.linkedin.metadata.boot.kafka",
       "com.linkedin.metadata.kafka",
       "com.linkedin.metadata.dao.producer",
@@ -34,7 +32,10 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.timeseries",
       "com.linkedin.gms.factory.assertion",
-      "com.linkedin.gms.factory.plugins"
+      "com.linkedin.gms.factory.plugins",
+      "com.linkedin.gms.factory.change",
+      "com.datahub.event.hook",
+      "com.linkedin.gms.factory.notifications"
     },
     excludeFilters = {
       @ComponentScan.Filter(

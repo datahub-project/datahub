@@ -19,6 +19,14 @@ public interface MetadataChangeLogHook {
   }
 
   /**
+   * Suffix for the consumer group
+   *
+   * @return suffix
+   */
+  @Nonnull
+  String getConsumerGroupSuffix();
+
+  /**
    * Return whether the hook is enabled or not. If not enabled, the below invoke method is not
    * triggered
    */
