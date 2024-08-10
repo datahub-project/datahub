@@ -1,7 +1,7 @@
 
 # Goal
 
-This test is a simply a collection of json files which contain request/response sequence intended to
+This test is configuration driven by json files which contain request/response sequences intended to
 detect unexpected regressions between releases.
 
 Files can be executed in parallel but each request within the file is sequential.
@@ -18,11 +18,15 @@ expected status code and optional body.
 [
   {
     "request": {
-      
+      "urn": "",
+      "description": "",
+      "method": "",
+      "json": {}
     },
     "response": {
-      "status_code": 200,
-      "body": {}
+      "status_codes": [200],
+      "exclude_regex_paths": [],
+      "json": {}
     }
   }
 ]
