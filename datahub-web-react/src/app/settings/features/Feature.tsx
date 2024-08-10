@@ -104,6 +104,8 @@ export interface FeatureType {
         title: string;
         description: string;
         isAvailable: boolean;
+        isDisabled: boolean;
+        disabledMessage?: string;
         checked: boolean;
         onChange?: (checked: boolean) => void;
     }>;
