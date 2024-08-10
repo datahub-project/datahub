@@ -81,11 +81,11 @@ export const Features = () => {
                         'Propagate new documentation from upstream to downstream assets based on data lineage relationships.',
                     isAvailable: true,
                     isDisabled: true,
-                    disabledMessage: 'Coming soon!'
+                    disabledMessage: 'Coming soon!',
                 },
             ],
             isNew: true,
-            learnMoreLink: 'https://datahubproject.io/docs/automations/doc-propagation',
+            learnMoreLink: 'https://datahubproject.io/docs/automations/docs-propagation',
         },
     ];
 
