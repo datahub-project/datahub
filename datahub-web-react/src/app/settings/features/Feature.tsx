@@ -149,11 +149,13 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                                 <DescriptionText>{option.description}</DescriptionText>
                             </div>
                         </span>
-                        <Switch
-                            checked={option.checked}
-                            onChange={(checked) => (option.onChange ? option.onChange(checked) : null)}
-                            disabled={!option.isAvailable}
-                        />
+                        <Tooltip title={option.disabledMessage}>
+                            <Switch
+                                checked={option.checked}
+                                onChange={(checked) => (option.onChange ? option.onChange(checked) : null)}
+                                disabled={!option.isAvailable || option.isDisabled}
+                            />
+                        </Tooltip>
                     </FeatureOptionRow>
                     {index !== options.length - 1 && <Divider />}
                 </>

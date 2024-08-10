@@ -95,6 +95,23 @@ module.exports = {
           ],
         },
         {
+          label: "Automations",
+          type: "category",
+          items: [
+            {
+              label: "Documentation Propagation",
+              type: "doc",
+              id: "docs/managed-datahub/automation/docs-propagation",
+            },
+            {
+              label: "Snowflake Tag Sync",
+              type: "doc",
+              id: "docs/managed-datahub/automation/snowflake-tag-propagation",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           label: "Business Attributes",
           type: "doc",
           id: "docs/businessattributes",
