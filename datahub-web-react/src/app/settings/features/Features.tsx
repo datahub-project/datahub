@@ -80,7 +80,8 @@ export const Features = () => {
                     description:
                         'Propagate new documentation from upstream to downstream assets based on data lineage relationships.',
                     isAvailable: true,
-                    checked: false,
+                    isDisabled: true,
+                    disabledMessage: 'Coming soon!'
                 },
             ],
             isNew: true,

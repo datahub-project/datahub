@@ -65,7 +65,7 @@ export default function PropagationDetails({ sourceDetail }: Props) {
         originEntity || viaEntity ? (
             <PopoverWrapper>
                 <PopoverDescription>
-                    This description was automatically propagated from an upstream column. <PopoverDocumentation>Learn more</PopoverDocumentation>
+                    This description was automatically propagated from an upstream column. <PopoverDocumentation target="_blank" rel="noreferrer" href="https://datahubproject.io/docs/automations/doc-propagation" >Learn more</PopoverDocumentation>
 
                 </PopoverDescription>
                 <PopoverAttributes>
