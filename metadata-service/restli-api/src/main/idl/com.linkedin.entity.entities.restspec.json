@@ -200,6 +200,10 @@
         "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
         "name" : "start",
         "type" : "int"
       }, {
@@ -249,6 +253,10 @@
         "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
         "name" : "start",
         "type" : "int"
       }, {
@@ -287,6 +295,10 @@
       }, {
         "name" : "sort",
         "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
         "optional" : true
       }, {
         "name" : "scrollId",
@@ -334,6 +346,10 @@
         "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
         "name" : "scrollId",
         "type" : "string",
         "optional" : true
@@ -375,6 +391,10 @@
         "type" : "com.linkedin.metadata.query.filter.SortCriterion",
         "optional" : true
       }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
         "name" : "start",
         "type" : "int"
       }, {
@@ -410,6 +430,10 @@
       }, {
         "name" : "sort",
         "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
         "optional" : true
       }, {
         "name" : "start",
@@ -451,6 +475,10 @@
       }, {
         "name" : "sort",
         "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
         "optional" : true
       }, {
         "name" : "start",
