@@ -1016,6 +1016,12 @@ class Assertion(AssertionInfo):
     # The settings used to adjust the assertion.
     adjustmentSettings: Optional[AssertionAdjustmentSettings]
 
+    # We need "AssertionInfo" aspect in its original form when creating AssertionRunEvent aspect.
+    # Ideally, we can write a complete mapper from "Assertion" type here to "AssertionInfo" aspect
+    # that covers all existing assertion types (freshness, volume, custom, field, etc)
+    # in `aspect_builder.py` and raw_info_aspect will not be needed, however at this point,
+    # that seems more maintenance-heavy as compared to this workaround. In future, we may revisit this.
+
     # raw assertionInfo aspect
     raw_info_aspect: Optional[RawAspect]
 
