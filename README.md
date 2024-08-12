@@ -138,6 +138,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Peloton](https://www.onepeloton.com)
 - [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/)
 - [Razer](https://www.razer.com)
+- [Rippling](https://www.rippling.com/)
 - [Showroomprive](https://www.showroomprive.com/)
 - [SpotHero](https://spothero.com)
 - [Stash](https://www.stash.com)
@@ -151,6 +152,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Wikimedia](https://www.wikimedia.org)
 - [Wolt](https://wolt.com)
 - [Zynga](https://www.zynga.com)
+
 
 
 ## Select Articles & Talks
