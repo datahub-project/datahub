@@ -12,7 +12,8 @@
                 "env": "PROD",
                 "database": "hivedb"
             },
-            "name": "hivedb"
+            "name": "hivedb",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -107,7 +108,8 @@
                 "database": "hivedb",
                 "schema": "db1"
             },
-            "name": "db1"
+            "name": "db1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
