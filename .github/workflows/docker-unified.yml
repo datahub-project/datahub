@@ -1132,7 +1132,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.integrations_service_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
-    needs: [setup, datahub_ingestion_slim_build]
+    needs: [setup]
     if: ${{ needs.setup.outputs.integrations_service_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -1145,18 +1145,6 @@ jobs:
       - uses: gradle/gradle-build-action@v2
       - name: Build codegen
         run: ./gradlew :datahub-integrations-service:codegenPython
-      - name: Download datahub-ingestion-slim image
-        uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
-        with:
-          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v3
-        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download != 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
-          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -1164,8 +1152,6 @@ jobs:
           images: |
             ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}
           build-args: |
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_IMAGE }}
-            DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
