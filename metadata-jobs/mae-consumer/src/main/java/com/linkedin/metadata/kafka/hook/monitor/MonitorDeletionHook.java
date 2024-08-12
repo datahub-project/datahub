@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.monitor;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -16,6 +17,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,20 +32,31 @@ This hook is responsible for clean delete of natively evaluated assertion monito
 @Import({EntityRegistryFactory.class})
 public class MonitorDeletionHook implements MetadataChangeLogHook {
 
-  private final GraphClient _graphClient;
-  private final EntityClient _entityClient;
-  private final Boolean _isEnabled;
+  private final GraphClient graphClient;
+  private final EntityClient entityClient;
+  private final Boolean isEnabled;
 
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public MonitorDeletionHook(
       @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull final GraphClient graphClient,
-      @Nonnull @Value("${monitorDeletion.hook.enabled:true}") Boolean isEnabled) {
-    _entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
-    _graphClient = Objects.requireNonNull(graphClient, "graphClient is required");
-    _isEnabled = Objects.requireNonNull(isEnabled, "isEnabled is required");
+      @Nonnull @Value("${monitorDeletion.hook.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${monitorDeletion.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
+    entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
+    this.graphClient = Objects.requireNonNull(graphClient, "graphClient is required");
+    this.isEnabled = Objects.requireNonNull(isEnabled, "isEnabled is required");
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public MonitorDeletionHook(
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final GraphClient graphClient,
+      Boolean isEnabled) {
+    this(systemEntityClient, graphClient, isEnabled, "");
   }
 
   @Override
@@ -64,7 +77,7 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
    */
   @Override
   public void invoke(@Nonnull MetadataChangeLog mcl) throws Exception {
-    if (_isEnabled) {
+    if (isEnabled) {
       log.debug("Urn {} received by Delete Monitor Hook.", mcl.getEntityUrn());
       final Urn urn = HookUtils.getUrnFromEvent(mcl, systemOperationContext.getEntityRegistry());
       if (isAssertionHardDeletionEvent(mcl)) {
@@ -77,7 +90,7 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
 
   private void handleMonitorHardDeleteEvent(Urn monitorUrn) {
     // find linked assertion, if any
-    Urn assertionUrn = MonitorUtils.getAssertionUrnForMonitor(_graphClient, monitorUrn);
+    Urn assertionUrn = MonitorUtils.getAssertionUrnForMonitor(graphClient, monitorUrn);
     // delete assertion
     if (assertionUrn != null) {
       log.info(
@@ -85,7 +98,7 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
               "Found an assertion associated with monitor being removed urn %s. Removing assertion %s",
               monitorUrn, assertionUrn));
       try {
-        _entityClient.deleteEntity(systemOperationContext, assertionUrn);
+        entityClient.deleteEntity(systemOperationContext, assertionUrn);
       } catch (RemoteInvocationException e) {
         log.error(
             String.format(
@@ -99,7 +112,7 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
 
   private void handleAssertionHardDeleteEvent(Urn assertionUrn) {
     // find linked monitor, if any
-    Urn monitorUrn = MonitorUtils.getMonitorUrnForAssertion(_graphClient, assertionUrn);
+    Urn monitorUrn = MonitorUtils.getMonitorUrnForAssertion(graphClient, assertionUrn);
     // delete monitor
     if (monitorUrn != null) {
       log.info(
@@ -107,7 +120,7 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
               "Found a monitor associated with assertion being removed urn %s. Removing monitor %s",
               assertionUrn, monitorUrn));
       try {
-        _entityClient.deleteEntity(systemOperationContext, monitorUrn);
+        entityClient.deleteEntity(systemOperationContext, monitorUrn);
       } catch (RemoteInvocationException e) {
         log.error(
             String.format(

@@ -39,7 +39,8 @@ public class NotificationGeneratorHookFactory {
 
   @Bean(name = "notificationGeneratorHook")
   @Nonnull
-  protected NotificationGeneratorHook getInstance() {
+  protected NotificationGeneratorHook getInstance(
+      @Nonnull @Value("${notifications.consumerGroupSuffix}") String consumerGroupSuffix) {
     return new NotificationGeneratorHook(
         ImmutableList.of(
             _incidentNotificationGenerator,
@@ -47,6 +48,7 @@ public class NotificationGeneratorHookFactory {
             _entityChangeNotificationGenerator,
             _ingestionNotificationGenerator,
             _connectionTestNotificationGenerator),
-        isEnabled);
+        isEnabled,
+        consumerGroupSuffix);
   }
 }

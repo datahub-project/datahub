@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.hook.form;
 import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.DynamicFormAssignment;
@@ -21,6 +22,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,20 +61,31 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
       ImmutableSet.of(
           ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.RESTATE);
 
-  private final FormService _formService;
+  private final FormService formService;
   private final ObjectMapper objectMapper;
-  private final boolean _isEnabled;
+  private final boolean isEnabled;
 
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public FormAssignmentHook(
       @Nonnull final FormService formService,
       @Nonnull @Value("${forms.hook.enabled:true}") Boolean isEnabled,
-      final ObjectMapper objectMapper) {
-    _formService = Objects.requireNonNull(formService, "formService is required");
-    _isEnabled = isEnabled;
+      final ObjectMapper objectMapper,
+      @Nonnull @Value("${forms.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
+    this.formService = Objects.requireNonNull(formService, "formService is required");
+    this.isEnabled = isEnabled;
     this.objectMapper = objectMapper;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public FormAssignmentHook(
+      @Nonnull final FormService formService,
+      @Nonnull Boolean isEnabled,
+      final ObjectMapper objectMapper) {
+    this(formService, isEnabled, objectMapper, "");
   }
 
   @Override
@@ -83,12 +96,12 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
-    if (_isEnabled && isEligibleForProcessing(event)) {
+    if (isEnabled && isEligibleForProcessing(event)) {
       if (isFormPromptSetUpdated(event)) {
         handleFormPromptSetUpdated(event);
       } else if (isFormDynamicFilterUpdated(event)) {
@@ -128,13 +141,13 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
 
     // 3. For each prompt to upsert, generate a new automation
     for (final FormPrompt prompt : promptsToUpsert) {
-      _formService.upsertFormPromptCompletionAutomation(
+      formService.upsertFormPromptCompletionAutomation(
           systemOperationContext, event.getEntityUrn(), prompt);
     }
 
     // 4. Remove tests for any prompts that were removed.
     for (final FormPrompt prompt : promptsToRemove) {
-      _formService.removeFormPromptCompletionAutomation(
+      formService.removeFormPromptCompletionAutomation(
           systemOperationContext, event.getEntityUrn(), prompt);
     }
   }
@@ -149,14 +162,14 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             DynamicFormAssignment.class);
 
     // 2. Register a automation to assign it.
-    _formService.upsertFormAssignmentAutomation(
+    formService.upsertFormAssignmentAutomation(
         systemOperationContext, event.getEntityUrn(), formFilters, objectMapper);
   }
 
   /** Handles an form deletion by removing the all automations associated with it. */
   private void handleFormDeleted(@Nonnull final MetadataChangeLog event) {
     // Simply delete all automation associated with the form.
-    _formService.removeAllFormAutomations(systemOperationContext, event.getEntityUrn());
+    formService.removeAllFormAutomations(systemOperationContext, event.getEntityUrn());
   }
 
   /**

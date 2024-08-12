@@ -2,7 +2,6 @@ package com.datahub.event.hook;
 
 import com.datahub.notification.NotificationSinkManager;
 import com.linkedin.event.notification.NotificationRequest;
-import com.linkedin.gms.factory.notifications.NotificationSinkManagerFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.PlatformEvent;
@@ -10,13 +9,11 @@ import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
 /** A {@link PlatformEventHook} that is responsible for processing {@link NotificationRequest}s. */
 @Slf4j
 @Component
-@Import({NotificationSinkManagerFactory.class})
 public class NotificationSinkHook implements PlatformEventHook {
 
   private final NotificationSinkManager _sinkManager;

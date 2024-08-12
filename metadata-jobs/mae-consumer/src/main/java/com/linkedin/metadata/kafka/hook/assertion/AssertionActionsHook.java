@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.hook.assertion;
 import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.anomaly.AnomalySource;
@@ -53,6 +54,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -131,12 +133,13 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
       ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
 
-  private final EntityClient _entityClient;
-  private final AssertionService _assertionService;
-  private final IncidentService _incidentService;
-  private final AnomalyService _anomalyService;
+  private final EntityClient entityClient;
+  private final AssertionService assertionService;
+  private final IncidentService incidentService;
+  private final AnomalyService anomalyService;
   private OperationContext systemOpContext;
-  private final boolean _isEnabled;
+  private final boolean isEnabled;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public AssertionActionsHook(
@@ -144,13 +147,25 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final GraphClient graphClient,
       @Nonnull @Value("${assertionActions.hook.enabled:true}") Boolean isEnabled,
       @Nonnull final OpenApiClient openApiClient,
-      final ObjectMapper objectMapper) {
-    _entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
-    _assertionService =
+      final ObjectMapper objectMapper,
+      @Nonnull @Value("${assertionActions.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
+    entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
+    assertionService =
         new AssertionService(systemEntityClient, graphClient, openApiClient, objectMapper);
-    _incidentService = new IncidentService(systemEntityClient, openApiClient, objectMapper);
-    _anomalyService = new AnomalyService(systemEntityClient, openApiClient, objectMapper);
-    _isEnabled = isEnabled;
+    incidentService = new IncidentService(systemEntityClient, openApiClient, objectMapper);
+    anomalyService = new AnomalyService(systemEntityClient, openApiClient, objectMapper);
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public AssertionActionsHook(
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final GraphClient graphClient,
+      @Nonnull Boolean isEnabled,
+      @Nonnull final OpenApiClient openApiClient,
+      final ObjectMapper objectMapper) {
+    this(systemEntityClient, graphClient, isEnabled, openApiClient, objectMapper, "");
   }
 
   @Override
@@ -161,12 +176,12 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
-    if (_isEnabled) {
+    if (isEnabled) {
       log.debug("Urn {} received by Assertion Actions Hook.", event.getEntityUrn());
       final Urn urn = HookUtils.getUrnFromEvent(event, systemOpContext.getEntityRegistry());
       if (isAssertionSoftDeleted(event) || isAssertionHardDeleted(event)) {
@@ -214,7 +229,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
 
   private void applyAssertionActions(
       @Nonnull final Urn assertionUrn, @Nonnull final AssertionRunEvent runEvent) {
-    final AssertionInfo info = _assertionService.getAssertionInfo(systemOpContext, assertionUrn);
+    final AssertionInfo info = assertionService.getAssertionInfo(systemOpContext, assertionUrn);
     if (info != null) {
       if (AssertionResultType.SUCCESS.equals(runEvent.getResult().getType())) {
         applyAssertionSuccessActions(assertionUrn, runEvent, info);
@@ -234,7 +249,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final AssertionInfo info) {
     // 1. Fetch the assertion info to retrieve any actions
     final AssertionActions actions =
-        _assertionService.getAssertionActions(systemOpContext, assertionUrn);
+        assertionService.getAssertionActions(systemOpContext, assertionUrn);
 
     // 2. Ensure that assertion exists & has actions
     if (actions != null && actions.hasOnSuccess()) {
@@ -253,7 +268,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final AssertionInfo info) {
     // 1. Fetch the assertion info to retrieve any actions
     final AssertionActions actions =
-        _assertionService.getAssertionActions(systemOpContext, assertionUrn);
+        assertionService.getAssertionActions(systemOpContext, assertionUrn);
 
     // 2. Ensure that assertion exists & has actions
     if (actions != null && actions.hasOnFailure()) {
@@ -307,7 +322,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     // 1. Get the urns of any active incidents resulting from this assertion.
     try {
       final SearchResult searchResult =
-          _entityClient.search(
+          entityClient.search(
               systemOpContext.withSearchFlags(flags -> flags.setFulltext(false).setSkipCache(true)),
               INCIDENT_ENTITY_NAME,
               "*",
@@ -358,7 +373,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       // 1. Get the urns of any active anomalies resulting from this assertion.
       try {
         final SearchResult searchResult =
-            _entityClient.search(
+            entityClient.search(
                 systemOpContext.withSearchFlags(flags -> flags.setSkipCache(true)),
                 ANOMALY_ENTITY_NAME,
                 "*",
@@ -398,7 +413,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final AssertionRunEvent runEvent,
       @Nonnull final AssertionInfo info) {
     try {
-      _incidentService.raiseIncident(
+      incidentService.raiseIncident(
           systemOpContext,
           getIncidentTypeFromAssertionInfo(info),
           AssertionType.DATASET.equals(info.getType()) ? "External Assertion" : null,
@@ -436,7 +451,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent) {
     try {
-      _incidentService.updateIncidentStatus(
+      incidentService.updateIncidentStatus(
           systemOpContext,
           incidentUrn,
           IncidentState.RESOLVED,
@@ -463,7 +478,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final AssertionRunEvent runEvent,
       @Nonnull final AssertionInfo info) {
     try {
-      _anomalyService.raiseAnomaly(
+      anomalyService.raiseAnomaly(
           systemOpContext,
           getAnomalyTypeFromAssertionInfo(info),
           0,
@@ -496,7 +511,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent) {
     try {
-      _anomalyService.updateAnomalyStatus(
+      anomalyService.updateAnomalyStatus(
           systemOpContext,
           anomalyUrn,
           AnomalyState.RESOLVED,
@@ -515,7 +530,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final Urn entityUrn, @Nonnull final Urn assertionUrn) {
     try {
       final SearchResult searchResult =
-          _entityClient.search(
+          entityClient.search(
               systemOpContext.withSearchFlags(flags -> flags.setFulltext(false).setSkipCache(true)),
               INCIDENT_ENTITY_NAME,
               "*",
@@ -539,7 +554,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final Urn entityUrn, @Nonnull final Urn assertionUrn) {
     try {
       final SearchResult searchResult =
-          _entityClient.search(
+          entityClient.search(
               systemOpContext.withSearchFlags(flags -> flags.setSkipCache(true)),
               ANOMALY_ENTITY_NAME,
               "*",
@@ -591,7 +606,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     // urn (as of today).
     // If we ever support multi-entity assertions, this will need to change.
     final SearchResult searchResult =
-        _entityClient.search(
+        entityClient.search(
             systemOpContext.withSearchFlags(flags -> flags.setFulltext(false).setSkipCache(true)),
             INCIDENT_ENTITY_NAME,
             "*",
@@ -618,7 +633,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
                 final Urn incidentUrn = res.getEntity();
                 try {
                   // Now simply delete the incident.
-                  _incidentService.deleteIncident(systemOpContext, incidentUrn);
+                  incidentService.deleteIncident(systemOpContext, incidentUrn);
                 } catch (Exception e) {
                   log.error(
                       String.format(
@@ -637,7 +652,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     // Note that there should never be more than 1 active anomaly associated with this assertion urn
     // (as of today).
     final SearchResult searchResult =
-        _entityClient.search(
+        entityClient.search(
             systemOpContext.withSearchFlags(flags -> flags.setSkipCache(true).setFulltext(false)),
             ANOMALY_ENTITY_NAME,
             "*",
@@ -664,7 +679,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
                 final Urn anomalyUrn = res.getEntity();
                 try {
                   // Now simply delete the anomaly.
-                  _anomalyService.deleteAnomaly(systemOpContext, anomalyUrn);
+                  anomalyService.deleteAnomaly(systemOpContext, anomalyUrn);
                 } catch (Exception e) {
                   log.error(
                       String.format(

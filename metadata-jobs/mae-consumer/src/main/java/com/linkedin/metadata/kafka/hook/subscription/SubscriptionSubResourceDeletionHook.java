@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.hook.subscription;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.common.AssertionUtils.extractAssertionEntities;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.Status;
@@ -30,6 +31,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,23 +57,37 @@ public class SubscriptionSubResourceDeletionHook implements MetadataChangeLogHoo
           ChangeType.CREATE,
           ChangeType.RESTATE,
           ChangeType.DELETE);
-  private final EntityRegistry _entityRegistry;
-  private final AssertionService _assertionService;
-  private final SubscriptionService _subscriptionService;
+  private final EntityRegistry entityRegistry;
+  private final AssertionService assertionService;
+  private final SubscriptionService subscriptionService;
   private OperationContext systemOperationContext;
-  private final boolean _isEnabled;
+  private final boolean isEnabled;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public SubscriptionSubResourceDeletionHook(
       @Nonnull @Value("${subscriptions.subResourceDeletionHook.enabled:true}") Boolean isEnabled,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final SubscriptionService subscriptionService,
-      @Nonnull final AssertionService assertionService) {
-    _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
-    _subscriptionService =
+      @Nonnull final AssertionService assertionService,
+      @Nonnull @Value("${subscriptions.subResourceDeletionHook.consumerGroupSuffix}")
+          String consumerGroupSuffix) {
+    this.entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
+    this.subscriptionService =
         Objects.requireNonNull(subscriptionService, "subscriptionService is required");
-    _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
-    _isEnabled = isEnabled;
+    this.assertionService =
+        Objects.requireNonNull(assertionService, "assertionService is required");
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public SubscriptionSubResourceDeletionHook(
+      @Nonnull Boolean isEnabled,
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final SubscriptionService subscriptionService,
+      @Nonnull final AssertionService assertionService) {
+    this(isEnabled, entityRegistry, subscriptionService, assertionService, "");
   }
 
   @Override
@@ -84,16 +100,16 @@ public class SubscriptionSubResourceDeletionHook implements MetadataChangeLogHoo
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
-    if (_isEnabled && isEligibleForProcessing(event)) {
+    if (isEnabled && isEligibleForProcessing(event)) {
       log.debug(
           "Urn {} received by Assertion Subscription Subresource Deletion Hook.",
           event.getEntityUrn());
-      final Urn urn = HookUtils.getUrnFromEvent(event, _entityRegistry);
+      final Urn urn = HookUtils.getUrnFromEvent(event, entityRegistry);
       // Handle the deletion cases.
       if (isAssertionSoftDeleted(event)) {
         handleAssertionSoftDeleted(urn);
@@ -167,7 +183,7 @@ public class SubscriptionSubResourceDeletionHook implements MetadataChangeLogHoo
   private void removeAssertionFromSubscriptions(final Urn assertionUrn) {
     // 1. Fetch assertion info.
     AssertionInfo assertionInfo =
-        _assertionService.getAssertionInfo(systemOperationContext, assertionUrn);
+        assertionService.getAssertionInfo(systemOperationContext, assertionUrn);
 
     // 2. Retrieve associated urns.
     if (assertionInfo != null) {
@@ -198,7 +214,7 @@ public class SubscriptionSubResourceDeletionHook implements MetadataChangeLogHoo
       @Nonnull final Urn assertionUrn, @Nonnull final Urn entityUrn) {
     // 1. Fetch subscriptions pointing to this assertion
     final Map<Urn, SubscriptionInfo> subscriptionsReferencingAssertion =
-        _subscriptionService.listEntityAssertionSubscriptions(
+        subscriptionService.listEntityAssertionSubscriptions(
             systemOperationContext, entityUrn, assertionUrn, MAX_SUBSCRIPTIONS_TO_PURGE_PER_ENTITY);
 
     // 2. Update subscriptions to remove the assertion reference
@@ -213,7 +229,7 @@ public class SubscriptionSubResourceDeletionHook implements MetadataChangeLogHoo
       @Nonnull final Urn assertionUrn) {
     // 1. Fetch subscriptions pointing to this assertion
     final Map<Urn, SubscriptionInfo> subscriptionsReferencingAssertion =
-        _subscriptionService.listAssertionSubscriptionsWithoutEntityUrn(
+        subscriptionService.listAssertionSubscriptionsWithoutEntityUrn(
             systemOperationContext, assertionUrn, MAX_SUBSCRIPTIONS_TO_PURGE_PER_ENTITY);
 
     // 2. Update subscriptions to remove the assertion reference
@@ -262,7 +278,7 @@ public class SubscriptionSubResourceDeletionHook implements MetadataChangeLogHoo
                 .collect(Collectors.toSet())));
 
     // 2 Emit the change back!
-    _subscriptionService.updateSubscriptionInfo(
+    subscriptionService.updateSubscriptionInfo(
         systemOperationContext, subscriptionUrn, subscriptionInfo);
   }
 

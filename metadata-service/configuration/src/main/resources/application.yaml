@@ -323,6 +323,7 @@ metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:false}
   hook:
     enabled: ${METADATA_TESTS_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${METADATA_TESTS_HOOK_CONSUMER_GROUP_SUFFIX:other}
     onTestChange: ${METADATA_TESTS_ON_TEST_CHANGE:true}
     onEntityChange: ${METADATA_TESTS_ON_ENTITY_CHANGE:false}
     hookExecutionLimit: # Configures the limits on number of entities for running tests in real time for each executor
@@ -343,6 +344,7 @@ metadataTests:
 notifications:
   # Enable if you want to enable creation of the Notification Manager.
   enabled: ${METADATA_SERVICE_NOTIFICATIONS_ENABLED:true} # Enable to turn on notifications.
+  consumerGroupSuffix: ${NOTIFICATIONS_HOOK_CONSUMER_GROUP_SUFFIX:notifications}
 
   defaultSettingsHook:
     enabled: ${DEFAULT_NOTIFICATION_SETTINGS_HOOK_ENABLED:true}
@@ -382,18 +384,23 @@ eventSinks:
 
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
+  consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
 updateIndices:
   enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
+  consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}
 ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
+  consumerGroupSuffix: ${INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX:other}
 assertions:
   hook:
     enabled: ${ENABLE_ASSERTIONS_HOOK:true}
+    consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:other}
 incidents:
   hook:
     # Only managed incident summary hook. Should be better named.
     enabled: ${ENABLE_INCIDENTS_HOOK:true}
     maxIncidentHistory: ${MAX_INCIDENT_HISTORY:100}
+    consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:other}
   # Enable or disable the hook responsible for generating activity events, powering the activity log.
   activityEventsHook:
     enabled: ${ENABLE_INCIDENT_ACTIVITY_EVENTS:true}
@@ -505,6 +512,7 @@ featureFlags:
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
+  consumerGroupSuffix: ${ECE_CONSUMER_GROUP_SUFFIX:ece}
 
 views:
   enabled: ${VIEWS_ENABLED:true}
@@ -600,10 +608,12 @@ chromeExtension:
 assertionActions:
   hook:
     enabled: ${ASSERTION_ACTIONS_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${ASSERTION_ACTIONS_HOOK_CONSUMER_GROUP_SUFFIX:other}
 
 monitorDeletion:
   hook:
     enabled: ${DELETE_MONITOR_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${MONITOR_DELETION_HOOK_CONSUMER_GROUP_SUFFIX:other}
 
 # Acryl-Only
 integrationsService:
@@ -622,8 +632,10 @@ connections:
 subscriptions:
   ownerSubscriptionHook:
     enabled: ${OWNER_SUBSCRIPTION_HOOK_ENABLED:false}
+    consumerGroupSuffix: ${SUBSCRIPTIONS_OWNER_HOOK_CONSUMER_GROUP_SUFFIX:notifications}
   subResourceDeletionHook:
     enabled: ${SUBSCRIPTION_SUBRESOURCE_DELETION_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${SUBSCRIPTIONS_SUB_RESOURCE_HOOK_CONSUMER_GROUP_SUFFIX:notifications}
 
 executors:
   executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}
@@ -635,6 +647,7 @@ forms:
   hook:
     enabled: ${FORMS_HOOK_ENABLED:true}
     completionEnabled: ${FORMS_COMPLETION_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:other}
 
 businessAttribute:
   fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:20000}

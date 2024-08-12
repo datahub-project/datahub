@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.form;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.FormAssociation;
 import com.linkedin.common.Forms;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,22 +49,32 @@ public class FormCompletionHook implements MetadataChangeLogHook {
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
       ImmutableSet.of(ChangeType.UPSERT, ChangeType.RESTATE);
 
-  private final FormService _formService;
-  private final boolean _isEnabled;
-  private final SystemEntityClient _systemEntityClient;
+  private final FormService formService;
+  private final boolean isEnabled;
+  private final SystemEntityClient systemEntityClient;
 
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public FormCompletionHook(
       @Nonnull final FormService formService,
       @Nonnull @Value("${forms.hook.completionEnabled:true}") Boolean isEnabled,
-      @Nonnull final SystemEntityClient systemEntityClient) {
-    _formService = Objects.requireNonNull(formService, "formService is required");
-    _isEnabled = isEnabled;
-    _systemEntityClient =
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull @Value("${forms.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
+    this.formService = Objects.requireNonNull(formService, "formService is required");
+    this.isEnabled = isEnabled;
+    this.systemEntityClient =
         Objects.requireNonNull(systemEntityClient, "systemEntityClient is required");
-    ;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public FormCompletionHook(
+      @Nonnull final FormService formService,
+      @Nonnull Boolean isEnabled,
+      @Nonnull final SystemEntityClient systemEntityClient) {
+    this(formService, isEnabled, systemEntityClient, "");
   }
 
   @Override
@@ -73,12 +85,12 @@ public class FormCompletionHook implements MetadataChangeLogHook {
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
-    if (_isEnabled && isEligibleForProcessing(event)) {
+    if (isEnabled && isEligibleForProcessing(event)) {
       handleFormsAspectUpdate(event);
     }
   }
@@ -96,7 +108,7 @@ public class FormCompletionHook implements MetadataChangeLogHook {
     forms.getIncompleteForms().forEach(form -> formUrns.add(form.getUrn()));
     forms.getCompletedForms().forEach(form -> formUrns.add(form.getUrn()));
     Map<Urn, FormInfo> formInfoMap =
-        _formService.batchFetchForms(this.systemOperationContext, formUrns);
+        formService.batchFetchForms(this.systemOperationContext, formUrns);
 
     // 3. Get lists of forms we need to mark as complete or incomplete
     List<FormAssociation> formsToMarkComplete = new ArrayList<>();
@@ -105,7 +117,7 @@ public class FormCompletionHook implements MetadataChangeLogHook {
         .forEach(
             incompleteForm -> {
               FormInfo formInfo = formInfoMap.get(incompleteForm.getUrn());
-              if (formInfo != null && _formService.isFormCompleted(incompleteForm, formInfo)) {
+              if (formInfo != null && formService.isFormCompleted(incompleteForm, formInfo)) {
                 formsToMarkComplete.add(incompleteForm);
               }
             });
@@ -116,7 +128,7 @@ public class FormCompletionHook implements MetadataChangeLogHook {
         .forEach(
             completedForm -> {
               FormInfo formInfo = formInfoMap.get(completedForm.getUrn());
-              if (formInfo != null && !_formService.isFormCompleted(completedForm, formInfo)) {
+              if (formInfo != null && !formService.isFormCompleted(completedForm, formInfo)) {
                 formsToMarkIncomplete.add(completedForm);
               }
             });
@@ -132,7 +144,7 @@ public class FormCompletionHook implements MetadataChangeLogHook {
     MetadataChangeProposal mcp = patchBuilder.build();
 
     try {
-      _systemEntityClient.ingestProposal(systemOperationContext, mcp, true);
+      systemEntityClient.ingestProposal(systemOperationContext, mcp, true);
     } catch (Exception e) {
       log.error(
           String.format(

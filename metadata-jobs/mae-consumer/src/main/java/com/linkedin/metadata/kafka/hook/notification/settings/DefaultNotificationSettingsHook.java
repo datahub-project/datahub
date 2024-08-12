@@ -8,6 +8,7 @@ import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.service.SettingsService.DEFAULT_CORP_USER_SETTINGS;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -32,6 +33,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,16 +69,25 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
           CORP_GROUP_EDITABLE_INFO_ASPECT_NAME);
   private final SettingsService settingsService;
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   private final boolean isEnabled;
 
   @Autowired
   public DefaultNotificationSettingsHook(
       @Nonnull final SettingsService settingsService,
-      @Nonnull @Value("${notifications.defaultSettingsHook.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${notifications.defaultSettingsHook.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${notifications.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.settingsService =
         Objects.requireNonNull(settingsService, "settingsService must not be null");
     this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public DefaultNotificationSettingsHook(
+      @Nonnull final SettingsService settingsService, @Nonnull Boolean isEnabled) {
+    this(settingsService, isEnabled, "");
   }
 
   @Override

@@ -9,6 +9,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
@@ -40,7 +41,10 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
       "com.linkedin.gms.factory.entity.update.indices",
       "com.linkedin.gms.factory.timeline.eventgenerator",
       "com.linkedin.gms.factory.test.openapi",
-      "com.linkedin.metadata.dao.producer"
+      "com.linkedin.metadata.dao.producer",
+      "com.linkedin.gms.factory.change",
+      "com.datahub.event.hook",
+      "com.linkedin.gms.factory.notifications"
     })
 public class MCLSpringCommonTestConfiguration {
 
@@ -94,4 +98,7 @@ public class MCLSpringCommonTestConfiguration {
   }
 
   @MockBean SpringStandardPluginConfiguration springStandardPluginConfiguration;
+
+  @MockBean(name = "integrationsService")
+  IntegrationsService integrationsService;
 }

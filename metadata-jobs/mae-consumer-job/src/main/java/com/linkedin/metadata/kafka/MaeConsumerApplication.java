@@ -40,7 +40,10 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.subscription",
       "com.linkedin.gms.factory.settings",
       "com.linkedin.gms.factory.test.openapi",
-      "com.linkedin.gms.factory.plugins"
+      "com.linkedin.gms.factory.plugins",
+      "com.linkedin.gms.factory.change",
+      "com.datahub.event.hook",
+      "com.linkedin.gms.factory.notifications"
     },
     excludeFilters = {
       @ComponentScan.Filter(
