@@ -387,6 +387,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             else:
                 logging.warning("Platform not found in urn. Skipping...")
                 continue
+
             yield {
                 "timestampMillis": doc["_source"]["timestampMillis"],
                 "lastObserved": doc["_source"]["systemMetadata"]["lastObserved"],
@@ -837,27 +838,34 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             search_ranking_multipliers: SearchRankingMultipliers = (
                 SearchRankingMultipliers()
             )
-            if (
-                "queries_rank_percentile" in row
-                and row["queries_rank_percentile"]
-                and "last_modified_at" in row
-                and row["last_modified_at"]
-            ):
+
+            if "queries_rank_percentile" in row:
                 search_ranking_multipliers = self.search_score(
                     urn=row["urn"],
-                    last_update_time=row["last_modified_at"],
-                    usage_percentile=row["queries_rank_percentile"],
+                    last_update_time=(
+                        row["last_modified_at"]
+                        if "last_modified_at" in row and row["last_modified_at"]
+                        else 0
+                    ),
+                    usage_percentile=(
+                        row["queries_rank_percentile"]
+                        if row["queries_rank_percentile"]
+                        else 0
+                    ),
                 )
-            elif (
-                "viewsCount30Days_rank_percentile" in row
-                and row["viewsCount30Days_rank_percentile"]
-                and "last_modified_at" in row
-                and row["last_modified_at"]
-            ):
+            elif "viewsCount30Days_rank_percentile" in row:
                 search_ranking_multipliers = self.search_score(
                     urn=row["urn"],
-                    last_update_time=row["last_modified_at"],
-                    usage_percentile=row["viewsCount30Days_rank_percentile"],
+                    last_update_time=(
+                        row["last_modified_at"]
+                        if "last_modified_at" in row and row["last_modified_at"]
+                        else 0
+                    ),
+                    usage_percentile=(
+                        row["viewsCount30Days_rank_percentile"]
+                        if row["viewsCount30Days_rank_percentile"]
+                        else 0
+                    ),
                 )
                 logger.debug(f"Urn: {row['urn']} Score: {search_ranking_multipliers}")
 
@@ -1072,8 +1080,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         lf = views_sum_with_top_users.join(incremental_views_sum, on="urn", how="left")
         lf = lf.with_columns(
             polars.when(
-                polars.col("total_user_count") is None
-                or polars.col("total_user_count") <= 0
+                polars.col("total_user_count")
+                .is_null()
+                .or_(polars.col("total_user_count") <= 0)
             )
             .then(polars.col("viewsCountTotal30Days"))
             .otherwise(polars.col("total_user_count"))
