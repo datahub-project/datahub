@@ -225,6 +225,14 @@ class Folder:
 
 
 @dataclasses.dataclass
+class BrowsePath:
+    file: str
+    timestamp: datetime
+    size: int
+    partitions: List[Folder]
+
+
+@dataclasses.dataclass
 class TableData:
     display_name: str
     is_s3: bool
@@ -635,16 +643,16 @@ class S3Source(StatefulIngestionSourceBase):
                 ),
             )
 
-            min_partition_summary: Optional[PartitionSummaryClass] = None
-            min_partition_id = min_partition.partition_id_text()
-            if min_partition_id is not None:
-                min_partition_summary = PartitionSummaryClass(
-                    partition=min_partition_id,
-                    createdTime=int(min_partition.creation_time.timestamp() * 1000),
-                    lastModifiedTime=int(
-                        min_partition.modification_time.timestamp() * 1000
-                    ),
-                )
+        min_partition_summary: Optional[PartitionSummaryClass] = None
+        min_partition_id = min_partition.partition_id_text()
+        if min_partition_id is not None:
+            min_partition_summary = PartitionSummaryClass(
+                partition=min_partition_id,
+                createdTime=int(min_partition.creation_time.timestamp() * 1000),
+                lastModifiedTime=int(
+                    min_partition.modification_time.timestamp() * 1000
+                ),
+            )
 
         return PartitionsSummaryClass(
             maxPartition=max_partition_summary, minPartition=min_partition_summary
@@ -701,64 +709,6 @@ class S3Source(StatefulIngestionSourceBase):
                     {
                         "number_of_partitions": str(
                             len(table_data.partitions) if table_data.partitions else 0
-                        ),
-                        "partitions": str(
-                            {
-                                "min_partition": {
-                                    "id": (
-                                        min_partition.partition_id
-                                        if min_partition
-                                        else None
-                                    ),
-                                    "creation_time": (
-                                        str(min_partition.creation_time)
-                                        if min_partition
-                                        else None
-                                    ),
-                                    "modification_time": str(
-                                        min_partition.modification_time
-                                        if min_partition
-                                        else None
-                                    ),
-                                    "size": (
-                                        str(min_partition.size)
-                                        if min_partition
-                                        else None
-                                    ),
-                                    "sample_file": (
-                                        str(min_partition.sample_file)
-                                        if min_partition
-                                        else None
-                                    ),
-                                },
-                                "max_partition": {
-                                    "id": (
-                                        max_partition.partition_id
-                                        if max_partition
-                                        else None
-                                    ),
-                                    "creation_time": (
-                                        str(max_partition.creation_time)
-                                        if max_partition
-                                        else None
-                                    ),
-                                    "modification_time": str(
-                                        max_partition.modification_time
-                                        if max_partition
-                                        else None
-                                    ),
-                                    "size": (
-                                        str(max_partition.size)
-                                        if max_partition
-                                        else None
-                                    ),
-                                    "sample_file": (
-                                        str(max_partition.sample_file)
-                                        if max_partition
-                                        else None
-                                    ),
-                                },
-                            }
                         ),
                     }
                 )
@@ -939,7 +889,7 @@ class S3Source(StatefulIngestionSourceBase):
                         min=min,
                     )
                     folders.extend(folders_list)
-                    if not self.source_config.get_all_partitions:
+                    if not path_spec.traversal_method == FolderTraversalMethod.ALL:
                         return folders
             if folders:
                 return folders
@@ -947,16 +897,33 @@ class S3Source(StatefulIngestionSourceBase):
                 return [f"{protocol}{bucket_name}/{folder}"]
         return [f"{protocol}{bucket_name}/{folder}"]
 
-    def get_partitions(
+    def get_folder_info(
         self,
         path_spec: PathSpec,
         bucket: Any,  # Todo: proper type
         prefix: str,
-        partition: Optional[str] = None,
     ) -> List[Folder]:
+        """
+        Retrieves all the folders in a path by listing all the files in the prefix.
+        If the prefix is a full path then only that folder will be extracted.
+
+        A folder has creation and modification times, size, and a sample file path.
+        - Creation time is the earliest creation time of all files in the folder.
+        - Modification time is the latest modification time of all files in the folder.
+        - Size is the sum of all file sizes in the folder.
+        - Sample file path is used for schema inference later. (sample file is the latest created file in the folder)
+
+        Parameters:
+        path_spec (PathSpec): The path specification used to determine partitioning.
+        bucket (Any): The S3 bucket object.
+        prefix (str): The prefix path in the S3 bucket to list objects from.
+        partition (Optional[str]): An optional partition string to append to the prefix.
+
+        Returns:
+        List[Folder]: A list of Folder objects representing the partitions found.
+        """
+
         prefix_to_list = prefix
-        if partition:
-            prefix_to_list = f"{prefix}/{partition}"
         files = list(
             bucket.objects.filter(Prefix=f"{prefix_to_list}").page_size(PAGE_SIZE)
         )
@@ -1003,9 +970,7 @@ class S3Source(StatefulIngestionSourceBase):
 
         return partitions
 
-    def s3_browser(
-        self, path_spec: PathSpec, sample_size: int
-    ) -> Iterable[Tuple[str, datetime, int, List[Folder]]]:
+    def s3_browser(self, path_spec: PathSpec, sample_size: int) -> Iterable[BrowsePath]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
         s3 = self.source_config.aws_config.get_s3_resource(
@@ -1091,7 +1056,7 @@ class S3Source(StatefulIngestionSourceBase):
                             )
 
                             folders.extend(
-                                self.get_partitions(
+                                self.get_folder_info(
                                     path_spec, bucket, prefix_to_process
                                 )
                             )
@@ -1105,8 +1070,12 @@ class S3Source(StatefulIngestionSourceBase):
                             continue
 
                         partitions = list(filter(lambda x: x.is_partition, folders))
-
-                        yield max_folder.sample_file, max_folder.modification_time, max_folder.size, partitions
+                        yield BrowsePath(
+                            file=max_folder.sample_file,
+                            timestamp=max_folder.modification_time,
+                            size=max_folder.size,
+                            partitions=partitions,
+                        )
                 except Exception as e:
                     # This odd check if being done because boto does not have a proper exception to catch
                     # The exception that appears in stacktrace cannot actually be caught without a lot more work
@@ -1126,20 +1095,26 @@ class S3Source(StatefulIngestionSourceBase):
             for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
                 s3_path = self.create_s3_path(obj.bucket_name, obj.key)
                 logger.debug(f"Path: {s3_path}")
-                yield s3_path, obj.last_modified, obj.size, []
+                yield BrowsePath(
+                    file=s3_path,
+                    timestamp=obj.last_modified,
+                    size=obj.size,
+                    partitions=[],
+                )
 
     def create_s3_path(self, bucket_name: str, key: str) -> str:
         return f"s3://{bucket_name}/{key}"
 
-    def local_browser(
-        self, path_spec: PathSpec
-    ) -> Iterable[Tuple[str, datetime, int, List[Folder]]]:
+    def local_browser(self, path_spec: PathSpec) -> Iterable[BrowsePath]:
         prefix = self.get_prefix(path_spec.include)
         if os.path.isfile(prefix):
             logger.debug(f"Scanning single local file: {prefix}")
-            yield prefix, datetime.utcfromtimestamp(
-                os.path.getmtime(prefix)
-            ), os.path.getsize(prefix), []
+            yield BrowsePath(
+                file=prefix,
+                timestamp=datetime.utcfromtimestamp(os.path.getmtime(prefix)),
+                size=os.path.getsize(prefix),
+                partitions=[],
+            )
         else:
             logger.debug(f"Scanning files under local folder: {prefix}")
             for root, dirs, files in os.walk(prefix):
@@ -1150,9 +1125,14 @@ class S3Source(StatefulIngestionSourceBase):
                     full_path = PurePath(
                         os.path.normpath(os.path.join(root, file))
                     ).as_posix()
-                    yield full_path, datetime.utcfromtimestamp(
-                        os.path.getmtime(full_path)
-                    ), os.path.getsize(full_path), []
+                    yield BrowsePath(
+                        file=full_path,
+                        timestamp=datetime.utcfromtimestamp(
+                            os.path.getmtime(full_path)
+                        ),
+                        size=os.path.getsize(full_path),
+                        partitions=[],
+                    )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
@@ -1171,11 +1151,15 @@ class S3Source(StatefulIngestionSourceBase):
                     else self.local_browser(path_spec)
                 )
                 table_dict: Dict[str, TableData] = {}
-                for file, timestamp, size, partitions in file_browser:
-                    if not path_spec.allowed(file):
+                for browse_path in file_browser:
+                    if not path_spec.allowed(browse_path.file):
                         continue
                     table_data = self.extract_table_data(
-                        path_spec, file, timestamp, size, partitions
+                        path_spec,
+                        browse_path.file,
+                        browse_path.timestamp,
+                        browse_path.size,
+                        browse_path.partitions,
                     )
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data

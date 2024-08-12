@@ -233,8 +233,10 @@ class PathSpec(ConfigModel):
         return parsable_include
 
     def get_named_vars(self, path: str) -> Union[None, parse.Result, parse.Match]:
-        if self.autodetect_partitions and self.include.endswith("{table}/**"):
+        if self.include.endswith("{table}/**"):
             # If we have a partial path with ** at the end, we need to truncate the path to parse correctly
+            # parse needs to have exact number of folders to parse correctly and in case of ** we don't know the number of folders
+            # so we need to truncate the path to the last folder before ** to parse and get named vars correctly
             splits = len(self.include[: self.include.find("{table}/")].split("/"))
             path = "/".join(path.split("/", splits)[:-1]) + "/"
 
@@ -358,23 +360,45 @@ class PathSpec(ConfigModel):
         return matches
 
     def get_partition_from_path(self, path: str) -> Optional[List[Tuple[str, str]]]:
+        # Automatic partition detection supports four methods to get partiton keys and values from path:
+        # Let's say we have the following path => year=2024/month=10/day=11 for this example you can specify the following path spec expressions:
+        #   1. User can specify partition_key and partition_value in the path like => {partition_key[0]}={partition_value[0]}{partition_key[1]}={partition_value[1]}{partition_key[2]}={partition_value[2]}
+        #   2. User can specify only partition key and the partition key will be used as partition name like => year={year}month={month}day={day}
+        #   3. You omit specifying anything and it will detect partiton key and value based on the equal signs (this only works if partitioned are specified in the key=value way.
+        #   4. if the path is in the form of /value1/value2/value3 we infer it from the path and assign partition_0, partition_1, partition_2 etc
+
         partition_keys: List[Tuple[str, str]] = []
         if self.include.find("{table}/"):
             named_vars = self.get_named_vars(path)
             if named_vars:
                 # If user has specified partition_key and partition_value in the path_spec then we use it to get partition keys
-                if (
-                    "partition_key" in named_vars.named
-                    and "partition_value" in named_vars.named
-                    and len(named_vars.named["partition_key"])
-                    == len(named_vars.named["partition_value"])
+                if "partition_key" in named_vars.named and (
+                    (
+                        "partition_value" in named_vars.named
+                        and len(named_vars.named["partition_key"])
+                        == len(named_vars.named["partition_value"])
+                    )
+                    or (
+                        "partition" in named_vars.named
+                        and len(named_vars.named["partition_key"])
+                        == len(named_vars.named["partition"])
+                    )
                 ):
                     for key in named_vars.named["partition_key"]:
-                        if key in named_vars.named["partition_value"]:
+                        # We need to support both partition_value and partition as both were in our docs
+                        if (
+                            "partition_value" in named_vars
+                            and key in named_vars.named["partition_value"]
+                        ) or (
+                            "partition" in named_vars
+                            and key in named_vars.named["partition"]
+                        ):
                             partition_keys.append(
                                 (
                                     named_vars.named["partition_key"][key],
-                                    named_vars.named["partition_value"][key],
+                                    named_vars.named["partition_value"][key]
+                                    if "partition_value" in named_vars.named
+                                    else named_vars.named["partition"][key],
                                 )
                             )
                     return partition_keys
@@ -387,12 +411,19 @@ class PathSpec(ConfigModel):
                 partition_vars = self.extract_variable_names
                 if partition_vars:
                     for partition_key in partition_vars:
-                        [key, index] = partition_key.strip("]").split("[")
+                        pkey: str = partition_key
+                        index: Optional[int] = None
+                        # We need to recreate the key and index from the partition_key
+                        if partition_key.find("[") != -1:
+                            pkey, index = partition_key.strip("]").split("[")
+                        else:
+                            pkey = partition_key
+                            index = None
 
-                        if key in named_vars.named:
-                            if index and index in named_vars.named[key]:
+                        if pkey in named_vars.named:
+                            if index and index in named_vars.named[pkey]:
                                 partition_keys.append(
-                                    (partition_key, named_vars.named[key][index])
+                                    (f"{pkey}_{index}", named_vars.named[pkey][index])
                                 )
                             else:
                                 partition_keys.append(
@@ -400,7 +431,7 @@ class PathSpec(ConfigModel):
                                 )
                     return partition_keys
 
-            # If user has not specified partition_key and partition_value in the path_spec then we use the default mechanism to get partition keys
+            # If user did not specified partition_key and partition_value in the path_spec then we use the default mechanism to get partition keys
             if len(self.include.split("{table}/")) == 2:
                 num_slash = len(self.include.split("{table}/")[0].split("/"))
                 partition = path.split("/", num_slash)[num_slash]
@@ -526,4 +557,4 @@ class PathSpec(ConfigModel):
             table_path = (
                 "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
             )
-            return self._extract_table_name(parsed_vars.named), table_path
+        return self._extract_table_name(parsed_vars.named), table_path
