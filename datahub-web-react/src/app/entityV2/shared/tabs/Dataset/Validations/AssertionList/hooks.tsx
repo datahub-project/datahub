@@ -25,7 +25,6 @@ export const useAssertionsTableColumns = ({
     canEditAssertions,
     canEditMonitors,
     refetch,
-    expandedRowKeys,
 }) => {
     return useMemo(() => {
         const columns: TableColumnsType<any> = [
@@ -93,7 +92,7 @@ export const useAssertionsTableColumns = ({
         }
 
         return columns;
-    }, [groupBy, contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch, expandedRowKeys]);
+    }, [groupBy, contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch]);
 };
 
 export const usePinnedTableHeaderProps = () => {

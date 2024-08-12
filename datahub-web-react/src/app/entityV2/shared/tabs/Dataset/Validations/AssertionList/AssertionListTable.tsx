@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Table, Empty } from 'antd';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { RightOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
 
 import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
@@ -9,8 +11,6 @@ import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/bu
 import { AssertionTableType, IFilter } from './types';
 import { useAssertionsTableColumns, usePinnedTableHeaderProps } from './hooks';
 import { AssertionListStyledTable } from './StyledComponents';
-import { RightOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
 
 type Props = {
     assertionData: AssertionTableType;
@@ -52,7 +52,6 @@ export const AssertionListTable = ({
         canEditAssertions,
         canEditMonitors,
         refetch,
-        expandedRowKeys,
     });
 
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
@@ -133,7 +132,7 @@ export const AssertionListTable = ({
                                   onExpand: onAssertionExpand,
                                   expandedRowKeys,
                                   expandRowByClick: true,
-                                  expandIcon: (props) => {
+                                  expandIcon: (props: any) => {
                                       const handleClick = (e) => {
                                           e.stopPropagation();
                                           props.onExpand(props.record, e);

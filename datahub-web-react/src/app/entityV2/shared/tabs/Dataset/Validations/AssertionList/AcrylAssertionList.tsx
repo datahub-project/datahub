@@ -78,16 +78,12 @@ export const AcrylAssertionList = () => {
     const canEditAssertions = privileges?.canEditAssertions || false;
     const canEditSqlAssertionMonitors = privileges?.canEditSqlAssertionMonitors || false;
 
-    return (
-        <>
-            <AssertionListTitleContainer
-                privileges={privileges as EntityPrivileges}
-                setShowAssertionBuilder={setShowAssertionBuilder}
-            />
-            {loading ? (
-                <AcrylAssertionsSummaryLoading />
-            ) : // TODO handle it in proper way - now added to work the expand the particular group if the assertion link is copied
-            (visibleAssertions?.assertions || []).length > 0 ? (
+    const renderListTable = () => {
+        if (loading) {
+            return <AcrylAssertionsSummaryLoading />;
+        }
+        if ((visibleAssertions?.assertions || []).length > 0) {
+            return (
                 <AssertionListTable
                     contract={contract}
                     assertionData={visibleAssertions as AssertionTableType}
@@ -102,9 +98,18 @@ export const AcrylAssertionList = () => {
                     canEditMonitors={canEditMonitors}
                     canEditSqlAssertions={canEditSqlAssertionMonitors}
                 />
-            ) : (
-                <Empty description="No assertions have run" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            )}
+            );
+        }
+        return <Empty description="No assertions have run" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    };
+
+    return (
+        <>
+            <AssertionListTitleContainer
+                privileges={privileges as EntityPrivileges}
+                setShowAssertionBuilder={setShowAssertionBuilder}
+            />
+            {renderListTable()}
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer
                     entityUrn={urn}
