@@ -111,7 +111,7 @@ def test_custom_version(mock_sdk):
     config = SalesforceConfig.parse_obj(
         {
             "auth": "DIRECT_ACCESS_TOKEN",
-            "sf_version": "46.0",
+            "api_version": "46.0",
             "instance_url": "https://mydomain.my.salesforce.com/",
             "access_token": "access_token`",
             "ingest_tags": True,

@@ -124,8 +124,8 @@ class SalesforceConfig(DatasetSourceConfigMixin):
         default=dict(),
         description='Regex patterns for tables/schemas to describe domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain keys specified.',
     )
-    sf_version: Optional[str] = Field(
-        description="If specified, overrides default version used by Salesforce package. Example value: '59.0'"
+    api_version: Optional[str] = Field(
+        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'"
     )
 
     profiling: SalesforceProfilingConfig = SalesforceProfilingConfig()
@@ -229,8 +229,8 @@ class SalesforceSource(Source):
             "domain": "test" if self.config.is_sandbox else None,
             "session": self.session,
         }
-        if self.config.sf_version:
-            common_args["version"] = self.config.sf_version
+        if self.config.api_version:
+            common_args["version"] = self.config.api_version
 
         try:
             if self.config.auth is SalesforceAuthType.DIRECT_ACCESS_TOKEN:
@@ -288,7 +288,7 @@ class SalesforceSource(Source):
         except Exception as e:
             logger.error(e)
             raise ConfigurationError("Salesforce login failed") from e
-        if not self.config.sf_version:
+        if not self.config.api_version:
             # List all REST API versions and use latest one
             versions_url = "https://{instance}/services/data/".format(
                 instance=self.sf.sf_instance,
