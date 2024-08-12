@@ -109,6 +109,46 @@ def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
 
 
 class LookMLViewTransformer(ABC):
+    """
+    There are many transformations that we need to perform on the LookML view to make it suitable for metadata ingestion.
+
+    These transformations include:
+
+    1. Evaluating Looker templates, such as -- if comments.
+    2. Resolving Liquid templates.
+    3. Removing ${} from derived view patterns
+       (e.g., changing ${view_name.SQL_TABLE_NAME} to 4. view_name.SQL_TABLE_NAME).
+    4. Completing incomplete SQL fragments.
+
+    Each transformer works on specific attributes of the LookML view. For example, the #4 transformation is only
+    applicable to the view.derived.sql attribute, while the other transformations apply to both the
+    view.sql_table_name and view.derived.sql attributes.
+
+    This class contains the logic to ensure that the transformer is applied to specific attributes and returns a
+    dictionary containing the transformed data. For example, in cases #1 and #2, it returns:
+
+    **transformed derived_table:**
+    ```
+    {
+        "derived_table": {
+            "datahub_transformed_sql": "<transformed value of derived_table.sql attribute>"
+        }
+    }
+    ```
+
+    **Where as original was:**
+    ```
+    {
+        "derived_table": {
+            "sql": "<Sql text with liquid or lookml template language>"
+        }
+    }
+    ```
+
+    Each transformation generates a section of the transformed dictionary with a new attribute named
+    datahub_transformed_<original-attribute-name>;.
+    """
+
     source_config: LookMLSourceConfig
 
     def __init__(self, source_config: LookMLSourceConfig):
@@ -255,6 +295,64 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
 
 
 class TransformedLookMlView:
+    """
+    There are many transformations that we need to perform on the LookML view to make it suitable for metadata ingestion.
+
+    These transformations include:
+    1. Evaluating Looker templates, such as -- if comments.
+    2. Resolving Liquid templates.
+    3. Removing ${} from derived view patterns (e.g., changing ${view_name.SQL_TABLE_NAME} to 4. view_name.SQL_TABLE_NAME).
+    5. Completing incomplete SQL fragments.
+
+    The Python module looker_template_language.py handles all these transformations. To keep the code readable and
+    extensible, we have added a transformer for each of the operations mentioned above. If we need to perform any
+    additional transformations in the future, we can easily add a new transformer to handle that scenario.
+
+    Each transformer works on specific attributes of the LookML view. For example, the #4 transformation is only
+    applicable to the view.derived.sql attribute, while the other transformations apply to both the
+    view.sql_table_name and view.derived.sql attributes.
+
+    The class LookMLViewTransformer contains the logic to ensure that the transformer is applied to specific
+    attributes and returns a dictionary containing the transformed data. For example, in cases #1 and #2, it returns:
+
+    **transformed derived_table:**
+    ```
+    {
+        "derived_table": {
+            "datahub_transformed_sql": "<transformed value of derived_table.sql attribute>"
+        }
+    }
+    ```
+
+    **Where as original was:**
+    ```
+    {
+        "derived_table": {
+            "sql": "<Sql text with liquid or lookml template language>"
+        }
+    }
+    ```
+
+    Each transformation generates a section of the transformed dictionary with a new attribute named
+    datahub_transformed_<original-attribute-name>;.
+
+    This class is collecting all such outputs to create a new transformed LookML view. It
+    creates a copy of the original view dictionary and updates the copy with the transformed output. The deepmerge
+    library is used because Python's dict.update function doesn't merge nested fields. The transformed LookML view
+    will contain the following attributes:
+
+    ```
+    {
+        "derived_table": {
+            "sql": "<original sql with looker template language",
+            "datahub_transformed_sql": "<transformed sql>"
+        },
+
+        dimensions .....
+    }
+    ```
+    """
+
     transformers: List[LookMLViewTransformer]
     view_dict: dict
     transformed_dict: dict
