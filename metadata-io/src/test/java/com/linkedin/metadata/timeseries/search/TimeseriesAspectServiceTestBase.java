@@ -58,6 +58,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -128,7 +129,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
             entityRegistry, new IndexConventionImpl("es_timeseries_aspect_service_test"));
 
     elasticSearchTimeseriesAspectService = buildService();
-    elasticSearchTimeseriesAspectService.configure();
+    elasticSearchTimeseriesAspectService.reindexAll(Collections.emptySet());
     EntitySpec entitySpec = entityRegistry.getEntitySpec(ENTITY_NAME);
     aspectSpec = entitySpec.getAspectSpec(ASPECT_NAME);
   }
@@ -1290,7 +1291,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   @Test(
       groups = {"testCountAfterDelete"},
       dependsOnGroups = {"deleteAspectValues1"})
-  public void testCountByFilterAfterDelete() throws InterruptedException {
+  public void testCountByFilterAfterDelete() throws Exception {
     syncAfterWrite(getBulkProcessor());
     // Test with filter
     Criterion hasUrnCriterion =

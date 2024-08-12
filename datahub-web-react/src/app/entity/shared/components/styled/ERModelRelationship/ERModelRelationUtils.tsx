@@ -37,14 +37,24 @@ const validateTableData = (fieldMappingData: ERModelRelationDataType) => {
     }
     return false;
 };
-export const validateERModelRelation = async (nameField: string, tableSchema: ERModelRelationDataType[], editFlag, getSearchResultsERModelRelations) => {
+export const validateERModelRelation = async (
+    nameField: string,
+    tableSchema: ERModelRelationDataType[],
+    editFlag,
+    getSearchResultsERModelRelations,
+) => {
     const errors: string[] = [];
-    const bDuplicateName = await checkDuplicateERModelRelation(getSearchResultsERModelRelations, nameField?.trim()).then((result) => result);
+    const bDuplicateName = await checkDuplicateERModelRelation(
+        getSearchResultsERModelRelations,
+        nameField?.trim(),
+    ).then((result) => result);
     if (nameField === '') {
         errors.push('ER-Model-Relationship name is required');
     }
     if (bDuplicateName && !editFlag) {
-        errors.push('This ER-Model-Relationship name already exists. A unique name for each ER-Model-Relationship is required');
+        errors.push(
+            'This ER-Model-Relationship name already exists. A unique name for each ER-Model-Relationship is required',
+        );
     }
     const faultyRows = tableSchema.filter((item) => validateTableData(item) !== true);
     if (faultyRows.length > 0) {

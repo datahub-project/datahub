@@ -6,9 +6,9 @@ from typing import Dict, Iterable, Optional, Set, Type, cast
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
-from datahub.ingestion.api.source_helpers import auto_stale_entity_removal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -23,8 +23,13 @@ from datahub.ingestion.source.state.use_case_handler import (
 )
 from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
+    "dataProcessInstance",
+}
 
 
 class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
@@ -48,9 +53,37 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
 @dataclass
 class StaleEntityRemovalSourceReport(StatefulIngestionReport):
     soft_deleted_stale_entities: LossyList[str] = field(default_factory=LossyList)
+    last_state_non_deletable_entities: LossyList[str] = field(default_factory=LossyList)
 
     def report_stale_entity_soft_deleted(self, urn: str) -> None:
         self.soft_deleted_stale_entities.append(urn)
+
+    def report_last_state_non_deletable_entities(self, urn: str) -> None:
+        self.last_state_non_deletable_entities.append(urn)
+
+
+def auto_stale_entity_removal(
+    stale_entity_removal_handler: "StaleEntityRemovalHandler",
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """
+    Record all entities that are found, and emit removals for any that disappeared in this run.
+    """
+
+    for wu in stream:
+        urn = wu.get_urn()
+
+        if wu.is_primary_source:
+            entity_type = guess_entity_type(urn)
+            if entity_type is not None:
+                stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
+        else:
+            stale_entity_removal_handler.add_urn_to_skip(urn)
+
+        yield wu
+
+    # Clean up stale entities.
+    yield from stale_entity_removal_handler.gen_removed_entity_workunits()
 
 
 class StaleEntityRemovalHandler(
@@ -265,18 +298,30 @@ class StaleEntityRemovalHandler(
 
         if copy_previous_state_and_fail:
             logger.info(
-                f"Copying urns from last state (size {last_checkpoint_state.urns}) to current state (size {cur_checkpoint_state.urns}) "
+                f"Copying urns from last state (size {len(last_checkpoint_state.urns)}) to current state (size {len(cur_checkpoint_state.urns)}) "
                 "to ensure stale entities from previous runs are deleted on the next successful run."
             )
             for urn in last_checkpoint_state.urns:
                 self.add_entity_to_state("", urn)
             return
 
+        report = self.source.get_report()
+        assert isinstance(report, StaleEntityRemovalSourceReport)
+
         # Everything looks good, emit the soft-deletion workunits
         for urn in last_checkpoint_state.get_urns_not_in(
             type="*", other_checkpoint_state=cur_checkpoint_state
         ):
+            entity_type = guess_entity_type(urn)
+            if (
+                entity_type in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES
+                or not entity_supports_aspect(entity_type, StatusClass)
+            ):
+                # If any entity does not support aspect 'status' then skip that entity urn
+                report.report_last_state_non_deletable_entities(urn)
+                continue
             if urn in self._urns_to_skip:
+                report.report_last_state_non_deletable_entities(urn)
                 logger.debug(
                     f"Not soft-deleting entity {urn} since it is in urns_to_skip"
                 )

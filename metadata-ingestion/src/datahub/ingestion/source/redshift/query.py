@@ -122,6 +122,7 @@ SELECT  schemaname as schema_name,
         else:
             return f"{tables_query} UNION {external_tables_query}"
 
+    # Why is this unused. Is this a bug?
     list_columns: str = """
             SELECT
               n.nspname as "schema",
@@ -502,7 +503,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                     usename as username,
                     ddl,
                     sq.query as query_id,
-                    min(si.starttime) as starttime,
+                    min(si.starttime) as timestamp,
                     ANY_VALUE(pid) as session_id
                 from
                     stl_insert as si

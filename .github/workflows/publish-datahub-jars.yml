@@ -54,7 +54,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
@@ -167,3 +167,29 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-auth:auth-api:publish
           ./gradlew :metadata-auth:auth-api:closeAndReleaseRepository --info
+      - name: publish datahub-custom-plugin-lib snapshot jar
+        if: ${{ github.event_name != 'release' }}
+        env:
+          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          echo signingKey=$SIGNING_KEY >> gradle.properties
+          ./gradlew :metadata-integration:java:custom-plugin-lib:printVersion
+          ./gradlew :metadata-integration:java:custom-plugin-lib:publish
+      - name: release datahub-custom-plugin-lib jar
+        if: ${{ github.event_name == 'release' }}
+        env:
+          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          echo signingKey=$SIGNING_KEY >> gradle.properties
+          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:custom-plugin-lib:publish
+          ./gradlew :metadata-integration:java:custom-plugin-lib:closeAndReleaseRepository --info
