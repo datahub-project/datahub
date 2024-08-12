@@ -8,6 +8,11 @@ from datahub.ingestion.source.looker.looker_common import (
     find_view_from_resolved_includes,
 )
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_constant import (
+    DIMENSION_GROUPS,
+    DIMENSIONS,
+    MEASURES,
+)
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
@@ -251,6 +256,7 @@ class LookerViewContext:
     def get_including_extends(
         self,
         field: str,
+        extends_only: bool = False,
     ) -> Optional[Any]:
         extends = list(
             itertools.chain.from_iterable(
@@ -259,7 +265,7 @@ class LookerViewContext:
         )
 
         # First, check the current view.
-        if field in self.raw_view:
+        if extends_only is False and field in self.raw_view:
             return self.raw_view[field]
 
         # The field might be defined in another view and this view is extending that view,
@@ -382,14 +388,63 @@ class LookerViewContext:
             return ans
         return []
 
+    def _include_parent_fields(
+        self, child_fields: List[dict], field_type: str
+    ) -> List[Dict]:
+        # Fetch the parent view fields i.e. view-name mentioned in view.extends
+        # and include those field in child_fields.
+        # The inclusion will resolve the fields as per precedence rule mentioned in lookml documentation
+        # https://cloud.google.com/looker/docs/reference/param-view-extends
+
+        parent_fields: Optional[Any] = self.get_including_extends(
+            field=field_type,
+            extends_only=True,
+        )
+
+        if parent_fields is None:
+            return child_fields  # No parent fields found
+
+        # Create a map field-name vs field
+        child_field_map: dict = {}
+        for field in child_fields:
+            assert (
+                NAME in field
+            ), "A lookml view must have a name field"  # name is required field of lookml field array
+
+            child_field_map[field[NAME]] = field
+
+        for field in parent_fields:
+            assert (
+                NAME in field
+            ), "A lookml view must have a name field"  # name is required field of lookml field array
+
+            if field[NAME] in child_field_map:
+                # This is an override case where the child has redefined the parent field.
+                # There are some additive attributes; however, we are not consuming them in metadata ingestion
+                # and hence not adding them to the child field.
+                continue
+
+            child_fields.append(field)
+
+        return child_fields
+
     def dimensions(self) -> List[Dict]:
-        return self._get_list_dict("dimensions")
+        return self._include_parent_fields(
+            child_fields=self._get_list_dict(DIMENSIONS),
+            field_type=DIMENSIONS,
+        )
 
     def measures(self) -> List[Dict]:
-        return self._get_list_dict("measures")
+        return self._include_parent_fields(
+            child_fields=self._get_list_dict(MEASURES),
+            field_type=MEASURES,
+        )
 
     def dimension_groups(self) -> List[Dict]:
-        return self._get_list_dict("dimension_groups")
+        return self._include_parent_fields(
+            child_fields=self._get_list_dict(DIMENSION_GROUPS),
+            field_type=DIMENSION_GROUPS,
+        )
 
     def is_materialized_derived_view(self) -> bool:
         for k in self.derived_table():
@@ -433,7 +488,7 @@ class LookerViewContext:
         return False
 
     def is_native_derived_case(self) -> bool:
-        # It is pattern 5
+        # It is pattern 5, mentioned in Class documentation
         if (
             "derived_table" in self.raw_view
             and "explore_source" in self.raw_view["derived_table"]
@@ -443,7 +498,7 @@ class LookerViewContext:
         return False
 
     def is_sql_based_derived_view_without_fields_case(self) -> bool:
-        # Pattern 6
+        # Pattern 6, mentioned in Class documentation
         fields: List[Dict] = []
 
         fields.extend(self.dimensions())
