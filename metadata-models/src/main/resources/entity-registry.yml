@@ -142,7 +142,6 @@ entities:
       - incidentsSummary
       - forms
       - testResults
-      - access
   - name: dashboard
     keyAspect: dashboardKey
     aspects:

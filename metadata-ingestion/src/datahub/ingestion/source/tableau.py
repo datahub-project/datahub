@@ -26,12 +26,13 @@ from pydantic import root_validator, validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from tableauserverclient import (
+    GroupItem,
     PersonalAccessTokenAuth,
+    RequestOptions,
     Server,
     ServerResponseError,
     SiteItem,
     TableauAuth,
-    RequestOptions
 )
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 from urllib3 import Retry
@@ -135,6 +136,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    AccessClass,
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
@@ -147,11 +149,10 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    RoleAssociationClass,
+    RolePropertiesClass,
     SubTypesClass,
     ViewPropertiesClass,
-    RolePropertiesClass,
-    AccessClass,
-    RoleAssociationClass
 )
 from datahub.sql_parsing.sql_parsing_result_utils import (
     transform_parsing_result_to_in_tables_schemas,
@@ -187,6 +188,7 @@ REPLACE_SLASH_CHAR = "|"
 
 class FieldCustom(RequestOptions.Field):
     Id = "id"
+
 
 class TableauConnectionConfig(ConfigModel):
     connect_uri: str = Field(description="Tableau host URL.")
@@ -303,39 +305,54 @@ class TableauConnectionConfig(ConfigModel):
                 f"Unable to login (check your Tableau connection and credentials): {str(e)}"
             ) from e
 
-class AccessRolesIngestionConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False,
-        description="Whether or not to enable access role ingestion. "
-                    "Default: False",
-    )
 
+class AccessRolesIngestionConfig(ConfigModel):
     enable_workbooks: bool = Field(
         default=True,
         description="Whether or not to enable access role ingestion for workbooks. "
-                    "Default: True",
+        "Default: True",
     )
 
-    enable_sheets: bool = Field(
-        default=True,
-        description="Whether or not to enable access role ingestion for sheets. "
-                    "Default: True",
-    )
-
-    permission_name_pattern: AllowDenyPattern = Field(
+    group_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filter for Tableau access permission names. "
-                    "By default, all permissions will be added as roles. "
-                    "You can both allow and deny permissions based on their name using their name, or a Regex pattern. "
-                    "Deny patterns always take precedence over allow patterns. "
+        "By default, all permissions will be added as roles. "
+        "You can both allow and deny permissions based on their name using their name, or a Regex pattern. "
+        "Deny patterns always take precedence over allow patterns. ",
+    )
+
+    role_prefix: str = Field(
+        default="",
+        description="Prefix to append to the group name when generating the role name used in the request_url.",
+    )
+
+    group_substring_start: Optional[int] = Field(
+        default=None,
+        description="Use this property if you only need a substring of the group in Tableau to create the role used in the request_url.",
+    )
+
+    group_substring_end: Optional[int] = Field(
+        default=None,
+        description="Use this property if you only need a substring of the group in Tableau to create the role used in the request_url.",
+    )
+
+    role_description: str = Field(
+        default="",
+        description="Description of the role that will be displayed in the Access Management tab of Datahub.",
+    )
+
+    displayed_capabilities: Optional[List[str]] = Field(
+        default=None,
+        description="Description of the role that will be displayed in the Access Management tab of Datahub.",
     )
 
     request_url: str = Field(
         default="",
         description="Request URL that is added to the role for requesting access. "
-                    "You can use the variable $PERMISSION_NAME inside the URL string. "
-                    "For example 'https://example-host.com/order/$PERMISSION_NAME'"
+        "You can use the variable $PERMISSION_NAME inside the URL string. "
+        "For example 'https://example-host.com/order/$ROLE_NAME'",
     )
+
 
 class TableauConfig(
     DatasetLineageProviderConfigBase,
@@ -754,7 +771,7 @@ class TableauSiteSource:
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
 
-        self.group_map: Dict[str, str] = {}
+        self.group_map: Dict[str, GroupItem] = {}
 
         # This map keeps track of the database server connection hostnames.
         self.database_server_hostname_map: Dict[str, str] = {}
@@ -773,6 +790,8 @@ class TableauSiteSource:
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
+        # Dict to keep track of all the roles that were already ingested when processing this site
+        self.ingested_role_urns: Dict[str, RolePropertiesClass] = {}
 
     @property
     def no_env_browse_prefix(self) -> str:
@@ -839,7 +858,6 @@ class TableauSiteSource:
         def fetch_projects():
             if self.server is None:
                 return all_project_map
-
 
             for project in TSC.Pager(self.server.projects):
                 all_project_map[project.id] = TableauProject(
@@ -2175,21 +2193,6 @@ class TableauSiteSource:
             aspect=aspect,
         ).as_workunit()
 
-
-    def _get_role_metadata_change_proposal(
-            self,
-            urn: str,
-            aspect_name: str,
-            aspect: Union["RoleProperties", "Re"],
-    ) -> MetadataWorkUnit:
-        return MetadataChangeProposalWrapper(
-            entityType="role",
-            changeType=ChangeTypeClass.UPSERT,
-            entityUrn=urn,
-            aspectName=aspect_name,
-            aspect=aspect,
-        ).as_workunit()
-
     def emit_datasource(
         self,
         datasource: dict,
@@ -2681,13 +2684,6 @@ class TableauSiteSource:
                 ),
             ).as_workunit()
 
-        if self.config.access_role_ingestion and self.config.access_role_ingestion.enabled and self.config.access_role_ingestion.enable_sheets:
-            logger.info(f"Ingest Sheet permissions of '{sheet_urn}'")
-            if sheet.get(c.LUID):
-                view_api = self.server.views.get_by_id(sheet.get(c.LUID))
-                self.server.views.populate_permissions(view_api)
-                yield from self.emit_access_roles(view_api.permissions, sheet_urn)
-
     def _project_luid_to_browse_path_name(self, project_luid: str) -> str:
         assert project_luid
         project: TableauProject = self.tableau_project_registry[project_luid]
@@ -2749,11 +2745,6 @@ class TableauSiteSource:
         )
 
         tags = self.get_tags(workbook)
-
-        #all_workbooks_items, pagination_item = self.server.workbooks.get()
-        # print names of first 100 workbooks
-        #logger.info([f"{workbook.name}: {workbook.id}" for workbook in all_workbooks_items])
-
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
         if project_luid and project_luid in self.tableau_project_registry.keys():
@@ -2776,13 +2767,15 @@ class TableauSiteSource:
             tags=tags,
         )
 
-        if self.config.access_role_ingestion and self.config.access_role_ingestion.enabled and self.config.access_role_ingestion.enable_workbooks:
-            logger.info(f"Ingest Workbook permissions of '{workbook.get(c.LUID)}'")
+        if (
+            self.config.access_role_ingestion
+            and self.config.access_role_ingestion.enable_workbooks
+        ):
+            logger.info(f"Ingest access roles of '{workbook.get(c.LUID)}'")
             workbook_api = self.server.workbooks.get_by_id(workbook.get(c.LUID))
             self.server.workbooks.populate_permissions(workbook_api)
             container_urn = workbook_container_key.as_urn()
             yield from self.emit_access_roles(workbook_api.permissions, container_urn)
-
 
     def gen_workbook_key(self, workbook_id: str) -> WorkbookKey:
         return WorkbookKey(
@@ -3094,25 +3087,76 @@ class TableauSiteSource:
         for group in TSC.Pager(self.server.groups):
             self.group_map[group.id] = group
 
+    def _extract_role_name_from_group(self, group_name: str) -> str:
+        if not self.config.access_role_ingestion:
+            return group_name
+        if self.config.access_role_ingestion.group_substring_start is not None:
+            start = self.config.access_role_ingestion.group_substring_start
+        else:
+            start = 0
+
+        if self.config.access_role_ingestion.group_substring_end is not None:
+            return group_name[
+                start : self.config.access_role_ingestion.group_substring_end
+            ]
+        else:
+            return group_name[start:]
+
+    def _get_role_type_from_capabilities(self, capabilities):
+        if not self.config.access_role_ingestion:
+            return ""
+
+        allowed_capabilities = [
+            key for key, value in capabilities.items() if value == "Allow"
+        ]
+        if self.config.access_role_ingestion.displayed_capabilities:
+            allowed_capabilities = [
+                value
+                for value in allowed_capabilities
+                if value in self.config.access_role_ingestion.displayed_capabilities
+            ]
+        return ", ".join(allowed_capabilities)
+
     def emit_access_roles(self, permissions, urn):
+        if not self.config.access_role_ingestion:
+            return
+
         role_associations = []
         for rule in permissions:
             if rule.grantee.tag_name == "group":
                 group = self.group_map.get(rule.grantee.id)
-                if not self.config.access_role_ingestion.permission_name_pattern.allowed(group.name):
-                    logger.info(f"Skip permission '{group.name}' as it's excluded in permission_name_pattern.")
+                if not group or not group.name:
+                    logger.debug(f"Group {rule.grantee.id} not found in group map.")
                     continue
-                logger.debug(f"Recieved Group '{group.name}'.")
-                role_properties: RolePropertiesClass = RolePropertiesClass(name=group.name, type="READ") # TODO: take from rule capabilities
-                role_properties.requestUrl = self.config.access_role_ingestion.request_url.replace("$PERMISSION_NAME", group.name)
-                role_urn = builder.make_role_urn(group.name)
-                logger.debug(f"Upsert role '{role_urn}'.")
+                if not self.config.access_role_ingestion.group_name_pattern.allowed(
+                    group.name
+                ):
+                    logger.info(
+                        f"Skip permission '{group.name}' as it's excluded in group_name_pattern."
+                    )
+                    continue
+                role_name = f"{self.config.access_role_ingestion.role_prefix}{self._extract_role_name_from_group(group.name)}"
+                role_urn = builder.make_role_urn(role_name)
+                role_associations.append(RoleAssociationClass(urn=role_urn))
+                if self.ingested_role_urns.get(role_urn):
+                    logger.debug(f"Role '{role_urn}' was already ingested, continue.")
+                    continue
+                role_properties: RolePropertiesClass = RolePropertiesClass(
+                    name=role_name,
+                    type=self._get_role_type_from_capabilities(rule.capabilities),
+                    requestUrl=self.config.access_role_ingestion.request_url.replace(
+                        "$ROLE_NAME", role_name
+                    ),
+                    description=self.config.access_role_ingestion.role_description,
+                )
+
+                logger.info(f"Upsert role '{role_urn}'.")
                 yield MetadataChangeProposalWrapper(
                     aspect=role_properties,
                     entityUrn=role_urn,
                 ).as_workunit()
 
-                role_associations.append(RoleAssociationClass(urn=role_urn))
+                self.ingested_role_urns[role_urn] = role_properties
 
         access = AccessClass(roles=role_associations)
         logger.info(f"Add access aspect to '{urn}'.")
