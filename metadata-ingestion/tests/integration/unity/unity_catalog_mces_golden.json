@@ -12,7 +12,8 @@
                 "catalog": "hive_metastore"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore",
-            "name": "hive_metastore"
+            "name": "hive_metastore",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -101,7 +102,8 @@
                 "unity_schema": "bronze_kambi"
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi",
-            "name": "bronze_kambi"
+            "name": "bronze_kambi",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1618,7 +1620,8 @@
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog",
             "name": "quickstart_catalog",
-            "description": ""
+            "description": "",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2316,7 +2319,8 @@
             },
             "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema",
             "name": "quickstart_schema",
-            "description": "A new Unity Catalog schema called quickstart_schema"
+            "description": "A new Unity Catalog schema called quickstart_schema",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

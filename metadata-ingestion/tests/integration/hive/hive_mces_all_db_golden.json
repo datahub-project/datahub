@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "db1"
             },
-            "name": "db1"
+            "name": "db1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1767,7 +1768,8 @@
                 "env": "PROD",
                 "database": "db2"
             },
-            "name": "db2"
+            "name": "db2",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2003,7 +2005,8 @@
                 "env": "PROD",
                 "database": "default"
             },
-            "name": "default"
+            "name": "default",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

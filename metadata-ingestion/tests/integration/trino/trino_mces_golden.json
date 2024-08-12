@@ -11,7 +11,9 @@
                 "env": "PROD",
                 "database": "postgresqldb"
             },
-            "name": "postgresqldb"
+            "name": "postgresqldb",
+            "env": "PROD"
+
         }
     },
     "systemMetadata": {
@@ -99,7 +101,8 @@
                 "database": "postgresqldb",
                 "schema": "librarydb"
             },
-            "name": "librarydb"
+            "name": "librarydb",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
