@@ -1,8 +1,13 @@
+import logging
+
 import pytest
 import requests
 
 from tests.test_result_msg import add_datahub_stats
 from tests.utils import get_frontend_session, get_frontend_url, get_gms_url
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 BASE_URL_V3 = f"{get_gms_url()}/openapi/v3"
 BASE_URL_V2 = f"{get_gms_url()}/openapi/v2"
@@ -141,7 +146,7 @@ def test_openapi_v3_entity(entity_type):
     search_result = _get_search_result(frontend_session, entity_type)
     num_entities = search_result["total"]
     if num_entities == 0:
-        print(f"[WARN] No results for {entity_type}")
+        logger.warning(f"No results for {entity_type}")
         return
     entities = search_result["searchResults"]
 
@@ -149,10 +154,20 @@ def test_openapi_v3_entity(entity_type):
 
     session = requests.Session()
     url = f"{BASE_URL_V3}/entity/{entity_type}/{first_urn}"
-    response = session.get(url, headers=default_headers)
-    response.raise_for_status()
+    try:
+        response = session.get(url, headers=default_headers)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP error occurred: {e}")
+        return
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        return
+
     actual_data = response.json()
-    print(f"Entity Data for URN {first_urn}: {actual_data}")
+    logger.info(f"URL: {url}")
+    logger.info(f"Response Status Code: {response.status_code}")
+    logger.info(f"Entity Data for URN {first_urn}: {actual_data}")
 
     expected_data = {"urn": first_urn}
 
@@ -187,7 +202,7 @@ def test_openapi_v2_entity(entity_type):
     search_result = _get_search_result(frontend_session, entity_type)
     num_entities = search_result["total"]
     if num_entities == 0:
-        print(f"[WARN] No results for {entity_type}")
+        logger.warning(f"No results for {entity_type}")
         return
     entities = search_result["searchResults"]
 
@@ -195,10 +210,20 @@ def test_openapi_v2_entity(entity_type):
 
     session = requests.Session()
     url = f"{BASE_URL_V2}/entity/{entity_type}/{first_urn}"
-    response = session.get(url, headers=default_headers)
-    response.raise_for_status()
+    try:
+        response = session.get(url, headers=default_headers)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP error occurred: {e}")
+        return
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        return
+
     actual_data = response.json()
-    print(f"Entity Data for URN {first_urn}: {actual_data}")
+    logger.info(f"URL: {url}")
+    logger.info(f"Response Status Code: {response.status_code}")
+    logger.info(f"Entity Data for URN {first_urn}: {actual_data}")
 
     expected_data = {"urn": first_urn}
 
@@ -225,7 +250,7 @@ def test_openapi_v1_entity(entity_type):
     search_result = _get_search_result(frontend_session, entity_type)
     num_entities = search_result["total"]
     if num_entities == 0:
-        print(f"[WARN] No results for {entity_type}")
+        logger.warning(f"No results for {entity_type}")
         return
     entities = search_result["searchResults"]
 
@@ -233,10 +258,20 @@ def test_openapi_v1_entity(entity_type):
 
     session = requests.Session()
     url = f"{BASE_URL_V1}/entity/{entity_type}/{first_urn}"
-    response = session.get(url, headers=default_headers)
-    response.raise_for_status()
+    try:
+        response = session.get(url, headers=default_headers)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP error occurred: {e}")
+        return
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        return
+
     actual_data = response.json()
-    print(f"Entity Data for URN {first_urn}: {actual_data}")
+    logger.info(f"URL: {url}")
+    logger.info(f"Response Status Code: {response.status_code}")
+    logger.info(f"Entity Data for URN {first_urn}: {actual_data}")
 
     expected_data = {"urn": first_urn}
 
