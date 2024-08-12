@@ -189,7 +189,6 @@ def gen_containers(
     qualified_name: Optional[str] = None,
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
-    env: Optional[str] = None,
 ) -> Iterable[MetadataWorkUnit]:
     container_urn = container_key.as_urn()
     yield MetadataChangeProposalWrapper(
