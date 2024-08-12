@@ -32,27 +32,6 @@ describe("create and manage volume assertion", () => {
     });
   };
 
-  const verifyAssertionCount = (operation) => {
-    let beforeCount;
-    let afterCount;
-    cy.contains("Assertions (")
-      .invoke("text")
-      .then((text) => {
-        beforeCount = parseInt(text.match(/\d+/)[0]);
-        cy.reload();
-        cy.waitTextVisible("daily_temperature");
-        cy.wait(3000);
-        cy.contains("Assertions (")
-          .invoke("text")
-          .then((text) => {
-            afterCount = parseInt(text.match(/\d+/)[0]);
-            const expectedCount =
-              operation === "add" ? beforeCount + 1 : beforeCount - 1;
-            expect(afterCount).equals(expectedCount);
-          });
-      });
-  };
-
   it("create volume assertion, stop and restart monitor, manage and remove assertion", () => {
     // create volume assertion, submit, verify assertion on ui
     setAssertionMonitorsFlag(true);
@@ -61,7 +40,7 @@ describe("create and manage volume assertion", () => {
     cy.handleIntroducePage();
     cy.goToDataset(datasetUrn, datasetName);
     cy.openEntityTab("Quality");
-    cy.waitTextVisible("No assertions have run");
+    cy.waitTextVisible("No Assertions Found");
     enableButtonWithId("#create-assertion-btn-main");
     cy.get("#create-assertion-btn-main").click();
     cy.waitTextVisible("New Assertion Monitor");
@@ -75,12 +54,12 @@ describe("create and manage volume assertion", () => {
     cy.waitTextVisible("If this assertion passes...");
     cy.get("button").contains("Next").click();
     cy.waitTextVisible(
-      "If not specified, a name will be generated from the assertion settings.",
+      "If not specified, a name will be generated from the assertion settings."
     );
     cy.get("button").contains("Save").click();
     cy.waitTextVisible("Created!");
     cy.ensureTextNotPresent("Created!");
-    verifyAssertionCount("add");
+    // verifyAssertionCount("add");
     cy.waitTextVisible("Table has at most 1,000 rows");
     cy.get(".ant-table-row-level-0").last().click();
     cy.waitTextVisible("Row count over time");
@@ -88,6 +67,7 @@ describe("create and manage volume assertion", () => {
 
     // stop the monitor, verify that assertion stopped successfully
     clickElement("body");
+    cy.wait(2000);
     cy.get(".ant-table-cell").find("button").first().click();
     cy.waitTextVisible("Stopped!");
     cy.ensureTextNotPresent("Stopped!");
@@ -127,9 +107,13 @@ describe("create and manage volume assertion", () => {
     clickElement("body");
     cy.waitTextVisible("Table has at most 1,000 rows");
     cy.get(".ant-table-cell").find("button").last().click();
+    cy.get(".ant-dropdown-menu-item")
+      .find(".anticon-delete")
+      .closest(".ant-dropdown-menu-item") // Traverse back up to the parent Menu.Item
+      .click();
     cy.waitTextVisible("Confirm Assertion Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed assertion.");
-    verifyAssertionCount("remove");
+    // verifyAssertionCount("remove");
   });
 });

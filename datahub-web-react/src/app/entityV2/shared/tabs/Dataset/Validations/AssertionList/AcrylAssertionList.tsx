@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Empty } from 'antd';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { DataContract, EntityPrivileges } from '@src/types.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../graphql/monitor.generated';
@@ -85,24 +86,24 @@ export const AcrylAssertionList = () => {
             />
             {loading ? (
                 <AcrylAssertionsSummaryLoading />
+            ) : // TODO handle it in proper way - now added to work the expand the particular group if the assertion link is copied
+            (visibleAssertions?.assertions || []).length > 0 ? (
+                <AssertionListTable
+                    contract={contract}
+                    assertionData={visibleAssertions as AssertionTableType}
+                    filter={filter}
+                    refetch={() => {
+                        setTimeout(() => {
+                            refetch();
+                            contractRefetch();
+                        }, 500);
+                    }}
+                    canEditAssertions={canEditAssertions}
+                    canEditMonitors={canEditMonitors}
+                    canEditSqlAssertions={canEditSqlAssertionMonitors}
+                />
             ) : (
-                // TODO handle it in proper way - now added to work the expand the particular group if the assertion link is copied
-                (visibleAssertions?.assertions || []).length > 0 && (
-                    <AssertionListTable
-                        contract={contract}
-                        assertionData={visibleAssertions as AssertionTableType}
-                        filter={filter}
-                        refetch={() => {
-                            setTimeout(() => {
-                                refetch();
-                                contractRefetch();
-                            }, 500);
-                        }}
-                        canEditAssertions={canEditAssertions}
-                        canEditMonitors={canEditMonitors}
-                        canEditSqlAssertions={canEditSqlAssertionMonitors}
-                    />
-                )
+                <Empty description="No assertions have run" image={Empty.PRESENTED_IMAGE_SIMPLE} />
             )}
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer
