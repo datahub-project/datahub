@@ -12,7 +12,8 @@
                 "env": "PROD",
                 "database": "db1"
             },
-            "name": "db1"
+            "name": "db1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

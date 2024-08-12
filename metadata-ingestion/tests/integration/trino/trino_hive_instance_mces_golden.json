@@ -98,7 +98,7 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:46baa6eebd802861e5ee3d043456e171",
     "changeType": "UPSERT",
-    "aspectName": "containerProperties",
+    "env": "UAT",
     "aspect": {
         "json": {
             "customProperties": {
