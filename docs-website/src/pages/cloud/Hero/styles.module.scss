@@ -1,3 +1,7 @@
+.col {
+  padding: 0 2rem;
+}
+
 .hero {
   .button {
     margin: 0rem 1rem 2rem 1rem;
@@ -29,6 +33,10 @@
     }
   }
 
+}
+
+.hero__cta {
+  margin: auto;
 }
 
 .formContainer {

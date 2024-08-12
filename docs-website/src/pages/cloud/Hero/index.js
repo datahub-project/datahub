@@ -68,23 +68,23 @@ const Hero = () => {
       <div className="container">
         <div className="hero__content">
           <div className="row row__padded">
-            <div className="col col--7">
-              <h1 className={clsx("hero__title", styles.hero__title)}>Try DataHub Cloud</h1>
-              <div className={clsx("hero__subtitle", styles.hero__subtitle)}>
-                Introducing DataHub as a Managed Service
-                <div style={{ fontWeight: "500" }}>
-                  with Data Observability and Data Governance built-in.
+            <div className={clsx(styles.hero__cta, styles.col, "col col--7")}>
+                <h1 className={clsx("hero__title", styles.hero__title)}>Try DataHub Cloud</h1>
+                <div className={clsx("hero__subtitle", styles.hero__subtitle)}>
+                  Introducing DataHub as a Managed Service
+                  <div style={{ fontWeight: "500" }}>
+                    with Data Observability and Data Governance built-in.
+                  </div>
                 </div>
-              </div>
-              <Link className={clsx(styles.button, "button button--primary button--lg")} to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
-                Book Demo
-              </Link>
-              <Link className={clsx(styles.button, styles.buttonLightBlue, "button button--secondary button--lg")} to="https://www.acryldata.io/tour">
-                Product Tour
-              </Link>
-              <ScrollingCustomers />
+                <Link className={clsx(styles.button, "button button--primary button--lg")} to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
+                  Book Demo
+                </Link>
+                <Link className={clsx(styles.button, styles.buttonLightBlue, "button button--secondary button--lg")} to="https://www.acryldata.io/tour">
+                  Product Tour
+                </Link>
+                <ScrollingCustomers />
             </div>
-            <div className="col col--5">
+            <div className={clsx(styles.col, "col col--5")}>
               <div className={clsx(styles.formContainer)}>
                 <div className={clsx(styles.formContent)}>
                   <div className={clsx(styles.formHeader)}>

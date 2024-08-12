@@ -38,7 +38,7 @@
   background-color: #0056b3; /* Button hover color */
 }
 
-/* customize the placeholder */
+/* hide the label */
 
 #hubspotForm .hs-form label span {
   display: none;
@@ -47,4 +47,26 @@
 #hubspotForm .hs-form .hs-error-msgs {
   font-size: 15px;
   color: red;
+}
+
+
+/* customize placeholder style */
+
+#hubspotForm .hs-form input::placeholder, 
+#hubspotForm .hs-form textarea::placeholder,
+#hubspotForm .hs-form textarea {
+  font-size: 16px;
+  font-weight: 400;
+  font-family: sans-serif;
+  color: gray;
+}
+
+
+
+/* hide names & phones */
+
+#hubspotForm .hs-form .hs_firstname,
+#hubspotForm .hs-form .hs_lastname,
+#hubspotForm .hs-form .hs_phone {
+  display: none;
 }
