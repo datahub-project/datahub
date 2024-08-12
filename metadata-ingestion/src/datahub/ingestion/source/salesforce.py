@@ -3,7 +3,7 @@ import logging
 import time
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, TypedDict
+from typing import Any, Dict, Iterable, List, Optional
 
 import requests
 from pydantic import Field, validator
