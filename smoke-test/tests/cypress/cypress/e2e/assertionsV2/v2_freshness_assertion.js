@@ -21,7 +21,6 @@ const setAssertionMonitorsFlag = (isOn) => {
   });
 };
 
-
 describe("create and manage freshness assertion", () => {
   beforeEach(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
@@ -46,7 +45,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("If this assertion passes...");
     cy.get("button").contains("Next").click();
     cy.waitTextVisible(
-      "If not specified, a name will be generated from the assertion settings."
+      "If not specified, a name will be generated from the assertion settings.",
     );
     cy.get("button").contains("Save").click();
     cy.waitTextVisible("Created!");
