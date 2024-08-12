@@ -31,6 +31,7 @@ from tableauserverclient import (
     ServerResponseError,
     SiteItem,
     TableauAuth,
+    RequestOptions
 )
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 from urllib3 import Retry
@@ -148,6 +149,9 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SubTypesClass,
     ViewPropertiesClass,
+    RolePropertiesClass,
+    AccessClass,
+    RoleAssociationClass
 )
 from datahub.sql_parsing.sql_parsing_result_utils import (
     transform_parsing_result_to_in_tables_schemas,
@@ -180,6 +184,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 # Replace / with |
 REPLACE_SLASH_CHAR = "|"
 
+
+class FieldCustom(RequestOptions.Field):
+    Id = "id"
 
 class TableauConnectionConfig(ConfigModel):
     connect_uri: str = Field(description="Tableau host URL.")
@@ -296,6 +303,39 @@ class TableauConnectionConfig(ConfigModel):
                 f"Unable to login (check your Tableau connection and credentials): {str(e)}"
             ) from e
 
+class AccessRolesIngestionConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Whether or not to enable access role ingestion. "
+                    "Default: False",
+    )
+
+    enable_workbooks: bool = Field(
+        default=True,
+        description="Whether or not to enable access role ingestion for workbooks. "
+                    "Default: True",
+    )
+
+    enable_sheets: bool = Field(
+        default=True,
+        description="Whether or not to enable access role ingestion for sheets. "
+                    "Default: True",
+    )
+
+    permission_name_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filter for Tableau access permission names. "
+                    "By default, all permissions will be added as roles. "
+                    "You can both allow and deny permissions based on their name using their name, or a Regex pattern. "
+                    "Deny patterns always take precedence over allow patterns. "
+    )
+
+    request_url: str = Field(
+        default="",
+        description="Request URL that is added to the role for requesting access. "
+                    "You can use the variable $PERMISSION_NAME inside the URL string. "
+                    "For example 'https://example-host.com/order/$PERMISSION_NAME'"
+    )
 
 class TableauConfig(
     DatasetLineageProviderConfigBase,
@@ -440,6 +480,11 @@ class TableauConfig(
     add_site_container: bool = Field(
         False,
         description="When enabled, sites are added as containers and therefore visible in the folder structure within Datahub.",
+    )
+
+    access_role_ingestion: Optional[AccessRolesIngestionConfig] = Field(
+        default=None,
+        description="Settings for configuration of access roles ingestion.",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -709,6 +754,8 @@ class TableauSiteSource:
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
 
+        self.group_map: Dict[str, str] = {}
+
         # This map keeps track of the database server connection hostnames.
         self.database_server_hostname_map: Dict[str, str] = {}
         # This list keeps track of sheets in workbooks so that we retrieve those
@@ -792,6 +839,7 @@ class TableauSiteSource:
         def fetch_projects():
             if self.server is None:
                 return all_project_map
+
 
             for project in TSC.Pager(self.server.projects):
                 all_project_map[project.id] = TableauProject(
@@ -2127,6 +2175,21 @@ class TableauSiteSource:
             aspect=aspect,
         ).as_workunit()
 
+
+    def _get_role_metadata_change_proposal(
+            self,
+            urn: str,
+            aspect_name: str,
+            aspect: Union["RoleProperties", "Re"],
+    ) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
+            entityType="role",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=urn,
+            aspectName=aspect_name,
+            aspect=aspect,
+        ).as_workunit()
+
     def emit_datasource(
         self,
         datasource: dict,
@@ -2618,6 +2681,13 @@ class TableauSiteSource:
                 ),
             ).as_workunit()
 
+        if self.config.access_role_ingestion and self.config.access_role_ingestion.enabled and self.config.access_role_ingestion.enable_sheets:
+            logger.info(f"Ingest Sheet permissions of '{sheet_urn}'")
+            if sheet.get(c.LUID):
+                view_api = self.server.views.get_by_id(sheet.get(c.LUID))
+                self.server.views.populate_permissions(view_api)
+                yield from self.emit_access_roles(view_api.permissions, sheet_urn)
+
     def _project_luid_to_browse_path_name(self, project_luid: str) -> str:
         assert project_luid
         project: TableauProject = self.tableau_project_registry[project_luid]
@@ -2680,6 +2750,10 @@ class TableauSiteSource:
 
         tags = self.get_tags(workbook)
 
+        #all_workbooks_items, pagination_item = self.server.workbooks.get()
+        # print names of first 100 workbooks
+        #logger.info([f"{workbook.name}: {workbook.id}" for workbook in all_workbooks_items])
+
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
         if project_luid and project_luid in self.tableau_project_registry.keys():
@@ -2701,6 +2775,14 @@ class TableauSiteSource:
             external_url=workbook_external_url,
             tags=tags,
         )
+
+        if self.config.access_role_ingestion and self.config.access_role_ingestion.enabled and self.config.access_role_ingestion.enable_workbooks:
+            logger.info(f"Ingest Workbook permissions of '{workbook.get(c.LUID)}'")
+            workbook_api = self.server.workbooks.get_by_id(workbook.get(c.LUID))
+            self.server.workbooks.populate_permissions(workbook_api)
+            container_urn = workbook_container_key.as_urn()
+            yield from self.emit_access_roles(workbook_api.permissions, container_urn)
+
 
     def gen_workbook_key(self, workbook_id: str) -> WorkbookKey:
         return WorkbookKey(
@@ -3008,10 +3090,43 @@ class TableauSiteSource:
             sub_types=[c.SITE],
         )
 
+    def _fetch_groups(self):
+        for group in TSC.Pager(self.server.groups):
+            self.group_map[group.id] = group
+
+    def emit_access_roles(self, permissions, urn):
+        role_associations = []
+        for rule in permissions:
+            if rule.grantee.tag_name == "group":
+                group = self.group_map.get(rule.grantee.id)
+                if not self.config.access_role_ingestion.permission_name_pattern.allowed(group.name):
+                    logger.info(f"Skip permission '{group.name}' as it's excluded in permission_name_pattern.")
+                    continue
+                logger.debug(f"Recieved Group '{group.name}'.")
+                role_properties: RolePropertiesClass = RolePropertiesClass(name=group.name, type="READ") # TODO: take from rule capabilities
+                role_properties.requestUrl = self.config.access_role_ingestion.request_url.replace("$PERMISSION_NAME", group.name)
+                role_urn = builder.make_role_urn(group.name)
+                logger.debug(f"Upsert role '{role_urn}'.")
+                yield MetadataChangeProposalWrapper(
+                    aspect=role_properties,
+                    entityUrn=role_urn,
+                ).as_workunit()
+
+                role_associations.append(RoleAssociationClass(urn=role_urn))
+
+        access = AccessClass(roles=role_associations)
+        logger.info(f"Add access aspect to '{urn}'.")
+        yield MetadataChangeProposalWrapper(
+            aspect=access,
+            entityUrn=urn,
+        ).as_workunit()
+
     def ingest_tableau_site(self):
         # Initialise the dictionary to later look-up for chart and dashboard stat
         if self.config.extract_usage_stats:
             self._populate_usage_stat_registry()
+
+        self._fetch_groups()
 
         # Populate the map of database names and database hostnames to be used later to map
         # databases to platform instances.
