@@ -264,12 +264,12 @@ class LookerViewContext:
             )
         )
 
-        # First, check the current view.
+        # If extends_only is false, first check the current view, and then fall back to the parent view.
         if extends_only is False and field in self.raw_view:
             return self.raw_view[field]
 
-        # The field might be defined in another view and this view is extending that view,
-        # so we resolve this field while taking that into account.
+        # The field might be defined in another view, and this view is extending that view,
+        # so we resolve this field while taking that into account,
         # following Looker's precedence rules.
         for extend in reversed(extends):
             assert extend != self.raw_view[NAME], "a view cannot extend itself"
@@ -391,10 +391,9 @@ class LookerViewContext:
     def _include_parent_fields(
         self, child_fields: List[dict], field_type: str
     ) -> List[Dict]:
-        # Fetch the parent view fields i.e. view-name mentioned in view.extends
-        # and include those field in child_fields.
-        # The inclusion will resolve the fields as per precedence rule mentioned in lookml documentation
-        # https://cloud.google.com/looker/docs/reference/param-view-extends
+        # Fetch the fields from the parent view, i.e., the view name mentioned in view.extends, and include those
+        # fields in child_fields. This inclusion will resolve the fields according to the precedence rules mentioned
+        # in the LookML documentation: https://cloud.google.com/looker/docs/reference/param-view-extends
 
         parent_fields: Optional[Any] = self.get_including_extends(
             field=field_type,
