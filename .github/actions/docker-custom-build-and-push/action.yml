@@ -26,10 +26,13 @@ inputs:
   build-args:
     description: "List of build-time variables. Same as docker/build-push-action"
     required: false
-  tags:
-    # e.g. latest,head,sha12345
-    description: "List of tags to use for the Docker image"
+  image_tag:
+    # e.g. pr12345 OR head OR v0.1.2.3
+    description: "Main tag to use for the Docker image"
     required: true
+  flavor:
+    description: 'Image flavor (e.g., slim, full)'
+    required: false
   target:
     description: "Sets the target stage to build"
     required: false
@@ -45,13 +48,18 @@ runs:
   steps:
     - name: Docker meta
       id: docker_meta
-      uses: crazy-max/ghaction-docker-meta@v1
+      uses: docker/metadata-action@v5
       with:
-        # list of Docker images to use as base name for tags
         images: ${{ inputs.images }}
-        # add git short SHA as Docker tag
-        tag-custom: ${{ inputs.tags }}
-        tag-custom-only: true
+        flavor: |
+          latest=false
+          suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
+        tags: |
+          # Order matters for determining single tag below, first should be the provided tag
+          type=raw,value=${{ inputs.image_tag }}
+          type=raw,value=head,enable=${{ github.ref == format('refs/heads/{0}', 'acryl-main') }}
+          type=ref,event=pr,prefix=pr
+          type=sha,prefix=,format=short
 
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
