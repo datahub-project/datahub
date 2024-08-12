@@ -9,6 +9,8 @@ import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/bu
 import { AssertionTableType, IFilter } from './types';
 import { useAssertionsTableColumns, usePinnedTableHeaderProps } from './hooks';
 import { AssertionListStyledTable } from './StyledComponents';
+import { RightOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
 
 type Props = {
     assertionData: AssertionTableType;
@@ -19,6 +21,11 @@ type Props = {
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
 };
+
+const ExpandIcon = styled(RightOutlined)<{ expanded: boolean }>`
+    transition: transform 0.3s ease-in-out;
+    transform: rotate(${(props) => (props.expanded ? 90 : 0)}deg);
+`;
 
 export const AssertionListTable = ({
     assertionData,
@@ -115,7 +122,7 @@ export const AssertionListTable = ({
                             ? {
                                   expandedRowRender: (record: any) => (
                                       <Table
-                                          columns={assertionsTableCols}
+                                          columns={assertionsTableCols.slice(0, -1)}
                                           dataSource={record?.assertions || []}
                                           pagination={false}
                                           showHeader={false}
@@ -126,7 +133,14 @@ export const AssertionListTable = ({
                                   onExpand: onAssertionExpand,
                                   expandedRowKeys,
                                   expandRowByClick: true,
-                                  expandIcon: () => null,
+                                  expandIcon: (props) => {
+                                      const handleClick = (e) => {
+                                          e.stopPropagation();
+                                          props.onExpand(props.record, e);
+                                      };
+
+                                      return <ExpandIcon expanded={props.expanded} onClick={handleClick} />;
+                                  },
                               }
                             : undefined
                     }

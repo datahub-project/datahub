@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Typography } from 'antd';
+import { Table, TableColumnsType, Typography } from 'antd';
 import styled from 'styled-components';
-import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { AssertionType } from '@src/types.generated';
@@ -29,7 +28,7 @@ export const useAssertionsTableColumns = ({
     expandedRowKeys,
 }) => {
     return useMemo(() => {
-        const columns = [
+        const columns: TableColumnsType<any> = [
             {
                 title: 'Name',
                 dataIndex: 'name',
@@ -90,18 +89,7 @@ export const useAssertionsTableColumns = ({
         ];
 
         if (groupBy) {
-            columns.push({
-                title: '',
-                key: 'expand',
-                dataIndex: '',
-                width: '5%',
-                render: (_, record) => {
-                    return (
-                        record.groupName &&
-                        (expandedRowKeys.includes(record.name) ? <DownOutlined /> : <RightOutlined />)
-                    );
-                },
-            });
+            columns.push(Table.EXPAND_COLUMN);
         }
 
         return columns;

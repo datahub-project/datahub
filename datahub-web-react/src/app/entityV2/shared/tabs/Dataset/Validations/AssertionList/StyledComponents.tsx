@@ -9,6 +9,13 @@ export const AssertionListStyledTable = styled(Table)`
         font-size: 12px;
         color: ${ANTD_GRAY[8]};
     }
+    &&& .ant-table-expanded-row > .ant-table-cell {
+        padding-left: 0px;
+    }
+    &&& .ant-table-tbody > tr > td > .ant-table-wrapper:only-child .ant-table,
+    .ant-table-tbody > tr > td > .ant-table-expanded-row-fixed > .ant-table-wrapper:only-child .ant-table {
+        margin-left: 0px;
+    }
     &&
         .ant-table-thead
         > tr
