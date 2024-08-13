@@ -157,7 +157,7 @@ class BigQuerySchemaApi:
             # Jobs sometimes fail with transient errors.
             # This is not currently handled by the python-bigquery client.
             # https://github.com/googleapis/python-bigquery/issues/23
-            return "Retrying the job may solve the problem" in str(exc)
+            return ("Retrying the job may solve the problem" in str(exc))
 
         logger.debug(f"Query : {query}")
         resp = self.bq_client.query(
