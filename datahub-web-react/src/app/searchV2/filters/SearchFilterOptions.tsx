@@ -67,6 +67,8 @@ export default function SearchFilterOptions({
 }: Props) {
     // If we move view select down, then move this down into a sibling component.
     const userContext = useUserContext();
+    const filterRendererRegistry = useFilterRendererRegistry();
+    const fieldsWithCustomRenderers = Array.from(filterRendererRegistry.fieldNameToRenderer.keys());
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
 
@@ -75,6 +77,13 @@ export default function SearchFilterOptions({
     const dynamicFilterOptions = availableFilters
         ?.filter((f) => (f.field === ORIGIN_FILTER_NAME ? f.aggregations.length >= 2 : true)) // only want Environment filter if there's 2 or more envs
         .filter((f) => !FILTERS_TO_REMOVE.includes(f.field))
+        .filter((f) => {
+            if (fieldsWithCustomRenderers.includes(f.field)) {
+                // If there are no true aggregations, these fields needn't be rendered
+                return !!f.aggregations.find((agg) => agg.value === 'true');
+            }
+            return true;
+        })
         .sort((facetA, facetB) => sortFacets(facetA, facetB, SORTED_FILTERS));
 
     // if there will only be one filter in the "More Filters" dropdown, show that filter instead
@@ -84,7 +93,6 @@ export default function SearchFilterOptions({
         ? dynamicFilterOptions?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS)
         : dynamicFilterOptions;
     const hiddenFilters = shouldShowMoreDropdown ? dynamicFilterOptions?.slice(NUM_VISIBLE_FILTER_DROPDOWNS) : [];
-    const filterRendererRegistry = useFilterRendererRegistry();
 
     const filterPredicates: FilterPredicate[] = convertToAvailableFilterPredictes(activeFilters, visibleFilters || []);
 
