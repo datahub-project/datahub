@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
 from google.cloud import bigquery, datacatalog_v1
+from google.clould.bigquery import retry as bq_retry
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
@@ -151,8 +152,16 @@ class BigQuerySchemaApi:
         self.datacatalog_client = datacatalog_client
 
     def get_query_result(self, query: str) -> RowIterator:
+        def _should_retry(exc: BaseException) -> bool:
+            logger.debug(
+                f"Exception occured for job query. Reason: {exc}"
+            )
+            # Jobs sometimes fail with transient errors.
+            # This is not currently handled by the python-bigquery client.
+            # https://github.com/googleapis/python-bigquery/issues/23
+            return ("Retrying the job may solve the problem" in str(exc))
         logger.debug(f"Query : {query}")
-        resp = self.bq_client.query(query)
+        resp = self.bq_client.query(query, job_retry=retry.Retry(predicate=lambda exc: (bq_retry.DEFAULT_JOB_RETRY._predicate(exc) or _should_retry(exc)), deadline=bq_retry.DEFAULT_JOB_RETRY._deadline))
         return resp.result()
 
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
