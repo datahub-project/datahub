@@ -6,16 +6,15 @@ import SearchBar from '@theme/SearchBar';
 import ColorModeToggle from '@theme/ColorModeToggle';
 import styles from './styles.module.scss';
 import DocsVersionDropdownNavbarItem from '@theme/NavbarItem/DocsVersionDropdownNavbarItem';
-import { useDocsSidebar, DocsSidebarProvider } from '@docusaurus/theme-common/internal';
 
 function SecondNavbarContent() {
   const { colorMode, setColorMode } = useColorMode();
   const location = useLocation();
   const isDocsPath = location.pathname.startsWith('/docs');
   
-  const sidebar = useDocsSidebar();
-  const currentSidebarId = sidebar?.name || '';
-
+  const isAcrylSidebar = location.pathname.includes('/managed-datahub');
+  const isCoreSidebar = !isAcrylSidebar;
+  
   if (!isDocsPath) {
     return null;
   }
@@ -25,13 +24,13 @@ function SecondNavbarContent() {
       <div className={styles.container}>
         <div className={styles.coreCloudSwitch}>
           <Link
-            className={clsx(styles.docsSwitchButton, currentSidebarId === 'overviewSidebar' && styles.activeButton)}
+            className={clsx(styles.docsSwitchButton, isCoreSidebar && styles.activeButton)}
             to="/docs/features"
           >
             DataHub Core
           </Link>
           <Link
-            className={clsx(styles.docsSwitchButton, currentSidebarId === 'acrylSidebar' && styles.activeButton)}
+            className={clsx(styles.docsSwitchButton, isAcrylSidebar && styles.activeButton)}
             to="/docs/managed-datahub/managed-datahub-overview"
           >
             DataHub Cloud
@@ -67,9 +66,7 @@ function SecondNavbarContent() {
 
 function SecondNavbar() {
   return (
-    <DocsSidebarProvider>
       <SecondNavbarContent />
-    </DocsSidebarProvider>
   );
 }
 

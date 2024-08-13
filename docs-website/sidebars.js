@@ -111,12 +111,12 @@ module.exports = {
       type: "category",
       label: "Data Governance",
       items: [
-        "docs/managed-datahub/approval-workflows",
-        "docs/managed-datahub/chrome-extension",
+        "docs/approval-workflows",
+        "docs/chrome-extension",
         {
           label: "Data Contract",
           type: "doc",
-          id: "docs/managed-datahub/observe/data-contract",
+          id: "docs/observe/data-contract",
         },
         {
           label: "Ownership",
@@ -137,36 +137,36 @@ module.exports = {
         {
           label: "Assertions",
           type: "category",
-          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
+          link: { type: "doc", id: "docs/observe/assertions" },
           items: [
             {
               label: "Column Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/column-assertions",
+              id: "docs/observe/column-assertions",
               className: "saasOnly",
             },
             {
               label: "Custom SQL Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/custom-sql-assertions",
+              id: "docs/observe/custom-sql-assertions",
               className: "saasOnly",
             },
             {
               label: "Freshness Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/freshness-assertions",
+              id: "docs/observe/freshness-assertions",
               className: "saasOnly",
             },
             {
               label: "Schema Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/schema-assertions",
+              id: "docs/observe/schema-assertions",
               className: "saasOnly",
             },
             {
               label: "Volume Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
+              id: "docs/observe/volume-assertions",
               className: "saasOnly",
             },
             {
@@ -217,24 +217,24 @@ module.exports = {
         {
           label: "Subscriptions & Notifications",
           type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
+          id: "docs/subscription-and-notification",
           className: "saasOnly",
         },
         {
           Slack: [
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-setup",
+              id: "docs/slack/saas-slack-setup",
               className: "saasOnly",
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-app",
+              id: "docs/slack/saas-slack-app",
               className: "saasOnly",
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+              id: "docs/slack/saas-slack-troubleshoot",
               className: "saasOnly",
             },
           ],
@@ -460,13 +460,13 @@ module.exports = {
         "docs/how/jattach-guide",
         {
           type: "doc",
-          id: "docs/managed-datahub/integrations/aws-privatelink",
+          id: "docs/integrations/aws-privatelink",
           label: "AWS PrivateLink Intergration",
           className: "saasOnly",
         },
         {
           type: "doc",
-          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          id: "docs/integrations/oidc-sso-integration",
           className: "saasOnly",
         },
       ],
@@ -1058,6 +1058,11 @@ module.exports = {
             {
               type: "doc",
               id: "docs/managed-datahub/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
               className: "saasOnly",
             },
           ],
