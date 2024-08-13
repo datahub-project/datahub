@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import boto3
@@ -73,6 +74,8 @@ class AwsConnectionConfig(ConfigModel):
         - dbt source
     """
 
+    _credentials_expiration: Optional[datetime] = None
+
     aws_access_key_id: Optional[str] = Field(
         default=None,
         description=f"AWS access key ID. {AUTODETECT_CREDENTIALS_DOC_LINK}",
@@ -115,6 +118,11 @@ class AwsConnectionConfig(ConfigModel):
         description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html).",
     )
 
+    def allowed_cred_refresh(self) -> bool:
+        if self._normalized_aws_roles():
+            return True
+        return False
+
     def _normalized_aws_roles(self) -> List[AwsAssumeRoleConfig]:
         if not self.aws_role:
             return []
@@ -153,11 +161,14 @@ class AwsConnectionConfig(ConfigModel):
             }
 
             for role in self._normalized_aws_roles():
-                credentials = assume_role(
-                    role,
-                    self.aws_region,
-                    credentials=credentials,
-                )
+                if self._should_refresh_credentials():
+                    credentials = assume_role(
+                        role,
+                        self.aws_region,
+                        credentials=credentials,
+                    )
+                    if isinstance(credentials["Expiration"], datetime):
+                        self._credentials_expiration = credentials["Expiration"]
 
             session = Session(
                 aws_access_key_id=credentials["AccessKeyId"],
@@ -167,6 +178,12 @@ class AwsConnectionConfig(ConfigModel):
             )
 
         return session
+
+    def _should_refresh_credentials(self) -> bool:
+        if self._credentials_expiration is None:
+            return True
+        remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
+        return remaining_time < timedelta(minutes=5)
 
     def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()

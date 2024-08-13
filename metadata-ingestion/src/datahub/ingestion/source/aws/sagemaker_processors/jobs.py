@@ -21,6 +21,7 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
+    SagemakerSourceConfig,
     SagemakerSourceReport,
 )
 from datahub.ingestion.source.aws.sagemaker_processors.job_classes import (
@@ -146,8 +147,15 @@ class JobProcessor:
     Job ingestion module, called by top-level SageMaker ingestion handler.
     """
 
-    # boto3 SageMaker client
+    # boto3 SageMaker client using configuration
+    # Accessing `config.sagemaker_client` within the function ensures that
+    # the property is re-evaluated each time it is accessed, allowing the
+    # refresh logic to be triggered if necessary.
+    config: Optional[SagemakerSourceConfig]
+
+    # This is the SageMaker client instance when AWS roles are not used
     sagemaker_client: "SageMakerClient"
+
     env: str
     report: SagemakerSourceReport
     # config filter for specific job types to ingest (see metadata-ingestion README)
@@ -171,7 +179,12 @@ class JobProcessor:
     def get_jobs(self, job_type: JobType, job_spec: JobInfo) -> List[Any]:
         jobs = []
 
-        paginator = self.sagemaker_client.get_paginator(job_spec.list_command)
+        paginator = (
+            self.config.sagemaker_client.get_paginator(job_spec.list_command)
+            if self.config is not None
+            else self.sagemaker_client.get_paginator(job_spec.list_command)
+        )
+
         for page in paginator.paginate():
             page_jobs: List[Any] = page[job_spec.list_key]
 
@@ -269,9 +282,12 @@ class JobProcessor:
         describe_command = job_type_to_info[job_type].describe_command
         describe_name_key = job_type_to_info[job_type].describe_name_key
 
-        return getattr(self.sagemaker_client, describe_command)(
-            **{describe_name_key: job_name}
+        client = (
+            self.config.sagemaker_client
+            if self.config is not None
+            else self.sagemaker_client
         )
+        return getattr(client, describe_command)(**{describe_name_key: job_name})
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         jobs = self.get_all_jobs()

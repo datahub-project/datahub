@@ -92,6 +92,9 @@ class SagemakerSource(StatefulIngestionSourceBase):
         # extract jobs if specified
         if self.source_config.extract_jobs is not False:
             job_processor = JobProcessor(
+                config=self.source_config
+                if self.source_config.allowed_cred_refresh()
+                else None,
                 sagemaker_client=self.sagemaker_client,
                 env=self.env,
                 report=self.report,
