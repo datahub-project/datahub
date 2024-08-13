@@ -25,9 +25,9 @@ from datahub.utilities.stats_collections import TopKDict
 logger = logging.getLogger(__name__)
 
 DATAJOB_QUERY = """
-query listDataJobs($query:String!, $scrollId: String) {
+query listDataJobs($query:String!, $scrollId: String, $batchSize: Int) {
   scrollAcrossEntities(input: { types: [DATA_JOB
-    ], query: $query, count: 10, scrollId: $scrollId
+    ], query: $query, count: $batchSize, scrollId: $scrollId
   }) {
     nextScrollId
     count
@@ -59,8 +59,8 @@ query listDataJobs($query:String!, $scrollId: String) {
 """
 
 DATAFLOW_QUERY = """
-query listDataFlows($query:String!, $scrollId: String) {
-  scrollAcrossEntities(input: { types: [DATA_FLOW], query: $query, count: 10, scrollId: $scrollId}) {
+query listDataFlows($query:String!, $scrollId: String, $batchSize: Int) {
+  scrollAcrossEntities(input: { types: [DATA_FLOW], query: $query, count: $batchSize, scrollId: $scrollId}) {
     nextScrollId
     count
     searchResults {
@@ -300,7 +300,11 @@ class MetadataCleanupSource(Source):
         while True:
             result = self.ctx.graph.execute_graphql(
                 DATAFLOW_QUERY,
-                {"query": "*", scroll_id: scroll_id if scroll_id else "null"},
+                {
+                    "query": "*",
+                    "scroll_id": scroll_id if scroll_id else None,
+                    "batchSize": self.config.batch_size,
+                },
             )
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
@@ -331,11 +335,17 @@ class MetadataCleanupSource(Source):
         while True:
             result = self.ctx.graph.execute_graphql(
                 DATAJOB_QUERY,
-                {"query": "*", scroll_id: scroll_id if scroll_id else "null"},
+                {
+                    "query": "*",
+                    "scroll_id": scroll_id if scroll_id else None,
+                    "batchSize": self.config.batch_size,
+                },
             )
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
                 raise ValueError("Missing scrollAcrossEntities in response")
+
+            logger.info(f"Got {scrollAcrossEntities.get('count')} DataJob entities")
 
             scroll_id = scrollAcrossEntities.get("nextScrollId")
             for job in scrollAcrossEntities.get("searchResults"):
