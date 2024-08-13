@@ -28,7 +28,6 @@ from requests.adapters import HTTPAdapter
 from tableauserverclient import (
     GroupItem,
     PersonalAccessTokenAuth,
-    RequestOptions,
     Server,
     ServerResponseError,
     SiteItem,
@@ -184,10 +183,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # Replace / with |
 REPLACE_SLASH_CHAR = "|"
-
-
-class FieldCustom(RequestOptions.Field):
-    Id = "id"
 
 
 class TableauConnectionConfig(ConfigModel):

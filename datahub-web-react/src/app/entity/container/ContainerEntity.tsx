@@ -18,7 +18,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import AccessManagement from "../shared/tabs/Dataset/AccessManagement/AccessManagement";
-import {useAppConfig} from "../../useAppConfig";
+import { useAppConfig } from "../../useAppConfig";
 
 /**
  * Definition of the DataHub Container entity.
