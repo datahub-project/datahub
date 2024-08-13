@@ -1199,7 +1199,7 @@ select
   c.ordinal_position as ordinal_position,
   cfp.field_path as field_path,
   c.is_nullable as is_nullable,
-  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
+  CASE WHEN CONTAINS_SUBSTR(cfp.field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   description as comment,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column,

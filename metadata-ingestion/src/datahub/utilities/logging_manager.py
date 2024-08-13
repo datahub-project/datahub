@@ -35,6 +35,8 @@ DATAHUB_PACKAGES = [
     "acryl_datahub_cloud",
 ]
 IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
+IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH = 2000  # characters
+
 
 NO_COLOR = os.environ.get("NO_COLOR", False)
 
@@ -159,6 +161,9 @@ class _LogBuffer:
         self._buffer: Deque[str] = collections.deque(maxlen=maxlen)
 
     def write(self, line: str) -> None:
+        if len(line) > IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH:
+            line = line[:IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH] + "[truncated]"
+
         self._buffer.append(line)
 
     def clear(self) -> None:

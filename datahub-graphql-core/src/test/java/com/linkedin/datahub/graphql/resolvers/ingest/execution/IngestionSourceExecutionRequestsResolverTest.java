@@ -22,7 +22,6 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -30,6 +29,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -46,7 +46,7 @@ public class IngestionSourceExecutionRequestsResolverTest {
                 any(),
                 Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
                 Mockito.any(Filter.class),
-                Mockito.any(SortCriterion.class),
+                Mockito.any(List.class),
                 Mockito.eq(0),
                 Mockito.eq(10)))
         .thenReturn(
