@@ -34,10 +34,13 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.kafka",
-      "com.linkedin.gms.factory.kafka.common",
-      "com.linkedin.gms.factory.kafka.schemaregistry",
+      "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.entity.update.indices",
-      "com.linkedin.gms.factory.timeline.eventgenerator"
+      "com.linkedin.gms.factory.timeline.eventgenerator",
+      "com.linkedin.metadata.dao.producer",
+      "com.linkedin.gms.factory.change",
+      "com.datahub.event.hook",
+      "com.linkedin.gms.factory.notifications"
     })
 public class MCLSpringCommonTestConfiguration {
 

@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -66,9 +67,10 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
                     Constants.DOMAIN_ENTITY_NAME,
                     query,
                     filter,
-                    new SortCriterion()
-                        .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
-                        .setOrder(SortOrder.DESCENDING),
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                            .setOrder(SortOrder.DESCENDING)),
                     start,
                     count);
 

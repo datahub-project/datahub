@@ -1,6 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -17,7 +18,6 @@ import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -138,8 +138,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     proposal.setEntityType(urn.getEntityType());
     proposal.setAspectName(Constants.BROWSE_PATHS_ASPECT_NAME);
     proposal.setChangeType(ChangeType.UPSERT);
-    proposal.setSystemMetadata(
-        new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
+    proposal.setSystemMetadata(createDefaultSystemMetadata());
     proposal.setAspect(GenericRecordUtils.serializeAspect(newPaths));
     entityService.ingestProposal(opContext, proposal, auditStamp, false);
   }
