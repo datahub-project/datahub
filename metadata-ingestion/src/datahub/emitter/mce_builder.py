@@ -26,6 +26,7 @@ import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
+from datahub.metadata._urns.urn_defs import CorpGroupUrn, CorpUserUrn
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
     AuditStampClass,
@@ -221,6 +222,21 @@ def make_user_urn(username: str) -> str:
         f"urn:li:corpuser:{username}"
         if not username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
         else username
+    )
+
+
+def make_actor_urn(actor: str) -> Union[CorpUserUrn, CorpGroupUrn]:
+    """
+    Makes a user urn if the input is not a user or group urn already
+    """
+    return (
+        CorpUserUrn(actor)
+        if not actor.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
+        else (
+            CorpUserUrn.create_from_string(actor)
+            if actor.startswith("urn:li:corpuser:")
+            else CorpGroupUrn.create_from_string(actor)
+        )
     )
 
 

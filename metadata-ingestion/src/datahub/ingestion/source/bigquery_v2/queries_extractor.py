@@ -149,7 +149,7 @@ class BigQueryQueriesExtractor:
         # self.filters = filters
         self.discovered_tables = discovered_tables
 
-        self._structured_report = structured_report
+        self.structured_report = structured_report
 
         self.aggregator = SqlParsingAggregator(
             platform=self.identifiers.platform,
@@ -174,10 +174,6 @@ class BigQueryQueriesExtractor:
             format_queries=False,
         )
         self.report.sql_aggregator = self.aggregator.report
-
-    @property
-    def structured_report(self) -> SourceReport:
-        return self._structured_report
 
     @functools.cached_property
     def local_temp_path(self) -> pathlib.Path:
@@ -340,7 +336,10 @@ class BigQueryQueriesExtractor:
         timestamp: datetime = row["creation_time"]
         timestamp = timestamp.astimezone(timezone.utc)
 
-        # https://cloud.google.com/bigquery/docs/multi-statement-queries
+        # Usually bigquery identifiers are always referred as <dataset>.<table> and only
+        # temporary tables are referred as <table> alone without project or dataset name.
+        # Note that temporary tables can also be referenced using _SESSION.<table>
+        # More details here - https://cloud.google.com/bigquery/docs/multi-statement-queries
         # Also _ at start considers this as temp dataset as per `temp_table_dataset_prefix` config
         TEMP_TABLE_QUALIFIER = "_SESSION"
 
@@ -373,27 +372,26 @@ def _build_enriched_query_log_query(
 
     # List of all statement types
     # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.QueryStatementType
+    UNSUPPORTED_STATEMENT_TYPES = [
+        # procedure
+        "CREATE_PROCEDURE",
+        "DROP_PROCEDURE",
+        "CALL",
+        "SCRIPT",  # individual statements in executed procedure are present as separate jobs
+        # schema
+        "CREATE_SCHEMA",
+        "DROP_SCHEMA",
+        # function
+        "CREATE_FUNCTION",
+        "CREATE_TABLE_FUNCTION",
+        "DROP_FUNCTION",
+        # policies
+        "CREATE_ROW_ACCESS_POLICY",
+        "DROP_ROW_ACCESS_POLICY",
+    ]
+
     unsupported_statement_types = ",".join(
-        [
-            f"'{statement_type}'"
-            for statement_type in [
-                # procedure
-                "CREATE_PROCEDURE",
-                "DROP_PROCEDURE",
-                "CALL",
-                "SCRIPT",  # individual statements in executed procedure are present as separate jobs
-                # schema
-                "CREATE_SCHEMA",
-                "DROP_SCHEMA",
-                # function
-                "CREATE_FUNCTION",
-                "CREATE_TABLE_FUNCTION",
-                "DROP_FUNCTION",
-                # policies
-                "CREATE_ROW_ACCESS_POLICY",
-                "DROP_ROW_ACCESS_POLICY",
-            ]
-        ]
+        [f"'{statement_type}'" for statement_type in UNSUPPORTED_STATEMENT_TYPES]
     )
 
     # NOTE the use of partition column creation_time as timestamp here.
@@ -402,7 +400,7 @@ def _build_enriched_query_log_query(
     # total_bytes_billed, dml_statistics(inserted_row_count, etc) that may be fetched
     # as required in future. Refer below link for list of all columns
     # https://cloud.google.com/bigquery/docs/information-schema-jobs#schema
-    return f"""
+    return f"""\
         SELECT
             job_id,
             project_id,

@@ -1212,3 +1212,29 @@ def test_excluding_empty_projects_from_ingestion(
     config = BigQueryV2Config.parse_obj({**base_config, "exclude_empty_projects": True})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-2"))
     assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 1  # type: ignore
+
+
+def test_bigquery_config_deprecated_schema_pattern():
+    base_config = {
+        "include_usage_statistics": False,
+        "include_table_lineage": False,
+    }
+
+    config = BigQueryV2Config.parse_obj(base_config)
+    assert config.dataset_pattern == AllowDenyPattern(allow=[".*"])  # default
+
+    config_with_schema_pattern = {
+        **base_config,
+        "schema_pattern": AllowDenyPattern(deny=[".*"]),
+    }
+    config = BigQueryV2Config.parse_obj(config_with_schema_pattern)
+    assert config.dataset_pattern == AllowDenyPattern(deny=[".*"])  # schema_pattern
+
+    config_with_dataset_pattern = {
+        **base_config,
+        "dataset_pattern": AllowDenyPattern(deny=["temp.*"]),
+    }
+    config = BigQueryV2Config.parse_obj(config_with_dataset_pattern)
+    assert config.dataset_pattern == AllowDenyPattern(
+        deny=["temp.*"]
+    )  # dataset_pattern

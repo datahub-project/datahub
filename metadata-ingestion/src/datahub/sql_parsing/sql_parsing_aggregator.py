@@ -16,7 +16,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import get_time_bucket
-from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
+from datahub.emitter.mce_builder import get_sys_time, make_actor_urn, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import compute_upstream_fields
 from datahub.ingestion.api.closeable import Closeable
@@ -25,6 +25,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig, UsageAggregator
 from datahub.metadata.urns import (
+    CorpGroupUrn,
     CorpUserUrn,
     DataPlatformUrn,
     DatasetUrn,
@@ -107,7 +108,7 @@ class QueryMetadata:
     query_type: QueryType
     lineage_type: str  # from models.DatasetLineageTypeClass
     latest_timestamp: Optional[datetime]
-    actor: Optional[CorpUserUrn]
+    actor: Optional[Union[CorpUserUrn, CorpGroupUrn]]
 
     upstreams: List[UrnStr]  # this is direct upstreams, which may be temp tables
     column_lineage: List[ColumnLineageInfo]
@@ -166,7 +167,7 @@ class PreparsedQuery:
     confidence_score: float = 1.0
 
     query_count: int = 1
-    user: Optional[CorpUserUrn] = None
+    user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None
     timestamp: Optional[datetime] = None
     session_id: str = _MISSING_SESSION_ID
     query_type: QueryType = QueryType.UNKNOWN
@@ -494,7 +495,7 @@ class SqlParsingAggregator(Closeable):
                 session_id=item.session_id,
                 usage_multiplier=item.usage_multiplier,
                 query_timestamp=item.timestamp,
-                user=CorpUserUrn.from_string(item.user) if item.user else None,
+                user=make_actor_urn(item.user) if item.user else None,
                 query_hash=item.query_hash,
             )
         else:
@@ -632,7 +633,7 @@ class SqlParsingAggregator(Closeable):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
         query_timestamp: Optional[datetime] = None,
-        user: Optional[CorpUserUrn] = None,
+        user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
         session_id: Optional[
             str
         ] = None,  # can only see temp tables with the same session
@@ -929,7 +930,7 @@ class SqlParsingAggregator(Closeable):
         schema_resolver: SchemaResolverInterface,
         session_id: str = _MISSING_SESSION_ID,
         timestamp: Optional[datetime] = None,
-        user: Optional[CorpUserUrn] = None,
+        user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
     ) -> SqlParsingResult:
         with self.report.sql_parsing_timer:
             parsed = sqlglot_lineage(
@@ -1015,7 +1016,7 @@ class SqlParsingAggregator(Closeable):
         yield from self._gen_lineage_mcps(queries_generated)
         yield from self._gen_remaining_queries(queries_generated)
         yield from self._gen_usage_statistics_mcps()
-        yield from self._gen_operation_mcps()
+        yield from self._gen_operation_mcps(queries_generated)
 
     def _gen_lineage_mcps(
         self, queries_generated: Set[QueryId]
@@ -1455,13 +1456,21 @@ class SqlParsingAggregator(Closeable):
             # TODO: We should change the usage aggregator to return MCPWs directly.
             yield cast(MetadataChangeProposalWrapper, wu.metadata)
 
-    def _gen_operation_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def _gen_operation_mcps(
+        self, queries_generated: Set[QueryId]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_operations:
             return
 
         for downstream_urn, query_ids in self._lineage_map.items():
             for query_id in query_ids:
                 yield from self._gen_operation_for_downstream(downstream_urn, query_id)
+
+                # Avoid generating the same query twice.
+                if query_id in queries_generated:
+                    continue
+                queries_generated.add(query_id)
+                yield from self._gen_query(self._query_map[query_id], downstream_urn)
 
     def _gen_operation_for_downstream(
         self, downstream_urn: UrnStr, query_id: QueryId

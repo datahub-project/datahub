@@ -70,8 +70,8 @@ class BigQueryBaseConfig(ConfigModel):
             re.compile(v)
         except Exception as e:
             raise ValueError(
-                f"sharded_table_pattern configuration pattern is invalid. The exception was: {e}"
-            )
+                "sharded_table_pattern configuration pattern is invalid."
+            ) from e
         return v
 
     @root_validator(pre=True, skip_on_failure=True)
@@ -229,6 +229,12 @@ class BigQueryFilterConfig(SQLFilterConfig):
         description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
+    # NOTE: `schema_pattern` is added here only to hide it from docs.
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        hidden_from_docs=True,
+    )
+
     @root_validator(pre=False, skip_on_failure=True)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
         dataset_pattern: Optional[AllowDenyPattern] = values.get("dataset_pattern")
@@ -301,6 +307,7 @@ class BigQueryV2Config(
     BigQueryConnectionConfig,
     BigQueryBaseConfig,
     BigQueryFilterConfig,
+    # BigQueryFilterConfig must come before (higher precedence) the SQLCommon config, so that the documentation overrides are applied.
     BigQueryIdentifierConfig,
     SQLCommonConfig,
     StatefulUsageConfigMixin,

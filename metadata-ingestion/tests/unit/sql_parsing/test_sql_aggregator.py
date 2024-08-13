@@ -535,10 +535,6 @@ def test_lineage_via_temp_table_disordered_add(pytestconfig: pytest.Config) -> N
         generate_operations=False,
     )
 
-    aggregator._schema_resolver.add_raw_schema_info(
-        DatasetUrn("redshift", "dev.public.bar").urn(),
-        {"a": "int", "b": "int", "c": "int"},
-    )
     aggregator.add_observed_query(
         query="create table derived_from_foo as select * from foo",
         default_db="dev",
