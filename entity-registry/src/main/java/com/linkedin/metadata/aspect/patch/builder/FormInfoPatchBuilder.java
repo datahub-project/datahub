@@ -161,6 +161,54 @@ public class FormInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<FormInf
     return this;
   }
 
+  // Caution - this will overwrite the existing state of assigned users
+  public FormInfoPatchBuilder setAssignedUsers(@Nonnull List<String> userUrns) {
+    // remove existing users
+    this.pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + USERS_FIELD,
+            null));
+    // add empty users map
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + USERS_FIELD,
+            instance.objectNode()));
+
+    // add the given users
+    try {
+      userUrns.forEach(this::addAssignedUser);
+      return this;
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to set assigned users.", e);
+    }
+  }
+
+  // Caution - this will overwrite the existing state of assigned groups
+  public FormInfoPatchBuilder setAssignedGroups(@Nonnull List<String> groupUrns) {
+    // remove existing groups
+    this.pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + GROUPS_FIELD,
+            null));
+    // add empty groups map
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + GROUPS_FIELD,
+            instance.objectNode()));
+
+    // add the given groups
+    try {
+      groupUrns.forEach(this::addAssignedGroup);
+      return this;
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to set assigned users.", e);
+    }
+  }
+
   @Override
   protected String getAspectName() {
     return FORM_INFO_ASPECT_NAME;

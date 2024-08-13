@@ -84,6 +84,12 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
               if (input.getActors().getGroupsToRemove() != null) {
                 input.getActors().getGroupsToRemove().forEach(patchBuilder::removeAssignedGroup);
               }
+              if (input.getActors().getUsers() != null) {
+                patchBuilder.setAssignedUsers(input.getActors().getUsers());
+              }
+              if (input.getActors().getGroups() != null) {
+                patchBuilder.setAssignedGroups(input.getActors().getGroups());
+              }
             }
             _entityClient.ingestProposal(
                 context.getOperationContext(), patchBuilder.build(), false);

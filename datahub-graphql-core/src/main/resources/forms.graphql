@@ -715,6 +715,12 @@ input FormActorAssignmentUpdateInput {
     usersToAdd: [String!]
 
     """
+    The optional list of user urns to overwrite the existing list
+    Caution! This will overwrite the existing list of users for this form.
+    """
+    users: [String!]
+
+    """
     The users being removed from being assigned to this form
     """
     usersToRemove: [String!]
@@ -723,6 +729,12 @@ input FormActorAssignmentUpdateInput {
     The optional list of group urns to assign this form to
     """
     groupsToAdd: [String!]
+
+    """
+    The optional list of group urns to overwrite the existing list
+    Caution! This will overwrite the existing list of groups for this form.
+    """
+    groups: [String!]
 
     """
     The groups being removed from being assigned to this form
