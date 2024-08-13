@@ -63,6 +63,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -804,13 +805,16 @@ public class TestEngine {
     }
 
     // Apply the action for each batch.
-    for (Map.Entry<TestAction, Set<Urn>> entry : actionToEntityUrns.entrySet()) {
-      _actionApplier.apply(
-          opContext,
-          entry.getKey().getType(),
-          new ArrayList<>(entry.getValue()),
-          new ActionParameters(entry.getKey().getParams()));
-    }
+    CompletableFuture.runAsync(
+        () -> {
+          for (Map.Entry<TestAction, Set<Urn>> entry : actionToEntityUrns.entrySet()) {
+            _actionApplier.apply(
+                opContext,
+                entry.getKey().getType(),
+                new ArrayList<>(entry.getValue()),
+                new ActionParameters(entry.getKey().getParams()));
+          }
+        });
   }
 
   /** Batch applies actions for an entity. */
