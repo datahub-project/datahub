@@ -588,7 +588,6 @@ base_dev_requirements = {
             "kafka",
             "datahub-rest",
             "datahub-lite",
-            "great-expectations",
             "presto",
             "redash",
             "redshift",

@@ -3,6 +3,7 @@ import shutil
 from typing import List
 from unittest import mock
 
+import packaging.version
 import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
@@ -11,6 +12,15 @@ from freezegun import freeze_time
 from great_expectations.data_context import FileDataContext
 
 from tests.integration.docker_utils import wait_for_port
+
+try:
+    from great_expectations import __version__ as GX_VERSION  # type: ignore
+
+    use_gx_folder = packaging.version.parse(GX_VERSION) > packaging.version.Version(
+        "0.17.0"
+    )
+except Exception:
+    use_gx_folder = False
 
 
 def should_update_golden_file() -> bool:
@@ -60,10 +70,12 @@ def test_ge_ingest(
         emitter = MockDatahubEmitter("")
         mock_emit_mcp.side_effect = emitter.emit_mcp
 
+        gx_context_folder_name = "gx" if use_gx_folder else "great_expectations"
         shutil.copytree(
             test_resources_dir / "setup/great_expectations",
-            tmp_path / "great_expectations",
+            tmp_path / gx_context_folder_name,
         )
+
         context = FileDataContext.create(tmp_path)
         context.run_checkpoint(checkpoint_name=checkpoint)
 
