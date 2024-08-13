@@ -6,7 +6,7 @@ import {
 } from '@src/graphql/test.generated';
 import { AndFilterInput, Test } from '@src/types.generated';
 import moment from 'moment';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export const BULK_VERIFY_ID = 'bulkVerify';
 const TASK_TO_ID_MAP_KEY = 'taskToIdMap';
@@ -17,6 +17,9 @@ export function useEntityFormTasks(formUrn: string) {
     const localStorageTasksKey = `${formUrn}-${ACTIVE_TASKS_KEY}`;
     const [activeTasks, setActiveTasks] = useState<Test[]>([]);
     const [completeTasks, setCompleteTasks] = useState<Test[]>([]);
+    const [isFetchingActiveTasks, setIsFetchingActiveTasks] = useState(false);
+    const activeTasksRef = useRef(activeTasks);
+    activeTasksRef.current = activeTasks;
 
     function handleFetchedTask(task: Test) {
         if (task?.results.lastRunTimestampMillis) {
@@ -34,8 +37,6 @@ export function useEntityFormTasks(formUrn: string) {
             if (!activeTasks.find((t) => t.urn === task?.urn)) {
                 setActiveTasks([task as Test, ...activeTasks]);
             }
-            // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            setTimeout(() => fetchTask({ variables: { urn: task?.urn || '' } }), 3000);
         }
     }
 
@@ -72,6 +73,26 @@ export function useEntityFormTasks(formUrn: string) {
         tasksToIdMap[taskUrn] = promptId;
         localStorage.setItem(TASK_TO_ID_MAP_KEY, JSON.stringify(tasksToIdMap));
     }
+
+    /*
+     * Fetch the list of active tasks every 3 seconds until there are no more active tasks
+     */
+    useEffect(() => {
+        if (activeTasks.length && !isFetchingActiveTasks) {
+            setIsFetchingActiveTasks(true);
+            const interval = setInterval(() => {
+                if (activeTasksRef.current.length) {
+                    const orFilters: AndFilterInput[] = [
+                        { and: [{ field: 'urn', values: activeTasksRef.current.map((t) => t.urn) }] },
+                    ];
+                    fetchTasks({ variables: { input: { orFilters, start: 0, count: 50 } } });
+                } else {
+                    clearInterval(interval);
+                    setIsFetchingActiveTasks(false);
+                }
+            }, 3000);
+        }
+    }, [activeTasks, isFetchingActiveTasks, fetchTasks]);
 
     /*
      * On page load, get tasks from localStorage to display to the user.

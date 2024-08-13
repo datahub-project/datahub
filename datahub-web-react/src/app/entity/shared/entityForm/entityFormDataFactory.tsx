@@ -19,6 +19,8 @@ import {
 import { generateFormCompletionFilter } from './utils';
 import { FormResponsesFilter, FormView } from './EntityFormContext';
 
+export const MAX_ENTITY_URN_COUNT = 1000;
+
 // Common query configs
 export const config = {
     searchFlags: { skipCache: true },
@@ -107,7 +109,7 @@ export const useEntityFormDataFactory = (
                     ...generateFormCompletionFilter(formView, isVerificationType),
                 },
                 start: 0,
-                count: 1000,
+                count: MAX_ENTITY_URN_COUNT,
                 searchFlags: config.searchFlags,
             },
         },

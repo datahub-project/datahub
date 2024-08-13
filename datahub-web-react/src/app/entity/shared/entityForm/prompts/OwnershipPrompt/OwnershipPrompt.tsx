@@ -154,7 +154,11 @@ export default function OwnershipPrompt({
                     </PromptTitle>
                     {prompt.description && (
                         <PromptSubTitle>
-                            <Editor content={prompt.description} readOnly editorStyle="padding: 0;" />
+                            <Editor
+                                content={prompt.description}
+                                readOnly
+                                editorStyle={!displayBulkPromptStyles ? 'padding: 0;' : 'padding: 0; color: white;'}
+                            />
                         </PromptSubTitle>
                     )}
                     <InputSection>
