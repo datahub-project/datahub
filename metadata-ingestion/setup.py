@@ -525,9 +525,12 @@ mypy_stubs = {
 }
 
 
-pytest_dep = "pytest>=6.2.2"
-deepdiff_dep = "deepdiff"
-test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
+test_api_requirements = {
+    "pytest>=6.2.2",
+    "deepdiff",
+    "PyYAML",
+    "pytest-docker>=1.1.0",
+}
 
 debug_requirements = {
     "memray",
@@ -549,12 +552,9 @@ base_dev_requirements = {
     "isort>=5.7.0",
     "mypy==1.10.1",
     *test_api_requirements,
-    pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=1.1.0",
     "pytest-random-order~=1.1.0",
-    deepdiff_dep,
     "requests-mock",
     "freezegun",
     "jsonpickle",

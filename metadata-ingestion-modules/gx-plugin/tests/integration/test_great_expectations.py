@@ -8,10 +8,9 @@ import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
+from datahub.testing.docker_utils import wait_for_port
 from freezegun import freeze_time
 from great_expectations.data_context import FileDataContext
-
-from tests.integration.docker_utils import wait_for_port
 
 try:
     from great_expectations import __version__ as GX_VERSION  # type: ignore
