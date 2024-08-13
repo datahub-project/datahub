@@ -1,23 +1,5 @@
 [
 {
-    "entityType": "dataPlatformInstance",
-    "entityUrn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInfo",
-    "aspect": {
-        "json": {
-            "name": "ap-south-1",
-            "type": "OTHERS",
-            "datasetNameDelimiter": "."
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7",
     "changeType": "UPSERT",
@@ -797,22 +779,6 @@
                     }
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataPlatformInstance",
-    "entityUrn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {

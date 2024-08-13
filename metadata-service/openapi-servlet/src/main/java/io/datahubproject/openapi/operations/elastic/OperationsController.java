@@ -20,6 +20,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -214,6 +215,13 @@ public class OperationsController {
           @RequestParam(value = "filters", required = false)
           @Nullable
           String filters,
+      @Parameter(
+              name = "sortCriteria",
+              required = false,
+              description = "Criteria to sort results on.")
+          @RequestParam("sortCriteria")
+          @Nullable
+          List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
           @RequestParam(value = "searchFlags", required = false)
           @Nullable
@@ -253,7 +261,7 @@ public class OperationsController {
             encodeValue(documentId),
             entityName,
             filters == null ? null : objectMapper.readValue(filters, Filter.class),
-            null,
+            sortCriteria,
             scrollId,
             keepAlive,
             size,
@@ -315,6 +323,13 @@ public class OperationsController {
           @RequestParam(value = "filters", required = false)
           @Nullable
           String filters,
+      @Parameter(
+              name = "sortCriteria",
+              required = false,
+              description = "Criteria to sort results on.")
+          @RequestParam("sortCriteria")
+          @Nullable
+          List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
           @RequestParam(value = "searchFlags", required = false)
           @Nullable
@@ -354,7 +369,7 @@ public class OperationsController {
             encodeValue(documentIdA),
             entityName,
             filters == null ? null : objectMapper.readValue(filters, Filter.class),
-            null,
+            sortCriteria,
             scrollId,
             keepAlive,
             size,
@@ -367,7 +382,7 @@ public class OperationsController {
             encodeValue(documentIdB),
             entityName,
             filters == null ? null : objectMapper.readValue(filters, Filter.class),
-            null,
+            sortCriteria,
             scrollId,
             keepAlive,
             size,
