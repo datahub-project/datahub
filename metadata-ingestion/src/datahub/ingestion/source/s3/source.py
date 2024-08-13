@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from itertools import groupby
 from pathlib import PurePath
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
@@ -447,15 +447,15 @@ class S3Source(StatefulIngestionSourceBase):
             fields.append(
                 SchemaField(
                     fieldPath=f"{partition_key[0]}"
-                        if not is_fieldpath_v2
-                        else f"[version=2.0].[type=string].{partition_key[0]}",
-                        nativeDataType="string",
-                        type=SchemaFieldDataTypeClass(StringTypeClass()),
-                        isPartitioningKey=True,
-                        nullable=True,
-                        recursive=False,
-                    )
+                    if not is_fieldpath_v2
+                    else f"[version=2.0].[type=string].{partition_key[0]}",
+                    nativeDataType="string",
+                    type=SchemaFieldDataTypeClass(StringTypeClass()),
+                    isPartitioningKey=True,
+                    nullable=True,
+                    recursive=False,
                 )
+            )
 
     def get_table_profile(
         self, table_data: TableData, dataset_urn: str
