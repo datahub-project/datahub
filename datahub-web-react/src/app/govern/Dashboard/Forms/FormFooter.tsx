@@ -1,7 +1,7 @@
 import { Button } from '@src/alchemy-components';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
-import { FormType } from '@src/types.generated';
+import { CreatePromptInput, FormType } from '@src/types.generated';
 import React, { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import ManageFormContext from './ManageFormContext';
@@ -38,6 +38,7 @@ const FormFooter = () => {
                         type: formValues.formType,
                         name: formValues.formName,
                         description: formValues.formDescription,
+                        prompts: formValues.questions as CreatePromptInput[],
                     };
                     setIsFormLoading(true);
 
@@ -60,6 +61,7 @@ const FormFooter = () => {
                         type: formValues.formType || FormType.Completion,
                         name: formValues.formName || '',
                         description: formValues.formDescription,
+                        prompts: formValues.questions as CreatePromptInput[],
                     };
                     setIsFormLoading(true);
 

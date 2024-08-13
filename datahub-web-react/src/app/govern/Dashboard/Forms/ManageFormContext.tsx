@@ -13,7 +13,11 @@ interface ManageFormState {
 }
 
 const ManageFormContext = React.createContext<ManageFormState>({
-    formValues: {},
+    formValues: {
+        formName: undefined,
+        formType: undefined,
+        questions: [],
+    },
     setFormValues: () => {},
     form: undefined,
     formMode: 'create',

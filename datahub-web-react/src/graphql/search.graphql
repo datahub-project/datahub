@@ -924,6 +924,10 @@ fragment searchResultsWithoutSchemaField on Entity {
             type
         }
     }
+
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
+    }
 }
 
 fragment searchResultFieldsNoLineage on Entity {

@@ -1,13 +1,38 @@
 import { Text } from '@src/alchemy-components';
 import { Checkbox, Divider } from 'antd';
-import React from 'react';
+import React, { useContext, useState } from 'react';
 import AddElement from './AddElement';
-import { OwnershipCheckbox } from './styledComponents';
+import AddQuestionModal from './AddQuestionModal';
+import { FormQuestion } from './formUtils';
+import ManageFormContext from './ManageFormContext';
+import QuestionCard from './QuestionCard';
+import { OwnershipCheckbox, QuestionsList } from './styledComponents';
 
 const AddToForm = () => {
+    const { formValues } = useContext(ManageFormContext);
+
+    const [showQuestionModal, setShowQuestionModal] = useState<boolean>(false);
+    const [currentQuestion, setCurrentQuestion] = useState<FormQuestion | undefined>();
+
     return (
         <>
-            <AddElement heading="Add Questions" description="Add some questions" buttonLabel="Add Questions" />
+            <AddElement
+                heading="Add Questions"
+                description="Add some questions"
+                buttonLabel="Add Questions"
+                buttonOnClick={() => setShowQuestionModal(true)}
+            />
+            <QuestionsList>
+                {formValues.questions?.map((question) => {
+                    return (
+                        <QuestionCard
+                            question={question}
+                            setShowQuestionModal={setShowQuestionModal}
+                            setCurrentQuestion={setCurrentQuestion}
+                        />
+                    );
+                })}
+            </QuestionsList>
             <Divider />
             <AddElement
                 heading="Assign Assets"
@@ -27,6 +52,12 @@ const AddToForm = () => {
                     Asset owners will be prompted to fill out this form.
                 </Text>
             </OwnershipCheckbox>
+            <AddQuestionModal
+                showQuestionModal={showQuestionModal}
+                setShowQuestionModal={setShowQuestionModal}
+                question={currentQuestion}
+                setCurrentQuestion={setCurrentQuestion}
+            />
         </>
     );
 };
