@@ -58,10 +58,11 @@ runs:
           latest=false
           suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
         tags: |
+          # Order is important here
+          type=raw,value=${{ inputs.image_tag }}
           type=raw,value=head,enable=${{ github.ref == format('refs/heads/{0}', 'acryl-main') }}
           type=ref,event=pr,prefix=pr
           type=sha,prefix=,format=short
-          type=raw,value=${{ inputs.image_tag }}
 
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
