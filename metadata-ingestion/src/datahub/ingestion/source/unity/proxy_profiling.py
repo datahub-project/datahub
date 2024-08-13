@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Optional, Union
+from typing import Optional
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import DatabricksError
