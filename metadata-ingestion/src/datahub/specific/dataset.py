@@ -162,11 +162,10 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         )
         for upstream in upstreams:
             if upstream.auditStamp==default_audit_stamp:
-                print("Adding stamp")
-            upstream.auditStamp = AuditStamp(
-                time=int(datetime.now().timestamp() * 1000),
-                actor="urn:li:corpuser:datahub"
-            )
+                upstream.auditStamp = AuditStamp(
+                    time=int(datetime.now().timestamp() * 1000),
+                    actor="urn:li:corpuser:datahub"
+                )
         self._add_patch(
             UpstreamLineage.ASPECT_NAME, "add", path="/upstreams", value=upstreams
         )
