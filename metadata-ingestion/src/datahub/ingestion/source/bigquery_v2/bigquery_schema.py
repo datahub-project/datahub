@@ -12,7 +12,7 @@ from google.cloud.bigquery.table import (
     TimePartitioning,
     TimePartitioningType,
 )
-from google.clould.bigquery import retry as bq_retry
+from google.cloud.bigquery import retry as bq_retry
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
