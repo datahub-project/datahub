@@ -1,7 +1,7 @@
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { GlobalEntityRegistryV2 } from '@app/EntityRegistryProvider';
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { FetchedEntity } from '@app/lineage/types';
@@ -90,7 +90,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
         });
 
     getLineageVizConfig = (entity: SchemaField): FetchedEntity => {
-        const parent = GlobalEntityRegistryV2.getGenericEntityProperties(entity.parent.type, entity.parent);
+        const parent = globalEntityRegistryV2.getGenericEntityProperties(entity.parent.type, entity.parent);
         return {
             urn: entity.urn,
             type: EntityType.SchemaField,
