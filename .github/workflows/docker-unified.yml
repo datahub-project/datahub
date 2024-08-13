@@ -699,7 +699,7 @@ jobs:
             DOCKER_VERSION=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
             APP_ENV=slim
-          image_tag: ${{ needs.setup.outputs.unique_slim_tag }}
+          image_tag: ${{ needs.setup.outputs.unique_tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -1004,7 +1004,7 @@ jobs:
             echo 'datahub-ingestion head-slim images'
             docker pull '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim'
             if [ '${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}' != 'head-slim' ]; then
-               docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim' '${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}'
+               docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim' '${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
             fi
           fi
           if [ '${{ needs.setup.outputs.integrations_service_change }}' == 'false' ]; then
