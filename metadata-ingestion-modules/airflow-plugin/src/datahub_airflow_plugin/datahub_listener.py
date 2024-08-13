@@ -143,6 +143,20 @@ def run_in_thread(f: _F) -> _F:
     return cast(_F, wrapper)
 
 
+def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
+    # Render templates in a copy of the task instance.
+    # This is necessary to get the correct operator args in the extractors.
+    try:
+        task_instance_copy = copy.deepcopy(task_instance)
+        task_instance_copy.render_templates()
+        return task_instance_copy
+    except Exception as e:
+        logger.info(
+            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
+        )
+        return task_instance
+
+
 class DataHubListener:
     __name__ = "DataHubListener"
 
@@ -360,15 +374,7 @@ class DataHubListener:
             f"DataHub listener got notification about task instance start for {task_instance.task_id}"
         )
 
-        # Render templates in a copy of the task instance.
-        # This is necessary to get the correct operator args in the extractors.
-        try:
-            task_instance = copy.deepcopy(task_instance)
-            task_instance.render_templates()
-        except Exception as e:
-            logger.info(
-                f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
-            )
+        task_instance = _render_templates(task_instance)
 
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
@@ -459,8 +465,17 @@ class DataHubListener:
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
-        task = self._task_holder.get_task(task_instance) or task_instance.task
+
+        task_instance = _render_templates(task_instance)
+
+        # We must prefer the task attribute, in case modifications to the task's inlets/outlets
+        # were made by the execute() method.
+        if getattr(task_instance, "task", None):
+            task = task_instance.task
+        else:
+            task = self._task_holder.get_task(task_instance)
         assert task is not None
+
         dag: "DAG" = task.dag  # type: ignore[assignment]
 
         datajob = AirflowGenerator.generate_datajob(
