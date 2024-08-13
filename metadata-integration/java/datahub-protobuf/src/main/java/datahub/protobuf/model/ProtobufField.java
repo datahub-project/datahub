@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+
 @Builder(toBuilder = true)
 @Getter
 @AllArgsConstructor
@@ -138,7 +139,8 @@ public class ProtobufField implements ProtobufElement {
           pathType = nativeType().replace(".", "_");
           break;
         default:
-          throw new IllegalStateException(String.format("Unexpected FieldDescriptorProto => FieldPathType %s", fieldProto.getType()));
+          throw new IllegalStateException(
+              String.format("Unexpected FieldDescriptorProto => FieldPathType %s", fieldProto.getType()));
       }
 
       StringArray fieldPath = new StringArray();
@@ -154,8 +156,8 @@ public class ProtobufField implements ProtobufElement {
   }
 
   public boolean isMessage() {
-    return Optional.ofNullable(isMessageType).orElseGet(() ->
-        fieldProto.getType().equals(FieldDescriptorProto.Type.TYPE_MESSAGE));
+    return Optional.ofNullable(isMessageType)
+        .orElseGet(() -> fieldProto.getType().equals(FieldDescriptorProto.Type.TYPE_MESSAGE));
   }
 
   public int sortWeight() {
@@ -200,12 +202,13 @@ public class ProtobufField implements ProtobufElement {
           fieldType = SchemaFieldDataType.Type.create(new FixedType());
           break;
         default:
-          throw new IllegalStateException(String.format("Unexpected FieldDescriptorProto => SchemaFieldDataType: %s", fieldProto.getType()));
+          throw new IllegalStateException(
+              String.format("Unexpected FieldDescriptorProto => SchemaFieldDataType: %s", fieldProto.getType()));
       }
 
       if (fieldProto.getLabel().equals(FieldDescriptorProto.Label.LABEL_REPEATED)) {
-        return new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new ArrayType()
-            .setNestedType(new StringArray())));
+        return new SchemaFieldDataType().setType(
+            SchemaFieldDataType.Type.create(new ArrayType().setNestedType(new StringArray())));
       }
 
       return new SchemaFieldDataType().setType(fieldType);
@@ -216,26 +219,22 @@ public class ProtobufField implements ProtobufElement {
   public Stream<SourceCodeInfo.Location> messageLocations() {
     List<SourceCodeInfo.Location> fileLocations = fileProto().getSourceCodeInfo().getLocationList();
     return fileLocations.stream()
-        .filter(loc -> loc.getPathCount() > 1
-            && loc.getPath(0) == FileDescriptorProto.MESSAGE_TYPE_FIELD_NUMBER);
+        .filter(loc -> loc.getPathCount() > 1 && loc.getPath(0) == FileDescriptorProto.MESSAGE_TYPE_FIELD_NUMBER);
   }
 
   @Override
   public String comment() {
-    return messageLocations()
-        .filter(location -> location.getPathCount() > 3)
-        .filter(location -> !ProtobufUtils.collapseLocationComments(location).isEmpty()
-            && !isEnumType(location.getPathList()))
+    return messageLocations().filter(location -> location.getPathCount() > 3)
+        .filter(location -> !ProtobufUtils.collapseLocationComments(location).isEmpty() && !isEnumType(
+            location.getPathList()))
         .filter(location -> {
           List<Integer> pathList = location.getPathList();
           DescriptorProto messageType = fileProto().getMessageType(pathList.get(1));
 
-          if (!isNestedType
-              && location.getPath(2) == DescriptorProto.FIELD_FIELD_NUMBER
+          if (!isNestedType && location.getPath(2) == DescriptorProto.FIELD_FIELD_NUMBER
               && fieldProto == messageType.getField(location.getPath(3))) {
             return true;
-          } else if (isNestedType
-              && location.getPath(2) == DescriptorProto.NESTED_TYPE_FIELD_NUMBER
+          } else if (isNestedType && location.getPath(2) == DescriptorProto.NESTED_TYPE_FIELD_NUMBER
               && fieldProto == getNestedTypeFields(pathList, messageType)) {
             return true;
           }
@@ -251,9 +250,7 @@ public class ProtobufField implements ProtobufElement {
     List<Integer> nestedValues = new ArrayList<>(pathSize);
 
     for (int index = 0; index < pathSize; index++) {
-      if (index > 1
-          && index % 2 == 0
-          && pathList.get(index) == DescriptorProto.NESTED_TYPE_FIELD_NUMBER) {
+      if (index > 1 && index % 2 == 0 && pathList.get(index) == DescriptorProto.NESTED_TYPE_FIELD_NUMBER) {
         nestedValues.add(pathList.get(index + 1));
       }
     }
@@ -262,11 +259,8 @@ public class ProtobufField implements ProtobufElement {
       messageType = messageType.getNestedType(value);
     }
 
-    // https://oss.navercorp.com/PDP/pdp/pull/5149 <- https://oss.navercorp.com/PDP/pdp/issues/5172
     int fieldIndex = pathList.get(pathList.size() - 1);
-    if (isFieldPath(pathList)
-        && pathSize % 2 == 0
-        && fieldIndex < messageType.getFieldList().size()) {
+    if (isFieldPath(pathList) && pathSize % 2 == 0 && fieldIndex < messageType.getFieldList().size()) {
       return messageType.getField(fieldIndex);
     }
 
@@ -279,9 +273,7 @@ public class ProtobufField implements ProtobufElement {
 
   private boolean isEnumType(List<Integer> pathList) {
     for (int index = 0; index < pathList.size(); index++) {
-      if (index > 1
-          && index % 2 == 0
-          && pathList.get(index) == DescriptorProto.ENUM_TYPE_FIELD_NUMBER) {
+      if (index > 1 && index % 2 == 0 && pathList.get(index) == DescriptorProto.ENUM_TYPE_FIELD_NUMBER) {
         return true;
       }
     }
@@ -335,9 +327,7 @@ public class ProtobufField implements ProtobufElement {
   }
 
   public List<DescriptorProtos.EnumValueDescriptorProto> getEnumValues() {
-    return getEnumDescriptor()
-        .map(DescriptorProtos.EnumDescriptorProto::getValueList)
-        .orElse(Collections.emptyList());
+    return getEnumDescriptor().map(DescriptorProtos.EnumDescriptorProto::getValueList).orElse(Collections.emptyList());
   }
 
   public Map<String, String> getEnumValuesWithComments() {
@@ -349,7 +339,8 @@ public class ProtobufField implements ProtobufElement {
     DescriptorProtos.EnumDescriptorProto enumProto = enumProtoOpt.get();
     Map<String, String> valueComments = new LinkedHashMap<>();
     List<DescriptorProtos.EnumValueDescriptorProto> values = enumProto.getValueList();
-    List<DescriptorProtos.SourceCodeInfo.Location> locations = getProtobufMessage().fileProto().getSourceCodeInfo().getLocationList();
+    List<DescriptorProtos.SourceCodeInfo.Location> locations =
+        getProtobufMessage().fileProto().getSourceCodeInfo().getLocationList();
 
     int enumIndex = getProtobufMessage().fileProto().getEnumTypeList().indexOf(enumProto);
 
@@ -368,11 +359,12 @@ public class ProtobufField implements ProtobufElement {
     return valueComments;
   }
 
-  private boolean isEnumValueLocation(DescriptorProtos.SourceCodeInfo.Location location, int enumIndex, int valueIndex) {
-    return location.getPathCount() > 3 &&
-        location.getPath(0) == DescriptorProtos.FileDescriptorProto.ENUM_TYPE_FIELD_NUMBER &&
-        location.getPath(1) == enumIndex &&
-        location.getPath(2) == DescriptorProtos.EnumDescriptorProto.VALUE_FIELD_NUMBER &&
-        location.getPath(3) == valueIndex;
+  private boolean isEnumValueLocation(DescriptorProtos.SourceCodeInfo.Location location, int enumIndex,
+      int valueIndex) {
+    return location.getPathCount() > 3
+        && location.getPath(0) == DescriptorProtos.FileDescriptorProto.ENUM_TYPE_FIELD_NUMBER
+        && location.getPath(1) == enumIndex
+        && location.getPath(2) == DescriptorProtos.EnumDescriptorProto.VALUE_FIELD_NUMBER
+        && location.getPath(3) == valueIndex;
   }
 }
