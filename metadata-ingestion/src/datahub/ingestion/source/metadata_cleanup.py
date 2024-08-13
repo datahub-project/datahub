@@ -370,16 +370,16 @@ class MetadataCleanupSource(Source):
                 else:
                     dataJobs[datajob_entity.flow_urn].append(datajob_entity)
 
+            if not scroll_id:
+                break
+
+        # Delete empty dataflows if needed
+        if self.config.delete_empty_data_flows:
             for key in dataFlows.keys():
-                if (
-                    not dataJobs.get(key) or len(dataJobs[key]) == 0
-                ) and self.config.delete_empty_data_flows:
+                if not dataJobs.get(key) or len(dataJobs[key]) == 0:
                     logger.info(
                         f"Deleting dataflow {key} because there are not datajobs"
                     )
                     self.delete_entity(key, "dataFlow")
-
-            if not scroll_id:
-                break
 
         return []
