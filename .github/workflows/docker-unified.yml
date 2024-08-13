@@ -964,7 +964,7 @@ jobs:
             echo 'datahub-ingestion head-slim images'
             docker pull '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim'
             if [ '${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}' != 'head-slim' ]; then
-               docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim' '${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}'
+               docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim' '${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.setup.outputs.unique_slim_tag }}'
             fi
           fi
       - name: Disk Check
