@@ -55,7 +55,6 @@ runs:
           latest=false
           suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
         tags: |
-          # Order matters for determining single tag below, first should be the provided tag
           type=raw,value=${{ inputs.image_tag }}
           type=raw,value=head,enable=${{ github.ref == format('refs/heads/{0}', 'acryl-main') }}
           type=ref,event=pr,prefix=pr
@@ -83,7 +82,7 @@ runs:
       shell: bash
       run: |
         TAGS="""
-        ${{ steps.docker_meta.outputs.tags }}
+        ${{ inputs.image_tag }}
         """
         echo "SINGLE_TAG=$(echo $TAGS | tr '\n' ' ' | awk -F' ' '{ print $1 }')" >> $GITHUB_OUTPUT
       id: single_tag
