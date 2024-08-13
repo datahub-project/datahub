@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.datacontract;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
@@ -43,14 +44,19 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class UpsertDataContractResolverTest {
@@ -83,9 +89,15 @@ public class UpsertDataContractResolverTest {
 
   private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
+  @Captor private ArgumentCaptor<List<MetadataChangeProposal>> proposalCaptor;
+
+  @BeforeTest
+  public void init() {
+    MockitoAnnotations.openMocks(this);
+  }
+
   @Test
   public void testGetSuccessCreate() throws Exception {
-
     // Expected results
     final DataContractKey key = new DataContractKey();
     key.setId("test-id");
@@ -127,7 +139,8 @@ public class UpsertDataContractResolverTest {
     propertiesProposal.setEntityUrn(dataContractUrn);
     propertiesProposal.setEntityType(Constants.DATA_CONTRACT_ENTITY_NAME);
     propertiesProposal.setSystemMetadata(
-        new SystemMetadata().setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
+        createDefaultSystemMetadata()
+            .setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
     propertiesProposal.setAspectName(Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME);
     propertiesProposal.setAspect(GenericRecordUtils.serializeAspect(props));
     propertiesProposal.setChangeType(ChangeType.UPSERT);
@@ -136,16 +149,29 @@ public class UpsertDataContractResolverTest {
     statusProposal.setEntityUrn(dataContractUrn);
     statusProposal.setEntityType(Constants.DATA_CONTRACT_ENTITY_NAME);
     statusProposal.setSystemMetadata(
-        new SystemMetadata().setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
+        createDefaultSystemMetadata()
+            .setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
     statusProposal.setAspectName(Constants.DATA_CONTRACT_STATUS_ASPECT_NAME);
     statusProposal.setAspect(GenericRecordUtils.serializeAspect(status));
     statusProposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
-            any(OperationContext.class),
-            Mockito.eq(ImmutableList.of(propertiesProposal, statusProposal)),
-            Mockito.eq(false));
+            any(OperationContext.class), proposalCaptor.capture(), Mockito.eq(false));
+
+    // check has time
+    Assert.assertTrue(
+        proposalCaptor.getValue().stream()
+            .allMatch(prop -> prop.getSystemMetadata().getLastObserved() > 0L));
+
+    // check without time
+    Assert.assertEquals(
+        proposalCaptor.getValue().stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()),
+        List.of(propertiesProposal, statusProposal).stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()));
 
     Assert.assertEquals(result.getUrn(), TEST_CONTRACT_URN.toString());
   }
@@ -188,7 +214,8 @@ public class UpsertDataContractResolverTest {
     propertiesProposal.setEntityUrn(TEST_CONTRACT_URN);
     propertiesProposal.setEntityType(Constants.DATA_CONTRACT_ENTITY_NAME);
     propertiesProposal.setSystemMetadata(
-        new SystemMetadata().setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
+        createDefaultSystemMetadata()
+            .setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
     propertiesProposal.setAspectName(Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME);
     propertiesProposal.setAspect(GenericRecordUtils.serializeAspect(props));
     propertiesProposal.setChangeType(ChangeType.UPSERT);
@@ -197,16 +224,29 @@ public class UpsertDataContractResolverTest {
     statusProposal.setEntityUrn(TEST_CONTRACT_URN);
     statusProposal.setEntityType(Constants.DATA_CONTRACT_ENTITY_NAME);
     statusProposal.setSystemMetadata(
-        new SystemMetadata().setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
+        createDefaultSystemMetadata()
+            .setProperties(new StringMap(ImmutableMap.of("appSource", "ui"))));
     statusProposal.setAspectName(Constants.DATA_CONTRACT_STATUS_ASPECT_NAME);
     statusProposal.setAspect(GenericRecordUtils.serializeAspect(status));
     statusProposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
-            any(OperationContext.class),
-            Mockito.eq(ImmutableList.of(propertiesProposal, statusProposal)),
-            Mockito.eq(false));
+            any(OperationContext.class), proposalCaptor.capture(), Mockito.eq(false));
+
+    // check has time
+    Assert.assertTrue(
+        proposalCaptor.getValue().stream()
+            .allMatch(prop -> prop.getSystemMetadata().getLastObserved() > 0L));
+
+    // check without time
+    Assert.assertEquals(
+        proposalCaptor.getValue().stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()),
+        List.of(propertiesProposal, statusProposal).stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()));
 
     Assert.assertEquals(result.getUrn(), TEST_CONTRACT_URN.toString());
   }
