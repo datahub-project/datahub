@@ -113,8 +113,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf,
-            self.config.get_bigquery_client(),
+            report=BigQueryV2Report().schema_api_perf,
+            projects_client=config.get_projects_client(),
+            client=config.get_bigquery_client(),
         )
         if self.config.extract_policy_tags_from_catalog:
             self.bigquery_data_dictionary.datacatalog_client = (
@@ -263,8 +264,30 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 BigqueryProject(id=project_id, name=project_id)
                 for project_id in project_ids
             ]
-        else:
-            return list(self._query_project_list())
+
+        if self.config.project_labels:
+            return list(self._query_project_list_from_labels())
+
+        return list(self._query_project_list())
+
+    def _query_project_list_from_labels(self) -> Iterable[BigqueryProject]:
+        projects = self.bigquery_data_dictionary.get_projects_with_labels(
+            self.config.project_labels
+        )
+
+        if not projects:  # Report failure on exception and if empty list is returned
+            self.report.report_failure(
+                "metadata-extraction",
+                "Get projects didn't return any project with any of the specified label(s). "
+                "Maybe resourcemanager.projects.list permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+
+        for project in projects:
+            if self.config.project_id_pattern.allowed(project.id):
+                yield project
+            else:
+                self.report.report_dropped(project.id)
 
     def _query_project_list(self) -> Iterable[BigqueryProject]:
         try:

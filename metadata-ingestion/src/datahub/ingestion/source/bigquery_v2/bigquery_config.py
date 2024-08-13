@@ -3,7 +3,7 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
-from google.cloud import bigquery, datacatalog_v1
+from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
@@ -73,6 +73,9 @@ class BigQueryConnectionConfig(ConfigModel):
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
         return bigquery.Client(self.project_on_behalf, **client_options)
+
+    def get_projects_client(self) -> resourcemanager_v3.ProjectsClient:
+        return resourcemanager_v3.ProjectsClient()
 
     def get_policy_tag_manager_client(self) -> datacatalog_v1.PolicyTagManagerClient:
         return datacatalog_v1.PolicyTagManagerClient()
@@ -212,6 +215,13 @@ class BigQueryV2Config(
             "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
             "don't want to give project resourcemanager.projects.list to your service account. "
             "Overrides `project_id_pattern`."
+        ),
+    )
+    project_labels: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ingests projects with the specified labels. Use this property if you want to specify what "
+            "projects to ingest based on project-level labels."
         ),
     )
 

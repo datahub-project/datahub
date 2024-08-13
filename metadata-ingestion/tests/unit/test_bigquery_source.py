@@ -889,7 +889,9 @@ def test_get_views_for_dataset(
     )
     query_mock.return_value = [row1, row2]
     bigquery_data_dictionary = BigQuerySchemaApi(
-        BigQueryV2Report().schema_api_perf, client_mock
+        report=BigQueryV2Report().schema_api_perf,
+        client=client_mock,
+        projects_client=MagicMock(),
     )
 
     views = bigquery_data_dictionary.get_views_for_dataset(
@@ -988,7 +990,9 @@ def test_get_snapshots_for_dataset(
     )
     query_mock.return_value = [row1]
     bigquery_data_dictionary = BigQuerySchemaApi(
-        BigQueryV2Report().schema_api_perf, client_mock
+        report=BigQueryV2Report().schema_api_perf,
+        client=client_mock,
+        projects_client=MagicMock(),
     )
 
     snapshots = bigquery_data_dictionary.get_snapshots_for_dataset(

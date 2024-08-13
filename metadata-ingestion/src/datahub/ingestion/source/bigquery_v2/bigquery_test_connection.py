@@ -96,7 +96,9 @@ class BigQueryTestConnection:
                 client: bigquery.Client = config.get_bigquery_client()
                 assert client
                 bigquery_data_dictionary = BigQuerySchemaApi(
-                    BigQueryV2Report().schema_api_perf, client
+                    report=BigQueryV2Report().schema_api_perf,
+                    projects_client=config.get_projects_client(),
+                    client=client,
                 )
                 result = bigquery_data_dictionary.get_datasets_for_project_id(
                     project_id, 10
