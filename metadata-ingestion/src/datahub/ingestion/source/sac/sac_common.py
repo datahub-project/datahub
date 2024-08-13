@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Set
+from typing import FrozenSet, Optional
 
 
 @dataclass(frozen=True)
@@ -30,7 +30,7 @@ class Resource:
     open_url: str
     ancestor_path: Optional[str]
     is_mobile: bool
-    resource_models: Set[ResourceModel]
+    resource_models: FrozenSet[ResourceModel]
 
 
 @dataclass(frozen=True)

@@ -682,7 +682,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 open_url=entity.openURL,
                 ancestor_path=ancestor_path,
                 is_mobile=entity.isMobile,
-                resource_models=resource_models,
+                resource_models=frozenset(resource_models),
             )
 
     def get_import_data_model_ids(self) -> Set[str]:
