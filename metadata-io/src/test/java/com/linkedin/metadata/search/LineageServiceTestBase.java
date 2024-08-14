@@ -162,6 +162,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(operationContext);
     clearCache(false);
     syncAfterWrite(getBulkProcessor());

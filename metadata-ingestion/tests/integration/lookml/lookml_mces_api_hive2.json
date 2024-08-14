@@ -1632,7 +1632,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT\n            customer_id,\n            SUM(sale_price) AS lifetime_spend\n          FROM\n            order\n          WHERE\n            order.region='ap-south-1'\n          GROUP BY 1",
+            "viewLogic": "SELECT\n            customer_id,\n            SUM(sale_price) AS lifetime_spend\n          FROM\n            order\n          WHERE\n            {% condition order_region %} order.region {% endcondition %}\n          GROUP BY 1",
             "viewLanguage": "sql"
         }
     },

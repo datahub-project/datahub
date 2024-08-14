@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import ClassVar, Optional, TextIO, cast
+from typing import ClassVar, Optional, TextIO
 
 from liquid import Environment
 from liquid.ast import Node
@@ -25,18 +25,9 @@ class ConditionNode(Node):
         self.filter_name = filter_name
 
     def render_to_output(self, context: Context, buffer: TextIO) -> Optional[bool]:
-        filter_value: Optional[str] = cast(
-            str, context.globals.get(self.filter_name)
-        )  # to silent lint
-
-        if filter_value is None:
-            raise CustomTagException(
-                f'filter {self.filter_name} value is not provided for "condition" tag'
-            )
-
-        filter_value = filter_value.strip()
-
-        buffer.write(f"{self.sql_or_lookml_reference}='{filter_value}'")
+        # This implementation will make sure that sql parse work correctly if looker condition tag
+        # is used in lookml sql field
+        buffer.write(f"{self.sql_or_lookml_reference}='dummy_value'")
 
         return True
 

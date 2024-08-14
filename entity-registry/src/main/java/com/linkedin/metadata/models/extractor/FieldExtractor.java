@@ -63,7 +63,7 @@ public class FieldExtractor {
         } else {
           List<Object> valueList = (List<Object>) value.get();
           // If the field is a nested list of values, flatten it
-          for (int i = 0; i < numArrayWildcards - 1; i++) {
+          for (long i = 0; i < numArrayWildcards - 1; i++) {
             valueList =
                 valueList.stream()
                     .flatMap(v -> ((List<Object>) v).stream())

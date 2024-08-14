@@ -141,6 +141,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` config")
 @capability(
+    SourceCapability.DATA_PROFILING, "Supported via the `profiling.enabled` config"
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,

@@ -416,6 +416,7 @@ fragment nonRecursiveDatasetFields on Dataset {
         }
     }
     editableProperties {
+        name
         description
     }
     documentation {

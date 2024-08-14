@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.unit.TimeValue;
@@ -300,13 +299,14 @@ public class ESUtils {
    *
    * @param searchSourceBuilder {@link SearchSourceBuilder} that needs to be populated with sort
    *     order
-   * @param sortCriteria {@link SortCriterion} to be applied to the search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to the search results
    */
   public static void buildSortOrder(
       @Nonnull SearchSourceBuilder searchSourceBuilder,
       List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs) {
-    buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, true);
+    buildSortOrder(
+        searchSourceBuilder, sortCriteria == null ? List.of() : sortCriteria, entitySpecs, true);
   }
 
   /**
@@ -321,7 +321,7 @@ public class ESUtils {
       @Nullable List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs,
       boolean enableDefaultSort) {
-    if (CollectionUtils.isEmpty(sortCriteria) && enableDefaultSort) {
+    if (sortCriteria.isEmpty() && enableDefaultSort) {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
       sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
@@ -363,7 +363,7 @@ public class ESUtils {
       }
     }
     if (enableDefaultSort
-        && (CollectionUtils.isEmpty(sortCriteria)
+        && (sortCriteria.isEmpty()
             || sortCriteria.stream()
                 .noneMatch(c -> c.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)))) {
       searchSourceBuilder.sort(

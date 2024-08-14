@@ -221,6 +221,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDocumentationAiEnabled(_featureFlags.isDocumentationAiEnabled())
             .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
             .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
+            .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
+            .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
             .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
             .setThemeV2Default(_featureFlags.isThemeV2Default())
             .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
@@ -230,7 +232,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
             .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
-            .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

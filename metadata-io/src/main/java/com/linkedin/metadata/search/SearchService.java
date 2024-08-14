@@ -65,7 +65,7 @@ public class SearchService {
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriteria {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return a {@link SearchResult} that contains a list of matched documents and related search
@@ -105,7 +105,7 @@ public class SearchService {
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable List<SortCriterion> sortCriteria,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable String predicateJson) {
@@ -121,7 +121,7 @@ public class SearchService {
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriteria List of {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param facets list of facets we want aggregations for
@@ -134,7 +134,7 @@ public class SearchService {
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable List<SortCriterion> sortCriteria,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets,
@@ -255,7 +255,7 @@ public class SearchService {
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriteria {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier for passing to search backend
    * @param size the number of search hits to return
    * @return a {@link ScrollResult} that contains a list of matched documents and related search

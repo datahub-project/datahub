@@ -309,6 +309,14 @@ public class SearchRequestHandler {
     if (fieldFetchConfig == null) {
       fieldFetchConfig = new SearchDocFieldFetchConfig();
     }
+    if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
+      searchSourceBuilder.highlighter(highlights);
+    }
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+    searchRequest.source(searchSourceBuilder);
+    log.debug("Search request is: " + searchRequest);
+    searchRequest.indicesOptions(null);
+
     searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
 
     return buildSearchRequestPageAgnostic(
@@ -328,7 +336,7 @@ public class SearchRequestHandler {
    * to be applied to search results.
    *
    * @param filters {@link Filter} list of conditions with fields and values
-   * @param sortCriteria {@link SortCriterion} to be applied to the search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to the search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return {@link SearchRequest} that contains the filtered query

@@ -1,0 +1,14 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": "7d04253c3add0194c557942ef9b7485f38e68762d300dad364b9cec8656035b3",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-project.covid_data.covid_deaths,PROD)"
+    ],
+    "column_lineage": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "ALTER TABLE `my-bq-project.covid_data.covid_deaths` DROP COLUMN patient_name"
+    }
+}

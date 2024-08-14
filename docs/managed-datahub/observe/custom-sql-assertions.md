@@ -8,7 +8,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-> The **Custom SQL Assertions** feature is available as part of the **Acryl Observe** module of Acryl Cloud.
+> The **Custom SQL Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
 > If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
 
 ## Introduction
@@ -23,9 +23,9 @@ changes to key metric definitions, etc. Often times, these changes break importa
 like reporting dashboards or data-driven product features.
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data
-issues _before_ anyone else? With Acryl DataHub **Custom SQL Assertions**, you can.
+issues _before_ anyone else? With DataHub Cloud **Custom SQL Assertions**, you can.
 
-Acryl DataHub allows users to define complex expectations about a particular warehouse Table through custom SQL queries, and then monitor those expectations over time as the table grows and changes.
+DataHub Cloud allows users to define complex expectations about a particular warehouse Table through custom SQL queries, and then monitor those expectations over time as the table grows and changes.
 
 In this article, we'll cover the basics of monitoring Custom SQL Assertions - what they are, how to configure them, and more - so that you and your team can
 start building trust in your most important data assets.
@@ -41,7 +41,7 @@ Custom SQL Assertions are currently supported for:
 3. BigQuery
 4. Databricks
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion**
+Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion**
 tab.
 
 > Note that SQL Assertions are not yet supported if you are connecting to your warehouse
@@ -55,7 +55,7 @@ the Table. You have full control over the SQL query, and can use any SQL feature
 Custom SQL Assertions can be particularly useful when you have complex tables or relationships
 that are used to generate important metrics or reports, and where the meaning of the table is expected to be stable over time.
 If you have existing SQL queries that you already use to monitor your data, you may find that Custom SQL Assertions are an easy way to port them
-to Acryl DataHub to get started.
+to DataHub Cloud to get started.
 
 For example, imagine that you have a Table that tracks the number of purchases made on your company's e-commerce web store.
 You have a SQL query that you use to calculate the number of purchases made in the past 24 hours, and you'd like to monitor this
@@ -202,7 +202,7 @@ To resume the assertion, simply click **Start**.
 
 ## Creating Custom SQL Assertions via API
 
-Under the hood, Acryl DataHub implements Custom SQL Assertion Monitoring using two concepts:
+Under the hood, DataHub Cloud implements Custom SQL Assertion Monitoring using two concepts:
 
 - **Assertion**: The specific expectation for the custom assertion, e.g. "The table was changed in the past 7 hours"
   or "The table is changed on a schedule of every day by 8am". This is the "what".

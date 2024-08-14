@@ -2,7 +2,7 @@
 
 DataHub is developing an open-source Data Quality Assertions Specification & Compiler that will allow you to declare data quality checks / expectations / assertions using a simple, universal
 YAML-based format, and then compile this into artifacts that can be registered or directly executed by 3rd party Data Quality tools like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro), 
-dbt tests, Great Expectations or Acryl Cloud natively. 
+dbt tests, Great Expectations or DataHub Cloud natively. 
 
 Ultimately, our goal is to provide an framework-agnostic, highly-portable format for defining Data Quality checks, making it seamless to swap out the underlying
 assertion engine without service disruption for end consumers of the results of these data quality checks in catalogging tools like DataHub. 

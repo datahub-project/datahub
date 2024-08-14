@@ -178,6 +178,10 @@ public class PoliciesConfig {
           "Manage Documentation Forms",
           "Manage forms assigned to assets to assist in documentation efforts.");
 
+  public static final Privilege MANAGE_FEATURES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_FEATURES", "Manage Features", "Umbrella privilege to manage all features.");
+
   // Acryl-Main only.
   public static final Privilege MANAGE_MONITORS =
       Privilege.of(
@@ -214,6 +218,7 @@ public class PoliciesConfig {
           MANAGE_CONNECTIONS_PRIVILEGE,
           MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
+          MANAGE_FEATURES_PRIVILEGE,
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_MONITORS);
 

@@ -72,8 +72,9 @@ public class Edge {
     }
 
     try {
+      String hashAlgo = System.getenv("ELASTIC_ID_HASH_ALGO");
       byte[] bytesOfRawDocID = rawDocId.toString().getBytes(StandardCharsets.UTF_8);
-      MessageDigest md = MessageDigest.getInstance("MD5");
+      MessageDigest md = MessageDigest.getInstance(hashAlgo);
       byte[] thedigest = md.digest(bytesOfRawDocID);
       return Base64.getEncoder().encodeToString(thedigest);
     } catch (NoSuchAlgorithmException e) {

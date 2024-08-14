@@ -201,8 +201,7 @@ class LookerView:
         view_logic = view_context.view_file.raw_file_content[:max_file_snippet_length]
 
         if view_context.is_sql_based_derived_case():
-            view_logic = view_context.sql(transformed=False)
-            # Parse SQL to extract dependencies.
+            view_logic = view_context.sql()
             view_details = ViewProperties(
                 materialized=False,
                 viewLogic=view_logic,

@@ -28,12 +28,17 @@ export function useIsAppConfigContextLoaded() {
     return appConfig.loaded;
 }
 
-export function useIsDocumentationFormsEnabled() {
+export function useIsEditableDatasetNameEnabled() {
     const appConfig = useAppConfig();
-    return appConfig.config.featureFlags.documentationFormsEnabled;
+    return appConfig.config.featureFlags.editableDatasetNameEnabled;
 }
 
 export function useIsShowSeparateSiblingsEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showSeparateSiblings;
+}
+
+export function useIsDocumentationFormsEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.documentationFormsEnabled;
 }

@@ -1,11 +1,3 @@
-extend type Query {
-    """
-    Fetch a Form by primary key (urn)
-    """
-    form(urn: String!): Form
-}
-
-
 extend type Mutation {
     """
     Remove a form from a given list of entities.

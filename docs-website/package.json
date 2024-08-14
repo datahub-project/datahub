@@ -48,6 +48,7 @@
     "react-dom": "18.2.0",
     "sass": "^1.43.2",
     "swc-loader": "^0.2.6",
+    "swiper": "^11.1.4",
     "uuid": "^9.0.0"
   },
   "browserslist": {

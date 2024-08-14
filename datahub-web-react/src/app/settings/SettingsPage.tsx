@@ -12,6 +12,7 @@ import {
     TeamOutlined,
     StarOutlined,
     PushpinOutlined,
+    ControlOutlined,
     QuestionCircleOutlined,
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
@@ -26,6 +27,7 @@ import { PlatformIntegrations } from './platform/PlatformIntegrations';
 import { PlatformNotifications } from './platform/notifications/PlatformNotifications';
 import { PlatformSsoIntegrations } from './platform/PlatformSsoIntegrations';
 import { Preferences } from './Preferences';
+import { Features } from './features/Features';
 import { ManagePolicies } from '../permissions/policy/ManagePolicies';
 import { ManageViews } from '../entity/view/ManageViews';
 import { useUserContext } from '../context/useUserContext';
@@ -40,6 +42,11 @@ import analytics, { EventType } from '../analytics';
 import { GlobalCfg } from '../../conf';
 import { isLoggedInVar } from '../auth/checkAuthStatus';
 import { useIsThemeV2 } from '../useIsThemeV2';
+
+const MenuItem = styled(Menu.Item)`
+    display: flex;
+    align-items: center;
+`;
 
 const PageContainer = styled.div`
     display: flex;
@@ -87,6 +94,17 @@ const ACRYL_PATHS = [
 ];
 const menuStyle = { width: 256, marginTop: 8, overflow: 'hidden auto' };
 
+const NewTag = styled.span`
+    padding: 4px 8px;
+    margin-left: 8px;
+
+    border-radius: 24px;
+    background: #f1fbfe;
+
+    color: #09739a;
+    font-size: 12px;
+`;
+
 /**
  * URL Paths for each settings page.
  */
@@ -101,6 +119,7 @@ const PATHS = [
     { path: 'views', content: <ManageViews /> },
     { path: 'ownership', content: <ManageOwnership /> },
     { path: 'posts', content: <ManagePosts /> },
+    { path: 'features', content: <Features /> },
     { path: 'helpLink', content: <ManageHelpLink /> },
 ];
 
@@ -113,6 +132,7 @@ export const SettingsPage = () => {
     const subscriptionsEnabled = useSubscriptionsEnabled();
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
+
     const history = useHistory();
     const subRoutes = PATHS.map((p) => p.path.replace('/', ''));
     const currPathName = pathname.replace(path, '');
@@ -135,6 +155,7 @@ export const SettingsPage = () => {
     const showViews = isViewsEnabled || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
+    const showFeatures = true; // TODO: Add feature flag for this
     const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
     const isThemeV2 = useIsThemeV2();
 
@@ -238,6 +259,18 @@ export const SettingsPage = () => {
 
                     {(showOwnershipTypes || showHomePagePosts || showCustomHelpLink) && (
                         <Menu.ItemGroup title="Manage">
+                            {showFeatures && (
+                                <MenuItem key="features">
+                                    <ControlOutlined />
+                                    <ItemTitle>Features</ItemTitle>
+                                    <NewTag>New!</NewTag>
+                                </MenuItem>
+                            )}
+                            {showViews && (
+                                <Menu.Item key="views">
+                                    <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
+                                </Menu.Item>
+                            )}
                             {showOwnershipTypes && (
                                 <Menu.Item key="ownership">
                                     <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>

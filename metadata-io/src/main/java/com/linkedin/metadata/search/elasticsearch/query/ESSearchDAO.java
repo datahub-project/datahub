@@ -335,7 +335,7 @@ public class ESSearchDAO {
    *
    * @param filters the request map with fields and values to be applied as filters to the search
    *     query
-   * @param sortCriteria {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size number of search hits to return
    * @return a {@link SearchResult} that contains a list of filtered documents and related search

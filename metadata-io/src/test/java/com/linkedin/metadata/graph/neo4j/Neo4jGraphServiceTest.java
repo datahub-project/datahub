@@ -171,20 +171,6 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
   }
 
   @Test
-  @Override
-  public void testConcurrentRemoveEdgesFromNode() {
-    // https://github.com/linkedin/datahub/issues/3118
-    throw new SkipException("Neo4jGraphService produces duplicates");
-  }
-
-  @Test
-  @Override
-  public void testConcurrentRemoveNodes() {
-    // https://github.com/linkedin/datahub/issues/3118
-    throw new SkipException("Neo4jGraphService produces duplicates");
-  }
-
-  @Test
   public void testRemoveEdge() throws Exception {
     DatasetUrn datasetUrn =
         new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);

@@ -504,7 +504,11 @@ class RedshiftDataDictionary:
                 yield AlterTableRow(
                     transaction_id=row[field_names.index("transaction_id")],
                     session_id=session_id,
-                    query_text=row[field_names.index("query_text")],
+                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
+                    # for why we need to replace the \n with a newline.
+                    query_text=row[field_names.index("query_text")].replace(
+                        r"\n", "\n"
+                    ),
                     start_time=row[field_names.index("start_time")],
                 )
             rows = cursor.fetchmany()

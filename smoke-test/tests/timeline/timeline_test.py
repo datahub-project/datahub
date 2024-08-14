@@ -179,11 +179,13 @@ def test_ownership():
 
 def put(urn: str, aspect: str, aspect_data: str) -> None:
     """Update a single aspect of an entity"""
-
+    client = get_datahub_graph()
     entity_type = guess_entity_type(urn)
     with open(aspect_data) as fp:
         aspect_obj = json.load(fp)
         post_entity(
+            session=client._session,
+            gms_host=client.config.server,
             urn=urn,
             aspect_name=aspect,
             entity_type=entity_type,

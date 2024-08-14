@@ -40,7 +40,7 @@ import datahub.client.rest.RestEmitter;
 //...
 RestEmitter emitter = RestEmitter.create(b -> b
                                               .server("http://localhost:8080")
-//Auth token for Managed DataHub              .token(AUTH_TOKEN_IF_NEEDED)
+//Auth token for DataHub Cloud              .token(AUTH_TOKEN_IF_NEEDED)
 //Override default timeout of 10 seconds      .timeoutSec(OVERRIDE_DEFAULT_TIMEOUT_IN_SECONDS)
 //Add additional headers                      .extraHeaders(Collections.singletonMap("Session-token", "MY_SESSION"))
 // Customize HttpClient's connection ttl      .customizeHttpAsyncClient(c -> c.setConnectionTimeToLive(30, TimeUnit.SECONDS))

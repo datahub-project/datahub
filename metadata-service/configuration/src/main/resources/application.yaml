@@ -200,6 +200,7 @@ elasticsearch:
   opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
   region: ${AWS_REGION:#{null}}
   implementation: ${ELASTICSEARCH_IMPLEMENTATION:elasticsearch} # elasticsearch or opensearch, for handling divergent cases
+  idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
     secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}
@@ -323,7 +324,7 @@ metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:false}
   hook:
     enabled: ${METADATA_TESTS_HOOK_ENABLED:true}
-    consumerGroupSuffix: ${METADATA_TESTS_HOOK_CONSUMER_GROUP_SUFFIX:other}
+    consumerGroupSuffix: ${METADATA_TESTS_HOOK_CONSUMER_GROUP_SUFFIX:}
     onTestChange: ${METADATA_TESTS_ON_TEST_CHANGE:true}
     onEntityChange: ${METADATA_TESTS_ON_ENTITY_CHANGE:false}
     hookExecutionLimit: # Configures the limits on number of entities for running tests in real time for each executor
@@ -344,7 +345,7 @@ metadataTests:
 notifications:
   # Enable if you want to enable creation of the Notification Manager.
   enabled: ${METADATA_SERVICE_NOTIFICATIONS_ENABLED:true} # Enable to turn on notifications.
-  consumerGroupSuffix: ${NOTIFICATIONS_HOOK_CONSUMER_GROUP_SUFFIX:notifications}
+  consumerGroupSuffix: ${NOTIFICATIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
   defaultSettingsHook:
     enabled: ${DEFAULT_NOTIFICATION_SETTINGS_HOOK_ENABLED:true}
@@ -390,17 +391,17 @@ updateIndices:
   consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}
 ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
-  consumerGroupSuffix: ${INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX:other}
+  consumerGroupSuffix: ${INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX:}
 assertions:
   hook:
     enabled: ${ENABLE_ASSERTIONS_HOOK:true}
-    consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:other}
+    consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
 incidents:
   hook:
     # Only managed incident summary hook. Should be better named.
     enabled: ${ENABLE_INCIDENTS_HOOK:true}
     maxIncidentHistory: ${MAX_INCIDENT_HISTORY:100}
-    consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:other}
+    consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
   # Enable or disable the hook responsible for generating activity events, powering the activity log.
   activityEventsHook:
     enabled: ${ENABLE_INCIDENT_ACTIVITY_EVENTS:true}
@@ -490,7 +491,7 @@ featureFlags:
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
-  showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to Managed DataHub. Set to true for the demo site.
+  showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to DataHub Cloud. Set to true for the demo site.
   erModelRelationshipFeatureEnabled: ${ER_MODEL_RELATIONSHIP_FEATURE_ENABLED:false} # Enable Join Tables Feature and show within Dataset view as Relations
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
@@ -512,7 +513,7 @@ featureFlags:
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
-  consumerGroupSuffix: ${ECE_CONSUMER_GROUP_SUFFIX:ece}
+  consumerGroupSuffix: ${ECE_CONSUMER_GROUP_SUFFIX:}
 
 views:
   enabled: ${VIEWS_ENABLED:true}
@@ -608,12 +609,12 @@ chromeExtension:
 assertionActions:
   hook:
     enabled: ${ASSERTION_ACTIONS_HOOK_ENABLED:true}
-    consumerGroupSuffix: ${ASSERTION_ACTIONS_HOOK_CONSUMER_GROUP_SUFFIX:other}
+    consumerGroupSuffix: ${ASSERTION_ACTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 monitorDeletion:
   hook:
     enabled: ${DELETE_MONITOR_HOOK_ENABLED:true}
-    consumerGroupSuffix: ${MONITOR_DELETION_HOOK_CONSUMER_GROUP_SUFFIX:other}
+    consumerGroupSuffix: ${MONITOR_DELETION_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 # Acryl-Only
 integrationsService:
@@ -632,10 +633,10 @@ connections:
 subscriptions:
   ownerSubscriptionHook:
     enabled: ${OWNER_SUBSCRIPTION_HOOK_ENABLED:false}
-    consumerGroupSuffix: ${SUBSCRIPTIONS_OWNER_HOOK_CONSUMER_GROUP_SUFFIX:notifications}
+    consumerGroupSuffix: ${SUBSCRIPTIONS_OWNER_HOOK_CONSUMER_GROUP_SUFFIX:}
   subResourceDeletionHook:
     enabled: ${SUBSCRIPTION_SUBRESOURCE_DELETION_HOOK_ENABLED:true}
-    consumerGroupSuffix: ${SUBSCRIPTIONS_SUB_RESOURCE_HOOK_CONSUMER_GROUP_SUFFIX:notifications}
+    consumerGroupSuffix: ${SUBSCRIPTIONS_SUB_RESOURCE_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 executors:
   executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}
@@ -647,7 +648,7 @@ forms:
   hook:
     enabled: ${FORMS_HOOK_ENABLED:true}
     completionEnabled: ${FORMS_COMPLETION_HOOK_ENABLED:true}
-    consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:other}
+    consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 businessAttribute:
   fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:20000}
