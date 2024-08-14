@@ -288,9 +288,9 @@ class MetadataCleanupSource(Source):
                         f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
                     )
 
-            logger.info(
-                f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
-            )
+        logger.info(
+            f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+        )
 
     def get_data_flows(self) -> Iterable[DataFlowEntity]:
         assert self.ctx.graph
@@ -331,7 +331,7 @@ class MetadataCleanupSource(Source):
 
         scroll_id: Optional[str] = None
         dataJobs: Dict[str, List[DataJobEntity]] = defaultdict(list)
-
+        deleted_jobs: int = 0
         while True:
             result = self.ctx.graph.execute_graphql(
                 DATAJOB_QUERY,
@@ -367,19 +367,27 @@ class MetadataCleanupSource(Source):
                         f"Deleting datajob {datajob_entity.urn} because there are no runs"
                     )
                     self.delete_entity(datajob_entity.urn, "dataJob")
+                    deleted_jobs += 1
+                    if deleted_jobs % self.config.batch_size == 0:
+                        logger.info(f"Deleted {deleted_jobs} DataJobs")
                 else:
                     dataJobs[datajob_entity.flow_urn].append(datajob_entity)
 
             if not scroll_id:
                 break
 
+        logger.info(f"Deleted {deleted_jobs} DataJobs")
         # Delete empty dataflows if needed
         if self.config.delete_empty_data_flows:
+            deleted_data_flows: int = 0
             for key in dataFlows.keys():
                 if not dataJobs.get(key) or len(dataJobs[key]) == 0:
                     logger.info(
                         f"Deleting dataflow {key} because there are not datajobs"
                     )
                     self.delete_entity(key, "dataFlow")
-
+                    deleted_data_flows += 1
+                    if deleted_jobs % self.config.batch_size == 0:
+                        logger.info(f"Deleted {deleted_data_flows} DataFlows")
+            logger.info(f"Deleted {deleted_data_flows} DataFlows")
         return []
