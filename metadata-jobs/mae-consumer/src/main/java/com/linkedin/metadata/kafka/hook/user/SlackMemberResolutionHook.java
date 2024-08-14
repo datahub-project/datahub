@@ -52,8 +52,7 @@ public class SlackMemberResolutionHook implements MetadataChangeLogHook {
   @Getter private final String consumerGroupSuffix;
   private OperationContext systemOperationContext;
   private final SlackMemberResolutionUtils memberResolutionUtils;
-
-  private final boolean isEnabled;
+  @Getter private final boolean isEnabled;
 
   @Autowired
   public SlackMemberResolutionHook(

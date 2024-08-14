@@ -65,6 +65,11 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
     return this;
   }
 
+  @Override
+  public boolean isEnabled() {
+    return this.isEnabled;
+  }
+
   /**
    * Invoke the hook when a MetadataChangeLog is received
    *
