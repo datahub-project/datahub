@@ -21,6 +21,7 @@
 .scrollingCustomers {
   position: relative;
   overflow: hidden;
+  opacity: 0.5;
 }
 
 
@@ -29,11 +30,11 @@
   padding: 1.25rem 0;
   position: relative;
   align-items: center;
-  animation: scrollingCustomerAnimate 15s linear infinite;
+  animation: scrollingCustomerAnimate 60s linear infinite;
 }
 
 .scrollingCustomers__inner img {
-  max-width: 100px!important;
+  max-width: 160px !important;
   min-width: unset;
   filter: invert(1) brightness(0) contrast(100); // make image black
 }
@@ -46,7 +47,7 @@
 
 .animateScrollingCustomers {
   display: flex;
-  animation: scrollingCustomerAnimate 15s linear infinite;
+  animation: scrollingCustomerAnimate 60s linear infinite;
 }
 
 @media (max-width: 767px) {

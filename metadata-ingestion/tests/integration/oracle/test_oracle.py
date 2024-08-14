@@ -24,6 +24,7 @@ class OracleIntegrationTestCase(OracleTestCaseBase):
         inspector_magic_mock.dialect.server_version_info = (
             self.get_server_version_info()
         )
+        inspector_magic_mock.dialect.type_compiler.process = lambda x: "NUMBER"
 
         mock_inspect.return_value = inspector_magic_mock
         mock_create_engine.connect.return_value = connection_magic_mock

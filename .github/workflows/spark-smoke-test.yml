@@ -44,8 +44,11 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Disk Check
         run: df -h . && docker images
-      - name: Remove images
-        run: docker image prune -a -f || true
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
       - name: Disk Check
         run: df -h . && docker images
       - name: Smoke test
@@ -69,14 +72,14 @@ jobs:
           docker logs elasticsearch >& elasticsearch-${{ matrix.test_strategy }}.log || true
           docker logs datahub-frontend-react >& frontend-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: docker logs
           path: |
             "**/build/container-logs/*.log"
             "*.log"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Test Results (smoke tests)

@@ -148,24 +148,42 @@ The same GraphQL API that powers the Search UI can be used
 for integrations and programmatic use-cases. 
 
 ```
-# Example query
-{
-  searchAcrossEntities(
-    input: {types: [], query: "*", start: 0, count: 10, filters: [{field: "fieldTags", value: "urn:li:tag:Dimension"}]}
+# Example query - search for datasets matching the example_query_text who have the Dimension tag applied to a schema field and are from the data platform looker
+query searchEntities {
+  search(
+    input: {
+      type: DATASET,
+      query: "example_query_text",
+      orFilters: [
+        {
+          and: [
+            {
+              field: "fieldTags",
+              values: ["urn:li:tag:Dimension"]
+            },
+            {
+              field: "platform",
+              values: ["urn:li:dataPlatform:looker"]
+            }
+          ]
+        }
+      ],
+      start: 0,
+      count: 10
+    }
   ) {
     start
     count
     total
     searchResults {
       entity {
+        urn
         type
         ... on Dataset {
-          urn
-          type
+          name
           platform {
             name
           }
-          name
         }
       }
     }

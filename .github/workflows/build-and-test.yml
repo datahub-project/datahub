@@ -57,6 +57,11 @@ jobs:
     timeout-minutes: 60
     needs: setup
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
       - uses: szenius/set-timezone@v1.2
         with:
           timezoneLinux: ${{ matrix.timezone }}
@@ -99,7 +104,7 @@ jobs:
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
           ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Test Results (build)
@@ -128,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: Event File
           path: ${{ github.event_path }}

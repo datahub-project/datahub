@@ -131,7 +131,7 @@ def _modify_at_path(
         _modify_at_path(getattr(model, path[0]), path[1:], new_value)
 
 
-def _lowercase_dataset_urn(dataset_urn: str) -> str:
+def lowercase_dataset_urn(dataset_urn: str) -> str:
     cur_urn = DatasetUrn.from_string(dataset_urn)
     new_urn = DatasetUrn(
         platform=cur_urn.platform, name=cur_urn.name.lower(), env=cur_urn.env
@@ -149,10 +149,10 @@ def lowercase_dataset_urns(
 ) -> None:
     def modify_urn(urn: str) -> str:
         if guess_entity_type(urn) == "dataset":
-            return _lowercase_dataset_urn(urn)
+            return lowercase_dataset_urn(urn)
         elif guess_entity_type(urn) == "schemaField":
             cur_urn = Urn.from_string(urn)
-            cur_urn._entity_ids[0] = _lowercase_dataset_urn(cur_urn._entity_ids[0])
+            cur_urn._entity_ids[0] = lowercase_dataset_urn(cur_urn._entity_ids[0])
             return str(cur_urn)
         return urn
 
