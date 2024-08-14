@@ -149,18 +149,24 @@ def touch_local_files(pytestconfig):
             os.utime(full_path, times=(current_time_sec, current_time_sec))
 
 
+SHARED_SOURCE_FILES_PATH = "./tests/integration/s3/sources/shared"
+shared_source_files = [
+    (SHARED_SOURCE_FILES_PATH, p) for p in os.listdir(SHARED_SOURCE_FILES_PATH)
+]
+
 S3_SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
-source_files = os.listdir(S3_SOURCE_FILES_PATH)
+s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES_PATH)]
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("source_file", source_files)
+@pytest.mark.parametrize("source_file_tuple", shared_source_files + s3_source_files)
 def test_data_lake_s3_ingest(
-    pytestconfig, s3_populate, source_file, tmp_path, mock_time
+    pytestconfig, s3_populate, source_file_tuple, tmp_path, mock_time
 ):
+    source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
 
-    f = open(os.path.join(S3_SOURCE_FILES_PATH, source_file))
+    f = open(os.path.join(source_dir, source_file))
     source = json.load(f)
 
     config_dict = {}
@@ -189,17 +195,14 @@ def test_data_lake_s3_ingest(
     )
 
 
-LOCAL_SOURCE_FILES_PATH = "./tests/integration/s3/sources/local"
-source_files = os.listdir(LOCAL_SOURCE_FILES_PATH)
-
-
 @pytest.mark.integration
-@pytest.mark.parametrize("source_file", source_files)
+@pytest.mark.parametrize("source_file_tuple", shared_source_files)
 def test_data_lake_local_ingest(
-    pytestconfig, touch_local_files, source_file, tmp_path, mock_time
+    pytestconfig, touch_local_files, source_file_tuple, tmp_path, mock_time
 ):
+    source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
-    f = open(os.path.join(LOCAL_SOURCE_FILES_PATH, source_file))
+    f = open(os.path.join(source_dir, source_file))
     source = json.load(f)
 
     config_dict = {}
