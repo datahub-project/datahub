@@ -49,6 +49,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
   private static final String ACTION_BATCH_EVALUATE = "batchEvaluate";
   private static final String PARAM_TESTS = "tests";
   private static final String PARAM_PUSH = "push";
+  private static final int MAX_TEST_RESULT_SIZE = 1000;
 
   @Inject
   @Named("testEngine")
@@ -193,6 +194,16 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
               shouldPush != null && shouldPush ? TestEngine.EvaluationMode.DEFAULT
                   : TestEngine.EvaluationMode.EVALUATE_ONLY)
               .forEach((urn, result) -> testResultsMap.put(urn.toString(), result));
+          if (testResultsMap.size() > MAX_TEST_RESULT_SIZE) {
+              log.warn(
+                  String.format(
+                      "TestResultsMap exceeds the max size and would cause TooLongHttpContentException. Trimming results from %s to %s", testResultsMap.size(), MAX_TEST_RESULT_SIZE));
+              TestResultsMap trimmedTestResultsMap = new TestResultsMap();
+              testResultsMap.entrySet().stream().limit(MAX_TEST_RESULT_SIZE).forEach(entry -> {
+                  trimmedTestResultsMap.put(entry.getKey(), entry.getValue());
+              });
+              return new BatchedTestResults().setResults(trimmedTestResultsMap);
+          }
           return new BatchedTestResults().setResults(testResultsMap);
         },
     MetricRegistry.name(this.getClass(), "evaluateSingleTest"));
