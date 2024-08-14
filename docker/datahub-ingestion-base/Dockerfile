@@ -12,7 +12,7 @@ FROM golang:1-alpine3.20 AS dockerize-binary
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
 
-ENV DOCKERIZE_VERSION v0.6.1
+ENV DOCKERIZE_VERSION=v0.6.1
 WORKDIR /go/src/github.com/jwilder
 
 # Optionally set corporate mirror for apk
@@ -24,11 +24,11 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM python:3.10 as base
+FROM python:3.10 AS base
 
 ARG GITHUB_REPO_URL
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Optionally set corporate mirror for deb
 ARG DEBIAN_REPO_URL
@@ -75,7 +75,7 @@ RUN python3 -m venv $VIRTUAL_ENV && \
 
 ENTRYPOINT [ "/entrypoint.sh" ]
 
-FROM ${BASE_IMAGE} as full-install
+FROM ${BASE_IMAGE} AS full-install
 
 USER 0
 RUN apt-get update && apt-get install -y -qq \
@@ -102,7 +102,7 @@ RUN if [ $(arch) = "x86_64" ]; then \
 
 USER datahub
 
-FROM ${BASE_IMAGE} as slim-install
+FROM ${BASE_IMAGE} AS slim-install
 # Do nothing else on top of base
 
 FROM ${APP_ENV}-install
