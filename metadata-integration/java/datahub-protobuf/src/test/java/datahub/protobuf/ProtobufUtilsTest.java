@@ -54,9 +54,9 @@ public class ProtobufUtilsTest {
         .setTrailingComments("// Korean 안녕")
         .build();
 
-    String result = ProtobufUtils.collapseLocationComments(location);
+    String actual = ProtobufUtils.collapseLocationComments(location);
     String expected = "Emoji 😊 */\nAccented é */\nChinese 你好 */\nRussian Привет\nKorean 안녕";
 
-    assertEquals(expected, result);
+    assertEquals(expected, actual);
   }
 }
