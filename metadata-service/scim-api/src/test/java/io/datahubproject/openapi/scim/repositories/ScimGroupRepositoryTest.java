@@ -642,6 +642,101 @@ public class ScimGroupRepositoryTest extends ScimRepositoryTestBase {
   }
 
   @Test
+  public void testPagination() {
+    post(
+        "/Groups",
+        String.format(
+            """
+                    {
+                      "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+                      "displayName": "%s"
+                    }
+                    """,
+            groupName1));
+
+    post(
+        "/Groups",
+        String.format(
+            """
+                    {
+                      "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+                      "displayName": "%s"
+                    }
+                    """,
+            groupName2));
+
+    get("/Groups", ImmutableMap.of("startIndex", "1", "count", "10"))
+        .statusCode(200)
+        .body(
+            "totalResults", is(2),
+            "startIndex", is(1),
+            "itemsPerPage", is(2),
+            "schemas", contains("urn:ietf:params:scim:api:messages:2.0:ListResponse"),
+            "Resources[1].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:Group"),
+            "Resources[1].displayName", is(groupName1),
+            "Resources[1].id", is(groupId1),
+            "Resources[1].meta.resourceType", is("Group"),
+            "Resources[1].meta.location", endsWith("openapi/scim/v2/Groups/" + groupId1),
+            "Resources[0].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:Group"),
+            "Resources[0].displayName", is(groupName2),
+            "Resources[0].id", is(groupId2),
+            "Resources[0].meta.resourceType", is("Group"),
+            "Resources[0].meta.location", endsWith("openapi/scim/v2/Groups/" + groupId2));
+
+    // the reason for order change here is TBD; since impact may not be felt in practice, not
+    // exploring further at this point.
+
+    get("/Groups", ImmutableMap.of("startIndex", "2", "count", "10"))
+        .statusCode(200)
+        .body(
+            "totalResults", is(2),
+            "startIndex", is(2),
+            "itemsPerPage", is(1),
+            "schemas", contains("urn:ietf:params:scim:api:messages:2.0:ListResponse"),
+            "Resources[0].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:Group"),
+            "Resources[0].displayName", is(groupName2),
+            "Resources[0].id", is(groupId2),
+            "Resources[0].meta.resourceType", is("Group"),
+            "Resources[0].meta.location", endsWith("openapi/scim/v2/Groups/" + groupId2));
+
+    get("/Groups", ImmutableMap.of("startIndex", "1", "count", "1"))
+        .statusCode(200)
+        .body(
+            "totalResults", is(2),
+            "startIndex", is(1),
+            "itemsPerPage", is(1),
+            "schemas", contains("urn:ietf:params:scim:api:messages:2.0:ListResponse"),
+            "Resources[0].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:Group"),
+            "Resources[0].displayName", is(groupName1),
+            "Resources[0].id", is(groupId1),
+            "Resources[0].meta.resourceType", is("Group"),
+            "Resources[0].meta.location", endsWith("openapi/scim/v2/Groups/" + groupId1));
+
+    get("/Groups", ImmutableMap.of("startIndex", "3", "count", "10"))
+        .statusCode(200)
+        .body("totalResults", is(0));
+
+    delete("/Groups/" + groupId2);
+
+    get("/Groups", ImmutableMap.of("startIndex", "1", "count", "10"))
+        .statusCode(200)
+        .body(
+            "totalResults", is(1),
+            "startIndex", is(1),
+            "itemsPerPage", is(1),
+            "schemas", contains("urn:ietf:params:scim:api:messages:2.0:ListResponse"),
+            "Resources[0].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:Group"),
+            "Resources[0].displayName", is(groupName1),
+            "Resources[0].id", is(groupId1),
+            "Resources[0].meta.resourceType", is("Group"),
+            "Resources[0].meta.location", endsWith("openapi/scim/v2/Groups/" + groupId1));
+
+    get("/Groups", ImmutableMap.of("startIndex", "2", "count", "10"))
+        .statusCode(200)
+        .body("totalResults", is(0));
+  }
+
+  @Test
   public void testExternalId() throws Exception {
     post(
             "/Groups",
