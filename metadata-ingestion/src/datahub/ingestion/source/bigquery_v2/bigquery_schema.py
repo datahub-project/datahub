@@ -165,7 +165,6 @@ class BigQuerySchemaApi:
             self.report.num_list_projects_retry_request += 1
             return True
 
-
         page_token = None
         projects: List[BigqueryProject] = []
         with self.report.list_projects:

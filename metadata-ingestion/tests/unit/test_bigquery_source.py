@@ -172,8 +172,8 @@ def test_bigquery_uri_with_credential():
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_projects_with_project_ids(
-        get_projects_client,
-        get_bq_client_mock,
+    get_projects_client,
+    get_bq_client_mock,
 ):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
@@ -203,8 +203,8 @@ def test_get_projects_with_project_ids(
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_projects_with_project_ids_overrides_project_id_pattern(
-        get_projects_client,
-        get_bigquery_client,
+    get_projects_client,
+    get_bigquery_client,
 ):
     config = BigQueryV2Config.parse_obj(
         {
@@ -234,8 +234,8 @@ def test_platform_instance_config_always_none():
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_dataplatform_instance_aspect_returns_project_id(
-        get_projects_client,
-        get_bq_client_mock,
+    get_projects_client,
+    get_bq_client_mock,
 ):
     project_id = "project_id"
     expected_instance = (
@@ -259,8 +259,8 @@ def test_get_dataplatform_instance_aspect_returns_project_id(
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_dataplatform_instance_default_no_instance(
-        get_projects_client,
-        get_bq_client_mock,
+    get_projects_client,
+    get_bq_client_mock,
 ):
     config = BigQueryV2Config.parse_obj({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -279,8 +279,8 @@ def test_get_dataplatform_instance_default_no_instance(
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_projects_with_single_project_id(
-        get_projects_client,
-        get_bq_client_mock,
+    get_projects_client,
+    get_bq_client_mock,
 ):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
@@ -294,10 +294,7 @@ def test_get_projects_with_single_project_id(
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_get_projects_by_list(
-        get_projects_client,
-        get_bigquery_client
-):
+def test_get_projects_by_list(get_projects_client, get_bigquery_client):
     client_mock = MagicMock()
     get_bigquery_client.return_value = client_mock
 
@@ -335,7 +332,9 @@ def test_get_projects_by_list(
 @patch.object(BigQuerySchemaApi, "get_projects")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_get_projects_filter_by_pattern(get_projects_client, get_bq_client_mock, get_projects_mock):
+def test_get_projects_filter_by_pattern(
+    get_projects_client, get_bq_client_mock, get_projects_mock
+):
     get_projects_mock.return_value = [
         BigqueryProject("test-project", "Test Project"),
         BigqueryProject("test-project-2", "Test Project 2"),
@@ -354,7 +353,9 @@ def test_get_projects_filter_by_pattern(get_projects_client, get_bq_client_mock,
 @patch.object(BigQuerySchemaApi, "get_projects")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_get_projects_list_empty(get_projects_client, get_bq_client_mock, get_projects_mock):
+def test_get_projects_list_empty(
+    get_projects_client, get_bq_client_mock, get_projects_mock
+):
     get_projects_mock.return_value = []
 
     config = BigQueryV2Config.parse_obj(
@@ -394,7 +395,9 @@ def test_get_projects_list_failure(
 @patch.object(BigQuerySchemaApi, "get_projects")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_get_projects_list_fully_filtered(get_projects_mock, get_bq_client_mock, get_projects_client):
+def test_get_projects_list_fully_filtered(
+    get_projects_mock, get_bq_client_mock, get_projects_client
+):
     get_projects_mock.return_value = [BigqueryProject("test-project", "Test Project")]
 
     config = BigQueryV2Config.parse_obj(
@@ -428,7 +431,9 @@ def bigquery_table() -> BigqueryTable:
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_gen_table_dataset_workunits(get_projects_client, get_bq_client_mock, bigquery_table):
+def test_gen_table_dataset_workunits(
+    get_projects_client, get_bq_client_mock, bigquery_table
+):
     project_id = "test-project"
     dataset_name = "test-dataset"
     config = BigQueryV2Config.parse_obj(
@@ -569,7 +574,9 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream(
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_upstream_table_column_lineage_with_temp_table(get_bq_client_mock, get_projects_client):
+def test_upstream_table_column_lineage_with_temp_table(
+    get_bq_client_mock, get_projects_client
+):
     from datahub.ingestion.api.common import PipelineContext
 
     a: BigQueryTableRef = BigQueryTableRef(
@@ -646,8 +653,7 @@ def test_upstream_table_column_lineage_with_temp_table(get_bq_client_mock, get_p
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstream(
-    get_bq_client_mock,
-    get_projects_client
+    get_bq_client_mock, get_projects_client
 ):
     a: BigQueryTableRef = BigQueryTableRef(
         BigqueryTableIdentifier(
@@ -711,7 +717,9 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_table_processing_logic(get_projects_client, get_bq_client_mock, data_dictionary_mock):
+def test_table_processing_logic(
+    get_projects_client, get_bq_client_mock, data_dictionary_mock
+):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
     config = BigQueryV2Config.parse_obj(
@@ -1048,7 +1056,9 @@ def test_get_snapshots_for_dataset(
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-def test_gen_snapshot_dataset_workunits(get_bq_client_mock, get_projects_client, bigquery_snapshot):
+def test_gen_snapshot_dataset_workunits(
+    get_bq_client_mock, get_projects_client, bigquery_snapshot
+):
     project_id = "test-project"
     dataset_name = "test-dataset"
     config = BigQueryV2Config.parse_obj(
@@ -1222,3 +1232,32 @@ def test_excluding_empty_projects_from_ingestion(
     config = BigQueryV2Config.parse_obj({**base_config, "exclude_empty_projects": True})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-2"))
     assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 1  # type: ignore
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_get_projects_with_project_labels(
+    get_projects_client,
+    get_bq_client_mock,
+):
+    client_mock = MagicMock()
+
+    get_projects_client.return_value = client_mock
+
+    client_mock.search_projects.return_value = [
+        SimpleNamespace(project_id="dev", display_name="dev_project"),
+        SimpleNamespace(project_id="qa", display_name="qa_project"),
+    ]
+
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_labels": ["dev", "qa"],
+        }
+    )
+
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
+
+    assert source._get_projects() == [
+        BigqueryProject("dev", "dev_project"),
+        BigqueryProject("qa", "qa_project"),
+    ]

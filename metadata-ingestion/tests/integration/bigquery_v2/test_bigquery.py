@@ -15,8 +15,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDa
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryDataset,
+    BigqueryProject,
     BigQuerySchemaApi,
-    BigqueryTable, BigqueryProject,
+    BigqueryTable,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
@@ -183,9 +184,7 @@ def test_bigquery_v2_project_labels_ingest(
     ]
 
     get_projects_with_labels.return_value = [
-        BigqueryProject(
-            id="dev", name="development"
-        )
+        BigqueryProject(id="dev", name="development")
     ]
 
     table_list_item = TableListItem(
@@ -237,9 +236,7 @@ def test_bigquery_v2_project_labels_ingest(
 
     del pipeline_config_dict["source"]["config"]["project_ids"]
 
-    pipeline_config_dict["source"]["config"]["project_labels"] = [
-        "development"
-    ]
+    pipeline_config_dict["source"]["config"]["project_labels"] = ["development"]
 
     run_and_get_pipeline(pipeline_config_dict)
 
