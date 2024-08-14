@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
+from time import time
 
 from pyiceberg.catalog import Catalog
 from pyiceberg.exceptions import NoSuchIcebergTableError
@@ -75,6 +76,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
@@ -134,33 +136,45 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield from catalog.list_tables(namespace)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        def _process_dataset(dataset_path):
+            dataset_name = ".".join(dataset_path)
+            if not self.config.table_pattern.allowed(dataset_name):
+                # Dataset name is rejected by pattern, report as dropped.
+                self.report.report_dropped(dataset_name)
+                return
+            try:
+                # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
+                start_ts = time()
+                table = catalog.load_table(dataset_path)
+                self.report.report_table_load_time(time() - start_ts)
+                yield from self._create_iceberg_workunit(dataset_name, table)
+            except NoSuchIcebergTableError as e:
+               self.report.report_failure("general", f"Failed to create workunit: {e}")
+               LOGGER.exception(
+                    f"Exception while processing table {dataset_path}, skipping it.",
+               )
         try:
+            start = time()
             catalog = self.config.get_catalog()
+            self.report.set_catalog_retrieval_time(time()-start)
         except Exception as e:
             LOGGER.error("Failed to get catalog", exc_info=True)
             self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
             return
 
-        for dataset_path in self._get_datasets(catalog):
-            dataset_name = ".".join(dataset_path)
-            if not self.config.table_pattern.allowed(dataset_name):
-                # Dataset name is rejected by pattern, report as dropped.
-                self.report.report_dropped(dataset_name)
-                continue
-
-            try:
-                # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
-                table = catalog.load_table(dataset_path)
-                yield from self._create_iceberg_workunit(dataset_name, table)
-            except NoSuchIcebergTableError as e:
-                self.report.report_failure("general", f"Failed to create workunit: {e}")
-                LOGGER.exception(
-                    f"Exception while processing table {dataset_path}, skipping it.",
-                )
+        for wu in ThreadedIteratorExecutor.process(
+                worker_func=_process_dataset,
+                args_list=[
+                    (dataset_path,) for dataset_path in self._get_datasets(catalog)
+                ],
+                max_workers=self.config.processing_threads,
+        ):
+            yield wu
 
     def _create_iceberg_workunit(
         self, dataset_name: str, table: Table
     ) -> Iterable[MetadataWorkUnit]:
+        start_ts = time()
         self.report.report_table_scanned(dataset_name)
         dataset_urn: str = make_dataset_urn_with_platform_instance(
             self.platform,
@@ -197,6 +211,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         dataset_snapshot.aspects.append(schema_metadata)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        self.report.report_table_processing_time(time() - start_ts)
         yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
         dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
@@ -204,8 +219,11 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield dpi_aspect
 
         if self.config.is_profiling_enabled():
+            start_ts = time()
             profiler = IcebergProfiler(self.report, self.config.profiling)
-            yield from profiler.profile_table(dataset_name, dataset_urn, table)
+            profiling_wu = [*profiler.profile_table(dataset_name, dataset_urn, table)]
+            self.report.report_table_profiling_time(time() - start_ts)
+            yield from profiling_wu
 
     def _get_partition_aspect(self, table: Table) -> Optional[str]:
         """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.

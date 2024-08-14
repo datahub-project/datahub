@@ -18,6 +18,7 @@ from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
 )
+from humanfriendly import format_timespan
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,9 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         description="Iceberg table property to look for a `CorpGroup` owner.  Can only hold a single group value.  If property has no value, no owner information will be emitted.",
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
+    processing_threads: int = Field(
+        default=1, description="How many threads will be processing tables"
+    )
 
     @validator("catalog", pre=True, always=True)
     def handle_deprecated_catalog_format(cls, value):
@@ -134,14 +138,54 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         return load_catalog(name=catalog_name, **catalog_config)
 
 
+class TimingClass:
+    times: List[int]
+
+    def __init__(self):
+        self.times = []
+
+    def add_timing(self, t):
+        self.times.append(t)
+
+    def __str__(self):
+        if len(self.times) == 0:
+            return "no timings reported"
+        self.times.sort()
+        total = sum(self.times)
+        avg = total / len(self.times)
+        return str({
+            'average_time': format_timespan(avg, detailed=True, max_units=3),
+            'min_time': format_timespan(self.times[0], detailed=True, max_units=3),
+            'max_time': format_timespan(self.times[-1], detailed=True, max_units=3),
+            # total_time does not provide correct information in case we run in more than 1 thread
+            'total_time': format_timespan(total, detailed=True, max_units=3)
+        })
+
+
 @dataclass
 class IcebergSourceReport(StaleEntityRemovalSourceReport):
+    catalog_retrieval_time: str = "no retrieval time reported"
     tables_scanned: int = 0
     entities_profiled: int = 0
     filtered: List[str] = field(default_factory=list)
+    load_table_timings: TimingClass = field(default_factory=TimingClass)
+    processing_table_timings: TimingClass = field(default_factory=TimingClass)
+    profiling_table_timings: TimingClass = field(default_factory=TimingClass)
 
     def report_table_scanned(self, name: str) -> None:
         self.tables_scanned += 1
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
+
+    def set_catalog_retrieval_time(self, t):
+        self.catalog_retrieval_time = format_timespan(t, detailed=True, max_units=3)
+
+    def report_table_load_time(self, t: float):
+        self.load_table_timings.add_timing(t)
+
+    def report_table_processing_time(self, t: float):
+        self.processing_table_timings.add_timing(t)
+
+    def report_table_profiling_time(self, t: float):
+        self.profiling_table_timings.add_timing(t)
