@@ -10,6 +10,7 @@ x-datahub-frontend-service: &datahub-frontend-service
     - ${DATAHUB_LOCAL_FRONTEND_ENV:-empty2.env}
   environment: &datahub-frontend-service-env
     KAFKA_BOOTSTRAP_SERVER: broker:29092
+    DATAHUB_GMS_HOST: ${DATAHUB_GMS_HOST:-datahub-gms}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
