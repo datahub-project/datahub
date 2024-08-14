@@ -91,6 +91,7 @@ class PulsarSchema:
 @config_class(PulsarSourceConfig)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
 class PulsarSource(StatefulIngestionSourceBase):
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):
