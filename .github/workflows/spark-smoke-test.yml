@@ -44,8 +44,11 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Disk Check
         run: df -h . && docker images
-      - name: Remove images
-        run: docker image prune -a -f || true
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
       - name: Disk Check
         run: df -h . && docker images
       - name: Smoke test

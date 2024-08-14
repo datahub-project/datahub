@@ -247,7 +247,6 @@ def test_dbt_config_prefer_sql_parser_lineage():
         "catalog_path": "dummy_path",
         "target_platform": "dummy_platform",
         "skip_sources_in_lineage": True,
-        "entities_enabled": {"sources": "NO"},
         "prefer_sql_parser_lineage": True,
     }
     config = DBTCoreConfig.parse_obj(config_dict)
