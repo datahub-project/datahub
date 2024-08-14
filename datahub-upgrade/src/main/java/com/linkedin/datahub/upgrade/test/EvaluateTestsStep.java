@@ -16,6 +16,8 @@ import com.linkedin.test.BatchTestRunEvent;
 import com.linkedin.test.BatchTestRunResult;
 import com.linkedin.test.BatchTestRunStatus;
 import com.linkedin.test.TestResults;
+import com.linkedin.timeseries.PartitionSpec;
+import com.linkedin.timeseries.PartitionType;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -266,6 +268,9 @@ public class EvaluateTestsStep implements UpgradeStep {
     BatchTestRunEvent event = new BatchTestRunEvent();
     event.setTimestampMillis(currentTime);
     event.setStatus(BatchTestRunStatus.COMPLETE);
+    PartitionSpec partitionSpec =
+        new PartitionSpec().setType(PartitionType.FULL_TABLE).setPartition("FULL");
+    event.setPartitionSpec(partitionSpec);
     event.setResult(
         new BatchTestRunResult()
             .setPassingCount(result.getPassCount())
