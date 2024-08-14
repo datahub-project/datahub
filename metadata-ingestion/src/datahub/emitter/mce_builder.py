@@ -26,7 +26,6 @@ import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
-from datahub.metadata._urns.urn_defs import CorpGroupUrn, CorpUserUrn
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
     AuditStampClass,
@@ -51,6 +50,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
