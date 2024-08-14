@@ -391,38 +391,8 @@ class S3Source(StatefulIngestionSourceBase):
         if extension == "" and path_spec.default_extension:
             extension = f".{path_spec.default_extension}"
 
-        inferrer: Optional[SchemaInferenceBase] = None
-        if table_data.content_type == "application/vnd.apache.parquet":
-            inferrer = parquet.ParquetInferrer()
-        elif table_data.content_type == "text/csv":
-            inferrer = csv_tsv.CsvInferrer(max_rows=self.source_config.max_rows)
-        elif table_data.content_type == "text/tab-separated-values":
-            inferrer = csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
-        elif table_data.content_type == "application/json":
-            inferrer = json.JsonInferrer()
-        elif table_data.content_type == "application/avro":
-            inferrer = avro.AvroInferrer()
-        elif extension == ".parquet":
-            inferrer = parquet.ParquetInferrer()
-        elif extension == ".csv":
-            inferrer = csv_tsv.CsvInferrer(max_rows=self.source_config.max_rows)
-        elif extension == ".tsv":
-            inferrer = csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
-        elif extension == ".jsonl":
-            inferrer = json.JsonInferrer(
-                max_rows=self.source_config.max_rows, format="jsonl"
-            )
-        elif extension == ".json":
-            inferrer = json.JsonInferrer()
-        elif extension == ".avro":
-            inferrer = avro.AvroInferrer()
-        else:
-            self.report.report_warning(
-                table_data.full_path,
-                f"file {table_data.full_path} has unsupported extension",
-            )
-
         fields = []
+        inferrer = self._get_inferrer(extension, table_data.content_type)
         if inferrer:
             try:
                 fields = inferrer.infer_schema(file)
@@ -432,6 +402,11 @@ class S3Source(StatefulIngestionSourceBase):
                     table_data.full_path,
                     f"could not infer schema for file {table_data.full_path}: {e}",
                 )
+        else:
+            self.report.report_warning(
+                table_data.full_path,
+                f"file {table_data.full_path} has unsupported extension",
+            )
         file.close()
 
         if self.source_config.sort_schema_fields:
@@ -443,6 +418,36 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
         return fields
+
+    def _get_inferrer(
+        self, extension: str, content_type: Optional[str]
+    ) -> Optional[SchemaInferenceBase]:
+        if content_type == "application/vnd.apache.parquet":
+            return parquet.ParquetInferrer()
+        elif content_type == "text/csv":
+            return csv_tsv.CsvInferrer(max_rows=self.source_config.max_rows)
+        elif content_type == "text/tab-separated-values":
+            return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
+        elif content_type == "application/json":
+            return json.JsonInferrer()
+        elif content_type == "application/avro":
+            return avro.AvroInferrer()
+        elif extension == ".parquet":
+            return parquet.ParquetInferrer()
+        elif extension == ".csv":
+            return csv_tsv.CsvInferrer(max_rows=self.source_config.max_rows)
+        elif extension == ".tsv":
+            return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
+        elif extension == ".jsonl":
+            return json.JsonInferrer(
+                max_rows=self.source_config.max_rows, format="jsonl"
+            )
+        elif extension == ".json":
+            return json.JsonInferrer()
+        elif extension == ".avro":
+            return avro.AvroInferrer()
+        else:
+            return None
 
     def add_partition_columns_to_schema(
         self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
