@@ -896,7 +896,6 @@ module.exports = {
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
     //"metadata-ingestion-modules/gx-plugin/README"
-    // "smoke-test/tests/openapi/README.md"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",
