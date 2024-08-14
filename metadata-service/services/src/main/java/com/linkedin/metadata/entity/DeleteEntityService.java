@@ -729,11 +729,11 @@ public class DeleteEntityService {
             .collect(Collectors.toList());
     List<FormAssociation> completedForms =
         formsAspect.getCompletedForms().stream()
-            .filter(completedForm -> completedForm.getUrn() != deletedUrn)
+            .filter(completedForm -> !completedForm.getUrn().equals(deletedUrn))
             .collect(Collectors.toList());
     final List<FormVerificationAssociation> verifications =
         formsAspect.getVerifications().stream()
-            .filter(verification -> verification.getForm() != deletedUrn)
+            .filter(verification -> !verification.getForm().equals(deletedUrn))
             .collect(Collectors.toList());
 
     updatedAspect.get().setIncompleteForms(new FormAssociationArray(incompleteForms));
