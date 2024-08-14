@@ -1,8 +1,8 @@
 import {
-    GetTestResultsSummaryQuery,
-    GetTestResultSummariesQuery,
-    useGetTestResultsSummaryLazyQuery,
-    useGetTestResultSummariesLazyQuery,
+    GetOnDemandTestResultsQuery,
+    GetResultsForOnDemandTestsQuery,
+    useGetOnDemandTestResultsLazyQuery,
+    useGetResultsForOnDemandTestsLazyQuery,
 } from '@src/graphql/test.generated';
 import { AndFilterInput, Test } from '@src/types.generated';
 import moment from 'moment';
@@ -22,10 +22,11 @@ export function useEntityFormTasks(formUrn: string) {
     activeTasksRef.current = activeTasks;
 
     function handleFetchedTask(task: Test) {
-        if (task?.results.lastRunTimestampMillis) {
+        const firstResult = getFirstTestResult(task);
+        if (firstResult?.timestampMillis) {
             // task is complete
             const taskUrn = task.urn;
-            const lastRunTime = task?.results.lastRunTimestampMillis;
+            const lastRunTime = firstResult.timestampMillis;
             if (moment(lastRunTime).add(LOCAL_STORAGE_TIMEOUT_MINS, 'minutes') < moment()) {
                 removeFromLocalStorage(taskUrn);
             } else {
@@ -40,16 +41,16 @@ export function useEntityFormTasks(formUrn: string) {
         }
     }
 
-    const [fetchTask] = useGetTestResultsSummaryLazyQuery({
-        onCompleted: (data: GetTestResultsSummaryQuery) => {
+    const [fetchTask] = useGetOnDemandTestResultsLazyQuery({
+        onCompleted: (data: GetOnDemandTestResultsQuery) => {
             if (data.test) {
                 handleFetchedTask(data.test as Test);
             }
         },
     });
 
-    const [fetchTasks] = useGetTestResultSummariesLazyQuery({
-        onCompleted: (data: GetTestResultSummariesQuery) => {
+    const [fetchTasks] = useGetResultsForOnDemandTestsLazyQuery({
+        onCompleted: (data: GetResultsForOnDemandTestsQuery) => {
             data.listTests?.tests.forEach((test) => handleFetchedTask(test as Test));
         },
     });
@@ -110,4 +111,9 @@ export function useEntityFormTasks(formUrn: string) {
 export function getAssociatedPromptId(taskId: string): string | undefined {
     const tasksToIdMap: { [key: string]: string } = JSON.parse(localStorage.getItem(TASK_TO_ID_MAP_KEY) || '{}');
     return tasksToIdMap[taskId];
+}
+
+// We should only ever have one test result for on demand tests anyways
+export function getFirstTestResult(test: Test) {
+    return test.batchRunEvents?.batchRunEvents.sort((a, b) => a.timestampMillis - b.timestampMillis)[0];
 }

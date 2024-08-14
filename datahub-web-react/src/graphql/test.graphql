@@ -61,7 +61,23 @@ query getTestResultsSummary($urn: String!) {
     }
 }
 
-query getTestResultSummaries($input: ListTestsInput!) {
+query getOnDemandTestResults($urn: String!) {
+    test(urn: $urn) {
+        urn
+        type
+        name
+        batchRunEvents(limit: 10) {
+            batchRunEvents {
+                result {
+                    passingCount
+                }
+                timestampMillis
+            }
+        }
+    }
+}
+
+query getResultsForOnDemandTests($input: ListTestsInput!) {
     listTests(input: $input) {
         start
         count
@@ -70,7 +86,14 @@ query getTestResultSummaries($input: ListTestsInput!) {
             urn
             type
             name
-            ...testResultsSummaryFields
+            batchRunEvents(limit: 10) {
+                batchRunEvents {
+                    result {
+                        passingCount
+                    }
+                    timestampMillis
+                }
+            }
         }
     }
 }

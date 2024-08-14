@@ -40,7 +40,7 @@ export default function EntityNavigation() {
                 <ArrowLeft onClick={navigateLeft} />
                 {currentEntityIndex + 1}
                 &nbsp;of&nbsp;
-                {entityCount === MAX_ENTITY_URN_COUNT ? `${MAX_ENTITY_URN_COUNT.toLocaleString()}+` : entityCount}
+                {(entityCount || 0) >= MAX_ENTITY_URN_COUNT ? `${MAX_ENTITY_URN_COUNT.toLocaleString()}+` : entityCount}
                 &nbsp;{pluralize(entityCount || 0, 'Asset')}
                 <ArrowRight onClick={navigateRight} />
             </NavigationWrapper>
