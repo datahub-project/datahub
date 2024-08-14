@@ -281,6 +281,11 @@ public class ScimGroupRepository
   }
 
   @Override
+  protected String keyAspectName() {
+    return CORP_GROUP_KEY_ASPECT_NAME;
+  }
+
+  @Override
   Map<String, Class<? extends RecordTemplate>> aspectNamesToClasses() {
     Map<String, Class<? extends RecordTemplate>> result = new HashMap<>();
     result.put(CORP_GROUP_KEY_ASPECT_NAME, CorpGroupKey.class);

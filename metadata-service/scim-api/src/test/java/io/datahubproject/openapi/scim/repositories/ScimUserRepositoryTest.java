@@ -285,6 +285,102 @@ public class ScimUserRepositoryTest extends ScimRepositoryTestBase {
   }
 
   @Test
+  public void testPagination() {
+    String userName2 = "scimTestUser2@example.com";
+    String userId2 =
+        Base64.getUrlEncoder().encodeToString(("urn:li:corpuser:" + userName2).getBytes());
+
+    post(
+        "/Users",
+        String.format(
+            """
+                    {
+                      "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+                      "userName": "%s"
+                    }
+                    """,
+            userName1));
+
+    post(
+        "/Users",
+        String.format(
+            """
+                    {
+                      "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+                      "userName": "%s"
+                    }
+                    """,
+            userName2));
+
+    get("/Users", ImmutableMap.of("startIndex", "1", "count", "10"))
+        .statusCode(200)
+        .body(
+            "totalResults", is(2),
+            "startIndex", is(1),
+            "itemsPerPage", is(2),
+            "schemas", contains("urn:ietf:params:scim:api:messages:2.0:ListResponse"),
+            "Resources[1].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:User"),
+            "Resources[1].userName", is(userName1),
+            "Resources[1].id", is(userId1),
+            "Resources[1].meta.resourceType", is("User"),
+            "Resources[1].meta.location", endsWith("openapi/scim/v2/Users/" + userId1),
+            "Resources[0].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:User"),
+            "Resources[0].userName", is(userName2),
+            "Resources[0].id", is(userId2),
+            "Resources[0].meta.resourceType", is("User"),
+            "Resources[0].meta.location", endsWith("openapi/scim/v2/Users/" + userId2));
+
+    get("/Users", ImmutableMap.of("startIndex", "2", "count", "10"))
+        .statusCode(200)
+        .body(
+            "totalResults", is(2),
+            "startIndex", is(2),
+            "itemsPerPage", is(1),
+            "schemas", contains("urn:ietf:params:scim:api:messages:2.0:ListResponse"),
+            "Resources[0].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:User"),
+            "Resources[0].userName", is(userName1),
+            "Resources[0].id", is(userId1),
+            "Resources[0].meta.resourceType", is("User"),
+            "Resources[0].meta.location", endsWith("openapi/scim/v2/Users/" + userId1));
+
+    get("/Users", ImmutableMap.of("startIndex", "1", "count", "1"))
+        .statusCode(200)
+        .body(
+            "totalResults", is(2),
+            "startIndex", is(1),
+            "itemsPerPage", is(1),
+            "schemas", contains("urn:ietf:params:scim:api:messages:2.0:ListResponse"),
+            "Resources[0].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:User"),
+            "Resources[0].userName", is(userName2),
+            "Resources[0].id", is(userId2),
+            "Resources[0].meta.resourceType", is("User"),
+            "Resources[0].meta.location", endsWith("openapi/scim/v2/Users/" + userId2));
+
+    get("/Users", ImmutableMap.of("startIndex", "3", "count", "10"))
+        .statusCode(200)
+        .body("totalResults", is(0));
+
+    delete("/Users/" + userId2);
+
+    get("/Users", ImmutableMap.of("startIndex", "1", "count", "10"))
+        .statusCode(200)
+        .body(
+            "totalResults", is(1),
+            "startIndex", is(1),
+            "itemsPerPage", is(1),
+            "schemas", contains("urn:ietf:params:scim:api:messages:2.0:ListResponse"),
+            "Resources[0].schemas", contains("urn:ietf:params:scim:schemas:core:2.0:User"),
+            "Resources[0].userName", is(userName1),
+            "Resources[0].id", is(userId1),
+            "Resources[0].meta.resourceType", is("User"),
+            "Resources[0].meta.location", endsWith("openapi/scim/v2/Users/" + userId1));
+
+    get("/Users", ImmutableMap.of("startIndex", "2", "count", "10"))
+        .statusCode(200)
+        .body("totalResults", is(0));
+  }
+
+  @Test
   public void testFullUserResource() {
     // adapted from the example at https://datatracker.ietf.org/doc/html/rfc7643#section-8.2
     String createBody =
