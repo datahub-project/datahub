@@ -104,6 +104,8 @@ sqlglot_lib = {
 
 classification_lib = {
     "acryl-datahub-classify==0.0.11",
+    # schwifty is needed for the classify plugin but in 2024.08.0 they broke the python 3.8 compatibility
+    "schwifty<2024.08.0",
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
