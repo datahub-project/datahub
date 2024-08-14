@@ -42,6 +42,7 @@ import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.BatchTestRunEvent;
 import com.linkedin.test.BatchTestRunResult;
 import com.linkedin.test.BatchTestRunStatus;
@@ -54,6 +55,7 @@ import com.linkedin.test.TestResults;
 import com.linkedin.test.TestSourceType;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -386,7 +388,7 @@ public class TestEngine {
 
     // Step 3 (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      batchIngestResults(results, mode, partial, batchedTestRunResults, null, true);
+      batchIngestResults(results, mode, partial, null, true);
       batchApplyActions(opContext, results, null);
     }
 
@@ -652,7 +654,8 @@ public class TestEngine {
   }
 
   /**
-   * Overwrites test results into GMS for a given urn.
+   * Overwrites test results into GMS for a given urn. This function is designed to operate on a
+   * subset of target entities for the test.
    *
    * @param testResults Test result map
    * @param mode Evaluation mode
@@ -661,7 +664,6 @@ public class TestEngine {
       @Nonnull Map<Urn, TestResults> testResults,
       EvaluationMode mode,
       boolean partial,
-      @Nonnull Map<Urn, BatchTestRunResult> batchTestRunResults,
       @Nullable Map<Urn, TestResults> previousResults,
       boolean shouldWriteAssetResults) {
     Stream<MetadataChangeProposal> mcps = Stream.empty();
@@ -748,27 +750,8 @@ public class TestEngine {
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
 
-    Stream<MetadataChangeProposal> reportingMCPs =
-        batchTestRunResults.entrySet().stream()
-            .map(
-                entry -> {
-                  final MetadataChangeProposal proposal = new MetadataChangeProposal();
-                  proposal.setEntityUrn(entry.getKey());
-                  proposal.setEntityType(entry.getKey().getEntityType());
-                  proposal.setAspectName("batchTestRunEvent");
-                  proposal.setAspect(
-                      GenericRecordUtils.serializeAspect(
-                          new BatchTestRunEvent()
-                              .setTimestampMillis(System.currentTimeMillis())
-                              .setStatus(BatchTestRunStatus.COMPLETE)
-                              .setResult(entry.getValue())));
-                  proposal.setChangeType(ChangeType.UPSERT);
-                  log.info("Reporting Batch Test Result: {}", entry.getValue());
-                  return proposal;
-                });
-
     List<MetadataChangeProposal> allMCPs =
-        Stream.concat(Stream.concat(mcps, removalMcps), reportingMCPs).collect(Collectors.toList());
+        Stream.concat(mcps, removalMcps).collect(Collectors.toList());
     log.info("Total number of mcps = {}", allMCPs.size());
     AspectsBatchImpl batch =
         AspectsBatchImpl.builder()
@@ -1116,8 +1099,44 @@ public class TestEngine {
           mode,
           results.keySet().size(),
           testUrn);
-      batchIngestResults(
-          results, mode, true, batchTestRunResults, oldResults, !shouldSkipAssetResults);
+
+      // Writes entity results
+      batchIngestResults(results, mode, true, oldResults, !shouldSkipAssetResults);
+
+      // Writes test summary results
+      List<MetadataChangeProposal> reportingMCPs =
+          batchTestRunResults.entrySet().stream()
+              .map(
+                  entry -> {
+                    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+                    proposal.setEntityUrn(entry.getKey());
+                    proposal.setEntityType(entry.getKey().getEntityType());
+                    proposal.setAspectName(BATCH_TEST_RUN_EVENT_ASPECT_NAME);
+                    proposal.setAspect(
+                        GenericRecordUtils.serializeAspect(
+                            new BatchTestRunEvent()
+                                .setTimestampMillis(System.currentTimeMillis())
+                                .setStatus(BatchTestRunStatus.COMPLETE)
+                                .setResult(entry.getValue())));
+                    proposal.setChangeType(ChangeType.UPSERT);
+                    proposal.setSystemMetadata(
+                        new SystemMetadata().setRunId(String.format("single-%s", Instant.now())));
+                    log.info("Reporting Batch Test Result: {}", entry.getValue());
+                    return proposal;
+                  })
+              .collect(Collectors.toList());
+      AspectsBatchImpl batch =
+          AspectsBatchImpl.builder()
+              .mcps(
+                  reportingMCPs,
+                  new AuditStamp()
+                      .setTime(System.currentTimeMillis())
+                      .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)),
+                  systemOpContext.getRetrieverContext().get())
+              .build();
+
+      _entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
+
       log.info(
           "Mode {}: Applying {} results to DataHub for test {}",
           mode,
