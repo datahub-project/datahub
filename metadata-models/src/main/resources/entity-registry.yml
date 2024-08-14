@@ -777,14 +777,6 @@ entities:
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
-  - name: genericEntity
-    doc:
-    category: internal
-    keyAspect: genericEntityKey
-    aspects:
-      - subTypes
-      - slackChannel
-      - slackMember
   - name: platformResource
     doc:
     category: core
