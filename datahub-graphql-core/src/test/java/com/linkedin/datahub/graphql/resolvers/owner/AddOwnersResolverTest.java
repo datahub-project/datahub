@@ -38,7 +38,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetSuccessNoExistingOwners() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -101,7 +101,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetSuccessExistingOwnerNewType() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     com.linkedin.common.Ownership oldOwnership =
         new Ownership()
@@ -167,7 +167,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetSuccessDeprecatedTypeToOwnershipType() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     com.linkedin.common.Ownership oldOwnership =
         new Ownership()
@@ -230,7 +230,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetSuccessMultipleOwnerTypes() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     com.linkedin.common.Ownership oldOwnership =
         new Ownership()
@@ -328,7 +328,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetFailureOwnerDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -366,7 +366,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -404,7 +404,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService);
 
@@ -429,7 +429,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)

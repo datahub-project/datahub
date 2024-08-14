@@ -59,10 +59,11 @@ public class ListAccessTokensResolver
           if (AuthorizationUtils.canManageTokens(context)
               || isListingSelfTokens(filters, context)) {
             try {
-              final SortCriterion sortCriterion =
-                  new SortCriterion()
-                      .setField(EXPIRES_AT_FIELD_NAME)
-                      .setOrder(SortOrder.DESCENDING);
+              final List<SortCriterion> sortCriteria =
+                  Collections.singletonList(
+                      new SortCriterion()
+                          .setField(EXPIRES_AT_FIELD_NAME)
+                          .setOrder(SortOrder.DESCENDING));
               final SearchResult searchResult =
                   _entityClient.search(
                       context
@@ -74,7 +75,7 @@ public class ListAccessTokensResolver
                           filters,
                           Collections.emptyList(),
                           context.getOperationContext().getAspectRetriever()),
-                      sortCriterion,
+                      sortCriteria,
                       start,
                       count);
 

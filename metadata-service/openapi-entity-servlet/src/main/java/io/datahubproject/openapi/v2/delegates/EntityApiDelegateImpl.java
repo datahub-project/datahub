@@ -61,6 +61,7 @@ import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -628,12 +629,18 @@ public class EntityApiDelegateImpl<I, O, S> {
             authentication,
             true);
 
-    // TODO multi-field sort
-    SortCriterion sortCriterion = new SortCriterion();
-    sortCriterion.setField(Optional.ofNullable(sort).map(s -> s.get(0)).orElse("urn"));
-    sortCriterion.setOrder(
-        com.linkedin.metadata.query.filter.SortOrder.valueOf(
-            Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
+    List<SortCriterion> sortCriteria =
+        Optional.ofNullable(sort).orElse(Collections.singletonList("urn")).stream()
+            .map(
+                sortField -> {
+                  SortCriterion sortCriterion = new SortCriterion();
+                  sortCriterion.setField(sortField);
+                  sortCriterion.setOrder(
+                      com.linkedin.metadata.query.filter.SortOrder.valueOf(
+                          Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
+                  return sortCriterion;
+                })
+            .collect(Collectors.toList());
 
     ScrollResult result =
         _searchService.scrollAcrossEntities(
@@ -641,7 +648,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             List.of(entitySpec.getName()),
             query,
             null,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             null,
             count);

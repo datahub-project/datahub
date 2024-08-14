@@ -42959,6 +42959,50 @@
     }
 },
 {
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.metadata.key.DatasetKey": {
+                        "platform": "urn:li:dataPlatform:bigquery",
+                        "name": "demo-custom-323403.bigquery_demo.order_items",
+                        "origin": "PROD"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_cll_ingest"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.metadata.key.DatasetKey": {
+                        "platform": "urn:li:dataPlatform:bigquery",
+                        "name": "demo-custom-323403.bigquery_demo.sellers",
+                        "origin": "PROD"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_cll_ingest"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(tableau,130496dc-29ca-8a89-e32b-d73c4d8b65ff)",
     "changeType": "UPSERT",

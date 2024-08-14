@@ -3,9 +3,7 @@ package com.datahub.event;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import com.datahub.event.hook.BusinessAttributeUpdateHook;
 import com.datahub.event.hook.PlatformEventHook;
-import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.PlatformEvent;
@@ -21,7 +19,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Conditional;
-import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -29,7 +26,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(PlatformEventProcessorCondition.class)
-@Import({BusinessAttributeUpdateHook.class, KafkaEventConsumerFactory.class})
 @EnableKafka
 public class PlatformEventProcessor {
 
@@ -49,6 +45,11 @@ public class PlatformEventProcessor {
         platformEventHooks.stream()
             .filter(PlatformEventHook::isEnabled)
             .collect(Collectors.toList());
+    log.info(
+        "Enabled platform hooks: {}",
+        this.hooks.stream()
+            .map(hook -> hook.getClass().getSimpleName())
+            .collect(Collectors.toList()));
     this.hooks.forEach(PlatformEventHook::init);
   }
 

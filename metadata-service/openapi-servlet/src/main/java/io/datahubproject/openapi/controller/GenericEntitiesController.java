@@ -16,10 +16,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -40,7 +38,6 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -56,7 +53,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -65,6 +61,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -170,6 +167,7 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "query", defaultValue = "*") String query,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "sort", required = false, defaultValue = "urn") String sortField,
+      @RequestParam(value = "sortCriteria", required = false) List<String> sortFields,
       @RequestParam(value = "sortOrder", required = false, defaultValue = "ASCENDING")
           String sortOrder,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
@@ -198,8 +196,15 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // TODO: support additional and multiple sort params
-    SortCriterion sortCriterion = SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder));
+    List<SortCriterion> sortCriteria;
+    if (!CollectionUtils.isEmpty(sortFields)) {
+      sortCriteria = new ArrayList<>();
+      sortFields.forEach(
+          field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
+    } else {
+      sortCriteria =
+          Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
+    }
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
@@ -210,7 +215,7 @@ public abstract class GenericEntitiesController<
             List.of(entitySpec.getName()),
             query,
             null,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             null,
             count);
@@ -508,10 +513,10 @@ public abstract class GenericEntitiesController<
       @PathVariable("aspectName") String aspectName,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
-      @RequestParam(value = "createIfNotExists", required = false, defaultValue = "false")
+      @RequestParam(value = "createIfNotExists", required = false, defaultValue = "true")
           Boolean createIfNotExists,
       @RequestBody @Nonnull String jsonAspect)
-      throws URISyntaxException {
+      throws URISyntaxException, JsonProcessingException {
 
     Urn urn = validatedUrn(entityUrn);
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -649,8 +654,8 @@ public abstract class GenericEntitiesController<
    * fixes)
    *
    * @param requestedAspectNames requested aspects
-   * @return updated map
    * @param <T> map values
+   * @return updated map
    */
   protected <T> LinkedHashMap<Urn, Map<String, T>> resolveAspectNames(
       LinkedHashMap<Urn, Map<String, T>> requestedAspectNames, @Nonnull T defaultValue) {
@@ -725,26 +730,14 @@ public abstract class GenericEntitiesController<
         aspectSpec.getDataTemplateClass(), envelopedAspect.getValue().data());
   }
 
-  protected ChangeMCP toUpsertItem(
+  protected abstract ChangeMCP toUpsertItem(
       @Nonnull AspectRetriever aspectRetriever,
       Urn entityUrn,
       AspectSpec aspectSpec,
       Boolean createIfNotExists,
       String jsonAspect,
       Actor actor)
-      throws URISyntaxException {
-    return ChangeItemImpl.builder()
-        .urn(entityUrn)
-        .aspectName(aspectSpec.getName())
-        .changeType(Boolean.TRUE.equals(createIfNotExists) ? ChangeType.CREATE : ChangeType.UPSERT)
-        .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-        .recordTemplate(
-            GenericRecordUtils.deserializeAspect(
-                ByteString.copyString(jsonAspect, StandardCharsets.UTF_8),
-                GenericRecordUtils.JSON,
-                aspectSpec))
-        .build(aspectRetriever);
-  }
+      throws URISyntaxException, JsonProcessingException;
 
   protected ChangeMCP toUpsertItem(
       @Nonnull AspectRetriever aspectRetriever,

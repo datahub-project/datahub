@@ -134,6 +134,12 @@ class BigQuerySchemaGenerator:
         "BIGINT": NumberType,
         "TINYINT": NumberType,
         "BYTEINT": NumberType,
+        "BIGNUMERIC": NumberType,
+        "NUMERIC": NumberType,
+        "DECIMAL": NumberType,
+        "BIGDECIMAL": NumberType,
+        "FLOAT64": NumberType,
+        "RANGE": NullType,
         "STRING": StringType,
         "TIME": TimeType,
         "TIMESTAMP": TimeType,
@@ -979,7 +985,7 @@ class BigQuerySchemaGenerator:
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
             max_batch_size: int = (
                 self.config.number_of_datasets_process_in_batch
-                if not self.config.is_profiling_enabled()
+                if not self.config.have_table_data_read_permission
                 else self.config.number_of_datasets_process_in_batch_if_profiling_enabled
             )
 

@@ -36,6 +36,7 @@ import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessMana
 import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 import { getLastUpdatedMs } from './shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -166,14 +167,22 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Validation',
+                    name: 'Quality',
                     component: ValidationsTab,
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.assertions?.total || 0) > 0 || dataset?.dataset?.testResults !== null
-                            );
+                            return (dataset?.dataset?.assertions?.total || 0) > 0;
+                        },
+                    },
+                },
+                {
+                    name: 'Governance',
+                    component: GovernanceTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return dataset?.dataset?.testResults !== null;
                         },
                     },
                 },
@@ -211,6 +220,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
+            isNameEditable
         />
     );
 
@@ -274,7 +284,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.properties?.name || data.name}
+                name={data.editableProperties?.name || data.properties?.name || data.name}
                 origin={data.origin}
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -302,7 +312,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.properties?.name || data.name}
+                name={data.editableProperties?.name || data.properties?.name || data.name}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
@@ -352,7 +362,7 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     displayName = (data: Dataset) => {
-        return data?.properties?.name || data.name || data.urn;
+        return data?.editableProperties?.name || data?.properties?.name || data.name || data.urn;
     };
 
     platformLogoUrl = (data: Dataset) => {
