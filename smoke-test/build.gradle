@@ -158,8 +158,6 @@ task cypressDev(type: Exec, dependsOn: [installDev, ':metadata-ingestion:install
  */
 task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'RUN_UI', 'false'
 
     workingDir = project.projectDir
