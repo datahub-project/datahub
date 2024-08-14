@@ -35,15 +35,9 @@ jobs:
         include:
           - python-version: "3.8"
             extraPythonRequirement: "great-expectations~=0.15.12"
-          - python-version: "3.8"
-            extraPythonRequirement: "great-expectations~=0.16.0 numpy~=1.26.0"
-          - python-version: "3.8"
-            extraPythonRequirement: "great-expectations~=0.17.0"
-          - python-version: "3.10"
-            extraPythonRequirement: "great-expectations~=0.15.12"
           - python-version: "3.10"
             extraPythonRequirement: "great-expectations~=0.16.0 numpy~=1.26.0"
-          - python-version: "3.10"
+          - python-version: "3.11"
             extraPythonRequirement: "great-expectations~=0.17.0"
       fail-fast: false
     steps:
@@ -65,7 +59,7 @@ jobs:
         if: always()
         run: source metadata-ingestion-modules/gx-plugin/venv/bin/activate && pip freeze
       - uses: actions/upload-artifact@v3
-        if: ${{ always() && matrix.python-version == '3.10' && matrix.extraPythonRequirement == 'great-expectations~=0.15.12' }}
+        if: ${{ always() && matrix.python-version == '3.11' && matrix.extraPythonRequirement == 'great-expectations~=0.17.0' }}
         with:
           name: Test Results (GX Plugin ${{ matrix.python-version}})
           path: |

@@ -50,10 +50,6 @@ task installDev(type: Exec, dependsOn: [install]) {
 }
 
 task lint(type: Exec, dependsOn: installDev) {
-  /*
-    The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
-   "venv/lib/python3.8/site-packages/airflow/_vendor/connexion/spec.py:169: error: invalid syntax".
-   */
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "black --check --diff src/ tests/ && " +
@@ -105,10 +101,6 @@ task testQuick(type: Exec, dependsOn: installDevTest) {
 }
 
 
-task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
-}
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " +
   'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'

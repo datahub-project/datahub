@@ -15,12 +15,6 @@ def get_long_description():
 
 rest_common = {"requests", "requests_file"}
 
-# TODO: Is this required here??
-pydantic_no_v2 = {
-    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
-    # Tags sources that require the pydantic v2 API.
-    "pydantic<2",
-}
 # TODO: Can we move away from sqllineage and use sqlglot ??
 sqllineage_lib = {
     "sqllineage==1.3.8",
@@ -48,9 +42,7 @@ base_requirements = {
     "traitlets<5.2.2",
     *rest_common,
     *sqllineage_lib,
-    # Ignoring the dependency below because it causes issues with the vercel built wheel install
-    # f"acryl-datahub[datahub-rest]{_self_pin}",
-    "acryl-datahub[datahub-rest]",
+    f"acryl-datahub[datahub-rest]{_self_pin}",
 }
 
 mypy_stubs = {
@@ -105,7 +97,7 @@ integration_test_requirements = {
     *dev_requirements,
     "psycopg2-binary",
     "pyspark",
-    "acryl-datahub[testing-utils]",
+    f"acryl-datahub[testing-utils]{_self_pin}",
     "pytest-docker>=1.1.0",
 }
 
