@@ -643,6 +643,12 @@ executors:
 
 springdoc.api-docs.groups.enabled: true
 
+corpuser:
+  hook:
+    slackMemberResolutionHook:
+      enabled: ${SLACK_MEMBER_RESOLUTION_HOOK_ENABLED:false}
+      consumerGroupSuffix: ${SLACK_MEMBER_RESOLUTION_HOOK_CONSUMER_GROUP_SUFFIX:corpuser}
+
 forms:
   hook:
     enabled: ${FORMS_HOOK_ENABLED:true}

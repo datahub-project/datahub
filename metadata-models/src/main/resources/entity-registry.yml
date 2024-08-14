@@ -241,6 +241,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - slackUserInfo
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -757,14 +758,14 @@ entities:
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
-  - name: genericEntity
-    doc: 
-    category: internal
-    keyAspect: genericEntityKey
+  - name: platformResource
+    doc:
+    category: core
+    keyAspect: platformResourceKey
     aspects:
-      - subTypes
-      - slackChannel
-      - slackMember
+      - dataPlatformInstance
+      - platformResourceInfo
+      - status
 
 events:
   - name: notificationRequest
