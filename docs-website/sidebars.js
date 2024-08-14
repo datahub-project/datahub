@@ -926,6 +926,7 @@ module.exports = {
     // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
+    // "smoke-test/tests/openapi/README"
     // ],
   ],
 };
