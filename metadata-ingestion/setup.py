@@ -8,7 +8,9 @@ with open("./src/datahub/__init__.py") as fp:
 
 _version: str = package_metadata["__version__"]
 _self_pin = (
-    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
 )
 
 base_requirements = {
