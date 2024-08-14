@@ -10,7 +10,6 @@ from pydantic import PositiveInt, validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
-from datahub.metadata.urns import DatasetUrn
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -22,9 +21,9 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
-    gen_containers,
     DatabaseKey,
     add_dataset_to_container,
+    gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -67,10 +66,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
 )
+from datahub.metadata.urns import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
