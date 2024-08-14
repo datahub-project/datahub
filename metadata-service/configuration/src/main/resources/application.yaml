@@ -296,10 +296,18 @@ metadataTests:
 
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
+  consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
 updateIndices:
   enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
+  consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}
 ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
+  consumerGroupSuffix: ${INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX:}
+incidents:
+  hook:
+    enabled: ${ENABLE_INCIDENTS_HOOK:true}
+    maxIncidentHistory: ${MAX_INCIDENT_HISTORY:100}
+    consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
   upgradeDefaultBrowsePaths:
@@ -376,6 +384,7 @@ featureFlags:
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
+  consumerGroupSuffix: ${ECE_CONSUMER_GROUP_SUFFIX:}
 
 views:
   enabled: ${VIEWS_ENABLED:true}
@@ -460,6 +469,7 @@ springdoc.api-docs.groups.enabled: true
 forms:
   hook:
     enabled: { $FORMS_HOOK_ENABLED:true }
+    consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 businessAttribute:
   fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:20000}
