@@ -245,6 +245,7 @@ entities:
       - forms
       - testResults
       - share
+      - slackUserInfo
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -784,6 +785,14 @@ entities:
       - subTypes
       - slackChannel
       - slackMember
+  - name: platformResource
+    doc:
+    category: core
+    keyAspect: platformResourceKey
+    aspects:
+      - dataPlatformInstance
+      - platformResourceInfo
+      - status
 events:
   - name: notificationRequest
 plugins:

@@ -1,0 +1,17 @@
+namespace com.linkedin.platformresource
+
+/**
+ * Key for Platform Resource.
+ * These entities are for miscelaneous data that is used in non-core parts of the system.
+ * For instance, if we want to persist & retrieve data from auxiliary integrations such as Slack or Microsoft Teams.
+ */
+@Aspect = {
+  "name": "platformResourceKey"
+}
+record PlatformResourceKey {
+  /**
+   * A unique id for this entity. Generated on the server side at entity creation time.
+   * Format will be a guid.
+   */
+  id: string
+}

@@ -24,7 +24,7 @@ export const updateFormData = (definition, formData) => {
             const { term_propagation, tag_propagation, snowflake } = config;
 
             const tagsAndTerms = unmergeTagsAndTerms(
-                config?.term_propagation?.target_terms || [],
+                JSON.parse(config?.term_propagation?.target_terms) || [],
                 config?.term_propagation?.term_groups || [],
                 config?.tag_propagation?.tag_prefixes || [],
             ) || {
