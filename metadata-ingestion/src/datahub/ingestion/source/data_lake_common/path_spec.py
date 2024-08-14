@@ -493,7 +493,7 @@ class PathSpec(ConfigModel):
 
         if (
             include_ext not in values["file_types"]
-            and include_ext != "*"
+            and include_ext not in ["*", ""]
             and not values["default_extension"]
             and include_ext not in SUPPORTED_COMPRESSIONS
         ):

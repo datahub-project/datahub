@@ -109,7 +109,13 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, test_resources_dir)
                 file_list.append(rel_path)
-                bkt.upload_file(full_path, rel_path)
+                bkt.upload_file(
+                    full_path,
+                    rel_path,  # Set content type for `no_extension/small` file to text/csv
+                    ExtraArgs={"ContentType": "text/csv"}
+                    if "." not in rel_path
+                    else {},
+                )
                 s3_client.put_object_tagging(
                     Bucket=bucket_name,
                     Key=rel_path,
