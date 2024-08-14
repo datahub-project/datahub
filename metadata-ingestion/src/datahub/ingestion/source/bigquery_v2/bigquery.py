@@ -258,6 +258,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _get_projects(self) -> List[BigqueryProject]:
         logger.info("Getting projects")
+
         if self.config.project_ids or self.config.project_id:
             project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
             return [
