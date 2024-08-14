@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
+from mypy_boto3_s3.service_resource import ObjectSummary, S3ServiceResource
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
@@ -1018,6 +1019,7 @@ class S3Source(StatefulIngestionSourceBase):
                             timestamp=max_folder.modification_time,
                             size=max_folder.size,
                             partitions=partitions,
+                            # TODO: Support content type inference for partitions
                         )
                 except Exception as e:
                     # This odd check if being done because boto does not have a proper exception to catch

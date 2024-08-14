@@ -50,8 +50,8 @@ class DataLakeSourceConfig(
     use_s3_content_type: bool = Field(
         default=False,
         description=(
-            "If enabled, use S3 Object metadata to determine content type over file extension, if set.",
-            " Warning: this requires a separate query to S3 for each object, which can be slow for large datasets.",
+            "If enabled, use S3 Object metadata to determine content type over file extension, if set."
+            " Warning: this requires a separate query to S3 for each object, which can be slow for large datasets."
         ),
     )
 
