@@ -149,8 +149,8 @@ def touch_local_files(pytestconfig):
             os.utime(full_path, times=(current_time_sec, current_time_sec))
 
 
-SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
-source_files = os.listdir(SOURCE_FILES_PATH)
+S3_SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
+source_files = os.listdir(S3_SOURCE_FILES_PATH)
 
 
 @pytest.mark.integration
@@ -160,7 +160,7 @@ def test_data_lake_s3_ingest(
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
 
-    f = open(os.path.join(SOURCE_FILES_PATH, source_file))
+    f = open(os.path.join(S3_SOURCE_FILES_PATH, source_file))
     source = json.load(f)
 
     config_dict = {}
@@ -189,13 +189,17 @@ def test_data_lake_s3_ingest(
     )
 
 
+LOCAL_SOURCE_FILES_PATH = "./tests/integration/s3/sources/local"
+source_files = os.listdir(LOCAL_SOURCE_FILES_PATH)
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize("source_file", source_files)
 def test_data_lake_local_ingest(
     pytestconfig, touch_local_files, source_file, tmp_path, mock_time
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
-    f = open(os.path.join(SOURCE_FILES_PATH, source_file))
+    f = open(os.path.join(LOCAL_SOURCE_FILES_PATH, source_file))
     source = json.load(f)
 
     config_dict = {}
