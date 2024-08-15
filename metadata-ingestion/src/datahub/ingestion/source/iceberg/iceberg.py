@@ -82,6 +82,7 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     logging.WARNING
 )
+from humanfriendly import format_timespan
 
 
 @platform_name("Iceberg")
@@ -137,6 +138,7 @@ class IcebergSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         def _process_dataset(dataset_path):
+            local_catalog = self.config.get_catalog()
             dataset_name = ".".join(dataset_path)
             if not self.config.table_pattern.allowed(dataset_name):
                 # Dataset name is rejected by pattern, report as dropped.
@@ -145,9 +147,9 @@ class IcebergSource(StatefulIngestionSourceBase):
             try:
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
                 start_ts = time()
-                table = catalog.load_table(dataset_path)
+                table = local_catalog.load_table(dataset_path)
                 self.report.report_table_load_time(time() - start_ts)
-                yield from self._create_iceberg_workunit(dataset_name, table)
+                return [*self._create_iceberg_workunit(dataset_name, table)]
             except NoSuchIcebergTableError as e:
                self.report.report_failure("general", f"Failed to create workunit: {e}")
                LOGGER.exception(
@@ -162,10 +164,12 @@ class IcebergSource(StatefulIngestionSourceBase):
             self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
             return
 
+        datasets = [*self._get_datasets(catalog)]
+
         for wu in ThreadedIteratorExecutor.process(
                 worker_func=_process_dataset,
                 args_list=[
-                    (dataset_path,) for dataset_path in self._get_datasets(catalog)
+                    (dataset_path,) for dataset_path in datasets
                 ],
                 max_workers=self.config.processing_threads,
         ):
