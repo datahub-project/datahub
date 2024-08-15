@@ -27,10 +27,10 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.collections.CollectionUtils;
 import org.javatuples.Octet;
 import org.javatuples.Septet;
 import org.javatuples.Sextet;
-import org.opensearch.core.common.util.CollectionUtils;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
@@ -72,7 +72,7 @@ public class CachingEntitySearchService {
       @Nonnull List<String> entityNames,
       @Nonnull String query,
       @Nullable Filter filters,
-      @Nullable List<SortCriterion> sortCriteria,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
@@ -182,7 +182,7 @@ public class CachingEntitySearchService {
                     entityNames,
                     query,
                     filters != null ? toJsonString(filters) : null,
-                    !CollectionUtils.isEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+                    CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
                     facets,
                     querySize),
             enableCache)
@@ -305,7 +305,7 @@ public class CachingEntitySearchService {
                 entities,
                 query,
                 filters != null ? toJsonString(filters) : null,
-                !CollectionUtils.isEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+                CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
                 scrollId,
                 size);
         String json = cache.get(cacheKey, String.class);

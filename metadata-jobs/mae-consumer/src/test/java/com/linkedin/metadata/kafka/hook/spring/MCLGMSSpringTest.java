@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
+import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertEquals;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -51,27 +52,18 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
   public void testHooks() {
     MCLKafkaListenerRegistrar registrar =
         applicationContext.getBean(MCLKafkaListenerRegistrar.class);
-
-    assertEquals(
-        0,
+    assertTrue(
         registrar.getMetadataChangeLogHooks().stream()
-            .filter(hook -> hook instanceof IngestionSchedulerHook)
-            .count());
-    assertEquals(
-        1,
+            .noneMatch(hook -> hook instanceof IngestionSchedulerHook));
+    assertTrue(
         registrar.getMetadataChangeLogHooks().stream()
-            .filter(hook -> hook instanceof UpdateIndicesHook)
-            .count());
-    assertEquals(
-        1,
+            .anyMatch(hook -> hook instanceof UpdateIndicesHook));
+    assertTrue(
         registrar.getMetadataChangeLogHooks().stream()
-            .filter(hook -> hook instanceof SiblingAssociationHook)
-            .count());
-    assertEquals(
-        1,
+            .anyMatch(hook -> hook instanceof SiblingAssociationHook));
+    assertTrue(
         registrar.getMetadataChangeLogHooks().stream()
-            .filter(hook -> hook instanceof EntityChangeEventGeneratorHook)
-            .count());
+            .anyMatch(hook -> hook instanceof EntityChangeEventGeneratorHook));
     assertEquals(
         1,
         registrar.getMetadataChangeLogHooks().stream()
@@ -101,11 +93,6 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
         1,
         registrar.getMetadataChangeLogHooks().stream()
             .filter(hook -> hook instanceof FormAssignmentHook)
-            .count());
-    assertEquals(
-        1,
-        registrar.getMetadataChangeLogHooks().stream()
-            .filter(hook -> hook instanceof IncidentsSummaryHook)
             .count());
     assertEquals(
         1,

@@ -69,8 +69,8 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   @Autowired
   public IncidentsSummaryHook(
       @Nonnull final IncidentService incidentService,
-      @Nonnull @Value("${incidents.hook.enabled:true}") Boolean isEnabled,
-      @Nonnull @Value("${incidents.hook.maxIncidentHistory:100}") Integer maxIncidentHistory,
+      @Nonnull @Value("${incidents.hook.enabled}") Boolean isEnabled,
+      @Nonnull @Value("${incidents.hook.maxIncidentHistory}") Integer maxIncidentHistory,
       @Nonnull @Value("${incidents.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.incidentService = Objects.requireNonNull(incidentService, "incidentService is required");
     this.isEnabled = isEnabled;

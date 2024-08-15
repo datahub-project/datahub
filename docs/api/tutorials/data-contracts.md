@@ -5,7 +5,7 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability saasOnly />
 
-This guide specifically covers how to use the Data Contract APIs with **Acryl Cloud**.
+This guide specifically covers how to use the Data Contract APIs with **DataHub Cloud**.
 
 ## Why Would You Use Data Contract APIs?
 

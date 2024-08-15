@@ -176,6 +176,12 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Governance',
                     component: GovernanceTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return dataset?.dataset?.testResults !== null;
+                        },
+                    },
                 },
                 {
                     name: 'Runs', // TODO: Rename this to DatasetRunsTab.
@@ -211,6 +217,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
+            isNameEditable
         />
     );
 
@@ -277,7 +284,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.properties?.name || data.name}
+                name={data.editableProperties?.name || data.properties?.name || data.name}
                 origin={data.origin}
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -305,7 +312,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <Preview
                 urn={data.urn}
-                name={data.properties?.name || data.name}
+                name={data.editableProperties?.name || data.properties?.name || data.name}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
@@ -357,7 +364,7 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     displayName = (data: Dataset) => {
-        return data?.properties?.name || data.name || data.urn;
+        return data?.editableProperties?.name || data?.properties?.name || data.name || data.urn;
     };
 
     platformLogoUrl = (data: Dataset) => {

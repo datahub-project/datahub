@@ -257,7 +257,9 @@ public class TimeseriesAspectTransformer {
         finalDocument);
   }
 
-  private static String getDocId(@Nonnull JsonNode document, String collectionId) {
+  private static String getDocId(@Nonnull JsonNode document, String collectionId)
+      throws IllegalArgumentException {
+    String hashAlgo = System.getenv("ELASTIC_ID_HASH_ALGO");
     String docId = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).toString();
     JsonNode eventGranularity = document.get(MappingsBuilder.EVENT_GRANULARITY);
     if (eventGranularity != null) {
@@ -276,6 +278,11 @@ public class TimeseriesAspectTransformer {
       docId += partitionSpec.toString();
     }
 
-    return DigestUtils.md5Hex(docId);
+    if (hashAlgo.equalsIgnoreCase("SHA-256")) {
+      return DigestUtils.sha256Hex(docId);
+    } else if (hashAlgo.equalsIgnoreCase("MD5")) {
+      return DigestUtils.md5Hex(docId);
+    }
+    throw new IllegalArgumentException("Hash function not handled !");
   }
 }

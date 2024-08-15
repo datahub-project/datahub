@@ -189,35 +189,49 @@ def _table_level_lineage(
     statement: sqlglot.Expression, dialect: sqlglot.Dialect
 ) -> Tuple[Set[_TableName], Set[_TableName]]:
     # Generate table-level lineage.
-    modified = {
-        _TableName.from_sqlglot_table(expr.this)
-        for expr in statement.find_all(
-            sqlglot.exp.Create,
-            sqlglot.exp.Insert,
-            sqlglot.exp.Update,
-            sqlglot.exp.Delete,
-            sqlglot.exp.Merge,
-        )
-        # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
-        # the `this` on the INSERT part isn't a table.
-        if isinstance(expr.this, sqlglot.exp.Table)
-    } | {
-        # For statements that include a column list, like
-        # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
-        # the table name is nested inside a Schema object.
-        _TableName.from_sqlglot_table(expr.this.this)
-        for expr in statement.find_all(
-            sqlglot.exp.Create,
-            sqlglot.exp.Insert,
-        )
-        if isinstance(expr.this, sqlglot.exp.Schema)
-        and isinstance(expr.this.this, sqlglot.exp.Table)
-    }
+    modified = (
+        {
+            _TableName.from_sqlglot_table(expr.this)
+            for expr in statement.find_all(
+                sqlglot.exp.Create,
+                sqlglot.exp.Insert,
+                sqlglot.exp.Update,
+                sqlglot.exp.Delete,
+                sqlglot.exp.Merge,
+                sqlglot.exp.AlterTable,
+            )
+            # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
+            # the `this` on the INSERT part isn't a table.
+            if isinstance(expr.this, sqlglot.exp.Table)
+        }
+        | {
+            # For statements that include a column list, like
+            # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
+            # the table name is nested inside a Schema object.
+            _TableName.from_sqlglot_table(expr.this.this)
+            for expr in statement.find_all(
+                sqlglot.exp.Create,
+                sqlglot.exp.Insert,
+            )
+            if isinstance(expr.this, sqlglot.exp.Schema)
+            and isinstance(expr.this.this, sqlglot.exp.Table)
+        }
+        | {
+            # For drop statements, we only want it if a table/view is being dropped.
+            # Other "kinds" will not have table.name populated.
+            _TableName.from_sqlglot_table(expr.this)
+            for expr in ([statement] if isinstance(statement, sqlglot.exp.Drop) else [])
+            if isinstance(expr.this, sqlglot.exp.Table)
+            and expr.this.this
+            and expr.this.name
+        }
+    )
 
     tables = (
         {
             _TableName.from_sqlglot_table(table)
             for table in statement.find_all(sqlglot.exp.Table)
+            if not isinstance(table.parent, sqlglot.exp.Drop)
         }
         # ignore references created in this query
         - modified

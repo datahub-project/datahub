@@ -8,7 +8,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-> The **Freshness Assertions** feature is available as part of the **Acryl Observe** module of Acryl Cloud.
+> The **Freshness Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
 > If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe). 
 
 ## Introduction
@@ -22,9 +22,9 @@ There are many reasons why an important Table on Snowflake, Redshift, BigQuery, 
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data 
 issues _before_ anyone else? What if you could communicate commitments about the freshness or change frequency
-of a table? With Acryl DataHub Freshness Assertions, you can.
+of a table? With DataHub Cloud Freshness Assertions, you can.
 
-Acryl DataHub allows users to define expectations about when a particular Table in the warehouse
+DataHub Cloud allows users to define expectations about when a particular Table in the warehouse
 should change, and then monitor those expectations over time, with the ability to be notified when things go wrong. 
 
 In this article, we'll cover the basics of monitoring Freshness Assertions - what they are, how to configure them, and more - so that you and your team can
@@ -42,7 +42,7 @@ Freshness Assertions are currently supported for:
 4. Databricks
 5. DataHub Operations (collected via ingestion)
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion** 
+Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion** 
 tab.
 
 > Note that Freshness Assertions are not yet supported if you are connecting to your warehouse
@@ -99,7 +99,7 @@ We can either check for change to the Table
 
 #### 3. Change Source
 
-The **Change Source**: This is the mechanism that Acryl DataHub should use to determine whether the Table has changed. The supported
+The **Change Source**: This is the mechanism that DataHub Cloud should use to determine whether the Table has changed. The supported
 Change Source types vary by the platform, but generally fall into these categories:
 
   - **Audit Log** (Default): A metadata API or Table that is exposed by the Data Warehouse which contains captures information about the
@@ -249,11 +249,11 @@ To resume the assertion, simply click **Start**.
 
 ## Smart Assertions ⚡
 
-As part of the **Acryl Observe** module, Acryl DataHub also provides **Smart Assertions** out of the box. These are
+As part of the **Acryl Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
 dynamic, AI-powered Freshness Assertions that you can use to monitor the freshness of important warehouse Tables, without
 requiring any manual setup. 
 
-If Acryl DataHub is able to detect a pattern in the change frequency of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
+If DataHub Cloud is able to detect a pattern in the change frequency of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
 a recommended Smart Assertion under the `Validations` tab on the Table profile page:
 
 <p align="left">
@@ -268,7 +268,7 @@ Don't need it anymore? Smart Assertions can just as easily be turned off by clic
 
 ## Creating Freshness Assertions via API 
 
-Under the hood, Acryl DataHub implements Freshness Assertion Monitoring using two concepts:
+Under the hood, DataHub Cloud implements Freshness Assertion Monitoring using two concepts:
 
 - **Assertion**: The specific expectation for freshness, e.g. "The table was changed int the past 7 hours"
   or "The table is changed on a schedule of every day by 8am". This is the "what". 

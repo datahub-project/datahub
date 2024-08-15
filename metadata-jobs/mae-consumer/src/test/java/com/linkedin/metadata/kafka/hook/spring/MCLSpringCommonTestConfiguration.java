@@ -40,11 +40,11 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.entity.update.indices",
       "com.linkedin.gms.factory.timeline.eventgenerator",
-      "com.linkedin.gms.factory.test.openapi",
       "com.linkedin.metadata.dao.producer",
       "com.linkedin.gms.factory.change",
       "com.datahub.event.hook",
-      "com.linkedin.gms.factory.notifications"
+      "com.linkedin.gms.factory.notifications",
+      "com.linkedin.gms.factory.test.openapi"
     })
 public class MCLSpringCommonTestConfiguration {
 

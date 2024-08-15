@@ -131,6 +131,9 @@ class GenericCheckpointState(CheckpointStateBase):
             new_entities=self.urns, old_entities=old_checkpoint_state.urns
         )
 
+    def urn_count(self) -> int:
+        return len(self.urns)
+
 
 def compute_percent_entities_changed(
     new_entities: List[str], old_entities: List[str]

@@ -256,7 +256,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=500)",
+                                "nativeDataType": "VARCHAR(500)",
                                 "recursive": false,
                                 "glossaryTerms": {
                                     "terms": [
@@ -279,7 +279,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -291,7 +291,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -303,7 +303,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "TEXT()",
+                                "nativeDataType": "TEXT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -315,7 +315,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "TEXT()",
+                                "nativeDataType": "TEXT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -327,7 +327,7 @@
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "TIMESTAMP()",
+                                "nativeDataType": "TIMESTAMP WITHOUT TIME ZONE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -339,7 +339,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255)",
+                                "nativeDataType": "VARCHAR(255)",
                                 "recursive": false,
                                 "glossaryTerms": {
                                     "terms": [
@@ -362,7 +362,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255)",
+                                "nativeDataType": "VARCHAR(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -374,7 +374,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "JSON(astext_type=Text())",
+                                "nativeDataType": "JSON",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -497,7 +497,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=500)",
+                                "nativeDataType": "VARCHAR(500)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -509,7 +509,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }

@@ -56,10 +56,10 @@ entities:
       - access
       - structuredProperties
       - forms
+      - partitionsSummary
       - share
       - origin
       - documentation
-      - partitionsSummary
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -74,7 +74,6 @@ entities:
       - domains
       - deprecation
       - versionInfo
-      - testResults
       - proposals
       - dataJobInfo
       - dataJobInputOutput
@@ -92,6 +91,7 @@ entities:
       - anomaliesSummary
       - subTypes
       - incidentsSummary
+      - testResults
       - share
       - origin
       - lineageFeatures
@@ -103,7 +103,6 @@ entities:
       - domains
       - deprecation
       - versionInfo
-      - testResults
       - proposals
       - dataFlowInfo
       - editableDataFlowProperties
@@ -119,6 +118,7 @@ entities:
       - incidentsSummary
       - forms
       - subTypes
+      - testResults
       - share
       - origin
       - lineageFeatures
@@ -129,6 +129,7 @@ entities:
       - dataProcessInfo
       - ownership
       - status
+      - testResults
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -139,6 +140,7 @@ entities:
       - dataProcessInstanceRelationships
       - dataProcessInstanceRunEvent
       - status
+      - testResults
       - lineageFeatures
   - name: chart
     category: core
@@ -148,7 +150,6 @@ entities:
       - editableChartProperties
       - chartQuery
       - inputFields
-      - testResults
       - usageFeatures
       - lineageFeatures
       - chartUsageStatistics
@@ -169,6 +170,7 @@ entities:
       - structuredProperties
       - incidentsSummary
       - forms
+      - testResults
       - share
       - origin
       - documentation
@@ -182,7 +184,6 @@ entities:
       - inputFields
       - usageFeatures
       - lineageFeatures
-      - testResults
       - subTypes
       - embed
       - proposals
@@ -199,6 +200,7 @@ entities:
       - structuredProperties
       - incidentsSummary
       - forms
+      - testResults
       - share
       - origin
       - documentation
@@ -220,6 +222,7 @@ entities:
       - dataPlatformInstance
       - proposals
       - browsePathsV2
+      - testResults
       - share
       - origin
       - documentation
@@ -240,6 +243,7 @@ entities:
       - roleMembership
       - structuredProperties
       - forms
+      - testResults
       - share
       - slackUserInfo
   - name: corpGroup
@@ -256,6 +260,7 @@ entities:
       - roleMembership
       - structuredProperties
       - forms
+      - testResults
       - share
   - name: domain
     doc: A data domain within an organization.
@@ -267,6 +272,7 @@ entities:
       - ownership
       - structuredProperties
       - forms
+      - testResults
       - displayProperties
       - share
       - origin
@@ -287,11 +293,11 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
-      - testResults
       - proposals
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - documentation
@@ -302,8 +308,8 @@ entities:
       - tagProperties
       - ownership
       - deprecation
-      - testResults
       - status
+      - testResults
       - share
       - origin
   - name: glossaryTerm
@@ -316,12 +322,12 @@ entities:
       - schemaMetadata
       - ownership
       - deprecation
-      - testResults
       - domains
       - status
       - browsePaths
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
   - name: glossaryNode
@@ -391,7 +397,6 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
-      - testResults
       - proposals
       - ownership
       - mlModelProperties
@@ -414,6 +419,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
@@ -425,7 +431,6 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
-      - testResults
       - proposals
       - mlModelGroupProperties
       - ownership
@@ -437,6 +442,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
@@ -451,6 +457,7 @@ entities:
       - deprecation
       - globalTags
       - dataPlatformInstance
+      - testResults
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -458,7 +465,6 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
-      - testResults
       - proposals
       - mlFeatureTableProperties
       - ownership
@@ -471,6 +477,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
@@ -482,7 +489,6 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
-      - testResults
       - proposals
       - mlFeatureProperties
       - ownership
@@ -495,6 +501,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
@@ -506,7 +513,6 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
-      - testResults
       - proposals
       - mlPrimaryKeyProperties
       - ownership
@@ -517,6 +523,7 @@ entities:
       - dataPlatformInstance
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
@@ -557,8 +564,9 @@ entities:
       - structuredProperties
       - forms
       - businessAttributes
-      - schemaFieldProfile
       - documentation
+      - testResults
+      - schemaFieldProfile
       - lineageFeatures
       - status
   - name: globalSettings
@@ -655,6 +663,7 @@ entities:
       - status
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
   - name: ownershipType
@@ -697,6 +706,10 @@ entities:
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
+  - name: dataHubAction
+    category: internal
+    keyAspect: dataHubActionKey
+    aspects: []
   - name: monitor
     category: core
     keyAspect: monitorKey
@@ -753,6 +766,12 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey
@@ -766,7 +785,6 @@ entities:
       - dataPlatformInstance
       - platformResourceInfo
       - status
-
 events:
   - name: notificationRequest
 plugins:

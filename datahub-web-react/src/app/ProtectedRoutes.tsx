@@ -1,6 +1,6 @@
-import { Layout } from 'antd';
 import React, { useEffect } from 'react';
-import { Route, Switch, useHistory, useLocation } from 'react-router-dom';
+import { Switch, Route, useLocation, useHistory } from 'react-router-dom';
+import { Layout } from 'antd';
 import DataHubTitle from './DataHubTitle';
 import AcrylRoutes from './AcrylRoutes';
 import { HomePage } from './home/HomePage';

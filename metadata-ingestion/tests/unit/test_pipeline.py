@@ -11,6 +11,7 @@ from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
@@ -60,7 +61,13 @@ class TestPipeline:
         "datahub.ingestion.graph.client.DataHubGraph.get_config",
         return_value={"noCode": True},
     )
-    def test_configure_without_sink(self, mock_emitter, mock_graph):
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_without_sink(
+        self, mock_emitter, mock_graph, mock_load_client_config
+    ):
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -71,8 +78,44 @@ class TestPipeline:
         )
         # assert that the default sink is a DatahubRestSink
         assert isinstance(pipeline.sink, DatahubRestSink)
-        assert pipeline.sink.config.server == "http://localhost:8080"
-        # token value is read from ~/.datahubenv which may be None or not
+        assert pipeline.sink.config.server == "http://fake-gms-server:8080"
+        assert pipeline.sink.config.token is None
+
+    @freeze_time(FROZEN_TIME)
+    @patch(
+        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-internal-server:8080"),
+    )
+    @patch(
+        "datahub.cli.config_utils.get_system_auth",
+        return_value="Basic user:pass",
+    )
+    def test_configure_without_sink_use_system_auth(
+        self, mock_emitter, mock_graph, mock_load_client_config, mock_get_system_auth
+    ):
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        # assert that the default sink is a DatahubRestSink
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink.config.server == "http://fake-internal-server:8080"
+        assert pipeline.sink.config.token is None
+        assert (
+            pipeline.sink.emitter._session.headers["Authorization"] == "Basic user:pass"
+        )
 
     @freeze_time(FROZEN_TIME)
     @patch(

@@ -440,6 +440,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
+
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
@@ -558,6 +559,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
 
+    List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
+
     OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_SEARCH_ACROSS_LINEAGE, entities), authorizer, auth, true)
             .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true))
@@ -573,8 +576,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         direction,
         entityList,
         input);
-
-    List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
     return RestliUtil.toTask(
         () -> {
           LineageSearchResult result = validateLineageSearchResult(opContext, lineageSearchService.searchAcrossLineage(

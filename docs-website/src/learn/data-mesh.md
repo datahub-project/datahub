@@ -90,7 +90,7 @@ While a centralized data lake or warehouse can simplify data governance by virtu
 
 ### Our Solution
 
-Acryl DataHub offers a comprehensive set of features designed to support the implementation of a Data Mesh at your organization:
+DataHub Cloud offers a comprehensive set of features designed to support the implementation of a Data Mesh at your organization:
 
 - **[Data Domains](https://datahubproject.io/docs/domains)**: Clearly define and manage data products within each business unit.
 - **[Data Products](https://datahubproject.io/docs/dataproducts):** Ensure each domain owns and manages its data products, promoting autonomy and agility.
@@ -100,7 +100,7 @@ Acryl DataHub offers a comprehensive set of features designed to support the imp
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/data-contract.png"/> 
   <br />
-  <i style={{color:"grey"}}>Data Contracts in Acryl DataHub UI</i>
+  <i style={{color:"grey"}}>Data Contracts in DataHub Cloud UI</i>
 </p>
 
 
@@ -128,4 +128,4 @@ By implementing these solutions, you can effectively manage decentralized data, 
 
 ## Conclusion
 
-Implementing a Data Mesh can significantly improve your organization's ability to manage and leverage decentralized data. By understanding the benefits of data mesh and following best practices for implementation, you can overcome the limitations of centralized data systems and enhance your agility, scalability, and ability to generate insights. Acryl DataHub was built from the ground up to help you achieve this, providing the tools and features necessary to implement a large-scale Data Mesh successfully.
+Implementing a Data Mesh can significantly improve your organization's ability to manage and leverage decentralized data. By understanding the benefits of data mesh and following best practices for implementation, you can overcome the limitations of centralized data systems and enhance your agility, scalability, and ability to generate insights. DataHub Cloud was built from the ground up to help you achieve this, providing the tools and features necessary to implement a large-scale Data Mesh successfully.

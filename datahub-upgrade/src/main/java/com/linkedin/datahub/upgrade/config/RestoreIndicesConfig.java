@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
@@ -25,9 +26,15 @@ public class RestoreIndicesConfig {
       final Database ebeanServer,
       final EntityService<?> entityService,
       final EntitySearchService entitySearchService,
-      final GraphService graphService) {
+      final GraphService graphService,
+      final SystemMetadataService systemMetadataService) {
     return new RestoreIndices(
-        systemOperationContext, ebeanServer, entityService, entitySearchService, graphService);
+        systemOperationContext,
+        ebeanServer,
+        entityService,
+        systemMetadataService,
+        entitySearchService,
+        graphService);
   }
 
   @Bean(name = "restoreIndices")
@@ -36,6 +43,6 @@ public class RestoreIndicesConfig {
   public RestoreIndices createNotImplInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOperationContext) {
     log.warn("restoreIndices is not supported for cassandra!");
-    return new RestoreIndices(systemOperationContext, null, null, null, null);
+    return new RestoreIndices(systemOperationContext, null, null, null, null, null);
   }
 }

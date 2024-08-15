@@ -9,6 +9,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /** A {@link PlatformEventHook} that is responsible for processing {@link NotificationRequest}s. */
@@ -18,14 +19,24 @@ public class NotificationSinkHook implements PlatformEventHook {
 
   private final NotificationSinkManager _sinkManager;
 
+  private final boolean enabled;
+
   @Autowired
-  public NotificationSinkHook(@Nonnull final NotificationSinkManager sinkManager) {
-    _sinkManager = sinkManager;
+  public NotificationSinkHook(
+      @Nonnull final NotificationSinkManager sinkManager,
+      @Value("${notifications.enabled}") boolean enabled) {
+    this._sinkManager = sinkManager;
+    this.enabled = enabled;
   }
 
   @Override
   public void init() {
     log.info("Created notification sink hook");
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return enabled;
   }
 
   @Override

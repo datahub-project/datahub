@@ -74,6 +74,8 @@ export function getCanEditName(
             return true; // TODO: add permissions for data products
         case EntityType.BusinessAttribute:
             return privileges?.manageBusinessAttributes;
+        case EntityType.Dataset:
+            return entityData?.privileges?.canEditProperties;
         default:
             return false;
     }
@@ -110,7 +112,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                         <>
                             <PlatformContent />
                             <TitleWrapper>
-                                <EntityName isNameEditable={canEditName} />
+                                <EntityName isNameEditable={canEditName || false} />
                                 {entityData?.deprecation?.deprecated && (
                                     <DeprecationPill
                                         urn={urn}

@@ -17,8 +17,8 @@ There's two actively supported implementations of the plugin, with different Air
 
 | Approach  | Airflow Version | Notes                                                                       |
 | --------- | --------------- | --------------------------------------------------------------------------- |
-| Plugin v2 | 2.3+            | Recommended. Requires Python 3.8+                                           |
-| Plugin v1 | 2.1+            | No automatic lineage extraction; may not extract lineage if the task fails. |
+| Plugin v2 | 2.3.4+          | Recommended. Requires Python 3.8+                                           |
+| Plugin v1 | 2.1 - 2.8       | No automatic lineage extraction; may not extract lineage if the task fails. |
 
 If you're using Airflow older than 2.1, it's possible to use the v1 plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
 
@@ -45,7 +45,7 @@ Set up a DataHub connection in Airflow, either via command line or the Airflow U
 airflow connections add  --conn-type 'datahub-rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080' --conn-password '<optional datahub auth token>'
 ```
 
-If you are using hosted Acryl Datahub then please use `https://YOUR_PREFIX.acryl.io/gms` as the `--conn-host` parameter.
+If you are using DataHub Cloud then please use `https://YOUR_PREFIX.acryl.io/gms` as the `--conn-host` parameter.
 
 #### Airflow UI
 
@@ -66,7 +66,7 @@ enabled = True  # default
 ```
 
 | Name                       | Default value        | Description                                                                              |
-|----------------------------|----------------------|------------------------------------------------------------------------------------------|
+| -------------------------- | -------------------- | ---------------------------------------------------------------------------------------- |
 | enabled                    | true                 | If the plugin should be enabled.                                                         |
 | conn_id                    | datahub_rest_default | The name of the datahub rest connection.                                                 |
 | cluster                    | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance             |
@@ -84,7 +84,7 @@ enabled = True  # default
 
 ### Installation
 
-The v1 plugin requires Airflow 2.1+ and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
+The v1 plugin requires Airflow 2.1 - 2.8 and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
 
 If you're using Airflow 2.3+, we recommend using the v2 plugin instead. If you need to use the v1 plugin with Airflow 2.3+, you must also set the environment variable `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true`.
 
@@ -132,7 +132,7 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 ```
 
 | Name                       | Default value        | Description                                                                                                                                                                            |
-|----------------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| -------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | enabled                    | true                 | If the plugin should be enabled.                                                                                                                                                       |
 | conn_id                    | datahub_rest_default | The name of the datahub connection you set in step 1.                                                                                                                                  |
 | cluster                    | prod                 | name of the airflow cluster                                                                                                                                                            |
@@ -240,6 +240,7 @@ See this [example PR](https://github.com/datahub-project/datahub/pull/10452) whi
 There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the Datahub, let's call such pipelines ans tasks, `obsolete pipelines and tasks`
 
 Following are the steps to cleanup them from the datahub:
+
 - create a DAG named `Datahub_Cleanup`, i.e.
 
 ```python
@@ -263,8 +264,31 @@ with DAG(
     )
 
 ```
+
 - ingest this DAG, and it will remove all the obsolete pipelines and tasks from the Datahub based on the `cluster` value set in the `airflow.cfg`
 
+## Get all dataJobs associated with a dataFlow
+
+If you are looking to find all tasks (aka DataJobs) that belong to a specific pipeline (aka DataFlow), you can use the following GraphQL query:
+
+```graphql
+query {
+  dataFlow(urn: "urn:li:dataFlow:(airflow,db_etl,prod)") {
+    childJobs: relationships(
+      input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }
+    ) {
+      total
+      relationships {
+        entity {
+          ... on DataJob {
+            urn
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 ## Emit Lineage Directly
 

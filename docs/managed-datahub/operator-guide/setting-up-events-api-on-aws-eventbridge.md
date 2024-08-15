@@ -1,7 +1,7 @@
 ---
 description: >-
   This guide will walk through the configuration required to start receiving
-  Acryl DataHub events via AWS EventBridge.
+  DataHub Cloud events via AWS EventBridge.
 ---
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 

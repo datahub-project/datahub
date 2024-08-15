@@ -27,6 +27,8 @@ public class FeatureFlags {
   private boolean schemaFieldEntityFetchEnabled = false;
   private boolean businessAttributeEntityEnabled = false;
   private boolean dataContractsEnabled = false;
+  private boolean editableDatasetNameEnabled = false;
+  private boolean showSeparateSiblings = false;
   private boolean documentationAiEnabled = false;
   private boolean themeV2Enabled = false;
   private boolean themeV2Default = false;
@@ -40,5 +42,4 @@ public class FeatureFlags {
   private boolean formCreationEnabled = false;
   private boolean alternateMCPValidation = false;
   private boolean schemaFieldCLLEnabled = false;
-  private boolean showSeparateSiblings = false;
 }

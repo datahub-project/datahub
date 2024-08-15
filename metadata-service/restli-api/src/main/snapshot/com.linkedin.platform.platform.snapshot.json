@@ -2660,6 +2660,15 @@
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT"
       }
+    }, {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Editable display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedName",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "editableDatasetProperties"

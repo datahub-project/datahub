@@ -256,7 +256,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -268,7 +268,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -280,7 +280,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -292,7 +292,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -304,7 +304,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "JSON()",
+                                "nativeDataType": "JSON",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -504,7 +504,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -516,7 +516,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -528,7 +528,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -540,7 +540,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -723,7 +723,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -735,7 +735,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -918,7 +918,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -930,7 +930,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -942,7 +942,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -954,7 +954,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -966,7 +966,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -978,7 +978,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1472,143 +1472,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
-                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
-                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
-                },
-                {
-                    "id": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
-                    "urn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
-                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
-                },
-                {
-                    "id": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
-                    "urn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
-                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
-                },
-                {
-                    "id": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
-                    "urn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761",
-                    "urn": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
-                },
-                {
-                    "id": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
-                    "urn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c"
-                }
-            ]
         }
     },
     "systemMetadata": {

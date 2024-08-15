@@ -3,7 +3,7 @@ from typing import Dict, Optional
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn, make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -72,13 +72,16 @@ def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
     )
     mcpw = MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=upstream_lineage)
 
-    with DataHubGraph(DataHubGraphConfig()) as graph:
+    with get_default_graph() as graph:
         graph.emit_mcp(mcpw)
         upstream_lineage_read = graph.get_aspect_v2(
             entity_urn=dataset_urn,
             aspect_type=UpstreamLineageClass,
             aspect="upstreamLineage",
         )
+
+        assert upstream_lineage_read is not None
+        assert len(upstream_lineage_read.upstreams) > 0
         assert upstream_lineage_read.upstreams[0].dataset == other_dataset_urn
 
         for patch_mcp in (
@@ -94,6 +97,8 @@ def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
             aspect_type=UpstreamLineageClass,
             aspect="upstreamLineage",
         )
+
+        assert upstream_lineage_read is not None
         assert len(upstream_lineage_read.upstreams) == 2
         assert upstream_lineage_read.upstreams[0].dataset == other_dataset_urn
         assert upstream_lineage_read.upstreams[1].dataset == patch_dataset_urn
@@ -111,6 +116,8 @@ def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
             aspect_type=UpstreamLineageClass,
             aspect="upstreamLineage",
         )
+
+        assert upstream_lineage_read is not None
         assert len(upstream_lineage_read.upstreams) == 1
         assert upstream_lineage_read.upstreams[0].dataset == other_dataset_urn
 
@@ -148,7 +155,7 @@ def test_field_terms_patch(wait_for_healthchecks):
     )
     mcpw = MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=editable_field)
 
-    with DataHubGraph(DataHubGraphConfig()) as graph:
+    with get_default_graph() as graph:
         graph.emit_mcp(mcpw)
         field_info = get_field_info(graph, dataset_urn, field_path)
         assert field_info
@@ -209,7 +216,7 @@ def test_field_tags_patch(wait_for_healthchecks):
     )
     mcpw = MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=editable_field)
 
-    with DataHubGraph(DataHubGraphConfig()) as graph:
+    with get_default_graph() as graph:
         graph.emit_mcp(mcpw)
         field_info = get_field_info(graph, dataset_urn, field_path)
         assert field_info
@@ -299,7 +306,7 @@ def test_custom_properties_patch(wait_for_healthchecks):
         base_aspect=orig_dataset_properties,
     )
 
-    with DataHubGraph(DataHubGraphConfig()) as graph:
+    with get_default_graph() as graph:
         # Patch custom properties along with name
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)

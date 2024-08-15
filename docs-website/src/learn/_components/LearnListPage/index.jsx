@@ -58,8 +58,9 @@ function BlogListPageContent(props) {
             <strong>For: </strong>
             {audiences.map((audience) => (
               <button
-                className={`button button--secondary ${activeFilters.includes(audience) && "button--active"}`}
+                className={clsx(styles.button, "button button--secondary", { [styles.buttonActive]: activeFilters.includes(audience) })}
                 onClick={() => handleFilterToggle(audience)}
+                key={audience}
               >
                 {audience}
               </button>

@@ -333,7 +333,7 @@ public class AggregateAcrossEntitiesResolverTest {
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 Mockito.eq(Collections.emptyList()),
-                Mockito.eq(null),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(null)))
         .thenThrow(new RemoteInvocationException());
 

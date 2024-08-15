@@ -5,6 +5,8 @@ import uuid
 from typing import Any, Dict, List, Optional, Type, Union
 
 from sqlalchemy import types
+from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.sql.visitors import Visitable
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -176,6 +178,7 @@ class SqlAlchemyColumnToAvroConverter:
 def get_schema_fields_for_sqlalchemy_column(
     column_name: str,
     column_type: types.TypeEngine,
+    inspector: Inspector,
     description: Optional[str] = None,
     nullable: Optional[bool] = True,
     is_part_of_key: Optional[bool] = False,
@@ -216,7 +219,10 @@ def get_schema_fields_for_sqlalchemy_column(
             SchemaField(
                 fieldPath=column_name,
                 type=SchemaFieldDataTypeClass(type=NullTypeClass()),
-                nativeDataType=str(column_type),
+                nativeDataType=get_native_data_type_for_sqlalchemy_type(
+                    column_type,
+                    inspector,
+                ),
             )
         ]
 
@@ -240,3 +246,25 @@ def get_schema_fields_for_sqlalchemy_column(
     )
 
     return schema_fields
+
+
+def get_native_data_type_for_sqlalchemy_type(
+    column_type: types.TypeEngine, inspector: Inspector
+) -> str:
+    if isinstance(column_type, types.NullType):
+        return column_type.__visit_name__
+
+    try:
+        return column_type.compile(dialect=inspector.dialect)
+    except Exception as e:
+        logger.debug(
+            f"Unable to compile sqlalchemy type {column_type} the error was: {e}"
+        )
+
+        if (
+            isinstance(column_type, Visitable)
+            and column_type.__visit_name__ is not None
+        ):
+            return column_type.__visit_name__
+
+        return repr(column_type)

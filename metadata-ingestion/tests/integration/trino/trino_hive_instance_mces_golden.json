@@ -244,7 +244,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1710150034"
+                            "transient_lastddltime": "1722106707"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -280,7 +280,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -505,7 +505,7 @@
                             "numrows": "3",
                             "rawdatasize": "94",
                             "totalsize": "97",
-                            "transient_lastddltime": "1710150038"
+                            "transient_lastddltime": "1722106711"
                         },
                         "name": "classification_test",
                         "tags": []
@@ -539,7 +539,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -551,7 +551,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -563,7 +563,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -575,7 +575,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -587,7 +587,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -764,7 +764,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710150036"
+                            "transient_lastddltime": "1722106709"
                         },
                         "name": "map_test",
                         "tags": []
@@ -798,7 +798,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -991,7 +991,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710150036"
+                            "transient_lastddltime": "1722106709"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -1025,7 +1025,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1262,7 +1262,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1710150028"
+                            "transient_lastddltime": "1722106702"
                         },
                         "name": "pokes",
                         "tags": []
@@ -1296,7 +1296,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1308,7 +1308,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1320,7 +1320,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1497,7 +1497,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710150031"
+                            "transient_lastddltime": "1722106704"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1531,7 +1531,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1748,7 +1748,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710150036"
+                            "transient_lastddltime": "1722106709"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1782,7 +1782,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -2002,7 +2002,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710150031"
+                            "transient_lastddltime": "1722106704"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -2036,7 +2036,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -2048,7 +2048,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -2225,7 +2225,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710150036"
+                            "transient_lastddltime": "1722106709"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2527,7 +2527,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1710150036",
+                            "transient_lastddltime": "1722106709",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                             "is_view": "True"
                         },
@@ -2563,7 +2563,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },

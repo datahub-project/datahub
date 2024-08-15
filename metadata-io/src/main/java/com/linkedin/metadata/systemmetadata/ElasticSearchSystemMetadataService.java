@@ -2,7 +2,6 @@ package com.linkedin.metadata.systemmetadata;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.run.AspectRowSummary;
@@ -87,10 +86,10 @@ public class ElasticSearchSystemMetadataService
 
   private String toDocId(@Nonnull final String urn, @Nonnull final String aspect) {
     String rawDocId = urn + DOC_DELIMETER + aspect;
-
+    String hashAlgo = System.getenv("ELASTIC_ID_HASH_ALGO");
     try {
       byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
-      MessageDigest md = MessageDigest.getInstance("MD5");
+      MessageDigest md = MessageDigest.getInstance(hashAlgo);
       byte[] thedigest = md.digest(bytesOfRawDocID);
       return Base64.getEncoder().encodeToString(thedigest);
     } catch (NoSuchAlgorithmException e) {
@@ -250,7 +249,6 @@ public class ElasticSearchSystemMetadataService
             Collections.emptyMap()));
   }
 
-  @VisibleForTesting
   @Override
   public void clear() {
     _esBulkProcessor.deleteByQuery(

@@ -163,6 +163,6 @@ To modify your subscription, use the dropdown menu next to the Subscribe button 
 
 ## Reference
 
-- [DataHub Blog - Simplifying Data Monitoring & Management with Subscriptions and Notifications with Acryl DataHub](https://www.acryldata.io/blog/simplifying-data-monitoring-and-management-with-subscriptions-and-notifications-with-acryl-datahub)
+- [DataHub Blog - Simplifying Data Monitoring & Management with Subscriptions and Notifications with DataHub Cloud](https://www.acryldata.io/blog/simplifying-data-monitoring-and-management-with-subscriptions-and-notifications-with-acryl-datahub)
 - Video Guide - Getting Started with Subscription & Notifications
     <iframe width="560" height="315" src="https://www.loom.com/embed/f02fe71e09494b5e82904c8a47f06ac1?sid=ef041cb7-9c06-4926-8e0c-e948b1dc3af0" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>

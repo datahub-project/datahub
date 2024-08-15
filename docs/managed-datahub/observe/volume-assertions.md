@@ -8,7 +8,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-> The **Volume Assertions** feature is available as part of the **Acryl Observe** module of Acryl Cloud.
+> The **Volume Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
 > If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
 
 ## Introduction
@@ -23,9 +23,9 @@ changes to key metric definitions, etc. Often times, these changes break importa
 like reporting dashboards or data-driven product features.
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data
-issues _before_ anyone else? With Acryl DataHub **Volume Assertions**, you can.
+issues _before_ anyone else? With DataHub Cloud **Volume Assertions**, you can.
 
-Acryl DataHub allows users to define expectations about the normal volume, or size, of a particular warehouse Table,
+DataHub Cloud allows users to define expectations about the normal volume, or size, of a particular warehouse Table,
 and then monitor those expectations over time as the table grows and changes.
 
 In this article, we'll cover the basics of monitoring Volume Assertions - what they are, how to configure them, and more - so that you and your team can
@@ -43,7 +43,7 @@ Volume Assertions are currently supported for:
 4. Databricks
 5. DataHub Dataset Profile (collected via ingestion)
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion**
+Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion**
 tab.
 
 > Note that Volume Assertions are not yet supported if you are connecting to your warehouse
@@ -111,7 +111,7 @@ table that are following an abnormal pattern of growth.
 
 #### 3. Volume Source
 
-The **Volume Source**: This is the mechanism that Acryl DataHub should use to determine the table volume (row count). The supported
+The **Volume Source**: This is the mechanism that DataHub Cloud should use to determine the table volume (row count). The supported
 source types vary by the platform, but generally fall into these categories:
 
 - **Information Schema**: A system Table that is exposed by the Data Warehouse which contains live information about the Databases
@@ -226,11 +226,11 @@ To resume the assertion, simply click **Start**.
 
 ## Smart Assertions ⚡
 
-As part of the **Acryl Observe** module, Acryl DataHub also provides **Smart Assertions** out of the box. These are
+As part of the **Acryl Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
 dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
 requiring any manual setup.
 
-If Acryl DataHub is able to detect a pattern in the volume of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
+If DataHub Cloud is able to detect a pattern in the volume of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
 a recommended Smart Assertion under the `Validations` tab on the Table profile page:
 
 <p align="left">
@@ -245,7 +245,7 @@ Don't need it anymore? Smart Assertions can just as easily be turned off by clic
 
 ## Creating Volume Assertions via API
 
-Under the hood, Acryl DataHub implements Volume Assertion Monitoring using two concepts:
+Under the hood, DataHub Cloud implements Volume Assertion Monitoring using two concepts:
 
 - **Assertion**: The specific expectation for volume, e.g. "The table was changed int the past 7 hours"
   or "The table is changed on a schedule of every day by 8am". This is the "what".

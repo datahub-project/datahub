@@ -120,7 +120,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 @platform_name("Redshift")
 @config_class(RedshiftConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -129,6 +129,8 @@ logger: logging.Logger = logging.getLogger(__name__)
     SourceCapability.LINEAGE_FINE,
     "Optionally enabled via configuration (`mixed` or `sql_based` lineage needs to be enabled)",
 )
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
