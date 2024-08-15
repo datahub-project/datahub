@@ -1,8 +1,8 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, Iterable, List, Optional
 from time import time
+from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
 from pyiceberg.exceptions import NoSuchIcebergTableError
@@ -151,14 +151,15 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.report_table_load_time(time() - start_ts)
                 return [*self._create_iceberg_workunit(dataset_name, table)]
             except NoSuchIcebergTableError as e:
-               self.report.report_failure("general", f"Failed to create workunit: {e}")
-               LOGGER.exception(
+                self.report.report_failure("general", f"Failed to create workunit: {e}")
+                LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
-               )
+                )
+
         try:
             start = time()
             catalog = self.config.get_catalog()
-            self.report.set_catalog_retrieval_time(time()-start)
+            self.report.set_catalog_retrieval_time(time() - start)
         except Exception as e:
             LOGGER.error("Failed to get catalog", exc_info=True)
             self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
@@ -167,11 +168,9 @@ class IcebergSource(StatefulIngestionSourceBase):
         datasets = [*self._get_datasets(catalog)]
 
         for wu in ThreadedIteratorExecutor.process(
-                worker_func=_process_dataset,
-                args_list=[
-                    (dataset_path,) for dataset_path in datasets
-                ],
-                max_workers=self.config.processing_threads,
+            worker_func=_process_dataset,
+            args_list=[(dataset_path,) for dataset_path in datasets],
+            max_workers=self.config.processing_threads,
         ):
             yield wu
 
