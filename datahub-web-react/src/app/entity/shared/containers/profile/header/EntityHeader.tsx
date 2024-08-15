@@ -19,7 +19,6 @@ import SubscribeButtons from '../../../../../shared/subscribe/SubscribeButtons';
 import { useSubscriptionsEnabled } from '../../../../../settings/personal/notifications/utils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import EntityHeaderLoadingSection from './EntityHeaderLoadingSection';
-import { useIsEditableDatasetNameEnabled } from '../../../../../useAppConfig';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -101,11 +100,8 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
     const entityName = entityData?.name;
     const subType = capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) || undefined;
 
-    const isEditableDatasetNameEnabled = useIsEditableDatasetNameEnabled();
     const canEditName =
-        isEditableDatasetNameEnabled &&
-        isNameEditable &&
-        getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+        isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
     const entityRegistry = useEntityRegistry();
 
     return (
