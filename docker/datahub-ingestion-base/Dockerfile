@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y -qq \
     ldap-utils \
     unixodbc \
     libodbc2 \
-    && python -m pip install --no-cache --upgrade pip uv>=0.1.10 wheel setuptools \
+    && python -m pip install --no-cache --upgrade pip 'uv>=0.1.10' wheel setuptools \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 COPY --from=dockerize-binary /usr/local/bin/dockerize /usr/local/bin
