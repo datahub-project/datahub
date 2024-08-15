@@ -23,6 +23,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +61,12 @@ public class UpsertActionPipelineResolver implements DataFetcher<CompletableFutu
             } else {
               // When an urn is not provided (e.g. create), we generate an urn from the name.
               final DataHubActionKey key = new DataHubActionKey();
-              key.setId(input.getName());
+
+              // Generate UUID for URN
+              final String id = UUID.randomUUID().toString();
+              key.setId(id);
+
+              // Set the URN
               actionPipelineUrn =
                   EntityKeyUtils.convertEntityKeyToUrn(key, Constants.ACTIONS_PIPELINE_ENTITY_NAME);
             }
