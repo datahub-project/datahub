@@ -1033,6 +1033,15 @@ jobs:
               }
             }
           }'
+      - name: Disk Check
+        run: df -h . && docker images
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Build datahub cli
+        run: |
+          ./gradlew :metadata-ingestion:install
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Remove Source Code
         run: find ./*/* ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
       - name: Disk Check
