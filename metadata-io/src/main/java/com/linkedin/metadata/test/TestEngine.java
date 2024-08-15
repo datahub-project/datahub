@@ -1381,7 +1381,7 @@ public class TestEngine {
         testDefinition =
             _testDefinitionParser.deserialize(
                 test.getUrn(), test.getTestInfo().getDefinition().getJson());
-      } catch (TestDefinitionParsingException e) {
+      } catch (TestDefinitionParsingException | IllegalArgumentException e) {
         log.error(
             "Issue while deserializing test definition {}",
             test.getTestInfo().getDefinition().getJson(),
