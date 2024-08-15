@@ -71,6 +71,7 @@ COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
 COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh
 COPY docker/kafka-setup/kafka-topic-workers.sh ./kafka-topic-workers.sh
 COPY docker/kafka-setup/kafka-ready.sh ./kafka-ready.sh
+COPY docker/kafka-setup/env_to_properties.py ./env_to_properties.py
 
 RUN chmod +x ./kafka-setup.sh ./kafka-topic-workers.sh ./kafka-ready.sh
 
