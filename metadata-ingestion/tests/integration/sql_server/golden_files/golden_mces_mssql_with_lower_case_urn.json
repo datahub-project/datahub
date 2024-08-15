@@ -1304,7 +1304,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1316,7 +1316,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "NVARCHAR()",
+                                "nativeDataType": "NVARCHAR(max) COLLATE SQL_Latin1_General_CP1_CI_AS",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1546,7 +1546,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1558,7 +1558,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "NVARCHAR()",
+                                "nativeDataType": "NVARCHAR(max) COLLATE SQL_Latin1_General_CP1_CI_AS",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1678,7 +1678,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1691,7 +1691,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255, collation='SQL_Latin1_General_CP1_CI_AS')",
+                                "nativeDataType": "VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1703,7 +1703,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255, collation='SQL_Latin1_General_CP1_CI_AS')",
+                                "nativeDataType": "VARCHAR(255) COLLATE SQL_Latin1_General_CP1_CI_AS",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1715,7 +1715,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1835,7 +1835,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1847,7 +1847,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "UNIQUEIDENTIFIER()",
+                                "nativeDataType": "UNIQUEIDENTIFIER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1859,7 +1859,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "NVARCHAR(length=50)",
+                                "nativeDataType": "NVARCHAR(50) COLLATE SQL_Latin1_General_CP1_CI_AS",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }

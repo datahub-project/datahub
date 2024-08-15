@@ -176,7 +176,7 @@ const hardcoded_titles = {
   "docs/actions/README.md": "Introduction",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
-  "docs/saas.md": "Managed DataHub",
+  "docs/saas.md": "DataHub Cloud",
 };
 // titles that have been hardcoded in sidebars.js
 // (for cases where doc is reference multiple times with different titles)

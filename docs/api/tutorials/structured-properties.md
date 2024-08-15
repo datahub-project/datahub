@@ -32,7 +32,7 @@ Additionally, you need to have the following tools installed according to the me
 <Tabs>
 <TabItem value="CLI" label="CLI" default>
 
-Install the relevant CLI version. Forms are available as of CLI version `0.13.1`. The corresponding SaaS release version is `v0.2.16.5`
+Install the relevant CLI version. Forms are available as of CLI version `0.13.1`. The corresponding DataHub Cloud release version is `v0.2.16.5`
 Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
 
 - Run `datahub init` to update the instance you want to load into.
@@ -56,7 +56,33 @@ Requirements for OpenAPI are:
 The following code will create a structured property `io.acryl.privacy.retentionTime`. 
 
 <Tabs>
-<TabItem value="CLI" label="CLI" default>
+<TabItem value="graphql" label="graphQL" default>
+
+```graphql
+mutation createStructuredProperty {
+  createStructuredProperty(
+    input: {
+      id: "retentionTime",
+      qualifiedName:"retentionTime",
+      displayName: "Retention Time",
+      description: "Retention Time is used to figure out how long to retain records in a dataset",
+      valueType: "urn:li:dataType:number",
+      allowedValues: [
+        {numberValue: 30, description: "30 days, usually reserved for datasets that are ephemeral and contain pii"},
+        {numberValue: 90, description:"description: Use this for datasets that drive monthly reporting but contain pii"},
+        {numberValue: 365, description:"Use this for non-sensitive data that can be retained for longer"}
+      ],
+      cardinality: SINGLE,
+      entityTypes: ["urn:li:entityType:dataset", "urn:li:entityType:dataFlow"],
+    }
+  ) {
+    urn
+  }
+}
+```
+
+</TabItem>
+<TabItem value="CLI" label="CLI">
 
 Create a yaml file representing the properties you’d like to load. 
 For example, below file represents a property `io.acryl.privacy.retentionTime`. You can see the full example [here](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/structured_properties/struct_props.yaml).
@@ -132,29 +158,37 @@ curl -X 'POST' -v \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
+	"value": {
 		"qualifiedName": "io.acryl.privacy.retentionTime",
-	  "valueType": "urn:li:dataType:datahub.number",
-	  "description": "Retention Time is used to figure out how long to retain records in a dataset",
-	  "displayName": "Retention Time",
-	  "cardinality": "MULTIPLE",
-	  "entityTypes": [
-        "urn:li:entityType:datahub.dataset",
-        "urn:li:entityType:datahub.dataFlow"
-		  ],
-	  "allowedValues": [
-	    {
-	      "value": {"double": 30},
-	      "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
-	    },
-	    {
-	      "value": {"double": 60},
-	      "description": "Use this for datasets that drive monthly reporting but contain pii"
-	    },
-	    {
-	      "value": {"double": 365},
-	      "description": "Use this for non-sensitive data that can be retained for longer"
-	    }
-	  ]
+		"valueType": "urn:li:dataType:datahub.number",
+		"description": "Retention Time is used to figure out how long to retain records in a dataset",
+		"displayName": "Retention Time",
+		"cardinality": "MULTIPLE",
+		"entityTypes": [
+			"urn:li:entityType:datahub.dataset",
+			"urn:li:entityType:datahub.dataFlow"
+		],
+		"allowedValues": [
+			{
+				"value": {
+					"double": 30
+				},
+				"description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+			},
+			{
+				"value": {
+					"double": 60
+				},
+				"description": "Use this for datasets that drive monthly reporting but contain pii"
+			},
+			{
+				"value": {
+					"double": 365
+				},
+				"description": "Use this for non-sensitive data that can be retained for longer"
+			}
+		]
+	}
 }' | jq
 ```
 
@@ -355,7 +389,37 @@ Example Response:
 This action will set/replace all structured properties on the entity. See PATCH operations to add/remove a single property.
 
 <Tabs>
-<TabItem value="CLI" label="CLI" default>
+<TabItem value="graphQL" label="GraphQL" default>
+
+```graphql
+mutation upsertStructuredProperties {
+  upsertStructuredProperties(
+    input: {
+      assetUrn: "urn:li:mydataset1",
+      structuredPropertyInputParams: [
+        {
+          structuredPropertyUrn: "urn:li:structuredProperty:mystructuredproperty",
+          values: [
+            {
+              stringValue: "123"
+            }
+          ]
+        }
+      ]
+    }
+  ) {
+    properties {
+      structuredProperty {
+        urn
+      }
+    }
+  }
+}
+
+```
+
+</TabItem>
+<TabItem value="CLI" label="CLI">
 
 You can set structured properties to a dataset by creating a dataset yaml file with structured properties. For example, below is a dataset yaml file with structured properties in both the field and dataset level. 
 
@@ -418,14 +482,16 @@ curl -X 'POST' -v \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-  "properties": [
-    {
-      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
-      "values": [
-        {"double": 60.0}
-      ]
-    }
-  ]
+	"value": {
+		"properties": [
+			{
+			  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+			  "values": [
+				{"double": 60.0}
+			  ]
+			}
+		  ]
+	}
 }' | jq
 ```
 Example Response:
@@ -465,6 +531,31 @@ Or you can run the following command to view the properties associated with the 
 ```commandline
 datahub dataset get --urn {urn}
 ```
+
+## Remove Structured Properties From a Dataset
+
+For removing a structured property or list of structured properties from a dataset:
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+mutation removeStructuredProperties {
+  removeStructuredProperties(
+    input: {
+      assetUrn: "urn:li:mydataset1",
+      structuredPropertyUrns: ["urn:li:structuredProperty:mystructuredproperty"]
+    }
+  ) {
+    properties {
+			structuredProperty {urn}
+		}
+  }
+}
+```
+
+</TabItem>  
+</Tabs>
 
 ## Patch Structured Property Value
 
@@ -546,23 +637,25 @@ curl -X 'POST' -v \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-    "qualifiedName": "io.acryl.privacy.retentionTime02",
-    "displayName": "Retention Time 02",
-    "valueType": "urn:li:dataType:datahub.string",
-    "allowedValues": [
-        {
-            "value": {"string": "foo2"},
-            "description": "test foo2 value"
-        },
-        {
-            "value": {"string": "bar2"},
-            "description": "test bar2 value"
-        }
-    ],
-    "cardinality": "SINGLE",
-    "entityTypes": [
-        "urn:li:entityType:datahub.dataset"
-    ]
+	"value": {
+		"qualifiedName": "io.acryl.privacy.retentionTime02",
+		"displayName": "Retention Time 02",
+		"valueType": "urn:li:dataType:datahub.string",
+		"allowedValues": [
+			{
+				"value": {"string": "foo2"},
+				"description": "test foo2 value"
+			},
+			{
+				"value": {"string": "bar2"},
+				"description": "test bar2 value"
+			}
+		],
+		"cardinality": "SINGLE",
+		"entityTypes": [
+			"urn:li:entityType:datahub.dataset"
+		]
+	}
 }' | jq
 ```
 
@@ -605,24 +698,26 @@ Specically, this will set `io.acryl.privacy.retentionTime` as `60.0` and `io.acr
 
 ```shell
 curl -X 'POST' -v \
-  'http://localhost:8080/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
+  'http://localhost:8080/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties?createIfNotExists=false' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-  "properties": [
-    {
-      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
-      "values": [
-        {"double": 60.0}
-      ]
-    },
-    {
-      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime02",
-      "values": [
-        {"string": "bar2"}
-      ]
-    }
-  ]
+	"value": {
+		"properties": [
+			{
+			  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+			  "values": [
+				{"double": 60.0}
+			  ]
+			},
+			{
+			  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime02",
+			  "values": [
+				{"string": "bar2"}
+			  ]
+			}
+		  ]
+	}
 }' | jq
 ```
 
@@ -780,6 +875,38 @@ You can see that the first property has been removed and the second property is 
 In this example, we'll add the property back with a different value, preserving the existing property.
 
 <Tabs>
+<TabItem value="graphql" label="GraphQL">
+
+```graphql
+mutation updateStructuredProperty {
+  updateStructuredProperty(
+    input: {
+      urn: "urn:li:structuredProperty:retentionTime",
+      displayName: "Retention Time",
+      description: "Retention Time is used to figure out how long to retain records in a dataset",
+      newAllowedValues: [
+        {
+          numberValue: 30,
+          description: "30 days, usually reserved for datasets that are ephemeral and contain pii"
+        },
+        {
+          numberValue: 90,
+          description: "Use this for datasets that drive monthly reporting but contain pii"
+        },
+        {
+          numberValue: 365,
+          description: "Use this for non-sensitive data that can be retained for longer"
+        }
+      ]
+    }
+  ) {
+    urn
+  }
+}
+
+```
+
+</TabItem>
 <TabItem value="OpenAPI v2" label="OpenAPI v2">
 
 ```shell
@@ -998,7 +1125,9 @@ curl -X 'POST' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-"removed": true
+	"value": {
+		"removed": true
+	}
 }' | jq
 ```
 
@@ -1019,11 +1148,13 @@ If you want to **remove the soft delete**, you can do so by either hard deleting
 
 ```shell
 curl -X 'POST' \
-  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/status?systemMetadata=false' \
+  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/status?systemMetadata=false&createIfNotExists=false' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-"removed": false
+	"value": {
+		"removed": true
+	}
 }' | jq
 ```
 
@@ -1158,34 +1289,42 @@ Change the cardinality to `SINGLE` and add a `version`.
 
 ```shell
 curl -X 'POST' -v \
-  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/propertyDefinition' \
+  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/propertyDefinition?createIfNotExists=false' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
+	"value": {
 		"qualifiedName": "io.acryl.privacy.retentionTime",
-	  "valueType": "urn:li:dataType:datahub.number",
-	  "description": "Retention Time is used to figure out how long to retain records in a dataset",
-	  "displayName": "Retention Time",
-	  "cardinality": "SINGLE",
-	  "version": "20240614080000",
-	  "entityTypes": [
-        "urn:li:entityType:datahub.dataset",
-        "urn:li:entityType:datahub.dataFlow"
-		  ],
-	  "allowedValues": [
-	    {
-	      "value": {"double": 30},
-	      "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
-	    },
-	    {
-	      "value": {"double": 60},
-	      "description": "Use this for datasets that drive monthly reporting but contain pii"
-	    },
-	    {
-	      "value": {"double": 365},
-	      "description": "Use this for non-sensitive data that can be retained for longer"
-	    }
-	  ]
+		"valueType": "urn:li:dataType:datahub.number",
+		"description": "Retention Time is used to figure out how long to retain records in a dataset",
+		"displayName": "Retention Time",
+		"cardinality": "SINGLE",
+		"version": "20240614080000",
+		"entityTypes": [
+			"urn:li:entityType:datahub.dataset",
+			"urn:li:entityType:datahub.dataFlow"
+		],
+		"allowedValues": [
+			{
+				"value": {
+					"double": 30
+				},
+				"description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+			},
+			{
+				"value": {
+					"double": 60
+				},
+				"description": "Use this for datasets that drive monthly reporting but contain pii"
+			},
+			{
+				"value": {
+					"double": 365
+				},
+				"description": "Use this for non-sensitive data that can be retained for longer"
+			}
+		]
+	}
 }' | jq
 ```
 

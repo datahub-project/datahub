@@ -11,12 +11,14 @@ from datahub.ingestion.source.looker.looker_config import LookerConnectionDefini
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
-    DERIVED_VIEW_PATTERN,
     DERIVED_VIEW_SUFFIX,
     NAME,
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
+from datahub.ingestion.source.looker.str_functions import (
+    remove_extra_spaces_and_newlines,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +58,7 @@ class LookerFieldContext:
 
 class LookerViewContext:
     """
-    There are six patterns to associate the view's fields with dataset
+    There are seven patterns to associate the view's fields with dataset
 
     Pattern1:
         view: view_name {
@@ -161,6 +163,36 @@ class LookerViewContext:
     For all possible options of "sql" attribute please refer looker doc:
     https://cloud.google.com/looker/docs/reference/param-field-sql
 
+    For pattern 6 i.e. view.derived.sql, The looker creates a temporary table to store the sql result,
+    However if we don't want to have a temporary table and want looker to always execute the sql to fetch the result then
+    in that case pattern 7 is useful (mentioned below).
+
+    Pattern7:
+        view: customer_sales {
+          sql_table_name: (
+            SELECT
+              customer_id,
+              SUM(sales_amount) AS total_sales
+            FROM
+              sales
+            GROUP BY
+              customer_id
+          ) ;;
+
+          dimension: customer_id {
+            sql: ${TABLE}.customer_id ;;
+          }
+
+          measure: total_sales {
+            type: sum
+            sql: ${TABLE}.total_sales ;;
+          }
+        }
+
+
+    In Pattern7 the fields' upstream dataset is the output of sql mentioned in
+    customer_sales.sql_table_name.
+
     """
 
     raw_view: Dict
@@ -252,6 +284,7 @@ class LookerViewContext:
         return self.get_including_extends(field="sql_table_name")
 
     def _is_dot_sql_table_name_present(self) -> bool:
+
         sql_table_name: Optional[str] = self._get_sql_table_name_field()
 
         if sql_table_name is None:
@@ -266,15 +299,25 @@ class LookerViewContext:
         sql_table_name: Optional[str] = self._get_sql_table_name_field()
         # if sql_table_name field is not set then the table name is equal to view-name
         if sql_table_name is None:
-            return self.raw_view[NAME].lower()
+            sql_table_name = self.raw_view[NAME].lower()
 
-        # sql_table_name is in the format "${view-name}.SQL_TABLE_NAME"
-        # remove extra characters
-        if self._is_dot_sql_table_name_present():
-            sql_table_name = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_table_name)
+        return sql_table_name.lower()
 
-        # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
-        return sql_table_name.replace('"', "").replace("`", "").lower()
+    def datahub_transformed_sql_table_name(self) -> str:
+        table_name: Optional[str] = self.raw_view.get(
+            "datahub_transformed_sql_table_name"
+        )
+
+        if not table_name:
+            table_name = self.sql_table_name()
+
+        # remove extra spaces and new lines from sql_table_name if it is not a sql
+        if not self.is_direct_sql_query_case():
+            table_name = remove_extra_spaces_and_newlines(table_name)
+            # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
+            table_name = table_name.replace('"', "").replace("`", "").lower()
+
+        return table_name
 
     def derived_table(self) -> Dict[Any, Any]:
         """
@@ -296,30 +339,21 @@ class LookerViewContext:
 
         return derived_table["explore_source"]
 
-    def sql(self, transformed: bool = True) -> str:
+    def sql(self) -> str:
         """
         This function should only be called if is_sql_based_derived_case return true
         """
         derived_table = self.derived_table()
 
-        # Looker supports sql fragments that omit the SELECT and FROM parts of the query
-        # Add those in if we detect that it is missing
-        sql_query: str = derived_table["sql"]
+        return derived_table["sql"]
 
-        if transformed:  # update the original sql attribute only if transformed is true
-            if not re.search(r"SELECT\s", sql_query, flags=re.I):
-                # add a SELECT clause at the beginning
-                sql_query = f"SELECT {sql_query}"
+    def datahub_transformed_sql(self) -> str:
+        """
+        This function should only be called if is_sql_based_derived_case return true
+        """
+        derived_table = self.derived_table()
 
-            if not re.search(r"FROM\s", sql_query, flags=re.I):
-                # add a FROM clause at the end
-                sql_query = f"{sql_query} FROM {self.name()}"
-                # Get the list of tables in the query
-
-            # Drop ${ and }
-            sql_query = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_query)
-
-        return sql_query
+        return derived_table["datahub_transformed_sql"]
 
     def name(self) -> str:
         return self.raw_view[NAME]
@@ -370,6 +404,11 @@ class LookerViewContext:
     def is_regular_case(self) -> bool:
         # regular-case is pattern1 and 2 where upstream table is either view-name or
         # table name mentioned in sql_table_name attribute
+
+        # It should not be the sql query
+        if self.is_direct_sql_query_case():
+            return False
+
         if (
             self.is_sql_table_name_referring_to_view()
             or self.is_sql_based_derived_case()
@@ -380,6 +419,9 @@ class LookerViewContext:
         return True
 
     def is_sql_table_name_referring_to_view(self) -> bool:
+        if self.is_direct_sql_query_case():
+            return False
+
         # It is pattern3
         return self._is_dot_sql_table_name_present()
 
@@ -412,3 +454,14 @@ class LookerViewContext:
             return True
 
         return False
+
+    def is_direct_sql_query_case(self) -> bool:
+        # pattern 7
+        # sqlglot doesn't have a function to validate whether text is valid SQL or not.
+        # Applying a simple logic to check if sql_table_name contains a sql.
+        # if sql_table_name contains sql then its value starts with "(" and checking if "select" is present in side the
+        # text
+        return (
+            self.sql_table_name().strip().startswith("(")
+            and "select" in self.sql_table_name()
+        )

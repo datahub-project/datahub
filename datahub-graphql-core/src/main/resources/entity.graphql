@@ -68,6 +68,17 @@ type Query {
     Fetch a Tag by primary key (urn)
     """
     tag(urn: String!): Tag
+
+    """
+    Fetch a View by primary key (urn)
+    """
+    view(urn: String!): DataHubView
+
+    """
+    Fetch a Form by primary key (urn)
+    """
+    form(urn: String!): Form
+
     """
     Fetch a Role by primary key (urn)
     """
@@ -890,7 +901,7 @@ type Mutation {
     """
     Creates a filter for a form to apply it to certain entities. Entities that match this filter will have
     a given form applied to them.
-    This feature is ONLY supported in Acryl DataHub.
+    This feature is ONLY supported in DataHub Cloud.
     """
     createDynamicFormAssignment(input: CreateDynamicFormAssignmentInput!): Boolean
 
@@ -1267,6 +1278,11 @@ input RelationshipsInput {
   The number of results to be returned
   """
   count: Int
+
+  """
+  Whether to include soft-deleted, related, entities
+  """
+  includeSoftDelete: Boolean = true
 }
 
 """
@@ -3220,6 +3236,11 @@ type SchemaFieldEntity implements Entity {
     Business Attribute associated with the field
     """
     businessAttributes: BusinessAttributes
+
+    """
+    Documentation aspect for this schema field
+    """
+    documentation: Documentation
 }
 
 """
@@ -3461,6 +3482,11 @@ type DatasetEditableProperties {
     Description of the Dataset
     """
     description: String
+
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """
@@ -4829,6 +4855,10 @@ input DatasetEditablePropertiesUpdate {
     Writable description aka documentation for a Dataset
     """
     description: String!
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """

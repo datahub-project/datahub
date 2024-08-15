@@ -39,7 +39,7 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetSuccessNoExistingDomains() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -105,7 +105,7 @@ public class BatchSetDomainResolverTest {
         new Domains()
             .setDomains(new UrnArray(ImmutableList.of(Urn.createFromString(TEST_DOMAIN_1_URN))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -176,7 +176,7 @@ public class BatchSetDomainResolverTest {
         new Domains()
             .setDomains(new UrnArray(ImmutableList.of(Urn.createFromString(TEST_DOMAIN_1_URN))));
 
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -233,7 +233,7 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetFailureDomainDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -268,7 +268,7 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -312,7 +312,7 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
 
@@ -334,7 +334,7 @@ public class BatchSetDomainResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)

@@ -20,34 +20,63 @@ public class EntityTypeUrnMapper {
 
   static final Map<String, String> ENTITY_NAME_TO_ENTITY_TYPE_URN =
       ImmutableMap.<String, String>builder()
+          .put(Constants.DOMAIN_ENTITY_NAME, "urn:li:entityType:datahub.domain")
           .put(Constants.DATASET_ENTITY_NAME, "urn:li:entityType:datahub.dataset")
-          .put(Constants.ROLE_ENTITY_NAME, "urn:li:entityType:datahub.role")
           .put(Constants.CORP_USER_ENTITY_NAME, "urn:li:entityType:datahub.corpuser")
           .put(Constants.CORP_GROUP_ENTITY_NAME, "urn:li:entityType:datahub.corpGroup")
           .put(Constants.DATA_PLATFORM_ENTITY_NAME, "urn:li:entityType:datahub.dataPlatform")
+          .put(
+              Constants.ER_MODEL_RELATIONSHIP_ENTITY_NAME,
+              "urn:li:entityType:datahub.erModelRelationship")
           .put(Constants.DASHBOARD_ENTITY_NAME, "urn:li:entityType:datahub.dashboard")
+          .put(Constants.NOTEBOOK_ENTITY_NAME, "urn:li:entityType:datahub.notebook")
           .put(Constants.CHART_ENTITY_NAME, "urn:li:entityType:datahub.chart")
-          .put(Constants.TAG_ENTITY_NAME, "urn:li:entityType:datahub.tag")
           .put(Constants.DATA_FLOW_ENTITY_NAME, "urn:li:entityType:datahub.dataFlow")
           .put(Constants.DATA_JOB_ENTITY_NAME, "urn:li:entityType:datahub.dataJob")
+          .put(Constants.TAG_ENTITY_NAME, "urn:li:entityType:datahub.tag")
           .put(Constants.GLOSSARY_TERM_ENTITY_NAME, "urn:li:entityType:datahub.glossaryTerm")
           .put(Constants.GLOSSARY_NODE_ENTITY_NAME, "urn:li:entityType:datahub.glossaryNode")
+          .put(Constants.CONTAINER_ENTITY_NAME, "urn:li:entityType:datahub.container")
           .put(Constants.ML_MODEL_ENTITY_NAME, "urn:li:entityType:datahub.mlModel")
           .put(Constants.ML_MODEL_GROUP_ENTITY_NAME, "urn:li:entityType:datahub.mlModelGroup")
           .put(Constants.ML_FEATURE_TABLE_ENTITY_NAME, "urn:li:entityType:datahub.mlFeatureTable")
           .put(Constants.ML_FEATURE_ENTITY_NAME, "urn:li:entityType:datahub.mlFeature")
           .put(Constants.ML_PRIMARY_KEY_ENTITY_NAME, "urn:li:entityType:datahub.mlPrimaryKey")
-          .put(Constants.CONTAINER_ENTITY_NAME, "urn:li:entityType:datahub.container")
-          .put(Constants.DOMAIN_ENTITY_NAME, "urn:li:entityType:datahub.domain")
-          .put(Constants.NOTEBOOK_ENTITY_NAME, "urn:li:entityType:datahub.notebook")
+          .put(
+              Constants.INGESTION_SOURCE_ENTITY_NAME,
+              "urn:li:entityType:datahub.dataHubIngestionSource")
+          .put(
+              Constants.EXECUTION_REQUEST_ENTITY_NAME,
+              "urn:li:entityType:datahub.dataHubExecutionRequest")
+          .put(Constants.ASSERTION_ENTITY_NAME, "urn:li:entityType:datahub.assertion")
+          .put(
+              Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
+              "urn:li:entityType:datahub.dataProcessInstance")
           .put(
               Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME,
               "urn:li:entityType:datahub.dataPlatformInstance")
+          .put(Constants.ACCESS_TOKEN_ENTITY_NAME, "urn:li:entityType:datahub.dataHubAccessToken")
           .put(Constants.TEST_ENTITY_NAME, "urn:li:entityType:datahub.test")
-          .put(Constants.DATAHUB_VIEW_ENTITY_NAME, "urn:li:entityType:datahub.dataHubView")
-          .put(Constants.DATA_PRODUCT_ENTITY_NAME, "urn:li:entityType:datahub.dataProduct")
-          .put(Constants.ASSERTION_ENTITY_NAME, "urn:li:entityType:datahub.assertion")
+          .put(Constants.POLICY_ENTITY_NAME, "urn:li:entityType:datahub.dataHubPolicy")
+          .put(Constants.DATAHUB_ROLE_ENTITY_NAME, "urn:li:entityType:datahub.dataHubRole")
+          .put(Constants.POST_ENTITY_NAME, "urn:li:entityType:datahub.post")
           .put(Constants.SCHEMA_FIELD_ENTITY_NAME, "urn:li:entityType:datahub.schemaField")
+          .put(Constants.DATAHUB_VIEW_ENTITY_NAME, "urn:li:entityType:datahub.dataHubView")
+          .put(Constants.QUERY_ENTITY_NAME, "urn:li:entityType:datahub.query")
+          .put(Constants.DATA_PRODUCT_ENTITY_NAME, "urn:li:entityType:datahub.dataProduct")
+          .put(Constants.OWNERSHIP_TYPE_ENTITY_NAME, "urn:li:entityType:datahub.ownershipType")
+          .put(Constants.INCIDENT_ENTITY_NAME, "urn:li:entityType:datahub.incident")
+          .put(Constants.ROLE_ENTITY_NAME, "urn:li:entityType:datahub.role")
+          .put(
+              Constants.STRUCTURED_PROPERTY_ENTITY_NAME,
+              "urn:li:entityType:datahub.structuredProperty")
+          .put(Constants.FORM_ENTITY_NAME, "urn:li:entityType:datahub.form")
+          .put(Constants.DATA_TYPE_ENTITY_NAME, "urn:li:entityType:datahub.dataType")
+          .put(Constants.ENTITY_TYPE_ENTITY_NAME, "urn:li:entityType:datahub.entityType")
+          .put(Constants.RESTRICTED_ENTITY_NAME, "urn:li:entityType:datahub.restricted")
+          .put(
+              Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
+              "urn:li:entityType:datahub.businessAttribute")
           .build();
 
   private static final Map<String, String> ENTITY_TYPE_URN_TO_NAME =

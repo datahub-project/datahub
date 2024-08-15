@@ -11,8 +11,10 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
-from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_config import (
+    LookerCommonConfig,
+    LookerConnectionDefinition,
+)
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,

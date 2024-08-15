@@ -7,7 +7,8 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "postgres"
+            "name": "postgres",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -68,7 +69,8 @@
             "name": "postgres",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     },
     "systemMetadata": {

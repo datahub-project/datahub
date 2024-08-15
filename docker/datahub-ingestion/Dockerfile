@@ -1,11 +1,11 @@
 # Defining environment
 ARG APP_ENV=full
 ARG BASE_IMAGE=acryldata/datahub-ingestion-base
-ARG DOCKER_VERSION=head
+ARG DOCKER_VERSION=head-full
 ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
-FROM $BASE_IMAGE:$DOCKER_VERSION as base
+FROM $BASE_IMAGE:$DOCKER_VERSION AS base
 
 # Optionally set corporate mirror for deb
 USER 0
@@ -28,11 +28,11 @@ RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEAS
     cat src/datahub/__init__.py | grep __version__ && \
     cat airflow-plugin/src/datahub_airflow_plugin/__init__.py | grep __version__
 
-FROM base as slim-install
+FROM base AS slim-install
 
 RUN uv pip install --no-cache -e ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
 
-FROM base as full-install-build
+FROM base AS full-install-build
 
 USER 0
 RUN apt-get update && apt-get install -y -qq maven
@@ -44,14 +44,14 @@ RUN uv pip install --no-cache -e ".[base,all]" "./airflow-plugin[plugin-v2]" && 
     datahub --version
 RUN ./pyspark_jars.sh
 
-FROM base as full-install
+FROM base AS full-install
 
 COPY --from=full-install-build ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
-FROM base as dev-install
+FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
-FROM ${APP_ENV}-install as final
+FROM ${APP_ENV}-install AS final
 
 USER datahub

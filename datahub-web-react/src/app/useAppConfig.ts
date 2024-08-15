@@ -27,3 +27,13 @@ export function useIsAppConfigContextLoaded() {
     const appConfig = useAppConfig();
     return appConfig.loaded;
 }
+
+export function useIsEditableDatasetNameEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.editableDatasetNameEnabled;
+}
+
+export function useIsShowSeparateSiblingsEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showSeparateSiblings;
+}

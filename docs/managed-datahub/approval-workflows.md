@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Overview
 
-Keeping all your metadata properly classified can be hard work when you only have a limited number of trusted data stewards. With Managed DataHub, you can source proposals of Tags and Glossary Terms associated to datasets or dataset columns. These proposals may come from users with limited context or programatic processes using hueristics. Then, data stewards and data owners can go through them and only approve proposals they consider correct. This reduces the burden of your stewards and owners while increasing coverage.
+Keeping all your metadata properly classified can be hard work when you only have a limited number of trusted data stewards. With DataHub Cloud, you can source proposals of Tags and Glossary Terms associated to datasets or dataset columns. These proposals may come from users with limited context or programatic processes using hueristics. Then, data stewards and data owners can go through them and only approve proposals they consider correct. This reduces the burden of your stewards and owners while increasing coverage.
 
 Approval workflows also cover the Business Glossary itself. This allows you to source Glossary Terms and Glossary Term description changes from across your organization while limiting who has final control over what gets in.
 

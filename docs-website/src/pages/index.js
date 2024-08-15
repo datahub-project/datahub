@@ -3,13 +3,14 @@ import Layout from "@theme/Layout";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import CodeBlock from "@theme/CodeBlock";
-
+import useBaseUrl from "@docusaurus/useBaseUrl";
 import Hero from "./_components/Hero";
 import Features from "./_components/Features";
-import Quotes from "./_components/Quotes";
 import { Section, PromoSection } from "./_components/Section";
-import { PlatformLogos, CompanyLogos } from "./_components/Logos";
+import { PlatformLogos } from "./_components/Logos";
 import RoundedImage from "./_components/RoundedImage";
+import { CompanyLogos } from "./_components/Logos";
+import QuickstartContent from "./_components/QuickstartContent";
 
 const example_recipe = `
 source:
@@ -38,6 +39,18 @@ function Home() {
       description="DataHub is a data discovery application built on an extensible data catalog that helps you tame the complexity of diverse data ecosystems."
     >
       <Hero />
+      <div style={{ backgroundColor: "var(--ifm-background-surface-color)" }}>
+        <CompanyLogos />
+        <div style={{ textAlign: "center", margin: "1rem" }}>
+          <Link
+            className="button button--secondary button--md"
+            to={useBaseUrl("adoption-stories")}
+          >
+            Check Out Adoption Stories →
+          </Link>
+        </div>
+      </div>
+      <QuickstartContent />
       <Features />
       <Section>
         <div className="container">
@@ -156,10 +169,6 @@ function Home() {
             </div>
           </div>
         </div>
-      </Section>
-      <Section title="Trusted Across the Industry">
-        <CompanyLogos />
-        <Quotes />
       </Section>
     </Layout>
   ) : null;
