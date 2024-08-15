@@ -82,6 +82,7 @@ export const DEFAULT_APP_CONFIG = {
         showSeparateSiblings: false,
         formCreationEnabled: false,
         schemaFieldCLLEnabled: false,
+        editableDatasetNameEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

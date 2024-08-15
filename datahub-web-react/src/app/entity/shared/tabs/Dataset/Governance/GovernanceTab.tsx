@@ -4,7 +4,6 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { FileDoneOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
-import { TestResults } from './TestResults';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { ANTD_GRAY } from '../../../constants';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../siblingUtils';
