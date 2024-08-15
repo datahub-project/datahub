@@ -38,7 +38,7 @@ public class BatchAddOwnersResolverTest {
 
   @Test
   public void testGetSuccessNoExistingOwners() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -126,7 +126,7 @@ public class BatchAddOwnersResolverTest {
                         new Owner()
                             .setOwner(Urn.createFromString(TEST_OWNER_URN_1))
                             .setType(OwnershipType.TECHNICAL_OWNER))));
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -217,7 +217,7 @@ public class BatchAddOwnersResolverTest {
 
   @Test
   public void testGetFailureOwnerDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -267,7 +267,7 @@ public class BatchAddOwnersResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -326,7 +326,7 @@ public class BatchAddOwnersResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
 
@@ -363,7 +363,7 @@ public class BatchAddOwnersResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)

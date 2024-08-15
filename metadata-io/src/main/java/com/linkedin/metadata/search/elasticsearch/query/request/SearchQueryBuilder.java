@@ -7,6 +7,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.Customize
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -109,7 +110,11 @@ public class SearchQueryBuilder {
       getSimpleQuery(opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
       getPrefixAndExactMatchQuery(
-              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
+              opContext.getEntityRegistry(),
+              customQueryConfig,
+              entitySpecs,
+              sanitizedQuery,
+              opContext.getAspectRetriever())
           .ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix =
@@ -121,7 +126,11 @@ public class SearchQueryBuilder {
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQuery(
-                opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
+                opContext.getEntityRegistry(),
+                customQueryConfig,
+                entitySpecs,
+                withoutQueryPrefix,
+                opContext.getAspectRetriever())
             .ifPresent(finalQuery::should);
       }
     }
@@ -181,6 +190,13 @@ public class SearchQueryBuilder {
     return fields;
   }
 
+  /**
+   * Return query by default fields
+   *
+   * @param entityRegistry entity registry with search annotations
+   * @param entitySpec the entity spect
+   * @return set of queryByDefault field configurations
+   */
   @VisibleForTesting
   public Set<SearchFieldConfig> getFieldsFromEntitySpec(
       @Nonnull EntityRegistry entityRegistry, EntitySpec entitySpec) {
@@ -212,14 +228,20 @@ public class SearchQueryBuilder {
 
     List<SearchableRefFieldSpec> searchableRefFieldSpecs = entitySpec.getSearchableRefFieldSpecs();
     for (SearchableRefFieldSpec refFieldSpec : searchableRefFieldSpecs) {
+      if (!refFieldSpec.getSearchableRefAnnotation().isQueryByDefault()) {
+        continue;
+      }
+
       int depth = refFieldSpec.getSearchableRefAnnotation().getDepth();
-      Set<SearchFieldConfig> searchFieldConfig =
-          SearchFieldConfig.detectSubFieldType(refFieldSpec, depth, entityRegistry);
-      fields.addAll(searchFieldConfig);
+      Set<SearchFieldConfig> searchFieldConfigs =
+          SearchFieldConfig.detectSubFieldType(refFieldSpec, depth, entityRegistry).stream()
+              .filter(SearchFieldConfig::isQueryByDefault)
+              .collect(Collectors.toSet());
+      fields.addAll(searchFieldConfigs);
 
       Map<String, SearchableAnnotation.FieldType> fieldTypeMap =
           getAllFieldTypeFromSearchableRef(refFieldSpec, depth, entityRegistry, "");
-      for (SearchFieldConfig fieldConfig : searchFieldConfig) {
+      for (SearchFieldConfig fieldConfig : searchFieldConfigs) {
         if (fieldConfig.hasDelimitedSubfield()) {
           fields.add(
               SearchFieldConfig.detectSubFieldType(
@@ -356,7 +378,8 @@ public class SearchQueryBuilder {
       @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
-      String query) {
+      String query,
+      @Nullable AspectRetriever aspectRetriever) {
 
     final boolean isPrefixQuery =
         customQueryConfig == null
@@ -395,7 +418,8 @@ public class SearchQueryBuilder {
                 if (caseSensitivityEnabled) {
                   finalQuery.should(
                       QueryBuilders.termQuery(
-                              ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                              ESUtils.toKeywordField(
+                                  searchFieldConfig.fieldName(), false, aspectRetriever),
                               unquotedQuery)
                           .caseInsensitive(false)
                           .boost(
@@ -406,7 +430,8 @@ public class SearchQueryBuilder {
                 // Exact match case-insensitive
                 finalQuery.should(
                     QueryBuilders.termQuery(
-                            ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                            ESUtils.toKeywordField(
+                                searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .caseInsensitive(true)
                         .boost(
@@ -419,7 +444,8 @@ public class SearchQueryBuilder {
               if (searchFieldConfig.isWordGramSubfield() && isPrefixQuery) {
                 finalQuery.should(
                     QueryBuilders.matchPhraseQuery(
-                            ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                            ESUtils.toKeywordField(
+                                searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .boost(
                             searchFieldConfig.boost()
@@ -442,7 +468,7 @@ public class SearchQueryBuilder {
     if (customQueryConfig != null) {
       executeStructuredQuery = customQueryConfig.isStructuredQuery();
     } else {
-      executeStructuredQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
+      executeStructuredQuery = true;
     }
 
     if (executeStructuredQuery) {

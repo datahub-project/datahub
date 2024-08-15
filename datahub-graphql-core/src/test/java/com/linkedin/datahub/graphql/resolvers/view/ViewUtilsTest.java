@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.LogicalOperator;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -169,7 +171,7 @@ public class ViewUtilsTest {
                                                     // the keyword mapping.
                                                     .setCondition(Condition.CONTAIN))))))));
 
-    assertEquals(ViewUtils.mapDefinition(input), expectedResult);
+    assertEquals(ViewUtils.mapDefinition(input, mock(AspectRetriever.class)), expectedResult);
   }
 
   private static ViewService initViewService(DataHubViewType viewType) {

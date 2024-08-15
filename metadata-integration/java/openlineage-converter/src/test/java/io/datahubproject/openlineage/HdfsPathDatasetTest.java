@@ -13,8 +13,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import org.junit.Assert;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 public class HdfsPathDatasetTest {
 
@@ -42,7 +42,7 @@ public class HdfsPathDatasetTest {
                         "s3",
                         Collections.singletonList(
                             PathSpec.builder()
-                                .env("PROD")
+                                .env(Optional.of("PROD"))
                                 .platform("s3")
                                 .pathSpecList(
                                     new LinkedList<>(
@@ -89,7 +89,7 @@ public class HdfsPathDatasetTest {
                         "s3",
                         Collections.singletonList(
                             PathSpec.builder()
-                                .env("PROD")
+                                .env(Optional.of("PROD"))
                                 .platform("s3")
                                 .pathSpecList(
                                     new LinkedList<>(
@@ -121,7 +121,7 @@ public class HdfsPathDatasetTest {
                         "s3",
                         Collections.singletonList(
                             PathSpec.builder()
-                                .env("PROD")
+                                .env(Optional.of("PROD"))
                                 .platform("s3")
                                 .pathSpecList(
                                     new LinkedList<>(
@@ -137,7 +137,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(new URI("s3a://my-bucket/foo/tests/bar.avro"), datahubConfig);
     Assert.assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,instance.my-bucket/foo/tests,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)",
         dataset.urn().toString());
   }
 
@@ -154,7 +154,7 @@ public class HdfsPathDatasetTest {
                         "s3",
                         Collections.singletonList(
                             PathSpec.builder()
-                                .env("PROD")
+                                .env(Optional.of("PROD"))
                                 .platform("s3")
                                 .platformInstance(Optional.of("s3Instance"))
                                 .pathSpecList(
@@ -187,7 +187,7 @@ public class HdfsPathDatasetTest {
                         "s3",
                         Collections.singletonList(
                             PathSpec.builder()
-                                .env("PROD")
+                                .env(Optional.of("PROD"))
                                 .platform("s3")
                                 .pathSpecList(
                                     new LinkedList<>(
@@ -219,7 +219,7 @@ public class HdfsPathDatasetTest {
                         "s3",
                         Collections.singletonList(
                             PathSpec.builder()
-                                .env("PROD")
+                                .env(Optional.of("PROD"))
                                 .platform("gcs")
                                 .pathSpecList(
                                     new LinkedList<>(
@@ -249,7 +249,7 @@ public class HdfsPathDatasetTest {
                         "s3",
                         Collections.singletonList(
                             PathSpec.builder()
-                                .env("PROD")
+                                .env(Optional.of("PROD"))
                                 .platform("gcs")
                                 .pathSpecList(
                                     new LinkedList<>(

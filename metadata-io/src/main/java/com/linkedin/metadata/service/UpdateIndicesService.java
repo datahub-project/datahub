@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.InputField;
@@ -130,8 +131,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
       MCLItemImpl batch =
-          MCLItemImpl.builder()
-              .build(event, opContext.getRetrieverContext().get().getAspectRetriever());
+          MCLItemImpl.builder().build(event, opContext.getAspectRetrieverOpt().get());
 
       Stream<MCLItem> sideEffects =
           AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext().get());
@@ -187,7 +187,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
 
     // Step 1. Handle StructuredProperties Index Mapping changes
-    updateIndexMappings(entitySpec, aspectSpec, aspect, previousAspect);
+    updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
 
     // Step 2. For all aspects, attempt to update Search
     updateSearchService(opContext, event);
@@ -206,6 +206,7 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   public void updateIndexMappings(
+      @Nonnull Urn urn,
       EntitySpec entitySpec,
       AspectSpec aspectSpec,
       RecordTemplate newValue,
@@ -228,7 +229,7 @@ public class UpdateIndicesService implements SearchIndicesService {
 
       if (newDefinition.getEntityTypes().size() > 0) {
         _entityIndexBuilders
-            .buildReindexConfigsWithNewStructProp(newDefinition)
+            .buildReindexConfigsWithNewStructProp(urn, newDefinition)
             .forEach(
                 reindexState -> {
                   try {
@@ -526,8 +527,8 @@ public class UpdateIndicesService implements SearchIndicesService {
     RecordTemplate previousAspect = event.getPreviousRecordTemplate();
     String entityName = event.getEntitySpec().getName();
 
-    Optional<String> searchDocument;
-    Optional<String> previousSearchDocument = Optional.empty();
+    Optional<ObjectNode> searchDocument;
+    Optional<ObjectNode> previousSearchDocument = Optional.empty();
     try {
       searchDocument =
           _searchDocumentTransformer
@@ -539,8 +540,7 @@ public class UpdateIndicesService implements SearchIndicesService {
                           event.getChangeType(),
                           event.getEntitySpec(),
                           aspectSpec,
-                          event.getAuditStamp()))
-              .map(Objects::toString);
+                          event.getAuditStamp()));
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
@@ -557,7 +557,6 @@ public class UpdateIndicesService implements SearchIndicesService {
       return;
     }
 
-    String searchDocumentValue = searchDocument.get();
     if (_searchDiffMode
         && (systemMetadata == null
             || systemMetadata.getProperties() == null
@@ -565,9 +564,8 @@ public class UpdateIndicesService implements SearchIndicesService {
       if (previousAspect != null) {
         try {
           previousSearchDocument =
-              _searchDocumentTransformer
-                  .transformAspect(opContext, urn, previousAspect, aspectSpec, false)
-                  .map(Objects::toString);
+              _searchDocumentTransformer.transformAspect(
+                  opContext, urn, previousAspect, aspectSpec, false);
         } catch (Exception e) {
           log.error(
               "Error in getting documents from previous aspect state: {} for aspect {}, continuing without diffing.",
@@ -577,15 +575,19 @@ public class UpdateIndicesService implements SearchIndicesService {
       }
 
       if (previousSearchDocument.isPresent()) {
-        String previousSearchDocumentValue = previousSearchDocument.get();
-        if (searchDocumentValue.equals(previousSearchDocumentValue)) {
+        if (searchDocument.get().toString().equals(previousSearchDocument.get().toString())) {
           // No changes to search document, skip writing no-op update
           return;
         }
       }
     }
 
-    _entitySearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId.get());
+    String finalDocument =
+        SearchDocumentTransformer.handleRemoveFields(
+                searchDocument.get(), previousSearchDocument.orElse(null))
+            .toString();
+
+    _entitySearchService.upsertDocument(opContext, entityName, finalDocument, docId.get());
   }
 
   /** Process snapshot and update time-series index */

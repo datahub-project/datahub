@@ -8,10 +8,12 @@ import static com.linkedin.metadata.Constants.DATA_JOB_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -46,7 +48,9 @@ public class AspectTemplateEngine {
               DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
               CHART_INFO_ASPECT_NAME,
               DASHBOARD_INFO_ASPECT_NAME,
-              STRUCTURED_PROPERTIES_ASPECT_NAME)
+              STRUCTURED_PROPERTIES_ASPECT_NAME,
+              STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+              FORM_INFO_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;

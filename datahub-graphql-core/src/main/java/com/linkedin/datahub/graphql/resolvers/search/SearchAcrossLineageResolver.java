@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -110,7 +111,8 @@ public class SearchAcrossLineageResolver
     @Nullable
     Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
-    Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+    Long endTimeMillis =
+        ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
 
     final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
     if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
@@ -123,7 +125,7 @@ public class SearchAcrossLineageResolver
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug(
@@ -137,7 +139,10 @@ public class SearchAcrossLineageResolver
                 count);
 
             final Filter filter =
-                ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+                ResolverUtils.buildFilter(
+                    input.getFilters(),
+                    input.getOrFilters(),
+                    context.getOperationContext().getAspectRetriever());
             final SearchFlags searchFlags;
             com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
             if (inputFlags != null) {
@@ -190,6 +195,8 @@ public class SearchAcrossLineageResolver
           } finally {
             log.debug("Returning from search across lineage resolver");
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

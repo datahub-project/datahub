@@ -32,7 +32,7 @@ base_requirements = {
     "dagit >= 1.3.3",
     *rest_common,
     # Ignoring the dependency below because it causes issues with the vercel built wheel install
-    #f"acryl-datahub[datahub-rest]{_self_pin}",
+    # f"acryl-datahub[datahub-rest]{_self_pin}",
     "acryl-datahub[datahub-rest]",
     *sqlglot_lib,
 }
@@ -40,7 +40,7 @@ base_requirements = {
 mypy_stubs = {
     "types-dataclasses",
     "sqlalchemy-stubs",
-    "types-pkg_resources",
+    "types-setuptools",
     "types-six",
     "types-python-dateutil",
     "types-requests",

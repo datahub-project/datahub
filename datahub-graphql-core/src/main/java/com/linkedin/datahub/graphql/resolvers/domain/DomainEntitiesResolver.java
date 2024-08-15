@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -61,7 +63,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -77,7 +79,9 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                   .getFilters()
                   .forEach(
                       filter -> {
-                        criteria.add(criterionFromFilter(filter, true));
+                        criteria.add(
+                            criterionFromFilter(
+                                filter, true, context.getOperationContext().getAspectRetriever()));
                       });
             }
 
@@ -95,7 +99,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                                 new ConjunctiveCriterion().setAnd(criteria))),
                     start,
                     count,
-                    null,
+                    Collections.emptyList(),
                     null));
 
           } catch (Exception e) {
@@ -103,6 +107,8 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                 String.format("Failed to resolve entities associated with Domain with urn %s", urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

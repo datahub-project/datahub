@@ -62,4 +62,24 @@ record DataHubIngestionSourceInfo {
       */
       extraArgs: optional map[string, string]
   }
+
+  /**
+   * The source or origin of the Ingestion Source
+   *
+   * Currently CLI and UI do not provide an explicit source.
+   */
+   source: optional record DataHubIngestionSourceSource {
+        /**
+         * The source type of the ingestion source
+         */
+        @Searchable = {
+           "fieldName": "sourceType"
+        }
+        type: enum DataHubIngestionSourceSourceType {
+            /**
+             * A system internal source, e.g. for running search indexing operations, feature computation, etc.
+             */
+            SYSTEM
+        }
+   }
 }
