@@ -82,7 +82,6 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     logging.WARNING
 )
-from humanfriendly import format_timespan
 
 
 @platform_name("Iceberg")
