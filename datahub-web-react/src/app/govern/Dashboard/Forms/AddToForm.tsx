@@ -1,16 +1,13 @@
 import { Text } from '@src/alchemy-components';
 import { Checkbox, Divider } from 'antd';
-import React, { useContext, useState } from 'react';
+import React, { useState } from 'react';
 import AddElement from './AddElement';
 import AddQuestionModal from './AddQuestionModal';
 import { FormQuestion } from './formUtils';
-import ManageFormContext from './ManageFormContext';
-import QuestionCard from './QuestionCard';
-import { OwnershipCheckbox, QuestionsList } from './styledComponents';
+import QuestionsList from './QuestionsList';
+import { OwnershipCheckbox } from './styledComponents';
 
 const AddToForm = () => {
-    const { formValues } = useContext(ManageFormContext);
-
     const [showQuestionModal, setShowQuestionModal] = useState<boolean>(false);
     const [currentQuestion, setCurrentQuestion] = useState<FormQuestion | undefined>();
 
@@ -22,17 +19,8 @@ const AddToForm = () => {
                 buttonLabel="Add Questions"
                 buttonOnClick={() => setShowQuestionModal(true)}
             />
-            <QuestionsList>
-                {formValues.questions?.map((question) => {
-                    return (
-                        <QuestionCard
-                            question={question}
-                            setShowQuestionModal={setShowQuestionModal}
-                            setCurrentQuestion={setCurrentQuestion}
-                        />
-                    );
-                })}
-            </QuestionsList>
+            <QuestionsList setShowQuestionModal={setShowQuestionModal} setCurrentQuestion={setCurrentQuestion} />
+
             <Divider />
             <AddElement
                 heading="Assign Assets"

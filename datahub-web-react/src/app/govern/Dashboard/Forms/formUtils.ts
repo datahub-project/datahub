@@ -3,9 +3,9 @@ import { FormType } from '../../../../types.generated';
 export type FormMode = 'create' | 'edit';
 
 export type FormQuestion = {
-    id?: string;
-    type?: string;
-    title?: string;
+    id: string;
+    type: string;
+    title: string;
     description?: string;
     required: boolean;
     structuredPropertyParams?: {
@@ -17,7 +17,7 @@ export type FormFields = {
     formType?: FormType;
     formName?: string;
     formDescription?: string | undefined;
-    questions?: FormQuestion[];
+    questions: FormQuestion[];
 };
 
 export const handleInputChange = (setFormValues) => (event) => {

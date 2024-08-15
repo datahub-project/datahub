@@ -3,6 +3,7 @@ import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generat
 import { EntityType, FormPromptType } from '@src/types.generated';
 import { Form, Input, Radio, Select } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { FormQuestion, questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';
 import { FieldLabel, FormFieldsContainer, ModalFooter, SelectOptionContainer, StyledModal } from './styledComponents';
@@ -77,6 +78,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                 // Adding a new question
                 const newQuestion = {
                     ...formData,
+                    id: uuidv4(),
                 };
                 setFormValues({ ...formValues, questions: [...questions, newQuestion] });
             }

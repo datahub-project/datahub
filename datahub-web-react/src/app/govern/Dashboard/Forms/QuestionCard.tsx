@@ -1,9 +1,11 @@
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Icon, Text } from '@src/alchemy-components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import React, { useContext, useState } from 'react';
 import { FormQuestion, questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';
-import { CardContainer, CardData, CardIcons, MandatoryTag } from './styledComponents';
+import { CardContainer, CardData, CardIcons, DragIcon, MandatoryTag } from './styledComponents';
 
 interface Props {
     question: FormQuestion;
@@ -12,14 +14,16 @@ interface Props {
 }
 
 const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Props) => {
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
+        id: question.id,
+    });
     const { setFormValues } = useContext(ManageFormContext);
-
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
 
     const handleDeleteQuestion = () => {
         setFormValues((prev) => ({
             ...prev,
-            questions: prev.questions?.filter((ques) => ques !== question),
+            questions: prev.questions?.filter((ques) => ques.id !== question.id),
         }));
         setShowConfirmDelete(false);
     };
@@ -30,7 +34,13 @@ const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Pr
 
     return (
         <>
-            <CardContainer>
+            <CardContainer
+                ref={setNodeRef}
+                {...attributes}
+                isDragging={isDragging}
+                transform={CSS.Transform.toString(transform)}
+            >
+                <DragIcon {...listeners} size="lg" color="gray" icon="DragIndicator" isDragging={isDragging} />
                 <CardData width="30%">
                     <Text color="gray" weight="medium">
                         {question.title}

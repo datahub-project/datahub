@@ -1,4 +1,4 @@
-import { colors } from '@src/alchemy-components';
+import { colors, Icon } from '@src/alchemy-components';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Modal, Spin, Tag, Typography } from 'antd';
 import styled from 'styled-components';
@@ -120,20 +120,29 @@ export const ModalFooter = styled.div`
     justify-content: end;
 `;
 
-export const QuestionsList = styled.div`
+export const ListContainer = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     margin: 10px 0;
 `;
 
-export const CardContainer = styled.div`
+export const CardContainer = styled.div<{ isDragging: boolean; transform?: string }>`
     display: flex;
     justify-content: space-between;
     align-items: center;
     border: 1px solid ${colors.gray[100]};
     border-radius: 4px;
     padding: 20px;
+    background-color: ${colors.white};
+    box-shadow: ${(props) => (props.isDragging ? '0 4px 12px rgba(0, 0, 0, 0.2)' : 'none')};
+    cursor: ${(props) => (props.isDragging ? 'grabbing' : 'inherit')};
+    z-index: ${(props) => (props.isDragging ? '999' : 'auto')};
+    transform: ${(props) => props.transform};
+`;
+
+export const DragIcon = styled(Icon)<{ isDragging: boolean }>`
+    cursor: ${(props) => (props.isDragging ? 'grabbing' : 'grab')};
 `;
 
 export const MandatoryTag = styled(Tag)`
