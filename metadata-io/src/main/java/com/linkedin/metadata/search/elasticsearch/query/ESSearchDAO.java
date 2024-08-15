@@ -228,7 +228,7 @@ public class ESSearchDAO {
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param facets list of facets we want aggregations for
@@ -241,7 +241,7 @@ public class ESSearchDAO {
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
@@ -257,7 +257,7 @@ public class ESSearchDAO {
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
             .getSearchRequest(
-                opContext, finalInput, transformedFilters, sortCriterion, from, size, facets);
+                opContext, finalInput, transformedFilters, sortCriteria, from, size, facets);
     searchRequest.indices(
         entityNames.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new));
     searchRequestTimer.stop();
@@ -270,7 +270,7 @@ public class ESSearchDAO {
    *
    * @param filters the request map with fields and values to be applied as filters to the search
    *     query
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size number of search hits to return
    * @return a {@link SearchResult} that contains a list of filtered documents and related search
@@ -281,7 +281,7 @@ public class ESSearchDAO {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
@@ -289,7 +289,7 @@ public class ESSearchDAO {
     Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
-            .getFilterRequest(opContext, transformedFilters, sortCriterion, from, size);
+            .getFilterRequest(opContext, transformedFilters, sortCriteria, from, size);
 
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
     return executeAndExtract(
@@ -401,7 +401,7 @@ public class ESSearchDAO {
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll Id to convert to a PIT ID and Sort array to pass to ElasticSearch
    * @param keepAlive string representation of the time to keep a point in time alive
    * @param size the number of search hits to return
@@ -414,7 +414,7 @@ public class ESSearchDAO {
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size) {
@@ -439,7 +439,7 @@ public class ESSearchDAO {
             transformedFilters,
             entitySpecs,
             finalInput,
-            sortCriterion,
+            sortCriteria,
             null);
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
@@ -462,7 +462,7 @@ public class ESSearchDAO {
       @Nullable Filter postFilters,
       List<EntitySpec> entitySpecs,
       String finalInput,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable List<String> facets) {
     String pitId = null;
     Object[] sort = null;
@@ -483,15 +483,7 @@ public class ESSearchDAO {
     return SearchRequestHandler.getBuilder(
             entitySpecs, searchConfiguration, customSearchConfiguration)
         .getSearchRequest(
-            opContext,
-            finalInput,
-            postFilters,
-            sortCriterion,
-            sort,
-            pitId,
-            keepAlive,
-            size,
-            facets);
+            opContext, finalInput, postFilters, sortCriteria, sort, pitId, keepAlive, size, facets);
   }
 
   public Optional<SearchResponse> raw(
@@ -544,7 +536,7 @@ public class ESSearchDAO {
       @Nonnull String documentId,
       @Nonnull String entityName,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
@@ -564,7 +556,7 @@ public class ESSearchDAO {
             transformedFilters,
             Collections.singletonList(entitySpec),
             finalQuery,
-            sortCriterion,
+            sortCriteria,
             facets);
     ;
 

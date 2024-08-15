@@ -14,8 +14,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -347,5 +350,29 @@ public class EntityController
         .items(items)
         .retrieverContext(opContext.getRetrieverContext().get())
         .build();
+  }
+
+  @Override
+  protected ChangeMCP toUpsertItem(
+      @Nonnull AspectRetriever aspectRetriever,
+      Urn entityUrn,
+      AspectSpec aspectSpec,
+      Boolean createIfNotExists,
+      String jsonAspect,
+      Actor actor)
+      throws JsonProcessingException {
+    JsonNode jsonNode = objectMapper.readTree(jsonAspect);
+    String aspectJson = jsonNode.get("value").toString();
+    return ChangeItemImpl.builder()
+        .urn(entityUrn)
+        .aspectName(aspectSpec.getName())
+        .changeType(Boolean.TRUE.equals(createIfNotExists) ? ChangeType.CREATE : ChangeType.UPSERT)
+        .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
+        .recordTemplate(
+            GenericRecordUtils.deserializeAspect(
+                ByteString.copyString(aspectJson, StandardCharsets.UTF_8),
+                GenericRecordUtils.JSON,
+                aspectSpec))
+        .build(aspectRetriever);
   }
 }

@@ -235,7 +235,7 @@ public interface EntityClient {
    *
    * @param input search query
    * @param filter search filters
-   * @param sortCriterion sort criterion
+   * @param sortCriteria sort criteria
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
@@ -246,7 +246,7 @@ public interface EntityClient {
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
-      SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException;
@@ -270,7 +270,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion)
+      List<SortCriterion> sortCriteria)
       throws RemoteInvocationException;
 
   /**
@@ -292,7 +292,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       List<String> facets)
       throws RemoteInvocationException;
 
@@ -328,7 +328,7 @@ public interface EntityClient {
    * @param input the search input text
    * @param maxHops the max number of hops away to search for. If null, searches all hops.
    * @param filter the request map with fields and values as filters to be applied to search hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param start index to start the search from
    * @param count the number of search hits to return
    * @return a {@link SearchResult} that contains a list of matched documents and related search
@@ -342,7 +342,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException;
@@ -356,7 +356,7 @@ public interface EntityClient {
    * @param input the search input text
    * @param maxHops the max number of hops away to search for. If null, searches all hops.
    * @param filter the request map with fields and values as filters to be applied to search hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll ID indicating offset
    * @param keepAlive string representation of time to keep point in time alive, ex: 5m
    * @param count the number of search hits to return of roundtrips for UI visualizations.
@@ -372,7 +372,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       int count)
@@ -426,7 +426,7 @@ public interface EntityClient {
    *
    * @param entity filter entity
    * @param filter search filters
-   * @param sortCriterion sort criterion
+   * @param sortCriteria sort criteria
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return a set of {@link SearchResult}s
@@ -436,7 +436,7 @@ public interface EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException;
