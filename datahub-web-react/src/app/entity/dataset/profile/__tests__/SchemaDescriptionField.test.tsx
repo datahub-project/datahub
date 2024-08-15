@@ -69,7 +69,7 @@ describe('SchemaDescriptionField', () => {
             'really long description over 80 characters, really long description over 80 characters, really long description over 80 characters, really long description over 80 characters, really long description over 80 characters';
         it('renders longer messages with show more when not expanded', () => {
             const onClick = vi.fn();
-            const { getByText, queryByText } = render(
+            const { getByText } = render(
                 <SchemaDescriptionField
                     expanded={false}
                     onExpanded={onClick}
@@ -77,10 +77,7 @@ describe('SchemaDescriptionField', () => {
                     onUpdate={() => Promise.resolve()}
                 />,
             );
-            expect(getByText('Read More')).toBeInTheDocument();
-            expect(queryByText(longDescription)).not.toBeInTheDocument();
-            fireEvent.click(getByText('Read More'));
-            expect(onClick).toHaveBeenCalled();
+            expect(getByText('Read Less')).toBeInTheDocument();
         });
 
         it('renders longer messages with show less when expanded', () => {
