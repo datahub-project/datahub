@@ -26,11 +26,11 @@ describe('useGetValidationsTab', () => {
         let pathname = '/dataset/urn:li:abc/Quality/Assertions/';
         let tabNames = ['Assertions'];
         let res = useGetValidationsTab(pathname, tabNames);
-        expect(res.selectedTab).toEqual('List');
+        expect(res.selectedTab).toEqual('Assertions');
         expect(res.basePath).toEqual('/dataset/urn:li:abc/Quality');
 
         pathname = '/dataset/urn:li:abc/Quality/';
-        tabNames = ['list'];
+        tabNames = ['Assertions'];
         res = useGetValidationsTab(pathname, tabNames);
         expect(res.selectedTab).toBeUndefined();
         expect(res.basePath).toEqual('/dataset/urn:li:abc/Quality');
