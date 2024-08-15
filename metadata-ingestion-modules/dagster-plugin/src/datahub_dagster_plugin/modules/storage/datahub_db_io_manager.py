@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Type, Dict
+from typing import Dict, Optional, Sequence, Type
 
 from dagster import MetadataValue, OutputContext
 from dagster._core.storage.db_io_manager import DbClient, DbIOManager, DbTypeHandler
