@@ -45,6 +45,9 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     needs: ["check-secret", "setup"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
