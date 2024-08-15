@@ -28,7 +28,6 @@ aiohttp==3.9.5
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   openai
 aiosignal==1.3.1
     # via
     #   -r requirements.txt
@@ -92,11 +91,6 @@ avro-gen3==0.7.13
     # via
     #   -r requirements.txt
     #   acryl-datahub
-aws-assume-role-lib==2.10.0
-    # via
-    #   -r requirements.txt
-    #   acryl-datahub-integrations (pyproject.toml)
-    #   acryl-datahub-integrations
 beautifulsoup4==4.12.3
     # via
     #   -r requirements.txt
@@ -116,7 +110,6 @@ boto3==1.34.91
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
-    #   aws-assume-role-lib
 botocore==1.34.91
     # via
     #   -r requirements.txt
@@ -597,17 +590,6 @@ numpy==1.26.4
     #   scipy
     #   spacy
     #   thinc
-openai==0.27.10
-    # via
-    #   -r requirements.txt
-    #   acryl-datahub-integrations (pyproject.toml)
-    #   acryl-datahub-integrations
-    #   openai-function-call
-openai-function-call==0.1.2
-    # via
-    #   -r requirements.txt
-    #   acryl-datahub-integrations (pyproject.toml)
-    #   acryl-datahub-integrations
 packaging==24.0
     # via
     #   -r requirements.txt
@@ -724,7 +706,6 @@ pydantic==1.10.15
     #   confection
     #   fastapi
     #   great-expectations
-    #   openai-function-call
     #   spacy
     #   thinc
 pygithub==2.3.0
@@ -843,7 +824,6 @@ requests==2.31.0
     #   great-expectations
     #   mixpanel
     #   msal
-    #   openai
     #   pygithub
     #   reactpy
     #   requests-file
@@ -872,6 +852,7 @@ s3transfer==0.10.1
 schwifty==2024.4.0
     # via
     #   -r requirements.txt
+    #   acryl-datahub
     #   acryl-datahub-classify
 scipy==1.13.0
     # via
@@ -1054,7 +1035,6 @@ tqdm==4.66.2
     # via
     #   -r requirements.txt
     #   great-expectations
-    #   openai
     #   spacy
 traitlets==5.2.1.post0
     # via

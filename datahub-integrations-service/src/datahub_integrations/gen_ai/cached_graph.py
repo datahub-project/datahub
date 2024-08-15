@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 import cachetools
 import cachetools.keys
@@ -8,6 +8,9 @@ CACHEABLE_METHODS = [
     "get_entity_raw",
     "get_entity_semityped",
     "get_aspect",
+    # The variables dictionary is not hashable, so we can't cache this for now.
+    # Eventually we should turn it into a frozendict and hash that.
+    # "execute_graphql",
 ]
 
 
@@ -34,13 +37,15 @@ class _CachedGraph:
         return getattr(graph, name)
 
 
-def make_cached_graph(graph: DataHubGraph, ttl: int = 0) -> DataHubGraph:
+def make_cached_graph(
+    graph: DataHubGraph, ttl_sec: Optional[float] = None
+) -> DataHubGraph:
     if isinstance(graph, _CachedGraph):
         return graph  # type: ignore
 
     cache: cachetools.Cache
-    if ttl:
-        cache = cachetools.TTLCache(ttl=ttl, maxsize=1000)
+    if ttl_sec:
+        cache = cachetools.TTLCache(ttl=ttl_sec, maxsize=1000)
     else:
         cache = cachetools.Cache(maxsize=1000)
     return _CachedGraph(graph=graph, cache=cache)  # type: ignore

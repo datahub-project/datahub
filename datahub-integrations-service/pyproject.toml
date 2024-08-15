@@ -28,10 +28,7 @@ dependencies = [
 	"reactpy-router",
 	# AI.
 	"tenacity",
-	"openai",
-	"openai_function_call",
 	"boto3",
-	"aws-assume-role-lib",
 	# Email notifications.
 	"sendgrid",
 	# Reporting.

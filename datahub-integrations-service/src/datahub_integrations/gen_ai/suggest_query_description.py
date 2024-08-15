@@ -1,9 +1,9 @@
 import dataclasses
 
-import openai
+from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 
-from datahub_integrations.app import graph
+from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
 
 
 @dataclasses.dataclass
@@ -12,7 +12,7 @@ class QueryContext:
     query_text: str
 
 
-def get_query_context(query_urn: str) -> QueryContext:
+def get_query_context(graph: DataHubGraph, query_urn: str) -> QueryContext:
     query_res = graph.execute_graphql(
         """\
 query Query($urn: String!) {
@@ -35,6 +35,7 @@ query Query($urn: String!) {
         {"urn": query_urn},
     )
 
+    # TODO: Fetch more context from the query entity.
     return QueryContext(
         query_urn=query_urn,
         query_text=query_res["entity"]["properties"]["statement"]["value"],
@@ -44,31 +45,21 @@ query Query($urn: String!) {
 def generate_query_desc(entity_context: QueryContext) -> str:
     """Generate a description for the entity."""
 
-    completion = openai.ChatCompletion.create(
-        model="gpt-4o-2024-05-13",
-        messages=[
-            {
-                "role": "system",
-                "content": """\
-Provide a one-sentence summary of this SQL query. Write with an imperative mood.
+    description = call_bedrock_llm(
+        model=BedrockModel.CLAUDE_35_SONNET,
+        max_tokens=200,
+        prompt=f"""\
+Provide a 1-2 sentence summary of this SQL query. Write with an imperative mood.
 
 Here's a few examples of good summaries:
 - Pull user counts and team owners, broken down by domain and plan tier.
 - View education users from domain 'example.com' who have not logged in for 30 days.
 
-```sql
-{query_text}
-```""".format(
-                    query_text=entity_context.query_text
-                ),
-            },
-        ],
-        max_tokens=200,
-        temperature=0.4,
+<query>
+{entity_context.query_text}
+</query>
+""",
     )
-
-    # TODO assert that "finish_reason" is "function_call". If not, retry with more tokens?
-    description = completion.choices[0].message["content"]
 
     return description
 
@@ -76,12 +67,14 @@ Here's a few examples of good summaries:
 if __name__ == "__main__":
     import sys
 
+    from datahub_integrations.app import graph
+
     if len(sys.argv) > 1:
         target_urn = sys.argv[1]
     else:
         target_urn = "urn:li:query:61705a7013ab63277266251565750876"
 
-    context = get_query_context(target_urn)
+    context = get_query_context(graph, target_urn)
     logger.info(f"For query {context.query_urn}")
     logger.debug(context.query_text)
     desc = generate_query_desc(context)

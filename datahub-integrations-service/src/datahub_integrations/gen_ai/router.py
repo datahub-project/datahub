@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import fastapi
 import pydantic
 import tenacity
@@ -9,17 +11,15 @@ from datahub_integrations.gen_ai.description_v2 import (
     generate_entity_descriptions_for_urn,
     parse_llm_output,
 )
-from datahub_integrations.gen_ai.entity_context import generate_context
-from datahub_integrations.gen_ai.suggest_description import generate_desc
 from datahub_integrations.gen_ai.suggest_query_description import (
     generate_query_desc,
     get_query_context,
 )
 
-router = fastapi.APIRouter()
-_LEGACY_DESCRIPTION_SUGGESTION_ENABLED = False
+_METADATA_CACHE_TTL_SEC = timedelta(minutes=15).total_seconds()
 
-graph = make_cached_graph(uncached_graph)
+router = fastapi.APIRouter()
+graph = make_cached_graph(uncached_graph, ttl_sec=_METADATA_CACHE_TTL_SEC)
 
 
 class SuggestedDescription(pydantic.BaseModel):
@@ -61,17 +61,8 @@ def suggest_description(entity_urn: str) -> SuggestedDescription:
     urn = Urn.from_string(entity_urn)
 
     if isinstance(urn, QueryUrn):
-        query_context = get_query_context(entity_urn)
+        query_context = get_query_context(graph, entity_urn)
         desc = generate_query_desc(query_context)
-
-        return SuggestedDescription(
-            entity_description=desc,
-            column_descriptions={},
-        )
-
-    elif _LEGACY_DESCRIPTION_SUGGESTION_ENABLED:
-        entity_context = generate_context(entity_urn)
-        desc = generate_desc(entity_context, use_flattery=True)
 
         return SuggestedDescription(
             entity_description=desc,

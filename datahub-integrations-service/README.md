@@ -73,10 +73,10 @@ Alternative approach: updating requirements without updating pyproject.toml.
 
 ```sh
 # Upgrade a single package:
-uv pip compile -o requirements.txt pyproject.toml requirements-local.in --upgrade-package <package>
+uv pip compile -o requirements.txt requirements-local.in --upgrade-package <package>
 
 # Upgrade all packages:
-uv pip compile -o requirements.txt pyproject.toml requirements-local.in --upgrade
+uv pip compile -o requirements.txt requirements-local.in --upgrade
 
 # Either way, run the same lockfile and venv update commands as above.
 ```

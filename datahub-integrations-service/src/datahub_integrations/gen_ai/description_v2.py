@@ -1,87 +1,27 @@
 import ast
-import functools
-import json
 import os
 import re
-import time
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
-import boto3
-import botocore.config
 import datahub.metadata.schema_classes as models
-from aws_assume_role_lib import aws_assume_role_lib
+import pydantic
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import AspectBag, UpstreamClass
+from datahub.metadata.schema_classes import AspectBag
 from datahub.metadata.urns import SchemaFieldUrn
 from loguru import logger
 
-if TYPE_CHECKING:
-    from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
+from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
 
+DESCRIPTION_GENERATION_MODEL: BedrockModel = pydantic.parse_obj_as(
+    BedrockModel,
+    os.getenv(
+        "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU.value
+    ),
+)
 
-# modelId = "anthropic.claude-3-5-sonnet-20240620-v1:0"
-modelId = "anthropic.claude-3-haiku-20240307-v1:0"
-TABLE_UPSTREAM_MAX_COUNT = 5
-
-
-@functools.cache
-def get_bedrock_client() -> "BedrockRuntimeClient":
-    # Set up Bedrock client - the cache decorator ensures that this is a singleton
-
-    # Increase the read and connect timeouts, since Bedrock can be slow.
-    config = botocore.config.Config(read_timeout=300, connect_timeout=60)
-
-    if "BEDROCK_AWS_ROLE" in os.environ:
-        # When using assume_role(), the tokens from the assume role call expire
-        # after an hour. The boto3 library doesn't have anything out of the
-        # box to support this if you're not using profiles with role chaining,
-        # which is the case for EKS and instance credentials.
-        # The AWS team released the `aws-assume-role-lib` library to bridge
-        # this gap while they figure out how to add this to boto3.
-        # See https://github.com/boto/boto3/issues/443#issuecomment-1574257880
-
-        base_session = boto3.Session()
-
-        boto3_session = aws_assume_role_lib.assume_role(
-            base_session, os.environ["BEDROCK_AWS_ROLE"]
-        )
-
-    else:
-        boto3_session = boto3.Session(
-            aws_access_key_id=os.environ["BEDROCK_AWS_ACCESS_KEY_ID"],
-            aws_secret_access_key=os.environ["BEDROCK_AWS_SECRET_ACCESS_KEY"],
-        )
-
-    return boto3_session.client("bedrock-runtime", config=config)  # type: ignore
-
-
-def call_bedrock_llm(prompt: str, max_tokens: int) -> str:
-    start_time = time.time()
-    body = {
-        "anthropic_version": "bedrock-2023-05-31",
-        "messages": [
-            {
-                "role": "user",
-                "content": [{"type": "text", "text": prompt}],
-            }
-        ],
-        "max_tokens": max_tokens,
-        "temperature": 0.3,
-    }
-    accept = "application/json"
-    contentType = "application/json"
-
-    boto3_bedrock = get_bedrock_client()
-    response = boto3_bedrock.invoke_model(
-        body=json.dumps(body), modelId=modelId, accept=accept, contentType=contentType
-    )
-    response_body = json.loads(response["body"].read())
-
-    # print(response_body)
-    outputText = response_body["content"][0]["text"]
-
-    logger.debug(f"LLM call took {time.time() - start_time} seconds")
-    return outputText
+_MAX_UPSTREAM_TABLES = 5
+_MAX_DOWNSTREAM_TABLES = 8
+_MAX_UPSTREAM_FIELDS_PER_COLUMN = 5
 
 
 def get_lineage_query(graph_client: DataHubGraph, urn: str) -> dict:
@@ -139,11 +79,11 @@ def get_column_upstream_metadata(
 
 
 def get_table_upstream_lineage_info(
-    upstreams: List[UpstreamClass], graph_client: DataHubGraph
+    upstreams: List[models.UpstreamClass], graph_client: DataHubGraph
 ):
     table_upstream_lineage_info = []
     for upstream_table_count, upstream in enumerate(upstreams):
-        if upstream_table_count == TABLE_UPSTREAM_MAX_COUNT:
+        if upstream_table_count == _MAX_UPSTREAM_TABLES:
             break
         dataset_urn = upstream.dataset
         entity = graph_client.get_entity_semityped(dataset_urn)
@@ -165,6 +105,85 @@ def get_table_upstream_lineage_info(
             }
         )
     return table_upstream_lineage_info
+
+
+def get_downstream_urns_for_table(
+    table_urn: str, graph_client: DataHubGraph
+) -> list[str]:
+    downstream_urns = []
+    query = """query getDatasetDownstreams($input: String!) {
+      dataset(urn: $input) {
+        lineage(input: {direction: DOWNSTREAM}) {
+          relationships {
+            entity {
+              urn
+            }
+          }
+        }
+      }
+    }"""
+    variables = {"input": table_urn}
+    entity = graph_client.execute_graphql(query, variables)
+    if entity.get("dataset") is not None:
+        lineage = entity["dataset"].get("lineage")
+        if lineage is not None:
+            relationships = entity["dataset"]["lineage"].get("relationships")
+            for relationship in relationships or []:
+                if relationship.get("entity") is not None:
+                    downstream_urns.append(relationship.get("entity").get("urn"))
+    return downstream_urns
+
+
+# def get_query_for_matching_upstream(
+#     upstreams: List[models.UpstreamClass], urn: str, graph_client: DataHubGraph
+# ) -> Tuple[dict, str]:
+#     query_info = {}
+#     lineage_type = None
+#     for upstream in upstreams:
+#         if upstream.dataset == urn and upstream.query is not None:
+#             query_info = get_lineage_query(graph_client, upstream.query)
+#             lineage_type = upstream.type
+#             break
+#         else:
+#             continue
+#     return query_info, lineage_type
+
+
+def get_table_downstream_lineage_info(
+    urn: str, graph_client: DataHubGraph
+) -> list[dict]:
+    table_downstream_lineage_info = []
+    downstream_urns = get_downstream_urns_for_table(urn, graph_client)
+    downstream_dataset_urns = [
+        urn for urn in downstream_urns if urn.startswith("urn:li:dataset:(")
+    ]
+    for downstream_table_count, downstream_urn in enumerate(downstream_dataset_urns):
+        if downstream_table_count >= _MAX_DOWNSTREAM_TABLES:
+            break
+        entity = graph_client.get_entity_semityped(downstream_urn)
+        downstream_table_name, downstream_table_description = (
+            get_table_name_and_description(entity=entity, urn=downstream_urn)
+        )
+        # # Get query and Lineage type:
+        # upstream_lineages_of_downstream_urn = entity.get("upstreamLineage")
+        # if upstream_lineages_of_downstream_urn is not None:
+        #     query, lineage_type = get_query_for_matching_upstream(
+        #         upstream_lineages_of_downstream_urn.upstreams,
+        #         urn,
+        #         graph_client=graph_client,
+        #     )
+        # else:
+        #     query = {}
+        #     lineage_type = None
+        lineage_info = {
+            "downstream_table_urn": downstream_urn,
+            "downstream_table_name": downstream_table_name,
+            "downstream_table_description": downstream_table_description,
+            # "query": query,
+            # "lineage_type": lineage_type,
+        }
+        table_downstream_lineage_info.append(remove_nulls(lineage_info))
+    return table_downstream_lineage_info
 
 
 def get_upstream_finegrained_lineage_info(
@@ -203,7 +222,10 @@ def get_upstream_finegrained_lineage_info(
                     }
                 upstream_dict = remove_nulls(upstream_dict)
                 if column_urn in lineage_info.keys():
-                    lineage_info[column_urn].extend(upstream_dict)
+                    if len(lineage_info[column_urn]) < _MAX_UPSTREAM_FIELDS_PER_COLUMN:
+                        lineage_info[column_urn].extend(upstream_dict)
+                    else:
+                        continue
                 else:
                     lineage_info[column_urn] = [upstream_dict]
     for column_urn in column_urns:
@@ -396,7 +418,10 @@ def extract_metadata_for_urn(
             upstreams=upstream_lineages.upstreams, graph_client=graph_client
         )
 
-    # TODO: Downstream lineage information
+    # Table Downstream lineage information
+    table_downstream_lineage_info = get_table_downstream_lineage_info(
+        urn=urn, graph_client=graph_client
+    )
 
     # Tags:
     table_level_tags, column_level_tags = get_table_and_column_level_tags(
@@ -456,6 +481,7 @@ def extract_metadata_for_urn(
         "table_domains_info": table_domain_info,
         "table_owners_info": table_owners_info,
         "table_upstream_lineage_info": table_upstream_lineage_info,
+        "table_downstream_lineage_info": table_downstream_lineage_info,
     }
     return extracted_table_info
 
@@ -541,7 +567,9 @@ Ensure that the dictionary is properly formatted and parsable. Use the column di
 '''
     # print(prompt)
     entity_descriptions = call_bedrock_llm(
-        prompt, max_tokens=model_config.get("max_tokens", 3000)
+        prompt,
+        max_tokens=model_config.get("max_tokens", 3000),
+        model=DESCRIPTION_GENERATION_MODEL,
     )
     # except Exception as e:
     #     print(f"Exception occured while generating column descriptions for urn: {urn} {e}")
