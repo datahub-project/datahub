@@ -108,8 +108,10 @@ public class SlackMemberResolutionHook implements MetadataChangeLogHook {
       return;
     }
     if (event.getAspectName().equals(CORP_USER_SETTINGS_ASPECT_NAME)) {
-      log.debug(
-          "Found corpUserSettings update event. Attempting to resolve corpUserSettings slack member details.");
+      log.info(
+          String.format(
+              "Found corpUserSettings update event for %s. Attempting to resolve and hydrate corpUserSettings slack member details.",
+              event.getEntityUrn()));
       tryHydrateSlackMemberDetails(
           event.getEntityUrn(),
           GenericRecordUtils.deserializeAspect(
@@ -127,7 +129,7 @@ public class SlackMemberResolutionHook implements MetadataChangeLogHook {
   private void tryHydrateSlackMemberDetails(
       @Nonnull Urn userUrn, @Nonnull CorpUserSettings userSettings) {
     // 1. Check if slack member info is already stored in the corpUserInfo
-    CorpUserEditableInfo corpUserEditableInfo = null;
+    final CorpUserEditableInfo corpUserEditableInfo;
     try {
       corpUserEditableInfo =
           memberResolutionUtils.fetchCorpUserEditableInfo(this.systemOperationContext, userUrn);
@@ -143,7 +145,7 @@ public class SlackMemberResolutionHook implements MetadataChangeLogHook {
       log.debug(
           String.format(
               "No corpUserEditableInfo aspect for user %s. Will create a new aspect.", userUrn));
-    } else if (corpUserEditableInfo.hasSlack()) {
+    } else if (corpUserEditableInfo.hasSlack() && !corpUserEditableInfo.getSlack().isEmpty()) {
       // NOTE: {@link
       // com.linkedin.metadata.kafka.hook.notification.settings.DefaultNotificationSettingsHook}
       // will
@@ -160,7 +162,7 @@ public class SlackMemberResolutionHook implements MetadataChangeLogHook {
     final boolean isResolvedWithSlackNotificationSettings =
         tryResolveWithSlackNotificationSettings(userUrn, userSettings, corpUserEditableInfo);
     if (isResolvedWithSlackNotificationSettings) {
-      log.debug(
+      log.info(
           String.format(
               "Successfully hydrated slackMember in corpUserEditableInfo with slackNotificationSettings for user %s",
               userUrn));
@@ -171,7 +173,7 @@ public class SlackMemberResolutionHook implements MetadataChangeLogHook {
     final boolean isResolvedWithEmailNotificationSettings =
         tryResolveWithEmailNotificationSettings(userUrn, userSettings, corpUserEditableInfo);
     if (isResolvedWithEmailNotificationSettings) {
-      log.debug(
+      log.info(
           String.format(
               "Successfully hydrated slackMember in corpUserEditableInfo with emailNotificationSettings for user %s",
               userUrn));

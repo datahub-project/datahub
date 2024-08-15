@@ -204,7 +204,8 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     if (userSettings != null
         && userSettings.getNotificationSettings() != null
         && userSettings.getNotificationSettings().getSlackSettings() != null
-        && userSettings.getNotificationSettings().getSlackSettings().getUserHandle() != null) {
+        && userSettings.getNotificationSettings().getSlackSettings().getUserHandle() != null
+        && !userSettings.getNotificationSettings().getSlackSettings().getUserHandle().isEmpty()) {
       log.debug(
           "User {} already has slack notification settings. Skipping default notification settings creation.",
           userUrn);
