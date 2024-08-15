@@ -115,7 +115,7 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
       }
 
       // If field is primitive, but there is more query part to traverse, query is invalid
-      if (fieldSchema.isPrimitive()) {
+      if (fieldSchema.isPrimitive() || DataSchema.Type.ENUM.equals(fieldSchema.getType())) {
         if (i < query.getQueryParts().size() - 1) {
           return invalidResultWithMessage(
               String.format(
