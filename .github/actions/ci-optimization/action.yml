@@ -1,5 +1,5 @@
-name: 'Identify CI Optimizations'
-description: 'Determine if code changes are specific to certain modules.'
+name: "Identify CI Optimizations"
+description: "Determine if code changes are specific to certain modules."
 
 outputs:
   frontend-only:
@@ -44,27 +44,25 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: dorny/paths-filter@v2
+    - uses: dorny/paths-filter@v3
       id: filter
       with:
+        token: "" # Empty token forces it to use raw git commands.
         filters: |
           frontend:
             - "datahub-frontend/**"
             - "datahub-web-react/**"
-            - "smoke-test/tests/cypress/**"
             - "docker/datahub-frontend/**"
           ingestion:
             - "metadata-ingestion-modules/**"
             - "metadata-ingestion/**"
             - "metadata-models/**"
-            - "smoke-test/**"
             - "docker/datahub-ingestion**"
           ingestion-base:
             - "docker/datahub-ingestion-base/**"
           docker:
             - "docker/**"
           backend:
-            - ".github/**"
             - "metadata-models/**"
             - "datahub-upgrade/**"
             - "entity-registry/**"
@@ -78,7 +76,6 @@ runs:
             - "metadata-utils/**"
             - "metadata-operation-context/**"
             - "datahub-graphql-core/**"
-            - "smoke-test/**"
             - "docker/**"
           kafka-setup:
             - "docker/kafka-setup/**"

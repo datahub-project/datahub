@@ -1,16 +1,19 @@
 import { Button } from 'antd';
 import React, { useState } from 'react';
-import { PropertyRow } from '../types';
 import EditStructuredPropertyModal from './EditStructuredPropertyModal';
+import { StructuredPropertyEntity } from '../../../../../../types.generated';
 
 interface Props {
-    propertyRow: PropertyRow;
+    structuredProperty?: StructuredPropertyEntity;
+    associatedUrn?: string;
+    values?: (string | number | null)[];
+    refetch?: () => void;
 }
 
-export function EditColumn({ propertyRow }: Props) {
+export function EditColumn({ structuredProperty, associatedUrn, values, refetch }: Props) {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-    if (!propertyRow.structuredProperty || propertyRow.structuredProperty?.definition.immutable) {
+    if (!structuredProperty || structuredProperty?.definition.immutable) {
         return null;
     }
 
@@ -21,9 +24,11 @@ export function EditColumn({ propertyRow }: Props) {
             </Button>
             <EditStructuredPropertyModal
                 isOpen={isEditModalVisible}
-                propertyRow={propertyRow}
-                structuredProperty={propertyRow.structuredProperty}
+                structuredProperty={structuredProperty}
+                associatedUrn={associatedUrn}
+                values={values}
                 closeModal={() => setIsEditModalVisible(false)}
+                refetch={refetch}
             />
         </>
     );
