@@ -256,7 +256,47 @@ type FormInfo {
     The actors that are assigned to complete the forms for the associated entities.
     """
     actors: FormActorAssignment!
+
+    """
+    Information about the state and status of this form
+    """
+    status: FormStatus!
 }
+
+"""
+Information about the state and status of this form
+"""
+type FormStatus {
+    """
+    The actors that are assigned to complete the forms for the associated entities.
+    """
+    state: FormState!
+
+    """
+    The audit stamp related to the last modification of the form state
+    """
+    lastModified: AuditStamp
+}
+
+"""
+The state of this form. Draft means no users are prompted to fill it out yet and unpublished is hidden.
+Published forms are out in the world for users to see. Setting default to PUBLISHED for old data.
+"""
+enum FormState {
+    """
+    This form is in draft state and is not viewable by any users
+    """
+    DRAFT
+    """
+    This form is published and viewable by users to fill it out
+    """
+    PUBLISHED
+    """
+    This form is unpublished and is not viewable by users
+    """
+    UNPUBLISHED
+}
+
 
 """
 A prompt shown to the user to collect metadata about an entity
@@ -563,6 +603,11 @@ input CreateFormInput {
     Information on how this form should be assigned to users/groups
     """
     actors: FormActorAssignmentInput
+
+    """
+    The state of this form (whether it's draft/published/unpublished)
+    """
+    state: FormState
 }
 
 """
@@ -690,6 +735,11 @@ input UpdateFormInput {
     Information on how this form should be assigned to users/groups
     """
     actors: FormActorAssignmentUpdateInput
+
+    """
+    The state of this form (whether it's draft/published/unpublished)
+    """
+    state: FormState
 }
 
 """

@@ -28,6 +28,8 @@ import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
 import com.linkedin.form.FormPromptType;
+import com.linkedin.form.FormState;
+import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
 import com.linkedin.form.OwnershipParams;
 import com.linkedin.form.PromptCardinality;
@@ -43,6 +45,7 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.util.MetadataTestServiceUtils;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.test.MetadataTestClient;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -256,7 +259,8 @@ public class FormUtils {
   }
 
   @Nonnull
-  public static FormInfo mapFormInfo(@Nonnull final CreateFormInput input) {
+  public static FormInfo mapFormInfo(
+      @Nonnull OperationContext context, @Nonnull final CreateFormInput input) {
     Objects.requireNonNull(input, "input must not be null");
 
     final FormInfo result = new FormInfo();
@@ -273,8 +277,23 @@ public class FormUtils {
     if (input.getActors() != null) {
       result.setActors(mapFormActorAssignment(input.getActors()));
     }
+    // always set status when creating a form
+    result.setStatus(createFormStatus(context, input));
 
     return result;
+  }
+
+  private static FormStatus createFormStatus(
+      @Nonnull OperationContext context, @Nonnull final CreateFormInput input) {
+    FormStatus formStatus = new FormStatus();
+    if (input.getState() != null) {
+      formStatus.setState(FormState.valueOf(input.getState().toString()));
+    } else {
+      // default set state as draft when creating a form
+      formStatus.setState(FormState.DRAFT);
+    }
+    formStatus.setLastModified(context.getAuditStamp());
+    return formStatus;
   }
 
   @Nonnull

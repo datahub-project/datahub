@@ -13,11 +13,14 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
 import com.linkedin.datahub.graphql.types.form.FormMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.form.FormState;
+import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.FormInfoPatchBuilder;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -58,6 +61,10 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
             }
             if (input.getType() != null) {
               patchBuilder.setType(FormType.valueOf(input.getType().toString()));
+            }
+            if (input.getState() != null) {
+              patchBuilder.setStatus(
+                  createFormStatus(context.getOperationContext(), input.getState()));
             }
             if (input.getPromptsToAdd() != null) {
               patchBuilder.addPrompts(FormUtils.mapPromptsToAdd(input.getPromptsToAdd()));
@@ -103,5 +110,13 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
                 String.format("Failed to perform update against input %s", input), e);
           }
         });
+  }
+
+  private FormStatus createFormStatus(
+      OperationContext context, com.linkedin.datahub.graphql.generated.FormState state) {
+    FormStatus formStatus = new FormStatus();
+    formStatus.setState(FormState.valueOf(state.toString()));
+    formStatus.setLastModified(context.getAuditStamp());
+    return formStatus;
   }
 }

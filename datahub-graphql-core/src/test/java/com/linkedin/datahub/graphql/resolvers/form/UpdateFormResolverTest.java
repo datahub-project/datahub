@@ -24,7 +24,7 @@ public class UpdateFormResolverTest {
   private static final String TEST_FORM_URN = "urn:li:form:1";
 
   private static final UpdateFormInput TEST_INPUT =
-      new UpdateFormInput(TEST_FORM_URN, "new name", null, null, null, null, null, null);
+      new UpdateFormInput(TEST_FORM_URN, "new name", null, null, null, null, null, null, null);
 
   @Test
   public void testGetSuccess() throws Exception {

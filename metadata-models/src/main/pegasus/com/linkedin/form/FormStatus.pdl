@@ -1,0 +1,35 @@
+namespace com.linkedin.form
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about the state of a form
+ */
+record FormStatus {
+  /**
+   * The state of this form. Draft means no users are prompted to fill it out yet and unpublished is hidden.
+   * Published forms are out in the world for users to see. Setting default to PUBLISHED for old data.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  state: enum FormState {
+    /**
+     * This form is in draft state and is not viewable by any users
+     */
+    DRAFT
+    /**
+     * This form is published and viewable by users to fill it out
+     */
+    PUBLISHED
+    /**
+     * This form is unpublished and is not viewable by users
+     */
+    UNPUBLISHED
+  }
+
+  /**
+   * Audit stamp containing who last modified the form state and when.
+   */
+  lastModified: optional AuditStamp
+}

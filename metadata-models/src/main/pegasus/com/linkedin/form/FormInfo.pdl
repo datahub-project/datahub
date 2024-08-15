@@ -48,4 +48,9 @@ record FormInfo {
    * Who the form is assigned to, e.g. who should see the form when visiting the entity page or governance center
    */
   actors: FormActorAssignment = { "owners": true }
+
+  /**
+   * Information about the state and status of this form
+   */
+  status: FormStatus = { "state": "PUBLISHED" }
 }
