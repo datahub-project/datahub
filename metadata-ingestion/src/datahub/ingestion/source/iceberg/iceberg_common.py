@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from humanfriendly import format_timespan
 from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
 
@@ -18,7 +19,6 @@ from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
 )
-from humanfriendly import format_timespan
 
 logger = logging.getLogger(__name__)
 
@@ -153,13 +153,15 @@ class TimingClass:
         self.times.sort()
         total = sum(self.times)
         avg = total / len(self.times)
-        return str({
-            'average_time': format_timespan(avg, detailed=True, max_units=3),
-            'min_time': format_timespan(self.times[0], detailed=True, max_units=3),
-            'max_time': format_timespan(self.times[-1], detailed=True, max_units=3),
-            # total_time does not provide correct information in case we run in more than 1 thread
-            'total_time': format_timespan(total, detailed=True, max_units=3)
-        })
+        return str(
+            {
+                "average_time": format_timespan(avg, detailed=True, max_units=3),
+                "min_time": format_timespan(self.times[0], detailed=True, max_units=3),
+                "max_time": format_timespan(self.times[-1], detailed=True, max_units=3),
+                # total_time does not provide correct information in case we run in more than 1 thread
+                "total_time": format_timespan(total, detailed=True, max_units=3),
+            }
+        )
 
 
 @dataclass
@@ -178,14 +180,14 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
 
-    def set_catalog_retrieval_time(self, t):
+    def set_catalog_retrieval_time(self, t: float) -> None:
         self.catalog_retrieval_time = format_timespan(t, detailed=True, max_units=3)
 
-    def report_table_load_time(self, t: float):
+    def report_table_load_time(self, t: float) -> None:
         self.load_table_timings.add_timing(t)
 
-    def report_table_processing_time(self, t: float):
+    def report_table_processing_time(self, t: float) -> None:
         self.processing_table_timings.add_timing(t)
 
-    def report_table_profiling_time(self, t: float):
+    def report_table_profiling_time(self, t: float) -> None:
         self.profiling_table_timings.add_timing(t)
