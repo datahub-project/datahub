@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Type
+from typing import Optional, Sequence, Type, Dict
 
 from dagster import MetadataValue, OutputContext
 from dagster._core.storage.db_io_manager import DbClient, DbIOManager, DbTypeHandler
@@ -67,7 +67,7 @@ class DataHubDbIoManager(DbIOManager):
         else:
             urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{table_slice.schema.lower()}.{table_slice.table.lower()},{self.datahub_env})"
 
-        metadata = {
+        metadata: Dict = {
             "fqdn_table_name": f"{table_slice.database}.{table_slice.schema}.{table_slice.table}",
             "datahub_urn": urn,
         }
