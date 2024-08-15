@@ -8,6 +8,7 @@ import pytest
 
 from datahub_integrations.actions.replay_source import read_events_file
 from datahub_integrations.dbt.dbt_sync_back import (
+    DEFAULT_YML_FILE_CREATION_MODE,
     AddTagOperation,
     AddTermOperation,
     AlreadySyncedError,
@@ -123,6 +124,7 @@ def test_tag_op(sample_dbt_proj: DbtProject) -> None:
     context = ApplyContext(
         graph=graph,
         proj=sample_dbt_proj,
+        yml_file_creation_mode=DEFAULT_YML_FILE_CREATION_MODE,
     )
 
     urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.dataset.monthly_billing_with_cust,PROD)"

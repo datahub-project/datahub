@@ -225,9 +225,6 @@ class YmlFileCreationMode(ConfigEnum):
     """Add a <model_name>.yml file next to the model SQL."""
 
 
-DEFAULT_YML_FILE_CREATION_MODE = YmlFileCreationMode.DIRECTORY_SCHEMA_YML
-
-
 class LocatorError(Exception):
     pass
 
@@ -236,7 +233,7 @@ class DbtFileLocator:
     def __init__(
         self,
         dbt_project: DbtProject,
-        yml_file_creation_mode: YmlFileCreationMode = DEFAULT_YML_FILE_CREATION_MODE,
+        yml_file_creation_mode: YmlFileCreationMode,
     ):
         self.dbt_project = dbt_project
         self.yml_file_creation_mode = yml_file_creation_mode
@@ -348,17 +345,15 @@ class DbtFileLocator:
                 model_path: pathlib.Path = self.dbt_dir / original_file_path
                 model_dir = model_path.parent
 
-                if self.yml_file_creation_mode == YmlFileCreationMode.YML_PER_MODEL:
-                    yml_file = model_dir / "schema.yml"
-                elif (
-                    self.yml_file_creation_mode
-                    == YmlFileCreationMode.DIRECTORY_SCHEMA_YML
-                ):
-                    yml_file = model_dir / f"{model_name}.yml"
-                else:
-                    raise ValueError(
-                        f"Unknown yaml file creation mode: {self.yml_file_creation_mode}"
-                    )
+                match self.yml_file_creation_mode:
+                    case YmlFileCreationMode.YML_PER_MODEL:
+                        yml_file = model_dir / f"{model_name}.yml"
+                    case YmlFileCreationMode.DIRECTORY_SCHEMA_YML:
+                        yml_file = model_dir / "schema.yml"
+                    case _:
+                        raise ValueError(
+                            f"Unknown yaml file creation mode: {self.yml_file_creation_mode}"
+                        )
 
                 # Create the file.
                 yml_file.write_text(f"{plural_node_type}: []\n")

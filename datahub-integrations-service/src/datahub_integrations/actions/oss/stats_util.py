@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, Optional
 
+import pydantic
 from datahub.ingestion.api.report import Report, SupportsAsObj
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -23,22 +24,24 @@ class EventProcessingStats(BaseModel):
     Note: Might be merged into ActionStats in the future.
     """
 
-    last_seen_event_time: Optional[str]  # The event time of the last event we processed
-    last_event_processed_time: Optional[
-        str
-    ]  # The time at which we processed the last event
-    last_seen_event_time_success: Optional[
-        str
-    ]  # The event time of the last event we processed successfully
-    last_event_processed_time_success: Optional[
-        str
-    ]  # The time at which we processed the last event successfully
-    last_seen_event_time_failure: Optional[
-        str
-    ]  # The event time of the last event we processed unsuccessfully
-    last_event_processed_time_failure: Optional[
-        str
-    ]  # The time at which we processed the last event unsuccessfully
+    last_seen_event_time: Optional[str] = pydantic.Field(
+        None, description="The event time of the last event we processed"
+    )
+    last_event_processed_time: Optional[str] = pydantic.Field(
+        None, description="The time at which we processed the last event"
+    )
+    last_seen_event_time_success: Optional[str] = pydantic.Field(
+        None, description="The event time of the last event we processed successfully"
+    )
+    last_event_processed_time_success: Optional[str] = pydantic.Field(
+        None, description="The time at which we processed the last event successfully"
+    )
+    last_seen_event_time_failure: Optional[str] = pydantic.Field(
+        None, description="The event time of the last event we processed unsuccessfully"
+    )
+    last_event_processed_time_failure: Optional[str] = pydantic.Field(
+        None, description="The time at which we processed the last event unsuccessfully"
+    )
 
     @classmethod
     def _get_event_time(cls, event: EventEnvelope) -> Optional[str]:
