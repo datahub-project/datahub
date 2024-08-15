@@ -22,7 +22,7 @@ If you're seeing a message that recommends the DataHub admin to re-connect Slack
 Whomever originally installed the Slack app will need to perform this.
 If they are unable to do this, you may need to go down the 'Install a new app' path below.
 :::
-1. Get your App Config tokens by following the first few steps outlined in the [installation guide](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/#step-by-step-guide). If it's showing expired tokens, feel free to delete them and create a new set.
+1. Get your App Config tokens by following the first few steps outlined in the [installation guide](/docs/slack/saas-slack-setup.md#step-by-step-guide). If it's showing expired tokens, feel free to delete them and create a new set.
 2. Paste them into their respective text inputs, and hit **'Re-connect'**
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/re_connect_1.png"/>
