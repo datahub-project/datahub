@@ -44,6 +44,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 from datahub_dagster_plugin.client.dagster_generator import (
     DagsterEnvironment,
@@ -326,10 +327,31 @@ class DatahubSensors:
             properties = {
                 key: str(value) for (key, value) in materialization.metadata.items()
             }
-            asset_key = materialization.asset_key.path
-            asset_downstream_urn = (
-                dagster_generator.asset_keys_to_dataset_urn_converter(asset_key)
-            )
+
+            asset_downstream_urn: Optional[DatasetUrn] = None
+            # If DataHub Urn is set then we prefer that as downstream urn
+            if materialization.metadata.get("datahub_urn") and isinstance(
+                materialization.metadata.get("datahub_urn"), TextMetadataValue
+            ):
+                try:
+                    asset_downstream_urn = DatasetUrn.from_string(
+                        str(materialization.metadata["datahub_urn"].text)
+                    )
+                    context.log.info(
+                        f"asset_downstream_urn from metadata datahub_urn: {asset_downstream_urn}"
+                    )
+                except Exception as e:
+                    context.log.error(f"Error in parsing datahub_urn: {e}")
+
+            if not asset_downstream_urn:
+                asset_key = materialization.asset_key.path
+                asset_downstream_urn = (
+                    dagster_generator.asset_keys_to_dataset_urn_converter(asset_key)
+                )
+                context.log.info(
+                    f"asset_downstream_urn from asset keys: {asset_downstream_urn}"
+                )
+
             if asset_downstream_urn:
                 context.log.info(f"asset_downstream_urn: {asset_downstream_urn}")
 

@@ -110,6 +110,7 @@ Therefore, to automate metadata dependency extraction, we recommend and support 
     Here is an example Software Defined Asset which shows how you can add it:
 
     ```python
+    @asset(key_prefix=["prod", "snowflake", "db_name", "schema_name"])
     def my_asset_table_a(snowflake: SnowflakeResource) -> MaterializeResult:
          query = """
               create or replace table db_name.schema_name.my_asset_table_a as (
@@ -129,7 +130,40 @@ Therefore, to automate metadata dependency extraction, we recommend and support 
 
     For the above example, the plugin will automatically extract and set the Upstream of `db_name.schema_name.my_asset_table_b`.
 
-[See a full example job here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/dagster-plugin/examples/iris.py).
+    Please note that it is important to name the asset properly as query parser tries to get the query language from the asset generated urn. In the above example it will be `snowflake`
+
+    [See a full example job here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/dagster-plugin/examples/iris.py).
+
+3. SnowflakePandasIOManager:
+    The plugin can automatically capture Snowflake assets created by the SnowflakePandasIOManager and it also adds
+    DataHub urn and DataHub link to the assets in Dagster.
+
+    It can easily set up by using `DataHubSnowflakePandasIOManager` instead of `SnowflakePandasIOManager`. `
+
+    `DataHubSnowflakePandasIOManager` the following additional parameters:
+        `datahub_base_url`: base url to the datahub UI whic is used to generate direct url to the Snowflake Dataset in DataHub. If this is not set it won't generate url.
+        `datahub_env`: the datahub_env to use when generating DataHub urns. It defaults to `PROD` if not set.
+
+```python
+from datahub_dagster_plugin.modules.snowflake_pandas.datahub_snowflake_pandas_io_manager import (
+    DataHubSnowflakePandasIOManager,
+)
+
+...
+
+    resources={
+        "snowflake_io_manager": DataHubSnowflakePandasIOManager(
+            database="MY_DB",
+            account="my_snowflake_account,
+            warehouse="MY_WAREHOUSE",
+            user="my_user",
+            password="my_password",
+            role="my_rolw",
+            datahub_base_url="http://localhost:9002",
+        ),
+    }
+
+```
 
 ## Define your custom logic to capture asset lineage information
 

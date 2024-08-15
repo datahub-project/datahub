@@ -58,6 +58,9 @@ mypy_stubs = {
 base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
+    "dagster-aws >= 0.11.0",
+    "dagster-snowflake >= 0.11.0",
+    "dagster-snowflake-pandas >= 0.11.0",
     "black==22.12.0",
     "coverage>=5.1",
     "flake8>=6.0.0",
