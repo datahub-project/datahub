@@ -4,6 +4,7 @@ import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
+from pyiceberg.exceptions import NoSuchIcebergTableError
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
@@ -76,6 +77,9 @@ from datahub.metadata.schema_classes import (
 )
 
 LOGGER = logging.getLogger(__name__)
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
+    logging.WARNING
+)
 
 
 @platform_name("Iceberg")
@@ -134,9 +138,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             catalog = self.config.get_catalog()
         except Exception as e:
             LOGGER.error("Failed to get catalog", exc_info=True)
-            self.report.report_failure(
-                "get-catalog", f"Failed to get catalog {self.config.catalog.name}: {e}"
-            )
+            self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
             return
 
         for dataset_path in self._get_datasets(catalog):
@@ -150,7 +152,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
                 table = catalog.load_table(dataset_path)
                 yield from self._create_iceberg_workunit(dataset_name, table)
-            except Exception as e:
+            except NoSuchIcebergTableError as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
@@ -175,6 +177,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         custom_properties = table.metadata.properties.copy()
         custom_properties["location"] = table.metadata.location
         custom_properties["format-version"] = str(table.metadata.format_version)
+        custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
         if table.current_snapshot():
             custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
             custom_properties["manifest-list"] = table.current_snapshot().manifest_list
@@ -203,6 +206,49 @@ class IcebergSource(StatefulIngestionSourceBase):
         if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profile_table(dataset_name, dataset_urn, table)
+
+    def _get_partition_aspect(self, table: Table) -> Optional[str]:
+        """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.
+        Each element of the returned array represents a field in the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) that follows [Appendix-C](https://iceberg.apache.org/spec/?#appendix-c-json-serialization) of the Iceberg specification.
+        Extra information has been added to this spec to make the information more user-friendly.
+
+        Since Datahub does not have a place in its model to store this information, it is saved as a JSON string and displayed as a table property.
+
+        Here is an example:
+        ```json
+        "partition-spec": "[{\"name\": \"timeperiod_loaded\", \"transform\": \"identity\", \"source\": \"timeperiod_loaded\", \"source-id\": 19, \"source-type\": \"date\", \"field-id\": 1000}]",
+        ```
+
+        Args:
+            table (Table): The Iceberg table to extract partition spec from.
+
+        Returns:
+            str: JSON representation of the partition spec of the provided table (empty array if table is not partitioned) or `None` if an error occured.
+        """
+        try:
+            return json.dumps(
+                [
+                    {
+                        "name": partition.name,
+                        "transform": str(partition.transform),
+                        "source": str(
+                            table.schema().find_column_name(partition.source_id)
+                        ),
+                        "source-id": partition.source_id,
+                        "source-type": str(
+                            table.schema().find_type(partition.source_id)
+                        ),
+                        "field-id": partition.field_id,
+                    }
+                    for partition in table.spec().fields
+                ]
+            )
+        except Exception as e:
+            self.report.report_warning(
+                "extract-partition",
+                f"Failed to extract partition spec from Iceberg table {table.name()} due to error: {str(e)}",
+            )
+            return None
 
     def _get_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owners = []
@@ -430,6 +476,25 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
             # if timestamp_type.adjust_to_utc
             # else "local-timestamp-micros",
             "native_data_type": str(timestamp_type),
+        }
+
+    # visit_timestamptz() is required when using pyiceberg >= 0.5.0, which is essentially a duplicate
+    # of visit_timestampz().  The function has been renamed from visit_timestampz().
+    # Once Datahub can upgrade its pyiceberg dependency to >=0.5.0, the visit_timestampz() function can be safely removed.
+    def visit_timestamptz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:
+        # Avro supports 2 types of timestamp:
+        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
+        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+        # utcAdjustment: bool = True
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
+            # "logicalType": "timestamp-micros"
+            # if timestamp_type.adjust_to_utc
+            # else "local-timestamp-micros",
+            "native_data_type": str(timestamptz_type),
         }
 
     def visit_timestampz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:

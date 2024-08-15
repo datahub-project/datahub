@@ -541,4 +541,16 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .map(SearchFieldConfig::boost),
         Optional.of(2.0F));
   }
+
+  @Test
+  public void testStandardFieldsQueryByDefault() {
+    assertTrue(
+        TEST_BUILDER
+            .getStandardFields(
+                opContext.getEntityRegistry(),
+                opContext.getEntityRegistry().getEntitySpecs().values())
+            .stream()
+            .allMatch(SearchFieldConfig::isQueryByDefault),
+        "Expect all search fields to be queryByDefault.");
+  }
 }

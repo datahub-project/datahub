@@ -4,7 +4,6 @@ import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
@@ -35,6 +34,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -274,10 +274,10 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
-  public void configure() {
+  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     log.info("Setting up elastic graph index");
     try {
-      for (ReindexConfig config : buildReindexConfigs()) {
+      for (ReindexConfig config : buildReindexConfigs(properties)) {
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException e) {
@@ -286,7 +286,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
-  public List<ReindexConfig> buildReindexConfigs() throws IOException {
+  public List<ReindexConfig> buildReindexConfigs(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
     return List.of(
         _indexBuilder.buildReindexState(
             _indexConvention.getIndexName(INDEX_NAME),
@@ -294,18 +295,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
             Collections.emptyMap()));
   }
 
-  @Override
-  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
-      Collection<StructuredPropertyDefinition> properties) throws IOException {
-    return buildReindexConfigs();
-  }
-
-  @Override
-  public void reindexAll() {
-    configure();
-  }
-
-  @VisibleForTesting
   @Override
   public void clear() {
     _esBulkProcessor.deleteByQuery(
@@ -326,7 +315,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nullable Filter destinationEntityFilter,
       @Nonnull List<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count,
       @Nullable Long startTimeMillis,
@@ -342,7 +331,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
             destinationEntityFilter,
             relationshipTypes,
             relationshipFilter,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             count);
 

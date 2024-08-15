@@ -41,9 +41,6 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   }
 
   @Override
-  public void configure() {}
-
-  @Override
   public long countByFilter(
       @Nonnull OperationContext operationContext,
       @Nonnull String entityName,
@@ -140,7 +137,7 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nullable Filter filter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count,
       @Nullable Long startTimeMillis,

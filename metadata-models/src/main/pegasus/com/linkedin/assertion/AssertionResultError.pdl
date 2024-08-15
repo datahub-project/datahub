@@ -33,6 +33,14 @@ record AssertionResultError {
     */
     UNSUPPORTED_PLATFORM
     /**
+    *  Error while executing a custom SQL assertion
+    */
+    CUSTOM_SQL_ERROR
+    /**
+    *  Error while executing a field assertion
+    */
+    FIELD_ASSERTION_ERROR
+    /**
     *  Unknown error
     */
     UNKNOWN_ERROR

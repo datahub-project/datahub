@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PropertyValueInput;
 import com.linkedin.datahub.graphql.generated.UpsertStructuredPropertiesInput;
@@ -60,7 +61,7 @@ public class UpsertStructuredPropertiesResolver
         .getStructuredPropertyInputParams()
         .forEach(param -> updateMap.put(param.getStructuredPropertyUrn(), param.getValues()));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // check authorization first
@@ -104,7 +105,9 @@ public class UpsertStructuredPropertiesResolver
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private StructuredProperties getStructuredProperties(

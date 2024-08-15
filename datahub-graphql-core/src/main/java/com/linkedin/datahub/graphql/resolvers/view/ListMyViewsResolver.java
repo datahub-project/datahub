@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -14,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.ListMyViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -58,7 +60,7 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
     final ListMyViewsInput input =
         bindArgument(environment.getArgument("input"), ListMyViewsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
           final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
@@ -73,8 +75,11 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
-                    buildFilters(viewType, context.getActorUrn()),
-                    DEFAULT_SORT_CRITERION,
+                    buildFilters(
+                        viewType,
+                        context.getActorUrn(),
+                        context.getOperationContext().getAspectRetriever()),
+                    Collections.singletonList(DEFAULT_SORT_CRITERION),
                     start,
                     count);
 
@@ -91,7 +96,9 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
           } catch (Exception e) {
             throw new RuntimeException("Failed to list Views", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial View objects which will be
@@ -107,7 +114,10 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
     return results;
   }
 
-  private Filter buildFilters(@Nullable final String viewType, final String creatorUrn) {
+  private Filter buildFilters(
+      @Nullable final String viewType,
+      final String creatorUrn,
+      @Nullable AspectRetriever aspectRetriever) {
     // And GLOBAL views for the authenticated actor.
     final AndFilterInput filterCriteria = new AndFilterInput();
     final List<FacetFilterInput> andConditions = new ArrayList<>();
@@ -122,6 +132,6 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
     filterCriteria.setAnd(andConditions);
 
     // Currently, there is no way to fetch the views belonging to another user.
-    return buildFilter(Collections.emptyList(), ImmutableList.of(filterCriteria));
+    return buildFilter(Collections.emptyList(), ImmutableList.of(filterCriteria), aspectRetriever);
   }
 }

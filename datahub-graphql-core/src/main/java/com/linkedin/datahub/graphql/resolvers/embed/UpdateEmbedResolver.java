@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateEmbedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
@@ -39,7 +40,7 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
         bindArgument(environment.getArgument("input"), UpdateEmbedInput.class);
     final Urn entityUrn = UrnUtils.getUrn(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!EmbedUtils.isAuthorizedToUpdateEmbedForEntity(entityUrn, environment.getContext())) {
             throw new AuthorizationException(
@@ -74,7 +75,9 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
                     "Failed to update Embed for to resource with entity urn %s", entityUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

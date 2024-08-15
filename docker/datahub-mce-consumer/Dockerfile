@@ -6,12 +6,12 @@ ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.18 AS binary
+FROM golang:1-alpine3.20 AS binary
 
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
 
-ENV DOCKERIZE_VERSION v0.6.1
+ENV DOCKERIZE_VERSION=v0.6.1
 WORKDIR /go/src/github.com/jwilder
 
 # Optionally set corporate mirror for apk
@@ -23,7 +23,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM alpine:3.18 AS base
+FROM alpine:3.20 AS base
 
 # Re-declaring args from above to make them available in this stage (will inherit default values)
 ARG ALPINE_REPO_URL
@@ -37,7 +37,7 @@ RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then
 ENV JMX_VERSION=0.18.0
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl bash sqlite libc6-compat java-snappy \
+    && apk --no-cache add curl bash sqlite libc6-compat snappy \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \
     && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar \
@@ -45,7 +45,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
-FROM base as prod-install
+FROM base AS prod-install
 COPY mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
 COPY docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
@@ -54,12 +54,12 @@ RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
-FROM base as dev-install
+FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
 
-FROM ${APP_ENV}-install as final
+FROM ${APP_ENV}-install AS final
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 USER datahub

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -17,8 +18,10 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,7 +50,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final DataHubViewInfo maybeResolvedView =
               (input.getViewUrn() != null)
@@ -58,13 +61,30 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                   : null;
 
           final Filter baseFilter =
-              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+              ResolverUtils.buildFilter(
+                  input.getFilters(),
+                  input.getOrFilters(),
+                  context.getOperationContext().getAspectRetriever());
 
           SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
-          SortCriterion sortCriterion =
-              input.getSortInput() != null
-                  ? mapSortCriterion(input.getSortInput().getSortCriterion())
-                  : null;
+          List<SortCriterion> sortCriteria;
+          if (input.getSortInput() != null) {
+            if (input.getSortInput().getSortCriteria() != null) {
+              sortCriteria =
+                  input.getSortInput().getSortCriteria().stream()
+                      .map(SearchUtils::mapSortCriterion)
+                      .collect(Collectors.toList());
+            } else {
+              sortCriteria =
+                  input.getSortInput().getSortCriterion() != null
+                      ? Collections.singletonList(
+                          mapSortCriterion(input.getSortInput().getSortCriterion()))
+                      : Collections.emptyList();
+            }
+
+          } else {
+            sortCriteria = Collections.emptyList();
+          }
 
           try {
             log.debug(
@@ -96,7 +116,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         : baseFilter,
                     start,
                     count,
-                    sortCriterion));
+                    sortCriteria));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
@@ -112,6 +132,8 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         input.getTypes(), input.getQuery(), input.getOrFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

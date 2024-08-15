@@ -1,0 +1,19 @@
+namespace com.linkedin.dataset
+
+/**
+ * Defines how the data is partitioned for Data Lake tables (e.g. Hive, S3, Iceberg, Delta, Hudi, etc).
+ */
+@Aspect = {
+  "name": "partitionsSummary"
+}
+record PartitionsSummary {
+    /**
+    * The minimum partition as ordered
+    */
+    minPartition: optional PartitionSummary
+
+    /**
+    * The maximum partition as ordered
+    */
+    maxPartition: optional PartitionSummary
+}

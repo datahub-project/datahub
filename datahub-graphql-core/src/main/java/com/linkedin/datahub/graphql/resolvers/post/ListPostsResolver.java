@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ListPostsInput;
 import com.linkedin.datahub.graphql.generated.ListPostsResult;
 import com.linkedin.datahub.graphql.types.post.PostMapper;
@@ -17,7 +18,9 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -45,13 +48,14 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            final SortCriterion sortCriterion =
-                new SortCriterion()
-                    .setField(LAST_MODIFIED_FIELD_NAME)
-                    .setOrder(SortOrder.DESCENDING);
+            final List<SortCriterion> sortCriteria =
+                Collections.singletonList(
+                    new SortCriterion()
+                        .setField(LAST_MODIFIED_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING));
 
             // First, get all Post Urns.
             final SearchResult gmsResult =
@@ -60,7 +64,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
                     POST_ENTITY_NAME,
                     query,
                     null,
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
 
@@ -87,6 +91,8 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
           } catch (Exception e) {
             throw new RuntimeException("Failed to list posts", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

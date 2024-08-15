@@ -17,7 +17,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -33,7 +34,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -49,7 +51,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -67,7 +70,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -87,7 +91,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -138,7 +143,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -156,7 +162,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -175,7 +182,8 @@
                     "urn": "urn:li:container:691314a7b63628684d62a14861d057a8"
                 },
                 {
-                    "id": "foo"
+                    "id": "urn:li:dashboard:(looker,dashboards.1)",
+                    "urn": "urn:li:dashboard:(looker,dashboards.1)"
                 }
             ]
         }
@@ -183,7 +191,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -231,7 +240,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -247,7 +257,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -263,7 +274,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -287,7 +299,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -312,9 +325,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 },
@@ -348,7 +358,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -373,9 +384,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 },
@@ -409,7 +417,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -460,7 +469,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -478,7 +488,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -494,7 +505,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -510,7 +522,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -526,7 +539,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -550,7 +564,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -571,7 +586,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -587,7 +603,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -603,7 +620,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -621,7 +639,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -641,7 +660,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -662,7 +682,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -678,7 +699,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -694,7 +716,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -712,7 +735,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -732,7 +756,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -829,7 +854,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -847,7 +873,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -863,7 +890,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -879,7 +907,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -903,7 +932,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1000,7 +1030,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1018,7 +1049,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1034,7 +1066,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1050,7 +1083,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1074,7 +1108,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1094,7 +1129,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1114,7 +1150,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1134,7 +1171,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1150,7 +1188,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1166,7 +1205,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 },
 {
@@ -1182,7 +1222,8 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "execution-1"
     }
 }
 ]

@@ -116,6 +116,27 @@ We've included an environment variable to customize the consumer group id, if yo
 
 - `KAFKA_CONSUMER_GROUP_ID`: The name of the kafka consumer's group id.
 
+#### datahub-mae-consumer MCL Hooks
+
+By default, all MetadataChangeLog processing hooks execute as part of the same kafka consumer group based on the 
+previously mentioned `KAFKA_CONSUMER_GROUP_ID`.
+
+The various MCL Hooks could alsp be separated into separate groups which allows for controlling parallelization and 
+prioritization of the hooks.
+
+For example, the `UpdateIndicesHook` and `SiblingsHook` processing can be delayed by other hooks. Separating these
+hooks into their own group can reduce latency from these other hooks. The `application.yaml` configuration
+includes options for assigning a suffix to the consumer group, see `consumerGroupSuffix`.
+
+| Environment Variable                           | Default | Description                                                                                 |
+|------------------------------------------------|---------|---------------------------------------------------------------------------------------------|
+| SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX            | ''      | Siblings processing hook. Considered one of the primary hooks in the `datahub-mae-consumer` |
+| UPDATE_INDICES_CONSUMER_GROUP_SUFFIX           | ''      | Primary processing hook.                                                                    |
+| INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX | ''      | Scheduled ingestion hook.                                                                   |
+| INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX           | ''      | Incidents hook.                                                                             |
+| ECE_CONSUMER_GROUP_SUFFIX                      | ''      | Entity Change Event hook which publishes to the Platform Events topic.                      |
+| FORMS_HOOK_CONSUMER_GROUP_SUFFIX               | ''      | Forms processing.                                                                           |
+
 ## Applying Configurations
 
 ### Docker

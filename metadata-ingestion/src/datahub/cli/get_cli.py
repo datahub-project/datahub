@@ -6,6 +6,7 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import get_aspects_for_entity
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -21,10 +22,17 @@ def get() -> None:
 @get.command()
 @click.option("--urn", required=False, type=str)
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
+@click.option(
+    "--details/--no-details",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Whether to print details from database which help in audit.",
+)
 @click.pass_context
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def urn(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
+def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
     """
     Get metadata for an entity with an optional list of aspects to project.
     This works for both versioned aspects and timeseries aspects. For timeseries aspects, it fetches the latest value.
@@ -37,9 +45,19 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
             raise click.UsageError("Nothing for me to get. Maybe provide an urn?")
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
+
+    client = get_default_graph()
+
     click.echo(
         json.dumps(
-            get_aspects_for_entity(entity_urn=urn, aspects=aspect, typed=False),
+            get_aspects_for_entity(
+                session=client._session,
+                gms_host=client.config.server,
+                entity_urn=urn,
+                aspects=aspect,
+                typed=False,
+                details=details,
+            ),
             sort_keys=True,
             indent=2,
         )

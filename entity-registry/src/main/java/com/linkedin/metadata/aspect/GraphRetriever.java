@@ -20,7 +20,7 @@ public interface GraphRetriever {
    * @param destinationEntityFilter
    * @param relationshipTypes
    * @param relationshipFilter
-   * @param sortCriterion
+   * @param sortCriteria
    * @param scrollId
    * @param count
    * @param startTimeMillis
@@ -35,7 +35,7 @@ public interface GraphRetriever {
       @Nonnull Filter destinationEntityFilter,
       @Nonnull List<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count,
       @Nullable Long startTimeMillis,
