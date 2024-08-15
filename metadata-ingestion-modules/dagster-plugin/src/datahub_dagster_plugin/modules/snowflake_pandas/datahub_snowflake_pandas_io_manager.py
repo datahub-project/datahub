@@ -1,4 +1,3 @@
-from email.policy import default
 from typing import Optional
 
 from dagster._core.storage.db_io_manager import DbIOManager
