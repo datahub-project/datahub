@@ -12,8 +12,14 @@ from datahub_dagster_plugin.modules.storage.datahub_db_io_manager import (
 
 
 class DataHubSnowflakePandasIOManager(SnowflakePandasIOManager):
-    datahub_env: Optional[str] = Field(default=None, description="The DataHub env where the materialized assets belongs to.")
-    datahub_base_url: Optional[str] = Field(default=None, description="The DataHub base url for generated DataHub url in asset metadata.")
+    datahub_env: Optional[str] = Field(
+        default=None,
+        description="The DataHub env where the materialized assets belongs to.",
+    )
+    datahub_base_url: Optional[str] = Field(
+        default=None,
+        description="The DataHub base url for generated DataHub url in asset metadata.",
+    )
 
     def create_io_manager(self, context) -> DbIOManager:  # type: ignore[no-untyped-def]
         return DataHubDbIoManager(
