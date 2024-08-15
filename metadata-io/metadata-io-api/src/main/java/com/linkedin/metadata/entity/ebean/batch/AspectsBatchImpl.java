@@ -172,11 +172,13 @@ public class AspectsBatchImpl implements AspectsBatch {
                   mcp -> {
                     try {
                       if (mcp.getChangeType().equals(ChangeType.PATCH)) {
-                        return PatchItemImpl.PatchItemImplBuilder.build(mcp, auditStamp,
+                        return PatchItemImpl.PatchItemImplBuilder.build(
+                            mcp,
+                            auditStamp,
                             retrieverContext.getAspectRetriever().getEntityRegistry());
                       } else {
-                        return ChangeItemImpl.ChangeItemImplBuilder.build(mcp, auditStamp,
-                            retrieverContext.getAspectRetriever());
+                        return ChangeItemImpl.ChangeItemImplBuilder.build(
+                            mcp, auditStamp, retrieverContext.getAspectRetriever());
                       }
                     } catch (IllegalArgumentException e) {
                       log.error("Invalid proposal, skipping and proceeding with batch: " + mcp, e);

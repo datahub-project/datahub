@@ -318,11 +318,14 @@ public class AspectsBatchImplTest {
             .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties()))
             .setChangeType(ChangeType.UPSERT);
 
-
     AspectsBatchImpl testBatch =
         AspectsBatchImpl.builder()
-            .mcps(ImmutableList.of(proposal1, proposal2), AuditStampUtils.createDefaultAuditStamp(), retrieverContext)
-            .retrieverContext(retrieverContext).build();
+            .mcps(
+                ImmutableList.of(proposal1, proposal2),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext)
+            .retrieverContext(retrieverContext)
+            .build();
 
     assertEquals(
         testBatch.toUpsertBatchItems(Map.of()).getSecond().size(),
