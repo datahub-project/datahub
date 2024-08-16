@@ -52,6 +52,7 @@ public class ElasticSearchSystemMetadataService
   private final IndexConvention _indexConvention;
   private final ESSystemMetadataDAO _esDAO;
   private final ESIndexBuilder _indexBuilder;
+  @Nonnull private final String elasticIdHashAlgo;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "system_metadata_service_v1";
@@ -86,10 +87,9 @@ public class ElasticSearchSystemMetadataService
 
   private String toDocId(@Nonnull final String urn, @Nonnull final String aspect) {
     String rawDocId = urn + DOC_DELIMETER + aspect;
-    String hashAlgo = System.getenv("ELASTIC_ID_HASH_ALGO");
     try {
       byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
-      MessageDigest md = MessageDigest.getInstance(hashAlgo);
+      MessageDigest md = MessageDigest.getInstance(elasticIdHashAlgo);
       byte[] thedigest = md.digest(bytesOfRawDocID);
       return Base64.getEncoder().encodeToString(thedigest);
     } catch (NoSuchAlgorithmException e) {
