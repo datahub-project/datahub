@@ -54,7 +54,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     ESSystemMetadataDAO dao =
         new ESSystemMetadataDAO(getSearchClient(), _indexConvention, getBulkProcessor(), 1);
     return new ElasticSearchSystemMetadataService(
-        getBulkProcessor(), _indexConvention, dao, getIndexBuilder());
+        getBulkProcessor(), _indexConvention, dao, getIndexBuilder(), "MD5");
   }
 
   @Test
