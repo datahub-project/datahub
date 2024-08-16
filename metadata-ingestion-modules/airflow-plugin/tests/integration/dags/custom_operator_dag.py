@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
 import logging
-from typing import List, Any
+from datetime import datetime, timedelta
+from typing import Any, List
 
 from airflow import DAG
 from airflow.models.baseoperator import BaseOperator
