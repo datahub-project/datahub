@@ -11,6 +11,7 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -30,7 +31,8 @@ public class ElasticSearchGraphServiceFactory {
 
   @Bean(name = "elasticSearchGraphService")
   @Nonnull
-  protected ElasticSearchGraphService getInstance() {
+  protected ElasticSearchGraphService getInstance(
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     return new ElasticSearchGraphService(
         lineageRegistry,
@@ -45,6 +47,7 @@ public class ElasticSearchGraphServiceFactory {
             lineageRegistry,
             components.getIndexConvention(),
             configurationProvider.getElasticSearch().getSearch().getGraph()),
-        components.getIndexBuilder());
+        components.getIndexBuilder(),
+        idHashAlgo);
   }
 }
