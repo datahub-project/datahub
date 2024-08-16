@@ -33,7 +33,6 @@ def fetch_urls(
                 if file["name"].endswith(file_format)
             ]
             print(urls)
-            urls = ['https://raw.githubusercontent.com/datahub-project/static-assets/main/versioned_docs/version-0.10.5.tar.gz', 'https://raw.githubusercontent.com/datahub-project/static-assets/main/versioned_docs/version-0.11.0.tar.gz', 'https://raw.githubusercontent.com/datahub-project/static-assets/main/versioned_docs/version-0.12.0.tar.gz', 'https://raw.githubusercontent.com/datahub-project/static-assets/main/versioned_docs/version-0.12.1.tar.gz', 'https://raw.githubusercontent.com/datahub-project/static-assets/main/versioned_docs/version-0.13.0.tar.gz', 'https://raw.githubusercontent.com/datahub-project/static-assets/main/versioned_docs/version-0.13.1.tar.gz']
             return urls
         except Exception as e:
             if attempt < max_retries:
@@ -55,8 +54,6 @@ def download_versioned_docs(folder_path: str, destination_dir: str, file_format:
         os.makedirs(destination_dir)
 
     urls = fetch_urls(repo_url, folder_path, file_format)
-
-
 
     for url in urls:
         filename = os.path.basename(url)
