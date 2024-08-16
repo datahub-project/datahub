@@ -24,6 +24,7 @@ export enum SubType {
     TableauEmbeddedDataSource = 'Embedded Data Source',
     LookerExplore = 'Explore',
     Looker = 'Look',
+    DbtSource = 'Source',
 }
 
 export const TYPE_ICON_CLASS_NAME = 'typeIcon';

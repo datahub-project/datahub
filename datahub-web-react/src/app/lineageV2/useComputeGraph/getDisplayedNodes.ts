@@ -1,8 +1,10 @@
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
+import { SubType } from '@app/entityV2/shared/components/subtypes';
 import {
     createLineageFilterNodeId,
     getEdgeId,
     getParents,
+    isDbt,
     isQuery,
     isTransformational,
     isUrnTransformational,
@@ -170,6 +172,7 @@ function applyFilters(
 /**
  * Returns the set of children to filter for the given parent node.
  * This is calculated as: all adjacent non-transformational nodes and any transformational leaves.
+ * Drops DBT sources that are transformational leaves, because they add no information.
  * Loop invariant: all nodes in `queue` are transformational.
  * @param parent The parent node, whose children are to be filtered.
  * @param direction Direction of children.
@@ -187,7 +190,9 @@ function getChildrenToFilter(
     for (let node = queue.pop(); node; node = queue.pop()) {
         const children = adjacencyList[direction].get(node.urn);
         // Include non-query transformational nodes if they have no children
-        if (!children?.size && !isQuery(node)) childrenToFilter.add(node.urn);
+        if (!children?.size && !isQuery(node) && !(isDbt(node) && node.entity?.subtype === SubType.DbtSource)) {
+            childrenToFilter.add(node.urn);
+        }
         children?.forEach((childUrn) => {
             const child = nodes.get(childUrn);
             if (!child || seen.has(childUrn) || child.entity?.status?.removed) return;
