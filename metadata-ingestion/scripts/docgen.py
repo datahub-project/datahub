@@ -582,8 +582,9 @@ def generate(
     for plugin_name in sorted(source_registry.mapping.keys()):
         if source and source != plugin_name:
             continue
+
         if plugin_name in {
-            "snowflake-summary", "unity-catalog"
+            "snowflake-summary"
         }:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
