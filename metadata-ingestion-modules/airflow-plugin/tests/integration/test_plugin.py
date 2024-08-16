@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 IS_LOCAL = os.environ.get("CI", "false") == "false"
 
 DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
-PLUGINS_FOLDER = pathlib.Path(__file__).parent / "plugins"
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
 
