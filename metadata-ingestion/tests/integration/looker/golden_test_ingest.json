@@ -1,13 +1,14 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:691314a7b63628684d62a14861d057a8",
+    "entityUrn": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
                 "platform": "looker",
+                "instance": "ap-south-1",
                 "env": "PROD",
                 "folder_id": "shared-folder-id"
             },
@@ -22,7 +23,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:691314a7b63628684d62a14861d057a8",
+    "entityUrn": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -38,12 +39,13 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:691314a7b63628684d62a14861d057a8",
+    "entityUrn": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:looker"
+            "platform": "urn:li:dataPlatform:looker",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)"
         }
     },
     "systemMetadata": {
@@ -54,7 +56,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:691314a7b63628684d62a14861d057a8",
+    "entityUrn": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -72,12 +74,16 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:691314a7b63628684d62a14861d057a8",
+    "entityUrn": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)"
+                },
                 {
                     "id": "Folders"
                 }
@@ -93,7 +99,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(looker,dashboard_elements.2)",
+            "urn": "urn:li:chart:(looker,ap-south-1.dashboard_elements.2)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -120,7 +126,7 @@
                         "chartUrl": "https://looker.company.com/x/",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:looker,ap-south-1.data.explore.my_view,PROD)"
                             }
                         ]
                     }
@@ -143,7 +149,7 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
+    "entityUrn": "urn:li:chart:(looker,ap-south-1.dashboard_elements.2)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -161,22 +167,43 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
+    "entityUrn": "urn:li:chart:(looker,ap-south-1.dashboard_elements.2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,ap-south-1.dashboard_elements.2)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)"
+                },
+                {
                     "id": "Folders"
                 },
                 {
-                    "id": "urn:li:container:691314a7b63628684d62a14861d057a8",
-                    "urn": "urn:li:container:691314a7b63628684d62a14861d057a8"
+                    "id": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7",
+                    "urn": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7"
                 },
                 {
-                    "id": "urn:li:dashboard:(looker,dashboards.1)",
-                    "urn": "urn:li:dashboard:(looker,dashboards.1)"
+                    "id": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)",
+                    "urn": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)"
                 }
             ]
         }
@@ -190,7 +217,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(looker,dashboards.1)",
+            "urn": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
@@ -198,7 +225,7 @@
                         "title": "foo",
                         "description": "lorem ipsum",
                         "charts": [
-                            "urn:li:chart:(looker,dashboard_elements.2)"
+                            "urn:li:chart:(looker,ap-south-1.dashboard_elements.2)"
                         ],
                         "datasets": [],
                         "lastModified": {
@@ -237,12 +264,12 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "entityUrn": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:691314a7b63628684d62a14861d057a8"
+            "container": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7"
         }
     },
     "systemMetadata": {
@@ -253,7 +280,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "entityUrn": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)",
     "changeType": "UPSERT",
     "aspectName": "embed",
     "aspect": {
@@ -269,18 +296,39 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "entityUrn": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)"
+                },
+                {
                     "id": "Folders"
                 },
                 {
-                    "id": "urn:li:container:691314a7b63628684d62a14861d057a8",
-                    "urn": "urn:li:container:691314a7b63628684d62a14861d057a8"
+                    "id": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7",
+                    "urn": "urn:li:container:e7fe6fc9c3ca70e78694dcc5dd9c05b7"
                 }
             ]
         }
@@ -293,14 +341,14 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
+    "entityUrn": "urn:li:chart:(looker,ap-south-1.dashboard_elements.2)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,ap-south-1.dashboard_elements.2),calc)",
                     "schemaField": {
                         "fieldPath": "calc",
                         "nullable": false,
@@ -317,7 +365,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD),dim1)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,ap-south-1.data.explore.my_view,PROD),dim1)",
                     "schemaField": {
                         "fieldPath": "dim1",
                         "nullable": false,
@@ -351,14 +399,14 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "entityUrn": "urn:li:dashboard:(looker,ap-south-1.dashboards.1)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,ap-south-1.dashboard_elements.2),calc)",
                     "schemaField": {
                         "fieldPath": "calc",
                         "nullable": false,
@@ -375,7 +423,7 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD),dim1)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,ap-south-1.data.explore.my_view,PROD),dim1)",
                     "schemaField": {
                         "fieldPath": "dim1",
                         "nullable": false,
@@ -409,13 +457,14 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "entityUrn": "urn:li:container:63e49aaeb15b289d177acbb32625d577",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
                 "platform": "looker",
+                "instance": "ap-south-1",
                 "env": "PROD",
                 "model_name": "data"
             },
@@ -430,7 +479,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "entityUrn": "urn:li:container:63e49aaeb15b289d177acbb32625d577",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -446,12 +495,13 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "entityUrn": "urn:li:container:63e49aaeb15b289d177acbb32625d577",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:looker"
+            "platform": "urn:li:dataPlatform:looker",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)"
         }
     },
     "systemMetadata": {
@@ -462,7 +512,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "entityUrn": "urn:li:container:63e49aaeb15b289d177acbb32625d577",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -480,12 +530,16 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+    "entityUrn": "urn:li:container:63e49aaeb15b289d177acbb32625d577",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)"
+                },
                 {
                     "id": "Explore"
                 }
@@ -501,7 +555,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,ap-south-1.data.explore.my_view,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
@@ -535,7 +589,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,ap-south-1.lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
                             }
                         ]
@@ -597,7 +651,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,ap-south-1.data.explore.my_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -615,7 +669,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,ap-south-1.data.explore.my_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "embed",
     "aspect": {
@@ -631,12 +685,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,ap-south-1.data.explore.my_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
+            "container": "urn:li:container:63e49aaeb15b289d177acbb32625d577"
         }
     },
     "systemMetadata": {
@@ -647,18 +701,22 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,ap-south-1.data.explore.my_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:looker,ap-south-1)"
+                },
+                {
                     "id": "Explore"
                 },
                 {
-                    "id": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
-                    "urn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
+                    "id": "urn:li:container:63e49aaeb15b289d177acbb32625d577",
+                    "urn": "urn:li:container:63e49aaeb15b289d177acbb32625d577"
                 }
             ]
         }

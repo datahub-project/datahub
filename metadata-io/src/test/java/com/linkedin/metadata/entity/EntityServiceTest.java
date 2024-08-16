@@ -602,8 +602,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     GenericAspect aspect = GenericRecordUtils.serializeAspect(pairToIngest.get(0).getSecond());
 
+    SystemMetadata initialSystemMetadata = AspectGenerationUtils.createSystemMetadata(1);
     initialChangeLog.setAspect(aspect);
-    initialChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
+    initialChangeLog.setSystemMetadata(initialSystemMetadata);
     initialChangeLog.setEntityKeyAspect(
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(
@@ -620,7 +621,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
     restateChangeLog.setPreviousAspectValue(aspect);
     restateChangeLog.setPreviousSystemMetadata(
-        simulatePullFromDB(AspectGenerationUtils.createSystemMetadata(1), SystemMetadata.class));
+        simulatePullFromDB(initialSystemMetadata, SystemMetadata.class));
     restateChangeLog.setEntityKeyAspect(
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(
@@ -2145,6 +2146,43 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         () ->
             _entityServiceImpl.ingestProposal(
                 opContext, secondCreateProposal, TEST_AUDIT_STAMP, false));
+  }
+
+  @Test
+  public void testExists() throws Exception {
+    Urn existentUrn = UrnUtils.getUrn("urn:li:corpuser:exists");
+    Urn softDeletedUrn = UrnUtils.getUrn("urn:li:corpuser:softDeleted");
+    Urn nonExistentUrn = UrnUtils.getUrn("urn:li:corpuser:nonExistent");
+    Urn noStatusUrn = UrnUtils.getUrn("urn:li:corpuser:noStatus");
+
+    List<Pair<String, RecordTemplate>> pairToIngest = new ArrayList<>();
+    SystemMetadata metadata = AspectGenerationUtils.createSystemMetadata();
+
+    // to ensure existence
+    CorpUserInfo userInfoAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+    pairToIngest.add(getAspectRecordPair(userInfoAspect, CorpUserInfo.class));
+
+    _entityServiceImpl.ingestAspects(
+        opContext, noStatusUrn, pairToIngest, TEST_AUDIT_STAMP, metadata);
+
+    Status statusExistsAspect = new Status().setRemoved(false);
+    pairToIngest.add(getAspectRecordPair(statusExistsAspect, Status.class));
+
+    _entityServiceImpl.ingestAspects(
+        opContext, existentUrn, pairToIngest, TEST_AUDIT_STAMP, metadata);
+
+    Status statusRemovedAspect = new Status().setRemoved(true);
+    pairToIngest.set(1, getAspectRecordPair(statusRemovedAspect, Status.class));
+
+    _entityServiceImpl.ingestAspects(
+        opContext, softDeletedUrn, pairToIngest, TEST_AUDIT_STAMP, metadata);
+
+    Set<Urn> inputUrns = Set.of(existentUrn, softDeletedUrn, nonExistentUrn, noStatusUrn);
+    assertEquals(
+        _entityServiceImpl.exists(opContext, inputUrns, false), Set.of(existentUrn, noStatusUrn));
+    assertEquals(
+        _entityServiceImpl.exists(opContext, inputUrns, true),
+        Set.of(existentUrn, noStatusUrn, softDeletedUrn));
   }
 
   @Nonnull

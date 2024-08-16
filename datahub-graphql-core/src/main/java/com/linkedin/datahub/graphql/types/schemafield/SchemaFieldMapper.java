@@ -1,14 +1,15 @@
 package com.linkedin.datahub.graphql.types.schemafield;
 
-import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_ASPECT;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.businessattribute.BusinessAttributes;
+import com.linkedin.common.Documentation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -46,6 +47,10 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         (((schemaField, dataMap) ->
             schemaField.setBusinessAttributes(
                 BusinessAttributesMapper.map(new BusinessAttributes(dataMap), entityUrn)))));
+    mappingHelper.mapToResult(
+        DOCUMENTATION_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setDocumentation(DocumentationMapper.map(context, new Documentation(dataMap))));
     return result;
   }
 

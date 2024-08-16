@@ -11,7 +11,7 @@ FROM golang:1-alpine3.20 AS binary
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
 
-ENV DOCKERIZE_VERSION v0.6.1
+ENV DOCKERIZE_VERSION=v0.6.1
 WORKDIR /go/src/github.com/jwilder
 
 # Optionally set corporate mirror for apk
@@ -52,7 +52,7 @@ COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
-FROM base as prod-install
+FROM base AS prod-install
 COPY war.war /datahub/datahub-gms/bin/war.war
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
@@ -61,11 +61,11 @@ COPY docker/datahub-gms/jetty-jmx.xml /datahub/datahub-gms/scripts/jetty-jmx.xml
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
 
-FROM base as dev-install
+FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
-FROM ${APP_ENV}-install as final
+FROM ${APP_ENV}-install AS final
 
 RUN mkdir -p /etc/datahub/plugins/auth/resources
 

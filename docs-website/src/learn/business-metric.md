@@ -54,7 +54,7 @@ Some companies try to align metric definitions through emails and meetings. Whil
 
 ### Our Solution
 
-Acryl DataHub offers comprehensive features designed to tackle the challenges of defining and standardizing business metrics:
+DataHub Cloud offers comprehensive features designed to tackle the challenges of defining and standardizing business metrics:
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/glossary-terms/business-glossary-center.png"/>
@@ -72,13 +72,14 @@ Acryl DataHub offers comprehensive features designed to tackle the challenges of
 </p>
 
 - **[Approval Flows](https://datahubproject.io/docs/managed-datahub/approval-workflows):** Structured workflows for approving changes to metric definitions, maintaining accuracy and reliability.
-    - 
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/f818df0d-1067-44ab-99e1-8cf45d930c01/33ebd070-32a1-4875-b220-c31373f5eedf/Untitled.png)
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/lineage.png"/>
+ <br />
+  <i style={{color:"grey"}}>Lineage Tracking</i>
+</p>
 
 - **[Lineage Tracking](https://datahubproject.io/docs/generated/lineage/lineage-feature-guide):** Tools to track the origin and transformations of metrics, ensuring they align with standardized definitions.
-    -
-![Screenshot 2024-07-10 at 12.07.28 PM.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/f818df0d-1067-44ab-99e1-8cf45d930c01/39503957-ad64-4d2d-a5b2-b140abfc1f6c/Screenshot_2024-07-10_at_12.07.28_PM.png)
 
 By implementing these solutions, you can ensure that your business metrics are consistently defined and accurately used across all teams, supporting reliable analysis and decision-making.
 

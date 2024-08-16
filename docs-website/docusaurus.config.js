@@ -56,7 +56,7 @@ module.exports = {
       announcementBar: {
         id: "announcement",
         content:
-          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Acryl DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for Acryl DataHub&nbsp;→</a>',
+          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
         backgroundColor: "#070707",
         textColor: "#ffffff",
         isCloseable: false,
@@ -74,6 +74,12 @@ module.exports = {
           to: "docs/",
           activeBasePath: "docs",
           label: "Docs",
+          position: "right",
+        },
+        {
+          to: "/cloud",
+          activeBasePath: "cloud",
+          label: "Cloud",
           position: "right",
         },
         {
@@ -141,8 +147,8 @@ module.exports = {
               label: "YouTube",
             },
             {
-              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi",
-              label: "Case Studies",
+              href: "/adoption-stories",
+              label: "Adoption Stories",
             },
             {
               href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg",
@@ -162,6 +168,14 @@ module.exports = {
                 {
                 type: 'html',
                 value: '<div class="dropdown__link"><b>Archived versions</b></div>',
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-qou70o69f-acryldata.vercel.app/docs/features">0.14.0
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
                 },
                 {
                 value: `

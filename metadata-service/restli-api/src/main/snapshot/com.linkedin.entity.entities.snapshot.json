@@ -897,6 +897,51 @@
             "type" : "string",
             "doc" : "Additional context about the association",
             "optional" : true
+          }, {
+            "name" : "attribution",
+            "type" : {
+              "type" : "record",
+              "name" : "MetadataAttribution",
+              "doc" : "Information about who, why, and how this metadata was applied",
+              "fields" : [ {
+                "name" : "time",
+                "type" : "Time",
+                "doc" : "When this metadata was updated."
+              }, {
+                "name" : "actor",
+                "type" : "Urn",
+                "doc" : "The entity (e.g. a member URN) responsible for applying the assocated metadata. This can\neither be a user (in case of UI edits) or the datahub system for automation."
+              }, {
+                "name" : "source",
+                "type" : "Urn",
+                "doc" : "The DataHub source responsible for applying the associated metadata. This will only be filled out\nwhen a DataHub source is responsible. This includes the specific metadata test urn, the automation urn.",
+                "optional" : true
+              }, {
+                "name" : "sourceDetail",
+                "type" : {
+                  "type" : "map",
+                  "values" : "string"
+                },
+                "doc" : "The details associated with why this metadata was applied. For example, this could include\nthe actual regex rule, sql statement, ingestion pipeline ID, etc.",
+                "default" : { }
+              } ]
+            },
+            "doc" : "Information about who, why, and how this metadata was applied",
+            "optional" : true,
+            "Searchable" : {
+              "/actor" : {
+                "fieldName" : "tagAttributionActors",
+                "fieldType" : "URN"
+              },
+              "/source" : {
+                "fieldName" : "tagAttributionSources",
+                "fieldType" : "URN"
+              },
+              "/time" : {
+                "fieldName" : "tagAttributionDates",
+                "fieldType" : "DATETIME"
+              }
+            }
           } ]
         }
       },
@@ -1005,6 +1050,25 @@
       "type" : "string",
       "doc" : "Additional context about the association",
       "optional" : true
+    }, {
+      "name" : "attribution",
+      "type" : "MetadataAttribution",
+      "doc" : "Information about who, why, and how this metadata was applied",
+      "optional" : true,
+      "Searchable" : {
+        "/actor" : {
+          "fieldName" : "termAttributionActors",
+          "fieldType" : "URN"
+        },
+        "/source" : {
+          "fieldName" : "termAttributionSources",
+          "fieldType" : "URN"
+        },
+        "/time" : {
+          "fieldName" : "termAttributionDates",
+          "fieldType" : "DATETIME"
+        }
+      }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",
@@ -1152,7 +1216,7 @@
         "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
-  }, {
+  }, "com.linkedin.common.MetadataAttribution", {
     "type" : "record",
     "name" : "Owner",
     "namespace" : "com.linkedin.common",
@@ -2263,6 +2327,15 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT"
+      }
+    }, {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Editable display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedName",
+        "fieldType" : "TEXT_PARTIAL"
       }
     } ],
     "Aspect" : {
@@ -3443,6 +3516,18 @@
                             }
                           },
                           "Searchable" : {
+                            "/tags/*/attribution/actor" : {
+                              "fieldName" : "fieldTagAttributionActors",
+                              "fieldType" : "URN"
+                            },
+                            "/tags/*/attribution/source" : {
+                              "fieldName" : "fieldTagAttributionSources",
+                              "fieldType" : "URN"
+                            },
+                            "/tags/*/attribution/time" : {
+                              "fieldName" : "fieldTagAttributionDates",
+                              "fieldType" : "DATETIME"
+                            },
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
                               "fieldName" : "fieldTags",
@@ -3461,6 +3546,18 @@
                             }
                           },
                           "Searchable" : {
+                            "/terms/*/attribution/actor" : {
+                              "fieldName" : "fieldTermAttributionActors",
+                              "fieldType" : "URN"
+                            },
+                            "/terms/*/attribution/source" : {
+                              "fieldName" : "fieldTermAttributionSources",
+                              "fieldType" : "URN"
+                            },
+                            "/terms/*/attribution/time" : {
+                              "fieldName" : "fieldTermAttributionDates",
+                              "fieldType" : "DATETIME"
+                            },
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
                               "fieldName" : "fieldGlossaryTerms",
@@ -3630,6 +3727,18 @@
                             }
                           },
                           "Searchable" : {
+                            "/tags/*/attribution/actor" : {
+                              "fieldName" : "editedFieldTagAttributionActors",
+                              "fieldType" : "URN"
+                            },
+                            "/tags/*/attribution/source" : {
+                              "fieldName" : "editedFieldTagAttributionSources",
+                              "fieldType" : "URN"
+                            },
+                            "/tags/*/attribution/time" : {
+                              "fieldName" : "editedFieldTagAttributionDates",
+                              "fieldType" : "DATETIME"
+                            },
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
                               "fieldName" : "editedFieldTags",
@@ -3648,6 +3757,18 @@
                             }
                           },
                           "Searchable" : {
+                            "/terms/*/attribution/actor" : {
+                              "fieldName" : "editedFieldTermAttributionActors",
+                              "fieldType" : "URN"
+                            },
+                            "/terms/*/attribution/source" : {
+                              "fieldName" : "editedFieldTermAttributionSources",
+                              "fieldType" : "URN"
+                            },
+                            "/terms/*/attribution/time" : {
+                              "fieldName" : "editedFieldTermAttributionDates",
+                              "fieldType" : "DATETIME"
+                            },
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
                               "fieldName" : "editedFieldGlossaryTerms",
@@ -6700,6 +6821,10 @@
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+          "optional" : true
+        }, {
           "name" : "start",
           "type" : "int"
         }, {
@@ -6749,6 +6874,10 @@
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+          "optional" : true
+        }, {
           "name" : "start",
           "type" : "int"
         }, {
@@ -6787,6 +6916,10 @@
         }, {
           "name" : "sort",
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
           "optional" : true
         }, {
           "name" : "scrollId",
@@ -6834,6 +6967,10 @@
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+          "optional" : true
+        }, {
           "name" : "scrollId",
           "type" : "string",
           "optional" : true
@@ -6875,6 +7012,10 @@
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+          "optional" : true
+        }, {
           "name" : "start",
           "type" : "int"
         }, {
@@ -6910,6 +7051,10 @@
         }, {
           "name" : "sort",
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
           "optional" : true
         }, {
           "name" : "start",
@@ -6951,6 +7096,10 @@
         }, {
           "name" : "sort",
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
           "optional" : true
         }, {
           "name" : "start",

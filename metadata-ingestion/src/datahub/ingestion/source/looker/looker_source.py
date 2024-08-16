@@ -80,6 +80,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
+    DataPlatformInstance,
     Status,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
@@ -594,19 +595,21 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         }
         type_str = dashboard_element.type
         if not type_str:
-            self.reporter.report_warning(
+            self.reporter.info(
                 title="Unrecognized Chart Type",
-                message=f"Chart type {type_str} is not recognized. Setting to None",
-                context=f"Dashboard Id: {dashboard_element.id}",
+                message="Chart is missing a chart type.",
+                context=f"Chart Id: {dashboard_element.id}",
+                log=False,
             )
             return None
         try:
             chart_type = type_mapping[type_str]
         except KeyError:
-            self.reporter.report_warning(
+            self.reporter.info(
                 title="Unrecognized Chart Type",
                 message=f"Chart type {type_str} is not recognized. Setting to None",
-                context=f"Dashboard Id: {dashboard_element.id}",
+                context=f"Chart Id: {dashboard_element.id}",
+                log=False,
             )
             chart_type = None
 
@@ -624,6 +627,38 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if include_current_folder:
             yield BrowsePathEntryClass(id=urn, urn=urn)
 
+    def _create_platform_instance_aspect(
+        self,
+    ) -> DataPlatformInstance:
+
+        assert (
+            self.source_config.platform_name
+        ), "Platform name is not set in the configuration."
+        assert (
+            self.source_config.platform_instance
+        ), "Platform instance is not set in the configuration."
+
+        return DataPlatformInstance(
+            platform=builder.make_data_platform_urn(self.source_config.platform_name),
+            instance=builder.make_dataplatform_instance_urn(
+                platform=self.source_config.platform_name,
+                instance=self.source_config.platform_instance,
+            ),
+        )
+
+    def _make_chart_urn(self, element_id: str) -> str:
+
+        platform_instance: Optional[str] = None
+
+        if self.source_config.include_platform_instance_in_urns:
+            platform_instance = self.source_config.platform_instance
+
+        return builder.make_chart_urn(
+            name=element_id,
+            platform=self.source_config.platform_name,
+            platform_instance=platform_instance,
+        )
+
     def _make_chart_metadata_events(
         self,
         dashboard_element: LookerDashboardElement,
@@ -631,8 +666,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             LookerDashboard
         ],  # dashboard will be None if this is a standalone look
     ) -> List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
-        chart_urn = builder.make_chart_urn(
-            self.source_config.platform_name, dashboard_element.get_urn_element_id()
+        chart_urn = self._make_chart_urn(
+            element_id=dashboard_element.get_urn_element_id()
         )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
@@ -712,6 +747,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=[BIAssetSubTypes.LOOKER_LOOK]),
             ),
         ]
+
+        if self.source_config.include_platform_instance_in_urns:
+            proposals.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=self._create_platform_instance_aspect(),
+                ),
+            )
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
@@ -818,11 +861,26 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 )
             )
 
+        if self.source_config.include_platform_instance_in_urns:
+            proposals.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=self._create_platform_instance_aspect(),
+                )
+            )
+
         return proposals
 
     def make_dashboard_urn(self, looker_dashboard: LookerDashboard) -> str:
+        platform_instance: Optional[str] = None
+
+        if self.source_config.include_platform_instance_in_urns:
+            platform_instance = self.source_config.platform_instance
+
         return builder.make_dashboard_urn(
-            self.source_config.platform_name, looker_dashboard.get_urn_dashboard_id()
+            name=looker_dashboard.get_urn_dashboard_id(),
+            platform=self.source_config.platform_name,
+            platform_instance=platform_instance,
         )
 
     def _make_explore_metadata_events(
@@ -1154,8 +1212,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # enrich the input_fields with the fully hydrated ViewField from the now fetched explores
         for input_field in input_fields:
-            entity_urn = builder.make_chart_urn(
-                self.source_config.platform_name, dashboard_element.get_urn_element_id()
+            entity_urn = self._make_chart_urn(
+                element_id=dashboard_element.get_urn_element_id()
             )
             view_field_for_reference = input_field.view_field
 
@@ -1220,8 +1278,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_metrics_dimensions_chart_mcp(
         self, dashboard_element: LookerDashboardElement
     ) -> MetadataChangeProposalWrapper:
-        chart_urn = builder.make_chart_urn(
-            self.source_config.platform_name, dashboard_element.get_urn_element_id()
+        chart_urn = self._make_chart_urn(
+            element_id=dashboard_element.get_urn_element_id()
         )
         input_fields_aspect = InputFieldsClass(
             fields=self._input_fields_from_dashboard_element(dashboard_element)

@@ -99,11 +99,13 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.3.1.dev3",
+    "acryl-sqlglot[rs]==25.8.2.dev9",
 }
 
 classification_lib = {
     "acryl-datahub-classify==0.0.11",
+    # schwifty is needed for the classify plugin but in 2024.08.0 they broke the python 3.8 compatibility
+    "schwifty<2024.08.0",
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
@@ -111,6 +113,11 @@ classification_lib = {
     # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
     # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
     "numpy<2",
+}
+
+dbt_common = {
+    *sqlglot_lib,
+    "more_itertools",
 }
 
 sql_common = (
@@ -352,8 +359,8 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests"} | sqlglot_lib | aws_common,
-    "dbt-cloud": {"requests"} | sqlglot_lib,
+    "dbt": {"requests"} | dbt_common | aws_common,
+    "dbt-cloud": {"requests"} | dbt_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -449,7 +456,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
-    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
@@ -486,7 +493,7 @@ all_exclude_plugins: Set[str] = {
 
 mypy_stubs = {
     "types-dataclasses",
-    "types-pkg_resources",
+    "types-setuptools",
     "types-six",
     "types-python-dateutil",
     # We need to avoid 2.31.0.5 and 2.31.0.4 due to
@@ -745,7 +752,8 @@ entry_points = {
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
         "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
-        "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl",
+        "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrlDataset",
+        "replace_external_url_container = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrlContainer",
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
         "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
         "tags_to_term = datahub.ingestion.transformer.tags_to_terms:TagsToTermMapper",

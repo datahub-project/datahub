@@ -40,7 +40,7 @@ public class OpenAPIV3Generator {
   private static final String NAME_QUERY = "query";
   private static final String NAME_PATH = "path";
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
-  private static final String NAME_ASYNC = "async";
+  private static final String NAME_AUDIT_STAMP = "auditStamp";
   private static final String NAME_VERSION = "version";
   private static final String NAME_SCROLL_ID = "scrollId";
   private static final String NAME_INCLUDE_SOFT_DELETE = "includeSoftDelete";
@@ -77,9 +77,6 @@ public class OpenAPIV3Generator {
     // Components
     final Components components = new Components();
     // --> Aspect components
-    // TODO: Correct handling of SystemMetadata and SortOrder
-    components.addSchemas(
-        "SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
     components.addSchemas("AspectPatch", buildAspectPatchSchema());
     components.addSchemas(
@@ -167,6 +164,10 @@ public class OpenAPIV3Generator {
                               buildSingleEntityAspectPath(
                                   e, a.getName(), a.getPegasusSchema().getName())));
             });
+    // TODO: Correct handling of SystemMetadata and AuditStamp
+    components.addSchemas(
+        "SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
+    components.addSchemas("AuditStamp", new Schema().type(TYPE_OBJECT).additionalProperties(true));
     return new OpenAPI().openapi("3.0.1").info(info).paths(paths).components(components);
   }
 
@@ -185,7 +186,7 @@ public class OpenAPIV3Generator {
                 .schema(new Schema().type(TYPE_STRING)),
             new Parameter()
                 .in(NAME_QUERY)
-                .name("systemMetadata")
+                .name(NAME_SYSTEM_METADATA)
                 .description("Include systemMetadata with response.")
                 .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter()
@@ -424,7 +425,7 @@ public class OpenAPIV3Generator {
                 List.of(
                     new Parameter()
                         .in(NAME_QUERY)
-                        .name("systemMetadata")
+                        .name(NAME_SYSTEM_METADATA)
                         .description("Include systemMetadata with response.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .requestBody(
@@ -547,12 +548,12 @@ public class OpenAPIV3Generator {
                           String $ref = schema.get$ref();
                           boolean isNameRequired = requiredNames.contains(name);
                           if ($ref != null && !isNameRequired) {
-                            // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+                            // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
                             // object to allow the
                             // property to be marked as nullable
                             schema.setType(TYPE_OBJECT);
                             schema.set$ref(null);
-                            schema.setAllOf(List.of(new Schema().$ref($ref)));
+                            schema.setAnyOf(List.of(new Schema().$ref($ref)));
                           }
                           schema.setNullable(!isNameRequired);
                         });
@@ -575,11 +576,18 @@ public class OpenAPIV3Generator {
             .required(List.of(PROPERTY_VALUE))
             .addProperty(PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspectName));
     result.addProperty(
-        "systemMetadata",
+        NAME_SYSTEM_METADATA,
         new Schema<>()
             .type(TYPE_OBJECT)
-            .allOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
             .description("System metadata for the aspect.")
+            .nullable(true));
+    result.addProperty(
+        NAME_AUDIT_STAMP,
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "AuditStamp")))
+            .description("Audit stamp for the aspect.")
             .nullable(true));
     return result;
   }
@@ -592,10 +600,10 @@ public class OpenAPIV3Generator {
             .required(List.of(PROPERTY_VALUE))
             .addProperty(PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspectName));
     result.addProperty(
-        "systemMetadata",
+        NAME_SYSTEM_METADATA,
         new Schema<>()
             .type(TYPE_OBJECT)
-            .allOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+            .anyOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
             .description("System metadata for the aspect.")
             .nullable(true));
 
@@ -681,7 +689,7 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
-    // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+    // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
     // object to allow the
     // property to be marked as nullable
     final Schema result = new Schema<>();
@@ -697,7 +705,7 @@ public class OpenAPIV3Generator {
       internalRef =
           String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
-    result.setAllOf(List.of(new Schema().$ref(internalRef)));
+    result.setAnyOf(List.of(new Schema().$ref(internalRef)));
     return result;
   }
 
@@ -867,7 +875,7 @@ public class OpenAPIV3Generator {
                 List.of(
                     new Parameter()
                         .in(NAME_QUERY)
-                        .name("systemMetadata")
+                        .name(NAME_SYSTEM_METADATA)
                         .description("Include systemMetadata with response.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .summary(String.format("Patch aspect %s on %s ", aspect, upperFirstEntity))

@@ -17,6 +17,11 @@ extend type Query {
     Requires the 'Manage Global Views' Platform Privilege.
     """
     globalViewsSettings: GlobalViewsSettings
+
+    """
+    Fetch the global settings related to the docs propagation feature.
+    """
+    docPropagationSettings: DocPropagationSettings
 }
 
 extend type Mutation {
@@ -25,6 +30,11 @@ extend type Mutation {
   Requires the 'Manage Global Views' Platform Privilege.
   """
   updateGlobalViewsSettings(input: UpdateGlobalViewsSettingsInput!): Boolean!
+
+  """
+  Update the doc propagation settings.
+  """
+  updateDocPropagationSettings(input: UpdateDocPropagationSettingsInput!): Boolean!
 }
 
 """
@@ -469,7 +479,7 @@ type FeatureFlagsConfig {
   platformBrowseV2: Boolean!
 
   """
-  Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
+  Whether we should show CTAs in the UI related to moving to DataHub Cloud by Acryl.
   """
   showAcrylInfo: Boolean!
   """
@@ -499,6 +509,11 @@ type FeatureFlagsConfig {
   dataContractsEnabled: Boolean!
 
   """
+  Whether dataset names are editable
+  """
+  editableDatasetNameEnabled: Boolean!
+
+  """
   If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   """
   showSeparateSiblings: Boolean!
@@ -524,4 +539,24 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Input required to update doc propagation settings.
+"""
+input UpdateDocPropagationSettingsInput {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
+}
+
+"""
+Global (platform-level) settings related to the doc propagation feature
+"""
+type DocPropagationSettings {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
 }

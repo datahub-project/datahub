@@ -1,0 +1,52 @@
+.link {
+  &:hover {
+    text-decoration: none;
+    opacity: 0.8;
+  }
+}
+
+.bgSection {
+  background-color: #FAFAFA !important;
+  }
+
+.hero {
+    margin-top: 80px;
+    :global {
+      .button {
+        margin-right: 1rem;
+      }
+    }
+    .hero__title {
+      font-size: 4rem;
+    }
+
+    .hero__secondtitle {
+      font-size: 2rem;
+      font-weight: 300;
+      margin-bottom: 2rem;
+
+    }
+
+    .hero__subtitle {
+      margin-bottom: 2rem;
+      font-size: 1.75rem;
+      line-height: 2.5rem;
+    }
+
+    .buttonLightBlue {
+      color: #1990FF !important;
+      background: #EAF3FF;
+      border-color: #EAF3FF;
+      :hover {
+        background: #D6E7FF;
+      }
+    }
+
+    .learnMore {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+
+    }
+  }
+  

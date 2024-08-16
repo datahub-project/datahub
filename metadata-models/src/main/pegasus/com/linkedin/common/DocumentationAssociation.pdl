@@ -1,0 +1,30 @@
+namespace com.linkedin.common
+
+/**
+ * Properties of applied documentation including the attribution of the doc
+ */
+record DocumentationAssociation {
+ /**
+  * Description of this asset
+  */
+  documentation: string
+
+  /**
+   * Information about who, why, and how this metadata was applied
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "documentationAttributionDates",
+        "fieldType": "DATETIME"
+      },
+    "/actor": {
+        "fieldName": "documentationAttributionActors",
+        "fieldType": "URN"
+      },
+    "/source": {
+        "fieldName": "documentationAttributionSources",
+        "fieldType": "URN"
+      },
+  }
+  attribution: optional MetadataAttribution
+}

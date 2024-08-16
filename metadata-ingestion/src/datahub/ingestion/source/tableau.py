@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
@@ -13,6 +14,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Type,
     Union,
     cast,
 )
@@ -157,6 +159,21 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+try:
+    # On earlier versions of the tableauserverclient, the NonXMLResponseError
+    # was thrown when reauthentication was needed. We'll keep both exceptions
+    # around for now, but can remove this in the future.
+    from tableauserverclient.server.endpoint.exceptions import (  # type: ignore
+        NotSignedInError,
+    )
+
+    REAUTHENTICATE_ERRORS: Tuple[Type[Exception], ...] = (
+        NotSignedInError,
+        NonXMLResponseError,
+    )
+except ImportError:
+    REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -740,6 +757,12 @@ class TableauSiteSource:
         ] = self.config.get_tableau_auth(self.site.content_url)
         self.server.auth.sign_in(tableau_auth)
 
+    @property
+    def site_content_url(self) -> Optional[str]:
+        if self.site and self.site.content_url:
+            return self.site.content_url
+        return None
+
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
             return
@@ -965,7 +988,7 @@ class TableauSiteSource:
             query_data = query_metadata(
                 self.server, query, connection_type, count, offset, query_filter
             )
-        except NonXMLResponseError:
+        except REAUTHENTICATE_ERRORS:
             if not retry_on_auth_error:
                 raise
 
@@ -1038,6 +1061,35 @@ class TableauSiteSource:
                     )
 
             else:
+                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30 second
+                # timeout error. It doesn't reliably happen, so retrying a couple times makes sense.
+                if all(
+                    error.get("message")
+                    == "Execution canceled because timeout of 30000 millis was reached"
+                    for error in errors
+                ):
+                    # If it was only a timeout error, we can retry.
+                    if retries_remaining <= 0:
+                        raise
+
+                    # This is a pretty dumb backoff mechanism, but it's good enough for now.
+                    backoff_time = min(
+                        (self.config.max_retries - retries_remaining + 1) ** 2, 60
+                    )
+                    logger.info(
+                        f"Query {connection_type} received a 30 second timeout error - will retry in {backoff_time} seconds. "
+                        f"Retries remaining: {retries_remaining}"
+                    )
+                    time.sleep(backoff_time)
+                    return self.get_connection_object_page(
+                        query,
+                        connection_type,
+                        query_filter,
+                        count,
+                        offset,
+                        retry_on_auth_error=False,
+                        retries_remaining=retries_remaining - 1,
+                    )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
         connection_object = query_data.get(c.DATA, {}).get(connection_type, {})
@@ -2478,7 +2530,9 @@ class TableauSiteSource:
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
         if sheet.get(c.PATH):
-            site_part = f"/site/{self.site.content_url}" if self.site else ""
+            site_part = (
+                f"/site/{self.site_content_url}" if self.site_content_url else ""
+            )
             sheet_external_url = (
                 f"{self.config.connect_uri}/#{site_part}/views/{sheet.get(c.PATH)}"
             )
@@ -2489,7 +2543,7 @@ class TableauSiteSource:
             and sheet[c.CONTAINED_IN_DASHBOARDS][0].get(c.PATH)
         ):
             # sheet contained in dashboard
-            site_part = f"/t/{self.site.content_url}" if self.site else ""
+            site_part = f"/t/{self.site_content_url}" if self.site_content_url else ""
             dashboard_path = sheet[c.CONTAINED_IN_DASHBOARDS][0][c.PATH]
             sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{quote(sheet.get(c.NAME, ''), safe='')}"
         else:
@@ -2621,7 +2675,7 @@ class TableauSiteSource:
             else None
         )
 
-        site_part = f"/site/{self.site.content_url}" if self.site else ""
+        site_part = f"/site/{self.site_content_url}" if self.site_content_url else ""
         workbook_uri = workbook.get("uri")
         workbook_part = (
             workbook_uri[workbook_uri.index("/workbooks/") :] if workbook_uri else None
@@ -2780,7 +2834,7 @@ class TableauSiteSource:
         updated_at = dashboard.get(c.UPDATED_AT, datetime.now())
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
-        site_part = f"/site/{self.site.content_url}" if self.site else ""
+        site_part = f"/site/{self.site_content_url}" if self.site_content_url else ""
         dashboard_external_url = (
             f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get(c.PATH, '')}"
         )
