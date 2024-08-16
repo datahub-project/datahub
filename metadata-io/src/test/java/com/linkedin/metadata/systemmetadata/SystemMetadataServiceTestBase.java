@@ -32,7 +32,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
   protected abstract ESIndexBuilder getIndexBuilder();
 
   private final IndexConvention _indexConvention =
-      new IndexConventionImpl("es_system_metadata_service_test");
+      new IndexConventionImpl("es_system_metadata_service_test", "MD5");
 
   private ElasticSearchSystemMetadataService _client;
 

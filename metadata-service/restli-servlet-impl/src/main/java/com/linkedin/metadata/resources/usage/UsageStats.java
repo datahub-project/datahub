@@ -228,7 +228,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     try {
       documents =
           TimeseriesAspectTransformer.transform(
-              bucket.getResource(), datasetUsageStatistics, getUsageStatsAspectSpec(), null);
+              bucket.getResource(), datasetUsageStatistics, getUsageStatsAspectSpec(), null,
+                  systemOperationContext.getSearchContext().getIndexConvention().getIdHashAlgo());
     } catch (JsonProcessingException e) {
       log.error("Failed to generate timeseries document from aspect: {}", e.toString());
       return;

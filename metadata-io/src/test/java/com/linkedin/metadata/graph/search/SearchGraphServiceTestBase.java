@@ -62,7 +62,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
-  private final IndexConvention _indexConvention = IndexConventionImpl.NO_PREFIX;
+  private final IndexConvention _indexConvention = IndexConventionImpl.noPrefix("MD5");
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
 
@@ -108,7 +108,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
         _indexConvention,
         writeDAO,
         readDAO,
-        getIndexBuilder());
+        getIndexBuilder(),
+        "MD5");
   }
 
   @Override

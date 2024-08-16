@@ -71,7 +71,7 @@ public class SearchLineageFixtureConfiguration {
 
   @Bean(name = "searchLineageIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("searchLineagePrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(prefix, "MD5");
   }
 
   @Bean(name = "searchLineageFixtureName")
@@ -173,7 +173,8 @@ public class SearchLineageFixtureConfiguration {
             new ESGraphWriteDAO(indexConvention, bulkProcessor, 1),
             new ESGraphQueryDAO(
                 searchClient, lineageRegistry, indexConvention, getGraphQueryConfiguration()),
-            indexBuilder);
+            indexBuilder,
+            indexConvention.getIdHashAlgo());
     graphService.reindexAll(Collections.emptySet());
     return graphService;
   }

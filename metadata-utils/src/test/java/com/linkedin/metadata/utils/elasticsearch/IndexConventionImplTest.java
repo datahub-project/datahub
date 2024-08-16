@@ -10,7 +10,7 @@ public class IndexConventionImplTest {
 
   @Test
   public void testIndexConventionNoPrefix() {
-    IndexConvention indexConventionNoPrefix = IndexConventionImpl.NO_PREFIX;
+    IndexConvention indexConventionNoPrefix = IndexConventionImpl.noPrefix("MD5");
     String entityName = "dataset";
     String expectedIndexName = "datasetindex_v2";
     assertEquals(indexConventionNoPrefix.getEntityIndexName(entityName), expectedIndexName);
@@ -25,7 +25,7 @@ public class IndexConventionImplTest {
 
   @Test
   public void testIndexConventionPrefix() {
-    IndexConvention indexConventionPrefix = new IndexConventionImpl("prefix");
+    IndexConvention indexConventionPrefix = new IndexConventionImpl("prefix", "MD5");
     String entityName = "dataset";
     String expectedIndexName = "prefix_datasetindex_v2";
     assertEquals(indexConventionPrefix.getEntityIndexName(entityName), expectedIndexName);
@@ -42,7 +42,7 @@ public class IndexConventionImplTest {
 
   @Test
   public void testTimeseriesIndexConventionNoPrefix() {
-    IndexConvention indexConventionNoPrefix = IndexConventionImpl.NO_PREFIX;
+    IndexConvention indexConventionNoPrefix = IndexConventionImpl.noPrefix("MD5");
     String entityName = "dataset";
     String aspectName = "datasetusagestatistics";
     String expectedIndexName = "dataset_datasetusagestatisticsaspect_v1";
@@ -64,7 +64,7 @@ public class IndexConventionImplTest {
 
   @Test
   public void testTimeseriesIndexConventionPrefix() {
-    IndexConvention indexConventionPrefix = new IndexConventionImpl("prefix");
+    IndexConvention indexConventionPrefix = new IndexConventionImpl("prefix", "MD5");
     String entityName = "dataset";
     String aspectName = "datasetusagestatistics";
     String expectedIndexName = "prefix_dataset_datasetusagestatisticsaspect_v1";
