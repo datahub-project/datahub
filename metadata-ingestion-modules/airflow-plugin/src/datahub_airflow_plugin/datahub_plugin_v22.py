@@ -7,7 +7,6 @@ import airflow
 from airflow.lineage import PIPELINE_OUTLETS
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.module_loading import import_string
-from cattr import structure
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.telemetry import telemetry
 
@@ -52,6 +51,7 @@ def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
         )
 
         from airflow.lineage import AUTO
+        from cattr import structure
 
         # pick up unique direct upstream task_ids if AUTO is specified
         if AUTO.upper() in task_inlets or AUTO.lower() in task_inlets:
