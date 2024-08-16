@@ -311,8 +311,8 @@ class DatahubSensors:
         log: EventLogEntry,
         context: RunStatusSensorContext,
         dagster_generator: DagsterGenerator,
-        dataset_inputs: Dict[str, set],
-        dataset_outputs: Dict[str, set],
+        dataset_inputs: Dict[str, set[DatasetUrn]],
+        dataset_outputs: Dict[str, set[DatasetUrn]],
     ) -> None:
         if (
             log.dagster_event
@@ -327,6 +327,7 @@ class DatahubSensors:
             properties = {
                 key: str(value) for (key, value) in materialization.metadata.items()
             }
+            asset_key = materialization.asset_key.path
 
             asset_downstream_urn: Optional[DatasetUrn] = None
             # If DataHub Urn is set then we prefer that as downstream urn
@@ -344,7 +345,6 @@ class DatahubSensors:
                     context.log.error(f"Error in parsing datahub_urn: {e}")
 
             if not asset_downstream_urn:
-                asset_key = materialization.asset_key.path
                 asset_downstream_urn = (
                     dagster_generator.asset_keys_to_dataset_urn_converter(asset_key)
                 )
@@ -392,21 +392,21 @@ class DatahubSensors:
                                 )
                         else:
                             context.log.info("Query not found in metadata")
-
-                        # Emitting asset with upstreams and downstreams
-                        dataset_urn = dagster_generator.emit_asset(
-                            self.graph,
-                            asset_key,
-                            materialization.description,
-                            properties,
-                            downstreams=downstreams,
-                            upstreams=upstreams,
-                            materialize_dependencies=self.config.materialize_dependencies,
-                        )
-
-                        dataset_outputs[log.step_key].add(dataset_urn)
                     except Exception as e:
                         context.log.info(f"Error in processing asset logs: {e}")
+
+                # Emitting asset with upstreams and downstreams
+                dataset_urn = dagster_generator.emit_asset(
+                    self.graph,
+                    asset_key,
+                    materialization.description,
+                    properties,
+                    downstreams=downstreams,
+                    upstreams=upstreams,
+                    materialize_dependencies=self.config.materialize_dependencies,
+                )
+
+                dataset_outputs[log.step_key].add(dataset_urn)
 
     def process_asset_observation(
         self,
@@ -440,8 +440,8 @@ class DatahubSensors:
         context: RunStatusSensorContext,
         dagster_generator: DagsterGenerator,
         log: EventLogEntry,
-        dataset_inputs: Dict[str, set],
-        dataset_outputs: Dict[str, set],
+        dataset_inputs: Dict[str, set[DatasetUrn]],
+        dataset_outputs: Dict[str, set[DatasetUrn]],
     ) -> None:
         context.log.info("Processing Asset Logs")
         if not log.dagster_event or not log.step_key:
@@ -469,8 +469,8 @@ class DatahubSensors:
         context: RunStatusSensorContext,
         log: EventLogEntry,
         dagster_generator: DagsterGenerator,
-        dataset_inputs: Dict[str, set],
-        dataset_outputs: Dict[str, set],
+        dataset_inputs: Dict[str, set[DatasetUrn]],
+        dataset_outputs: Dict[str, set[DatasetUrn]],
     ) -> None:
         if not log.dagster_event or not log.step_key:
             return
@@ -511,9 +511,9 @@ class DatahubSensors:
 
     def process_dagster_logs(
         self, context: RunStatusSensorContext, dagster_generator: DagsterGenerator
-    ) -> Tuple[Dict[str, set], Dict[str, set]]:
-        dataset_outputs: Dict[str, set] = defaultdict(lambda: set())
-        dataset_inputs: Dict[str, set] = defaultdict(lambda: set())
+    ) -> Tuple[Dict[str, set[DatasetUrn]], Dict[str, set[DatasetUrn]]]:
+        dataset_outputs: Dict[str, set[DatasetUrn]] = defaultdict(lambda: set())
+        dataset_inputs: Dict[str, set[DatasetUrn]] = defaultdict(lambda: set())
 
         logs = context.instance.all_logs(
             context.dagster_run.run_id,
@@ -633,8 +633,8 @@ class DatahubSensors:
                 snapshot_id=context.dagster_run.job_snapshot_id
             )
 
-            dataset_inputs: Dict[str, Set] = {}
-            dataset_outputs: Dict[str, Set] = {}
+            dataset_inputs: Dict[str, Set[DatasetUrn]] = {}
+            dataset_outputs: Dict[str, Set[DatasetUrn]] = {}
 
             if self.config.asset_lineage_extractor:
                 asset_lineages = self.config.asset_lineage_extractor(
@@ -703,7 +703,7 @@ class DatahubSensors:
                     output_datasets=dataset_outputs,
                     input_datasets=dataset_inputs,
                 )
-                context.log.info(f"Generated Datajob: {datajob}")
+
                 datajob.emit(self.graph)
 
                 self.graph.emit_mcp(
