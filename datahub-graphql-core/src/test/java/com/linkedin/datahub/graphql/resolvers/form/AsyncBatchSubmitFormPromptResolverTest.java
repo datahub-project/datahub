@@ -46,6 +46,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
           null,
           null,
           PROPERTIES_INPUT,
+          null,
           null);
   private static final AsyncBatchSubmitFormPromptInput TEST_INPUT =
       new AsyncBatchSubmitFormPromptInput(
@@ -96,6 +97,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
             null,
             null,
             null,
+            null,
             null);
     final AsyncBatchSubmitFormPromptInput testInput =
         new AsyncBatchSubmitFormPromptInput(
@@ -130,7 +132,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
     // null ownership params with ownership input
     final SubmitFormPromptInput promptInput =
         new SubmitFormPromptInput(
-            TEST_PROMPT_ID, TEST_FORM_URN, FormPromptType.OWNERSHIP, null, null, null, null);
+            TEST_PROMPT_ID, TEST_FORM_URN, FormPromptType.OWNERSHIP, null, null, null, null, null);
     final AsyncBatchSubmitFormPromptInput testInput =
         new AsyncBatchSubmitFormPromptInput(
             new ArrayList<>(),

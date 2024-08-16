@@ -1,7 +1,6 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider, Skeleton } from 'antd';
 import PlatformContent from '../../header/PlatformContent';
 import { useEntityData } from '../../../../EntityContext';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
@@ -37,33 +36,14 @@ const FormInfoWrapper = styled.div`
     margin-top: 12px;
 `;
 
-const SkeletonDivider = styled(Divider)`
-    margin: 10px 0 20px 0;
-`;
-
 interface Props {
     formUrn: string;
-    loading?: boolean;
 }
 
-export default function EntityInfo({ formUrn, loading }: Props) {
+export default function EntityInfo({ formUrn }: Props) {
     const entityRegistry = useEntityRegistry();
     const { entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
-
-    if (loading) {
-        return (
-            <EntityInfoWrapper>
-                <Skeleton active />
-                <SkeletonDivider />
-                <Skeleton active />
-                <SkeletonDivider />
-                <Skeleton active />
-                <SkeletonDivider />
-                <Skeleton active />
-            </EntityInfoWrapper>
-        );
-    }
 
     return (
         <EntityInfoWrapper>

@@ -15,36 +15,17 @@ import { applyOpacity } from '../../../../../shared/styleUtils';
 import { useEntityFormContext } from '../../EntityFormContext';
 import BulkSubmissionButton from '../BulkSubmissionButton';
 import usePromptCompletionInfo from '../usePromptCompletionInfo';
-import { Editor } from '../../../tabs/Documentation/components/editor/Editor';
 import { ColumnSelectorProps } from '../types';
 import ColumnSelector from '../ColumnSelector';
 import useOwnershipPrompt from './useOwnershipPrompt';
 import UrnInput from '../StructuredPropertyPrompt/UrnInput/UrnInput';
+import PromptHeader from '../PromptHeader';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
     justify-content: space-between;
     height: min-content;
     ${(props) => props.displayBulkStyles && `color: white;`}
-`;
-
-const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
-    font-size: 16px;
-    font-weight: 600;
-    line-height: 20px;
-    ${(props) => props.displayBulkStyles && `font-size: 20px;`}
-`;
-
-const RequiredText = styled.span<{ displayBulkStyles?: boolean }>`
-    font-size: 12px;
-    margin-left: 4px;
-    color: #a8071a;
-    ${(props) =>
-        props.displayBulkStyles &&
-        `
-        color: #FFCCC7;
-        margin-left: 8px;
-    `}
 `;
 
 export const PromptSubTitle = styled.div`
@@ -145,22 +126,12 @@ export default function OwnershipPrompt({
         <>
             <PromptWrapper displayBulkStyles={displayBulkPromptStyles}>
                 <PromptInputWrapper>
-                    <PromptTitle displayBulkStyles={displayBulkPromptStyles}>
-                        {promptNumber !== undefined && <>{promptNumber}. </>}
-                        {prompt.title}
-                        {prompt.required && (
-                            <RequiredText displayBulkStyles={displayBulkPromptStyles}>required</RequiredText>
-                        )}
-                    </PromptTitle>
-                    {prompt.description && (
-                        <PromptSubTitle>
-                            <Editor
-                                content={prompt.description}
-                                readOnly
-                                editorStyle={!displayBulkPromptStyles ? 'padding: 0;' : 'padding: 0; color: white;'}
-                            />
-                        </PromptSubTitle>
-                    )}
+                    <PromptHeader
+                        title={prompt.title}
+                        description={prompt.description}
+                        promptNumber={promptNumber}
+                        required={prompt.required}
+                    />
                     <InputSection>
                         <UrnInput
                             initialEntities={initialEntities}

@@ -18,6 +18,7 @@ import { FORM_ANSWER_IN_BULK_ID } from '../../../../onboarding/config/FormOnboar
 import { pluralize } from '../../../../shared/textUtil';
 import analytics, { EventType, DocRequestView } from '../../../../analytics';
 import OwnershipPrompt from '../prompts/OwnershipPrompt/OwnershipPrompt';
+import DocumentationPrompt from '../prompts/DocumentationPrompt/DocumentationPrompt';
 
 const FormPromptsWrapper = styled(BulkNavigationWrapper)`
     justify-content: space-between;
@@ -186,6 +187,14 @@ export default function PromptNavigation() {
             )}
             {prompt?.type === FormPromptType.Ownership && (
                 <OwnershipPrompt
+                    key={promptIndex}
+                    promptNumber={promptIndex + 1}
+                    prompt={prompt}
+                    submitResponse={submitResponse}
+                />
+            )}
+            {prompt?.type === FormPromptType.Documentation && (
+                <DocumentationPrompt
                     key={promptIndex}
                     promptNumber={promptIndex + 1}
                     prompt={prompt}

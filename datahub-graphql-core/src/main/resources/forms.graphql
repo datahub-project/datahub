@@ -131,6 +131,11 @@ type FormPromptResponse {
     Response for an ownership type prompt
     """
     ownershipResponse: OwnershipPromptResponse
+
+    """
+    Response for a documentation type prompt
+    """
+    documentationResponse: DocumentationResponse
 }
 
 """
@@ -161,6 +166,16 @@ type OwnershipPromptResponse {
     The type of ownership applied from this prompt response
     """
     ownershipTypeUrn: String!
+}
+
+"""
+Response for a documentation type prompt
+"""
+type DocumentationResponse {
+    """
+    The documentation provided in the response
+    """
+    documentation: String!
 }
 
 """
@@ -359,6 +374,14 @@ enum FormPromptType {
     This prompt is meant to apply ownership to an entity
     """
     OWNERSHIP
+    """
+    This prompt is meant to apply documentation to an entity
+    """
+    DOCUMENTATION
+    """
+    A schema field-level documentation form prompt type.
+    """
+    FIELDS_DOCUMENTATION
 }
 
 """
@@ -436,6 +459,11 @@ input SubmitFormPromptInput {
     Input params for an ownership type prompt
     """
     ownershipParams: OwnershipInputParams
+
+    """
+    Input params for a documentation type prompt
+    """
+    documentationParams: DocumentationInputParams
 }
 
 
@@ -482,6 +510,16 @@ input OwnershipInputParams {
     The ownership type urn being applied to these owners
     """
     ownershipTypeUrn: String!
+}
+
+"""
+Input params for an documentation type prompt
+"""
+input DocumentationInputParams {
+    """
+    The documentation to be applied on an entity
+    """
+    documentation: String!
 }
 
 """

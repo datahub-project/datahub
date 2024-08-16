@@ -37,6 +37,14 @@ record FormPrompt {
      * This prompt is meant to apply ownership to an entity
      */
     OWNERSHIP
+    /**
+     * This prompt is meant to apply documentation to an entity
+     */
+    DOCUMENTATION
+    /**
+     * This prompt is meant to apply documentation to a schema field entity
+     */
+    FIELDS_DOCUMENTATION
   }
 
   /**

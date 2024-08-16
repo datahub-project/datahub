@@ -2,16 +2,16 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { FormPrompt, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
-import useStructuredPropertyPrompt from './useStructuredPropertyPrompt';
 import CompletedPromptAuditStamp from '../CompletedPromptAuditStamp';
 import { applyOpacity } from '../../../../../shared/styleUtils';
 import { useEntityFormContext } from '../../EntityFormContext';
 import BulkSubmissionButton from '../BulkSubmissionButton';
 import usePromptCompletionInfo from '../usePromptCompletionInfo';
-import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { ColumnSelectorProps } from '../types';
 import ColumnSelector from '../ColumnSelector';
 import PromptHeader from '../PromptHeader';
+import RichTextInput from '../../../components/styled/StructuredProperty/RichTextInput';
+import useDocumentationPrompt from './useDocumentationPrompt';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
@@ -54,7 +54,7 @@ interface Props {
     columnSelectorProps?: ColumnSelectorProps;
 }
 
-export default function StructuredPropertyPrompt({
+export default function DocumentationPrompt({
     promptNumber,
     prompt,
     submitResponse,
@@ -62,14 +62,11 @@ export default function StructuredPropertyPrompt({
     optimisticCompletedTimestamp,
     columnSelectorProps,
 }: Props) {
-    const {
-        hasEdited,
-        selectedValues,
-        selectSingleValue,
-        toggleSelectedValue,
-        submitStructuredPropertyResponse,
-        updateSelectedValues,
-    } = useStructuredPropertyPrompt({ prompt, submitResponse, field });
+    const { hasEdited, documentationValue, updateDocumentation, submitDocumentationResponse } = useDocumentationPrompt({
+        prompt,
+        submitResponse,
+        field,
+    });
 
     const {
         prompt: { displayBulkPromptStyles },
@@ -82,35 +79,28 @@ export default function StructuredPropertyPrompt({
         optimisticCompletedTimestamp,
     });
 
-    const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
-    if (!structuredProperty) return null;
-
-    const { displayName, description } = structuredProperty.definition;
-    const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0;
-    const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0;
+    const showSaveButton = !displayBulkPromptStyles && hasEdited && !!documentationValue;
+    const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && !!documentationValue;
 
     return (
         <>
             <PromptWrapper displayBulkStyles={displayBulkPromptStyles}>
                 <PromptInputWrapper>
                     <PromptHeader
-                        title={displayName || prompt.title}
-                        description={description}
+                        title={prompt.title}
+                        description={prompt.description}
                         promptNumber={promptNumber}
                         required={prompt.required}
                     />
                     <InputSection>
-                        <StructuredPropertyInput
-                            structuredProperty={structuredProperty}
-                            selectedValues={selectedValues}
-                            selectSingleValue={selectSingleValue}
-                            toggleSelectedValue={toggleSelectedValue}
-                            updateSelectedValues={updateSelectedValues}
+                        <RichTextInput
+                            selectedValues={[documentationValue]}
+                            updateSelectedValues={(v) => updateDocumentation(v.length ? (v[0] as string) : '')}
                         />
                         {displayBulkPromptStyles && (
                             <BulkSubmissionButton
-                                isDisabled={!selectedValues.length || !selectedEntities.length}
-                                submitResponse={submitStructuredPropertyResponse}
+                                isDisabled={!documentationValue || !selectedEntities.length}
+                                submitResponse={submitDocumentationResponse}
                             />
                         )}
                     </InputSection>
@@ -123,7 +113,7 @@ export default function StructuredPropertyPrompt({
                 )}
             </PromptWrapper>
             {(showSaveButton || showConfirmButton) && (
-                <StyledButton type="primary" onClick={submitStructuredPropertyResponse}>
+                <StyledButton type="primary" onClick={submitDocumentationResponse}>
                     {showSaveButton ? 'Save' : 'Confirm'}
                 </StyledButton>
             )}
