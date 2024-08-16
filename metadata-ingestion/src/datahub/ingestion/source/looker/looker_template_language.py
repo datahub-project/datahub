@@ -114,39 +114,79 @@ class LookMLViewTransformer(ABC):
 
     These transformations include:
 
-    1. Evaluating Looker templates, such as -- if comments.
-    2. Resolving Liquid templates.
-    3. Removing ${} from derived view patterns
+    1. Evaluating Looker templates, such as `-- if prod --` comments. Example `LookMlIfCommentTransformer`.
+
+    2. Resolving Liquid templates. Example `LiquidVariableTransformer`.
+
+    3. Removing ${} from derived view patterns. Example `DropDerivedViewPatternTransformer`.
        (e.g., changing ${view_name.SQL_TABLE_NAME} to 4. view_name.SQL_TABLE_NAME).
-    4. Completing incomplete SQL fragments.
+
+    4. Completing incomplete SQL fragments. Example `IncompleteSqlTransformer`.
 
     Each transformer works on specific attributes of the LookML view. For example, the #4 transformation is only
     applicable to the view.derived.sql attribute, while the other transformations apply to both the
     view.sql_table_name and view.derived.sql attributes.
 
     This class contains the logic to ensure that the transformer is applied to specific attributes and returns a
-    dictionary containing the transformed data. For example, in cases #1 and #2, it returns:
+    dictionary containing the transformed data.
 
-    **transformed derived_table:**
-    ```
-    {
-        "derived_table": {
-            "datahub_transformed_sql": "<transformed value of derived_table.sql attribute>"
-        }
-    }
-    ```
+    For example:
+    In case of #1 and #2, it returns:
 
-    **Where as original was:**
-    ```
-    {
-        "derived_table": {
-            "sql": "<Sql text with liquid or lookml template language>"
+        **transformed derived_table:**
+        ```
+        {
+            "derived_table": {
+                "datahub_transformed_sql": "<transformed value of derived_table.sql attribute>"
+            }
         }
-    }
-    ```
+        ```
+
+        **Whereas original was:**
+        ```
+        {
+            "derived_table": {
+                "sql": "<Sql text with liquid or lookml template language>"
+            }
+        }
+        ```
+
+    In case #3, it returns:
+        **transformed sql_table_name:**
+        ```
+        {
+            "datahub_transformed_sql_table_name": "employee_income_source.SQL_TABLE_NAME"
+        }
+        ```
+
+        **Whereas original was:**
+        ```
+        {
+            "sql_table_name": "${employee_income_source.SQL_TABLE_NAME}"
+        }
+        ```
+
+    In case #4, it returns:
+        **transformed derived_table:**
+        ```
+        {
+            "derived_table": {
+                "datahub_transformed_sql": "SELECT column_a, column_b FROM foo"
+            }
+        }
+        ```
+
+        **Whereas original was:**
+        ```
+        {
+            "derived_table": {
+                "sql": "column_a, column_b"
+            }
+        }
+        ```
 
     Each transformation generates a section of the transformed dictionary with a new attribute named
-    datahub_transformed_<original-attribute-name>;.
+    `datahub_transformed_<original-attribute-name>`.
     """
 
     source_config: LookMLSourceConfig
@@ -296,50 +336,11 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
 
 class TransformedLookMlView:
     """
-    There are many transformations that we need to perform on the LookML view to make it suitable for metadata ingestion.
+    TransformedLookMlView is collecting output of LookMLViewTransformer and creating a new transformed LookML view.
+    TransformedLookMlView creates a copy of the original view dictionary and updates the copy with the transformed output.
+    The deepmerge library is used because Python's dict.update function doesn't merge nested fields.
 
-    These transformations include:
-    1. Evaluating Looker templates, such as -- if comments.
-    2. Resolving Liquid templates.
-    3. Removing ${} from derived view patterns (e.g., changing ${view_name.SQL_TABLE_NAME} to 4. view_name.SQL_TABLE_NAME).
-    5. Completing incomplete SQL fragments.
-
-    The Python module looker_template_language.py handles all these transformations. To keep the code readable and
-    extensible, we have added a transformer for each of the operations mentioned above. If we need to perform any
-    additional transformations in the future, we can easily add a new transformer to handle that scenario.
-
-    Each transformer works on specific attributes of the LookML view. For example, the #4 transformation is only
-    applicable to the view.derived.sql attribute, while the other transformations apply to both the
-    view.sql_table_name and view.derived.sql attributes.
-
-    The class LookMLViewTransformer contains the logic to ensure that the transformer is applied to specific
-    attributes and returns a dictionary containing the transformed data. For example, in cases #1 and #2, it returns:
-
-    **transformed derived_table:**
-    ```
-    {
-        "derived_table": {
-            "datahub_transformed_sql": "<transformed value of derived_table.sql attribute>"
-        }
-    }
-    ```
-
-    **Where as original was:**
-    ```
-    {
-        "derived_table": {
-            "sql": "<Sql text with liquid or lookml template language>"
-        }
-    }
-    ```
-
-    Each transformation generates a section of the transformed dictionary with a new attribute named
-    datahub_transformed_<original-attribute-name>;.
-
-    This class is collecting all such outputs to create a new transformed LookML view. It
-    creates a copy of the original view dictionary and updates the copy with the transformed output. The deepmerge
-    library is used because Python's dict.update function doesn't merge nested fields. The transformed LookML view
-    will contain the following attributes:
+    The transformed LookML view will contain the following attributes:
 
     ```
     {
@@ -351,6 +352,7 @@ class TransformedLookMlView:
         dimensions .....
     }
     ```
+    see documentation of LookMLViewTransformer for output of each transformer.
     """
 
     transformers: List[LookMLViewTransformer]
