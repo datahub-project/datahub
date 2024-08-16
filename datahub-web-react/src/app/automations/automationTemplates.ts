@@ -22,7 +22,9 @@ const steps: Fields = {
                 props: {
                     fieldTypes: [EntityType.Tag, EntityType.GlossaryTerm],
                 },
-                isRequired: true,
+            },
+            {
+                type: 'tagTermToggle',
             },
         ],
     },
@@ -33,7 +35,6 @@ const steps: Fields = {
         fields: [
             {
                 type: 'dataAssetSelector',
-                isRequired: true,
             },
         ],
     },
@@ -43,7 +44,6 @@ const steps: Fields = {
         fields: [
             {
                 type: 'dataAssetSelector',
-                isRequired: true,
             },
         ],
     },
@@ -73,7 +73,6 @@ const steps: Fields = {
         fields: [
             {
                 type: 'traversalSelector',
-                isRequired: true,
             },
         ],
     },
@@ -86,7 +85,6 @@ const steps: Fields = {
                 props: {
                     connectionTypes: ['snowflake'],
                 },
-                isRequired: true,
             },
         ],
     },
@@ -97,7 +95,6 @@ const steps: Fields = {
             {
                 type: 'text',
                 label: 'Name',
-                isRequired: true,
             },
             {
                 type: 'longtext',
@@ -106,7 +103,6 @@ const steps: Fields = {
             {
                 type: 'categorySelector',
                 label: 'Category',
-                isRequied: true,
             },
         ],
     },
@@ -121,13 +117,7 @@ export const automationTemplates: AutomationTemplate[] = [
         name: 'Snowflake Tag Propagation',
         description: 'Sync Tags and Glossary Terms to Snowflake Table and Column Tags',
         logo: SnowflakeLogo,
-        fields: [
-            { ...steps.choose_terms },
-            // { ...steps.select_source },
-            // { ...steps.select_conditions },
-            { ...steps.select_destination },
-            { ...steps.details },
-        ],
+        fields: [{ ...steps.choose_terms }, { ...steps.select_destination }, { ...steps.details }],
         requiredFields: ['name', 'terms', 'connection'],
         baseRecipe: recipes.snowflakeTagPropagation as any,
         isDisabled: false,

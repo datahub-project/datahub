@@ -24,6 +24,8 @@ export type TagsAndTermsSelected = {
 
 export type FormDataType = {
     tagsAndTerms: TagsAndTermsSelected;
+    termPropagationEnabled: boolean;
+    tagPropagationEnabled: boolean;
     connection: Connection | undefined;
     conditions: string[];
     actions: string[];

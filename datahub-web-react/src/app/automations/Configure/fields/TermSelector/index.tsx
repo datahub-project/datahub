@@ -16,7 +16,7 @@ import { TagsAndTermsSelected } from '@app/automations/types';
 
 const Wrapper = styled.div`
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
 `;
 

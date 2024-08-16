@@ -19,6 +19,7 @@ import { TraversalSelector } from './fields/TraversalSelector';
 import { CustomActionSelector } from './fields/CustomActionSelector';
 import { DataAssetSelector } from './fields/DataAssetSelector';
 import { ConditionSelector } from './fields/ConditionSelector';
+import { TagTermToggle } from './fields/TagTermToggle';
 
 interface Props {
     automation: any;
@@ -37,8 +38,13 @@ export const Configure = ({ automation, isEdit = false }: Props) => {
     const [tagsAndTermsSelected, setTagsAndTermsSelected] = useState<any>(
         formData?.tagsAndTerms || { terms: [], nodes: [], tags: [] },
     );
+    const [termPropagationEnabled, setTermPropagationEnabled] = useState<boolean>(
+        formData?.termPropagationEnabled || true,
+    );
+    const [tagPropagationEnabled, setTagPropagationEnabled] = useState<boolean>(
+        formData?.tagPropagationEnabled || true,
+    );
     const [connectionSelected, setConnectionSelected] = useState<Connection | undefined>(formData?.connection);
-
     const [categorySelected, setCategorySelected] = useState<string | undefined>(
         formData?.category || automation.category,
     );
@@ -50,6 +56,8 @@ export const Configure = ({ automation, isEdit = false }: Props) => {
     // Form Data to be submitted
     const data: FormDataType = {
         tagsAndTerms: tagsAndTermsSelected,
+        termPropagationEnabled,
+        tagPropagationEnabled,
         connection: connectionSelected,
         conditions: conditionSelection,
         actions: actionSelection,
@@ -95,6 +103,17 @@ export const Configure = ({ automation, isEdit = false }: Props) => {
                                         setTagsAndTermsSelected={setTagsAndTermsSelected}
                                         isRequired={field.isRequired}
                                         fieldTypes={field.fieldTypes}
+                                        {...field.props}
+                                    />
+                                )}
+
+                                {/* Propagation Type Selector */}
+                                {field.type === 'tagTermToggle' && (
+                                    <TagTermToggle
+                                        tagPropagationEnabled={tagPropagationEnabled}
+                                        setTagPropagationEnabled={setTagPropagationEnabled}
+                                        termPropagationEnabled={termPropagationEnabled}
+                                        setTermPropagationEnabled={setTermPropagationEnabled}
                                         {...field.props}
                                     />
                                 )}

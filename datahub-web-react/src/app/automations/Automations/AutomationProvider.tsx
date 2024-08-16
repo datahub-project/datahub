@@ -41,6 +41,8 @@ export const AutomationContext = React.createContext<AutomationContextType>({
     definition: {},
     formData: {
         tagsAndTerms: { terms: [], tags: [], nodes: [] }, // This seems weird to me. Why have such a specific field here?
+        tagPropagationEnabled: true,
+        termPropagationEnabled: true,
         connection: undefined,
         conditions: [],
         actions: [],
@@ -75,6 +77,8 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
     // This is the form data that will be updated
     const [formData, setFormData] = useState<FormDataType>({
         tagsAndTerms: { terms: [], nodes: [], tags: [] },
+        tagPropagationEnabled: true,
+        termPropagationEnabled: true,
         conditions: [],
         actions: [],
         source: [],

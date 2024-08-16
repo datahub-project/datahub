@@ -1,6 +1,8 @@
+import { FormDataType } from '@app/automations/types';
+
 // Utility that updates the base recipe of an automation
 // Maps form data to the automations definition
-export const updateRecipe = (recipe, formData) => {
+export const updateRecipe = (recipe, formData: FormDataType) => {
     if (!recipe) return {};
 
     const { action } = recipe;
@@ -22,20 +24,20 @@ export const updateRecipe = (recipe, formData) => {
 
             const terms = formData?.tagsAndTerms?.terms || config?.term_propagation?.target_terms || [];
             const nodes = formData?.tagsAndTerms?.nodes || config?.term_propagation?.term_groups || [];
-            const tags = formData.tagsAndTerms?.tags || config?.tag_propagation?.tag_prefixes || [];
+            const tags = formData?.tagsAndTerms?.tags || config?.tag_propagation?.tag_prefixes || [];
 
-            const connection = formData.connection || config?.snowflake || {};
+            const connection = formData?.connection || config?.snowflake || {};
 
             // If the recipe has term or term group propagation
             if (term_propagation) {
-                updatedRecipe.action.config.term_propagation.enabled = true;
+                updatedRecipe.action.config.term_propagation.enabled = formData?.termPropagationEnabled;
                 updatedRecipe.action.config.term_propagation.target_terms = terms;
                 updatedRecipe.action.config.term_propagation.term_groups = nodes;
             }
 
             // If the recipe has tag propagation
             if (tag_propagation) {
-                updatedRecipe.action.config.tag_propagation.enabled = true;
+                updatedRecipe.action.config.tag_propagation.enabled = formData?.tagPropagationEnabled;
                 updatedRecipe.action.config.tag_propagation.tag_prefixes = tags;
             }
 

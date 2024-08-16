@@ -6,6 +6,7 @@ export default {
         type: 'datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagPropagatorAction',
         config: {
             term_propagation: {
+                enabled: true,
                 target_terms: [],
             },
             tag_propagation: {

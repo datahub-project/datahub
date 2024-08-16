@@ -24,9 +24,9 @@ export const updateFormData = (definition, formData) => {
             const { term_propagation, tag_propagation, snowflake } = config;
 
             const tagsAndTerms = unmergeTagsAndTerms(
-                JSON.parse(config?.term_propagation?.target_terms) || [],
-                config?.term_propagation?.term_groups || [],
-                config?.tag_propagation?.tag_prefixes || [],
+                JSON.parse(config?.term_propagation?.target_terms) ?? [],
+                config?.term_propagation?.term_groups ?? [],
+                config?.tag_propagation?.tag_prefixes ?? [],
             ) || {
                 terms: [],
                 tags: [],
@@ -36,7 +36,11 @@ export const updateFormData = (definition, formData) => {
             const connection = config?.snowflake || {};
 
             // If the recipe has term propagation
-            if (term_propagation || tag_propagation) updatedFormData.tagsAndTerms = tagsAndTerms;
+            if (term_propagation || tag_propagation) {
+                updatedFormData.tagsAndTerms = tagsAndTerms;
+                updatedFormData.termPropagationEnabled = config?.term_propagation?.enabled ?? true;
+                updatedFormData.tagPropagationEnabled = config?.tag_propagation?.enabled ?? true;
+            }
 
             // If the recipe has a snowflake connection
             if (snowflake) updatedFormData.connection = connection;
