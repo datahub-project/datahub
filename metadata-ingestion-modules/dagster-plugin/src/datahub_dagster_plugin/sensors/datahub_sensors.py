@@ -311,8 +311,8 @@ class DatahubSensors:
         log: EventLogEntry,
         context: RunStatusSensorContext,
         dagster_generator: DagsterGenerator,
-        dataset_inputs: Dict[str, set[DatasetUrn]],
-        dataset_outputs: Dict[str, set[DatasetUrn]],
+        dataset_inputs: Dict[str, Set[DatasetUrn]],
+        dataset_outputs: Dict[str, Set[DatasetUrn]],
     ) -> None:
         if (
             log.dagster_event
@@ -440,8 +440,8 @@ class DatahubSensors:
         context: RunStatusSensorContext,
         dagster_generator: DagsterGenerator,
         log: EventLogEntry,
-        dataset_inputs: Dict[str, set[DatasetUrn]],
-        dataset_outputs: Dict[str, set[DatasetUrn]],
+        dataset_inputs: Dict[str, Set[DatasetUrn]],
+        dataset_outputs: Dict[str, Set[DatasetUrn]],
     ) -> None:
         context.log.info("Processing Asset Logs")
         if not log.dagster_event or not log.step_key:
@@ -469,8 +469,8 @@ class DatahubSensors:
         context: RunStatusSensorContext,
         log: EventLogEntry,
         dagster_generator: DagsterGenerator,
-        dataset_inputs: Dict[str, set[DatasetUrn]],
-        dataset_outputs: Dict[str, set[DatasetUrn]],
+        dataset_inputs: Dict[str, Set[DatasetUrn]],
+        dataset_outputs: Dict[str, Set[DatasetUrn]],
     ) -> None:
         if not log.dagster_event or not log.step_key:
             return
@@ -511,9 +511,9 @@ class DatahubSensors:
 
     def process_dagster_logs(
         self, context: RunStatusSensorContext, dagster_generator: DagsterGenerator
-    ) -> Tuple[Dict[str, set[DatasetUrn]], Dict[str, set[DatasetUrn]]]:
-        dataset_outputs: Dict[str, set[DatasetUrn]] = defaultdict(lambda: set())
-        dataset_inputs: Dict[str, set[DatasetUrn]] = defaultdict(lambda: set())
+    ) -> Tuple[Dict[str, Set[DatasetUrn]], Dict[str, Set[DatasetUrn]]]:
+        dataset_outputs: Dict[str, Set[DatasetUrn]] = defaultdict(lambda: set())
+        dataset_inputs: Dict[str, Set[DatasetUrn]] = defaultdict(lambda: set())
 
         logs = context.instance.all_logs(
             context.dagster_run.run_id,
