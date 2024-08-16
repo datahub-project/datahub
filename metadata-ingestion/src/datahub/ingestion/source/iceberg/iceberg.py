@@ -137,6 +137,11 @@ class IcebergSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         def _process_dataset(dataset_path):
+            # below works fine with Hive client only because it doesn't do anything but variables assignment
+            # will cause performance issues for rest-based catalogs, use thread local storage to improve:
+            # thread_local = threading.local()
+            #     if not hasattr(thread_local, 'local_catalog'):
+            #         thread_local.local_catalog = self.config.get_catalog()
             local_catalog = self.config.get_catalog()
             dataset_name = ".".join(dataset_path)
             if not self.config.table_pattern.allowed(dataset_name):
