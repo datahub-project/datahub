@@ -1215,18 +1215,18 @@ module.exports = {
     },
     {
       Architecture: [
-        "docs/architecture/architecture",
-        "docs/components",
-        "docs/architecture/metadata-ingestion",
-        "docs/architecture/metadata-serving",
-        "docs/architecture/docker-containers",
+        "docs/managed-datahub/architecture/architecture",
+        "docs/managed-datahub/components",
+        "docs/managed-datahub/architecture/metadata-ingestion",
+        "docs/managed-datahub/architecture/metadata-serving",
+        "docs/managed-datahub/architecture/docker-containers",
       ],
     },
     {
       "Metadata Model": [
-        "docs/modeling/metadata-model",
-        "docs/modeling/extending-the-metadata-model",
-        "docs/what/mxe",
+        "docs/managed-datahub/modeling/metadata-model",
+        "docs/managed-datahub/modeling/extending-the-metadata-model",
+        "docs/managed-datahub/what/mxe",
         {
           Entities: [
             {
@@ -1478,7 +1478,7 @@ module.exports = {
       value: "<div>Community</div>",
       defaultStyle: true,
     },
-    {gst
+    {
       label: "Community",
       type: "category",
       collapsed: true,
