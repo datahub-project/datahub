@@ -1,5 +1,5 @@
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
+import Content from '../../slack/saas-slack-setup.md';
 
 # Configure Slack For Notifications
 
-<FeatureAvailability saasOnly />
+<Content />

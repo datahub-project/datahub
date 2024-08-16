@@ -1,5 +1,5 @@
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
+import Content from '../../slack/saas-slack-troubleshoot.md';
 
 # Troubleshoot Slack Issues
 
-<FeatureAvailability saasOnly />
+<Content />
