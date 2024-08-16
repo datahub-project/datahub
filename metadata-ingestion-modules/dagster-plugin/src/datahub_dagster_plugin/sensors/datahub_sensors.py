@@ -378,7 +378,8 @@ class DatahubSensors:
                                     "urn:li:dataPlatform:", ""
                                 ),
                             )
-                            if lineage:
+                            # To make sure we don't process select queries check if downstream is present
+                            if lineage and lineage.downstreams:
                                 downstreams = downstreams.union(
                                     set(lineage.downstreams)
                                 )
