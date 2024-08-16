@@ -7,28 +7,13 @@ ARG GITHUB_REPO_URL=https://github.com
 ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
-FROM golang:1-alpine3.20 AS dockerize-binary
+FROM powerman/dockerize:0.19 as dockerize-binary
 
-# Re-declaring arg from above to make it available in this stage (will inherit default value)
-ARG ALPINE_REPO_URL
-
-ENV DOCKERIZE_VERSION v0.6.1
-WORKDIR /go/src/github.com/jwilder
-
-# Optionally set corporate mirror for apk
-RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
-
-RUN apk --no-cache --update add openssl git tar curl
-
-WORKDIR /go/src/github.com/jwilder/dockerize
-
-RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
-
-FROM python:3.10 as base
+FROM python:3.10 AS base
 
 ARG GITHUB_REPO_URL
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Optionally set corporate mirror for deb
 ARG DEBIAN_REPO_URL
@@ -56,8 +41,7 @@ RUN apt-get update && apt-get install -y -qq \
     && python -m pip install --no-cache --upgrade pip uv>=0.1.10 wheel setuptools \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
-# compiled against newer golang for security fixes
-COPY --from=dockerize-binary /go/bin/dockerize /usr/local/bin
+COPY --from=dockerize-binary /usr/local/bin/dockerize /usr/local/bin
 
 COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
@@ -75,7 +59,7 @@ RUN python3 -m venv $VIRTUAL_ENV && \
 
 ENTRYPOINT [ "/entrypoint.sh" ]
 
-FROM ${BASE_IMAGE} as full-install
+FROM ${BASE_IMAGE} AS full-install
 
 USER 0
 RUN apt-get update && apt-get install -y -qq \
@@ -102,7 +86,7 @@ RUN if [ $(arch) = "x86_64" ]; then \
 
 USER datahub
 
-FROM ${BASE_IMAGE} as slim-install
+FROM ${BASE_IMAGE} AS slim-install
 # Do nothing else on top of base
 
 FROM ${APP_ENV}-install

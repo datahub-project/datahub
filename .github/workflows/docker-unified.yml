@@ -47,7 +47,6 @@ jobs:
       publish: ${{ steps.publish.outputs.publish }}
       pr-publish: ${{ steps.pr-publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
-      short_sha: ${{ steps.tag.outputs.short_sha }}
       branch_name: ${{ steps.tag.outputs.branch_name }}
       repository_name: ${{ steps.tag.outputs.repository_name }}
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
@@ -157,7 +156,7 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_GMS_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -221,7 +220,7 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -285,7 +284,7 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -349,7 +348,7 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_UPGRADE_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -394,7 +393,7 @@ jobs:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -415,7 +414,7 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_FRONTEND_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -469,7 +468,7 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -490,7 +489,7 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -502,7 +501,7 @@ jobs:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
+    if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -511,7 +510,7 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -525,7 +524,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     needs: setup
-    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -536,7 +535,7 @@ jobs:
           target: base
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -552,7 +551,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     needs: [setup, datahub_ingestion_base_build]
-    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -574,7 +573,7 @@ jobs:
           target: slim-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.slim_tag }}
+          image_tag: ${{ needs.setup.outputs.slim_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
@@ -593,7 +592,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     needs: [setup, datahub_ingestion_base_build]
-    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -636,7 +635,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
     needs: [setup, datahub_ingestion_base_slim_build]
-    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -647,7 +646,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build codegen
-        if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish =='true' }}
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -661,7 +660,7 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push Slim Image
-        if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           target: final
@@ -672,7 +671,7 @@ jobs:
             DOCKER_VERSION=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
             APP_ENV=slim
-          tags: ${{ needs.setup.outputs.slim_tag }}
+          image_tag: ${{ needs.setup.outputs.slim_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -723,7 +722,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) }}
     needs: [setup, datahub_ingestion_base_full_build]
-    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -734,7 +733,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build codegen
-        if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -748,7 +747,7 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push Full Image
-        if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           target: final
@@ -758,7 +757,7 @@ jobs:
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
             DOCKER_VERSION=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -776,7 +775,7 @@ jobs:
     name: "[Monitoring] Scan Datahub Ingestion images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_ingestion_full_build]
-    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
@@ -862,11 +861,6 @@ jobs:
         with:
           python-version: "3.10"
           cache: "pip"
-      - name: Install dependencies
-        run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Build datahub cli
-        run: |
-          ./gradlew :metadata-ingestion:install
       - name: Login to DockerHub
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
@@ -965,7 +959,7 @@ jobs:
             echo 'datahub-ingestion head-slim images'
             docker pull '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim'
             if [ '${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}' != 'head-slim' ]; then
-               docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim' '${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}'
+               docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim' '${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
             fi
           fi
       - name: Disk Check
@@ -994,6 +988,15 @@ jobs:
               }
             }
           }'
+      - name: Disk Check
+        run: df -h . && docker images
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Build datahub cli
+        run: |
+          ./gradlew :metadata-ingestion:install
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Remove Source Code
         run: find ./*/* ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
       - name: Disk Check
@@ -1014,21 +1017,14 @@ jobs:
         if: failure()
         run: |
           docker ps -a
-          docker logs datahub-datahub-gms-1 >& gms-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-datahub-actions-1 >& actions-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-datahub-mae-consumer-1 >& mae-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-datahub-mce-consumer-1 >& mce-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-broker-1 >& broker-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-mysql-1 >& mysql-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-elasticsearch-1 >& elasticsearch-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-datahub-frontend-react-1 >& frontend-${{ matrix.test_strategy }}.log || true
-          docker logs datahub-upgrade-1 >& upgrade-${{ matrix.test_strategy }}.log || true
+          TEST_STRATEGY="-${{ matrix.test_strategy }}"
+          source .github/scripts/docker_logs.sh
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: docker logs
-          path: "*.log"
+          path: "docker_logs/*.log"
       - name: Upload screenshots
         uses: actions/upload-artifact@v3
         if: failure()
@@ -1049,7 +1045,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [setup, smoke_test]
     steps:
-      - uses: aws-actions/configure-aws-credentials@v1
+      - uses: aws-actions/configure-aws-credentials@v4
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
