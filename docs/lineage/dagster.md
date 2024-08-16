@@ -1,9 +1,10 @@
 # Dagster Integration
 
 This connector supports extracting:
+
 - Dagster Pipeline and Task Metadata
 - Pipeline Run Status
-- Table Lineage 
+- Table Lineage
 
 from Dagster.
 
@@ -110,11 +111,11 @@ def asset_keys_to_dataset_urn_converter(
         return None
 ```
 
-### Using SQL Query Parsing to Extract Lineage
+### Extracting Lineage from SQL Queries
 
-DataHub's Dagster integration can automatically capture dataset inputs and outputs for Software Defined assets from the SQL queries it runs by parsing the SQL. Simply add the executed query to the Asset Metadata with the `Query` tag.
+DataHub's Dagster integration can automatically detect dataset inputs and outputs for Software Defined Assets by analyzing the SQL queries it executes. To enable this feature, simply add the executed query to the Asset Metadata using the `Query` tag.
 
-Here is an example of a Software Defined Asset annotated with the Query:
+Here's an example of a Software Defined Asset with an annotated Query:
 
 ```python
 @asset(key_prefix=["prod", "snowflake", "db_name", "schema_name"])
@@ -128,48 +129,46 @@ def my_asset_table_a(snowflake: SnowflakeResource) -> MaterializeResult:
     with snowflake.get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(query)
-    return MaterializeResult( # Adding query to metadata to use it getting lineage from it with SQL parser
+    return MaterializeResult(
         metadata={
             "Query": MetadataValue.text(query),
         }
     )
 ```
 
-For the above example, the plugin will automatically extract and set the upstream lineage as `db_name.schema_name.my_asset_table_b`.
-    
-    Please note that it is important to name the asset properly as query parser tries to get the query language from the asset generated urn. In the above example it will be `snowflake`
+In this example, the plugin will automatically identify and set the upstream lineage as `db_name.schema_name.my_asset_table_b`.
 
-    [See a full example job here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/dagster-plugin/examples/iris.py).
+Note: Proper asset naming is crucial, as the query parser determines the query language from the generated URN. In the example above, it will be `snowflake`.
 
-3. SnowflakePandasIOManager:
-    The plugin can automatically capture Snowflake assets created by the SnowflakePandasIOManager and it also adds
-    DataHub urn and DataHub link to the assets in Dagster.
+For a complete example job, refer to the [iris.py file](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/dagster-plugin/examples/iris.py) in the DataHub repository.
 
-    It can easily set up by using `DataHubSnowflakePandasIOManager` instead of `SnowflakePandasIOManager`. `
+### Enhanced SnowflakePandasIOManager
 
-    `DataHubSnowflakePandasIOManager` the following additional parameters:
-        `datahub_base_url`: base url to the datahub UI whic is used to generate direct url to the Snowflake Dataset in DataHub. If this is not set it won't generate url.
-        `datahub_env`: the datahub_env to use when generating DataHub urns. It defaults to `PROD` if not set.
+The plugin offers an enhanced version of SnowflakePandasIOManager called `DataHubSnowflakePandasIOManager`. This version automatically captures Snowflake assets created by the IO manager and adds DataHub URN and links to the assets in Dagster.
+
+To use it, simply replace `SnowflakePandasIOManager` with `DataHubSnowflakePandasIOManager`. The enhanced version accepts two additional parameters:
+
+1. `datahub_base_url`: The base URL of the DataHub UI, used to generate direct links to Snowflake Datasets in DataHub. If not set, no URL will be generated.
+2. `datahub_env`: The DataHub environment to use when generating URNs. Defaults to `PROD` if not specified.
+
+Example usage:
 
 ```python
 from datahub_dagster_plugin.modules.snowflake_pandas.datahub_snowflake_pandas_io_manager import (
     DataHubSnowflakePandasIOManager,
 )
-
-...
-
-    resources={
-        "snowflake_io_manager": DataHubSnowflakePandasIOManager(
-            database="MY_DB",
-            account="my_snowflake_account,
-            warehouse="MY_WAREHOUSE",
-            user="my_user",
-            password="my_password",
-            role="my_rolw",
-            datahub_base_url="http://localhost:9002",
-        ),
-    }
-
+# ...
+resources={
+    "snowflake_io_manager": DataHubSnowflakePandasIOManager(
+        database="MY_DB",
+        account="my_snowflake_account",
+        warehouse="MY_WAREHOUSE",
+        user="my_user",
+        password="my_password",
+        role="my_role",
+        datahub_base_url="http://localhost:9002",
+    ),
+}
 ```
 
 ### Using Dagster Ins and Out
@@ -205,4 +204,3 @@ def asset_lineage_extractor(
 ### Connection Error for DataHub Rest URL
 
 If you get `ConnectionError: HTTPConnectionPool(host='localhost', port=8080)`, then in that case your DataHub GMS service is not up.
-
