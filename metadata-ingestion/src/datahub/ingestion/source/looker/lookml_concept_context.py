@@ -253,24 +253,18 @@ class LookerViewContext:
             )
             return None
 
-    def get_including_extends(
+    def _get_parent_attribute(
         self,
-        field: str,
-        extends_only: bool = False,
+        attribute_name: str,
     ) -> Optional[Any]:
+
         extends = list(
             itertools.chain.from_iterable(
                 self.raw_view.get("extends", self.raw_view.get("extends__all", []))
             )
         )
 
-        # If extends_only is false, first check the current view, and then fall back to the parent view.
-        if extends_only is False and field in self.raw_view:
-            return self.raw_view[field]
-
-        # The field might be defined in another view, and this view is extending that view,
-        # so we resolve this field while taking that into account,
-        # following Looker's precedence rules.
+        # Following Looker's precedence rules.
         for extend in reversed(extends):
             assert extend != self.raw_view[NAME], "a view cannot extend itself"
             extend_view = self.resolve_extends_view_name(
@@ -281,8 +275,28 @@ class LookerViewContext:
                     f"failed to resolve extends view {extend} in view {self.raw_view[NAME]} of"
                     f" file {self.view_file.absolute_file_path}"
                 )
-            if field in extend_view:
-                return extend_view[field]
+            if attribute_name in extend_view:
+                return extend_view[attribute_name]
+
+        return None
+
+    def get_including_extends(
+        self,
+        field: str,
+    ) -> Optional[Any]:
+
+        if field in [DIMENSIONS, DIMENSION_GROUPS, MEASURES]:
+            child_fields = self._get_list_dict(field)
+            return self._include_parent_fields(
+                child_fields=child_fields,
+                parent_fields=self._get_parent_attribute(attribute_name=field) or [],
+            )
+        else:
+            if field in self.raw_view:
+                return self.raw_view[field]
+
+            # The field might be defined in another view, and this view is extending that view,
+            return self._get_parent_attribute(field)
 
         return None
 
@@ -389,19 +403,11 @@ class LookerViewContext:
         return []
 
     def _include_parent_fields(
-        self, child_fields: List[dict], field_type: str
+        self, child_fields: List[dict], parent_fields: List[dict]
     ) -> List[Dict]:
         # Fetch the fields from the parent view, i.e., the view name mentioned in view.extends, and include those
         # fields in child_fields. This inclusion will resolve the fields according to the precedence rules mentioned
         # in the LookML documentation: https://cloud.google.com/looker/docs/reference/param-view-extends
-
-        parent_fields: Optional[Any] = self.get_including_extends(
-            field=field_type,
-            extends_only=True,
-        )
-
-        if parent_fields is None:
-            return child_fields  # No parent fields found
 
         # Create a map field-name vs field
         child_field_map: dict = {}
@@ -428,22 +434,13 @@ class LookerViewContext:
         return child_fields
 
     def dimensions(self) -> List[Dict]:
-        return self._include_parent_fields(
-            child_fields=self._get_list_dict(DIMENSIONS),
-            field_type=DIMENSIONS,
-        )
+        return self.get_including_extends(field=DIMENSIONS) or []
 
     def measures(self) -> List[Dict]:
-        return self._include_parent_fields(
-            child_fields=self._get_list_dict(MEASURES),
-            field_type=MEASURES,
-        )
+        return self.get_including_extends(field=MEASURES) or []
 
     def dimension_groups(self) -> List[Dict]:
-        return self._include_parent_fields(
-            child_fields=self._get_list_dict(DIMENSION_GROUPS),
-            field_type=DIMENSION_GROUPS,
-        )
+        return self.get_including_extends(field=DIMENSION_GROUPS) or []
 
     def is_materialized_derived_view(self) -> bool:
         for k in self.derived_table():
