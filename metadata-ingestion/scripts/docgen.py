@@ -136,7 +136,7 @@ class FieldRow(BaseModel):
                             )
                             components.append(new_component)
 
-            field_path = field_path[m.span()[1] :] if m else field_path[v.span()[1] :]  # type: ignore
+            field_path = field_path[m.span()[1]:] if m else field_path[v.span()[1]:]  # type: ignore
             m = re.match(FieldRow._V2_FIELD_PATH_TOKEN_MATCHER_PREFIX, field_path)
             v = re.match(FieldRow._V2_FIELD_PATH_FIELD_NAME_MATCHER, field_path)
 
@@ -245,7 +245,7 @@ class FieldHeader(FieldRow):
 
 def get_prefixed_name(field_prefix: Optional[str], field_name: Optional[str]) -> str:
     assert (
-        field_prefix or field_name
+            field_prefix or field_name
     ), "One of field_prefix or field_name should be present"
     return (
         f"{field_prefix}.{field_name}"  # type: ignore
@@ -425,7 +425,7 @@ def get_capability_text(src_capability: SourceCapability) -> str:
 
 
 def create_or_update(
-    something: Dict[Any, Any], path: List[str], value: Any
+        something: Dict[Any, Any], path: List[str], value: Any
 ) -> Dict[Any, Any]:
     dict_under_operation = something
     for p in path[:-1]:
@@ -485,7 +485,7 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
     # See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
     new_content = re.sub(
         r"\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)",
-        lambda x: f"[{x.group(1)}]({new_url(x.group(2).strip(),path)})",  # type: ignore
+        lambda x: f"[{x.group(1)}]({new_url(x.group(2).strip(), path)})",  # type: ignore
         file_contents,
     )
 
@@ -503,7 +503,7 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
 @click.option("--extra-docs", type=str, required=False)
 @click.option("--source", type=str, required=False)
 def generate(
-    out_dir: str, extra_docs: Optional[str] = None, source: Optional[str] = None
+        out_dir: str, extra_docs: Optional[str] = None, source: Optional[str] = None
 ) -> None:  # noqa: C901
     source_documentation: Dict[str, Any] = {}
     metrics = {}
@@ -638,7 +638,7 @@ def generate(
                     )
 
                 source_documentation[platform_id] = (
-                    source_documentation.get(platform_id) or {}
+                        source_documentation.get(platform_id) or {}
                 )
 
                 create_or_update(
@@ -721,15 +721,15 @@ def generate(
 
     i = 0
     for platform_id, platform_docs in sorted(
-        source_documentation.items(),
-        key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
-        if "name" in x[1]
-        else (x[0].casefold(), x[0]),
+            source_documentation.items(),
+            key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
+            if "name" in x[1]
+            else (x[0].casefold(), x[0]),
     ):
         if source and platform_id != source:
             continue
         metrics["source_platforms"]["discovered"] = (
-            metrics["source_platforms"]["discovered"] + 1  # type: ignore
+                metrics["source_platforms"]["discovered"] + 1  # type: ignore
         )
         platform_doc_file = f"{sources_dir}/{platform_id}.md"
         if "name" not in platform_docs:
@@ -762,10 +762,10 @@ def generate(
                 #                f.write("| Source Module | Documentation |\n")
                 #                f.write("| ------ | ---- |\n")
                 for plugin, plugin_docs in sorted(
-                    platform_docs["plugins"].items(),
-                    key=lambda x: str(x[1].get("doc_order"))
-                    if x[1].get("doc_order")
-                    else x[0],
+                        platform_docs["plugins"].items(),
+                        key=lambda x: str(x[1].get("doc_order"))
+                        if x[1].get("doc_order")
+                        else x[0],
                 ):
                     f.write("<tr>\n")
                     f.write(f"<td>\n\n`{plugin}`\n\n</td>\n")
@@ -782,10 +782,10 @@ def generate(
             # all_plugins = platform_docs["plugins"].keys()
 
             for plugin, plugin_docs in sorted(
-                platform_docs["plugins"].items(),
-                key=lambda x: str(x[1].get("doc_order"))
-                if x[1].get("doc_order")
-                else x[0],
+                    platform_docs["plugins"].items(),
+                    key=lambda x: str(x[1].get("doc_order"))
+                    if x[1].get("doc_order")
+                    else x[0],
             ):
                 if len(platform_docs["plugins"].keys()) > 1:
                     # We only need to show this if there are multiple modules.
@@ -873,10 +873,10 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
             # Using an h2 tag to prevent this from showing up in page's TOC sidebar.
             f.write("\n<h2>Questions</h2>\n\n")
             f.write(
-                f"If you've got any questions on configuring ingestion for {platform_docs.get('name',platform_id)}, feel free to ping us on [our Slack](https://slack.datahubproject.io).\n"
+                f"If you've got any questions on configuring ingestion for {platform_docs.get('name', platform_id)}, feel free to ping us on [our Slack](https://slack.datahubproject.io).\n"
             )
             metrics["source_platforms"]["generated"] = (
-                metrics["source_platforms"]["generated"] + 1  # type: ignore
+                    metrics["source_platforms"]["generated"] + 1  # type: ignore
             )
     print("Ingestion Documentation Generation Complete")
     print("############################################")
@@ -997,16 +997,16 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
         f.write("| ---------- | ------ | ----- |----- |\n")
 
         for platform_id, platform_docs in sorted(
-            source_documentation.items(),
-            key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
-            if "name" in x[1]
-            else (x[0].casefold(), x[0]),
+                source_documentation.items(),
+                key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
+                if "name" in x[1]
+                else (x[0].casefold(), x[0]),
         ):
             for plugin, plugin_docs in sorted(
-                platform_docs["plugins"].items(),
-                key=lambda x: str(x[1].get("doc_order"))
-                if x[1].get("doc_order")
-                else x[0],
+                    platform_docs["plugins"].items(),
+                    key=lambda x: str(x[1].get("doc_order"))
+                    if x[1].get("doc_order")
+                    else x[0],
             ):
                 try:
                     platform_name = platform_docs["name"]
@@ -1029,14 +1029,14 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
                             )
 
                             if (
-                                capability_text == "Table-Level Lineage"
-                                and capability_supported == "✅"
+                                    capability_text == "Table-Level Lineage"
+                                    and capability_supported == "✅"
                             ):
                                 table_level_supported = "✅"
 
                             if (
-                                capability_text == "Column-level Lineage"
-                                and capability_supported == "✅"
+                                    capability_text == "Column-level Lineage"
+                                    and capability_supported == "✅"
                             ):
                                 column_level_supported = "✅"
 
@@ -1074,7 +1074,7 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
 
         f.write(
             """
-        
+
 ### SQL Parser Lineage Extraction
 
 If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, 
