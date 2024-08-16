@@ -1,6 +1,15 @@
 import { FormDataType } from '@app/automations/types';
 import { unmergeTagsAndTerms } from './unmergeTagsAndTerms';
 
+// Util for safe JSON parsing
+const safeParse = (str: string) => {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        return null;
+    }
+};
+
 // Utility that updates the form data based on an existing action definition
 // Maps existing automation definitions to the form data
 export const updateFormData = (definition, formData) => {
@@ -24,7 +33,7 @@ export const updateFormData = (definition, formData) => {
             const { term_propagation, tag_propagation, snowflake } = config;
 
             const tagsAndTerms = unmergeTagsAndTerms(
-                JSON.parse(config?.term_propagation?.target_terms) ?? [],
+                safeParse(config?.term_propagation?.target_terms) ?? [],
                 config?.term_propagation?.term_groups ?? [],
                 config?.tag_propagation?.tag_prefixes ?? [],
             ) || {
