@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Any, List
+from typing import Any, List, Tuple
 
 from airflow import DAG
 from airflow.models.baseoperator import BaseOperator
@@ -32,7 +32,7 @@ class CustomOperator(BaseOperator):
     @staticmethod
     def _get_sf_lineage(
         input_tables: List[str], output_tables: List[str]
-    ) -> tuple[list[Any], list[Any]]:
+    ) -> Tuple[List[Any], List[Any]]:
         """
         Get lineage tables from Snowflake.
         """
