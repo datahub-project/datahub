@@ -68,7 +68,6 @@ class DataHubDbIoManager(DbIOManager):
             urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{table_slice.schema.lower()}.{table_slice.table.lower()},{self.datahub_env})"
 
         metadata: Dict = {
-            "fqdn_table_name": f"{table_slice.database}.{table_slice.schema}.{table_slice.table}",
             "datahub_urn": urn,
         }
 

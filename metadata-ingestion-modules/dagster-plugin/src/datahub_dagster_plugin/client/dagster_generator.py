@@ -148,8 +148,8 @@ class Constant:
 
 
 class DatasetLineage(NamedTuple):
-    inputs: Set[str]
-    outputs: Set[str]
+    inputs: Set[DatasetUrn]
+    outputs: Set[DatasetUrn]
 
 
 class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
@@ -257,7 +257,7 @@ class DagsterGenerator:
         Generate dataset urn from asset key
         """
         return DatasetUrn(
-            #  A key/name can only contains letters, numbers, and _ in Dagster
+            #  A key/name can only contain letters, numbers, and _ in Dagster
             platform="dagster",
             env=self.config.env,
             name=".".join(asset_key),
@@ -642,7 +642,7 @@ class DagsterGenerator:
             )
         self.logger.info(f"Fields: {fields}")
         schema_metadata = SchemaMetadata(
-            schemaName="bla",
+            schemaName="",
             platform=parent_urn.platform,
             version=0,
             hash="",
@@ -700,7 +700,7 @@ class DagsterGenerator:
         upstreams: Optional[Set[str]] = None,
         schema: Optional[TableSchemaMetadataValue] = None,
         materialize_dependencies: Optional[bool] = False,
-    ) -> str:
+    ) -> DatasetUrn:
         """
         Emit asset to datahub
         """
@@ -802,7 +802,7 @@ class DagsterGenerator:
 
         self.logger.info(f"asset_key: {asset_key}")
         self.generate_browse_path(asset_key=asset_key, urn=dataset_urn, graph=graph)
-        return dataset_urn.urn()
+        return dataset_urn
 
     def generate_browse_path(
         self, asset_key: Sequence[str], urn: Urn, graph: DataHubGraph
