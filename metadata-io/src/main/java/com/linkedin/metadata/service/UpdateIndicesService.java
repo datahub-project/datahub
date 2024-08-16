@@ -80,6 +80,7 @@ public class UpdateIndicesService implements SearchIndicesService {
   private final SystemMetadataService _systemMetadataService;
   private final SearchDocumentTransformer _searchDocumentTransformer;
   private final EntityIndexBuilders _entityIndexBuilders;
+  @Nonnull private final String idHashAlgo;
 
   @Value("${featureFlags.graphServiceDiffModeEnabled:true}")
   private boolean _graphDiffMode;
@@ -117,13 +118,15 @@ public class UpdateIndicesService implements SearchIndicesService {
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityIndexBuilders entityIndexBuilders) {
+      EntityIndexBuilders entityIndexBuilders,
+      @Nonnull String idHashAlgo) {
     _graphService = graphService;
     _entitySearchService = entitySearchService;
     _timeseriesAspectService = timeseriesAspectService;
     _systemMetadataService = systemMetadataService;
     _searchDocumentTransformer = searchDocumentTransformer;
     _entityIndexBuilders = entityIndexBuilders;
+    this.idHashAlgo = idHashAlgo;
   }
 
   @Override
@@ -601,7 +604,9 @@ public class UpdateIndicesService implements SearchIndicesService {
       SystemMetadata systemMetadata) {
     Map<String, JsonNode> documents;
     try {
-      documents = TimeseriesAspectTransformer.transform(urn, aspect, aspectSpec, systemMetadata);
+      documents =
+          TimeseriesAspectTransformer.transform(
+              urn, aspect, aspectSpec, systemMetadata, idHashAlgo);
     } catch (JsonProcessingException e) {
       log.error("Failed to generate timeseries document from aspect: {}", e.toString());
       return;

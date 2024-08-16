@@ -8,25 +8,30 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 
 // Default implementation of search index naming convention
 public class IndexConventionImpl implements IndexConvention {
-  public static final IndexConvention NO_PREFIX = new IndexConventionImpl(null);
+  public static IndexConvention noPrefix(@Nonnull String idHashAlgo) {
+    return new IndexConventionImpl(null, idHashAlgo);
+  }
 
   // Map from Entity name -> Index name
   private final Map<String, String> indexNameMapping = new ConcurrentHashMap<>();
   private final Optional<String> _prefix;
   private final String _getAllEntityIndicesPattern;
   private final String _getAllTimeseriesIndicesPattern;
+  @Getter private final String idHashAlgo;
 
   private static final String ENTITY_INDEX_VERSION = "v2";
   private static final String ENTITY_INDEX_SUFFIX = "index";
   private static final String TIMESERIES_INDEX_VERSION = "v1";
   private static final String TIMESERIES_ENTITY_INDEX_SUFFIX = "aspect";
 
-  public IndexConventionImpl(@Nullable String prefix) {
+  public IndexConventionImpl(@Nullable String prefix, String idHashAlgo) {
     _prefix = StringUtils.isEmpty(prefix) ? Optional.empty() : Optional.of(prefix);
+    this.idHashAlgo = idHashAlgo;
     _getAllEntityIndicesPattern =
         _prefix.map(p -> p + "_").orElse("")
             + "*"
