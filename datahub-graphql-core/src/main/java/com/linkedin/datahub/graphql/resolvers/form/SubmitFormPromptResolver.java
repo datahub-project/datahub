@@ -125,7 +125,7 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
             } else if (input.getType().equals(FormPromptType.FIELDS_DOCUMENTATION)) {
               if (input.getDocumentationParams() == null) {
                 throw new IllegalArgumentException(
-                    "Failed to provide documentation params for prompt type DOCUMENTATION");
+                    "Failed to provide documentation params for prompt type FIELDS_DOCUMENTATION");
               }
               List<String> uniqueFieldPaths = getAndVerifyFieldPaths(fieldPath, fieldPaths);
 

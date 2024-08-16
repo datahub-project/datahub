@@ -1,26 +1,6 @@
 package com.linkedin.metadata.aspect.patch.template;
 
-import static com.linkedin.metadata.Constants.ASSERTIONS_SUMMARY_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.ASSERTION_INFERENCE_DETAILS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.CHART_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DASHBOARD_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_FLOW_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.INCIDENT_NOTIFICATION_DETAILS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.MONITOR_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.TEST_RESULTS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.data.template.RecordTemplate;
@@ -63,7 +43,20 @@ public class AspectTemplateEngine {
               STRUCTURED_PROPERTIES_ASPECT_NAME,
               STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
               FORM_INFO_ASPECT_NAME,
-              FORMS_ASPECT_NAME)
+              FORMS_ASPECT_NAME,
+              EDITABLE_CHART_PROPERTIES_ASPECT_NAME,
+              EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME,
+              EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME,
+              EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME,
+              GLOSSARY_TERM_INFO_ASPECT_NAME,
+              GLOSSARY_NODE_INFO_ASPECT_NAME,
+              CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+              DOMAIN_PROPERTIES_ASPECT_NAME,
+              ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME,
+              ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
+              ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME,
+              ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME,
+              ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;
