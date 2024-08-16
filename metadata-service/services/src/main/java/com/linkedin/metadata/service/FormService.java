@@ -76,6 +76,7 @@ public class FormService extends BaseService {
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
   private final OwnerService _ownerService;
+  private final DocumentationService _documentationService;
   private final String _appSource;
   private final boolean _isAsync;
 
@@ -87,6 +88,9 @@ public class FormService extends BaseService {
       final boolean isAsync) {
     super(systemEntityClient, openApiClient, objectMapper);
     _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper, isAsync);
+    _documentationService =
+        new DocumentationService(
+            systemEntityClient, openApiClient, objectMapper, appSource, isAsync);
     _appSource = appSource;
     _isAsync = isAsync;
   }
@@ -97,6 +101,8 @@ public class FormService extends BaseService {
       @Nonnull ObjectMapper objectMapper) {
     super(systemEntityClient, openApiClient, objectMapper);
     _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
+    _documentationService =
+        new DocumentationService(systemEntityClient, openApiClient, objectMapper);
     _appSource = null;
     _isAsync = false;
   }
@@ -408,6 +414,86 @@ public class FormService extends BaseService {
     return true;
   }
 
+  /** Submit a response for a documentation type prompt. */
+  public Boolean batchSubmitDocumentationPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityUrns,
+      @Nonnull final String documentation,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nullable Urn actorUrn,
+      final boolean shouldThrow)
+      throws Exception {
+    entityUrns.forEach(
+        urnStr -> {
+          Urn urn = UrnUtils.getUrn(urnStr);
+          try {
+            submitDocumentationPromptResponse(
+                opContext, urn, documentation, formUrn, formPromptId, actorUrn);
+          } catch (Exception e) {
+            log.error("Failed to batch submit documentation prompt", e);
+            if (shouldThrow) {
+              throw new RuntimeException("Failed to batch submit documentation prompt", e);
+            }
+          }
+        });
+
+    return true;
+  }
+
+  /** Submit a response for a documentation type prompt. */
+  public Boolean submitDocumentationPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final String documentation,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nullable Urn actorUrn)
+      throws Exception {
+
+    // First, let's update documentation
+    _documentationService.updateDocumentation(opContext, entityUrn, documentation, actorUrn);
+
+    // Then, let's apply the change to the entity's form status.
+    FormPromptResponse promptResponse = createDocumentationPromptResponse(documentation);
+    ingestCompletedFormResponse(
+        opContext, entityUrn, formUrn, formPromptId, promptResponse, actorUrn);
+
+    return true;
+  }
+
+  /** Submit a response for a field-level Documentation type prompt. */
+  public Boolean submitFieldDocumentationPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final String documentation,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nonnull final List<String> fieldPaths,
+      @Nullable final Urn actorUrn)
+      throws Exception {
+
+    // First, let's apply the action and add the structured property.
+    _documentationService.updateSchemaFieldsDocumentation(
+        opContext, entityUrn, fieldPaths, documentation, actorUrn);
+
+    // Then, let's apply the change to the entity's form status.
+    FormPromptResponse promptResponse = createDocumentationPromptResponse(documentation);
+    ingestCompletedFieldFormResponse(
+        opContext, entityUrn, formUrn, formPromptId, fieldPaths, actorUrn, promptResponse);
+
+    return true;
+  }
+
+  private FormPromptResponse createDocumentationPromptResponse(
+      @Nonnull final String documentation) {
+    FormPromptResponse promptResponse = new FormPromptResponse();
+    DocumentationPromptResponse documentationResponse = new DocumentationPromptResponse();
+    documentationResponse.setDocumentation(documentation);
+    promptResponse.setDocumentationResponse(documentationResponse);
+    return promptResponse;
+  }
+
   /** Submit a response for a field-level structured property type prompt. */
   public Boolean batchSubmitFieldStructuredPropertyPromptResponse(
       @Nonnull OperationContext opContext,
@@ -460,10 +546,22 @@ public class FormService extends BaseService {
     }
 
     // Then, let's apply the change to the entity's form status.
+    FormPromptResponse promptResponse =
+        createStructuredPropertiesPromptResponse(structuredPropertyUrn, values);
     ingestCompletedFieldFormResponse(
-        opContext, entityUrn, formUrn, formPromptId, fieldPaths, actorUrn);
+        opContext, entityUrn, formUrn, formPromptId, fieldPaths, actorUrn, promptResponse);
 
     return true;
+  }
+
+  private FormPromptResponse createStructuredPropertiesPromptResponse(
+      @Nonnull final Urn structuredPropertyUrn, @Nonnull final PrimitivePropertyValueArray values) {
+    FormPromptResponse promptResponse = new FormPromptResponse();
+    StructuredPropertyPromptResponse propertyResponse = new StructuredPropertyPromptResponse();
+    propertyResponse.setPropertyUrn(structuredPropertyUrn);
+    propertyResponse.setValues(values);
+    promptResponse.setStructuredPropertyResponse(propertyResponse);
+    return promptResponse;
   }
 
   private void ingestCompletedFieldFormResponse(
@@ -472,7 +570,8 @@ public class FormService extends BaseService {
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
       @Nonnull final List<String> fieldPaths,
-      @Nullable Urn actorUrn)
+      @Nullable Urn actorUrn,
+      @Nonnull final FormPromptResponse promptResponse)
       throws Exception {
     final Forms forms = getEntityForms(opContext, entityUrn);
     final FormAssociation formAssociation = getFormWithUrn(forms, formUrn);
@@ -485,7 +584,7 @@ public class FormService extends BaseService {
 
     // update the prompt association to have this fieldFormPromptAssociation marked as complete
     for (String fieldPath : fieldPaths) {
-      updateFieldPromptToComplete(opContext, formPromptAssociation, fieldPath);
+      updateFieldPromptToComplete(opContext, formPromptAssociation, fieldPath, promptResponse);
     }
 
     formAssociation.setLastModified(opContext.getAuditStamp());
@@ -724,11 +823,13 @@ public class FormService extends BaseService {
   private void updateFieldPromptToComplete(
       @Nonnull OperationContext opContext,
       @Nonnull final FormPromptAssociation formPromptAssociation,
-      @Nonnull final String fieldPath) {
+      @Nonnull final String fieldPath,
+      @Nonnull final FormPromptResponse promptResponse) {
     final FieldFormPromptAssociation completedFieldPromptAssociation =
         new FieldFormPromptAssociation();
     completedFieldPromptAssociation.setFieldPath(fieldPath);
     completedFieldPromptAssociation.setLastModified(opContext.getAuditStamp());
+    completedFieldPromptAssociation.setResponse(promptResponse);
 
     FormPromptFieldAssociations fieldAssociations =
         formPromptAssociation.getFieldAssociations() != null

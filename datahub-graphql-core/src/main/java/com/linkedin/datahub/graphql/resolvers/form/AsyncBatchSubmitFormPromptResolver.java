@@ -150,6 +150,8 @@ public class AsyncBatchSubmitFormPromptResolver
       addStructuredPropertyPromptParams(submitPromptParamsNode, promptInput);
     } else if (promptInput.getType().equals(FormPromptType.OWNERSHIP)) {
       addOwnershipPromptParams(submitPromptParamsNode, promptInput);
+    } else if (promptInput.getType().equals(FormPromptType.DOCUMENTATION)) {
+      addDocumentationPromptParams(submitPromptParamsNode, promptInput);
     }
 
     try {
@@ -210,5 +212,19 @@ public class AsyncBatchSubmitFormPromptResolver
     promptInput.getOwnershipParams().getOwners().forEach(ownersArray::add);
     submitPromptParamsNode.put(
         "ownershipTypeUrn", promptInput.getOwnershipParams().getOwnershipTypeUrn());
+  }
+
+  /*
+   * Adds the params necessary to submit a documentation response
+   */
+  private void addDocumentationPromptParams(
+      ObjectNode submitPromptParamsNode, SubmitFormPromptInput promptInput)
+      throws IllegalArgumentException {
+    if (promptInput.getDocumentationParams() == null) {
+      throw new IllegalArgumentException(
+          "Failed to submit as no documentation params were provided for documentation response");
+    }
+    submitPromptParamsNode.put(
+        "documentation", promptInput.getDocumentationParams().getDocumentation());
   }
 }

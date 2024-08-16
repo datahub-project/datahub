@@ -17,9 +17,7 @@ const StyledEditor = styled(Editor)<{ displayBulkPromptStyles?: boolean }>`
         `
     background-color: white;
     max-height: 160px;
-    .remirror-editor-wrapper {
-        overflow: auto;
-    }
+    overflow: auto;
     `}
 
     &&& {

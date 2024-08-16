@@ -163,6 +163,9 @@ public class FormsMapper {
           association.setFieldPath(fieldFormPromptAssociation.getFieldPath());
           association.setLastModified(
               createAuditStamp(fieldFormPromptAssociation.getLastModified()));
+          if (fieldFormPromptAssociation.getResponse() != null) {
+            association.setResponse(mapPromptResponse(fieldFormPromptAssociation.getResponse()));
+          }
           result.add(association);
         });
     return result;
