@@ -128,6 +128,7 @@ module.exports = {
           type: "doc",
           id: "docs/authorization/access-policies-guide",
         },
+        "docs/posts",
       ],
     },
     {
@@ -886,23 +887,23 @@ module.exports = {
         {
           label: "Business Attributes",
           type: "doc",
-          id: "docs/businessattributes",
+          id: "docs/managed-datahub/businessattributes",
         },
         {
           label: "Business Glossary",
           type: "doc",
-          id: "docs/glossary/business-glossary",
+          id: "docs/managed-datahub/glossary/business-glossary",
         },
-        "docs/features/feature-guides/documentation-forms",
+        "docs/managed-datahub/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
-          id: "docs/domains",
+          id: "docs/managed-datahub/domains",
         },
         {
           label: "Ingestion",
           type: "doc",
-          id: "docs/ui-ingestion",
+          id: "docs/managed-datahub/ui-ingestion",
         },
         {
           label: "Lineage",
@@ -915,36 +916,36 @@ module.exports = {
             {
               label: "Lineage Impact analysis",
               type: "doc",
-              id: "docs/act-on-metadata/impact-analysis",
+              id: "docs/managed-datahub/act-on-metadata/impact-analysis",
             },
             {
               label: "Managing Lineage via UI",
               type: "doc",
-              id: "docs/features/feature-guides/ui-lineage",
+              id: "docs/managed-datahub/features/feature-guides/ui-lineage",
             },
           ],
         },
         {
           label: "Properties",
           type: "doc",
-          id: "docs/features/feature-guides/properties",
+          id: "docs/managed-datahub/features/feature-guides/properties",
         },
         {
           label: "Schema history",
           type: "doc",
-          id: "docs/schema-history",
+          id: "docs/managed-datahub/schema-history",
         },
         {
           label: "Search",
           type: "doc",
-          id: "docs/how/search",
+          id: "docs/managed-datahub/how/search",
         },
         {
           label: "Tags",
           type: "doc",
-          id: "docs/tags",
+          id: "docs/managed-datahub/tags",
         },
-        "docs/features/dataset-usage-and-query-history",
+        "docs/managed-datahub/features/dataset-usage-and-query-history",
       ],
     },
     {
@@ -961,14 +962,14 @@ module.exports = {
         {
           label: "Ownership",
           type: "doc",
-          id: "docs/ownership/ownership-types",
+          id: "docs/managed-datahub/ownership/ownership-types",
         },
         {
           label: "Policies",
           type: "doc",
-          id: "docs/authorization/access-policies-guide",
+          id: "docs/managed-datahub/authorization/access-policies-guide",
         },
-        "docs/posts",
+        "docs/managed-datahub/posts",
       ],
     },
     {
@@ -1013,12 +1014,12 @@ module.exports = {
             {
               label: "Open Assertions Specification",
               type: "category",
-              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              link: { type: "doc", id: "docs/managed-datahub/assertions/open-assertions-spec" },
               items: [
                 {
                   label: "Snowflake",
                   type: "doc",
-                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                  id: "docs/managed-datahub/assertions/snowflake/snowflake_dmfs",
                 },
               ],
             },
@@ -1027,17 +1028,17 @@ module.exports = {
         {
           label: "Data Products",
           type: "doc",
-          id: "docs/dataproducts",
+          id: "docs/managed-datahub/dataproducts",
         },
         {
           label: "Incidents",
           type: "doc",
-          id: "docs/incidents/incidents",
+          id: "docs/managed-datahub/incidents/incidents",
         },
         {
           label: "Sync Status", // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
           type: "doc",
-          id: "docs/sync-status",
+          id: "docs/managed-datahub/sync-status",
         },
       ],
     },
@@ -1171,19 +1172,19 @@ module.exports = {
       value: "<div>Admin</div>",
       defaultStyle: true,
     },
-    "docs/authentication/guides/add-users",
-    "docs/authentication/personal-access-tokens",
+    "docs/managed-datahub/authentication/guides/add-users",
+    "docs/managed-datahub/authentication/personal-access-tokens",
     {
       Authorization: [
-        "docs/authorization/README",
-        "docs/authorization/roles",
-        "docs/authorization/policies",
-        "docs/authorization/groups",
+        "docs/managed-datahub/authorization/README",
+        "docs/managed-datahub/authorization/roles",
+        "docs/managed-datahub/authorization/policies",
+        "docs/managed-datahub/authorization/groups",
       ],
     },
     {
       "Advanced Guides": [
-        "docs/how/delete-metadata",
+        "docs/managed-datahub/how/delete-metadata",
         {
           type: "doc",
           id: "docs/managed-datahub/integrations/aws-privatelink",
@@ -1477,7 +1478,7 @@ module.exports = {
       value: "<div>Community</div>",
       defaultStyle: true,
     },
-    {
+    {gst
       label: "Community",
       type: "category",
       collapsed: true,
