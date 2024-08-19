@@ -2234,7 +2234,10 @@ class TableauSiteSource:
                 )
 
         # Datasource Fields
-        logger.debug("Emit datasource read fields for schema processing: %s", datasource.get(c.FIELDS, []))
+        logger.debug(
+            "Emit datasource read fields for schema processing: %s",
+            datasource.get(c.FIELDS, []),
+        )
         schema_metadata = self._get_schema_metadata_for_datasource(
             datasource.get(c.FIELDS, [])
         )
