@@ -61,4 +61,5 @@ type AssertionGroupByType = {
 export type AssertionTableType = {
     assertions: TableRowType[];
     groupBy: AssertionGroupByType;
+    filterOptions?: any;
 };

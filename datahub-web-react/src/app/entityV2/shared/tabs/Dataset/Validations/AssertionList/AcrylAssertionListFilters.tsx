@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AcrylAssertionRecommendedFilters from './AcrylAssertionRecommendedFilters';
 import AcrylAssertionListSearch from './AcrylAssertionListSearch';
 import AcryAssertionTypeSelect from './AcryAssertionTypeSelect';
@@ -16,13 +16,13 @@ const SearchFilterContainer = styled.div`
     align-items: center;
 `;
 
-export const AcrylAssertionListFilters = () => {
+export const AcrylAssertionListFilters = ({ filterOptions }: { filterOptions: any }) => {
     const [appliedFilters, setAppliedFilters] = useState<FilterItem[]>([]);
     const [assertionFilter, setAssertionFilter] = useState<string>('');
     const [matches, setMatches] = useState<string[]>([]);
     const [highlightedMatchIndex, setHighlightedMatchIndex] = useState<number | null>(null);
     const [selectedAssertionType, setSelectedAssertionType] = useState<string | null>(null); // Updated to allow null
-
+    const [recommendedFilterOptions, setRecommendedFilterOptions] = useState<any>([]);
     const handleFilterTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const filterText = event.target.value;
         setAssertionFilter(filterText);
@@ -33,8 +33,16 @@ export const AcrylAssertionListFilters = () => {
     };
 
     const handleAssertionTypeChange = (value: string | null) => {
-        setSelectedAssertionType(value); 
+        setSelectedAssertionType(value);
     };
+
+    useEffect(() => {
+        // const options = [];
+        // if (filterOptions.filterGroupOptions?.type) {
+        //     for(let)
+        // }
+        console.log('filterOptions>>>', filterOptions);
+    }, [filterOptions]);
 
     const numRows = 100;
 
@@ -82,7 +90,7 @@ export const AcrylAssertionListFilters = () => {
             </SearchFilterContainer>
             <div>
                 <AcrylAssertionRecommendedFilters
-                    filters={filters}
+                    filters={filterOptions?.recommendedFilters || []}
                     appliedFilters={appliedFilters}
                     onFilterChange={handleFilterChange}
                 />

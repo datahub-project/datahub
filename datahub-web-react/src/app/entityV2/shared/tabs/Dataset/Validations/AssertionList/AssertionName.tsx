@@ -45,7 +45,7 @@ const StyledAssertionBadgeContainer = styled.div`
     align-items: center;
 `;
 
-const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
+export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
 const SMART_ASSERTION_STALE_IN_DAYS = 3;
 
@@ -96,7 +96,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                 </Result>
             </AssertionResultPopover>
             <AssertionDescriptionContainer>
-                <Typography.Paragraph style={{marginBottom: 0}}>{name}</Typography.Paragraph>
+                <Typography.Paragraph style={{ marginBottom: 0 }}>{name}</Typography.Paragraph>
                 {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
                     <AssertionPlatformWrapper>
                         <AssertionPlatformAvatar

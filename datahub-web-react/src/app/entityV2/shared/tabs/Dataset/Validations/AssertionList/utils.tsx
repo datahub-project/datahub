@@ -10,6 +10,7 @@ import {
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
+    AssertionSourceType,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameters,
@@ -51,6 +52,8 @@ import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import { AssertionStatusGroup, AssertionTableType, IFilter, TableRowType } from './types';
+import { UNKNOWN_DATA_PLATFORM } from './AssertionName';
+import { isExternalAssertion } from '@src/app/entity/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 
 /**
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
@@ -507,12 +510,89 @@ export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]
     return assertionRawData;
 };
 
+/** create filter Option List */
+const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorDetails[]) => {
+    const filterOptions: any = {
+        filterGroupOptions: {
+            type: [],
+            status: [],
+            column: [],
+            tags: [],
+        },
+        groupByOptions: ['Type', 'Status'],
+        recommendedFilters: [],
+    };
+    const filterGroupOptions = {
+        type: {},
+        status: {},
+        column: {},
+        tags: {},
+    };
+    const others: any = {};
+    assertions.forEach((assertion: AssertionWithMonitorDetails) => {
+        const type = assertion.info?.type || '';
+        filterGroupOptions.type[type] = (filterGroupOptions.type[type] || 0) + 1;
+
+        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+        const resultType = mostRecentRun?.result?.type || '';
+        if (resultType) {
+            filterGroupOptions.status[resultType] = (filterGroupOptions.status[resultType] || 0) + 1;
+        }
+        const tags = assertion.tags?.tags || [];
+        tags.forEach((tag) => {
+            const name = tag.tag.properties?.name || '';
+            filterGroupOptions.tags[name] = (filterGroupOptions.tags[name] || 0) + 1;
+        });
+
+        // TODO Need to check for Column Option List
+        // const column = assertion.column || '';
+        // filterGroupOptions.column[column] = (filterGroupOptions.column[column] || 0) + 1;
+
+        const assertionInfo = assertion.info;
+        const isSmartAssertion = assertionInfo?.source?.type === AssertionSourceType.Inferred;
+        if (isSmartAssertion) {
+            others.smartAssertions = (others.smartAssertions || 0) + 1;
+        }
+        const isExternal = isExternalAssertion(assertion);
+        if (isExternal) {
+            others.external = (others.external || 0) + 1;
+        }
+        const isNative = assertion?.info?.source?.type !== AssertionSourceType.Native;
+        if (isNative) {
+            others.native = (others.native || 0) + 1;
+        }
+    });
+
+    for (const [key, value] of Object.entries(filterGroupOptions)) {
+        if (['type', 'status'].includes(key)) {
+            for (const [key2, value2] of Object.entries(value)) {
+                filterOptions.recommendedFilters.push({ name: key2, category: key, count: value2 });
+                if (filterOptions.filterGroupOptions[key]) {
+                    filterOptions.filterGroupOptions[key].push({ name: key2, category: key, count: value2 });
+                } else {
+                    filterOptions.filterGroupOptions[key] = [{ name: key2, category: key, count: value2 }];
+                }
+            }
+        }
+    }
+    for (const [key, value] of Object.entries(others)) {
+        filterOptions.recommendedFilters.push({ name: key, category: 'others', count: value });
+    }
+    return filterOptions;
+};
+
 /** return fitlered transformed assertions */
 export const getFilteredTransformedAssertionData = (
     assertions: AssertionWithMonitorDetails[],
     filter: IFilter,
 ): AssertionTableType => {
-    const assertionRawData: AssertionTableType = { assertions: [], groupBy: { type: [], status: [] } };
+    const assertionRawData: AssertionTableType = {
+        assertions: [],
+        groupBy: { type: [], status: [] },
+        filterOptions: {},
+    };
+    assertionRawData.filterOptions = extractFilterOptionListFromAssertions(assertions);
+
     const filteredAssertions = assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const { searchText, type, status } = filter.filterCriteria;
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
@@ -530,9 +610,8 @@ export const getFilteredTransformedAssertionData = (
         }
         return true;
     });
-    const assertionsTableData = mapAssertionData(filteredAssertions);
 
-    assertionRawData.assertions = assertionsTableData;
+    assertionRawData.assertions = mapAssertionData(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = assertionsByType;
     (assertionRawData.groupBy.type || []).forEach((item) => {

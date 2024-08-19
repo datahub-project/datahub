@@ -110,7 +110,7 @@ export const AcrylAssertionList = () => {
                 privileges={privileges as EntityPrivileges}
                 setShowAssertionBuilder={setShowAssertionBuilder}
             />
-             <AcrylAssertionListFilters />
+            <AcrylAssertionListFilters filterOptions={visibleAssertions?.filterOptions} />
             {renderListTable()}
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer
