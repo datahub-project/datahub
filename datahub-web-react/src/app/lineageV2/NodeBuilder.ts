@@ -9,7 +9,6 @@ import {
     createEdgeId,
     EdgeId,
     getParents,
-    isQuery,
     isTransformational,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
@@ -69,6 +68,8 @@ export default class NodeBuilder {
 
     isHomeTransformational: boolean;
 
+    parents: Map<string, Set<string>>;
+
     nodeWidth: number;
 
     nodeHeight: number;
@@ -98,8 +99,9 @@ export default class NodeBuilder {
     transformationChildren = new Map<string, Set<string>>();
 
     // Note: nodes must be provided in shortest-path order
-    constructor(homeUrn: string, homeType: EntityType, nodes: LineageNode[]) {
+    constructor(homeUrn: string, homeType: EntityType, nodes: LineageNode[], parents: Map<string, Set<string>>) {
         this.homeUrn = homeUrn;
+        this.parents = parents;
         this.nodeHeight = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_HEIGHT : LINEAGE_NODE_HEIGHT;
         this.nodeWidth = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_WIDTH : LINEAGE_NODE_WIDTH;
         this.transformationalOffset = (this.nodeHeight - 30) / 2;
@@ -215,17 +217,15 @@ export default class NodeBuilder {
      */
     computeNodeX(adjacencyList: NodeContext['adjacencyList']): void {
         this.topologicalNodes.forEach((node) => {
-            const parentLayers = new Map<string, Layer>(
-                getParents(node, adjacencyList)
-                    .map((parent) => [parent, this.nodeInformation[parent]?.layer])
-                    .filter((pair): pair is [string, Layer] => pair[1] !== undefined),
-            );
-            const minParentLayer = Array.from(parentLayers.values()).sort(compareLayers)[0] || defaultLayer;
+            const minParentLayer = getParents(node, adjacencyList)
+                .map((parent) => this.nodeInformation[parent]?.layer)
+                .filter((layer): layer is Layer => layer !== undefined)
+                .sort(compareLayers)?.[0];
 
             const { main: parentMain, mini: parentMini } = parseLayer(minParentLayer);
             if (this.#isMainNode(node)) {
                 const factor = node.direction === LineageDirection.Upstream ? -1 : 1;
-                const mainLayer = parentLayers.size ? factor + parentMain : 0;
+                const mainLayer = minParentLayer ? factor + parentMain : 0;
                 this.addNodeToLayer(node, createLayer(mainLayer, 0));
             } else {
                 this.addNodeToLayer(
@@ -237,40 +237,43 @@ export default class NodeBuilder {
                 );
             }
 
-            const positionalParents = Array.from(parentLayers.entries())
-                .filter(([_p, l]) => parseLayer(l).main === parseLayer(minParentLayer).main)
-                .map(([p]) => p);
-
-            this.nodeInformation[node.id].positionalParents = new Set(positionalParents);
+            if (node.type === LINEAGE_FILTER_TYPE) {
+                this.nodeInformation[node.id].positionalParents = new Set([node.parent]);
+            } else {
+                const positionalParents = Array.from(this.parents.get(node.id) || [])
+                    .map((p) => [p, this.nodeInformation[p].layer])
+                    .filter(([_p, l]) => parseLayer(l).main === parseLayer(minParentLayer).main)
+                    .map(([p]) => p)
+                    .filter((p): p is string => !!p);
+                this.nodeInformation[node.id].positionalParents = new Set(positionalParents);
+            }
         });
 
-        this.entities.forEach((node) => {
-            const mainLayer = parseLayer(this.nodeInformation[node.id].layer).main;
-            const factor = node.direction === LineageDirection.Upstream ? -1 : 1;
-
-            // Transformational nodes for which this node is a positional child
-            const transformationalParents = getParents(node, adjacencyList).filter((p) => {
-                const { main, mini } = parseLayer(this.nodeInformation[p]?.layer);
-                return main + factor === mainLayer && mini > 0;
-            });
-
-            // Only use non-transformation entities when calculating a transformation node's children
-            transformationalParents.forEach((parent) => {
-                if (parent) {
-                    setDefault(this.transformationChildren, parent, new Set()).add(node.id);
-                }
-            });
-        });
-
+        const nextLayerMap = this.#computeLayerPositions();
         this.transformations.forEach((node) => {
-            if (node.direction && isQuery(node)) {
+            const nextLayer = nextLayerMap.get(this.nodeInformation[node.id].layer || '');
+            if (node.direction) {
                 const children = Array.from(adjacencyList[node.direction].get(node.urn) || []).filter(
-                    (child) => child in this.nodeInformation,
+                    (child) => !nextLayer || this.nodeInformation[child]?.layer === nextLayer,
                 );
                 this.transformationChildren.set(node.urn, new Set(children));
             }
         });
 
+        console.debug(this);
+    }
+
+    addNodeToLayer(node: LineageNode, layer: Layer): void {
+        this.nodeInformation[node.id].layer = layer;
+        setDefault(this.layerNodes, layer, new Set()).add(node.id);
+    }
+
+    /**
+     * Computes the x position of each layer, based on the type (main or mini) of adjacent layers.
+     * Returns a map of each layer to the next layer in the same direction.
+     */
+    #computeLayerPositions(): Map<Layer, Layer> {
+        const nextLayerMap = new Map<Layer, Layer>();
         const upstreamLayers = Array.from(this.layerNodes.keys())
             .filter((layer) => layer.startsWith('-'))
             .sort(compareLayers);
@@ -286,6 +289,8 @@ export default class NodeBuilder {
                 layer,
                 (this.layerPositions.get(prevLayer) || 0) - this.#getNodeSize(layer) - separation,
             );
+
+            if (prevLayer !== defaultLayer) nextLayerMap.set(prevLayer, layer);
         });
         downstreamLayers.forEach((layer, i) => {
             if (i === 0) {
@@ -297,14 +302,11 @@ export default class NodeBuilder {
                 layer,
                 (this.layerPositions.get(prevLayer) || 0) + this.#getNodeSize(prevLayer) + separation,
             );
+
+            if (prevLayer !== defaultLayer) nextLayerMap.set(prevLayer, layer);
         });
 
-        console.debug(this);
-    }
-
-    addNodeToLayer(node: LineageNode, layer: Layer): void {
-        this.nodeInformation[node.id].layer = layer;
-        setDefault(this.layerNodes, layer, new Set()).add(node.id);
+        return nextLayerMap;
     }
 
     /**
