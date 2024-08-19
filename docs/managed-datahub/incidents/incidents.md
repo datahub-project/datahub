@@ -1,5 +1,5 @@
-import Contents from '../../incidents/incidents.md'
+import Content from '../../incidents/incidents.md'
 
 # Incidents
 
-<Contents />
+<Content />

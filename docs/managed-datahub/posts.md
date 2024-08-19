@@ -1,5 +1,5 @@
-import Contents from '../posts.md';
+import Content from '../posts.md';
 
 # Posts
 
-<Contents />
+<Content />
