@@ -56,8 +56,7 @@ runs:
           suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
         tags: |
           type=raw,value=${{ inputs.image_tag }}
-          type=raw,value=head,enable=${{ github.ref == format('refs/heads/{0}', 'acryl-main') }}
-          type=ref,event=pr,prefix=pr
+          type=raw,value=head,enable={{is_default_branch}}
           type=sha,prefix=,format=short
 
     # Code for testing the build when not pushing to Docker Hub.
@@ -87,7 +86,8 @@ runs:
         TAGS="""
         ${{ inputs.image_tag }}
         """
-        echo "SINGLE_TAG=$(echo $IMAGES | tr '\n' ' ' | awk -F' ' '{ print $1 }'):$(echo $TAGS | tr '\n' ' ' | awk -F' ' '{ print $1 }')" >> $GITHUB_OUTPUT
+        echo "SINGLE_TAG=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }'):$(echo $TAGS | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> $GITHUB_OUTPUT
+      id: single_tag
     - name: Upload image locally for testing (if not publishing)
       uses: ishworkh/docker-image-artifact-upload@v1
       if: ${{ inputs.publish != 'true' }}
