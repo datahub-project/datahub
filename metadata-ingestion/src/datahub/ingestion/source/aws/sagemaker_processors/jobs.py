@@ -1,10 +1,10 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from types import MethodType
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     DefaultDict,
     Dict,
     Iterable,
@@ -148,8 +148,7 @@ class JobProcessor:
     """
 
     # boto3 SageMaker client
-    sagemaker_client: Any
-
+    sagemaker_client: Callable[[], "SageMakerClient"]
     env: str
     report: SagemakerSourceReport
     # config filter for specific job types to ingest (see metadata-ingestion README)
@@ -172,7 +171,7 @@ class JobProcessor:
 
     def get_jobs(self, job_type: JobType, job_spec: JobInfo) -> List[Any]:
         jobs = []
-        paginator = self.get_sagemaker_client().get_paginator(job_spec.list_command)
+        paginator = self.sagemaker_client().get_paginator(job_spec.list_command)
         for page in paginator.paginate():
             page_jobs: List[Any] = page[job_spec.list_key]
 
@@ -270,7 +269,7 @@ class JobProcessor:
         describe_command = job_type_to_info[job_type].describe_command
         describe_name_key = job_type_to_info[job_type].describe_name_key
 
-        return getattr(self.get_sagemaker_client(), describe_command)(
+        return getattr(self.sagemaker_client(), describe_command)(
             **{describe_name_key: job_name}
         )
 
@@ -941,8 +940,3 @@ class JobProcessor:
             output_datasets=output_datasets,
             input_jobs=input_jobs,
         )
-
-    def get_sagemaker_client(self) -> "SageMakerClient":
-        if isinstance(self.sagemaker_client, MethodType):
-            return self.sagemaker_client()
-        return self.sagemaker_client

@@ -31,13 +31,6 @@ class SagemakerSourceConfig(
     def sagemaker_client(self):
         return self.get_sagemaker_client()
 
-    def get_auto_refreshing_sagemaker_client(self):
-        """
-        Returns a reference to the SageMaker client function.
-        This is used to create a fresh client each time it is called.
-        """
-        return self.get_sagemaker_client
-
 
 @dataclass
 class SagemakerSourceReport(StaleEntityRemovalSourceReport):
