@@ -160,7 +160,7 @@ export const SlackSinkSettingsSection = ({
                 </>
             );
         }
-        if (!isAdminAccess) {
+        if (!sinkSupported && !isAdminAccess) {
             description = <>{unsupportedSinkDescription}</>;
         }
         return description;
