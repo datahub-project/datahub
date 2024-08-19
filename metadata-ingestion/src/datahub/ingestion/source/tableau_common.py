@@ -503,6 +503,7 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
 
 def tableau_field_to_schema_field(field, ingest_tags):
     nativeDataType = field.get("dataType", "UNKNOWN")
+    assert nativeDataType is not None
     TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 
     schema_field = SchemaField(

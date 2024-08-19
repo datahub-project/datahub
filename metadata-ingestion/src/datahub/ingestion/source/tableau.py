@@ -2234,9 +2234,11 @@ class TableauSiteSource:
                 )
 
         # Datasource Fields
+        logger.debug("Emit datasource read fields for schema processing: %s", datasource.get(c.FIELDS, []))
         schema_metadata = self._get_schema_metadata_for_datasource(
             datasource.get(c.FIELDS, [])
         )
+        logger.debug("Emit datasource understood schema as: %s", schema_metadata)
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
 
@@ -2643,6 +2645,7 @@ class TableauSiteSource:
         for field in sheet.get(c.DATA_SOURCE_FIELDS):  # type: ignore
             if not field:
                 continue
+            logger.debug("Populating field %s for sheet %s", field, sheet)
             name = field.get(c.NAME)
             upstream_ds_id = (
                 field.get(c.DATA_SOURCE)[c.ID] if field.get(c.DATA_SOURCE) else None
