@@ -118,7 +118,7 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
             } else if (promptInput.getType().equals(FormPromptType.DOCUMENTATION)) {
               if (promptInput.getDocumentationParams() == null) {
                 throw new IllegalArgumentException(
-                    "Failed to provide ownership params for prompt type DOCUMENTATION");
+                    "Failed to provide documentation params for prompt type DOCUMENTATION");
               }
               final String documentation = promptInput.getDocumentationParams().getDocumentation();
               return _formService.batchSubmitDocumentationPromptResponse(

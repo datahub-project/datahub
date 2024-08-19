@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchSubmitFormPromptInput;
+import com.linkedin.datahub.graphql.generated.DocumentationInputParams;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.PropertyValueInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyInputParams;
@@ -35,6 +36,7 @@ public class BatchSubmitFormPromptResolverTest {
       ImmutableList.of(TEST_DATASET_URN1, TEST_DATASET_URN2);
   private static final String PROMPT_ID = "123";
   private static final String TEST_FORM_URN = "urn:li:form:1";
+  private static final String TEST_DOCUMENTATION = "test documentation";
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -138,6 +140,47 @@ public class BatchSubmitFormPromptResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
+  @Test
+  public void testGetDocumentationSuccess() throws Exception {
+    FormService mockFormService = initMockFormService();
+    BatchSubmitFormPromptResolver resolver = new BatchSubmitFormPromptResolver(mockFormService);
+
+    BatchSubmitFormPromptInput input = generateDocumentationInput(true);
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    boolean success = resolver.get(mockEnv).get();
+
+    assertTrue(success);
+
+    // Validate we never call form service with missing params
+    Mockito.verify(mockFormService, Mockito.times(1))
+        .batchSubmitDocumentationPromptResponse(
+            any(OperationContext.class),
+            Mockito.eq(ENTITY_URNS),
+            Mockito.eq(TEST_DOCUMENTATION),
+            Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
+            Mockito.eq(PROMPT_ID),
+            Mockito.any(),
+            Mockito.eq(true));
+  }
+
+  @Test
+  public void testGetFailureMissingDocumentationParams() throws Exception {
+    FormService mockFormService = initMockFormService();
+    BatchSubmitFormPromptResolver resolver = new BatchSubmitFormPromptResolver(mockFormService);
+
+    BatchSubmitFormPromptInput input = generateDocumentationInput(false);
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
   private FormService initMockFormService() throws Exception {
     FormService service = Mockito.mock(FormService.class);
     Mockito.when(
@@ -164,6 +207,17 @@ public class BatchSubmitFormPromptResolverTest {
                 Mockito.any()))
         .thenReturn(true);
 
+    Mockito.when(
+            service.batchSubmitDocumentationPromptResponse(
+                any(OperationContext.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(true)))
+        .thenReturn(true);
+
     return service;
   }
 
@@ -185,6 +239,24 @@ public class BatchSubmitFormPromptResolverTest {
       promptInput.setType(FormPromptType.FIELDS_STRUCTURED_PROPERTY);
     } else {
       promptInput.setType(FormPromptType.STRUCTURED_PROPERTY);
+    }
+    input.setInput(promptInput);
+
+    return input;
+  }
+
+  private BatchSubmitFormPromptInput generateDocumentationInput(boolean addDocParams)
+      throws Exception {
+    BatchSubmitFormPromptInput input = new BatchSubmitFormPromptInput();
+    input.setAssetUrns(ENTITY_URNS);
+    SubmitFormPromptInput promptInput = new SubmitFormPromptInput();
+    promptInput.setType(FormPromptType.DOCUMENTATION);
+    promptInput.setPromptId(PROMPT_ID);
+    promptInput.setFormUrn(TEST_FORM_URN);
+    if (addDocParams) {
+      DocumentationInputParams documentationParams = new DocumentationInputParams();
+      documentationParams.setDocumentation(TEST_DOCUMENTATION);
+      promptInput.setDocumentationParams(documentationParams);
     }
     input.setInput(promptInput);
 
