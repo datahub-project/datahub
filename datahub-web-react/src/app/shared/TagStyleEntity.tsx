@@ -423,9 +423,9 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
                             <PlusOutlined />
                             {ownersEmpty ? (
-                                <OwnerButtonEmptyTitle>Adicionar proprietários</OwnerButtonEmptyTitle>
+                                <OwnerButtonEmptyTitle>{t('shared.addOwners')}</OwnerButtonEmptyTitle>
                             ) : (
-                                <OwnerButtonTitle>Adicionar proprietários</OwnerButtonTitle>
+                                <OwnerButtonTitle>{t('shared.addOwners')}</OwnerButtonTitle>
                             )}
                         </Button>
                     </div>

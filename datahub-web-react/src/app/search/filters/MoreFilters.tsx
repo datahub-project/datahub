@@ -79,7 +79,7 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
         >
             <SearchFilterLabel data-testid="more-filters-dropdown" isActive={!!numActiveFilters}>
                 <StyledPlus />
-                Mais filtros {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                More Filters {numActiveFilters ? `(${numActiveFilters}) ` : ''}
             </SearchFilterLabel>
         </Dropdown>
     );

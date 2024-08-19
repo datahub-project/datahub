@@ -15,8 +15,8 @@ export const SetUserDefaultItem = ({ key, onClick }: Props) => {
     return (
         <Menu.Item key={key} onClick={onClick} data-testid="view-dropdown-set-user-default">
             <IconItemTitle
-                tip="Faça desta Visualização seu padrão pessoal. Você terá esta visualização aplicada automaticamente."
-                title="Tornar meu padrão"
+                tip="Make this View your personal default. You will have this View applied automatically."
+                title="Make my default"
                 icon={<UserDefaultViewIcon />}
             />
         </Menu.Item>

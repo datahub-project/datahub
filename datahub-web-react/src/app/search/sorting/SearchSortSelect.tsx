@@ -37,11 +37,11 @@ export default function SearchSortSelect() {
     const options = Object.entries(SORT_OPTIONS).map(([value, option]) => ({ value, label: option.label }));
 
     return (
-        <Tooltip title= {t('common.sortSearchResults')}showArrow={false} placement="left">
+        <Tooltip title={t('common.sortSearchResults')} showArrow={false} placement="left">
             <SelectWrapper>
                 <StyledIcon component={SortIcon} />
                 <Select
-                    placeholder="Organizar por"
+                    placeholder={t('common.organizeBy')}
                     value={selectedSortOption === DEFAULT_SORT_OPTION ? null : selectedSortOption}
                     options={options}
                     bordered={false}

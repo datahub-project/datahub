@@ -38,7 +38,7 @@ const getTitleText = (mode, urn) => {
     if (mode === ViewBuilderMode.PREVIEW) {
         return 'Preview View';
     }
-    return urn !== undefined ? 'Edit View' : 'Criar nova vizualização';
+    return urn !== undefined ? 'Edit View' : 'Create new View';
 };
 
 export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {

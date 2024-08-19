@@ -7,19 +7,19 @@ export const LAST_OPERATION_TIME_FIELD = 'lastOperationTime';
 export const DEFAULT_SORT_OPTION = RELEVANCE;
 
 export const SORT_OPTIONS = {
-    [RELEVANCE]: { label: 'Relevância (padrão)', field: RELEVANCE, sortOrder: SortOrder.Descending },
+    [RELEVANCE]: { label: 'Relevance (Default)', field: RELEVANCE, sortOrder: SortOrder.Descending },
     [`${ENTITY_NAME_FIELD}_${SortOrder.Ascending}`]: {
-        label: 'Ordenar de A a Z',
+        label: 'Name A to Z',
         field: ENTITY_NAME_FIELD,
         sortOrder: SortOrder.Ascending,
     },
     [`${ENTITY_NAME_FIELD}_${SortOrder.Descending}`]: {
-        label: 'Ordenar de Z a A',
+        label: 'Name Z to A',
         field: ENTITY_NAME_FIELD,
         sortOrder: SortOrder.Descending,
     },
     [`${LAST_OPERATION_TIME_FIELD}_${SortOrder.Descending}`]: {
-        label: 'Última modificação na fonte',
+        label: 'Last Modified In Source',
         field: LAST_OPERATION_TIME_FIELD,
         sortOrder: SortOrder.Descending,
     },

@@ -103,7 +103,7 @@ export const GroupList = () => {
             <GroupContainer>
                 <TabToolbar>
                     <Button id={GROUPS_CREATE_GROUP_ID} type="text" onClick={() => setIsCreatingGroup(true)}>
-                        <UsergroupAddOutlined /> Criar grupo
+                        <UsergroupAddOutlined /> Create group
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
@@ -129,7 +129,7 @@ export const GroupList = () => {
                 <GroupStyledList
                     bordered
                     locale={{
-                        emptyText: <Empty description="Sem grupos!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description="No Groups!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     dataSource={groups}
                     renderItem={(item: any) => (

@@ -27,7 +27,7 @@ function getRefineSearchText(filters: FacetFilterInput[], viewUrn?: string | nul
     if (filters.length && viewUrn) {
         text = 'clearing all filters and selected view';
     } else if (filters.length) {
-        text = 'limpando todos os filtros';
+        text = 'clearing all filters';
     } else if (viewUrn) {
         text = 'clearing the selected view';
     }
@@ -69,7 +69,7 @@ export default function EmptySearchResults({ suggestions }: Props) {
             <Section>{t('search.noResultsFoundFor')} &quot;{query}&quot;</Section>
             {refineSearchText && (
                 <>
-                    Tentar <SuggestedText onClick={clearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
+                    {t('common.try')} <SuggestedText onClick={clearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
                     {suggestText && (
                         <>
                             {t('search.orSearchingFor_component')} <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>

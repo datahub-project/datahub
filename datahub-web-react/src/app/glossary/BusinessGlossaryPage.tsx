@@ -55,7 +55,6 @@ export const MIN_BROWSWER_WIDTH = 200;
 function BusinessGlossaryPage() {
     const { t } = useTranslation();
 
-
     const {
         data: termsData,
         refetch: refetchForTerms,
@@ -106,7 +105,7 @@ function BusinessGlossaryPage() {
                     <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
                 )}
                 {(termsError || nodesError) && (
-                    <Message type="error" content="Falha ao carregar o glossário! Um erro inesperado ocorreu." />
+                    <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
                 )}
                 <MainContentWrapper data-testid="glossary-entities-list">
                     <HeaderWrapper>
@@ -124,7 +123,7 @@ function BusinessGlossaryPage() {
                                 type="text"
                                 onClick={() => setIsCreateTermModalVisible(true)}
                             >
-                                <PlusOutlined /> Adicionar termos
+                                <PlusOutlined /> {t('common.addTerms')}
                             </Button>
                             <Button
                                 data-testid="add-term-group-button"
@@ -133,7 +132,7 @@ function BusinessGlossaryPage() {
                                 type="text"
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                             >
-                                <PlusOutlined /> Adicionar grupo de termos
+                                <PlusOutlined /> {t('common.addTermGroup')}
                             </Button>
                         </div>
                     </HeaderWrapper>

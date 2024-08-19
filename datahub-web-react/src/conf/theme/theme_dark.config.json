@@ -27,10 +27,10 @@
     "content": {
         "title": "DataHub",
         "homepage": {
-            "homepageMessage": "Encontre dados nos quais você possa contar"
+            "homepageMessage": "Find data you can count(*) on"
         },
         "search": {
-            "searchbarMessage": "Procure Tabelas, Painéis, Pessoas e mais..."
+            "searchbarMessage": "Search Tables, Dashboards, People, & more..."
         },
         "menu": {
             "items": [

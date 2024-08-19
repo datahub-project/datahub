@@ -4,6 +4,7 @@ import { Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../shared/constants';
 import { NoMarginButton } from './styledComponents';
+import { useTranslation } from 'react-i18next';
 
 const ButtonContainer = styled.div`
     display: flex;
@@ -42,6 +43,7 @@ type Props = {
 };
 
 export const ViewSelectFooter = ({ hasViews, onClickCreateView, onClickManageViews }: Props) => {
+    const { t } = useTranslation();
     const manageViewsButtonRef = useRef(null);
 
     const onHandleClickManageViews = () => {
@@ -58,10 +60,10 @@ export const ViewSelectFooter = ({ hasViews, onClickCreateView, onClickManageVie
                 onClick={onClickCreateView}
             >
                 <PlusOutlined />
-                <Typography.Text>Criar nova visualização</Typography.Text>
+                <Typography.Text>{t('ingest.createNewView')}</Typography.Text>
             </CreateViewButton>
             <ManageViewsButton type="text" ref={manageViewsButtonRef} onClick={onHandleClickManageViews}>
-            Gerenciar visualizações
+                {t('entity.manageView')}
             </ManageViewsButton>
         </ButtonContainer>
     );

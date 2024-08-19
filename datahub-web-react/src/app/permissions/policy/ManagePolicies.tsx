@@ -309,7 +309,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'green' : ANTD_GRAY[6], width: 100 }}
                         >
-                            {t('common.activate')}
+                            {t('common.active')}
                         </Button>
                     )}
                     <Button

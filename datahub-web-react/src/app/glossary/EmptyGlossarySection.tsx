@@ -6,6 +6,7 @@ import { EntityType } from '../../types.generated';
 import { useEntityData } from '../entity/shared/EntityContext';
 import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { useUserContext } from '../context/useUserContext';
+import { useTranslation } from 'react-i18next';
 
 const StyledEmpty = styled(Empty)`
     padding: 80px 40px;
@@ -29,6 +30,7 @@ interface Props {
 
 function EmptyGlossarySection(props: Props) {
     const { title, description, refetchForTerms, refetchForNodes } = props;
+    const { t } = useTranslation();
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
@@ -49,10 +51,10 @@ function EmptyGlossarySection(props: Props) {
                 }
             >
                 <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateTermModalVisible(true)}>
-                    <PlusOutlined /> Adicionar termo
+                    <PlusOutlined /> {t('common.addTerm')}
                 </StyledButton>
                 <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateNodeModalVisible(true)}>
-                    <PlusOutlined />Adicionar grupo de termos
+                    <PlusOutlined /> {t('common.addTermGroup')}
                 </StyledButton>
             </StyledEmpty>
             {isCreateTermModalVisible && (

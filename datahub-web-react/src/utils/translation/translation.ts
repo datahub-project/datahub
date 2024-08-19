@@ -2,11 +2,11 @@
 export function translateDisplayNames(t: any, displayName: string | null | undefined) {
     if (!displayName) return
     let displayNameFormatted = displayName.trim().replaceAll(' ', '').replaceAll(/[^a-zA-Z\s]/g, '').toLowerCase();
-    console.log(displayNameFormatted);
 
     const FIELD_TO_DISPLAY_NAMES = {
         // common
         domains: t('common.domains'),
+        domain: t('common.domain'),
         ownedby: t('common.owner'),
         type: t('common.type'),
         glossaryterm: t('common.glossaryTerms'),
@@ -169,6 +169,20 @@ export function translateDisplayNames(t: any, displayName: string | null | undef
         divedeeperwithadvancedfiltersdescription: t('onBoarding.search.searchResultAdvancedSearch_component'),
         exploreandrefineyoursearchbyplatform: t('onBoarding.search.searchResultBrowseTitle'),
         exploreandrefineyoursearchbyplatformdescription: t('onBoarding.search.searchResultBrowse_component'),
+        explorebyplatform: t('onBoarding.homePage.platformsTitle'),
+        explorebyplatformdescription: t('onBoarding.homePage.platforms_component'),
+        explorarosmaispopularesdescription: t('onBoarding.homePage.mostPopular_component'),
+        schematab: t('onBoarding.entityProfile.schemaTitle'),
+        schematabdescription: t('onBoarding.entityProfile.schema_component'),
+        documentationtab: t('onBoarding.entityProfile.documentationTitle'),
+        documentationtabdescription: t('onBoarding.entityProfile.documentation_component'),
+        lineagetab: t('onBoarding.entityProfile.lineageTitle'),
+        lineagetabdescription: t('onBoarding.entityProfile.lineage_component'),
+        propertiestab: t('onBoarding.entityProfile.propertiesTitle'),
+        propertiestabdescription: t('onBoarding.entityProfile.properties_component'),
+        ownersdescription: t('onBoarding.entityProfile.owners_component'),
+        tagsdescription: t('onBoarding.entityProfile.tags_component'),
+        domaindescription: t('onBoarding.entityProfile.domains_component'),
 
         //ingest
         lookmlGithubDeployKeyToolTipOne: t('ingest.lookml.lookmlGithubDeployKeyToolTipOne'),

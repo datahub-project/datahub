@@ -124,7 +124,7 @@ export const ManageRoles = () => {
                         userUrns: actorUrns,
                     });
                     message.success({
-                        content: `Função atribuída aos usuários!`,
+                        content: `Assigned Role to users!`,
                         duration: 2,
                     });
                     setTimeout(() => {
@@ -135,7 +135,7 @@ export const ManageRoles = () => {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Falha ao atribuir função aos usuários: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to assign Role to users: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 resetRoleState();
@@ -228,7 +228,7 @@ export const ManageRoles = () => {
             {rolesLoading && !rolesData && (
                 <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
             )}
-            {rolesError && message.error('Falha ao carregar funções! Um erro inesperado ocorreu.')}
+            {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>
                     <div />
@@ -254,7 +254,7 @@ export const ManageRoles = () => {
                     />
                     {isBatchAddRolesModalVisible && (
                         <SearchSelectModal
-                            titleText={`Atribuir função ${focusRole?.name} para usuários`}
+                            titleText={`Assign ${focusRole?.name} Role to Users`}
                             continueText={t('common.add')}
                             onContinue={batchAssignRole}
                             onCancel={resetRoleState}

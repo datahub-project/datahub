@@ -30,6 +30,7 @@ import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
 import SearchResultsLoadingSection from './SearchResultsLoadingSection';
 import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import { useTranslation } from 'react-i18next';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -166,6 +167,7 @@ export const SearchResults = ({
     onChangeSelectAll,
     refetch,
 }: Props) => {
+    const { t } = useTranslation();
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
     const { isSidebarOpen, toggleSidebar } = useToggleSidebar();
@@ -211,17 +213,17 @@ export const SearchResults = ({
                             <LeftControlsContainer>
                                 {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
                                 <Typography.Text>
-                                    Exibição {' '}
+                                    {t('search.showing')} {' '}
                                     <b>
                                         {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                                     </b>{' '}
-                                    de {' '}
+                                    {t('common.of')} {' '}
                                     <b>
                                         {totalResults >= 10000
                                             ? `${formatNumberWithoutAbbreviation(10000)}+`
                                             : formatNumberWithoutAbbreviation(totalResults)}
                                     </b>{' '}
-                                    resultados
+                                    {t('common.results')}
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>

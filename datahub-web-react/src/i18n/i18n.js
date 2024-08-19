@@ -34,7 +34,7 @@ const resources = {
 i18n
     .use(initReactI18next)
     .init({
-        fallbackLng: 'pt_br',
+        fallbackLng: 'en',
         interpolation: {
             escapeValue: false,
         },
