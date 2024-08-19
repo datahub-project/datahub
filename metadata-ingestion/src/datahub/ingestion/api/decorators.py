@@ -1,4 +1,3 @@
-import abc
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any, Callable, Dict, Optional, Type, TypeVar
@@ -7,7 +6,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceCapability
 
 
-class SourceTypeLinter(abc.ABC):
+class SourceTypeLinter:
     def __init__(self):
         self.__capabilities: Dict[Any, Any] = {}
         self.get_capabilities: Optional[Callable] = None
