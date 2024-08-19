@@ -60,6 +60,7 @@ jobs:
       mysql_setup_change: ${{ steps.ci-optimize.outputs.mysql-setup-change == 'true' }}
       postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
+      smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -813,7 +814,7 @@ jobs:
              echo 'matrix=["cypress_suite1","cypress_rest"]' >> $GITHUB_OUTPUT
           elif [ '${{ needs.setup.outputs.ingestion_only }}' == 'true' ]; then
              echo 'matrix=["no_cypress_suite0","no_cypress_suite1"]' >> $GITHUB_OUTPUT
-          elif [ '${{ needs.setup.outputs.backend_change }}' == 'true' ]; then
+          elif [[ '${{ needs.setup.outputs.backend_change }}' == 'true' || '${{ needs.setup.outputs.smoke_test_change }}' == 'true' ]]; then
              echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest"]' >> $GITHUB_OUTPUT
           else
              echo 'matrix=[]' >> $GITHUB_OUTPUT
