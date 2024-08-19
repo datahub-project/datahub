@@ -97,7 +97,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error('Falha ao entrar.');
+                    message.error(t('authentification.failedToLogIn'));
                 })
                 .finally(() => setLoading(false));
         },

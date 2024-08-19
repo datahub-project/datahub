@@ -102,7 +102,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                     onClose();
                     notification.success({
                         message: `Success`,
-                        description: 'Successfully created ownership type.',
+                        description: t('crud.success.successfullyCreateWithName', { name: t('settings.ownershipType') }),
                         placement: 'bottomLeft',
                         duration: 3,
                     });
@@ -138,8 +138,8 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                     setDescription('');
                     onClose();
                     notification.success({
-                        message: `Successo`,
-                        description: 'Tipo de propriedade atualizado com sucesso.',
+                        message: `Success`,
+                        description: t('crud.success.updateWithName', { name: t('settings.ownershipType') }),
                         placement: 'bottomLeft',
                         duration: 3,
                     });

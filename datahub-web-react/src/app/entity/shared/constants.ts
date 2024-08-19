@@ -27,7 +27,6 @@ export const ANTD_GRAY_V2 = {
     8: '#5E666E',
     10: '#1B1E22',
 };
-// TODO: Ajustar para buscar do arquivo de traduções
 export const EMPTY_MESSAGES = {
 
     documentation: {

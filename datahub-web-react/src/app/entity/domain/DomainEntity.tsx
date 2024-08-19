@@ -20,13 +20,13 @@ import { useTranslation } from 'react-i18next';
  * Definition of the DataHub Domain entity.
  */
 export class DomainEntity implements Entity<Domain> {
-    
-    
+
+
 
     constructor(translationService: any) {
         this.translationService = translationService;
     }
-    
+
 
 
     translationService: any;
@@ -52,7 +52,7 @@ export class DomainEntity implements Entity<Domain> {
                 />
             );
         }
-        
+
 
 
 
@@ -76,7 +76,7 @@ export class DomainEntity implements Entity<Domain> {
 
     getPathName = () => 'domain';
 
-    getEntityName = () => this.translationService('common.domains');
+    getEntityName = () => this.translationService('common.domain');
 
     getCollectionName = () => this.translationService('common.domains');
 

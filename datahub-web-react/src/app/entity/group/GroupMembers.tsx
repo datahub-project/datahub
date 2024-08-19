@@ -9,7 +9,6 @@ import { CustomAvatar } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { AddGroupMembersModal } from './AddGroupMembersModal';
 import { scrollToTop } from '../../shared/searchUtils';
-import { t } from 'i18next';
 import { useTranslation } from 'react-i18next';
 const ADD_MEMBER_STYLE = {
     backGround: '#ffffff',

@@ -3,6 +3,7 @@ import { Button, Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { useTranslation } from 'react-i18next';
 
 const EmptyDomainContainer = styled.div`
     display: flex;
@@ -46,6 +47,7 @@ interface Props {
 }
 
 function EmptyDomainsSection(props: Props) {
+    const { t } = useTranslation();
     const { title, description, setIsCreatingDomain, icon } = props;
     return (
         <EmptyDomainContainer>
@@ -59,7 +61,7 @@ function EmptyDomainsSection(props: Props) {
                 }
             >
                 <StyledButton onClick={() => setIsCreatingDomain(true)}>
-                    <PlusOutlined /> Criar domínio
+                    <PlusOutlined /> {t('crud.createWithName', { name: t('common.domain')})}
                 </StyledButton>
             </StyledEmpty>
         </EmptyDomainContainer>

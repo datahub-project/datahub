@@ -3,8 +3,10 @@ import { UnionType } from '../../../search/utils/constants';
 import { EmbeddedListSearchSection } from '../../shared/components/styled/search/EmbeddedListSearchSection';
 
 import { useEntityData } from '../../shared/EntityContext';
+import { useTranslation } from 'react-i18next';
 
 export default function GlossaryRelatedEntity() {
+    const { t } = useTranslation();
     const { entityData } = useEntityData();
 
     const entityUrn = entityData?.urn;
@@ -45,7 +47,7 @@ export default function GlossaryRelatedEntity() {
                 filters: fixedOrFilters,
             }}
             emptySearchQuery="*"
-            placeholderText="Filtrar entidades..."
+            placeholderText={t('placeholder.filterWithName', { name: t('common.entities') })}
             skipCache
             applyView
         />

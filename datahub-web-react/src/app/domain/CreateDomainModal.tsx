@@ -54,7 +54,7 @@ type Props = {
     ) => void;
 };
 
-const SUGGESTED_DOMAIN_NAMES = ['Engenharia', 'Marketing', 'Vendas', 'Produtos'];
+const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
 
 const ID_FIELD_NAME = 'id';
 const NAME_FIELD_NAME = 'name';
@@ -104,7 +104,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Falha ao criar domínio!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.failedToCreateDomain')}: \n ${e.message || ''}`, duration: 3 });
             });
         onClose();
     };
@@ -186,7 +186,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 </FormItemWithMargin>
                 <FormItemWithMargin
                     label={<FormItemLabel>{t('common.description')}</FormItemLabel>}
-                    help="Você sempre pode alterar a descrição mais tarde."
+                    help={t('common.descriptionHelp')}
                 >
                     <FormItemNoMargin
                         name={DESCRIPTION_FIELD_NAME}
@@ -194,7 +194,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         hasFeedback
                     >
                         <Input.TextArea
-                            placeholder="Adicione a descrição para seu domínio"
+                            placeholder={t('placeholder.domainDescription')}
                             data-testid="create-domain-description"
                         />
                     </FormItemNoMargin>
@@ -213,7 +213,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                             if (value && validateCustomUrnId(value)) {
                                                 return Promise.resolve();
                                             }
-                                            return Promise.reject(new Error('Insira um ID de domínio válido'));
+                                            return Promise.reject(new Error(t('form.enterValidDomainId')));
                                         },
                                     }),
                                 ]}

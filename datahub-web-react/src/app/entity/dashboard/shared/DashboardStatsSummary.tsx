@@ -70,7 +70,7 @@ export const DashboardStatsSummary = ({
                         {createdMs && <div>{t('reporting.createdOnWithDate')} {toLocalDateTimeString(createdMs)}.</div>}
                         <div>
                         Alterado em {toLocalDateTimeString(lastUpdatedMs)}.{' '}
-                            <Tooltip title="A hora em que o painel foi alterado pela última vez na plataforma de origem">
+                            <Tooltip title={t('chart.lastChangedTimeInSource')}>
                                 <HelpIcon />
                             </Tooltip>
                         </div>

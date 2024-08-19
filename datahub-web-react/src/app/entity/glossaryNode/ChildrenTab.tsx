@@ -6,8 +6,10 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { sortGlossaryTerms } from '../glossaryTerm/utils';
 import { useEntityData } from '../shared/EntityContext';
 import { sortGlossaryNodes } from './utils';
+import { useTranslation } from 'react-i18next';
 
 function ChildrenTab() {
+    const { t } = useTranslation();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
 
@@ -33,7 +35,7 @@ function ChildrenTab() {
         );
     }
 
-    return <EmptyGlossarySection description="Sem termos ou grupos de termos" />;
+    return <EmptyGlossarySection description={t('term.noTermNorGroup')} />;
 }
 
 export default ChildrenTab;

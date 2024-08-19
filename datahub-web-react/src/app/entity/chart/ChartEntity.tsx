@@ -77,7 +77,7 @@ export class ChartEntity implements Entity<Chart> {
 
     getPathName = () => 'chart';
 
-    getEntityName = () => 'Gráficos';
+    getEntityName = () => this.translationService('common.charts');
 
     getCollectionName = () => this.translationService('common.charts');
 
@@ -167,7 +167,7 @@ export class ChartEntity implements Entity<Chart> {
                     component: PropertiesTab,
                 },
                 {
-                    name: 'Incident',
+                    name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, chart) => {
                         const activeIncidentCount = chart?.chart?.activeIncidents.total;

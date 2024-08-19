@@ -96,7 +96,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getPathName = () => 'dataset';
 
-    getEntityName = () => 'Conjuntos de dados';
+    getEntityName = () => this.translationService('common.dataset');
 
     getCollectionName = () => this.translationService('common.dataset');
 
@@ -214,7 +214,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: ' Access Management',
+                    name: 'Access Management',
                     component: AccessManagement,
                     display: {
                         visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,

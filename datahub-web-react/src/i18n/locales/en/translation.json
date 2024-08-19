@@ -110,6 +110,8 @@
     "onAContainedChart": "on a contained Chart"
   },
   "common": {
+    "here": "here",
+    "descriptionHelp": "You can always change the description later.",
     "default":"Default",
     "minHourDayMouthDayOfWeek":"minute, hour, day, month, day of week",
     "settingUpdated":"Setting Updated!",

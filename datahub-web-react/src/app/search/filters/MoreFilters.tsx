@@ -79,8 +79,6 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
         >
             <SearchFilterLabel data-testid="more-filters-dropdown" isActive={!!numActiveFilters}>
                 <StyledPlus />
-                {/* // TODO: Ajustar para buscar do arquivo de traduções */}
-
                 Mais filtros {numActiveFilters ? `(${numActiveFilters}) ` : ''}
             </SearchFilterLabel>
         </Dropdown>

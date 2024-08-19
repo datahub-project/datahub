@@ -67,7 +67,7 @@ export default function UpdatableDescription({
                     />
                     {showAddDescModal && (
                         <UpdateDescriptionModal
-                            title="Descrição da atualização"
+                            title={t('common.description')}
                             onClose={() => setShowAddDescModal(false)}
                             onSubmit={onSubmit}
                             original={originalDescription || ''}

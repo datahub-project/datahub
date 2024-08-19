@@ -158,7 +158,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
                         showSearch
                         mode="multiple"
                         defaultActiveFirstOption={false}
-                        placeholder="Filtrar por plataformas..."
+                        placeholder={t('placeholder.filterWithName', { name: t('common.platforms') })}
                         onSelect={(platformUrn: any) => onSelectPlatform(platformUrn)}
                         onDeselect={onDeselectPlatform}
                         onSearch={(value: string) => {

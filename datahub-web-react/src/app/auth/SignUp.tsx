@@ -98,7 +98,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Falha ao aceitar o convite: \n ${e.message || ''}`,
+                    content: `${t('authentification.failedToAcceptInvite')}: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
@@ -192,7 +192,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                         </StyledFormItem>
                         <StyledFormItem
                             rules={[
-                                { required: true, message: "Por favor, confirme sua senha" },
+                                { required: true, message: t('form.confirmYourPassword') },
                                 ({ getFieldValue }) => ({
                                     validator() {
                                         if (getFieldValue('confirmPassword') !== getFieldValue('password')) {

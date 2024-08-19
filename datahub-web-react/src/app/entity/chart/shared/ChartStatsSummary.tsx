@@ -70,7 +70,7 @@ export const ChartStatsSummary = ({
                         {createdMs && <div>Created on {toLocalDateTimeString(createdMs)}.</div>}
                         <div>
                             {t('reporting.createdOnWithDate')} {toLocalDateTimeString(lastUpdatedMs)}.{' '}
-                            <Tooltip title="A hora em que o gráfico foi alterado pela última vez na plataforma de origem">
+                            <Tooltip title={t('chart.lastChangedTimeInSource')}>
                                 <HelpIcon />
                             </Tooltip>
                         </div>

@@ -83,7 +83,7 @@ export const OwnershipList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Carregando tipos de propriedade..." />}
+            {!data && loading && <Message type="loading" content={t('common.loading')} />}
             {error &&
                 message.error({
                     content: t('error.errorSection.failedLoadTypePropriet'),

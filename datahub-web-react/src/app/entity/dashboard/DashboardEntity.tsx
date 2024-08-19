@@ -78,9 +78,9 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getAutoCompleteFieldName = () => 'title';
 
-    getPathName = () => 'Painéis';
+    getPathName = () => 'dashboard';
 
-    getEntityName = () => 'Painéis';
+    getEntityName = () => this.translationService('common.dashboard');
 
     getCollectionName = () => this.translationService('common.dashboards');
 
@@ -165,7 +165,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
                 {
-                    name: 'Propriedades',
+                    name: this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
                 {
@@ -173,7 +173,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     component: IncidentTab,
                     getDynamicName: (_, dashboard) => {
                         const activeIncidentCount = dashboard?.dashboard?.activeIncidents.total;
-                        return `Incidentes${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
             ]}
@@ -250,7 +250,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 snippet={
                     <MatchedFieldList
                         customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
-                        matchSuffix="em um gráfico contido"
+                        matchSuffix={this.translationService('chart.onAContainedChart')}
                     />
                 }
                 subtype={data.subTypes?.typeNames?.[0]}

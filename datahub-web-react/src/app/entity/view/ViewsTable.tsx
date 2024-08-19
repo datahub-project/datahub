@@ -54,7 +54,7 @@ export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
             dataSource={tableData}
             rowKey="urn"
             locale={{
-                emptyText: <Empty description="Nenhuma view encontrada!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                emptyText: <Empty description="No Views found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
             pagination={false}
         />

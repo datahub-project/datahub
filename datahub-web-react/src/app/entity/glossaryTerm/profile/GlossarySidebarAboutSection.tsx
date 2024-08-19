@@ -20,7 +20,7 @@ export default function GlossarySidebarAboutSection() {
 
     return (
         <div>
-            <SidebarHeader title="Sobre" />
+            <SidebarHeader title={t('common.about')} />
             {description && (
                 <DescriptionTypography>
                     <StripMarkdownText

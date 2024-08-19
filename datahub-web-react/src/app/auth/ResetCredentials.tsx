@@ -85,7 +85,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error('Falha ao entrar.');
+                    message.error(t('authentification.failedToLogIn'));
                 })
                 .finally(() => setLoading(false));
         },
@@ -106,7 +106,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                     {loading && <Message type="loading" content="Resetting credentials..." />}
                     <Form onFinish={handleResetCredentials} layout="vertical">
                         <StyledFormItem
-                            rules={[{ required: true, message: 'Por favor preencha seu e-mail' }]}
+                            rules={[{ required: true, message: t('form.fillInYourEmail') }]}
                             name="email"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
                             label={<label style={{ color: 'white' }}>{t('common.email')}</label>}
@@ -115,12 +115,12 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                         </StyledFormItem>
                         <StyledFormItem
                             rules={[
-                                { required: true, message: 'Por favor preencha sua senha' },
+                                { required: true, message: t('form.fillInYourPassword') },
                                 ({ getFieldValue }) => ({
                                     validator() {
                                         if (getFieldValue('password').length < 8) {
                                             return Promise.reject(
-                                                new Error('Sua senha tem menos de 8 caracteres'),
+                                                new Error(t('form.passwordIsFewerThan8Characters')),
                                             );
                                         }
                                         return Promise.resolve();
@@ -135,11 +135,11 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                         </StyledFormItem>
                         <StyledFormItem
                             rules={[
-                                { required: true, message: `{t('form.pleaseConfirmYourPassword')} `},
+                                { required: true, message: t('form.pleaseConfirmYourPassword')},
                                 ({ getFieldValue }) => ({
                                     validator() {
                                         if (getFieldValue('confirmPassword') !== getFieldValue('password')) {
-                                            return Promise.reject(new Error('Suas senhas não coincidem'));
+                                            return Promise.reject(new Error(t('form.passwordsDoNotMatch')));
                                         }
                                         return Promise.resolve();
                                     },

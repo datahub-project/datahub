@@ -220,7 +220,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             showSearch
                             mode="multiple"
                             defaultActiveFirstOption={false}
-                            placeholder="Buscar por dominios..."
+                            placeholder={t('placeholder.searchWithName', { name: t('common.domains') })}
                             onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                             onDeselect={onDeselectDomain}
                             onSearch={(value: string) => {
@@ -237,7 +237,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
                             notFoundContent={
                                 <Empty
-                                    description="Nenhum domínio encontrado"
+                                    description={t('domain.noDomain')}
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                                     style={{ color: ANTD_GRAY[7] }}
                                 />

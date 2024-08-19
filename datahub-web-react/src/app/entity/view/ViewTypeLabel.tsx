@@ -34,11 +34,11 @@ export const ViewTypeLabel = ({ type, color }: Props) => {
     const copy =
         type === DataHubViewType.Personal ? (
             <>
-                <b>Privado</b> - visível apenas para você.
+                <b>Private</b> - only visible to you.
             </>
         ) : (
             <>
-               <b>Público</b> - visível para todos.
+               <b>Public</b> - visible to everyone.
             </>
         );
     const Icon = type === DataHubViewType.Global ? StyledGlobalOutlined : StyledLockOutlined;

@@ -17,7 +17,7 @@ export type Props = {
 
 export default function LatestStatsView({ profile, toggleView }: Props) {
     const { t } = useTranslation();
-    
+
     const reportedAtDate = new Date(profile.timestampMillis);
     return (
         <>
@@ -26,7 +26,7 @@ export default function LatestStatsView({ profile, toggleView }: Props) {
                     <div>
                         <Typography.Title level={2}>{t('reporting.latestStats')}</Typography.Title>
                         <Typography.Text style={{ color: 'gray' }}>
-                        Relatado em {reportedAtDate.toLocaleDateString()} no {reportedAtDate.toLocaleTimeString()}
+                        {t('reporting.reportedOnAtWithDateTime', { date: reportedAtDate.toLocaleDateString(), time: reportedAtDate.toLocaleTimeString() })}
                         </Typography.Text>
                     </div>
                     {toggleView}

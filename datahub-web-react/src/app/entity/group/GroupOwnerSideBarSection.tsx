@@ -36,7 +36,7 @@ export default function GroupOwnerSideBarSection({ urn, ownership, refetch }: Pr
                         <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
                     ))}
                 {ownersEmpty && (
-                    <Typography.Paragraph type="secondary">Nenhum proprietário de grupo foi adicionado ainda.</Typography.Paragraph>
+                    <Typography.Paragraph type="secondary">{t('group.noGroupOwnersAdded')}</Typography.Paragraph>
                 )}
                 {ownersEmpty && (
                     <AddOwnerButton onClick={() => setShowAddModal(true)}>

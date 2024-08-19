@@ -43,7 +43,7 @@ export function DomainNameColumn(logoIcon: JSX.Element) {
                 <DomainNameContainer>
                     <Typography.Text>{record.name}</Typography.Text>
                 </DomainNameContainer>
-                <Tooltip title={`Existem ${record.entities} entidades neste domínio.`}>
+                <Tooltip title={t('domain.nbrOfEntityInDomain', { value: record.entities })}>
                     <Tag>{record.entities} {t('common.entities')} </Tag>
                 </Tooltip>
             </Link>

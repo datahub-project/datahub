@@ -24,8 +24,8 @@ export default function RootDomains({ setIsCreatingDomain }: Props) {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content= {t('common.loadingDomains')} />}
-            {error && <Message type="error" content="Falha ao carregar domínios. Um erro inesperado ocorreu." />}
+            {!data && loading && <Message type="loading" content={t('common.loadingDomains')} />}
+            {error && <Message type="error" content={t('crud.error.failedToCreateDomain')} />}
             {!loading && (!data || !data?.listDomains?.domains?.length) && (
                 <EmptyDomainsSection
                     icon={<ReadOutlined />}

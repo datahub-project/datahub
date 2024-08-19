@@ -77,7 +77,7 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
                 <div>
                     <Traits>
                         <Skills>
-                            <Typography.Title level={5}>Pergunte-me sobre</Typography.Title>
+                            <Typography.Title level={5}>Ask me about</Typography.Title>
                             <Space>
                                 {skills?.map((skill) => (
                                     <Badge style={{ backgroundColor: '#108ee9' }} count={skill} key={skill} />
@@ -85,7 +85,7 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
                             </Space>
                         </Skills>
                         <div>
-                            <Typography.Title level={5}>Equipes</Typography.Title>
+                            <Typography.Title level={5}>Teams</Typography.Title>
                             <Space>
                                 {teams?.map((team) => (
                                     <Badge style={{ backgroundColor: '#87d068' }} count={team} key={team} />

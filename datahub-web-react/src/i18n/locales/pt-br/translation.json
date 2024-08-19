@@ -111,6 +111,8 @@
     "onAContainedChart": "em um Gráfico contido"
   },
   "common": {
+    "here": "aqui",
+    "descriptionHelp": "Você sempre pode alterar a descrição mais tarde.",
     "database": "Banco de Dados",
     "default":"Padrão",
     "minHourDayMouthDayOfWeek":"minuto, hora, dia, mês, dia da semana",
@@ -511,7 +513,7 @@
 
       "failedCreateDataProduct":"Falha ao criar produto de dados:",
       "updateFailed":"Falha na atualização",
-      "failedToCreateDomain":"Falha ao criar domínmio",
+      "failedToCreateDomain":"Falha ao criar domínio",
       "failedToAddRecurseDomain":"Falha ao adicionar recursos ao domínio",
       "failedToAddGlossary":"Falha ao adicionar o termo do glossário",
       "failedToAddAssetsDomain":"Falha ao adicionar ativos ao domínio",
@@ -1880,8 +1882,7 @@
     "removeRoleSuccess": "Função removida do usuário {{username}}!",
     "removeRoleTitle": "Você gostaria de remover a função existente de {{username}}?"
   },
-  "message":
-  {
+  "message": {
     "noDocumentationYet": "Ainda não há documentação",
     "shareKnowledgeByAddingDocumentation": "Compartilhe seu conhecimento adicionando documentação e links para recursos úteis.",
     "noTagsAddedYet": "Nenhuma tag adicionada ainda",

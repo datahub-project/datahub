@@ -82,11 +82,11 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
-                    name: 'Tabelas de recursos',
+                    name: 'Feature Tables',
                     component: FeatureTableTab,
                 },
                 {
-                    name: 'Documentação',
+                    name: 'Documentation',
                     component: DocumentationTab,
                 },
                 {

@@ -5,6 +5,7 @@ import useListDomains from '../../useListDomains';
 import DomainNode from './DomainNode';
 import { Domain } from '../../../../types.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { useTranslation } from 'react-i18next';
 
 const NavigatorWrapper = styled.div`
     font-size: 14px;
@@ -19,15 +20,16 @@ interface Props {
 }
 
 export default function DomainNavigator({ domainUrnToHide, selectDomainOverride }: Props) {
+    const { t } = useTranslation();
     const { sortedDomains, error } = useListDomains({});
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
 
     return (
         <NavigatorWrapper>
-            {error && <Alert message="Falha ao carregar domínios." showIcon type="error" />}
+            {error && <Alert message={t('crud.error.failedToCreateDomain')} showIcon type="error" />}
             {noDomainsFound && (
                 <Empty
-                    description="Nenhum domínio encontrado"
+                    description={t('domain.noDomain')}
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                     style={{ color: ANTD_GRAY[7] }}
                 />

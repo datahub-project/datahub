@@ -2,8 +2,10 @@ import React from 'react';
 import { useEntityData } from '../shared/EntityContext';
 import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
 import { UnionType } from '../../search/utils/constants';
+import { useTranslation } from 'react-i18next';
 
 export const ContainerEntitiesTab = () => {
+    const { t } = useTranslation();
     const { urn } = useEntityData();
 
     const fixedFilter = {
@@ -18,7 +20,7 @@ export const ContainerEntitiesTab = () => {
                 filters: [fixedFilter],
             }}
             emptySearchQuery="*"
-            placeholderText="Filtrar entidades de contêiner..."
+            placeholderText={t('placeholder.filterWithName', { name: t('common.containers') })}
             applyView
         />
     );

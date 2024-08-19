@@ -56,7 +56,7 @@ function GlossarySearch() {
 
     const renderSearchResults = () => (
         <ResultsWrapper>
-            <TermNodeName>Termos de Glossário</TermNodeName>
+            <TermNodeName>{t('common.glossaryTerms')}</TermNodeName>
             {searchResults?.map((result) => (
                 <GloassarySearchResultItem
                     key={result.entity.urn}

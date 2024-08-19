@@ -162,7 +162,7 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
                         showSearch
                         mode="multiple"
                         defaultActiveFirstOption={false}
-                        placeholder="Pesquisar contêineres..."
+                        placeholder={t('placeholder.searchWithName', { name: t('common.containers') })}
                         onSelect={(containerUrn: any) => onSelectContainer(containerUrn)}
                         onDeselect={onDeselectContainer}
                         onSearch={(value: string) => {

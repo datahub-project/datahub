@@ -15,6 +15,7 @@ import { ANTD_GRAY } from '../../shared/constants';
 import { useEntityData } from '../../shared/EntityContext';
 import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { scrollToTop } from '../../../shared/searchUtils';
+import { useTranslation } from 'react-i18next';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -114,6 +115,7 @@ const columns = [
 const PAGE_SIZE = 20;
 
 export const RunsTab = () => {
+    const { t } = useTranslation();
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
 
@@ -137,7 +139,7 @@ export const RunsTab = () => {
         return (
             <LoadingContainer>
                 <LoadingSvg height={80} width={80} />
-                <LoadingText>Buscando execuções...</LoadingText>
+                <LoadingText>{t('operation.fetchingRuns')}</LoadingText>
             </LoadingContainer>
         );
     }

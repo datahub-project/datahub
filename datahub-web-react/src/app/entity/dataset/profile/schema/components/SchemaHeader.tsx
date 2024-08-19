@@ -243,7 +243,7 @@ export default function SchemaHeader({
                     {!showRaw && (
                         <StyledInput
                             defaultValue={schemaFilter}
-                            placeholder="Pesquise no esquema..."
+                            placeholder={t('placeholder.searchWithName', { name: t('common.schema') })}
                             onChange={debouncedSetFilterText}
                             allowClear
                             prefix={<SearchOutlined />}
@@ -286,7 +286,7 @@ export default function SchemaHeader({
                                         {t('dataset.linkToTechnicalSchema_component')}
                                         <a target="_blank" rel="noreferrer noopener" href={docLink}>
                                             {' '}
-                                            aqui.{' '}
+                                            {t('common.here')}.{' '}
                                         </a>
                                     </div>
                                 }

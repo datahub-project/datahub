@@ -103,7 +103,7 @@ export const DomainsList = () => {
             ),
         },
         {
-            title: 'Proprietários',
+            title: t('common.owners'),
             dataIndex: 'ownership',
             width: '10%',
             key: 'ownership',
@@ -136,7 +136,7 @@ export const DomainsList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content= {t('common.loadingDomains')} />}
-            {error && <Message type="error" content="Falha ao carregar domínios! Um erro inesperado ocorreu." />}
+            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.domains') })} />}
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>
                 <TabToolbar>
@@ -145,7 +145,7 @@ export const DomainsList = () => {
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Pesquisar domínios..."
+                        placeholderText={t('placeholder.searchWithName', { name: t('common.domains') })}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -166,7 +166,7 @@ export const DomainsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     pagination={false}
-                    locale={{ emptyText: <Empty description="Sem domínios!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                    locale={{ emptyText: <Empty description={t('domain.noDomain')} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>
