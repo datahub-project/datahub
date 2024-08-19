@@ -28,6 +28,7 @@ import { useEntityContext } from '../../../EntityContext';
 import { EntityActionProps } from './EntitySearchResults';
 import { useUserContext } from '../../../../../context/useUserContext';
 import analytics, { EventType } from '../../../../../analytics';
+import useSortInput from '../../../../../search/sorting/useSortInput';
 
 const Container = styled.div`
     display: flex;
@@ -154,6 +155,7 @@ export const EmbeddedListSearch = ({
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+    const sortInput = useSortInput();
 
     // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
     // download the correct results given the current context.
@@ -182,6 +184,7 @@ export const EmbeddedListSearch = ({
         count: numResultsPerPage,
         orFilters: finalFilters,
         viewUrn: applyView ? selectedViewUrn : undefined,
+        sortInput,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };
