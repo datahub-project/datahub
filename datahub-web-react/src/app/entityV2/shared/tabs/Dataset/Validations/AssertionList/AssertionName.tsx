@@ -40,6 +40,11 @@ const AssertionDescriptionContainer = styled.div`
     align-items: center;
 `;
 
+const StyledAssertionBadgeContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
 const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
 const SMART_ASSERTION_STALE_IN_DAYS = 3;
@@ -91,7 +96,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                 </Result>
             </AssertionResultPopover>
             <AssertionDescriptionContainer>
-                <Typography.Paragraph>{name}</Typography.Paragraph>
+                <Typography.Paragraph style={{marginBottom: 0}}>{name}</Typography.Paragraph>
                 {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
                     <AssertionPlatformWrapper>
                         <AssertionPlatformAvatar
@@ -114,20 +119,22 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                         <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
                     </Tooltip>
                 ) : null}
-                {isSmartAssertion && (
-                    <InferredAssertionPopover>
-                        <InferredAssertionBadge />
-                    </InferredAssertionPopover>
-                )}
-                {(isPartOfContract && entityData?.urn && (
-                    <DataContractBadge
-                        link={`${entityRegistry.getEntityUrl(
-                            EntityType.Dataset,
-                            entityData.urn,
-                        )}/Quality/Data Contract`}
-                    />
-                )) ||
-                    undefined}
+                <StyledAssertionBadgeContainer>
+                    {isSmartAssertion && (
+                        <InferredAssertionPopover>
+                            <InferredAssertionBadge />
+                        </InferredAssertionPopover>
+                    )}
+                    {(isPartOfContract && entityData?.urn && (
+                        <DataContractBadge
+                            link={`${entityRegistry.getEntityUrl(
+                                EntityType.Dataset,
+                                entityData.urn,
+                            )}/Quality/Data Contract`}
+                        />
+                    )) ||
+                        undefined}
+                </StyledAssertionBadgeContainer>
             </AssertionDescriptionContainer>
         </StyledAssertionNameContainer>
     );

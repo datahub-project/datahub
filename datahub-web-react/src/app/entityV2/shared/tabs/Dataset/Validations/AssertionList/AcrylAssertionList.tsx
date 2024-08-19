@@ -14,6 +14,7 @@ import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '
 import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
 import { AssertionTableType, IFilter } from './types';
 import { AssertionListTitleContainer } from './AssertionListTitleContainer';
+import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -109,6 +110,7 @@ export const AcrylAssertionList = () => {
                 privileges={privileges as EntityPrivileges}
                 setShowAssertionBuilder={setShowAssertionBuilder}
             />
+             <AcrylAssertionListFilters />
             {renderListTable()}
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer

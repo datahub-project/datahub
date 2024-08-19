@@ -1,0 +1,119 @@
+import { SearchOutlined } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { pluralize } from '@src/app/shared/textUtil';
+import { Input } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+const StyledInput = styled(Input)`
+    max-width: 300px;
+    background: ${REDESIGN_COLORS.LIGHT_GREY};
+    margin-top: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 24px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
+`;
+
+const MatchLabelText = styled.span`
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 700;
+    color: ${REDESIGN_COLORS.DARK_GREY};
+    padding-left: 10px;
+    margin-top: 5px;
+`;
+
+const SearchContainer = styled.div`
+    max-width: 300px;
+    padding: 10px;
+    --antd-wave-shadow-color: transparent;
+    flex: auto;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+
+    .ant-input-group-wrapper {
+        border-radius: 20px;
+        border: 1px solid ${REDESIGN_COLORS.GREY};
+        background: #f3f5fa;
+    }
+
+    .ant-input-group-wrapper {
+        background-color: #ffffff00 !important;
+    }
+
+    .ant-input-wrapper {
+        background-color: #ffffff00 !important;
+    }
+
+    .ant-input {
+        border-radius: 0;
+    }
+
+    .ant-input-affix-wrapper {
+        border-radius: 20px;
+        border: none;
+    }
+
+    .ant-input-group-addon {
+        border: none;
+        background-color: #ffffff00 !important;
+        left: 2px;
+    }
+
+    .ant-input-affix-wrapper:focus {
+        border: none;
+    }
+
+    .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
+        border: none;
+    }
+
+    .ant-input-affix-wrapper::selection {
+        background: transparent;
+    }
+`;
+
+interface AcrylAssertionListSearchProps {
+    assertionFilter: string;
+    debouncedSetFilterText: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    matches: string[];
+    highlightedMatchIndex: number | null;
+    setHighlightedMatchIndex: (val: number | null) => void;
+    numRows: number;
+}
+
+const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
+    assertionFilter,
+    debouncedSetFilterText,
+    matches,
+    highlightedMatchIndex,
+    setHighlightedMatchIndex,
+    numRows,
+}) => {
+    return (
+        <SearchContainer>
+            <StyledInput
+                bordered={false}
+                defaultValue={assertionFilter}
+                placeholder="Search"
+                onChange={debouncedSetFilterText}
+                allowClear
+                prefix={<SearchOutlined />}
+                onKeyDown={(e) => {
+                    if (e.code === 'Enter' && highlightedMatchIndex !== null && matches.length > 0) {
+                        setHighlightedMatchIndex((highlightedMatchIndex + 1) % matches.length);
+                    }
+                }}
+            />
+            {assertionFilter.length > 0 && (
+                <MatchLabelText>
+                    Matched {matches.length} {pluralize(matches.length, 'assertion')} of {numRows}
+                </MatchLabelText>
+            )}
+        </SearchContainer>
+    );
+};
+
+export default AcrylAssertionListSearch;
