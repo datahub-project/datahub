@@ -201,12 +201,6 @@ module.exports = {
           className: "saasOnly",
         },
         {
-          label: "Subscriptions & Notifications",
-          type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
-          className: "saasOnly",
-        },
-        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
@@ -1244,7 +1238,7 @@ module.exports = {
     },
     {
       type: "category",
-      link: { type: "doc", id: "docs/api/datahub-apis" },
+      link: { type: "doc", id: "docs/managed-datahub/api/datahub-apis" },
       label: "API",
       items: [
         {
@@ -1252,7 +1246,7 @@ module.exports = {
             {
               label: "Overview",
               type: "doc",
-              id: "docs/api/graphql/overview",
+              id: "docs/managed-datahub/api/graphql/overview",
             },
             {
               type: "doc",
@@ -1308,17 +1302,17 @@ module.exports = {
                 {
                   type: "doc",
                   label: "How To Set Up GraphQL",
-                  id: "docs/api/graphql/how-to-set-up-graphql",
+                  id: "docs/managed-datahub/api/graphql/how-to-set-up-graphql",
                 },
                 {
                   type: "doc",
                   label: "Getting Started With GraphQL",
-                  id: "docs/api/graphql/getting-started",
+                  id: "docs/managed-datahub/api/graphql/getting-started",
                 },
                 {
                   type: "doc",
                   label: "Access Token Management",
-                  id: "docs/api/graphql/token-management",
+                  id: "docs/managed-datahub/api/graphql/token-management",
                 },
               ],
             },
@@ -1329,7 +1323,7 @@ module.exports = {
             {
               type: "doc",
               label: "OpenAPI",
-              id: "docs/api/openapi/openapi-usage-guide",
+              id: "docs/managed-datahub/api/openapi/openapi-usage-guide",
             },
           ],
         },
@@ -1338,43 +1332,43 @@ module.exports = {
           id: "docs/managed-datahub/datahub-api/entity-events-api",
           className: "saasOnly",
         },
-        "docs/dev-guides/timeline",
+        "docs/managed-datahub/dev-guides/timeline",
         {
           "Rest.li API": [
             {
               type: "doc",
               label: "Rest.li API Guide",
-              id: "docs/api/restli/restli-overview",
+              id: "docs/managed-datahub/api/restli/restli-overview",
             },
             {
               type: "doc",
               label: "Restore Indices",
-              id: "docs/api/restli/restore-indices",
+              id: "docs/managed-datahub/api/restli/restore-indices",
             },
             {
               type: "doc",
               label: "Get Index Sizes",
-              id: "docs/api/restli/get-index-sizes",
+              id: "docs/managed-datahub/api/restli/get-index-sizes",
             },
             {
               type: "doc",
               label: "Truncate Timeseries Aspect",
-              id: "docs/api/restli/truncate-time-series-aspect",
+              id: "docs/managed-datahub/api/restli/truncate-time-series-aspect",
             },
             {
               type: "doc",
               label: "Get ElasticSearch Task Status Endpoint",
-              id: "docs/api/restli/get-elastic-task-status",
+              id: "docs/managed-datahub/api/restli/get-elastic-task-status",
             },
             {
               type: "doc",
               label: "Evaluate Tests",
-              id: "docs/api/restli/evaluate-tests",
+              id: "docs/managed-datahub/api/restli/evaluate-tests",
             },
             {
               type: "doc",
               label: "Aspect Versioning and Rest.li Modeling",
-              id: "docs/advanced/aspect-versioning",
+              id: "docs/managed-datahub/advanced/aspect-versioning",
             },
           ],
         },
@@ -1386,7 +1380,7 @@ module.exports = {
       items: [
         {
           "Python SDK": [
-            "metadata-ingestion/as-a-library",
+            "docs/managed-datahub/metadata-ingestion/as-a-library",
             {
               "Python SDK Reference": [
                 {
@@ -1400,7 +1394,7 @@ module.exports = {
         {
           type: "doc",
           label: "Java SDK",
-          id: "metadata-integration/java/as-a-library",
+          id: "docs/managed-datahub/metadata-integration/java/as-a-library",
         },
       ],
     },
@@ -1408,67 +1402,66 @@ module.exports = {
       type: "category",
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
-      items: ["docs/datahub_lite"],
+      items: ["docs/managed-datahub/datahub_lite"],
     },
     {
       type: "category",
       label: "Datahub Actions",
-      link: { type: "doc", id: "docs/act-on-metadata" },
+      link: { type: "doc", id: "docs/managed-datahub/act-on-metadata" },
       items: [
-        "docs/actions/README",
-        "docs/actions/quickstart",
-        "docs/actions/concepts",
+        "docs/managed-datahub/actions/README",
+        "docs/managed-datahub/actions/quickstart",
+        "docs/managed-datahub/actions/concepts",
         {
           Sources: [
-            {
-              type: "autogenerated",
-              dirName: "docs/actions/sources",
-            },
+            "docs/managed-datahub/actions/sources/kafka-event-source",
           ],
         },
         {
           Events: [
-            {
-              type: "autogenerated",
-              dirName: "docs/actions/events",
-            },
+            "docs/managed-datahub/actions/events/entity-change-event",
+            "docs/managed-datahub/actions/events/metadata-change-log-event",
           ],
         },
         {
           Actions: [
-            {
-              type: "autogenerated",
-              dirName: "docs/actions/actions",
-            },
+            "docs/managed-datahub/actions/actions/executor",
+            "docs/managed-datahub/actions/actions/hello_world",
+            "docs/managed-datahub/actions/actions/slack",
+            "docs/managed-datahub/actions/actions/teams",
           ],
         },
         {
           Guides: [
-            {
-              type: "autogenerated",
-              dirName: "docs/actions/guides",
-            },
+            "docs/managed-datahub/actions/guides/developing-a-transformer",
+            "docs/managed-datahub/actions/guides/developing-an-action",
           ],
         },
       ],
     },
     {
       Guides: [
-        "docs/api/tutorials/custom-properties",
-        "docs/api/tutorials/datasets",
-        "docs/api/tutorials/deprecation",
-        "docs/api/tutorials/descriptions",
-        "docs/api/tutorials/domains",
-        "docs/api/tutorials/forms",
-        "docs/api/tutorials/lineage",
-        "docs/api/tutorials/ml",
-        "docs/api/tutorials/owners",
-        "docs/api/tutorials/structured-properties",
-        "docs/api/tutorials/tags",
-        "docs/api/tutorials/terms",
+        "docs/managed-datahub/api/tutorials/custom-properties",
+        "docs/managed-datahub/api/tutorials/datasets",
+        "docs/managed-datahub/api/tutorials/deprecation",
+        "docs/managed-datahub/api/tutorials/descriptions",
+        "docs/managed-datahub/api/tutorials/custom-properties",
+        "docs/managed-datahub/api/tutorials/assertions",
+        "docs/managed-datahub/api/tutorials/custom-assertions",
+        "docs/managed-datahub/api/tutorials/incidents",
+        "docs/managed-datahub/api/tutorials/operations",
+        "docs/managed-datahub/api/tutorials/data-contracts",
+        "docs/managed-datahub/api/tutorials/domains",
+        "docs/managed-datahub/api/tutorials/forms",
+        "docs/managed-datahub/api/tutorials/lineage",
+        "docs/managed-datahub/api/tutorials/ml",
+        "docs/managed-datahub/api/tutorials/owners",
+        "docs/managed-datahub/api/tutorials/structured-properties",
+        "docs/managed-datahub/api/tutorials/tags",
+        "docs/managed-datahub/api/tutorials/terms",
         {
           type: "doc",
-          id: "docs/advanced/patch",
+          id: "docs/managed-datahub/advanced/patch",
           label: "Patch",
         },
       ],
