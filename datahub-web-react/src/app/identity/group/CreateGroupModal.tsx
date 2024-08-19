@@ -8,7 +8,7 @@ import analytics, { EventType } from '../../analytics';
 import { CorpGroup, EntityType } from '../../../types.generated';
 import { Editor as MarkdownEditor } from '../../entity/shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     onClose: () => void;
     onCreate: (group: CorpGroup) => void;
@@ -24,6 +24,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [createGroupMutation] = useCreateGroupMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
+    const { t } = useTranslation();
     const [form] = Form.useForm();
 
     // Reference to the styled editor for handling focus
@@ -66,7 +67,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 })
                 .catch((e) => {
                     message.destroy();
-                    message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `Falha ao criar grupo!: \n ${e.message || ''}`, duration: 3 });
                 })
                 .finally(() => {
                     setStagedName('');
@@ -94,10 +95,10 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button id="createGroupButton" onClick={onCreateGroup} disabled={createButtonEnabled}>
-                        Create
+                    {t('common.create')}
                     </Button>
                 </>
             }
@@ -110,8 +111,8 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
-                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
-                    <Typography.Paragraph>Give your new group a name.</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{t('common.name')}</Typography.Text>}>
+                    <Typography.Paragraph>Dê um nome ao seu novo grupo.</Typography.Paragraph>
                     <Form.Item
                         name="name"
                         rules={[
@@ -131,8 +132,8 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
-                    <Typography.Paragraph>An optional description for your new group.</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{t('common.description')}</Typography.Text>}>
+                    <Typography.Paragraph>Uma descrição opcional para seu novo grupo.</Typography.Paragraph>
                     <Form.Item name="description" rules={[{ whitespace: true }]} hasFeedback>
                         {/* Styled editor for the group description */}
                         <div ref={styledEditorRef}>
@@ -141,13 +142,13 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     </Form.Item>
                 </Form.Item>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                    <Collapse.Panel header={<Typography.Text type="secondary">Avançado</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Group Id</Typography.Text>}>
                             <Typography.Paragraph>
-                                By default, a random UUID will be generated to uniquely identify this group. If
-                                you&apos;d like to provide a custom id instead to more easily keep track of this group,
-                                you may provide it here. Be careful, you cannot easily change the group id after
-                                creation.
+                            Por padrão, um UUID aleatório será gerado para identificar exclusivamente este grupo. Se
+                                você gostaria de fornecer um ID personalizado para acompanhar esse grupo com mais facilidade,
+                                você pode fornecê-lo aqui. Tenha cuidado, você não pode alterar facilmente o ID do grupo depois
+                                criação.
                             </Typography.Paragraph>
                             <Form.Item
                                 name="groupId"

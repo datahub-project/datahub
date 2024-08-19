@@ -15,8 +15,8 @@ export const SetGlobalDefaultItem = ({ key, onClick }: Props) => {
     return (
         <Menu.Item key={key} onClick={onClick} data-testid="view-dropdown-set-global-default">
             <IconItemTitle
-                tip="Make this View your organization's default. All new users will have this View applied automatically."
-                title="Make organization default"
+                tip="Torne esta View o padrão da sua organização. Todos os novos usuários terão esta Visualização aplicada automaticamente."
+                title="Tornar a organização padrão"
                 icon={<GlobalDefaultViewIcon />}
             />
         </Menu.Item>

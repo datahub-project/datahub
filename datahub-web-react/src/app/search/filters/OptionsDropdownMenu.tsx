@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { SearchBar } from '../SearchBar';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-
+import { useTranslation } from 'react-i18next';
 const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;
@@ -65,8 +65,10 @@ export default function OptionsDropdownMenu({
     style,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
 
     useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
+
 
     return (
         <DropdownMenu data-testid="filter-dropdown" style={style}>
@@ -97,7 +99,7 @@ export default function OptionsDropdownMenu({
                 )}
             </ScrollableContent>
             <StyledButton id="updateFiltersButton" type="text" onClick={updateFilters} data-testid="update-filters">
-                Update
+                {t('crud.update')}
             </StyledButton>
         </DropdownMenu>
     );

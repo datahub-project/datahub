@@ -10,7 +10,7 @@ import { getFixedLookbackWindow, TimeWindowSize } from '../../../../../shared/ti
 import ProfilingRunsChart from './charts/ProfilingRunsChart';
 import StatsSection from '../StatsSection';
 import StatChart from './charts/StatChart';
-
+import { useTranslation } from 'react-i18next';
 const HeaderRow = styled(Row)`
     padding-top: 24px;
     padding-bottom: 28px;
@@ -122,6 +122,7 @@ export type Props = {
 };
 
 export default function HistoricalStatsView({ urn, toggleView }: Props) {
+    const { t } = useTranslation();
     const [getDataProfiles, { data: profilesData, loading: profilesLoading }] = useGetDataProfilesLazyQuery({
         fetchPolicy: 'cache-first',
     });
@@ -179,7 +180,7 @@ export default function HistoricalStatsView({ urn, toggleView }: Props) {
 
     const columnSelectView = (
         <span>
-            <SubHeaderText>Viewing stats for column</SubHeaderText>
+            <SubHeaderText>{t('reporting.viewingStatsForColumn')}</SubHeaderText>
             <EmbeddedSelect style={{ width: 200 }} value={selectedFieldPath} onChange={onChangeSelectedFieldPath}>
                 {allFieldPaths.map((fieldPath) => (
                     <Select.Option value={fieldPath}>{fieldPath}</Select.Option>
@@ -224,9 +225,9 @@ export default function HistoricalStatsView({ urn, toggleView }: Props) {
             <Affix offsetTop={127}>
                 <HeaderRow justify="space-between" align="middle">
                     <div>
-                        <Typography.Title level={2}>Profiling History</Typography.Title>
+                        <Typography.Title level={2}>{t('reporting.profilingHistory')}</Typography.Title>
                         <span>
-                            <SubHeaderText>Viewing profiling history for the past</SubHeaderText>
+                            <SubHeaderText>{t('reporting.viewingProfilingHistoryForThePast')}</SubHeaderText>
                             <EmbeddedSelect value={selectedLookbackWindow} onChange={onChangeSelectedLookbackWindow}>
                                 {LOOKBACK_WINDOWS.map((lookbackWindow) => (
                                     <Select.Option value={lookbackWindow.text}>{lookbackWindow.text}</Select.Option>

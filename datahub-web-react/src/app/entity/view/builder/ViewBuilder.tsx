@@ -11,7 +11,7 @@ import { ViewBuilderMode } from './types';
 import analytics, { EventType } from '../../../analytics';
 import { DataHubView } from '../../../../types.generated';
 import { useSearchVersion } from '../../../search/useSearchAndBrowseVersion';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     mode: ViewBuilderMode;
     urn?: string | null; // When editing an existing view, this is provided.
@@ -24,6 +24,7 @@ type Props = {
  * This component handles creating and editing DataHub Views.
  */
 export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation();
     const searchVersion = useSearchVersion();
     const userContext = useUserContext();
 
@@ -113,7 +114,7 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
             .catch((_) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to save View! An unexpected error occurred.`,
+                    content: t('crud.error.addWithName'),
                     duration: 3,
                 });
             });

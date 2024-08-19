@@ -12,14 +12,14 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    You can view the <strong>Lineage Graph</strong> for an entity on this page.
+                Você pode visualizar o <strong>Gráfico de Linhagem</strong> de uma entidade nesta página.
                 </p>
                 <p>
-                    Data <strong>Lineage</strong> allows you to visualize and understand both the upstream dependencies
-                    and downstream consumers of this entity.
+                A <strong>Lineage</strong> de dados permite visualizar e compreender as dependências upstream
+                    e consumidores a jusante desta entidade.
                 </p>
                 <p>
-                    Learn more about <strong>Lineage</strong>{' '}
+                    Saiba mais sobre <strong>Linhagem</strong>{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
@@ -38,9 +38,9 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    You can click which dates you would like to see lineage edges for on this graph. By default, the
-                    graph will show edges observed in the last 14 days. Note that manual lineage edges and edges without
-                    time information will always be shown.
+                Você pode clicar em quais datas deseja ver as bordas da linhagem neste gráfico. Por padrão, o
+                    O gráfico mostrará as bordas observadas nos últimos 14 dias. Observe que as arestas de linhagem manual e as arestas sem
+                    as informações de horário sempre serão mostradas.
                 </p>
             </Typography.Paragraph>
         ),

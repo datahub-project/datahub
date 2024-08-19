@@ -24,10 +24,10 @@ export default function DomainNavigator({ domainUrnToHide, selectDomainOverride 
 
     return (
         <NavigatorWrapper>
-            {error && <Alert message="Loading Domains failed." showIcon type="error" />}
+            {error && <Alert message="Falha ao carregar domínios." showIcon type="error" />}
             {noDomainsFound && (
                 <Empty
-                    description="No Domains Found"
+                    description="Nenhum domínio encontrado"
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                     style={{ color: ANTD_GRAY[7] }}
                 />

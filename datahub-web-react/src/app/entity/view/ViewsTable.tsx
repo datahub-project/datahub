@@ -3,7 +3,7 @@ import { Empty } from 'antd';
 import { StyledTable } from '../shared/components/styled/StyledTable';
 import { ActionsColumn, DescriptionColumn, NameColumn, ViewTypeColumn } from './select/ViewsTableColumns';
 import { DataHubView } from '../../../types.generated';
-
+import { useTranslation } from 'react-i18next';
 type ViewsTableProps = {
     views: DataHubView[];
     onEditView: (urn) => void;
@@ -13,21 +13,22 @@ type ViewsTableProps = {
  * This component renders a table of Views.
  */
 export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
+    const { t } = useTranslation();
     const tableColumns = [
         {
-            title: 'Name',
+            title: t('common.name'),
             dataIndex: 'name',
             key: 'name',
             render: (name, record) => <NameColumn name={name} record={record} onEditView={onEditView} />,
         },
         {
-            title: 'Description',
+            title: t('common.description'),
             dataIndex: 'description',
             key: 'description',
             render: (description) => <DescriptionColumn description={description} />,
         },
         {
-            title: 'Type',
+            title: t('common.type'),
             dataIndex: 'viewType',
             key: 'viewType',
             render: (viewType) => <ViewTypeColumn viewType={viewType} />,
@@ -53,7 +54,7 @@ export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
             dataSource={tableData}
             rowKey="urn"
             locale={{
-                emptyText: <Empty description="No Views found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                emptyText: <Empty description="Nenhuma view encontrada!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
             pagination={false}
         />

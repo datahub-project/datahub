@@ -4,11 +4,12 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { SidebarHeader } from '../SidebarHeader';
 import { useEntityData } from '../../../../EntityContext';
-import { EMPTY_MESSAGES } from '../../../../constants';
 import SetDataProductModal from './SetDataProductModal';
 import { DataProductLink } from '../../../../../../shared/tags/DataProductLink';
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
 import { DataProduct } from '../../../../../../../types.generated';
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
 
 const EmptyText = styled(Typography.Paragraph)`
     &&& {
@@ -22,6 +23,8 @@ interface Props {
 }
 
 export default function DataProductSection({ readOnly }: Props) {
+    const { t } = useTranslation();
+
     const [isModalVisible, setIsModalVisible] = useState(false);
     const { entityData, urn } = useEntityData();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
@@ -38,14 +41,14 @@ export default function DataProductSection({ readOnly }: Props) {
     function removeDataProduct() {
         batchSetDataProductMutation({ variables: { input: { resourceUrns: [urn, ...siblingUrns] } } })
             .then(() => {
-                message.success({ content: 'Removed Data Product.', duration: 2 });
+                message.success({ content: t('entity.removedDataProduct'), duration: 2 });
                 setDataProduct(null);
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
-                        content: `Failed to remove data product. An unknown error occurred.`,
+                        content: t('crud.error.failedToRemoveDataProduct'),
                         duration: 3,
                     });
                 }
@@ -54,13 +57,13 @@ export default function DataProductSection({ readOnly }: Props) {
 
     const onRemoveDataProduct = () => {
         Modal.confirm({
-            title: `Confirm Data Product Removal`,
-            content: `Are you sure you want to remove this data product?`,
+            title:  t('crud.doYouWantTo.confirmRemovalWithName', { name: t('common.dataProduct')}),
+            content:  t('crud.doYouWantTo.removeContentWithTheName', { name: t('common.dataProduct')}),
             onOk() {
                 removeDataProduct();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });
@@ -68,7 +71,7 @@ export default function DataProductSection({ readOnly }: Props) {
 
     return (
         <>
-            <SidebarHeader title="Data Product" />
+            <SidebarHeader title={t('common.dataProducts')} />
             {dataProduct && (
                 <DataProductLink
                     dataProduct={dataProduct}
@@ -84,11 +87,11 @@ export default function DataProductSection({ readOnly }: Props) {
             {!dataProduct && (
                 <>
                     <EmptyText type="secondary">
-                        {EMPTY_MESSAGES.dataProduct.title}. {EMPTY_MESSAGES.dataProduct.description}
+                        {translateDisplayNames(t, 'emptyTitleDataProduct')}. {translateDisplayNames(t, 'emptyDescriptionDataProduct')}
                     </EmptyText>
                     {!readOnly && (
                         <Button type="default" onClick={() => setIsModalVisible(true)}>
-                            <EditOutlined /> Set Data Product
+                            <EditOutlined /> {t('common.setDataProducts')}
                         </Button>
                     )}
                 </>

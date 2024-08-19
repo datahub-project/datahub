@@ -3,9 +3,9 @@ import { EditOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 import { useRefetch, useRouteToTab } from '../../../../EntityContext';
-import { EMPTY_MESSAGES } from '../../../../constants';
 import { AddLinkModal } from '../../../../components/styled/AddLinkModal';
-
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
 const EmptyContentWrapper = styled.div`
     margin-bottom: 5px;
     font-size: 14px;
@@ -27,16 +27,17 @@ interface Props {
 export default function EmptyContentSection({ hideLinksButton, readOnly }: Props) {
     const routeToTab = useRouteToTab();
     const refetch = useRefetch();
+    const { t } = useTranslation();
 
     return (
         <EmptyContentWrapper>
             <>
                 <EmptyContentMessage type="secondary">
-                    {EMPTY_MESSAGES.documentation.title}. {EMPTY_MESSAGES.documentation.description}
+                    {translateDisplayNames(t, 'emptyTitleDocs')}. {translateDisplayNames(t, 'emptyDescriptionDocs')}
                 </EmptyContentMessage>
                 {!readOnly && (
-                    <Button onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}>
-                        <EditOutlined /> Add Documentation
+                    <Button onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}>
+                        <EditOutlined /> {t('common.addDocumentation')}
                     </Button>
                 )}
                 {!readOnly && !hideLinksButton && (

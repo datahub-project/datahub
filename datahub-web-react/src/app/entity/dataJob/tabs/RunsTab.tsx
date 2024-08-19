@@ -137,7 +137,7 @@ export const RunsTab = () => {
         return (
             <LoadingContainer>
                 <LoadingSvg height={80} width={80} />
-                <LoadingText>Fetching runs...</LoadingText>
+                <LoadingText>Buscando execuções...</LoadingText>
             </LoadingContainer>
         );
     }

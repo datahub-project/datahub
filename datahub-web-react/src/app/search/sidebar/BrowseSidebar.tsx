@@ -10,6 +10,7 @@ import useSidebarEntities from './useSidebarEntities';
 import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import { ProfileSidebarResizer } from '../../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import SortIcon from '../../../images/sort.svg?react';
+import { useTranslation } from 'react-i18next';
 
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;
@@ -67,6 +68,7 @@ type Props = {
 };
 
 const BrowseSidebar = ({ visible }: Props) => {
+    const { t } = useTranslation();
     const { error, entityAggregations, retry } = useSidebarEntities({
         skip: !visible,
     });
@@ -82,7 +84,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                 data-testid="browse-v2"
             >
                 <SidebarHeader>
-                    <Typography.Text strong> Navigate</Typography.Text>
+                    <Typography.Text strong> {t('common.navigate')}</Typography.Text>
                     <Tooltip title="Sort folder results" showArrow={false} placement="left">
                         <SelectWrapper>
                             <StyledIcon component={SortIcon} />
@@ -108,7 +110,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                     </Tooltip>
                 </SidebarHeader>
                 <SidebarBody visible={visible}>
-                    {entityAggregations && !entityAggregations.length && <div>No results found</div>}
+                    {entityAggregations && !entityAggregations.length && <div>{t('common.noResultsFound')}</div>}
                     {entityAggregations
                         ?.filter((entityAggregation) => entityAggregation?.value !== 'DATA_PRODUCT')
                         ?.map((entityAggregation) => (

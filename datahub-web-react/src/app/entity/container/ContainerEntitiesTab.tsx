@@ -18,7 +18,7 @@ export const ContainerEntitiesTab = () => {
                 filters: [fixedFilter],
             }}
             emptySearchQuery="*"
-            placeholderText="Filter container entities..."
+            placeholderText="Filtrar entidades de contêiner..."
             applyView
         />
     );

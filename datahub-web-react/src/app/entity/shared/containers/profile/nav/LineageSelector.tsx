@@ -11,6 +11,7 @@ import useIsLineageMode from '../../../../../lineage/utils/useIsLineageMode';
 import { useGetLineageTimeParams } from '../../../../../lineage/utils/useGetLineageTimeParams';
 import { useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { useGetLineageCountsQuery } from '../../../../../../graphql/lineage.generated';
+import { useTranslation } from 'react-i18next';
 
 const LineageIconGroup = styled.div`
     width: 180px;
@@ -75,6 +76,7 @@ type Props = {
  * Responsible for rendering a clickable browse path view.
  */
 export const LineageSelector = ({ urn, type }: Props): JSX.Element => {
+    const { t } = useTranslation();
     const history = useHistory();
     const location = useLocation();
     const isLineageMode = useIsLineageMode();
@@ -124,7 +126,7 @@ export const LineageSelector = ({ urn, type }: Props): JSX.Element => {
                     }}
                 >
                     <DetailIcon />
-                    Details
+                    {t('common.details')}
                 </IconGroup>
                 <IconGroup
                     disabled={!canNavigateToLineage}
@@ -142,7 +144,7 @@ export const LineageSelector = ({ urn, type }: Props): JSX.Element => {
                     }}
                 >
                     <LineageIcon />
-                    Lineage
+                    {t('common.lineage')}
                 </IconGroup>
             </LineageIconGroup>
             <LineageSummary>

@@ -22,7 +22,7 @@ export default function SchemaView({ rawSchema }: Props) {
                 </Typography.Text>
             ) : (
                 <Content>
-                    <Empty description="No Schema" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                    <Empty description="Sem esquema" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 </Content>
             )}
         </>

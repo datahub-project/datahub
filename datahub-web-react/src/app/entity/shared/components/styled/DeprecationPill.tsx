@@ -10,7 +10,7 @@ import { ANTD_GRAY } from '../../constants';
 import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 import StripMarkdownText, { removeMarkdown } from './StripMarkdownText';
-
+import { useTranslation } from 'react-i18next';
 const DeprecatedContainer = styled.div`
     height: 18px;
     border: 1px solid #cd0d24;
@@ -100,6 +100,7 @@ type Props = {
 const ABBREVIATED_LIMIT = 80;
 
 export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: Props) => {
+    const { t } = useTranslation();
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
     const [expanded, setExpanded] = useState(false);
     const overLimit = deprecation?.note && removeMarkdown(deprecation?.note).length > 80;
@@ -140,14 +141,14 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
+                    message.success({ content: t('deprecation.markAssetsAsUnDeprecatedSuccess'), duration: 2 });
                     refetch?.();
                 }
             })
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
+                    content: `${t('deprecation.markAssetsAsUnDeprecatedError')} \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
@@ -160,7 +161,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
             content={
                 hasDetails ? (
                     <>
-                        {deprecation?.note !== '' && <DeprecatedTitle>Deprecation note</DeprecatedTitle>}
+                        {deprecation?.note !== '' && <DeprecatedTitle>{t('deprecation.deprecationNote')}</DeprecatedTitle>}
                         {isDividerNeeded && <ThinDivider />}
                         <DescriptionContainer>
                             {expanded || !overLimit ? (
@@ -175,7 +176,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
                                                             setExpanded(false);
                                                         }}
                                                     >
-                                                        Read Less
+                                                       {t('common.readLess')}
                                                     </ReadLessText>
                                                 )}
                                             </ExpandedActions>
@@ -193,7 +194,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
                                                         setExpanded(true);
                                                     }}
                                                 >
-                                                    Read More
+                                                    {t('common.readMore')}
                                                 </Typography.Link>
                                             </>
                                         }
@@ -216,20 +217,20 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
                             <IconGroup
                                 onClick={() =>
                                     Modal.confirm({
-                                        title: `Confirm Mark as un-deprecated`,
-                                        content: `Are you sure you want to mark this asset as un-deprecated?`,
+                                        title: t('deprecation.markAssetsAsUnDeprecatedModalTitle'),
+                                        content: t('deprecation.markAssetsAsUnDeprecatedModalContent'),
                                         onOk() {
                                             batchUndeprecate();
                                         },
                                         onCancel() {},
-                                        okText: 'Yes',
+                                        okText: t('common.yes'),
                                         maskClosable: true,
                                         closable: true,
                                     })
                                 }
                             >
                                 <UndeprecatedIcon />
-                                Mark as un-deprecated
+                                {t('deprecation.markAsUnDeprecated')}
                             </IconGroup>
                         )}
                     </>
@@ -239,7 +240,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
             }
         >
             <DeprecatedContainer>
-                <DeprecatedText>DEPRECATED</DeprecatedText>
+                <DeprecatedText>{t('deprecation.deprecated')}</DeprecatedText>
             </DeprecatedContainer>
         </Popover>
     );

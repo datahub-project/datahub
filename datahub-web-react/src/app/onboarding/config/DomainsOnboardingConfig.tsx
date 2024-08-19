@@ -12,14 +12,14 @@ export const DomainsOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Welcome to DataHub <strong>Domains</strong>!
+                Bem-vindo ao DataHub <strong>Domínios</strong>!
                 </p>
                 <p>
-                    <strong>Domains</strong> are collections of related data assets associated with a specific part of
-                    your organization, such as the <strong>Marketing</strong> department.
+                    <strong>Domínios</strong> são coleções de ativos de dados relacionados associados a uma parte específica do
+                    sua organização, como o departamento de  <strong>Marketing</strong>.
                 </p>
                 <p>
-                    Learn more about <strong>Domains</strong>{' '}
+                Saiba mais sobre <strong>Domínios</strong>{' '}
                     <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/domains">
                         {' '}
                         here.
@@ -31,11 +31,11 @@ export const DomainsOnboardingConfig: OnboardingStep[] = [
     {
         id: DOMAINS_CREATE_DOMAIN_ID,
         selector: `#${DOMAINS_CREATE_DOMAIN_ID}`,
-        title: 'Create a new Domain',
+        title: 'Create a new domain',
         content: (
             <Typography.Paragraph>
                 <p>
-                    Click here to create a new <strong>Domain</strong>.
+                Clique aqui para criar um novo <strong>Domínio</strong>.
                 </p>
             </Typography.Paragraph>
         ),

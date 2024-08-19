@@ -18,7 +18,7 @@ import { ANTD_GRAY } from '../../../../constants';
 import { getModalDomContainer } from '../../../../../../../utils/focus';
 import ParentEntities from '../../../../../../search/filters/ParentEntities';
 import { getParentDomains } from '../../../../../../domain/utils';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     urns: string[];
     onCloseModal: () => void;
@@ -56,6 +56,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     const entityRegistry = useEntityRegistry();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
+    const { t } = useTranslation();
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
         defaultValue
             ? {
@@ -159,7 +160,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Updated Domain!', duration: 2 });
+                    message.success({ content: t('crud.success.update'), duration: 2 });
                     refetch?.();
                     onModalClose();
                     setSelectedDomain(undefined);
@@ -169,7 +170,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        content: `${t("crud.error.failedToAddRecurseDomain")}: \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );
@@ -194,16 +195,16 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
 
     return (
         <Modal
-            title={titleOverride || 'Set Domain'}
+            title={titleOverride || t('domain.setDomain')}
             visible
             onCancel={onModalClose}
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-                        Add
+                        {t('common.add')}
                     </Button>
                 </>
             }
@@ -219,7 +220,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             showSearch
                             mode="multiple"
                             defaultActiveFirstOption={false}
-                            placeholder="Search for Domains..."
+                            placeholder="Buscar por dominios..."
                             onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                             onDeselect={onDeselectDomain}
                             onSearch={(value: string) => {
@@ -236,7 +237,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
                             notFoundContent={
                                 <Empty
-                                    description="No Domains Found"
+                                    description="Nenhum domínio encontrado"
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                                     style={{ color: ANTD_GRAY[7] }}
                                 />

@@ -16,7 +16,7 @@ import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
-
+import { useTranslation } from 'react-i18next';
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
 `;
@@ -61,6 +61,7 @@ export const Preview = ({
     health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataFlow, urn)}
@@ -68,7 +69,7 @@ export const Preview = ({
             urn={urn}
             description={description || ''}
             platformInstanceId={platformInstanceId}
-            type="Data Pipeline"
+            type={t('common.dataPipeline')}
             typeIcon={entityRegistry.getIcon(EntityType.DataFlow, 14, IconStyleType.ACCENT)}
             platform={platformName}
             logoUrl={platformLogo || ''}

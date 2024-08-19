@@ -5,7 +5,7 @@ import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/searc
 import { Container, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     onCloseModal: () => void;
     defaultValues?: { urn: string; entity?: Entity | null }[];
@@ -37,6 +37,7 @@ const PreviewImage = styled.img`
 export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
     const [containerSearch, { data: platforSearchData }] = useGetSearchResultsLazyQuery();
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
 
     const containerSearchResults =
         platforSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
@@ -148,7 +149,7 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
                         Cancel
                     </Button>
                     <Button id="setContainerButton" disabled={selectedContainers?.length === 0} onClick={onOk}>
-                        Add
+                        {t('common.add')}
                     </Button>
                 </>
             }
@@ -161,7 +162,7 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
                         showSearch
                         mode="multiple"
                         defaultActiveFirstOption={false}
-                        placeholder="Search for Containers..."
+                        placeholder="Pesquisar contêineres..."
                         onSelect={(containerUrn: any) => onSelectContainer(containerUrn)}
                         onDeselect={onDeselectContainer}
                         onSearch={(value: string) => {

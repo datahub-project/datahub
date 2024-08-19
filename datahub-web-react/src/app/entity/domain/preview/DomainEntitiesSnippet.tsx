@@ -6,7 +6,7 @@ import { SearchResultFields_Domain_Fragment } from '../../../../graphql/search.g
 import { ANTD_GRAY_V2 } from '../../shared/constants';
 import DomainIcon from '../../../domain/DomainIcon';
 import { pluralize } from '../../../shared/textUtil';
-
+import { useTranslation } from 'react-i18next';
 const Wrapper = styled.div`
     color: ${ANTD_GRAY_V2[8]};
     font-size: 12px;
@@ -29,17 +29,18 @@ interface Props {
 }
 
 export default function DomainEntitiesSnippet({ domain }: Props) {
+    const { t } = useTranslation();
     const entityCount = domain.entities?.total || 0;
     const subDomainCount = domain.children?.total || 0;
     const dataProductCount = domain.dataProducts?.total || 0;
 
     return (
         <Wrapper>
-            <DatabaseOutlined /> {entityCount} {entityCount === 1 ? 'entity' : 'entities'}
+            <DatabaseOutlined /> {entityCount} {entityCount === 1 ? t('common.entity') : t('common.entities')}
             <StyledDivider />
-            <DomainIcon /> {subDomainCount} {pluralize(subDomainCount, 'sub-domain')}
+            <DomainIcon /> {subDomainCount} {pluralize(subDomainCount, t('common.subdomain'))}
             <StyledDivider />
-            <FileDoneOutlined /> {dataProductCount} {pluralize(dataProductCount, 'data product')}
+            <FileDoneOutlined /> {dataProductCount} {pluralize(dataProductCount, t('common.dataProducts'), '')}
         </Wrapper>
     );
 }

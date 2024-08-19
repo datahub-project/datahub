@@ -7,7 +7,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import AdvancedFilterCloseButton from './AdvancedFilterCloseButton';
 import { FilterContainer } from './styles';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-
+import { useTranslation } from 'react-i18next';
 const FilterFieldLabel = styled.span`
     font-weight: 600;
     margin-right: 4px;
@@ -52,6 +52,7 @@ interface Props {
 
 export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, disabled, onClose }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
     const entityTypes = useMemo(
         () => filter.values?.filter((value) => !value.includes(FILTER_DELIMITER)),
         [filter.values],
@@ -67,8 +68,8 @@ export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, di
             <FilterWrapper>
                 {entityTypes && entityTypes.length > 0 && (
                     <>
-                        <FilterFieldLabel>Type</FilterFieldLabel>
-                        <ConditionWrapper>is any of</ConditionWrapper>
+                        <FilterFieldLabel>{t('common.type')}</FilterFieldLabel>
+                        <ConditionWrapper>{t('filter.isOf.true')}</ConditionWrapper>
                         <FilterValuesWrapper>
                             {entityTypes?.map((entityType, index) => (
                                 <>
@@ -81,13 +82,13 @@ export default function EntitySubTypeAdvancedFilterLabel({ filter, isCompact, di
                 )}
                 {Object.entries(entityTypeToSubTypes).map(([entityType, subTypes]) => (
                     <>
-                        <FilterFieldLabel>Type</FilterFieldLabel>
+                        <FilterFieldLabel>{t('common.type')}</FilterFieldLabel>
                         <ConditionWrapper>is</ConditionWrapper>
                         <FilterValuesWrapper>
                             {entityRegistry.getCollectionName(entityType as EntityType)}
                         </FilterValuesWrapper>
-                        <FilterFieldLabel>SubType</FilterFieldLabel>
-                        <ConditionWrapper>is any of</ConditionWrapper>
+                        <FilterFieldLabel>{t('common.subtyoe')}</FilterFieldLabel>
+                        <ConditionWrapper>{t('filter.isOf.true')}</ConditionWrapper>
                         <FilterValuesWrapper>
                             {subTypes.map((v, index) => (
                                 <>

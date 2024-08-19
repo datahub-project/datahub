@@ -11,6 +11,8 @@ import { useListDomainsQuery } from '../../../graphql/domain.generated';
 import filterSearchQuery from '../../search/utils/filterSearchQuery';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useUserContext } from '../../context/useUserContext';
+import { useTranslation } from 'react-i18next';
+
 
 const HighlightGroup = styled.div`
     display: flex;
@@ -47,6 +49,7 @@ const StyledSearchBar = styled(Input)`
 `;
 
 export const AnalyticsPage = () => {
+    const { t } = useTranslation();
     const me = useUserContext();
     const canManageDomains = me?.platformPrivileges?.createDomains;
     const { data: chartData, loading: chartLoading, error: chartError } = useGetAnalyticsChartsQuery();
@@ -92,7 +95,7 @@ export const AnalyticsPage = () => {
             {isLoading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <HighlightGroup>
                 {highlightError && (
-                    <Alert type="error" message={highlightError?.message || 'Highlights failed to load'} />
+                    <Alert type="error" message={highlightError?.message || 'Os destaques não foram carregados'} />
                 )}
                 {highlightData?.getHighlights?.map((highlight) => (
                     <Highlight highlight={highlight} shortenValue />
@@ -100,7 +103,7 @@ export const AnalyticsPage = () => {
             </HighlightGroup>
             <>
                 {chartError && (
-                    <Alert type="error" message={metadataAnalyticsError?.message || 'Charts failed to load'} />
+                    <Alert type="error" message={metadataAnalyticsError?.message || 'Falha ao carregar os gráficos'} />
                 )}
                 {chartData?.getAnalyticsCharts
                     ?.filter((chartGroup) => chartGroup.groupId === 'GlobalMetadataAnalytics')
@@ -110,7 +113,7 @@ export const AnalyticsPage = () => {
             </>
             <>
                 {domainError && (
-                    <Alert type="error" message={metadataAnalyticsError?.message || 'Domains failed to load'} />
+                    <Alert type="error" message={metadataAnalyticsError?.message || 'Falha ao carregar domínios'} />
                 )}
                 {!chartLoading && (
                     <>
@@ -118,13 +121,13 @@ export const AnalyticsPage = () => {
                         <MetadataAnalyticsInput>
                             <DomainSelect
                                 showSearch
-                                placeholder="Select a domain"
+                                placeholder={t('analytics.selectADomain')}
                                 onChange={onDomainChange}
                                 filterOption={(input, option) =>
                                     option?.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
                                 }
                             >
-                                <Select.Option value="ALL">All</Select.Option>
+                                <Select.Option value="ALL">{t('common.all')}</Select.Option>
                                 {domainData?.listDomains?.domains.map((domainChoice) => (
                                     <Select.Option value={domainChoice.urn}>
                                         {domainChoice?.properties?.name}
@@ -132,7 +135,7 @@ export const AnalyticsPage = () => {
                                 ))}
                             </DomainSelect>
                             <StyledSearchBar
-                                placeholder="Search"
+                                placeholder={t('common.search')}
                                 onPressEnter={(e) => {
                                     e.stopPropagation();
                                     setQuery(filterSearchQuery(stagedQuery || ''));
@@ -150,12 +153,12 @@ export const AnalyticsPage = () => {
             </>
             <>
                 {metadataAnalyticsError && (
-                    <Alert type="error" message={metadataAnalyticsError?.message || 'Charts failed to load'} />
+                    <Alert type="error" message={metadataAnalyticsError?.message || "Falha ao carregar os gráficos"} />
                 )}
                 {domain === '' && query === ''
                     ? !chartLoading && (
                           <MetadataAnalyticsPlaceholder>
-                              Please specify domain or query to get granular results
+                              {t('analytics.specifyDomainOrQueryToGetGranularResults')}
                           </MetadataAnalyticsPlaceholder>
                       )
                     : metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
@@ -163,7 +166,7 @@ export const AnalyticsPage = () => {
                       ))}
             </>
             <>
-                {chartError && <Alert type="error" message={chartError?.message || 'Charts failed to load'} />}
+                {chartError && <Alert type="error" message={chartError?.message || 'Falha ao carregar os gráficos'} />}
                 {!chartLoading &&
                     chartData?.getAnalyticsCharts
                         ?.filter((chartGroup) => chartGroup.groupId === 'DataHubUsageAnalytics')

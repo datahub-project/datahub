@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { Post } from '../../types.generated';
 
+import { useTranslation } from 'react-i18next';
 const CardContainer = styled(Button)`
     display: flex;
     flex-direction: row;
@@ -81,6 +82,7 @@ type Props = {
 export const PostLinkCard = ({ linkPost }: Props) => {
     const hasMedia = !!linkPost?.content?.media?.location;
     const link = linkPost?.content?.link || '';
+    const { t } = useTranslation();
 
     return (
         <CardContainer type="link" href={link} target="_blank" rel="noopener noreferrer">
@@ -94,7 +96,7 @@ export const PostLinkCard = ({ linkPost }: Props) => {
             <TextContainer>
                 <FlexWrapper>
                     <TextWrapper>
-                        <HeaderText type="secondary">Link</HeaderText>
+                        <HeaderText type="secondary">{t('common.link')}</HeaderText>
                         <Title style={{ margin: 0 }} ellipsis={{ rows: 2 }} level={5}>
                             {linkPost?.content?.title}
                         </Title>

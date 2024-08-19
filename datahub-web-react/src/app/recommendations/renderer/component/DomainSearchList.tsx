@@ -9,6 +9,7 @@ import DomainIcon from '../../../domain/DomainIcon';
 import { PageRoutes } from '../../../../conf/Global';
 import { HomePageButton } from '../../../shared/components';
 import { HoverEntityTooltip } from './HoverEntityTooltip';
+import { useTranslation } from 'react-i18next';
 
 const DomainListContainer = styled.div`
     display: flex;
@@ -34,6 +35,7 @@ type Props = {
 };
 
 export const DomainSearchList = ({ content, onClick }: Props) => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
 
     const domainsWithCounts: Array<{ domain: Domain; count?: number }> = content
@@ -70,7 +72,7 @@ export const DomainSearchList = ({ content, onClick }: Props) => {
             <Link to={PageRoutes.DOMAINS}>
                 <HomePageButton type="link">
                     <AllDomainsWrapper>
-                        <AllDomainsText>View All Domains</AllDomainsText>
+                        <AllDomainsText>{t('domain.viewAll')}</AllDomainsText>
                         <ArrowRightOutlined />
                     </AllDomainsWrapper>
                 </HomePageButton>

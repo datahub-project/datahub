@@ -10,6 +10,12 @@ import UserProfile from './UserProfile';
  * Definition of the DataHub Dataset entity.
  */
 export class UserEntity implements Entity<CorpUser> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.CorpUser;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -41,9 +47,9 @@ export class UserEntity implements Entity<CorpUser> {
 
     getPathName: () => string = () => 'user';
 
-    getEntityName = () => 'Person';
+    getEntityName = () => this.translationService('common.user');
 
-    getCollectionName: () => string = () => 'People';
+    getCollectionName: () => string = () => this.translationService('common.users');
 
     renderProfile: (urn: string) => JSX.Element = (_) => <UserProfile />;
 

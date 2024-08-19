@@ -9,7 +9,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { BreadcrumbItem } from '../entity/shared/containers/profile/nav/ProfileNavBrowsePath';
 import { useGlossaryEntityData } from '../entity/shared/GlossaryEntityContext';
 import { useEntityRegistry } from '../useEntityRegistry';
-
+import { useTranslation } from 'react-i18next';
 const PathWrapper = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
     display: flex;
@@ -28,6 +28,7 @@ function getGlossaryBreadcrumbs(parentNodes: Maybe<ParentNodesResult>, entity: M
 }
 
 function GlossaryEntitiesPath() {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useGlossaryEntityData();
 
@@ -37,7 +38,7 @@ function GlossaryEntitiesPath() {
         <PathWrapper>
             <BreadcrumbsWrapper separator=">">
                 <BreadcrumbItem>
-                    <Link to={PageRoutes.GLOSSARY}>Glossary</Link>
+                    <Link to={PageRoutes.GLOSSARY}>{t('common.glossary')}</Link>
                 </BreadcrumbItem>
                 {breadcrumbs &&
                     breadcrumbs.map((node) => {

@@ -9,7 +9,7 @@ import { ANTD_GRAY } from '../../shared/constants';
 import { IconStyleType } from '../../Entity';
 import NoMarkdownViewer from '../../shared/components/styled/StripMarkdownText';
 import SearchTextHighlighter from '../../../search/matches/SearchTextHighlighter';
-
+import { useTranslation } from 'react-i18next';
 const PreviewContainer = styled.div`
     margin-bottom: 4px;
     display: flex;
@@ -63,6 +63,7 @@ const MemberCountContainer = styled.span`
 `;
 
 export const Preview = ({
+
     urn,
     name,
     description,
@@ -75,6 +76,7 @@ export const Preview = ({
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpGroup, urn);
+    const { t } = useTranslation();
 
     return (
         <PreviewContainer>
@@ -90,7 +92,7 @@ export const Preview = ({
                         <Link to={url}>
                             <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
                             <MemberCountContainer>
-                                <Tag>{membersCount} members</Tag>
+                                <Tag>{membersCount} {t('common.members')}</Tag>
                             </MemberCountContainer>
                         </Link>
                     </TitleContainer>

@@ -20,6 +20,8 @@ import { getElasticCappedTotalValueText } from '../entity/shared/constants';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
 import { DomainOwnersColumn, DomainListMenuColumn, DomainNameColumn } from './DomainListColumns';
 import DomainIcon from './DomainIcon';
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 const DomainsContainer = styled.div``;
 
@@ -42,6 +44,7 @@ const PaginationInfo = styled(Typography.Text)`
 const DEFAULT_PAGE_SIZE = 25;
 
 export const DomainsList = () => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -84,7 +87,7 @@ export const DomainsList = () => {
 
     const allColumns = [
         {
-            title: 'Name',
+            title: t('common.name'),
             dataIndex: '',
             key: 'name',
             sorter: (sourceA, sourceB) => {
@@ -100,7 +103,7 @@ export const DomainsList = () => {
             ),
         },
         {
-            title: 'Owners',
+            title: 'Proprietários',
             dataIndex: 'ownership',
             width: '10%',
             key: 'ownership',
@@ -132,17 +135,17 @@ export const DomainsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading domains..." />}
-            {error && <Message type="error" content="Failed to load domains! An unexpected error occurred." />}
+            {!data && loading && <Message type="loading" content= {t('common.loadingDomains')} />}
+            {error && <Message type="error" content="Falha ao carregar domínios! Um erro inesperado ocorreu." />}
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>
                 <TabToolbar>
                     <Button id={DOMAINS_CREATE_DOMAIN_ID} type="text" onClick={() => setIsCreatingDomain(true)}>
-                        <PlusOutlined /> New Domain
+                        <PlusOutlined /> {t('domain.newDomain')}
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search domains..."
+                        placeholderText="Pesquisar domínios..."
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -163,7 +166,7 @@ export const DomainsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     pagination={false}
-                    locale={{ emptyText: <Empty description="No Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                    locale={{ emptyText: <Empty description="Sem domínios!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>

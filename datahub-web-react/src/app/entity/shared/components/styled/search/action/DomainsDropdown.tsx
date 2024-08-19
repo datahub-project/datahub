@@ -4,7 +4,7 @@ import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutation
 import { SetDomainModal } from '../../../../containers/profile/sidebar/Domain/SetDomainModal';
 import ActionDropdown from './ActionDropdown';
 import { handleBatchError } from '../../../../utils';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     urns: Array<string>;
     disabled: boolean;
@@ -13,6 +13,7 @@ type Props = {
 
 // eslint-disable-next-line
 export default function DomainsDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
 
@@ -26,7 +27,7 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Removed Domain!', duration: 2 });
+                    message.success({ content: t('common.removed'), duration: 2 });
                     refetch?.();
                 }
             })
@@ -34,7 +35,7 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to remove assets from Domain: \n ${e.message || ''}`,
+                        content: `${t('crud.error.removeAssetsWithDomain')} \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );
@@ -44,25 +45,25 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
     return (
         <>
             <ActionDropdown
-                name="Domain"
+                name={t('common.domain')}
                 actions={[
                     {
-                        title: 'Set Domain',
+                        title: t('domain.setDomain'),
                         onClick: () => {
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Unset Domain',
+                        title: t('domain.unsetDomain'),
                         onClick: () => {
                             Modal.confirm({
-                                title: `If you continue, Domain will be removed for the selected assets.`,
-                                content: `Are you sure you want to unset Domain for these assets?`,
+                                title: t('entity.unsetDomainTitle'),
+                                content: t('entity.unsetDomainContent'), 
                                 onOk() {
                                     batchUnsetDomains();
                                 },
                                 onCancel() {},
-                                okText: 'Yes',
+                                okText: t('common.yes'),
                                 maskClosable: true,
                                 closable: true,
                             });

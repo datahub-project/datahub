@@ -10,6 +10,12 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
  * Definition of the DataHub CorpGroup entity.
  */
 export class GroupEntity implements Entity<CorpGroup> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.CorpGroup;
 
     // TODO: update icons for UserGroup
@@ -44,7 +50,7 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     getEntityName = () => 'Group';
 
-    getCollectionName: () => string = () => 'Groups';
+    getCollectionName: () => string = () => this.translationService('common.groups');
 
     renderProfile: (urn: string) => JSX.Element = (_) => <GroupProfile />;
 

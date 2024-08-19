@@ -11,7 +11,7 @@ import { OwnershipTypeEntity } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { scrollToTop } from '../../shared/searchUtils';
-
+import { useTranslation } from 'react-i18next';
 const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
@@ -35,6 +35,7 @@ const searchBarInputStyle = {
  * This component renders a paginated, searchable list of Ownership Types.
  */
 export const OwnershipList = () => {
+    const { t } = useTranslation();
     /**
      * Context
      */
@@ -82,19 +83,19 @@ export const OwnershipList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading Ownership Types..." />}
+            {!data && loading && <Message type="loading" content="Carregando tipos de propriedade..." />}
             {error &&
                 message.error({
-                    content: `Failed to load Ownership Types! An unexpected error occurred.`,
+                    content: t('error.errorSection.failedLoadTypePropriet'),
                     duration: 3,
                 })}
             <TabToolbar>
                 <Button type="text" onClick={onClickCreateOwnershipType}>
-                    <PlusOutlined /> Create new Ownership Type
+                    <PlusOutlined /> {t('onBoarding.entityProfile.createNewTypePropriet')}
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText="Search by Name..."
+                    placeholderText={t('common.searchByName')}
                     suggestions={[]}
                     style={searchBarStyle}
                     inputStyle={searchBarInputStyle}

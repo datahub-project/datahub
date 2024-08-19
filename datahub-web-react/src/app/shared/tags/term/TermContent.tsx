@@ -7,6 +7,7 @@ import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
+import { useTranslation } from 'react-i18next';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
@@ -45,6 +46,7 @@ export default function TermContent({
     onOpenModal,
     refetch,
 }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
     const highlightTerm = useHasMatchedFieldByUrn(term.term.urn, 'glossaryTerms');
@@ -53,8 +55,8 @@ export default function TermContent({
         onOpenModal?.();
         const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);
         Modal.confirm({
-            title: `Do you want to remove ${termName} term?`,
-            content: `Are you sure you want to remove the ${termName} term?`,
+            title: t('crud.doYouWantTo.removeTitleWithName', { name: termName }),
+            content: t('crud.doYouWantTo.removeContentWithTheName', { name: termName }),
             onOk() {
                 if (termToRemove.associatedUrn || entityUrn) {
                     removeTermMutation({
@@ -69,18 +71,18 @@ export default function TermContent({
                     })
                         .then(({ errors }) => {
                             if (!errors) {
-                                message.success({ content: 'Removed Term!', duration: 2 });
+                                message.success({ content: t('crud.success.removeWithNameReverse', { name: termName }), duration: 2 });
                             }
                         })
                         .then(refetch)
                         .catch((e) => {
                             message.destroy();
-                            message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                            message.error({ content: `${t('term.failedRemove')}: \n ${e.message || ''}`, duration: 3 });
                         });
                 }
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });

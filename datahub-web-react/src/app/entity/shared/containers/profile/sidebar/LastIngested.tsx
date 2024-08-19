@@ -10,6 +10,7 @@ import { useEntityData } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { getPlatformName } from '../../../utils';
 import { getDisplayedEntityType } from '../header/PlatformContent/PlatformContentContainer';
+import { useTranslation } from 'react-i18next';
 
 const StyledDot = styled.div<{ color: string }>`
     border: 1px solid ${ANTD_GRAY[5]};
@@ -83,17 +84,17 @@ const PreviewImage = styled(Image)`
     padding-left: 1px;
 `;
 
-function TooltipContent() {
+function TooltipContent(t: any) {
     return (
         <div>
             <TooltipSection>
-                <StyledDot color={green[5]} /> Synchronized in the&nbsp;<b>past week</b>
+                <StyledDot color={green[5]} /> {t('reporting.synchronizedInThePastWeek_component')}
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={orange[5]} /> Synchronized in the&nbsp;<b>past month</b>
+                <StyledDot color={orange[5]} /> {t('reporting.synchronizedInThePastMonth_component')}
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={red[5]} /> Synchronized&nbsp;<b>more than a month ago</b>
+                <StyledDot color={red[5]} /> {t('reporting.synchronizedMoreThanAMonthAgo_component')}
             </TooltipSection>
         </div>
     );
@@ -115,6 +116,7 @@ interface Props {
 }
 
 function LastIngested({ lastIngested }: Props) {
+    const { t } = useTranslation();
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
@@ -130,26 +132,25 @@ function LastIngested({ lastIngested }: Props) {
                     <PopoverContentWrapper>
                         <Title>
                             <StyledDot color={lastIngestedColor} />
-                            Last Synchronized
+                            {t('reporting.lastSynchronized')}
                         </Title>
                         <RelativeDescription>
-                            This {displayedEntityType.toLocaleLowerCase()} was last synchronized&nbsp;
-                            <b>{toRelativeTimeString(lastIngested)}</b>
+                            {t('reporting.lastSynchronizedWithNameAndTime_component', { name: displayedEntityType.toLocaleLowerCase(), time: toRelativeTimeString(lastIngested) })}
                         </RelativeDescription>
-                        <SubText>Synchronized on {toLocalDateTimeString(lastIngested)}</SubText>
+                        <SubText>{t('reporting.synchronizedOnWithTime', { time: toRelativeTimeString(lastIngested) })}</SubText>
                     </PopoverContentWrapper>
                 }
             >
                 <MainContent>
                     <StyledDot color={lastIngestedColor} />
-                    Last synchronized&nbsp;
+                    {t('reporting.lastSynchronized')}&nbsp;
                     <b>{toRelativeTimeString(lastIngested)}</b>
                 </MainContent>
             </Popover>
             <Popover
                 title={
                     <HelpHeader>
-                        This represents the time that the entity was last synchronized with&nbsp;
+                        {t('reporting.lastSynchronizedDescriptionWithPlatform')}&nbsp;
                         {platformName ? (
                             <strong>
                                 {platformLogoUrl && (
@@ -165,7 +166,7 @@ function LastIngested({ lastIngested }: Props) {
                         )}
                     </HelpHeader>
                 }
-                content={TooltipContent}
+                content={TooltipContent(t)}
                 placement="bottom"
             >
                 <HelpIcon />

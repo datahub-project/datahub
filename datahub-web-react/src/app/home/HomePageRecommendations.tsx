@@ -1,6 +1,8 @@
-import React from 'react';
-import styled from 'styled-components/macro';
 import { Divider, Empty, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components/macro';
+import { useGetEntityCountsQuery } from '../../graphql/app.generated';
+import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import {
     CorpUser,
     EntityType,
@@ -8,13 +10,7 @@ import {
     RecommendationRenderType,
     ScenarioType,
 } from '../../types.generated';
-import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import { RecommendationModule } from '../recommendations/RecommendationModule';
-import { BrowseEntityCard } from '../search/BrowseEntityCard';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { HomePagePosts } from './HomePagePosts';
 import {
     HOME_PAGE_DOMAINS_ID,
     HOME_PAGE_MOST_POPULAR_ID,
@@ -23,6 +19,7 @@ import {
 import { useToggleEducationStepIdsAllowList } from '../onboarding/useToggleEducationStepIdsAllowList';
 import { useBusinessAttributesFlag } from '../useAppConfig';
 import { useUserContext } from '../context/useUserContext';
+import { translateDisplayNames } from '../../utils/translation/translation';
 
 const PLATFORMS_MODULE_ID = 'Platforms';
 const MOST_POPULAR_MODULE_ID = 'HighUsageEntities';
@@ -101,6 +98,8 @@ const simpleViewEntityTypes = [
 ];
 
 export const HomePageRecommendations = ({ user }: Props) => {
+    const { t } = useTranslation();
+
     // Entity Types
     const entityRegistry = useEntityRegistry();
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
@@ -174,7 +173,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     {domainRecommendationModule && (
                         <>
                             <DomainsRecomendationContainer id={HOME_PAGE_DOMAINS_ID}>
-                                <RecommendationTitle level={4}>{domainRecommendationModule.title}</RecommendationTitle>
+                                <RecommendationTitle level={4}>{translateDisplayNames(t, domainRecommendationModule.title)}</RecommendationTitle>
                                 <ThinDivider />
                                 <RecommendationModule
                                     module={domainRecommendationModule as RecommendationModuleType}
@@ -184,7 +183,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             </DomainsRecomendationContainer>
                         </>
                     )}
-                    <RecommendationTitle level={4}>Explore your data</RecommendationTitle>
+                    <RecommendationTitle level={4}>{t('home.exploreYourData')}</RecommendationTitle>
                     <ThinDivider />
                     {hasIngestedMetadata ? (
                         <BrowseCardContainer>
@@ -219,7 +218,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                         </BrowseCardContainer>
                     ) : (
                         <NoMetadataContainer>
-                            <NoMetadataEmpty description="No Metadata Found 😢" />
+                            <NoMetadataEmpty description={t('home.noMetadata')} />
                         </NoMetadataContainer>
                     )}
                 </RecommendationContainer>
@@ -229,7 +228,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     .filter((module) => module.renderType !== RecommendationRenderType.DomainSearchList)
                     .map((module) => (
                         <RecommendationContainer id={getStepId(module.moduleId)} key={module.moduleId}>
-                            <RecommendationTitle level={4}>{module.title}</RecommendationTitle>
+                            <RecommendationTitle level={4}>{translateDisplayNames(t, module.title)}</RecommendationTitle>
                             <ThinDivider />
                             <RecommendationModule
                                 module={module as RecommendationModuleType}

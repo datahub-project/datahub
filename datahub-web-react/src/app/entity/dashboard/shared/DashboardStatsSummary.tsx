@@ -8,7 +8,7 @@ import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/tim
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { countFormatter, needsFormatting } from '../../../../utils/formatter';
 import ExpandingStat from '../../dataset/shared/ExpandingStat';
-
+import { useTranslation } from 'react-i18next';
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
     @media (min-width: 1024px) {
@@ -35,6 +35,7 @@ export const DashboardStatsSummary = ({
     lastUpdatedMs,
     createdMs,
 }: Props) => {
+    const { t } = useTranslation();
     const statsViews = [
         (!!chartCount && (
             <ExpandingStat
@@ -51,14 +52,14 @@ export const DashboardStatsSummary = ({
         (!!viewCount && (
             <StatText>
                 <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                <b>{formatNumberWithoutAbbreviation(viewCount)}</b> views
+                <b>{formatNumberWithoutAbbreviation(viewCount)}</b> {t('common.ciews')}
             </StatText>
         )) ||
             undefined,
         (!!uniqueUserCountLast30Days && (
             <StatText>
                 <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
+                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> {t('common.uniqueUsers')}
             </StatText>
         )) ||
             undefined,
@@ -66,10 +67,10 @@ export const DashboardStatsSummary = ({
             <Popover
                 content={
                     <>
-                        {createdMs && <div>Created on {toLocalDateTimeString(createdMs)}.</div>}
+                        {createdMs && <div>{t('reporting.createdOnWithDate')} {toLocalDateTimeString(createdMs)}.</div>}
                         <div>
-                            Changed on {toLocalDateTimeString(lastUpdatedMs)}.{' '}
-                            <Tooltip title="The time at which the dashboard was last changed in the source platform">
+                        Alterado em {toLocalDateTimeString(lastUpdatedMs)}.{' '}
+                            <Tooltip title="A hora em que o painel foi alterado pela última vez na plataforma de origem">
                                 <HelpIcon />
                             </Tooltip>
                         </div>
@@ -78,7 +79,7 @@ export const DashboardStatsSummary = ({
             >
                 <StatText>
                     <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                    Changed {toRelativeTimeString(lastUpdatedMs)}
+                    {t('common.changed')} {toRelativeTimeString(lastUpdatedMs)}
                 </StatText>
             </Popover>
         )) ||

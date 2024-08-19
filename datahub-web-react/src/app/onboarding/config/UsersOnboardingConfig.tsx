@@ -14,11 +14,9 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Welcome to DataHub <strong>Users</strong>!
-                </p>
+                Bem-vindo aos <strong>usuários</strong> do DataHub!                </p>
                 <p>
-                    There are a few different ways to onboard new <strong>Users</strong> onto DataHub.
-                </p>
+                Existem algumas maneiras diferentes de integrar novos <strong>usuários</strong> ao DataHub.                </p>
             </Typography.Paragraph>
         ),
     },
@@ -28,12 +26,11 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    The preferred way to onboard new <strong>Users</strong> is to use <strong>Single Sign-On</strong>.
-                    Currently, DataHub supports OIDC SSO.
+                A maneira preferida de integrar novos <strong>usuários</strong> é usar o <strong>Logon único</strong>.
+                Atualmente, o DataHub oferece suporte ao SSO OIDC.
                 </p>
                 <p>
-                    Learn more about how to configure <strong>Single Sign-On</strong>{' '}
-                    <a
+                Saiba mais sobre como configurar o <strong>Logon único</strong>{' '}                    <a
                         target="_blank"
                         rel="noreferrer noopener"
                         href="https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react/#configuring-oidc-in-react"
@@ -52,12 +49,11 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Easily share an invite link with your colleagues to onboard them onto DataHub. Optionally assign a{' '}
-                    <strong>Role</strong> to anyone who joins using the link.
+                Compartilhe facilmente um link de convite com seus colegas para integrá-los ao DataHub. Opcionalmente, atribua um{' '}
+                <strong>Função</strong> para qualquer pessoa que ingressar usando o link.
                 </p>
                 <p>
-                    Learn more about configuring invite links{' '}
-                    <a
+                Saiba mais sobre como configurar links de convite{' '}                    <a
                         target="_blank"
                         rel="noreferrer noopener"
                         href="https://datahubproject.io/docs/authentication/guides/add-users/#send-prospective-users-an-invite-link"
@@ -76,17 +72,15 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    You can assign <strong>Roles</strong> to existing <strong>Users</strong> here.
-                </p>
+                Você pode atribuir <strong>funções</strong> a <strong>usuários</strong> existentes aqui.                </p>
                 <p>
-                    Learn more about <strong>Roles</strong>{' '}
-                    <a
+                Saiba mais sobre <strong>funções</strong>{' '}                    <a
                         target="_blank"
                         rel="noreferrer noopener"
                         href="https://datahubproject.io/docs/authorization/roles"
                     >
                         {' '}
-                        here.
+                        aqui.
                     </a>
                 </p>
             </Typography.Paragraph>

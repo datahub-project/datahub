@@ -25,6 +25,8 @@ import { ViewSelect } from '../entity/view/select/ViewSelect';
 import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 import { CommandK } from './CommandK';
 import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../utils/translation/translation';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -78,8 +80,9 @@ const SearchIcon = styled(SearchOutlined)`
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
 const RELEVANCE_QUERY_OPTION_TYPE = 'recommendation';
 
+// TODO: Ajustar para buscar do arquivo de traduções
 const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
-    label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
+    label: <EntityTypeLabel>Filtrar por</EntityTypeLabel>,
     options: [
         {
             value: 'quick-filter-unique-key',
@@ -153,6 +156,7 @@ export const SearchBar = ({
     onBlur,
     showViewAllResults = false,
 }: Props) => {
+    const { t } = useTranslation();
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
@@ -189,7 +193,7 @@ export const SearchBar = ({
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
             data?.listRecommendations?.modules.map((module) => ({
-                label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
+                label: <EntityTypeLabel>{translateDisplayNames(t, module.title)}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
             })) || [];
 
@@ -198,7 +202,7 @@ export const SearchBar = ({
             type: '',
             label: (
                 <Button type="link" onClick={onClickExploreAll}>
-                    Explore all →
+                    {t('search.exploreAll')} →
                 </Button>
             ),
             style: { marginLeft: 'auto', cursor: 'auto' },

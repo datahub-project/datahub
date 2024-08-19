@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../constants';
-
+import { useTranslation } from 'react-i18next';
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
     font-weight: bold;
@@ -30,7 +30,7 @@ type Props = {
 
 export default function UpdateDescriptionModal({ title, description, original, onClose, onSubmit, isAddDesc }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
-
+    const { t } = useTranslation();
     const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (
             event.key === 'ArrowDown' ||
@@ -51,13 +51,13 @@ export default function UpdateDescriptionModal({ title, description, original, o
             okText={isAddDesc ? 'Submit' : 'Update'}
             footer={
                 <>
-                    <Button onClick={onClose}>Cancel</Button>
+                    <Button onClick={onClose}>{t('common.cancel')}</Button>
                     <Button
                         onClick={() => onSubmit(updatedDesc)}
                         disabled={updatedDesc === description}
                         data-testid="description-modal-update-button"
                     >
-                        Update
+                        {t('crud.update')}
                     </Button>
                 </>
             }
@@ -72,7 +72,7 @@ export default function UpdateDescriptionModal({ title, description, original, o
                     />
                 </Form.Item>
                 {!isAddDesc && description && original && (
-                    <Form.Item label={<FormLabel>Original:</FormLabel>}>
+                    <Form.Item label={<FormLabel>{t('common.original')}:</FormLabel>}>
                         <StyledViewer content={original || ''} readOnly />
                     </Form.Item>
                 )}

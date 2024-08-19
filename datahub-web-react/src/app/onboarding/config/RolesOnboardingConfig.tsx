@@ -10,25 +10,25 @@ export const RolesOnboardingConfig: OnboardingStep[] = [
         title: 'Roles',
         content: (
             <Typography.Paragraph>
-                <p>
-                    Welcome to DataHub <strong>Roles</strong>!
+              <p>
+                    Bem-vindo ao DataHub <strong>Funções</strong>!
                 </p>
                 <p>
-                    <strong>Roles</strong> are the recommended way to manage permissions on DataHub.
+                    <strong>Funções</strong> são a forma recomendada de gerenciar permissões no DataHub.
                 </p>
                 <p>
-                    DataHub currently supports three out-of-the-box Roles: <strong>Admin</strong>,{' '}
-                    <strong>Editor</strong> and <strong>Reader</strong>.
+                    Atualmente, o DataHub oferece suporte a três funções prontas para uso: <strong>Administrador</strong>,{' '}
+                    <strong>Editor</strong> e <strong>Leitor</strong>.
                 </p>
                 <p>
-                    Learn more about <strong>Roles</strong> and the different permissions for each Role{' '}
+                    Saiba mais sobre <strong>Funções</strong> e as diferentes permissões para cada função{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
                         href="https://datahubproject.io/docs/authorization/roles"
                     >
                         {' '}
-                        here.
+                        aqui.
                     </a>
                 </p>
             </Typography.Paragraph>

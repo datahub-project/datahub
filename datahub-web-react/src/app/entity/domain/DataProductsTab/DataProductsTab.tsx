@@ -16,7 +16,7 @@ import { useEntityData } from '../../shared/EntityContext';
 import { DOMAINS_FILTER_NAME } from '../../../search/utils/constants';
 import DataProductResult from './DataProductResult';
 import CreateDataProductModal from './CreateDataProductModal';
-
+import { useTranslation } from 'react-i18next';
 const DataProductsPaginationWrapper = styled(DomainsPaginationContainer)`
     justify-content: center;
 `;
@@ -41,6 +41,7 @@ const LoadingWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function DataProductsTab() {
+    const { t } = useTranslation();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -97,11 +98,11 @@ export default function DataProductsTab() {
         <>
             <TabToolbar>
                 <Button type="text" onClick={() => setIsCreateModalVisible(true)}>
-                    <PlusOutlined /> New Data Product
+                    <PlusOutlined />{t('onBoarding.domains.newDataProduct')}
                 </Button>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search data products..."
+                    placeholderText={t('onBoarding.search.searchDataProducts')}
                     suggestions={[]}
                     style={{
                         maxWidth: 220,
@@ -120,7 +121,7 @@ export default function DataProductsTab() {
             <ResultsWrapper>
                 {!loading && !displayedDataProducts.length && (
                     <Empty
-                        description="No Data Products"
+                        description={t('message.noDataProductDefined')}
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         style={{ color: ANTD_GRAY[7] }}
                     />

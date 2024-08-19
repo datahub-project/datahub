@@ -9,6 +9,7 @@ import analytics, { EventType } from '../analytics';
 import { SuggestedText } from './suggestions/SearchQuerySugggester';
 import useGetSearchQueryInputs from './useGetSearchQueryInputs';
 import { FacetFilterInput, SearchSuggestion } from '../../types.generated';
+import { useTranslation } from 'react-i18next';
 import { useUserContext } from '../context/useUserContext';
 
 const NoDataContainer = styled.div`
@@ -26,7 +27,7 @@ function getRefineSearchText(filters: FacetFilterInput[], viewUrn?: string | nul
     if (filters.length && viewUrn) {
         text = 'clearing all filters and selected view';
     } else if (filters.length) {
-        text = 'clearing all filters';
+        text = 'limpando todos os filtros';
     } else if (viewUrn) {
         text = 'clearing the selected view';
     }
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export default function EmptySearchResults({ suggestions }: Props) {
+    const { t } = useTranslation();
     const { query, filters, viewUrn } = useGetSearchQueryInputs();
     const history = useHistory();
     const userContext = useUserContext();
@@ -64,25 +66,25 @@ export default function EmptySearchResults({ suggestions }: Props) {
 
     return (
         <NoDataContainer>
-            <Section>No results found for &quot;{query}&quot;</Section>
+            <Section>{t('search.noResultsFoundFor')} &quot;{query}&quot;</Section>
             {refineSearchText && (
                 <>
-                    Try <SuggestedText onClick={clearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
+                    Tentar <SuggestedText onClick={clearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
                     {suggestText && (
                         <>
-                            or searching for <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
+                            {t('search.orSearchingFor_component')} <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
                         </>
                     )}
                 </>
             )}
             {!refineSearchText && suggestText && (
                 <>
-                    Did you mean <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
+                    {t('search.didYouMean_component')} <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
                 </>
             )}
             {!refineSearchText && !suggestText && (
                 <Button onClick={onClickExploreAll}>
-                    <RocketOutlined /> Explore all
+                    <RocketOutlined /> {t('search.exploreAll')}
                 </Button>
             )}
         </NoDataContainer>

@@ -6,8 +6,10 @@ import { useListGlobalViewsQuery, useListMyViewsQuery } from '../../../../../../
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../../../../view/utils';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { DataHubViewType } from '../../../../../../types.generated';
+import { useTranslation } from 'react-i18next';
 
 const MatchingViewsLabel = () => {
+    const { t } = useTranslation();
     const userContext = useUserContext();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
 
@@ -60,11 +62,11 @@ const MatchingViewsLabel = () => {
         <>
             {selectedView ? (
                 <StyledMatchingViewsLabel>
-                    Only showing entities in the
+                    {t('domain.footerDetail')}
                     <Typography.Text strong> {selectedView?.name} </Typography.Text>
                     view.
                     <Button data-testid="view-select-clear" type="link" onClick={onClear}>
-                        Clear view
+                        {t('common.clear')} view
                     </Button>
                 </StyledMatchingViewsLabel>
             ) : (

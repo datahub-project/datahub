@@ -13,12 +13,12 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Configure new Integrations from DataHub to your <strong>Data Platforms</strong>, including
-                    Transactional Databases like <strong>MySQL</strong>, Data Warehouses such as{' '}
-                    <strong>Snowflake</strong>, Dashboarding tools like <strong>Looker</strong>, and more!
+                Configure novas integrações do DataHub para suas <strong>plataformas de dados</strong>, incluindo
+                    Bancos de dados transacionais como <strong>MySQL</strong>, data warehouses como{' '}
+                    <strong>Snowflake</strong>, ferramentas de dashboard como o <strong>Looker</strong> e muito mais!
                 </p>
                 <p>
-                    Learn more about ingestion and view the full list of supported Integrations{' '}
+                    Saiba mais sobre a ingestão e veja a lista completa de integrações compatíveis{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
@@ -37,8 +37,7 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
         title: 'Refresh Ingestion Sources',
         content: (
             <Typography.Paragraph>
-                <p>Click to force a refresh of running ingestion sources.</p>
-            </Typography.Paragraph>
+            <p>Clique para forçar uma atualização das fontes de ingestão em execução.</p>            </Typography.Paragraph>
         ),
     },
 ];

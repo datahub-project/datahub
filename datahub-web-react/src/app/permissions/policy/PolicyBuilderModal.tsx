@@ -8,7 +8,7 @@ import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../../types.
 import { EMPTY_POLICY } from './policyUtils';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import ClickOutside from '../../shared/ClickOutside';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     policy: Omit<Policy, 'urn'>;
     setPolicy: (policy: Omit<Policy, 'urn'>) => void;
@@ -42,6 +42,7 @@ const NextButtonContainer = styled.div`
  */
 export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose, onSave, focusPolicyUrn }: Props) {
     // Step control-flow.
+    const { t } = useTranslation();
     const [activeStepIndex, setActiveStepIndex] = useState(0);
     const [selectedTags, setSelectedTags] = useState<any[]>([]);
     const [isEditState, setEditState] = useState(true);
@@ -73,7 +74,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // Step 1: Choose Policy Type
     const typeStep = () => {
         return {
-            title: 'Choose Policy Type',
+            title: t('permissions.policyBuilderSteps.choosePolicyType'),
             content: (
                 <PolicyTypeForm
                     policyType={policy.type}
@@ -90,7 +91,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
 
     // Step 2: Select privileges step.
     const privilegeStep = () => ({
-        title: 'Configure Privileges',
+        title: t('permissions.policyBuilderSteps.configurePrivileges'),
         content: (
             <PolicyPrivilegeForm
                 focusPolicyUrn={focusPolicyUrn}
@@ -114,7 +115,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // Step 3: Assign Actors Step
     const actorStep = () => {
         return {
-            title: 'Assign Users & Groups',
+            title: t('permissions.policyBuilderSteps.assignUserAndGroups'),
             content: (
                 <PolicyActorForm
                     policyType={policy.type}
@@ -151,13 +152,13 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // modalClosePopup for outside policy modal click
     const modalClosePopup = () => {
         Modal.confirm({
-            title: 'Exit Policy Editor',
-            content: `Are you sure you want to exit policy editor? All changes will be lost`,
+            title: t('permissions.exitPolicyEditorTitle'),
+            content: t('permissions.exitPolicyEditorContent'),
             onOk() {
                 onClose();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });
@@ -167,7 +168,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="PolicyBuilderModal">
             <Modal
                 wrapClassName="PolicyBuilderModal"
-                title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
+                title={isEditing ? t('permissions.editAPolicy'): t('permissions.createNewPolicy')}
                 visible={visible}
                 onCancel={onClose}
                 closable
@@ -182,17 +183,17 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                 <div className="steps-content">{activeStep.content}</div>
                 <StepsContainer>
                     <PrevButtonContainer>
-                        {activeStepIndex > 0 && <Button onClick={() => prev()}>Previous</Button>}
+                        {activeStepIndex > 0 && <Button onClick={() => prev()}>{t("common.previous")}</Button>}
                     </PrevButtonContainer>
                     <NextButtonContainer>
                         {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
                             <Button id="nextButton" type="primary" onClick={() => next()}>
-                                Next
+                                {t('common.next')}
                             </Button>
                         )}
                         {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
                             <Button id="saveButton" type="primary" onClick={onSavePolicy}>
-                                Save
+                                {t('common.save')}
                             </Button>
                         )}
                     </NextButtonContainer>

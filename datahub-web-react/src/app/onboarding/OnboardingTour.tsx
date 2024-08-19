@@ -6,12 +6,13 @@ import { EducationStepsContext } from '../../providers/EducationStepsContext';
 import { StepStateResult } from '../../types.generated';
 import { useUserContext } from '../context/useUserContext';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     stepIds: string[];
 };
 
 export const OnboardingTour = ({ stepIds }: Props) => {
+    const { t } = useTranslation();
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
     const userUrn = useUserContext()?.user?.urn;
     const [isOpen, setIsOpen] = useState(true);
@@ -64,7 +65,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
             rounded={10}
             scrollDuration={500}
             accentColor={accentColor}
-            lastStepNextButton={<Button>Let&apos;s go!</Button>}
+            lastStepNextButton={<Button>{t('onBoarding.letsGo')}</Button>}
         />
     );
 };

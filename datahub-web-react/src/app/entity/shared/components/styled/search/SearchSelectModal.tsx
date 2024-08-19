@@ -5,7 +5,7 @@ import { EntityType } from '../../../../../../types.generated';
 import ClickOutside from '../../../../../shared/ClickOutside';
 import { EntityAndType } from '../../../types';
 import { SearchSelect } from './SearchSelect';
-
+import { useTranslation } from 'react-i18next';
 const StyledModal = styled(Modal)`
     top: 30px;
 `;
@@ -41,13 +41,14 @@ export const SearchSelectModal = ({
     singleSelect,
     hideToolbar,
 }: Props) => {
+    const { t } = useTranslation();
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
     const onCancelSelect = () => {
         if (selectedEntities.length > 0) {
             Modal.confirm({
-                title: `Exit Selection`,
-                content: `Are you sure you want to exit? ${selectedEntities.length} selection(s) will be cleared.`,
+                title:t('search.modal.exitSelectionTitle'),
+                content: t('search.modal.exitSelectionContent_interval',{count:4}),
                 onOk() {
                     onCancel?.();
                 },
@@ -73,14 +74,14 @@ export const SearchSelectModal = ({
                 footer={
                     <>
                         <Button onClick={onCancel} type="text">
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             id="continueButton"
                             onClick={() => onContinue(selectedEntities.map((entity) => entity.urn))}
                             disabled={selectedEntities.length === 0}
                         >
-                            {continueText || 'Done'}
+                            {continueText || t('common.done')}
                         </Button>
                     </>
                 }

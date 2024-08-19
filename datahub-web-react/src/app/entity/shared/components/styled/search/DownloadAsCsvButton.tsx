@@ -19,7 +19,7 @@ export default function DownloadAsCsvButton({ setShowDownloadAsCsvModal, isDownl
         <>
             <DownloadCsvButton type="text" onClick={() => setShowDownloadAsCsvModal(true)} disabled={isDownloadingCsv}>
                 <DownloadOutlined />
-                {isDownloadingCsv ? 'Downloading...' : 'Download'}
+                {isDownloadingCsv ? 'Baixando...' : 'Baixar'}
             </DownloadCsvButton>
         </>
     );

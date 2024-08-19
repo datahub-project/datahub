@@ -22,7 +22,7 @@ import analytics, { EventType } from '../../analytics';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '../../onboarding/config/PoliciesOnboardingConfig';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { usePolicy } from './usePolicy';
-
+import { useTranslation } from 'react-i18next';
 const SourceContainer = styled.div`
     overflow: auto;
     display: flex;
@@ -87,6 +87,7 @@ export enum StatusType {
 
 // TODO: Cleanup the styling.
 export const ManagePolicies = () => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -214,7 +215,7 @@ export const ManagePolicies = () => {
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: t('common.name'),
             dataIndex: 'name',
             key: 'name',
             render: (_, record: any) => {
@@ -229,7 +230,7 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: 'Type',
+            title: t('common.type'),
             dataIndex: 'type',
             key: 'type',
             render: (type: string) => {
@@ -238,13 +239,13 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: 'Description',
+            title: t('common.description'),
             dataIndex: 'description',
             key: 'description',
             render: (description: string) => description || '',
         },
         {
-            title: 'Actors',
+            title: t('common.actors'),
             dataIndex: 'actors',
             key: 'actors',
             render: (_, record: any) => {
@@ -257,15 +258,15 @@ export const ManagePolicies = () => {
                             maxCount={3}
                             size={28}
                         />
-                        {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
-                        {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
-                        {record?.resourceOwners ? <ActorTag>All Owners</ActorTag> : null}
+                        {record?.allUsers ? <ActorTag>Todos os usuários</ActorTag> : null}
+                        {record?.allGroups ? <ActorTag>Todos os grupos</ActorTag> : null}
+                        {record?.resourceOwners ? <ActorTag>Todos os proprietários</ActorTag> : null}
                     </>
                 );
             },
         },
         {
-            title: 'State',
+            title: t('common.state'),
             dataIndex: 'state',
             key: 'state',
             render: (state: string) => {
@@ -280,7 +281,7 @@ export const ManagePolicies = () => {
             render: (_, record: any) => (
                 <ActionButtonContainer>
                     <EditPolicyButton disabled={!record?.editable} onClick={() => onEditPolicy(record?.policy)}>
-                        EDIT
+                        {t('common.edit')}
                     </EditPolicyButton>
                     {record?.state === PolicyState.Active ? (
                         <Button
@@ -294,7 +295,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'red' : ANTD_GRAY[6], width: 100 }}
                         >
-                            DEACTIVATE
+                            {t('common.deactivate')}
                         </Button>
                     ) : (
                         <Button
@@ -308,7 +309,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'green' : ANTD_GRAY[6], width: 100 }}
                         >
-                            ACTIVATE
+                            {t('common.activate')}
                         </Button>
                     )}
                     <Button
@@ -348,7 +349,7 @@ export const ManagePolicies = () => {
             {policiesLoading && !policiesData && (
                 <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
             )}
-            {policiesError && <Message type="error" content="Failed to load policies! An unexpected error occurred." />}
+            {policiesError && <Message type="error" content={ t('permissions.failedToLoadPolicies')} />}
             {updateError && message.error('Failed to update policies. An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>
@@ -359,13 +360,13 @@ export const ManagePolicies = () => {
                             onClick={onClickNewPolicy}
                             data-testid="add-policy-button"
                         >
-                            <PlusOutlined /> Create new policy
+                            <PlusOutlined /> {t('permissions.createNewPolicy')}
                         </Button>
                     </div>
                     <SelectContainer>
                         <SearchBar
                             initialQuery={query || ''}
-                            placeholderText="Search policies..."
+                            placeholderText={t('permissions.searchPolicies')}
                             suggestions={[]}
                             style={{
                                 maxWidth: 220,
@@ -389,13 +390,13 @@ export const ManagePolicies = () => {
                             style={{ width: 100 }}
                         >
                             <Select.Option value={StatusType.ALL} key="ALL">
-                                All
+                                {t('common.all')}
                             </Select.Option>
                             <Select.Option value={StatusType.ACTIVE} key="ACTIVE">
-                                Active
+                                {t('common.activate')}
                             </Select.Option>
                             <Select.Option value={StatusType.INACTIVE} key="INACTIVE">
-                                Inactive
+                                {t('common.Inactive')}
                             </Select.Option>
                         </StyledSelect>
                     </SelectContainer>

@@ -6,7 +6,7 @@ import SortIcon from '../../../images/sort.svg?react';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { DEFAULT_SORT_OPTION, SORT_OPTIONS } from '../context/constants';
 import { useSearchContext } from '../context/SearchContext';
-
+import { useTranslation } from 'react-i18next';
 const SelectWrapper = styled.span`
     display: inline-flex;
     align-items: center;
@@ -32,15 +32,16 @@ const StyledIcon = styled(Icon)`
 
 export default function SearchSortSelect() {
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
+    const { t } = useTranslation();
 
     const options = Object.entries(SORT_OPTIONS).map(([value, option]) => ({ value, label: option.label }));
 
     return (
-        <Tooltip title="Sort search results" showArrow={false} placement="left">
+        <Tooltip title= {t('common.sortSearchResults')}showArrow={false} placement="left">
             <SelectWrapper>
                 <StyledIcon component={SortIcon} />
                 <Select
-                    placeholder="Sort"
+                    placeholder="Organizar por"
                     value={selectedSortOption === DEFAULT_SORT_OPTION ? null : selectedSortOption}
                     options={options}
                     bordered={false}

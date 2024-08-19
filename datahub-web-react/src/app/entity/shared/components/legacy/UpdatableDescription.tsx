@@ -6,7 +6,7 @@ import MarkdownViewer from './MarkdownViewer';
 import UpdateDescriptionModal from './DescriptionModal';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { EntityType } from '../../../../../types.generated';
-
+import { useTranslation } from 'react-i18next';
 const DescriptionText = styled(MarkdownViewer)`
     ${(props) => (props.isCompact ? 'max-width: 377px;' : '')};
 `;
@@ -32,6 +32,7 @@ export default function UpdatableDescription({
     entityType,
     urn,
 }: Props) {
+    const { t } = useTranslation();
     const [showAddDescModal, setShowAddDescModal] = useState(false);
     const onSubmit = async (description: string | null) => {
         message.loading({ content: 'Updating...' });
@@ -46,10 +47,10 @@ export default function UpdatableDescription({
                 entityType,
                 entityUrn: urn,
             });
-            message.success({ content: 'Updated!', duration: 2 });
+            message.success({ content: t('crud.success.update'), duration: 2 });
         } catch (e: unknown) {
             message.destroy();
-            if (e instanceof Error) message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
+            if (e instanceof Error) message.error({ content: `${t('crud.error.updateFailed')}\n ${e.message || ''}`, duration: 2 });
         }
         setShowAddDescModal(false);
     };
@@ -66,7 +67,7 @@ export default function UpdatableDescription({
                     />
                     {showAddDescModal && (
                         <UpdateDescriptionModal
-                            title="Update description"
+                            title="Descrição da atualização"
                             onClose={() => setShowAddDescModal(false)}
                             onSubmit={onSubmit}
                             original={originalDescription || ''}
@@ -77,7 +78,7 @@ export default function UpdatableDescription({
             ) : (
                 <>
                     <AddNewDescription color="success" onClick={() => setShowAddDescModal(true)}>
-                        + Add Description
+                        {t('common.addDescription')}
                     </AddNewDescription>
                     {showAddDescModal && (
                         <UpdateDescriptionModal

@@ -18,11 +18,20 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { PageRoutes } from '../../../conf/Global';
-
+import { useTranslation } from 'react-i18next';
 /**
  * Definition of the DataHub Dataset entity.
  */
 export class GlossaryTermEntity implements Entity<GlossaryTerm> {
+
+
+
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.GlossaryTerm;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -54,9 +63,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getPathName = () => 'glossaryTerm';
 
-    getCollectionName = () => 'Glossary Terms';
+    getCollectionName = () => this.translationService('common.glossaryTerms');
 
-    getEntityName = () => 'Glossary Term';
+    getEntityName = () => this.translationService('common.glossaryTerms');
 
     useEntityQuery = useGetGlossaryTermQuery;
 
@@ -81,11 +90,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 hideBrowseBar
                 tabs={[
                     {
-                        name: 'Documentation',
+                        name: this.translationService('common.documentation'),
+
                         component: DocumentationTab,
                     },
                     {
-                        name: 'Related Entities',
+                        name: this.translationService('common.relatedEntities'),
                         component: GlossaryRelatedEntity,
                     },
                     {
@@ -102,11 +112,11 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         },
                     },
                     {
-                        name: 'Related Terms',
+                        name: this.translationService('common.relatedTerms'),
                         component: GlossayRelatedTerms,
                     },
                     {
-                        name: 'Properties',
+                        name: this.translationService('common.properties'),
                         component: PropertiesTab,
                     },
                 ]}

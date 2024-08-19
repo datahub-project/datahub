@@ -18,6 +18,7 @@ import {
 import { filterQueries } from './utils/filterQueries';
 import QueriesTabToolbar from './QueriesTabToolbar';
 import QueriesListSection from './QueriesListSection';
+import { useTranslation } from 'react-i18next';
 
 const Content = styled.div`
     padding: 24px;
@@ -30,6 +31,7 @@ export default function QueriesTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
 
+    const { t } = useTranslation();
     const [showQueryBuilder, setShowQueryBuilder] = useState(false);
     const [filterText, setFilterText] = useState('');
 
@@ -105,8 +107,8 @@ export default function QueriesTab() {
                 )}
                 {highlightedQueries.length > 0 && (
                     <QueriesListSection
-                        title="Highlighted Queries"
-                        tooltip="Shared queries relevant to this dataset"
+                        title={t('query.highlightedQuery')}
+                        tooltip={t('query.highlightedQueryTooltip')}
                         queries={highlightedQueries}
                         showEdit
                         showDelete
@@ -116,8 +118,8 @@ export default function QueriesTab() {
                 )}
                 {recentQueries.length > 0 && (
                     <QueriesListSection
-                        title="Recent Queries"
-                        tooltip="Queries that have been recently run against this dataset"
+                        title={t('query.recentQueries')}
+                        tooltip={t('query.recentQueriesTooltip')}
                         queries={recentQueries}
                         showDetails={false}
                         showDelete={false}

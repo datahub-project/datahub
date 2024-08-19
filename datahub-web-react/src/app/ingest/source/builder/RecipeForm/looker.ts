@@ -38,12 +38,12 @@ export const CHART_ALLOW: RecipeField = {
     name: 'chart_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
-        'Only include specific Charts by providing the numeric id of a Chart, or a Regular Expression (REGEX). If not provided, all Charts will be included.',
+        'Inclua apenas gráficos específicos, fornecendo o ID numérico de um gráfico ou uma expressão regular (REGEX). Se não for fornecido, todos os gráficos serão incluídos.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: chartAllowFieldPath,
     rules: null,
-    section: 'Charts',
+    section: 'Gráficos',
     placeholder: '12',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, chartAllowFieldPath),
@@ -54,12 +54,12 @@ export const CHART_DENY: RecipeField = {
     name: 'chart_pattern.deny',
     label: 'Deny Patterns',
     tooltip:
-        'Exclude specific Charts by providing the numeric id of a Chart, or a Regular Expression (REGEX). If not provided, all Charts will be included. Deny patterns always take precendence over Allow patterns.',
+        'Exclua gráficos específicos fornecendo o ID numérico de um gráfico ou uma expressão regular (REGEX). Se não for fornecido, todos os gráficos serão incluídos. Os padrões de negação sempre têm precedência sobre os padrões de permissão.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: chartDenyFieldPath,
     rules: null,
-    section: 'Charts',
+    section: 'Gráficos',
     placeholder: '12',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, chartDenyFieldPath),
@@ -68,14 +68,14 @@ export const CHART_DENY: RecipeField = {
 const dashboardAllowFieldPath = 'source.config.dashboard_pattern.allow';
 export const DASHBOARD_ALLOW: RecipeField = {
     name: 'dashboard_pattern.allow',
-    label: 'Allow Patterns',
+    label: 'Permitir padrões',
     tooltip:
-        'Only include specific Dashboards by providing the numeric id of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included.',
+        'Inclua apenas painéis específicos, fornecendo o ID numérico de um painel ou uma expressão regular (REGEX). Se não for fornecido, todos os painéis serão incluídos.',
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    buttonLabel: 'Adicionar padrão',
     fieldPath: dashboardAllowFieldPath,
     rules: null,
-    section: 'Dashboards',
+    section: 'Painéis',
     placeholder: '1232',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, dashboardAllowFieldPath),
@@ -84,11 +84,11 @@ export const DASHBOARD_ALLOW: RecipeField = {
 const dashboardDenyFieldPath = 'source.config.dashboard_pattern.deny';
 export const DASHBOARD_DENY: RecipeField = {
     name: 'dashboard_pattern.deny',
-    label: 'Deny Patterns',
+    label: 'Negar padrões',
     tooltip:
-        'Exclude specific Dashboards by providing the numeric id of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included. Deny patterns always take precendence over Allow patterns.',
+        'Exclua painéis específicos fornecendo o ID numérico de um painel ou uma expressão regular (REGEX). Se não for fornecido, todos os painéis serão incluídos. Os padrões de negação sempre têm precedência sobre os padrões de permissão.',
     type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
+    buttonLabel: 'Adicionar padrão',
     fieldPath: dashboardDenyFieldPath,
     rules: null,
     section: 'Dashboards',

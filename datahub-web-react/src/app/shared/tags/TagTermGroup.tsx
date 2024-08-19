@@ -6,11 +6,13 @@ import Highlight from 'react-highlighter';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
-import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 import { DomainLink } from './DomainLink';
 import EditTagTermsModal from './AddTagsTermsModal';
 import StyledTerm from './term/StyledTerm';
 import Tag from './tag/Tag';
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../../utils/translation/translation';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -68,6 +70,7 @@ export default function TagTermGroup({
     refetch,
     readOnly,
 }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
@@ -166,12 +169,12 @@ export default function TagTermGroup({
             })}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 <Typography.Paragraph type="secondary">
-                    {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}
+                    {translateDisplayNames(t, 'emptyTitleTag')}. {translateDisplayNames(t, 'emptyDescriptionTag')}
                 </Typography.Paragraph>
             )}
             {showEmptyMessage && canAddTerm && termsEmpty && (
                 <Typography.Paragraph type="secondary">
-                    {EMPTY_MESSAGES.terms.title}. {EMPTY_MESSAGES.terms.description}
+                    {translateDisplayNames(t, 'emptyTitleTerm')}. {translateDisplayNames(t, 'emptyDescriptionTerm')}
                 </Typography.Paragraph>
             )}
             {canAddTag && !readOnly && (
@@ -184,7 +187,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <PlusOutlined />
-                    <span>Add Tags</span>
+                    <span>{t('crud.addWithName', { name: 'Tags'})}</span>
                 </NoElementButton>
             )}
             {canAddTerm && !readOnly && (
@@ -197,7 +200,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <PlusOutlined />
-                    <span>Add Terms</span>
+                    <span>{t('crud.addGlossaryTerms')}</span>
                 </NoElementButton>
             )}
             {showAddModal && !!entityUrn && !!entityType && (

@@ -65,7 +65,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
     const getUserStatusToolTip = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
             case CorpUserStatus.Active:
-                return 'The user has logged in.';
+                return 'O usuário fez login.';
             default:
                 return '';
         }
@@ -126,10 +126,10 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                                 onClick={() => setIsViewingResetToken(true)}
                                 data-testid="reset-menu-item"
                             >
-                                <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
+                                <UnlockOutlined data-testid="resetButton" /> &nbsp; Redefinir senha do usuário
                             </Menu.Item>
                             <Menu.Item onClick={onDeleteEntity}>
-                                <DeleteOutlined /> &nbsp;Delete
+                                <DeleteOutlined /> &nbsp;Excluir
                             </Menu.Item>
                         </Menu>
                     }

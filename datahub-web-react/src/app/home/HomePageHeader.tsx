@@ -1,31 +1,32 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useHistory } from 'react-router';
-import { Typography, Image, Row, Button, Tag } from 'antd';
-import { debounce } from 'lodash';
-import styled, { useTheme } from 'styled-components/macro';
 import { RightOutlined } from '@ant-design/icons';
-import { ManageAccount } from '../shared/ManageAccount';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
-import { SearchBar } from '../search/SearchBar';
+import { Button, Image, Row, Tag, Typography } from 'antd';
+import { debounce } from 'lodash';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router';
+import styled, { useTheme } from 'styled-components/macro';
+import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '../../graphql/search.generated';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { EntityType, FacetFilterInput } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
-import { HeaderLinks } from '../shared/admin/HeaderLinks';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
-import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
-import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
-import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
-import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils';
 import { useUserContext } from '../context/useUserContext';
-import AcrylDemoBanner from './AcrylDemoBanner';
 import DemoButton from '../entity/shared/components/styled/DemoButton';
+import { ANTD_GRAY } from '../entity/shared/constants';
 import { HALF_SECOND_IN_MS } from '../entity/shared/tabs/Dataset/Queries/utils/constants';
+import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
+import { SearchBar } from '../search/SearchBar';
+import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils';
+import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
+import { HeaderLinks } from '../shared/admin/HeaderLinks';
+import { ManageAccount } from '../shared/ManageAccount';
+import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
+import { useEntityRegistry } from '../useEntityRegistry';
+import AcrylDemoBanner from './AcrylDemoBanner';
 
 const Background = styled.div`
     width: 100%;
@@ -145,6 +146,7 @@ function sortRandom() {
 export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
     const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const userContext = useUserContext();
     const themeConfig = useTheme();
@@ -238,7 +240,7 @@ export const HomePageHeader = () => {
                 <WelcomeText>
                     {!!user && (
                         <>
-                            Welcome back, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
+                            {t('home.welcomeBack')}, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
                         </>
                     )}
                 </WelcomeText>
@@ -283,9 +285,9 @@ export const HomePageHeader = () => {
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>
                             <SuggestionsHeader>
-                                <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
+                                <SuggestedQueriesText strong>{t('home.trySearchingFor')}</SuggestedQueriesText>
                                 <ExploreAllButton type="link" onClick={onClickExploreAll}>
-                                    Explore all <StyledRightOutlined />
+                                {t('search.exploreAll')} <StyledRightOutlined />
                                 </ExploreAllButton>
                             </SuggestionsHeader>
                             <SuggestionTagContainer>

@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 
 const ExploreForEntity = styled.span`
     font-weight: light;
@@ -28,16 +29,17 @@ const ReturnKey = styled(Typography.Text)`
 `;
 
 function ViewAllSearchItem({ searchTarget: searchText }: { searchTarget?: string }) {
+    const { t } = useTranslation();
     return (
         <ViewAllContainer>
             <ExploreForEntity>
                 <SearchOutlined />
                 <ExploreForEntityText>
-                    View all results for <Typography.Text strong>{searchText}</Typography.Text>
+                    {t('search.viewAllResultsFor')} <Typography.Text strong>{searchText}</Typography.Text>
                 </ExploreForEntityText>
             </ExploreForEntity>
             <ReturnKey keyboard disabled>
-                ⮐ return
+                {t('common.return')}
             </ReturnKey>
         </ViewAllContainer>
     );

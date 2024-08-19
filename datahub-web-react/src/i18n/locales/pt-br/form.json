@@ -1,0 +1,49 @@
+{
+  "validateMessages": {
+    "default": "Erro de validação no campo '${name}'",
+    "required": "'${name}' é obrigatório",
+    "enum": "'${name}' deve ser um dos seguintes: [${enum}]",
+    "whitespace": "'${name}' não pode estar vazio",
+    "date": {
+      "format": "'${name}' é inválido para o formato de data",
+      "parse": "'${name}' não pôde ser interpretado como data",
+      "invalid": "'${name}' é uma data inválida"
+    },
+    "types": {
+      "string": "'${name}' não é um ${type} válido",
+      "method": "'${name}' não é um ${type} válido",
+      "array": "'${name}' não é um ${type} válido",
+      "object": "'${name}' não é um ${type} válido",
+      "number": "'${name}' não é um ${type} válido",
+      "date": "'${name}' não é um ${type} válido",
+      "boolean": "'${name}' não é um ${type} válido",
+      "integer": "'${name}' não é um ${type} válido",
+      "float": "'${name}' não é um ${type} válido",
+      "regexp": "'${name}' não é um ${type} válido",
+      "email": "'${name}' não é um ${type} válido",
+      "url": "'${name}' não é um ${type} válido",
+      "hex": "'${name}' não é um ${type} válido"
+    },
+    "string": {
+      "len": "'${name}' deve ter exatamente ${len} caracteres",
+      "min": "'${name}' deve ter pelo menos ${min} caracteres",
+      "max": "'${name}' não pode ter mais de ${max} caracteres",
+      "range": "'${name}' deve ter entre ${min} e ${max} caracteres"
+    },
+    "number": {
+      "len": "'${name}' deve ser igual a ${len}",
+      "min": "'${name}' não pode ser menor que ${min}",
+      "max": "'${name}' não pode ser maior que ${max}",
+      "range": "'${name}' deve estar entre ${min} e ${max}"
+    },
+    "array": {
+      "len": "'${name}' deve ter exatamente ${len} itens",
+      "min": "'${name}' não pode ter menos que ${min} itens",
+      "max": "'${name}' não pode ter mais que ${max} itens",
+      "range": "'${name}' deve ter entre ${min} e ${max} itens"
+    },
+    "pattern": {
+      "mismatch": "'${name}' não corresponde ao padrão ${pattern}"
+    }
+  }
+}

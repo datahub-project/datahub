@@ -23,6 +23,11 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
  * Definition of the DataHub MLFeature entity.
  */
 export class MLFeatureEntity implements Entity<MlFeature> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
     type: EntityType = EntityType.Mlfeature;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -56,7 +61,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getEntityName = () => 'Feature';
 
-    getCollectionName = () => 'Features';
+    getCollectionName = () => this.translationService('common.features');
 
     useEntityQuery = useGetMlFeatureQuery;
 
@@ -77,11 +82,11 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
-                    name: 'Feature Tables',
+                    name: 'Tabelas de recursos',
                     component: FeatureTableTab,
                 },
                 {
-                    name: 'Documentation',
+                    name: 'Documentação',
                     component: DocumentationTab,
                 },
                 {

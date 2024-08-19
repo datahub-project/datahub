@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import moment from 'moment';
 import { DateInterval } from '../../../types.generated';
+import i18n from '../../../i18n/i18n';
 
 dayjs.extend(relativeTime);
 
@@ -130,7 +131,12 @@ export const getLocaleTimezone = () => {
 };
 
 export const toRelativeTimeString = (timeMs: number) => {
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    let currentLang = i18n.language;
+    if (currentLang != null && currentLang.includes('_')) {
+        currentLang = currentLang.replaceAll('_', '-');
+    }
+
+    const rtf = new Intl.RelativeTimeFormat(currentLang, { numeric: 'auto' });
 
     const diffInMs = timeMs - new Date().getTime();
 

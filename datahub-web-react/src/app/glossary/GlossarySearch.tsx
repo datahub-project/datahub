@@ -7,6 +7,7 @@ import { SearchBar } from '../search/SearchBar';
 import ClickOutside from '../shared/ClickOutside';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GloassarySearchResultItem from './GloassarySearchResultItem';
+import { useTranslation } from 'react-i18next';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
@@ -34,6 +35,7 @@ const TermNodeName = styled.span`
 `;
 
 function GlossarySearch() {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
@@ -54,7 +56,7 @@ function GlossarySearch() {
 
     const renderSearchResults = () => (
         <ResultsWrapper>
-            <TermNodeName>Glossary Terms</TermNodeName>
+            <TermNodeName>Termos de Glossário</TermNodeName>
             {searchResults?.map((result) => (
                 <GloassarySearchResultItem
                     key={result.entity.urn}
@@ -72,7 +74,7 @@ function GlossarySearch() {
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search Glossary"
+                    placeholderText={t('glossary.searchGlossary')}
                     suggestions={[]}
                     hideRecommendations
                     style={{

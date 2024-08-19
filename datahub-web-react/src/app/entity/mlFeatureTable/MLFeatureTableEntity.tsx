@@ -24,6 +24,11 @@ import { getDataProduct } from '../shared/utils';
  * Definition of the DataHub MLFeatureTable entity.
  */
 export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
     type: EntityType = EntityType.MlfeatureTable;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -55,9 +60,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getPathName = () => 'featureTables';
 
-    getEntityName = () => 'Feature Table';
+    getEntityName = () => 'Feature Tables';
 
-    getCollectionName = () => 'Feature Tables';
+    getCollectionName = () => this.translationService('entity.featureTables');
 
     getOverridePropertiesFromEntity = (_?: MlFeatureTable | null): GenericEntityProperties => {
         return {};
@@ -108,11 +113,11 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                     component: Sources,
                 },
                 {
-                    name: 'Properties',
+                    name:this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
                 {
-                    name: 'Documentation',
+                    name:this.translationService('common.documentation'),
                     component: DocumentationTab,
                 },
             ]}

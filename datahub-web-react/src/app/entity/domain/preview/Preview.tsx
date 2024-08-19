@@ -4,6 +4,7 @@ import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import DomainEntitiesSnippet from './DomainEntitiesSnippet';
 import DomainIcon from '../../../domain/DomainIcon';
+import { useTranslation } from 'react-i18next';
 
 export const Preview = ({
     domain,
@@ -23,13 +24,15 @@ export const Preview = ({
     logoComponent?: JSX.Element;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
+
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Domain, urn)}
             name={name || ''}
             urn={urn}
             description={description || ''}
-            type="Domain"
+            type={t('common.domain')}
             typeIcon={
                 <DomainIcon
                     style={{

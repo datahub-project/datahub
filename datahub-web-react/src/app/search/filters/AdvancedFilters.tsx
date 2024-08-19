@@ -13,6 +13,7 @@ import { FilterButtonsWrapper, FlexSpacer, FlexWrapper } from './BasicFilters';
 import SaveViewButton from './SaveViewButton';
 import { TextButton } from './styledComponents';
 import { hasAdvancedFilters } from '../utils/hasAdvancedFilters';
+import { useTranslation } from 'react-i18next';
 
 const AnyAllToggle = styled.div`
     font-weight: 700;
@@ -49,12 +50,13 @@ export default function AdvancedFilters({
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
     const onlyShowAdvancedFilters = hasAdvancedFilters(activeFilters, unionType);
+    const { t } = useTranslation();
 
     return (
         <>
             {activeFilters?.length >= 2 && (
                 <AnyAllToggle>
-                    Show results that match{' '}
+                    {t('filter.showResultsThatMatch')}
                     <AdvancedSearchFilterOverallUnionTypeSelect
                         unionType={unionType}
                         onUpdate={(newValue) => onChangeUnionType(newValue)}
@@ -92,12 +94,12 @@ export default function AdvancedFilters({
                             isCompact
                         />
                     ))}
-                    {!activeFilters.length && <EmptyStateSection>No filters applied.</EmptyStateSection>}
+                    {!activeFilters.length && <EmptyStateSection>{t('filter.noFilterApplied')}</EmptyStateSection>}
                 </FlexWrapper>
                 <FilterButtonsWrapper>
                     {showSaveViewButton && <SaveViewButton activeFilters={activeFilters} unionType={unionType} />}
                     <TextButton disabled={onlyShowAdvancedFilters} type="text" onClick={showBasicFilters} marginTop={0}>
-                        Basic Filters
+                        {t('filter.basicFilters')}
                     </TextButton>
                 </FilterButtonsWrapper>
             </FlexSpacer>

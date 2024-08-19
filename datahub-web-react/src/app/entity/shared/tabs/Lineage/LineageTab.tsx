@@ -27,6 +27,7 @@ import ManageLineageMenu from '../../../../lineage/manage/ManageLineageMenu';
 import LineageTabTimeSelector from './LineageTabTimeSelector';
 import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 import { ANTD_GRAY } from '../../constants';
+import { t } from 'i18next';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: space-between;
@@ -134,7 +135,7 @@ export const LineageTab = ({
                             <Button type="text">
                                 <ManageLineageIcon />
                                 <Typography.Text>
-                                    <b>Edit</b>
+                                    <b>{t('common.edit')}</b>
                                 </Typography.Text>
                                 <StyledCaretDown />
                             </Button>

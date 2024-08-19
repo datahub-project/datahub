@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { DataPlatform, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     onCloseModal: () => void;
     defaultValues?: { urn: string; entity?: Entity | null }[];
@@ -39,7 +39,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
         platforSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
 
     const [selectedPlatforms, setSelectedPlatforms] = useState<SelectedPlatform[] | undefined>(defaultValues);
-
+    const { t } = useTranslation();
     const inputEl = useRef(null);
 
     const onModalClose = () => {
@@ -142,10 +142,10 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button id="setPlatformButton" disabled={selectedPlatforms?.length === 0} onClick={handleOk}>
-                        Add
+                        {t('common.add')}
                     </Button>
                 </>
             }
@@ -158,7 +158,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
                         showSearch
                         mode="multiple"
                         defaultActiveFirstOption={false}
-                        placeholder="Search for Platforms..."
+                        placeholder="Filtrar por plataformas..."
                         onSelect={(platformUrn: any) => onSelectPlatform(platformUrn)}
                         onDeselect={onDeselectPlatform}
                         onSearch={(value: string) => {

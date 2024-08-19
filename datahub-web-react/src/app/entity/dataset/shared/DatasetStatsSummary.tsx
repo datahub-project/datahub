@@ -9,6 +9,7 @@ import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { FormattedBytesStat } from './FormattedBytesStat';
 import { countFormatter, needsFormatting } from '../../../../utils/formatter';
 import ExpandingStat from './ExpandingStat';
+import { useTranslation } from 'react-i18next';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};
@@ -45,6 +46,7 @@ export const DatasetStatsSummary = ({
     mode = 'normal',
     shouldWrap,
 }: Props) => {
+    const { t } = useTranslation();
     const isTooltipMode = mode === 'tooltip-content';
     const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
 
@@ -55,7 +57,7 @@ export const DatasetStatsSummary = ({
                 render={(isExpanded) => (
                     <StatText color={displayedColor}>
                         <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
-                        <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b> rows
+                        <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b> {t('common.rows')}
                         {!!columnCount && (
                             <>
                                 ,{' '}
@@ -64,7 +66,7 @@ export const DatasetStatsSummary = ({
                                         ? formatNumberWithoutAbbreviation(columnCount)
                                         : countFormatter(columnCount)}
                                 </b>{' '}
-                                columns
+                                {t('common.columns')}
                             </>
                         )}
                     </StatText>
@@ -81,27 +83,27 @@ export const DatasetStatsSummary = ({
             <StatText color={displayedColor}>
                 <ConsoleSqlOutlined style={{ marginRight: 8, color: displayedColor }} />
                 <b>{formatNumberWithoutAbbreviation(queryCountLast30Days || totalSqlQueries)}</b>{' '}
-                {queryCountLast30Days ? <>queries last month</> : <>monthly queries</>}
+                {queryCountLast30Days ? <>{t('dataset.queriesLastMonth')}</> : <>{t('dataset.monthlyQueries')}</>}
             </StatText>
         ),
         !!uniqueUserCountLast30Days && (
             <StatText color={displayedColor}>
                 <TeamOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
+                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> {t('common.uniqueUsers')}
             </StatText>
         ),
         !!lastUpdatedMs && (
             <Popover
                 content={
                     <PopoverContent>
-                        Data was last updated in the source platform on{' '}
+                        {t('dataset.lastUpdatedDataOn')}{' '}
                         <strong>{toLocalDateTimeString(lastUpdatedMs)}</strong>
                     </PopoverContent>
                 }
             >
                 <StatText color={displayedColor}>
                     <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                    Updated {toRelativeTimeString(lastUpdatedMs)}
+                    {t('dataset.updatedOn')}: {toRelativeTimeString(lastUpdatedMs)}
                 </StatText>
             </Popover>
         ),

@@ -37,6 +37,12 @@ import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
  * Definition of the DataHub Dashboard entity.
  */
 export class DashboardEntity implements Entity<Dashboard> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.Dashboard;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -72,11 +78,11 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getAutoCompleteFieldName = () => 'title';
 
-    getPathName = () => 'dashboard';
+    getPathName = () => 'Painéis';
 
-    getEntityName = () => 'Dashboard';
+    getEntityName = () => 'Painéis';
 
-    getCollectionName = () => 'Dashboards';
+    getCollectionName = () => this.translationService('common.dashboards');
 
     useEntityQuery = useGetDashboardQuery;
 
@@ -118,7 +124,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             }}
             tabs={[
                 {
-                    name: 'Charts',
+                    name: this.translationService('common.dashboards'),
                     component: DashboardChartsTab,
                     display: {
                         visible: (_, dashboard: GetDashboardQuery) =>
@@ -128,7 +134,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
                 {
-                    name: 'Datasets',
+                    name: 'Dashboard Datasets',
                     component: DashboardDatasetsTab,
                     display: {
                         visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
@@ -136,11 +142,11 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
                 {
-                    name: 'Documentation',
+                    name: this.translationService('common.documentation'),
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Preview',
+                    name: 'Embed',
                     component: EmbedTab,
                     display: {
                         visible: (_, dashboard: GetDashboardQuery) =>
@@ -159,7 +165,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
                 {
-                    name: 'Properties',
+                    name: 'Propriedades',
                     component: PropertiesTab,
                 },
                 {
@@ -167,7 +173,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     component: IncidentTab,
                     getDynamicName: (_, dashboard) => {
                         const activeIncidentCount = dashboard?.dashboard?.activeIncidents.total;
-                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                        return `Incidentes${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
             ]}
@@ -244,7 +250,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 snippet={
                     <MatchedFieldList
                         customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
-                        matchSuffix="on a contained chart"
+                        matchSuffix="em um gráfico contido"
                     />
                 }
                 subtype={data.subTypes?.typeNames?.[0]}

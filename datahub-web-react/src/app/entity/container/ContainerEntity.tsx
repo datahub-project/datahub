@@ -22,6 +22,12 @@ import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
  * Definition of the DataHub Container entity.
  */
 export class ContainerEntity implements Entity<Container> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.Container;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -61,7 +67,7 @@ export class ContainerEntity implements Entity<Container> {
 
     getEntityName = () => 'Container';
 
-    getCollectionName = () => 'Containers';
+    getCollectionName = () => this.translationService('common.containers');
 
     useEntityQuery = useGetContainerQuery;
 
@@ -74,15 +80,15 @@ export class ContainerEntity implements Entity<Container> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
-                    name: 'Entities',
+                    name: this.translationService('common.entity'),
                     component: ContainerEntitiesTab,
                 },
                 {
-                    name: 'Documentation',
+                    name: this.translationService('common.documentation'),
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Properties',
+                    name:this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
             ]}

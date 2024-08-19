@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { CorpUser, DataHubPolicy, DataHubRole } from '../../../types.generated';
 import AvatarsGroup from '../AvatarsGroup';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     role: DataHubRole;
     visible: boolean;
@@ -35,11 +35,12 @@ const ThinDivider = styled(Divider)`
  * Component used for displaying the details about an existing Role.
  */
 export default function RoleDetailsModal({ role, visible, onClose }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
 
     const actionButtons = (
         <ButtonsContainer>
-            <Button onClick={onClose}>Close</Button>
+            <Button onClick={onClose}>{t('common.close')}</Button>
         </ButtonsContainer>
     );
 
@@ -52,17 +53,17 @@ export default function RoleDetailsModal({ role, visible, onClose }: Props) {
         <Modal title={role?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
-                    <Typography.Title level={5}>Description</Typography.Title>
+                    <Typography.Title level={5}>{t('common.description')}</Typography.Title>
                     <ThinDivider />
                     <Typography.Text type="secondary">{role?.description}</Typography.Text>
                 </div>
                 <div>
-                    <Typography.Title level={5}>Users</Typography.Title>
+                    <Typography.Title level={5}>{t('common.users')}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup users={users} entityRegistry={entityRegistry} maxCount={50} size={28} />
                 </div>
                 <div>
-                    <Typography.Title level={5}>Associated Policies</Typography.Title>
+                    <Typography.Title level={5}>{t('permissions.associatedPolicies')}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup policies={policies} entityRegistry={entityRegistry} maxCount={50} size={28} />
                 </div>

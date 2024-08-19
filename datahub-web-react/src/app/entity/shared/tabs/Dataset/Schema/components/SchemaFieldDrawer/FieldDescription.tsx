@@ -12,7 +12,7 @@ import { useSchemaRefetch } from '../../SchemaContext';
 import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
 import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-
+import { useTranslation } from 'react-i18next';
 const DescriptionWrapper = styled.div`
     display: flex;
     justify-content: space-between;
@@ -31,6 +31,7 @@ interface Props {
 }
 
 export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
+    const { t } = useTranslation();
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -57,12 +58,12 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
         refresh();
         sendAnalytics();
         message.destroy();
-        message.success({ content: 'Updated!', duration: 2 });
+        message.success({ content: t('crud.success.update'), duration: 2 });
     };
 
     const onFailMutation = (e) => {
         message.destroy();
-        if (e instanceof Error) message.error({ content: `Proposal Failed! \n ${e.message || ''}`, duration: 2 });
+        if (e instanceof Error) message.error({ content: `${t('assertion.failed')} \n ${e.message || ''}`, duration: 2 });
     };
 
     const generateMutationVariables = (updatedDescription: string) => ({
@@ -86,7 +87,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
         <>
             <DescriptionWrapper>
                 <div>
-                    <SectionHeader>Description</SectionHeader>
+                    <SectionHeader>{t('common.description')}</SectionHeader>
                     <DescriptionSection
                         description={displayedDescription || ''}
                         baDescription={baDescription || ''}

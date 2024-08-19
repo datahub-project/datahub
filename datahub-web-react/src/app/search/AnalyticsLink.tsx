@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Typography, Tag } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 
 const StyledAnalyticsLink = styled(Typography.Text)`
     display: flex;
@@ -17,10 +18,11 @@ const StyledAnalyticsLink = styled(Typography.Text)`
 `;
 
 export default function AnalyticsLink() {
+    const { t } = useTranslation();
     return (
         <Link to="/analytics">
             <StyledAnalyticsLink strong>
-                Analytics <Tag>Beta</Tag>
+                {t('common.analytics')} <Tag>{t('common.beta')}</Tag>
             </StyledAnalyticsLink>
         </Link>
     );

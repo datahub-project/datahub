@@ -1,0 +1,50 @@
+{
+  "documentation": {
+    "title": "Ainda sem documentação",
+    "description": "Compartilhe seu conhecimento adicionando documentação e links para recursos úteis."
+  },
+  "tags": {
+    "title": "Nenhuma tag adicionada ainda",
+    "description": "Tagueie entidades para ajudar a torná-las mais descobertas e destacar seus atributos mais importantes."
+  },
+  "terms": {
+    "title": "Nenhum termo adicionado ainda",
+    "description": "Aplique termos do glossário às entidades para classificar seus dados."
+  },
+  "owners": {
+    "title": "Nenhum proprietário adicionado ainda",
+    "description": "Adicionar proprietários ajuda a acompanhar quem é responsável por esses dados."
+  },
+  "properties": {
+    "title": "Sem propriedades",
+    "description": "As propriedades aparecerão aqui se existirem na sua fonte de dados."
+  },
+  "queries": {
+    "title": "Nenhuma consulta ainda",
+    "description": "Crie, visualize e compartilhe consultas comumente usadas para este conjunto de dados."
+  },
+  "domain": {
+    "title": "Nenhum domínio definido",
+    "description": "Agrupe entidades relacionadas com base na estrutura organizacional adicionando-as a um Domínio."
+  },
+  "dataProduct": {
+    "title": "Nenhum produto de dados definido",
+    "description": "Agrupe entidades relacionadas com base em características compartilhadas adicionando-as a um Produto de Dados."
+  },
+  "contains": {
+    "title": "Não contém termos",
+    "description": "Os termos podem conter outros termos para representar um relacionamento do tipo \"Tem A\"."
+  },
+  "inherits": {
+    "title": "Não herda de nenhum termo",
+    "description": "Os termos podem herdar de outros termos para representar um relacionamento do tipo \"É A\"."
+  },
+  "containedBy": {
+    "title": "Não é contido por nenhum termo",
+    "description": "Os termos podem ser contidos por outros termos para representar um relacionamento do tipo \"Tem A\"."
+  },
+  "inheritedBy": {
+    "title": "Não é herdado por nenhum termo",
+    "description": "Os termos podem ser herdados por outros termos para representar um relacionamento do tipo \"É A\"."
+  }
+}

@@ -13,7 +13,7 @@ import {
 } from './IngestionSourceTableColumns';
 import { IngestionSource } from '../../../types.generated';
 import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
-
+import { useTranslation } from 'react-i18next';
 const StyledSourceTable = styled(StyledTable)`
     .cliIngestion {
         td {
@@ -43,43 +43,46 @@ function IngestionSourceTable({
     onDelete,
     onRefresh,
 }: Props) {
+    const { t } = useTranslation();
+
+
     const tableColumns = [
         {
-            title: 'Type',
+            title: t('common.type'),
             dataIndex: 'type',
             key: 'type',
             render: (type: string, record: any) => <TypeColumn type={type} record={record} />,
             sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
         },
         {
-            title: 'Name',
+            title:t('common.name'),
             dataIndex: 'name',
             key: 'name',
             render: (name: string) => name || '',
             sorter: (sourceA, sourceB) => sourceA.name.localeCompare(sourceB.name),
         },
         {
-            title: 'Schedule',
+            title: t('common.schedule'),
             dataIndex: 'schedule',
             key: 'schedule',
             render: ScheduleColumn,
         },
         {
-            title: 'Execution Count',
+            title: t('ingest.executionCount'),
             dataIndex: 'execCount',
             key: 'execCount',
             render: (execCount: any) => <Typography.Text>{execCount || '0'}</Typography.Text>,
             sorter: (sourceA, sourceB) => sourceA.execCount - sourceB.execCount,
         },
         {
-            title: 'Last Execution',
+            title: t('ingest.lastExecution'),
             dataIndex: 'lastExecTime',
             key: 'lastExecTime',
             render: LastExecutionColumn,
             sorter: (sourceA, sourceB) => sourceA.lastExecTime - sourceB.lastExecTime,
         },
         {
-            title: 'Last Status',
+            title: t('ingest.lastStatus'),
             dataIndex: 'lastExecStatus',
             key: 'lastExecStatus',
             render: (status: any, record) => (
@@ -103,7 +106,6 @@ function IngestionSourceTable({
             ),
         },
     ];
-
     const tableData = sources.map((source) => ({
         urn: source.urn,
         type: source.type,
@@ -134,7 +136,7 @@ function IngestionSourceTable({
             rowKey="urn"
             rowClassName={(record, _) => (record.cliIngestion ? 'cliIngestion' : '')}
             locale={{
-                emptyText: <Empty description="No Ingestion Sources!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                emptyText: <Empty description={t('ingest.noIngestionSource')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
             expandable={{
                 expandedRowRender: (record, _index, _indent, expanded) => {

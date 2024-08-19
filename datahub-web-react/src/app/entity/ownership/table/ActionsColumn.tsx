@@ -4,7 +4,7 @@ import { CopyOutlined, DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-d
 import styled from 'styled-components/macro';
 import { OwnershipTypeEntity } from '../../../../types.generated';
 import { useDeleteOwnershipTypeMutation } from '../../../../graphql/ownership.generated';
-
+import { useTranslation } from 'react-i18next';
 const DROPDOWN_TEST_ID = 'ownership-table-dropdown';
 const EDIT_OWNERSHIP_TYPE_TEST_ID = 'edit-ownership-type';
 const DELETE_OWNERSHIP_TYPE_TEST_ID = 'delete-ownership-type';
@@ -43,6 +43,7 @@ type Props = {
 };
 
 export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refetch }: Props) => {
+    const { t } = useTranslation();
     const editOnClick = () => {
         setIsOpen(true);
         setOwnershipType(ownershipType);
@@ -62,8 +63,8 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
         })
             .then(() => {
                 notification.success({
-                    message: `Success`,
-                    description: 'You have deleted an ownership type.',
+                    message: `Sucesso`,
+                    description: t('crud.success.youDeletedProperty'),
                     placement: 'bottomLeft',
                     duration: 3,
                 });
@@ -75,7 +76,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
-                        content: `Failed to delete an ownership type`,
+                        content: t('crud.error.delete'),
                         duration: 3,
                     });
                 }
@@ -88,7 +89,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
             icon: (
                 <MenuButtonContainer data-testid={EDIT_OWNERSHIP_TYPE_TEST_ID}>
                     <EditOutlined />
-                    <MenuButtonText>Edit</MenuButtonText>
+                    <MenuButtonText>{t('common.edit')}</MenuButtonText>
                 </MenuButtonContainer>
             ),
         },
@@ -96,7 +97,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
             key: 'delete',
             icon: (
                 <Popconfirm
-                    title={<Typography.Text>Are you sure you want to delete this ownership type?</Typography.Text>}
+                    title={<Typography.Text>{t('crud.doYouWantTo.confirmDeleteOwnershipType')}</Typography.Text>}
                     placement="left"
                     onCancel={() => {}}
                     onConfirm={onDelete}
@@ -105,7 +106,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
                 >
                     <MenuButtonContainer data-testid={DELETE_OWNERSHIP_TYPE_TEST_ID}>
                         <DeleteOutlined />
-                        <MenuButtonText>Delete</MenuButtonText>
+                        <MenuButtonText>{t('crud.delete')}</MenuButtonText>
                     </MenuButtonContainer>
                 </Popconfirm>
             ),
@@ -115,7 +116,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
             icon: (
                 <MenuButtonContainer>
                     <CopyOutlined />
-                    <MenuButtonText>Copy Urn</MenuButtonText>
+                    <MenuButtonText>{t('copy.copyURN')}</MenuButtonText>
                 </MenuButtonContainer>
             ),
         },

@@ -14,7 +14,7 @@ import { ViewsTable } from './ViewsTable';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from './utils';
 import { ViewBuilder } from './builder/ViewBuilder';
 import { ViewBuilderMode } from './builder/types';
-
+import { useTranslation } from 'react-i18next';
 const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
@@ -38,6 +38,7 @@ const searchBarInputStyle = {
  * This component renders a paginated, searchable list of Views.
  */
 export const ViewsList = () => {
+    const { t } = useTranslation();
     /**
      * Context
      */
@@ -100,15 +101,15 @@ export const ViewsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading Views..." />}
-            {error && message.error({ content: `Failed to load Views! An unexpected error occurred.`, duration: 3 })}
+            {!data && loading && <Message type="loading" content={t('common.loading')} />}
+            {error && message.error({ content: t('crud.error.failedToLoadViews'), duration: 3 })}
             <TabToolbar>
                 <Button type="text" onClick={onClickCreateView}>
-                    <PlusOutlined /> Create new View
+                    <PlusOutlined />{t('ingest.createNewView')}
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText="Search Views..."
+                    placeholderText= {t('placeholder.searchViews')}
                     suggestions={[]}
                     style={searchBarStyle}
                     inputStyle={searchBarInputStyle}

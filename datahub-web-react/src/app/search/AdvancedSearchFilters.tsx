@@ -8,7 +8,7 @@ import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal
 import { UnionType } from './utils/constants';
 import { AdvancedSearchAddFilterSelect } from './AdvancedSearchAddFilterSelect';
 import useAdvancedSearchSelectFilters from './useAdvancedSearchSelectFilters';
-
+import { useTranslation } from 'react-i18next';
 const AnyAllSection = styled.div`
     padding: 6px;
     color: ${ANTD_GRAY[8]};
@@ -43,6 +43,8 @@ interface Props {
 }
 
 export const AdvancedSearchFilters = ({
+    
+
     unionType = UnionType.AND,
     facets,
     selectedFilters,
@@ -52,6 +54,7 @@ export const AdvancedSearchFilters = ({
     direction = LayoutDirection.Vertical,
     disabled = false,
 }: Props) => {
+    const { t } = useTranslation();
     const { filterField, setFilterField, onFilterFieldSelect, onSelectValueFromModal } = useAdvancedSearchSelectFilters(
         { selectedFilters, onFilterSelect },
     );
@@ -107,7 +110,7 @@ export const AdvancedSearchFilters = ({
                 </AnyAllSection>
             )}
             {selectedFilters?.length === 0 && direction === LayoutDirection.Vertical && (
-                <EmptyStateSection>No filters applied.</EmptyStateSection>
+                <EmptyStateSection>{t('filter.noFilterApplied')}</EmptyStateSection>
             )}
         </>
     );

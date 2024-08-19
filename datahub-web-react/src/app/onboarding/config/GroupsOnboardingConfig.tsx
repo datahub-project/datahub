@@ -12,18 +12,18 @@ export const GroupsOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Welcome to Datahub <strong>Groups</strong>!
+                    Bem-vindo ao Datahub <strong>Grupos</strong>!
                 </p>
                 <p>
-                    <strong>Groups</strong> are collections of users which can be used to assign ownership to assets and
-                    manage access.
+                    <strong>Grupos</strong> são coleções de usuários que podem ser usadas para atribuir propriedade a ativos e
+                    gerenciar o acesso.
                 </p>
                 <p>
-                    <strong>Groups</strong> can be created natively within DataHub, or synced from your Identity
-                    Provider.
+                    <strong>Grupos</strong> pode ser criado nativamente no DataHub ou sincronizado a partir do seu Identity
+                    Fornecedor.
                 </p>
                 <p>
-                    Learn more about <strong>Groups</strong>{' '}
+                Aprender mais sobre <strong>Grupos</strong>{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
@@ -43,7 +43,7 @@ export const GroupsOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Click here to create a new <strong>Group</strong>.
+                Clique aqui para criar um novo <strong>Grupo</strong>.
                 </p>
             </Typography.Paragraph>
         ),

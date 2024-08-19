@@ -4,7 +4,7 @@ import { useBatchUpdateDeprecationMutation } from '../../../../../../../graphql/
 import { UpdateDeprecationModal } from '../../../../EntityDropdown/UpdateDeprecationModal';
 import ActionDropdown from './ActionDropdown';
 import { handleBatchError } from '../../../../utils';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     urns: Array<string>;
     disabled: boolean;
@@ -13,6 +13,7 @@ type Props = {
 
 // eslint-disable-next-line
 export default function DeprecationDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
 
@@ -27,7 +28,7 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
+                    message.success({ content: t('deprecation.markAssetsAsUnDeprecatedSuccess'), duration: 2 });
                     refetch?.();
                 }
             })
@@ -35,7 +36,7 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
+                        content: `${t('deprecation.markAssetsAsUnDeprecatedError')} \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );
@@ -45,25 +46,25 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
     return (
         <>
             <ActionDropdown
-                name="Deprecation"
+                name={t('common.deprecation')}
                 actions={[
                     {
-                        title: 'Mark as deprecated',
+                        title: t('deprecation.markAsDeprecated'),
                         onClick: () => {
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Mark as un-deprecated',
+                        title: t('deprecation.markAsUnDeprecated'),
                         onClick: () => {
                             Modal.confirm({
-                                title: `Confirm Mark as un-deprecated`,
-                                content: `Are you sure you want to mark these assets as un-deprecated?`,
+                                title:t('deprecation.markAssetsAsUnDeprecatedModalTitle'),
+                                content: t('deprecation.markAssetsAsUnDeprecatedModalContent'),
                                 onOk() {
                                     batchUndeprecate();
                                 },
                                 onCancel() {},
-                                okText: 'Yes',
+                                okText: t('common.yes'),
                                 maskClosable: true,
                                 closable: true,
                             });

@@ -1,14 +1,15 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Divider, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import {
     FacetFilterInput,
     RecommendationModule as RecommendationModuleType,
     ScenarioType,
 } from '../../types.generated';
-import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import { RecommendationModule } from '../recommendations/RecommendationModule';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { RecommendationModule } from '../recommendations/RecommendationModule';
+import { translateDisplayNames } from '../../utils/translation/translation';
 
 const RecommendationsContainer = styled.div`
     margin-left: 40px;
@@ -35,6 +36,7 @@ type Props = {
 };
 
 export const SearchResultsRecommendations = ({ userUrn, query, filters }: Props) => {
+    const { t } = useTranslation();
     const scenario = ScenarioType.SearchResults;
     const { data } = useListRecommendationsQuery({
         variables: {
@@ -56,11 +58,11 @@ export const SearchResultsRecommendations = ({ userUrn, query, filters }: Props)
         <>
             {recommendationModules && !!recommendationModules.length && (
                 <RecommendationsContainer data-testid="recommendation-container-id">
-                    <RecommendationTitle level={3}>More you may be interested in</RecommendationTitle>
+                    <RecommendationTitle level={3}>{t('search.moreYouMayBeInterestedIn')}</RecommendationTitle>
                     {recommendationModules &&
                         recommendationModules.map((module) => (
                             <RecommendationContainer>
-                                <RecommendationTitle level={5}>{module.title}</RecommendationTitle>
+                                <RecommendationTitle level={5}>{translateDisplayNames(t, module.title)}</RecommendationTitle>
                                 <ThinDivider />
                                 <RecommendationModule
                                     module={module as RecommendationModuleType}

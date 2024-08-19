@@ -25,6 +25,7 @@ import {
     updateSecretInListSecretsCache,
 } from './cacheUtils';
 import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
+import { t } from 'i18next';
 
 const DeleteButtonContainer = styled.div`
     display: flex;
@@ -200,17 +201,17 @@ export const SecretsList = () => {
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: t('common.name'),
             dataIndex: 'name',
             key: 'name',
             render: (name: string) => <Typography.Text strong>{name}</Typography.Text>,
         },
         {
-            title: 'Description',
+            title: t('common.description'),
             dataIndex: 'description',
             key: 'description',
             render: (description: any) => {
-                return <>{description || <Typography.Text type="secondary">No description</Typography.Text>}</>;
+                return <>{description || <Typography.Text type="secondary">{t('common.noDescription')}</Typography.Text>}</>;
             },
         },
         {
@@ -220,7 +221,7 @@ export const SecretsList = () => {
             render: (_, record: any) => (
                 <DeleteButtonContainer>
                     <Button style={{ marginRight: 16 }} onClick={() => onEditSecret(record)}>
-                        EDIT
+                        {t('common.edit')}
                     </Button>
                     <Button onClick={() => onDeleteSecret(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
@@ -248,12 +249,12 @@ export const SecretsList = () => {
                             type="text"
                             onClick={() => setIsCreatingSecret(true)}
                         >
-                            <PlusOutlined /> Create new secret
+                            <PlusOutlined /> {t('ingest.createNewSecret')}
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search secrets..."
+                        placeholderText={t('ingest.searchSecrets')}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -277,7 +278,7 @@ export const SecretsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description="No Secrets found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description={t('ingest.noSecretsFound')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
                 />

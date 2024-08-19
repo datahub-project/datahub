@@ -13,7 +13,7 @@ import analytics, { EntityActionType, EventType } from '../../../../../analytics
 import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
 import { ResolveIncidentModal } from './ResolveIncidentModal';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     incident: any;
     refetch?: () => Promise<any>;
@@ -149,6 +149,7 @@ const MenuItem = styled.div`
 `;
 
 export default function IncidentListItem({ incident, refetch }: Props) {
+    const { t } = useTranslation();
     const { entityType } = useEntityData();
     const refetchEntity = useRefetch();
     const entityRegistry = useEntityRegistry();
@@ -183,7 +184,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     entityUrn: incident.urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
-                message.success({ content: 'Incident updated! .', duration: 2 });
+                message.success({ content: t('crud.success.update'), duration: 2 });
                 refetchEntity?.();
                 refetch?.();
                 setIsResolvedModalVisible(false);

@@ -25,6 +25,7 @@ import {
 import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { FilterScenarioType } from './render/types';
 import BasicFiltersLoadingSection from './BasicFiltersLoadingSection';
+import { useTranslation } from 'react-i18next';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
 
@@ -86,7 +87,7 @@ export default function BasicFilters({
     const visibleFilters = shouldShowMoreDropdown ? filters?.slice(0, NUM_VISIBLE_FILTER_DROPDOWNS) : filters;
     const hiddenFilters = shouldShowMoreDropdown ? filters?.slice(NUM_VISIBLE_FILTER_DROPDOWNS) : [];
     const filterRendererRegistry = useFilterRendererRegistry();
-
+    const { t } = useTranslation();
     return (
         <span id={SEARCH_RESULTS_FILTERS_ID}>
             <FlexSpacer>
@@ -125,7 +126,7 @@ export default function BasicFilters({
                         onClick={showAdvancedFilters}
                         marginTop={0}
                     >
-                        Advanced Filters
+                        {t('filter.advancedFilters')}
                     </TextButton>
                 </FilterButtonsWrapper>
             </FlexSpacer>
@@ -145,7 +146,7 @@ export default function BasicFilters({
                             ))}
                         </FlexWrapper>
                         <TextButton type="text" onClick={onClearFilters} height={14} data-testid="clear-all-filters">
-                            clear all
+                            {t('common.clearAll')}
                         </TextButton>
                     </FlexSpacer>
                 </>

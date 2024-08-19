@@ -3,6 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
+import { t } from 'i18next';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -162,12 +163,12 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     required
                     label={
                         <Typography.Text strong style={{ marginBottom: 0 }}>
-                            Name
+                            {t('common.name')}
                         </Typography.Text>
                     }
                     style={{ marginBottom: 8 }}
                 >
-                    <Typography.Paragraph>Give this data source a name</Typography.Paragraph>
+                    <Typography.Paragraph>{t('ingest.giveThisIngestionSourceAName')}</Typography.Paragraph>
                     <Input
                         data-testid="source-name-input"
                         className="source-name-input"
@@ -178,24 +179,22 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     />
                 </Form.Item>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
-                        <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
+                    <Collapse.Panel header={<Typography.Text type="secondary">{t('common.advanced')}</Typography.Text>} key="1">
+                        <Form.Item label={<Typography.Text strong>{t('ingest.executorId')}</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the ID of the executor that should execute this ingestion recipe. This ID is
-                                used to route execution requests of the recipe to the executor of the same ID. The
-                                built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
-                                configured a remote or custom executor.
+                                {t('ingest.provideTheExecutorIDToRouteRequestToText')}
+
                             </Typography.Paragraph>
                             <Input
-                                placeholder="default"
+                                placeholder={t("common.default")}
                                 value={state.config?.executorId || ''}
                                 onChange={(event) => setExecutorId(event.target.value)}
                                 onBlur={(event) => handleBlur(event, setExecutorId)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>{t('ingest.cliVersion')}</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Provide a custom CLI version to use for ingestion.
+                                {t('ingest.advancedProvideCustomCLIVersionToUseForIngestion')}
                             </Typography.Paragraph>
                             <Input
                                 data-testid="cli-version-input"
@@ -206,18 +205,18 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 onBlur={(event) => handleBlur(event, setVersion)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>Debug Mode</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>{t('common.debugMode')}</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Turn on debug mode in order to get more verbose logs.
+                                {t('ingest.advancedTurnOnDebugMode')}
                             </Typography.Paragraph>
                             <Checkbox
                                 checked={state.config?.debugMode || false}
                                 onChange={(event) => setDebugMode(event.target.checked)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>Extra Enviroment Variables</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>{t('ingest.common.extraEnviromentVariables')}</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Set extra environment variables to an ingestion execution
+                            {t('ingest.common.advancedExtraEnvironmentVariableIngestion')}
                             </Typography.Paragraph>
                             <Input
                                 data-testid="extra-args-input"
@@ -227,9 +226,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 onBlur={(event) => handleBlur(event, setExtraEnvs)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>Extra DataHub plugins</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>{t('ingest.common.extraDatahubPlugins')}</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Set extra DataHub plugins for an ingestion execution
+                                {t('ingest.common.advancedSetExtraPluginsDatahub')}
                             </Typography.Paragraph>
                             <Input
                                 data-testid="extra-pip-plugin-input"
@@ -239,9 +238,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 onBlur={(event) => handleBlur(event, setExtraDataHubPlugins)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>Extra Pip Libraries</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>{t('ingest.common.extraPipLibraries')}</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Add extra pip libraries for an ingestion execution
+                            {t('ingest.common.advancedExtraPipLibrariesIngestion')}
                             </Typography.Paragraph>
                             <Input
                                 data-testid="extra-pip-reqs-input"
@@ -255,14 +254,14 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 </Collapse>
             </RequiredFieldForm>
             <ControlsContainer>
-                <Button onClick={prev}>Previous</Button>
+                <Button onClick={prev}>{t('common.previous')}</Button>
                 <div>
                     <SaveButton
                         data-testid="ingestion-source-save-button"
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
-                        Save
+                        {t('common.save')}
                     </SaveButton>
                     <Tooltip showArrow={false} title="Save and starting syncing data source">
                         <Button
@@ -270,7 +269,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             onClick={() => onClickCreate(true)}
                             type="primary"
                         >
-                            Save & Run
+                            {t('common.saveEExecute')}
                         </Button>
                     </Tooltip>
                 </div>

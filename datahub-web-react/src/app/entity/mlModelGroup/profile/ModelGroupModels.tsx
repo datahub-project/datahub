@@ -5,8 +5,9 @@ import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import { useBaseEntity } from '../../shared/EntityContext';
-
+import { useTranslation } from 'react-i18next';
 export default function MLGroupModels() {
+    const { t } = useTranslation();
     const baseEntity = useBaseEntity<GetMlModelGroupQuery>();
     const models = baseEntity?.mlModelGroup?.incoming?.relationships?.map((relationship) => relationship.entity) || [];
 
@@ -19,7 +20,7 @@ export default function MLGroupModels() {
                     style={{ padding: '16px 16px' }}
                     bordered
                     dataSource={models}
-                    header={<Typography.Title level={3}>Models</Typography.Title>}
+                    header={<Typography.Title level={3}>{t('common.models')}</Typography.Title>}
                     renderItem={(item) => (
                         <List.Item style={{ paddingTop: '20px' }}>
                             {entityRegistry.renderPreview(EntityType.Mlmodel, PreviewType.PREVIEW, item)}

@@ -2,15 +2,16 @@ import { Space, Table, Typography } from 'antd';
 import React from 'react';
 import { ColumnsType } from 'antd/es/table';
 import { StringMapEntry } from '../../../../../types.generated';
-
+import { useTranslation } from 'react-i18next';
 export type Props = {
     properties: StringMapEntry[];
 };
 
 export function Properties({ properties }: Props) {
+    const { t } = useTranslation();
     const propertyTableColumns: ColumnsType<StringMapEntry> = [
         {
-            title: 'Name',
+            title: t('common.name'),
             dataIndex: 'key',
             sorter: (a, b) => a.key.localeCompare(b.key),
             defaultSortOrder: 'ascend',
@@ -23,7 +24,7 @@ export function Properties({ properties }: Props) {
 
     return (
         <Space direction="vertical" style={{ width: '100%' }} size="large">
-            <Typography.Title level={3}>Properties</Typography.Title>
+            <Typography.Title level={3}>{t('common.properties')}</Typography.Title>
             <Table pagination={false} columns={propertyTableColumns} dataSource={properties} />
         </Space>
     );

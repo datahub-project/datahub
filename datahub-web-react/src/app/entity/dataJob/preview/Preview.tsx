@@ -19,7 +19,8 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toRelativeTimeString } from '../../../shared/time/timeUtils';
-
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
 `;
@@ -66,13 +67,14 @@ export const Preview = ({
     health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
             name={name}
             urn={urn}
             description={description || ''}
-            type={subType || 'Data Task'}
+            type={subType || t('common.dataTask')}
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
             platform={platformName}
             logoUrl={platformLogo || ''}

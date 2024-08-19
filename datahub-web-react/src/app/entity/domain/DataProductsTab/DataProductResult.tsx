@@ -8,7 +8,7 @@ import { PreviewType } from '../../Entity';
 import EditDataProductModal from './EditDataProductModal';
 import { MenuIcon } from '../../shared/EntityDropdown/EntityDropdown';
 import { useDeleteDataProductMutation } from '../../../../graphql/dataProduct.generated';
-
+import { useTranslation } from 'react-i18next';
 const ResultWrapper = styled.div`
     background-color: white;
     border-radius: 8px;
@@ -58,6 +58,7 @@ interface Props {
 }
 
 export default function DataProductResult({ dataProduct, onUpdateDataProduct, setDeletedDataProductUrns }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [deleteDataProductMutation] = useDeleteDataProductMutation();
@@ -65,24 +66,24 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
     function deleteDataProduct() {
         deleteDataProductMutation({ variables: { urn: dataProduct.urn } })
             .then(() => {
-                message.success('Deleted Data Product');
+                message.success(t('common.deletedDataProduct'));
                 setDeletedDataProductUrns((currentUrns) => [...currentUrns, dataProduct.urn]);
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: 'Failed to delete Data Product. An unexpected error occurred' });
+                message.error({ content: t('crud.error.failedToDeleteDataProduct') });
             });
     }
 
     function onRemove() {
         Modal.confirm({
-            title: `Delete ${entityRegistry.getDisplayName(EntityType.DataProduct, dataProduct)}`,
-            content: `Are you sure you want to delete this Data Product?`,
+            title: `${t('crud.delete')} ${entityRegistry.getDisplayName(EntityType.DataProduct, dataProduct)}`,
+            content: t('entity.areSureDeleteThisDataProduct'),
             onOk() {
                 deleteDataProduct();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.type'),
             maskClosable: true,
             closable: true,
         });
@@ -93,7 +94,7 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
             key: '0',
             label: (
                 <MenuItem onClick={onRemove}>
-                    <DeleteOutlined /> &nbsp;Delete
+                    <DeleteOutlined /> &nbsp;{t('common.delete')}
                 </MenuItem>
             ),
         },

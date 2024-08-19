@@ -4,7 +4,8 @@ import DataProductBuilderForm from './DataProductBuilderForm';
 import { DataProductBuilderState } from './types';
 import { useCreateDataProductMutation } from '../../../../graphql/dataProduct.generated';
 import { DataProduct, Domain } from '../../../../types.generated';
-
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 export const MODAL_WIDTH = '75vw';
 
 export const MODAL_BODY_STYLE = {
@@ -24,6 +25,7 @@ type Props = {
 };
 
 export default function CreateDataProductModal({ domain, onCreateDataProduct, onClose }: Props) {
+    const { t } = useTranslation();
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>(DEFAULT_STATE);
     const [createDataProductMutation] = useCreateDataProductMutation();
 
@@ -42,7 +44,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
         })
             .then(({ data, errors }) => {
                 if (!errors) {
-                    message.success('Created Data Product!');
+                    message.success(t('crud.success.createDataProduct'));
                     if (data?.createDataProduct) {
                         const updateDataProduct = { ...data.createDataProduct, domain: { domain } };
                         onCreateDataProduct(updateDataProduct as DataProduct);
@@ -53,13 +55,13 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
             .catch((error) => {
                 onClose();
                 message.destroy();
-                message.error({ content: `Failed to create Data Product: ${error.message}.` });
+                message.error({ content: `${t('crud.error.failedCreateDataProduct')} ${error.message}.` });
             });
     }
 
     return (
         <Modal
-            title="Create new Data Product"
+            title={t('onBoarding.domains.createNewDataProduct')}
             onCancel={onClose}
             style={MODAL_BODY_STYLE}
             width={MODAL_WIDTH}
@@ -67,10 +69,11 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                    {t('common.cancel')}
+
                     </Button>
                     <Button onClick={createDataProduct} disabled={!builderState.name}>
-                        Create
+                        {t('common.create')}
                     </Button>
                 </>
             }

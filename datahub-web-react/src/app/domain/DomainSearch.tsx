@@ -7,7 +7,7 @@ import { SearchBar } from '../search/SearchBar';
 import ClickOutside from '../shared/ClickOutside';
 import { useEntityRegistry } from '../useEntityRegistry';
 import DomainSearchResultItem from './DomainSearchResultItem';
-
+import { useTranslation } from 'react-i18next';
 const DomainSearchWrapper = styled.div`
     position: relative;
 `;
@@ -37,6 +37,7 @@ const LoadingWrapper = styled.div`
 `;
 
 function DomainSearch() {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
@@ -86,7 +87,7 @@ function DomainSearch() {
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search Domains"
+                    placeholderText={t('common.searchDomain')}
                     suggestions={[]}
                     hideRecommendations
                     style={{

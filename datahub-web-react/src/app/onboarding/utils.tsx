@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { StepStateResult } from '../../types.generated';
 import { OnboardingConfig } from './OnboardingConfig';
 import { OnboardingStep } from './OnboardingStep';
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../utils/translation/translation';
 
 export function convertStepId(stepId: string, userUrn: string) {
     const step = OnboardingConfig.find((configStep) => configStep.id === stepId);
@@ -65,6 +67,7 @@ export function getStepsToRender(
     userUrn: string,
     reshow: boolean,
 ): OnboardingStep[] {
+    const { t } = useTranslation();
     if (!educationSteps) return [];
     const filteredStepIds: string[] = reshow
         ? stepIds
@@ -80,8 +83,8 @@ export function getStepsToRender(
             ...step,
             content: (
                 <div>
-                    <StepTitle level={5}>{step?.title}</StepTitle>
-                    <div>{step?.content}</div>
+                    <StepTitle level={5}>{translateDisplayNames(t, step?.title?.toString())}</StepTitle>
+                    <div>{step?.title ? translateDisplayNames(t, step?.title?.toString() + 'description') : step?.content}</div>
                 </div>
             ),
         }));

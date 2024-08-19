@@ -5,6 +5,8 @@ import styled from 'styled-components';
 
 import { Highlight as HighlightType } from '../../../types.generated';
 import { formatNumber } from '../../shared/formatNumber';
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../../utils/translation/translation';
 
 type Props = {
     highlight: HighlightType;
@@ -41,13 +43,14 @@ const BodyContainer = styled.div`
 `;
 
 export const Highlight = ({ highlight, shortenValue }: Props) => {
+    const { t } = useTranslation();
     return (
         <HighlightCard>
             <Typography.Title level={1}>
                 {(shortenValue && formatNumber(highlight.value)) || highlight.value}
             </Typography.Title>
             <TitleContainer>
-                <TitleText strong>{highlight.title}</TitleText>
+                <TitleText strong>{translateDisplayNames(t, highlight.title)}</TitleText>
             </TitleContainer>
             <BodyContainer>
                 <BodyText>{highlight.body}</BodyText>

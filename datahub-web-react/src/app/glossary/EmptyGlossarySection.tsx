@@ -49,10 +49,10 @@ function EmptyGlossarySection(props: Props) {
                 }
             >
                 <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateTermModalVisible(true)}>
-                    <PlusOutlined /> Add Term
+                    <PlusOutlined /> Adicionar termo
                 </StyledButton>
                 <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateNodeModalVisible(true)}>
-                    <PlusOutlined /> Add Term Group
+                    <PlusOutlined />Adicionar grupo de termos
                 </StyledButton>
             </StyledEmpty>
             {isCreateTermModalVisible && (

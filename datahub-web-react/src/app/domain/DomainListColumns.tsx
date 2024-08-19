@@ -6,7 +6,7 @@ import { Maybe, Ownership } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import DomainItemMenu from './DomainItemMenu';
-
+import { useTranslation } from 'react-i18next';
 interface DomainEntry {
     name: string;
     entities: string;
@@ -27,12 +27,15 @@ const DomainNameContainer = styled.div`
 `;
 
 export function DomainListMenuColumn(handleDelete: (urn: string) => void) {
+    const { t } = useTranslation();
     return (record: DomainEntry) => (
         <DomainItemMenu name={record.name} urn={record.urn} onDelete={() => handleDelete(record.urn)} />
     );
 }
 
 export function DomainNameColumn(logoIcon: JSX.Element) {
+    const { t } = useTranslation();
+
     return (record: DomainEntry) => (
         <span data-testid={record.urn}>
             <Link to={record.url}>
@@ -40,8 +43,8 @@ export function DomainNameColumn(logoIcon: JSX.Element) {
                 <DomainNameContainer>
                     <Typography.Text>{record.name}</Typography.Text>
                 </DomainNameContainer>
-                <Tooltip title={`There are ${record.entities} entities in this domain.`}>
-                    <Tag>{record.entities} entities</Tag>
+                <Tooltip title={`Existem ${record.entities} entidades neste domínio.`}>
+                    <Tag>{record.entities} {t('common.entities')} </Tag>
                 </Tooltip>
             </Link>
         </span>

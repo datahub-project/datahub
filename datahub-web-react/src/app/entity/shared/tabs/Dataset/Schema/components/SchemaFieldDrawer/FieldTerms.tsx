@@ -23,7 +23,7 @@ export default function FieldTerms({ expandedField, editableSchemaMetadata }: Pr
 
     return (
         <>
-            <SectionHeader>Glossary Terms</SectionHeader>
+            <SectionHeader>Termos de Glossário</SectionHeader>
             {/* pass in globalTags since this is a shared component, tags will not be shown or used */}
             <div data-testid={`schema-field-${expandedField.fieldPath}-terms`}>
                 {termRenderer(expandedField.globalTags as GlobalTags, expandedField)}

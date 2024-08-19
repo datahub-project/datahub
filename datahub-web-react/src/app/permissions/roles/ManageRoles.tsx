@@ -20,7 +20,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
 import { clearUserListCache } from '../../identity/user/cacheUtils';
-
+import { useTranslation } from 'react-i18next';
 const SourceContainer = styled.div`
     overflow: auto;
     display: flex;
@@ -58,6 +58,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 // TODO: Cleanup the styling.
 export const ManageRoles = () => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -123,7 +124,7 @@ export const ManageRoles = () => {
                         userUrns: actorUrns,
                     });
                     message.success({
-                        content: `Assigned Role to users!`,
+                        content: `Função atribuída aos usuários!`,
                         duration: 2,
                     });
                     setTimeout(() => {
@@ -134,7 +135,7 @@ export const ManageRoles = () => {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to assign Role to users: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Falha ao atribuir função aos usuários: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 resetRoleState();
@@ -184,7 +185,7 @@ export const ManageRoles = () => {
                                 maxCount={3}
                                 size={28}
                             />
-                        )) || <Typography.Text type="secondary">No assigned users</Typography.Text>}
+                        )) || <Typography.Text type="secondary">{t('permissions.noAssignedUsers')}</Typography.Text>}
                     </>
                 );
             },
@@ -202,7 +203,7 @@ export const ManageRoles = () => {
                                     setFocusRole(record.role);
                                 }}
                             >
-                                ADD USERS
+                                {t('common.addUsers')}
                             </AddUsersButton>
                         </Tooltip>
                     </ActionsContainer>
@@ -227,13 +228,13 @@ export const ManageRoles = () => {
             {rolesLoading && !rolesData && (
                 <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
             )}
-            {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
+            {rolesError && message.error('Falha ao carregar funções! Um erro inesperado ocorreu.')}
             <SourceContainer>
                 <TabToolbar>
                     <div />
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search roles..."
+                        placeholderText={t('common.searchRoles')}
                         hideRecommendations
                         suggestions={[]}
                         style={{
@@ -253,8 +254,8 @@ export const ManageRoles = () => {
                     />
                     {isBatchAddRolesModalVisible && (
                         <SearchSelectModal
-                            titleText={`Assign ${focusRole?.name} Role to Users`}
-                            continueText="Add"
+                            titleText={`Atribuir função ${focusRole?.name} para usuários`}
+                            continueText={t('common.add')}
                             onContinue={batchAssignRole}
                             onCancel={resetRoleState}
                             fixedEntityTypes={Array.from(

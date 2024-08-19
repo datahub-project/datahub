@@ -20,7 +20,7 @@ import { RemoveGlobalDefaultItem } from './item/RemoveGlobalDefaultItem';
 import { SetGlobalDefaultItem } from './item/SetGlobalDefaultItem';
 import { DeleteViewItem } from './item/DeleteViewItem';
 import analytics, { EventType } from '../../../analytics';
-
+import { useTranslation } from 'react-i18next';
 const MenuButton = styled(MoreOutlined)`
     width: 20px;
     &&& {
@@ -69,6 +69,7 @@ export const ViewDropdownMenu = ({
     onClickPreview,
     onClickDelete,
 }: Props) => {
+    const { t } = useTranslation();
     const userContext = useUserContext();
     const client = useApolloClient();
 
@@ -110,7 +111,7 @@ export const ViewDropdownMenu = ({
             .catch((_) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to make this your default view. An unexpected error occurred.`,
+                    content: t('crud.error.failedToMakeDefaultView'),
                     duration: 3,
                 });
             });
@@ -147,7 +148,7 @@ export const ViewDropdownMenu = ({
             .catch((_) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to make this your organization's default view. An unexpected error occurred.`,
+                    content:  t('crud.error.failedToMakeDefaultViewOrganization'),
                     duration: 3,
                 });
             });
@@ -197,13 +198,13 @@ export const ViewDropdownMenu = ({
                             selectedViewUrn: undefined,
                         });
                     }
-                    message.success({ content: 'Removed View!', duration: 2 });
+                    message.success({ content:t('common.previewRemoved'), duration: 2 });
                 }
             })
             .catch(() => {
                 message.destroy();
                 message.error({
-                    content: `Failed to delete View. An unexpected error occurred.`,
+                    content: t('crud.error.failedToDeleteTheView'),
                     duration: 3,
                 });
             });
@@ -214,13 +215,13 @@ export const ViewDropdownMenu = ({
             onClickDelete?.();
         } else {
             Modal.confirm({
-                title: `Confirm Remove ${view.name}`,
-                content: `Are you sure you want to remove this View?`,
+                title: `${t('crud.doYouWantTo.failedToDeleteTheView')}${view.name}`,
+                content: t('filter.view.areYouSureRemovePreview'),
                 onOk() {
                     deleteView(view.urn);
                 },
                 onCancel() {},
-                okText: 'Yes',
+                okText: t('common.yes'),
                 maskClosable: true,
                 closable: true,
             });

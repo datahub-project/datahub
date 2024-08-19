@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { Col, Divider, Row, Typography } from 'antd';
 import { AnalyticsChartGroup } from '../../../types.generated';
 import { AnalyticsChart } from './AnalyticsChart';
+import { translateDisplayNames } from '../../../utils/translation/translation';
+import { useTranslation } from 'react-i18next';
 
 const Container = styled.div`
     display: flex;
@@ -30,11 +32,13 @@ type Props = {
 };
 
 export const ChartGroup = ({ chartGroup }: Props) => {
+    const { t } = useTranslation();
+
     return (
         <Container>
             {chartGroup.title?.length > 0 && (
                 <TitleContainer>
-                    <GroupTitle level={3}>{chartGroup.title}</GroupTitle>
+                    <GroupTitle level={3}>{translateDisplayNames(t, chartGroup.title)}</GroupTitle>
                     <Divider />
                 </TitleContainer>
             )}

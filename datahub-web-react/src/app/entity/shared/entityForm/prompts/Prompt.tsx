@@ -10,7 +10,7 @@ import {
 import StructuredPropertyPrompt from './StructuredPropertyPrompt/StructuredPropertyPrompt';
 import { useSubmitFormPromptMutation } from '../../../../../graphql/form.generated';
 import { useMutationUrn } from '../../EntityContext';
-
+import { useTranslation } from 'react-i18next';
 export const PromptWrapper = styled.div`
     background-color: white;
     border-radius: 8px;
@@ -26,6 +26,7 @@ interface Props {
 }
 
 export default function Prompt({ promptNumber, prompt, field, associatedUrn }: Props) {
+    const { t } = useTranslation();
     const [optimisticCompletedTimestamp, setOptimisticCompletedTimestamp] = useState<number | null>(null);
     const urn = useMutationUrn();
     const [submitFormPrompt] = useSubmitFormPromptMutation();
@@ -37,7 +38,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
                 setOptimisticCompletedTimestamp(Date.now());
             })
             .catch(() => {
-                message.error('Unknown error while submitting form response');
+                message.error(t('crud.error.unknownErrorWhileFormResponse'));
             });
     }
 

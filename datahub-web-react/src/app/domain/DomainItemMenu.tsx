@@ -5,7 +5,7 @@ import { EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useDeleteDomainMutation } from '../../graphql/domain.generated';
 import { MenuIcon } from '../entity/shared/EntityDropdown/EntityDropdown';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     urn: string;
     name: string;
@@ -13,6 +13,7 @@ type Props = {
 };
 
 export default function DomainItemMenu({ name, urn, onDelete }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const [deleteDomainMutation] = useDeleteDomainMutation();
 
@@ -24,20 +25,20 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success('Deleted Domain!');
+                    message.success('Domínio excluído!');
                     onDelete?.();
                 }
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: `Failed to delete Domain!: An unknown error occurred.`, duration: 3 });
+                message.error({ content: `Falha ao excluir o domínio!: Ocorreu um erro desconhecido.`, duration: 3 });
             });
     };
 
     const onConfirmDelete = () => {
         Modal.confirm({
-            title: `Delete Domain '${name}'`,
-            content: `Are you sure you want to remove this ${entityRegistry.getEntityName(EntityType.Domain)}?`,
+            title: `Excluir domínio '${name}'`,
+            content: `Tem certeza de que deseja remover isto ${entityRegistry.getEntityName(EntityType.Domain)}?`,
             onOk() {
                 deleteDomain();
             },
@@ -54,7 +55,7 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
             overlay={
                 <Menu>
                     <Menu.Item onClick={onConfirmDelete} key="delete">
-                        <DeleteOutlined /> &nbsp;Delete
+                        <DeleteOutlined /> &nbsp;{t('crud.delete')}
                     </Menu.Item>
                 </Menu>
             }

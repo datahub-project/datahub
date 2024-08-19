@@ -211,17 +211,17 @@ export const SearchResults = ({
                             <LeftControlsContainer>
                                 {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
                                 <Typography.Text>
-                                    Showing{' '}
+                                    Exibição {' '}
                                     <b>
                                         {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                                     </b>{' '}
-                                    of{' '}
+                                    de {' '}
                                     <b>
                                         {totalResults >= 10000
                                             ? `${formatNumberWithoutAbbreviation(10000)}+`
                                             : formatNumberWithoutAbbreviation(totalResults)}
                                     </b>{' '}
-                                    results
+                                    resultados
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>

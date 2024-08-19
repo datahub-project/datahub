@@ -3,7 +3,7 @@ import React from 'react';
 import { useBatchUpdateSoftDeletedMutation } from '../../../../../../../graphql/mutations.generated';
 import ActionDropdown from './ActionDropdown';
 import { handleBatchError } from '../../../../utils';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     urns: Array<string>;
     disabled: boolean;
@@ -12,6 +12,7 @@ type Props = {
 
 // eslint-disable-next-line
 export default function DeleteDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation();
     const [batchUpdateSoftDeletedMutation] = useBatchUpdateSoftDeletedMutation();
 
     const batchSoftDelete = () => {
@@ -25,7 +26,7 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Deleted assets!', duration: 2 });
+                    message.success({ content: t('common.deletedAssets'), duration: 2 });
                     setTimeout(() => refetch?.(), 3000);
                 }
             })
@@ -33,7 +34,7 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to delete assets: \n ${e.message || ''}`,
+                        content: `${t('crud.error.delete')} \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );
@@ -43,20 +44,19 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
     return (
         <>
             <ActionDropdown
-                name="Delete"
+                name={t('crud.delete')}
                 actions={[
                     {
-                        title: 'Mark as deleted',
+                        title: t('crud.markAsDeleted'),
                         onClick: () => {
                             Modal.confirm({
-                                title: `Confirm Delete`,
-                                content: `Are you sure you want to mark these assets as deleted? This will hide the assets
-                                from future DataHub searches. If the assets are re-ingested from an external data platform, they will be restored.`,
+                                title: t('crud.doYouWantTo.confirmDelete'),
+                                content: t('entity.deleteAssetMessageConfirmation'),
                                 onOk() {
                                     batchSoftDelete();
                                 },
                                 onCancel() {},
-                                okText: 'Yes',
+                                okText: t('common.yes'),
                                 maskClosable: true,
                                 closable: true,
                             });

@@ -7,6 +7,7 @@ import { QueryBuilderState } from './types';
 import ClickOutside from '../../../../../shared/ClickOutside';
 import QueryBuilderForm from './QueryBuilderForm';
 import analytics, { EventType } from '../../../../../analytics';
+import { useTranslation } from 'react-i18next';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -39,6 +40,8 @@ type Props = {
 export default function QueryBuilderModal({ initialState, datasetUrn, onClose, onSubmit }: Props) {
     const isUpdating = initialState?.urn !== undefined;
 
+    const { t } = useTranslation();
+
     const [builderState, setBuilderState] = useState<QueryBuilderState>(initialState || DEFAULT_STATE);
     const [createQueryMutation] = useCreateQueryMutation();
     const [updateQueryMutation] = useUpdateQueryMutation();
@@ -66,7 +69,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                             type: EventType.CreateQueryEvent,
                         });
                         message.success({
-                            content: `Created Query!`,
+                            content: t('query.successOnCreate'),
                             duration: 3,
                         });
                         onSubmit?.(data?.createQuery);
@@ -75,7 +78,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 })
                 .catch(() => {
                     message.destroy();
-                    message.error({ content: 'Failed to create Query! An unexpected error occurred' });
+                    message.error({ content: t('query.failOnCreate') });
                 });
         }
     };
@@ -103,7 +106,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                             type: EventType.UpdateQueryEvent,
                         });
                         message.success({
-                            content: `Edited Query!`,
+                            content: t('query.successOnEdit'),
                             duration: 3,
                         });
                         onSubmit?.(data?.updateQuery);
@@ -112,7 +115,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 })
                 .catch(() => {
                     message.destroy();
-                    message.error({ content: 'Failed to edit Query! An unexpected error occurred' });
+                    message.error({ content: t('query.failOnEdit') });
                 });
         }
     };
@@ -127,14 +130,14 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
 
     const confirmClose = () => {
         Modal.confirm({
-            title: `Exit Query Editor`,
-            content: `Are you sure you want to exit the editor? Any unsaved changes will be lost.`,
+            title: t('entity.editor.exitQueryEditor'),
+            content: t('entity.editor.sureToExitEditor'),
             onOk() {
                 setBuilderState(DEFAULT_STATE);
                 onClose?.();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText:  t('common.yes'),
             maskClosable: true,
             closable: true,
         });
@@ -145,14 +148,14 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
             <StyledModal
                 width={MODAL_WIDTH}
                 bodyStyle={MODAL_BODY_STYLE}
-                title={<Typography.Text>{isUpdating ? 'Edit' : 'New'} Query</Typography.Text>}
+                title={<Typography.Text>{isUpdating ? t('query.edit') : t('query.new')}</Typography.Text>}
                 className="query-builder-modal"
                 visible
                 onCancel={confirmClose}
                 footer={
                     <>
                         <Button onClick={onClose} data-testid="query-builder-cancel-button" type="text">
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             id="createQueryButton"
@@ -160,7 +163,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                             onClick={saveQuery}
                             type="primary"
                         >
-                            Save
+                            {t('common.save')}
                         </Button>
                     </>
                 }

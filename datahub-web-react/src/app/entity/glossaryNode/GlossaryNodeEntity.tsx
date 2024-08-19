@@ -12,8 +12,15 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { t } from 'i18next';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.GlossaryNode;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -45,9 +52,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getPathName = () => 'glossaryNode';
 
-    getCollectionName = () => 'Term Groups';
+    getCollectionName = () => this.translationService('term.termGroups');
 
-    getEntityName = () => 'Term Group';
+    getEntityName = () => this.translationService('term.termGroups');
 
     useEntityQuery = useGetGlossaryNodeQuery;
 
@@ -62,18 +69,18 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 hideBrowseBar
                 tabs={[
                     {
-                        name: 'Contents',
+                        name: t('common.contents'),
                         component: ChildrenTab,
                     },
                     {
-                        name: 'Documentation',
+                        name: t('common.documentation'),
                         component: DocumentationTab,
                         properties: {
                             hideLinksButton: true,
                         },
                     },
                     {
-                        name: 'Properties',
+                        name: t('common.properties'),
                         component: PropertiesTab,
                     },
                 ]}

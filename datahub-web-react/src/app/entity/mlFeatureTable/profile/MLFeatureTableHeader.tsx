@@ -7,6 +7,7 @@ import CompactContext from '../../../shared/CompactContext';
 import { AvatarsGroup } from '../../../shared/avatar';
 import MarkdownViewer from '../../shared/components/legacy/MarkdownViewer';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
+import { useTranslation } from 'react-i18next';
 
 const HeaderInfoItem = styled.div`
     display: inline-block;
@@ -32,6 +33,7 @@ export type Props = {
 export default function MLFeatureTableHeader({ mlFeatureTable: { platform, description, ownership } }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
+    const { t } = useTranslation();
 
     const platformName = platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name);
 
@@ -43,7 +45,7 @@ export default function MLFeatureTableHeader({ mlFeatureTable: { platform, descr
                         <HeaderInfoItem>
                             <div>
                                 <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
-                                    Platform
+                                    {t('common.platform')}
                                 </Typography.Text>
                             </div>
                             <Space direction="horizontal">

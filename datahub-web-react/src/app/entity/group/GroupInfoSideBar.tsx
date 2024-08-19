@@ -26,7 +26,7 @@ import StripMarkdownText, { removeMarkdown } from '../shared/components/styled/S
 import { Editor } from '../shared/tabs/Documentation/components/editor/Editor';
 import EditGroupDescriptionModal from './EditGroupDescriptionModal';
 import { REDESIGN_COLORS } from '../shared/constants';
-
+import { useTranslation } from 'react-i18next';
 type SideBarData = {
     photoUrl: string | undefined;
     avatarName: string | undefined;
@@ -49,9 +49,9 @@ type Props = {
 const AVATAR_STYLE = { margin: '3px 5px 3px 0px' };
 
 const TITLES = {
-    about: 'About',
-    members: 'Members ',
-    editGroup: 'Edit Group',
+    about: 'Sobre',
+    members: 'Membros ',
+    editGroup: 'Editar grupo',
 };
 
 const GroupNameHeader = styled(Row)`
@@ -157,6 +157,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const { url } = useRouteMatch();
     const history = useHistory();
+    const { t } = useTranslation();
 
     const { updateTitle } = useBrowserTitle();
 
@@ -202,13 +203,13 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         setGroupTitle(name);
         await updateName({ variables: { input: { name, urn } } })
             .then(() => {
-                message.success({ content: 'Name Updated', duration: 2 });
+                message.success({ content: t('crud.success.updatedWithNameReverse',{name}), duration: 2 });
                 refetch();
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to update name: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `${t('crud.error.updateWithName',{name})} \n ${e.message || ''}`, duration: 3 });
                 }
             });
     };
@@ -232,14 +233,14 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         })
             .then(() => {
                 message.success({
-                    content: `Changes saved.`,
+                    content: t('crud.success.changesSaved'),
                     duration: 3,
                 });
                 refetch();
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.changesSaved')}\n ${e.message || ''}`, duration: 3 });
             });
     };
     return (
@@ -264,7 +265,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                         <Col>
                             {isExternalGroup && (
                                 <Tooltip
-                                    title={`Membership for this group cannot be edited in DataHub as it originates from ${externalGroupType}.`}
+                                    title={`${'entity.membershipThisGroupCannotEddit'} ${externalGroupType}.`}
                                 >
                                     <LockOutlined />
                                 </Tooltip>
@@ -305,7 +306,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                                                 setExpanded(false);
                                             }}
                                         >
-                                            Read Less
+                                            {t('common.readLessDescription')}
                                         </ReadLessText>
                                     )}
                                 </ExpandedActions>
@@ -322,7 +323,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                                                     setExpanded(true);
                                                 }}
                                             >
-                                                Read More
+                                                {t('common.readMoreDescription')}
                                             </Typography.Link>
                                         </>
                                     }

@@ -10,7 +10,7 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '../onboarding/config/IngestionOnboardingConfig';
-
+import { useTranslation } from 'react-i18next';
 const PageContainer = styled.div`
     padding-top: 20px;
 `;
@@ -47,6 +47,7 @@ enum TabType {
 }
 
 export const ManageIngestionPage = () => {
+    const { t } = useTranslation();
     /**
      * Determines which view should be visible: ingestion sources or secrets.
      */
@@ -72,9 +73,9 @@ export const ManageIngestionPage = () => {
         <PageContainer>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Data Sources</PageTitle>
+                <PageTitle level={3}>{t('ingest.manageIngestion')}</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    Configure and schedule syncs to import data from your data sources
+                {t('ingest.ingestionSourcesActions')}
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>

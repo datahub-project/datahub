@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Typography, Button } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 // import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
-import { EMPTY_MESSAGES } from '../../../../../constants';
 import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../../types.generated';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
 import { SidebarHeader } from '../../SidebarHeader';
@@ -10,13 +9,15 @@ import { EditOwnersModal } from '../EditOwnersModal';
 import { ENTITY_PROFILE_OWNERS_ID } from '../../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { OwnershipTypeSection } from './OwnershipTypeSection';
 import { getOwnershipTypeName } from '../ownershipUtils';
-
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../../../../../../../utils/translation/translation';
 interface Props {
     properties?: any;
     readOnly?: boolean;
 }
 
 export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
+    const { t } = useTranslation();
     const { entityType, entityData } = useEntityData();
     const mutationUrn = useMutationUrn();
 
@@ -57,7 +58,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
 
     return (
         <div id={ENTITY_PROFILE_OWNERS_ID}>
-            <SidebarHeader title="Owners" />
+            <SidebarHeader title={t('common.owners')} />
             <div>
                 {ownershipTypeNames.map((ownershipTypeName) => {
                     const ownershipType = ownershipTypesMap.get(ownershipTypeName) as OwnershipTypeEntity;
@@ -66,7 +67,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                 })}
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">
-                        {EMPTY_MESSAGES.owners.title}. {EMPTY_MESSAGES.owners.description}
+                        {translateDisplayNames(t, 'emptyTitleOwner')}. {translateDisplayNames(t, 'emptyDescriptionOwner')}
                     </Typography.Paragraph>
                 )}
                 {!readOnly && (
@@ -75,7 +76,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                         onClick={() => setShowAddModal(true)}
                         data-testid="add-owners-button"
                     >
-                        <PlusOutlined /> Add Owners
+                        <PlusOutlined /> {t('shared.addOwners')}
                     </Button>
                 )}
             </div>

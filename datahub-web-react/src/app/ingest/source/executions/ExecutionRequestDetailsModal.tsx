@@ -20,6 +20,7 @@ import {
 } from '../utils';
 import { ExecutionRequestResult } from '../../../../types.generated';
 import { StructuredReport } from './reporting/StructuredReport';
+import { t } from 'i18next';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;
@@ -170,7 +171,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     return (
         <Modal
             width={800}
-            footer={<Button onClick={onClose}>Close</Button>}
+            footer={<Button onClick={onClose}>{t('common.close')}</Button>}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
             title={

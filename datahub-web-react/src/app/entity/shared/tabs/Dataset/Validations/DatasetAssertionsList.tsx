@@ -22,6 +22,7 @@ import { REDESIGN_COLORS } from '../../../constants';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { isAssertionPartOfContract } from './contract/utils';
 import { useEntityData } from '../../../EntityContext';
+import { useTranslation } from 'react-i18next';
 
 const ResultContainer = styled.div`
     display: flex;
@@ -90,6 +91,7 @@ export const DatasetAssertionsList = ({
     selectedUrns,
     contract,
 }: Props) => {
+    const { t } = useTranslation();
     const entityData = useEntityData();
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
     const entityRegistry = useEntityRegistry();
@@ -99,11 +101,11 @@ export const DatasetAssertionsList = ({
             await deleteAssertionMutation({
                 variables: { urn },
             });
-            message.success({ content: 'Removed assertion.', duration: 2 });
+            message.success({ content: t('common.removed'), duration: 2 });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to remove assertion: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.failedToRemoveAssertion')} \n ${e.message || ''}`, duration: 3 });
             }
         }
         onDelete?.(urn);
@@ -111,13 +113,13 @@ export const DatasetAssertionsList = ({
 
     const onDeleteAssertion = (urn: string) => {
         Modal.confirm({
-            title: `Confirm Assertion Removal`,
-            content: `Are you sure you want to remove this assertion from the dataset?`,
+            title: t('asserion.confirmAssertionRemoval'),
+            content: t('assertion.deleteAssertionModal.content'),
             onOk() {
                 deleteAssertion(urn);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });

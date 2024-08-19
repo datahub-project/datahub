@@ -6,6 +6,8 @@ import OptionsDropdownMenu from './OptionsDropdownMenu';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DisplayedFilterOption } from './mapFilterOption';
 import { SearchFilterLabel } from './styledComponents';
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../../utils/translation/translation';
 
 export const IconWrapper = styled.div`
     margin-right: 8px;
@@ -41,6 +43,9 @@ export default function SearchFilterView({
     setSearchQuery,
     updateFilters,
 }: Props) {
+    const { t } = useTranslation();
+    displayName = translateDisplayNames(t, displayName);
+
     return (
         <Dropdown
             trigger={['click']}
@@ -70,3 +75,4 @@ export default function SearchFilterView({
         </Dropdown>
     );
 }
+

@@ -103,7 +103,7 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
 
     return (
         <>
-            <RowWrapper data-testid="domain-list-item">
+            <RowWrapper data-testid="item da lista de domínios">
                 {hasDomainChildren && (
                     <ButtonWrapper>
                         <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />

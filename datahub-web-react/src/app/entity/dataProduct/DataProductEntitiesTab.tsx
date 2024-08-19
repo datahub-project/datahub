@@ -10,7 +10,7 @@ export function DataProductEntitiesTab() {
         <EmbeddedListSearchSection
             useGetSearchResults={generateUseListDataProductAssets({ urn })}
             emptySearchQuery="*"
-            placeholderText="Filter assets..."
+            placeholderText="Filtrar recursos..."
         />
     );
 }

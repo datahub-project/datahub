@@ -51,7 +51,7 @@ export const DATASET_ALLOW: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: datasetAllowFieldPath,
     rules: null,
-    section: 'Datasets',
+    section: 'Conjuntos de Dados',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, datasetAllowFieldPath),
 };
@@ -66,7 +66,7 @@ export const DATASET_DENY: RecipeField = {
     buttonLabel: 'Add pattern',
     fieldPath: datasetDenyFieldPath,
     rules: null,
-    section: 'Datasets',
+    section: 'Conjuntos de Dados',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, datasetDenyFieldPath),
 };

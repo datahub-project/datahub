@@ -3,8 +3,10 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../shared/EntityContext';
 import { useRemoveRelatedTermsMutation } from '../../../../graphql/glossaryTerm.generated';
 import { TermRelationshipType } from '../../../../types.generated';
+import { useTranslation } from 'react-i18next';
 
 function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationshipType, displayName: string) {
+    const { t } = useTranslation();
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const refetch = useRefetch();
@@ -23,17 +25,17 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
         })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.removeWithName')}: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 message.loading({
-                    content: 'Removing...',
+                    content: t('crud.removing'),
                     duration: 2,
                 });
                 setTimeout(() => {
                     refetch();
                     message.success({
-                        content: `Removed Glossary Term!`,
+                        content: t('crud.success.removeWithName', { name: t('common.glossaryTerms')}),
                         duration: 2,
                     });
                 }, 2000);
@@ -42,13 +44,13 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
 
     function onRemove() {
         Modal.confirm({
-            title: `Remove ${displayName}`,
-            content: `Are you sure you want to remove this ${entityRegistry.getEntityName(entityType)}?`,
+            title: `${t('common.remove')} ${displayName}`,
+            content: t('crud.doYouWantTo.removeContentWithTheName', { name: entityRegistry.getEntityName(entityType)}),
             onOk() {
                 handleRemoveRelatedTerms();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });

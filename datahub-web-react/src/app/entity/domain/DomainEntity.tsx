@@ -15,11 +15,22 @@ import DataProductsTab from './DataProductsTab/DataProductsTab';
 import { EntityProfileTab } from '../shared/constants';
 import DomainIcon from '../../domain/DomainIcon';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-
+import { useTranslation } from 'react-i18next';
 /**
  * Definition of the DataHub Domain entity.
  */
 export class DomainEntity implements Entity<Domain> {
+    
+    
+
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+    
+
+
+    translationService: any;
+
     type: EntityType = EntityType.Domain;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -41,6 +52,9 @@ export class DomainEntity implements Entity<Domain> {
                 />
             );
         }
+        
+
+
 
         return (
             <DomainIcon
@@ -62,9 +76,9 @@ export class DomainEntity implements Entity<Domain> {
 
     getPathName = () => 'domain';
 
-    getEntityName = () => 'Domain';
+    getEntityName = () => this.translationService('common.domains');
 
-    getCollectionName = () => 'Domains';
+    getCollectionName = () => this.translationService('common.domains');
 
     useEntityQuery = useGetDomainQuery;
 
@@ -81,21 +95,21 @@ export class DomainEntity implements Entity<Domain> {
             tabs={[
                 {
                     id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
-                    name: 'Entities',
+                    name: this.translationService('common.entity'),
                     component: DomainEntitiesTab,
                 },
                 {
                     id: EntityProfileTab.DOCUMENTATION_TAB,
-                    name: 'Documentation',
+                    name: this.translationService('common.documentation'),
                     component: DocumentationTab,
                 },
                 {
                     id: EntityProfileTab.DATA_PRODUCTS_TAB,
-                    name: 'Data Products',
+                    name: this.translationService('common.dataProducts'),
                     component: DataProductsTab,
                 },
                 {
-                    name: 'Properties',
+                    name:  this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
             ]}

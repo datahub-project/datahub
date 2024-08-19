@@ -9,6 +9,7 @@ import useGetSourceLogoUrl from './useGetSourceLogoUrl';
 import { CUSTOM } from './constants';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { DataPlatformCard } from './DataPlatformCard';
+import { useTranslation } from 'react-i18next';
 
 const Container = styled.div`
     max-height: 82vh;
@@ -86,6 +87,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
  * Component responsible for selecting the mechanism for constructing a new Ingestion Source
  */
 export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestionSources }: StepProps) => {
+    const { t } = useTranslation();
     const [searchFilter, setSearchFilter] = useState('');
 
     const onSelectTemplate = (type: string) => {
@@ -109,7 +111,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
             <Section>
                 <SearchBarContainer>
                     <StyledSearchBar
-                        placeholder="Search data sources..."
+                        placeholder={t('ingest.searchIngestionSources')}
                         value={searchFilter}
                         onChange={(e) => setSearchFilter(e.target.value)}
                         allowClear
@@ -122,7 +124,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
                     ))}
                 </PlatformListContainer>
             </Section>
-            <CancelButton onClick={cancel}>Cancel</CancelButton>
+            <CancelButton onClick={cancel}>{t('common.cancel')}</CancelButton>
         </Container>
     );
 };

@@ -11,6 +11,7 @@ import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import CreateDomainModal from '../CreateDomainModal';
 import { updateListDomainsCache } from '../utils';
 import { useDomainsContext } from '../DomainsContext';
+import { useTranslation } from 'react-i18next';
 
 const PageWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -29,6 +30,7 @@ const Header = styled.div`
 `;
 
 export default function ManageDomainsPageV2() {
+    const { t } = useTranslation();
     const { setEntityData, setParentDomainsToUpdate } = useDomainsContext();
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const client = useApolloClient();
@@ -48,7 +50,7 @@ export default function ManageDomainsPageV2() {
                     onClick={() => setIsCreatingDomain(true)}
                     data-testid="domains-new-domain-button"
                 >
-                    <PlusOutlined /> New Domain
+                    <PlusOutlined /> {t('domain.newDomain')}
                 </Button>
             </Header>
             <RootDomains setIsCreatingDomain={setIsCreatingDomain} />

@@ -4,12 +4,14 @@ import styled from 'styled-components';
 import StripMarkdownText from '../../shared/components/styled/StripMarkdownText';
 import { SidebarHeader } from '../../shared/containers/profile/sidebar/SidebarHeader';
 import { useEntityData, useRouteToTab } from '../../shared/EntityContext';
-
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 const DescriptionTypography = styled(Typography.Paragraph)`
     max-width: 65ch;
 `;
 
 export default function GlossarySidebarAboutSection() {
+    const { t } = useTranslation();
     const { entityData }: any = useEntityData();
     const description = entityData?.glossaryTermInfo?.definition;
     const source = entityData?.glossaryTermInfo?.sourceRef;
@@ -18,14 +20,14 @@ export default function GlossarySidebarAboutSection() {
 
     return (
         <div>
-            <SidebarHeader title="About" />
+            <SidebarHeader title="Sobre" />
             {description && (
                 <DescriptionTypography>
                     <StripMarkdownText
                         limit={205}
                         readMore={
                             <Typography.Link onClick={() => routeToTab({ tabName: 'Documentation' })}>
-                                Read More
+                                {t('common.readMoreDescription')}
                             </Typography.Link>
                         }
                     >

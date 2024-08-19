@@ -9,6 +9,8 @@ import {
 import { RecommendationModule } from '../../../../../../recommendations/RecommendationModule';
 import { RecommendationDisplayType } from '../../../../../../recommendations/types';
 import { SidebarHeader } from '../SidebarHeader';
+import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
+import { useTranslation } from 'react-i18next';
 
 const RecommendationsContainer = styled.div``;
 
@@ -25,6 +27,7 @@ export const SidebarEntityRecommendations = ({
     entityUrn: string;
     entityType: EntityType;
 }) => {
+    const { t } = useTranslation();
     const scenario = ScenarioType.EntityProfile;
     const { data } = useListRecommendationsQuery({
         variables: {
@@ -47,7 +50,7 @@ export const SidebarEntityRecommendations = ({
             {recommendationModules &&
                 recommendationModules.map((module) => (
                     <RecommendationContainer>
-                        <SidebarHeader title={module.title} />
+                        <SidebarHeader title={translateDisplayNames(t, module.title)} />
                         <RecommendationModule
                             key={module.moduleId}
                             module={module as RecommendationModuleType}

@@ -9,6 +9,7 @@ import { IngestionSourceBuilderStep } from './steps';
 import RecipeBuilder from './RecipeBuilder';
 import { CONNECTORS_WITH_FORM } from './RecipeForm/constants';
 import { getRecipeJson } from './RecipeForm/TestConnection/TestConnectionButton';
+import { t } from 'i18next';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -162,10 +163,10 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
             </BorderedSection>
             <ControlsContainer>
                 <Button disabled={isEditing} onClick={prev}>
-                    Previous
+                    {t('common.previous')}
                 </Button>
                 <Button type="primary" disabled={!stepComplete} onClick={onClickNext}>
-                    Next
+                    {t('common.next')}
                 </Button>
             </ControlsContainer>
         </>

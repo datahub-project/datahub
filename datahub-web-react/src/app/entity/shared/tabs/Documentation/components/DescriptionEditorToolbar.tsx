@@ -2,7 +2,8 @@ import { CheckOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import TabToolbar from '../../../components/styled/TabToolbar';
-
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 type DescriptionEditorToolbarProps = {
     disableSave: boolean;
     onClose: () => void;
@@ -10,13 +11,15 @@ type DescriptionEditorToolbarProps = {
 };
 
 export const DescriptionEditorToolbar = ({ disableSave, onClose, onSave }: DescriptionEditorToolbarProps) => {
+
+const { t } = useTranslation();
     return (
         <TabToolbar>
             <Button type="text" onClick={onClose}>
-                Back
+                {t('common.back')}
             </Button>
             <Button data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
-                <CheckOutlined /> Save
+                <CheckOutlined /> {t('common.save')}
             </Button>
         </TabToolbar>
     );

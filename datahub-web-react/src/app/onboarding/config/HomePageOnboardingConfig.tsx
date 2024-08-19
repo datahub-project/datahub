@@ -23,25 +23,25 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     style={{ marginLeft: '50px' }}
                     src={dataHubFlowDiagram}
                 />
-                <Typography.Title level={3}>Welcome to DataHub! 👋</Typography.Title>
+                <Typography.Title level={3}>Bem-vindo ao DataHub! 👋</Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
-                    <strong>DataHub</strong> helps you discover and organize the important data within your
-                    organization. You can:
+                    <strong>DataHub</strong> ajuda você a descobrir e organizar os dados importantes dentro do seu
+                    organização. Você pode:
                 </Typography.Paragraph>
                 <Typography.Paragraph style={{ lineHeight: '24px' }}>
                     <ul>
                         <li>
-                            Quickly <strong>search</strong> for Datasets, Dashboards, Data Pipelines, and more
+                        Rapidamente <strong>busque</strong> para conjuntos de dados, painéis, pipelines de dados e muito mais
                         </li>
                         <li>
-                            View and understand the full <strong>end-to-end Lineage</strong> of how data is created,
-                            transformed, and consumed
+                        Visualize e entenda a <strong>linhagem ponta a ponta</strong> completa de como os dados são criados,
+                        transformado e consumido
                         </li>
                         <li>
-                            Gain <strong>insights</strong> about how others within your organization are using data
+                        Obtenha <strong>insights</strong> sobre como outras pessoas da sua organização estão usando os dados
                         </li>
                         <li>
-                            Define <strong>ownership</strong> and capture <strong>knowledge</strong> to empower others
+                            Defina <strong>propriedade</strong> e capture <strong>conhecimento</strong> para capacitar outras pessoas
                         </li>
                     </ul>
                     <p>Let&apos;s get started! 🚀</p>
@@ -57,8 +57,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     >
                         <span style={{ paddingLeft: '5px' }}>💡</span>
                         <span style={{ paddingLeft: '10px' }}>
-                            Press <strong> Cmd + Ctrl + T</strong> to open up this tutorial at any time.
-                        </span>
+                        Pressione <strong> Cmd + Ctrl + T</strong> para abrir este tutorial a qualquer momento.                        </span>
                     </div>
                 </Typography.Paragraph>
             </div>
@@ -71,8 +70,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         title: 'Ingest Data',
         content: (
             <Typography.Paragraph>
-                Start integrating your data sources immediately by navigating to the <strong>Ingestion</strong> page.
-            </Typography.Paragraph>
+Comece a integrar suas fontes de dados imediatamente navegando até a página <strong>Ingestão</strong>.            </Typography.Paragraph>
         ),
     },
     {
@@ -81,9 +79,9 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         title: 'Explore by Domain',
         content: (
             <Typography.Paragraph>
-                Here are your organization&apos;s <strong>Domains</strong>. Domains are collections of data assets -
-                such as Tables, Dashboards, and ML Models - that make it easy to discover information relevant to a
-                particular part of your organization.
+                Aqui estão os <strong>domínios</strong> da sua organização. Domínios são coleções de ativos de dados -
+                como tabelas, painéis e modelos de ML - que facilitam a descoberta de informações relevantes para um
+                parte específica da sua organização.
             </Typography.Paragraph>
         ),
     },
@@ -93,17 +91,17 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         title: 'Explore by Platform',
         content: (
             <Typography.Paragraph>
-                Here are your organization&apos;s <strong>Data Platforms</strong>. Data Platforms represent specific
-                third-party Data Systems or Tools. Examples include Data Warehouses like <strong>Snowflake</strong>,
-                Orchestrators like <strong>Airflow</strong>, and Dashboarding tools like <strong>Looker</strong>.
+                Aqui estão as <strong>plataformas de dados</strong> da sua organização. Plataformas de dados representam
+                sistemas de dados ou ferramentas de terceiros. Os exemplos incluem data warehouses como <strong>Snowflake</strong>,
+                Orquestradores como o <strong>Airflow</strong> e ferramentas de dashboard como o <strong>Looker</strong>.
             </Typography.Paragraph>
         ),
     },
     {
         id: HOME_PAGE_MOST_POPULAR_ID,
         selector: `#${HOME_PAGE_MOST_POPULAR_ID}`,
-        title: 'Explore Most Popular',
-        content: "Here you'll find the assets that are viewed most frequently within your organization.",
+        title: 'Explorar os mais populares',
+        content: "Aqui você encontrará os ativos que são visualizados com mais frequência na sua organização.",
     },
     {
         id: HOME_PAGE_SEARCH_BAR_ID,
@@ -112,11 +110,11 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    This is the <strong>Search Bar</strong>. It will serve as your launch point for discovering and
-                    collaborating around the data most important to you.
+                Esta é a <strong>barra de pesquisa</strong>. Servirá como ponto de partida para descobrir e
+                    colaborando em torno dos dados mais importantes para você.
                 </p>
                 <p>
-                    Not sure where to start? Click on <strong>Explore All</strong>!
+                    Não sabe por onde começar? Clique em <strong>Explorar tudo</strong>!
                 </p>
             </Typography.Paragraph>
         ),

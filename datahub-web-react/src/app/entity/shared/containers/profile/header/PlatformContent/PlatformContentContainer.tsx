@@ -9,15 +9,20 @@ import { GenericEntityProperties } from '../../../../types';
 import EntityRegistry from '../../../../../EntityRegistry';
 import { EntityType } from '../../../../../../../types.generated';
 import useContentTruncation from '../../../../../../shared/useContentTruncation';
+import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
+import { useTranslation } from 'react-i18next';
 
 export function getDisplayedEntityType(
     entityData: GenericEntityProperties | null,
     entityRegistry: EntityRegistry,
     entityType: EntityType,
 ) {
+    const { t } = useTranslation();
+    const typeName = entityData?.subTypes?.typeNames?.[0];
+
     return (
         entityData?.entityTypeOverride ||
-        capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) ||
+        capitalizeFirstLetterOnly(translateDisplayNames(t, typeName)) ||
         entityRegistry.getEntityName(entityType) ||
         ''
     );

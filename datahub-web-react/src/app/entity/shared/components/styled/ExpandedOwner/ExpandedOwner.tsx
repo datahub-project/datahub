@@ -9,6 +9,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData } from '../../../EntityContext';
 import OwnerContent from './OwnerContent';
+import { useTranslation } from 'react-i18next';
 
 const OwnerTag = styled(Tag)`
     padding: 2px;
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly, fontSize }: Props) => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
@@ -60,7 +62,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                     },
                 },
             });
-            message.success({ content: 'Owner Removed', duration: 2 });
+            message.success({ content: t('common.ownerRemoved'), duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
@@ -70,7 +72,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to remove owner: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.remove')} \n ${e.message || ''}`, duration: 3 });
             }
         }
         refetch?.();
@@ -78,13 +80,13 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const onClose = (e) => {
         e.preventDefault();
         Modal.confirm({
-            title: `Do you want to remove ${name}?`,
-            content: `Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`,
+            title: t('crud.doYouWantTo.removeTitleWithName', { name: name }),
+            content: t('crud.doYouWantTo.removeContentWithTheName', { name: name }),
             onOk() {
                 onDelete();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });

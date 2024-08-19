@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { RoutedTabs } from '../shared/RoutedTabs';
 import { ManagePolicies } from './policy/ManagePolicies';
 import { ManageRoles } from './roles/ManageRoles';
+import { useTranslation } from 'react-i18next';
 
 const PageContainer = styled.div`
     padding-top: 20px;
@@ -46,6 +47,7 @@ enum TabType {
 const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
 
 export const ManagePermissions = () => {
+    const { t } = useTranslation();
     /**
      * Determines which view should be visible: roles or policies.
      */
@@ -77,9 +79,9 @@ export const ManagePermissions = () => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Permissions</PageTitle>
+                <PageTitle level={3}>{t('permissions.managePermissions')}</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    View your DataHub permissions. Take administrative actions.
+                {t('permissions.managePermissionsDescription')}
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <Content>

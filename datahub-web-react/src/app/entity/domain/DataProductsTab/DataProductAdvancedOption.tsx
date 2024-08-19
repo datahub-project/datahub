@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { validateCustomUrnId } from '../../../shared/textUtil';
 import { DataProductBuilderFormProps } from './types';
 
+import { useTranslation } from 'react-i18next';
 const FormItem = styled(Form.Item)`
     .ant-form-item-label {
         padding-bottom: 2px;
@@ -23,6 +24,7 @@ const AdvancedLabel = styled(Typography.Text)`
 `;
 
 export function DataProductAdvancedOption({ builderState, updateBuilderState }: DataProductBuilderFormProps) {
+    const { t } = useTranslation();
     function updateDataProductId(id: string) {
         updateBuilderState({
             ...builderState,
@@ -32,13 +34,13 @@ export function DataProductAdvancedOption({ builderState, updateBuilderState }: 
 
     return (
         <Collapse ghost>
-            <Collapse.Panel header={<AdvancedLabel>Advanced Options</AdvancedLabel>} key="1">
+            <Collapse.Panel header={<AdvancedLabel>{t('common.advancedOptions')}</AdvancedLabel>} key="1">
                 <FormItemWithMargin
-                    label={<Typography.Text strong>Data Product Id</Typography.Text>}
-                    help="By default, a random UUID will be generated to uniquely identify this data product. If
-                        you'd like to provide a custom id instead to more easily keep track of this data product,
-                        you may provide it here. Be careful, you cannot easily change the data product id after
-                        creation."
+                    label={<Typography.Text strong>ID do produto de dados</Typography.Text>}
+                    help="Por padrão, um UUID aleatório será gerado para identificar exclusivamente este produto de dados. Se
+                        você gostaria de fornecer um ID personalizado para acompanhar esse produto de dados com mais facilidade,
+                        você pode fornecê-lo aqui. Tenha cuidado, você não pode alterar facilmente o ID do produto de dados depois
+                        criação."
                 >
                     <FormItemNoMargin
                         rules={[
@@ -47,7 +49,7 @@ export function DataProductAdvancedOption({ builderState, updateBuilderState }: 
                                     if (value && validateCustomUrnId(value)) {
                                         return Promise.resolve();
                                     }
-                                    return Promise.reject(new Error('Please enter a valid Data product id'));
+                                    return Promise.reject(new Error('Insira um ID de produto de dados válido'));
                                 },
                             }),
                         ]}

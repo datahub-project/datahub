@@ -8,7 +8,7 @@ import { EntityType } from '../../../types.generated';
 import useListDomains from '../useListDomains';
 import EmptyDomainsSection from '../EmptyDomainsSection';
 import EmptyDomainDescription from '../EmptyDomainDescription';
-
+import { useTranslation } from 'react-i18next';
 const DomainsWrapper = styled.div`
     overflow: auto;
     padding: 0 28px 16px 28px;
@@ -18,17 +18,18 @@ interface Props {
     setIsCreatingDomain: React.Dispatch<React.SetStateAction<boolean>>;
 }
 export default function RootDomains({ setIsCreatingDomain }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const { loading, error, data, sortedDomains } = useListDomains({});
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading domains..." />}
-            {error && <Message type="error" content="Failed to load domains. An unexpected error occurred." />}
+            {!data && loading && <Message type="loading" content= {t('common.loadingDomains')} />}
+            {error && <Message type="error" content="Falha ao carregar domínios. Um erro inesperado ocorreu." />}
             {!loading && (!data || !data?.listDomains?.domains?.length) && (
                 <EmptyDomainsSection
                     icon={<ReadOutlined />}
-                    title="Organize your data"
+                    title= {t('common.organizeYourData')}
                     description={<EmptyDomainDescription />}
                     setIsCreatingDomain={setIsCreatingDomain}
                 />

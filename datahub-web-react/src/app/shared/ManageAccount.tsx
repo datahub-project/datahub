@@ -13,6 +13,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import { useUserContext } from '../context/useUserContext';
 
+import { useTranslation } from 'react-i18next';
 const MenuItem = styled(Menu.Item)`
     display: flex;
     justify-content: start;
@@ -55,6 +56,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
     const { config } = useAppConfig();
+    const { t } = useTranslation();
     const userContext = useUserContext();
     const handleLogout = () => {
         analytics.event({ type: EventType.LogOutEvent });
@@ -77,7 +79,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                     rel="noopener noreferrer"
                     tabIndex={0}
                 >
-                    Your Profile
+                    {t('navigation.yourProfile')}
                 </a>
             </MenuItem>
             <Menu.Divider />
@@ -104,7 +106,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             <Menu.Divider />
             <MenuItem danger key="logout" tabIndex={0}>
                 <a href="/logOut" onClick={handleLogout} data-testid="log-out-menu-item">
-                    Sign Out
+                    {t('authentification.signOut')}
                 </a>
             </MenuItem>
         </Menu>

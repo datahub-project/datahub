@@ -38,6 +38,7 @@ import { getLastUpdatedMs } from './shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 
+import { useTranslation } from 'react-i18next';
 const SUBTYPES = {
     VIEW: 'view',
 };
@@ -46,7 +47,17 @@ const SUBTYPES = {
  * Definition of the DataHub Dataset entity.
  */
 export class DatasetEntity implements Entity<Dataset> {
+
+
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+
+    translationService: any;
+
     type: EntityType = EntityType.Dataset;
+
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
@@ -85,9 +96,9 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getPathName = () => 'dataset';
 
-    getEntityName = () => 'Dataset';
+    getEntityName = () => 'Conjuntos de dados';
 
-    getCollectionName = () => 'Datasets';
+    getCollectionName = () => this.translationService('common.dataset');
 
     useEntityQuery = useGetDatasetQuery;
 
@@ -104,11 +115,11 @@ export class DatasetEntity implements Entity<Dataset> {
             }}
             tabs={[
                 {
-                    name: 'Schema',
+                    name: this.translationService('common.schema'),
                     component: SchemaTab,
                 },
                 {
-                    name: 'Relationships',
+                    name: this.translationService('common.Relationships'),
                     component: RelationshipsTab,
                     display: {
                         visible: (_, _1) => false,
@@ -116,7 +127,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'View Definition',
+                    name: this.translationService('entity.viewDefinition'),
                     component: ViewDefinitionTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
@@ -128,11 +139,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Documentation',
+                    name: this.translationService('common.documentation'),
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Preview',
+                    name: 'Embed',
                     component: EmbedTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
@@ -142,13 +153,17 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                    display: {
+                        visible: (_, _1) => false,
+                        enabled: (_, _2) => false,
+                    }
                 },
                 {
-                    name: 'Properties',
+                    name: this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
                 {
-                    name: 'Queries',
+                    name: this.translationService('common.query'),
                     component: QueriesTab,
                     display: {
                         visible: (_, _1) => true,
@@ -159,7 +174,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Stats',
                     component: StatsTab,
                     display: {
-                        visible: (_, _1) => true,
+                        visible: (_, _1) => false,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
@@ -170,7 +185,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Quality',
                     component: ValidationsTab,
                     display: {
-                        visible: (_, _1) => true,
+                        visible: (_, _1) => false,
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (dataset?.dataset?.assertions?.total || 0) > 0;
                         },
@@ -199,7 +214,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Access Management',
+                    name: ' Access Management',
                     component: AccessManagement,
                     display: {
                         visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,

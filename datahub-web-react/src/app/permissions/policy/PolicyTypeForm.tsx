@@ -2,7 +2,8 @@ import React from 'react';
 import { Form, Input, Select, Typography } from 'antd';
 import styled from 'styled-components';
 import { PolicyType } from '../../../types.generated';
-
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 type Props = {
     policyType: string;
     setPolicyType: (type: PolicyType) => void;
@@ -38,47 +39,44 @@ export default function PolicyTypeForm({
 
     return (
         <TypeForm layout="vertical">
-            <Form.Item name="policyName" labelAlign="right" label={<Typography.Text strong>Name</Typography.Text>}>
-                <Typography.Paragraph>A name for your new policy.</Typography.Paragraph>
+            <Form.Item name="policyName" labelAlign="right" label={<Typography.Text strong>{t('common.name')}</Typography.Text>}>
+                <Typography.Paragraph>{t('permissions.nameForNewPolicy')}</Typography.Paragraph>
                 <Input
-                    placeholder="Your policy name"
+                    placeholder={t('placeholder.yourPolicyNamePlaceholder')}
                     data-testid="policy-name"
                     value={policyName}
                     onChange={(event) => updatePolicyName(event.target.value)}
                 />
             </Form.Item>
-            <Form.Item name="policyType" label={<Typography.Text strong>Type</Typography.Text>}>
-                <Typography.Paragraph>The type of policy you would like to create.</Typography.Paragraph>
+            <Form.Item name="policyType" label={<Typography.Text strong>{t('common.type')}</Typography.Text>}>
+                <Typography.Paragraph>{t('permissions.typeOfPolicyToCreate')}</Typography.Paragraph>
                 <Select
                     data-testid="policy-type"
                     defaultValue={policyType}
                     onSelect={(value) => setPolicyType(value as PolicyType)}
                 >
-                    <Select.Option data-testid="platform" value={PolicyType.Platform}>
-                        Platform
+                    <Select.Option data-testid={t('common.platform')} value={PolicyType.Platform}>
+                        {t('common.platform')}
                     </Select.Option>
-                    <Select.Option data-testid="metadata" value={PolicyType.Metadata}>
-                        Metadata
+                    <Select.Option data-testid={t('common.metadata')} value={PolicyType.Metadata}>
+                    {t('common.metadata')}
                     </Select.Option>
                 </Select>
                 <TypeDescriptionParagraph type="secondary">
-                    The <b>Platform</b> policy type allows you to assign top-level DataHub Platform privileges to users.
-                    These include managing users and groups, creating policies, viewing analytics dashboards and more.
+                {t('permissions.typeOfPolicyDescriptionPlatform_component')}
                     <br />
                     <br />
-                    The <b>Metadata</b> policy type allows you to assign metadata privileges to users. These include the
-                    ability to manipulate metadata like ownership, tags, documentation associated with Datasets, Charts,
-                    Dashboards, & more.
+                    {t('permissions.typeOfPolicyDescriptionMetadata_component')}
                 </TypeDescriptionParagraph>
             </Form.Item>
             <Form.Item
                 name="policyDescription"
                 labelAlign="right"
-                label={<Typography.Text strong>Description</Typography.Text>}
+                label={<Typography.Text strong>{t('common.description')}</Typography.Text>}
             >
-                <Typography.Paragraph>An optional description for your new policy.</Typography.Paragraph>
+                <Typography.Paragraph>  {t('permissions.newPolicyDescription')}</Typography.Paragraph>
                 <Input
-                    placeholder="Your policy description"
+                    placeholder={t('placeholder.newPolicyDescriptionPlaceHolder')}
                     data-testid="policy-description"
                     value={policyDescription}
                     onChange={(event) => setPolicyDescription(event.target.value)}

@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import styled from 'styled-components';
 import { NoMarginButton } from './styledComponents';
 import { ANTD_GRAY_V2 } from '../../shared/constants';
-
+import { useTranslation } from 'react-i18next';
 const ButtonContainer = styled.div`
     display: flex;
     justify-content: space-between;
@@ -27,6 +27,7 @@ type Props = {
 };
 
 export const ViewSelectHeader = ({ onClickClear }: Props) => {
+    const { t } = useTranslation();
     const clearButtonRef = useRef(null);
 
     const onHandleClickClear = () => {
@@ -42,7 +43,7 @@ export const ViewSelectHeader = ({ onClickClear }: Props) => {
                 ref={clearButtonRef}
                 onClick={onHandleClickClear}
             >
-                View all
+                {t('common.viewAll')}
             </AllEntitiesButton>
         </ButtonContainer>
     );

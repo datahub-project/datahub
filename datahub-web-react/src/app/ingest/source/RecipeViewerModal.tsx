@@ -3,7 +3,7 @@ import { Button, Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from './utils';
-
+import { useTranslation } from 'react-i18next';
 const YamlWrapper = styled.div`
     padding: 24px;
 `;
@@ -14,6 +14,7 @@ interface Props {
 }
 
 function RecipeViewerModal({ recipe, onCancel }: Props) {
+    const { t } = useTranslation();
     const formattedRecipe = recipe ? jsonToYaml(recipe) : '';
 
     return (
@@ -22,7 +23,7 @@ function RecipeViewerModal({ recipe, onCancel }: Props) {
             onCancel={onCancel}
             width={800}
             title="View Ingestion Recipe"
-            footer={<Button onClick={onCancel}>Done</Button>}
+            footer={<Button onClick={onCancel}>{t('common.done')}</Button>}
         >
             <YamlWrapper>
                 <Editor

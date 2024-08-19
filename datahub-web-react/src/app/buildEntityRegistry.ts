@@ -25,32 +25,33 @@ import { RestrictedEntity } from './entity/restricted/RestrictedEntity';
 import { BusinessAttributeEntity } from './entity/businessAttribute/BusinessAttributeEntity';
 import { SchemaFieldPropertiesEntity } from './entity/schemaField/SchemaFieldPropertiesEntity';
 
-export default function buildEntityRegistry() {
+export default function buildEntityRegistry(t: any) {
     const registry = new EntityRegistry();
-    registry.register(new DatasetEntity());
-    registry.register(new DashboardEntity());
-    registry.register(new ChartEntity());
-    registry.register(new UserEntity());
-    registry.register(new GroupEntity());
+    registry.register(new DatasetEntity(t));
+    registry.register(new DashboardEntity(t));
+    registry.register(new ChartEntity(t));
+    registry.register(new UserEntity(t));
+    registry.register(new GroupEntity(t));
     registry.register(new TagEntity());
-    registry.register(new DataFlowEntity());
-    registry.register(new DataJobEntity());
-    registry.register(new GlossaryTermEntity());
-    registry.register(new MLFeatureEntity());
+    registry.register(new DataFlowEntity(t));
+    registry.register(new DataJobEntity(t));
+    registry.register(new GlossaryTermEntity(t));
+    registry.register(new MLFeatureEntity(t));
     registry.register(new MLPrimaryKeyEntity());
-    registry.register(new MLFeatureTableEntity());
+    registry.register(new MLFeatureTableEntity(t));
     registry.register(new MLModelEntity());
-    registry.register(new MLModelGroupEntity());
-    registry.register(new DomainEntity());
-    registry.register(new ContainerEntity());
-    registry.register(new GlossaryNodeEntity());
-    registry.register(new RoleEntity());
+    registry.register(new MLModelGroupEntity(t));
+    registry.register(new DomainEntity(t));
+    registry.register(new ContainerEntity(t));
+    registry.register(new GlossaryNodeEntity(t));
+    registry.register(new RoleEntity(t));
     registry.register(new DataPlatformEntity());
-    registry.register(new DataProductEntity());
+    registry.register(new DataProductEntity(t));
     registry.register(new DataPlatformInstanceEntity());
     registry.register(new ERModelRelationshipEntity());
-    registry.register(new RestrictedEntity());
     registry.register(new BusinessAttributeEntity());
     registry.register(new SchemaFieldPropertiesEntity());
+    registry.register(new ERModelRelationshipEntity())
+    registry.register(new RestrictedEntity(t));
     return registry;
 }

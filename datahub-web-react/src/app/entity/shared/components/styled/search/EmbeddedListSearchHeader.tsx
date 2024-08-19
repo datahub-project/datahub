@@ -10,7 +10,7 @@ import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
 import { EntityAndType } from '../../../types';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-
+import { useTranslation } from 'react-i18next';
 const HeaderContainer = styled.div`
     display: flex;
     justify-content: space-between;
@@ -62,6 +62,7 @@ export default function EmbeddedListSearchHeader({
     searchBarInputStyle,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
 
     return (
         <>
@@ -69,7 +70,7 @@ export default function EmbeddedListSearchHeader({
                 <HeaderContainer>
                     <Button type="text" onClick={onToggleFilters}>
                         <FilterOutlined />
-                        <Typography.Text>Filters</Typography.Text>
+                        <Typography.Text>{t('common.filters')}</Typography.Text>
                     </Button>
                     <SearchAndDownloadContainer>
                         <SearchBar

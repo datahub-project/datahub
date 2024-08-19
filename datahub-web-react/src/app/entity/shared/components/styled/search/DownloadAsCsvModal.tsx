@@ -9,7 +9,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData } from '../../../EntityContext';
 import analytics, { EventType } from '../../../../../analytics';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-
+import { useTranslation } from 'react-i18next';
 type Props = {
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     filters: AndFilterInput[];
@@ -33,12 +33,12 @@ export default function DownloadAsCsvModal({
     showDownloadAsCsvModal,
     setShowDownloadAsCsvModal,
 }: Props) {
+    const { t } = useTranslation();
     const { entityData: entitySearchIsEmbeddedWithin } = useEntityData();
     const location = useLocation();
 
     const [saveAsTitle, setSaveAsTitle] = useState(
-        entitySearchIsEmbeddedWithin ? `${entitySearchIsEmbeddedWithin.name}_impact.csv` : 'results.csv',
-    );
+        entitySearchIsEmbeddedWithin ? `${entitySearchIsEmbeddedWithin.name}_resultados.csv` : 'resultados.csv');
     const entityRegistry = useEntityRegistry();
     const openNotification = () => {
         notification.info({
@@ -122,12 +122,12 @@ export default function DownloadAsCsvModal({
         <Modal
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
-            title="Download as..."
+            title= {t('share.downloadAs')}
             visible={showDownloadAsCsvModal}
             footer={
                 <>
                     <Button onClick={() => setShowDownloadAsCsvModal(false)} type="text">
-                        Close
+                        {t('common.close')}
                     </Button>
                     <Button
                         data-testid="csv-modal-download-button"
@@ -137,7 +137,7 @@ export default function DownloadAsCsvModal({
                         }}
                         disabled={saveAsTitle.length === 0}
                     >
-                        Download
+                        {t('common.download')}
                     </Button>
                 </>
             }

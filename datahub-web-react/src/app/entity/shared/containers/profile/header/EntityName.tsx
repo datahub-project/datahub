@@ -6,7 +6,7 @@ import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../../../glo
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
-
+import { useTranslation } from 'react-i18next';
 export const EntityTitle = styled(Typography.Title)`
     margin-right: 10px;
 
@@ -26,6 +26,7 @@ interface Props {
 }
 
 function EntityName(props: Props) {
+    const { t } = useTranslation();
     const { isNameEditable } = props;
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
@@ -54,7 +55,7 @@ function EntityName(props: Props) {
         updateName({ variables: { input: { name, urn } } })
             .then(() => {
                 setIsEditing(false);
-                message.success({ content: 'Name Updated', duration: 2 });
+                message.success({ content: t('crud.success.nameUpdated'), duration: 2 });
                 refetch();
                 if (isInGlossaryContext) {
                     const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
@@ -64,7 +65,7 @@ function EntityName(props: Props) {
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to update name: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `${t('crud.error.update')} \n ${e.message || ''}`, duration: 3 });
                 }
             });
     };

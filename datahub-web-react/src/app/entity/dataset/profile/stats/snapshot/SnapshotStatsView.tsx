@@ -6,7 +6,7 @@ import React, { useMemo } from 'react';
 import { DatasetProfile } from '../../../../../../types.generated';
 import { Highlight } from '../../../../../analyticsDashboard/components/Highlight';
 import StatsSection from '../StatsSection';
-
+import { useTranslation } from 'react-i18next';
 const ColumnStatsTable = styled(Table)`
     margin-top: 24px;
 `;
@@ -24,6 +24,7 @@ export type Props = {
 };
 
 export default function DataProfileView({ profile }: Props) {
+    const { t } = useTranslation();
     const columnStatsTableData = useMemo(
         () =>
             profile.fieldProfiles?.map((doc) => ({
@@ -46,7 +47,7 @@ export default function DataProfileView({ profile }: Props) {
      * Returns a placeholder value to show in the column data table when data is null.
      */
     const unknownValue = () => {
-        return <Typography.Text style={{ color: '#B8B8B8' }}>unknown</Typography.Text>;
+        return <Typography.Text style={{ color: '#B8B8B8' }}>{t('common.unknown')}</Typography.Text>;
     };
 
     /**
@@ -131,7 +132,7 @@ export default function DataProfileView({ profile }: Props) {
         // Name column always required.
         const requiredColumns: ColumnsType<any> = [
             {
-                title: 'Name',
+                title: t('common.name'),
                 dataIndex: 'name',
             },
         ];

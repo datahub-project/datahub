@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import CopyQuery from './CopyQuery';
 import { ANTD_GRAY } from '../../../constants';
 import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
+import { useTranslation } from 'react-i18next';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -70,6 +71,8 @@ type Props = {
 };
 
 export default function QueryModal({ query, title, description, showDetails = true, onClose }: Props) {
+    const { t } = useTranslation();
+
     return (
         <StyledModal
             visible
@@ -81,7 +84,7 @@ export default function QueryModal({ query, title, description, showDetails = tr
             data-testid="query-modal"
             footer={
                 <Button onClick={onClose} type="text" data-testid="query-modal-close-button">
-                    Close
+                    {t('common.close')}
                 </Button>
             }
         >
@@ -96,9 +99,9 @@ export default function QueryModal({ query, title, description, showDetails = tr
             {showDetails && (
                 <QueryDetails>
                     <QueryTitle level={4} secondary={!title}>
-                        {title || 'No title'}
+                        {title || t('common.noTitle')}
                     </QueryTitle>
-                    <StyledViewer readOnly secondary={!title} content={description || 'No description'} />
+                    <StyledViewer readOnly secondary={!title} content={description || t('common.noDescription')} />
                 </QueryDetails>
             )}
         </StyledModal>

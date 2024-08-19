@@ -36,7 +36,7 @@ import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
-
+import { useTranslation } from 'react-i18next';
 const PreviewContainer = styled.div`
     display: flex;
     width: 100%;
@@ -242,6 +242,7 @@ export default function DefaultPreviewCard({
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
     const { entityData } = useEntityData();
+    const { t } = useTranslation();
     const insightViews: Array<ReactNode> = [
         ...(insights?.map((insight) => (
             <>
@@ -387,7 +388,7 @@ export default function DefaultPreviewCard({
                     )}
                     {uniqueOwners && uniqueOwners?.length > 0 && (
                         <UserListContainer>
-                            <UserListTitle strong>Owners</UserListTitle>
+                            <UserListTitle strong>{t('common.owners')}</UserListTitle>
                             <div>
                                 <ExpandedActorGroup actors={uniqueOwners.map((owner) => owner.owner)} max={2} />
                             </div>

@@ -7,7 +7,7 @@ import { EntityType, TermRelationshipType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import useRemoveRelatedTerms from './useRemoveRelatedTerms';
-
+import { useTranslation } from 'react-i18next';
 const ListItem = styled.div`
     margin: 0 20px;
 `;
@@ -40,6 +40,7 @@ interface Props {
 
 function RelatedTerm(props: Props) {
     const { urn, relationshipType, isEditable } = props;
+    const { t } = useTranslation();
 
     const entityRegistry = useEntityRegistry();
     const { data, loading } = useGetGlossaryTermQuery({ variables: { urn } });
@@ -61,7 +62,7 @@ function RelatedTerm(props: Props) {
                             <Menu>
                                 <Menu.Item key="0">
                                     <MenuItem onClick={onRemove}>
-                                        <DeleteOutlined /> &nbsp; Remove Term
+                                        <DeleteOutlined /> &nbsp; {t('common.removeTerm')}
                                     </MenuItem>
                                 </Menu.Item>
                             </Menu>

@@ -7,6 +7,7 @@ import DescriptionSection from './DescriptionSection';
 import LinksSection from './LinksSection';
 import SourceRefSection from './SourceRefSection';
 import EmptyContentSection from './EmptyContentSection';
+import { useTranslation } from 'react-i18next';
 
 interface Properties {
     hideLinksButton?: boolean;
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
+    const { t } = useTranslation();
     const hideLinksButton = properties?.hideLinksButton;
     const { entityData } = useEntityData();
     const routeToTab = useRouteToTab();
@@ -32,12 +34,12 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     return (
         <div>
             <SidebarHeader
-                title="About"
+                title={t('common.about')}
                 actions={
                     hasContent &&
                     !readOnly && (
                         <Button
-                            onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                            onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}
                             type="text"
                             shape="circle"
                         >

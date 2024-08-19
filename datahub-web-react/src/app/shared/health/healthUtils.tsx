@@ -11,6 +11,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { HealthStatus, HealthStatusType, Health } from '../../../types.generated';
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../entity/shared/tabs/Incident/incidentUtils';
+import { useTranslation } from 'react-i18next';
 
 const HEALTH_INDICATOR_COLOR = '#d48806';
 
@@ -77,7 +78,9 @@ export const getHealthSummaryIcon = (
 
 export const getHealthSummaryMessage = (healths: Health[]) => {
     const unhealthy = isUnhealthy(healths);
-    return unhealthy ? 'This asset may be unhealthy' : 'This asset is healthy';
+    const { t } = useTranslation();
+
+    return unhealthy ? t('incident.unhealthy') : t('incident.healthy');
 };
 
 export const getHealthColor = (status: HealthStatus) => {

@@ -1,0 +1,27 @@
+{
+  "title": "DataHub",
+  "homepageMessage": "Find data you can count on",
+  "searchbarMessage": "Search Datasets, People, & more...",
+  "menuItems": [
+    {
+      "label": "Project",
+      "path": "https://datahubproject.io",
+      "shouldOpenInNewTab": true
+    },
+    {
+      "label": "Docs",
+      "path": "https://datahubproject.io/docs",
+      "shouldOpenInNewTab": true
+    },
+    {
+      "label": "Releases",
+      "path": "https://datahubproject.io/docs/releases/",
+      "shouldOpenInNewTab": true
+    },
+    {
+      "label": "GitHub",
+      "path": "https://github.com/datahub-project/datahub",
+      "shouldOpenInNewTab": true
+    }
+  ]
+}

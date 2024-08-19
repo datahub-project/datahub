@@ -13,6 +13,7 @@ import { AddIncidentModal } from './components/AddIncidentModal';
 import { combineEntityDataWithSiblings } from '../../siblingUtils';
 import { IncidentsLoadingSection } from './components/IncidentsLoadingSection';
 import { ANTD_GRAY } from '../../constants';
+import { useTranslation } from 'react-i18next';
 
 const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[3]};
@@ -45,6 +46,7 @@ const IncidentStateSelect = styled(Select)`
 `;
 
 export const IncidentTab = () => {
+    const { t } = useTranslation();
     const { urn, entityType } = useEntityData();
     const incidentStates = INCIDENT_DISPLAY_STATES;
     const [selectedIncidentState, setSelectedIncidentState] = useState<IncidentState | undefined>(IncidentState.Active);
@@ -83,7 +85,7 @@ export const IncidentTab = () => {
             <Header>
                 <TabToolbar>
                     <Button icon={<PlusOutlined />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
-                        Raise Incident
+                        {t('deprecation.raiseIncident')}
                     </Button>
                     <AddIncidentModal
                         refetch={refetch}

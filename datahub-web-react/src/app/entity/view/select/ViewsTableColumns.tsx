@@ -8,7 +8,7 @@ import { ViewDropdownMenu } from '../menu/ViewDropdownMenu';
 import { UserDefaultViewIcon } from '../shared/UserDefaultViewIcon';
 import { GlobalDefaultViewIcon } from '../shared/GlobalDefaultViewIcon';
 import { useUserContext } from '../../../context/useUserContext';
-
+import { useTranslation } from 'react-i18next';
 const StyledDescription = styled.div`
     max-width: 300px;
 `;
@@ -64,9 +64,10 @@ type DescriptionColumnProps = {
 };
 
 export function DescriptionColumn({ description }: DescriptionColumnProps) {
+    const { t } = useTranslation();
     return (
         <StyledDescription>
-            {description || <Typography.Text type="secondary">No description</Typography.Text>}
+            {description || <Typography.Text type="secondary">{t('common.noDescription')}</Typography.Text>}
         </StyledDescription>
     );
 }

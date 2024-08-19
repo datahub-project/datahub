@@ -33,7 +33,7 @@ function ChildrenTab() {
         );
     }
 
-    return <EmptyGlossarySection description="No Terms or Term Groups" />;
+    return <EmptyGlossarySection description="Sem termos ou grupos de termos" />;
 }
 
 export default ChildrenTab;

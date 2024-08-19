@@ -16,7 +16,7 @@ import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { SearchBar } from '../../search/SearchBar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { POST_TYPE_TO_DISPLAY_TEXT } from './constants';
-
+import { useTranslation } from 'react-i18next';
 const PostsContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -42,6 +42,7 @@ const PaginationInfo = styled(Typography.Text)`
 const DEFAULT_PAGE_SIZE = 10;
 
 export const PostList = () => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -95,7 +96,7 @@ export const PostList = () => {
 
     const allColumns = [
         {
-            title: 'Title',
+            title: t('common.title'),
             dataIndex: '',
             key: 'title',
             sorter: (sourceA, sourceB) => {
@@ -105,13 +106,13 @@ export const PostList = () => {
             width: '20%',
         },
         {
-            title: 'Description',
+            title: t('common.description'),
             dataIndex: '',
             key: 'description',
             render: (record: PostEntry) => PostColumn(record.description || ''),
         },
         {
-            title: 'Type',
+            title: t('common.type'),
             dataIndex: '',
             key: 'type',
             render: (record: PostEntry) => PostColumn(POST_TYPE_TO_DISPLAY_TEXT[record.contentType]),
@@ -146,11 +147,11 @@ export const PostList = () => {
             <PostsContainer>
                 <TabToolbar>
                     <Button id="posts-create-post" type="text" onClick={() => setIsCreatingPost(true)}>
-                        <PlusOutlined /> New Post
+                        <PlusOutlined /> {t('post.newPost')}
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search posts..."
+                        placeholderText={t('post.searchPost')}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,

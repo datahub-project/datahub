@@ -7,6 +7,7 @@ import { validateCustomUrnId } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
 import DomainParentSelect from '../entity/shared/EntityDropdown/DomainParentSelect';
 import { useIsNestedDomainsEnabled } from '../useAppConfig';
+import { useTranslation } from 'react-i18next';
 import { useDomainsContext } from './DomainsContext';
 
 const SuggestedNamesGroup = styled.div`
@@ -53,13 +54,14 @@ type Props = {
     ) => void;
 };
 
-const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
+const SUGGESTED_DOMAIN_NAMES = ['Engenharia', 'Marketing', 'Vendas', 'Produtos'];
 
 const ID_FIELD_NAME = 'id';
 const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
+    const { t } = useTranslation();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const [createDomainMutation] = useCreateDomainMutation();
     const { entityData } = useDomainsContext();
@@ -87,7 +89,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         parentDomainUrn: selectedParentUrn || undefined,
                     });
                     message.success({
-                        content: `Created domain!`,
+                        content: t('crud.success.createdDomain'),
                         duration: 3,
                     });
                     onCreate(
@@ -102,7 +104,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create Domain!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Falha ao criar domínio!: \n ${e.message || ''}`, duration: 3 });
             });
         onClose();
     };
@@ -114,13 +116,13 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
 
     return (
         <Modal
-            title="Create New Domain"
+            title={t('ingest.createNewDomain')}
             visible
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                    {t('common.cancel')}
                     </Button>
                     <Button
                         id="createDomainButton"
@@ -128,7 +130,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         onClick={onCreateDomain}
                         disabled={!createButtonEnabled}
                     >
-                        Create
+                        {t('common.create')}
                     </Button>
                 </>
             }
@@ -142,27 +144,27 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 }}
             >
                 {isNestedDomainsEnabled && (
-                    <FormItemWithMargin label={<FormItemLabel>Parent (optional)</FormItemLabel>}>
+                    <FormItemWithMargin label={<FormItemLabel>{t('common.parent')} {t('common.optional')}</FormItemLabel>}>
                         <DomainParentSelect
                             selectedParentUrn={selectedParentUrn}
                             setSelectedParentUrn={setSelectedParentUrn}
                         />
                     </FormItemWithMargin>
                 )}
-                <FormItemWithMargin label={<FormItemLabel>Name</FormItemLabel>}>
+                <FormItemWithMargin label={<FormItemLabel>{t('common.name')}</FormItemLabel>}>
                     <FormItemNoMargin
                         name={NAME_FIELD_NAME}
                         rules={[
                             {
                                 required: true,
-                                message: 'Enter a Domain name.',
+                                message: t('form.enterDomainName'),
                             },
                             { whitespace: true },
                             { min: 1, max: 150 },
                         ]}
                         hasFeedback
                     >
-                        <Input data-testid="create-domain-name" placeholder="A name for your domain" />
+                        <Input data-testid="create-domain-name" placeholder= {t('placeholder.domainName')} />
                     </FormItemNoMargin>
                     <SuggestedNamesGroup>
                         {SUGGESTED_DOMAIN_NAMES.map((name) => {
@@ -183,8 +185,8 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     </SuggestedNamesGroup>
                 </FormItemWithMargin>
                 <FormItemWithMargin
-                    label={<FormItemLabel>Description</FormItemLabel>}
-                    help="You can always change the description later."
+                    label={<FormItemLabel>{t('common.description')}</FormItemLabel>}
+                    help="Você sempre pode alterar a descrição mais tarde."
                 >
                     <FormItemNoMargin
                         name={DESCRIPTION_FIELD_NAME}
@@ -192,19 +194,16 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         hasFeedback
                     >
                         <Input.TextArea
-                            placeholder="A description for your domain"
+                            placeholder="Adicione a descrição para seu domínio"
                             data-testid="create-domain-description"
                         />
                     </FormItemNoMargin>
                 </FormItemWithMargin>
                 <Collapse ghost>
-                    <Collapse.Panel header={<AdvancedLabel>Advanced Options</AdvancedLabel>} key="1">
+                    <Collapse.Panel header={<AdvancedLabel>{t('common.advancedOptions')}</AdvancedLabel>} key="1">
                         <FormItemWithMargin
-                            label={<Typography.Text strong>Domain Id</Typography.Text>}
-                            help="By default, a random UUID will be generated to uniquely identify this domain. If
-                                you'd like to provide a custom id instead to more easily keep track of this domain,
-                                you may provide it here. Be careful, you cannot easily change the domain id after
-                                creation."
+                            label={<Typography.Text strong>{t('onBoarding.domains.idDomain')}</Typography.Text>}
+                            help= {t('group.groupIdDescription')}
                         >
                             <FormItemNoMargin
                                 name={ID_FIELD_NAME}
@@ -214,7 +213,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                             if (value && validateCustomUrnId(value)) {
                                                 return Promise.resolve();
                                             }
-                                            return Promise.reject(new Error('Please enter a valid Domain id'));
+                                            return Promise.reject(new Error('Insira um ID de domínio válido'));
                                         },
                                     }),
                                 ]}

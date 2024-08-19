@@ -10,6 +10,7 @@ import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
 import analytics, { EventType } from '../analytics';
 import { useAppConfig } from '../useAppConfig';
+import { useTranslation } from 'react-i18next';
 
 type FormValues = {
     username: string;
@@ -64,6 +65,7 @@ const SsoTextSpan = styled.span`
 export type LogInProps = Record<string, never>;
 
 export const LogIn: React.VFC<LogInProps> = () => {
+    const { t } = useTranslation();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const location = useLocation();
     const params = QueryString.parse(location.search);
@@ -95,7 +97,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error(`Failed to log in! An unexpected error occurred.`);
+                    message.error('Falha ao entrar.');
                 })
                 .finally(() => setLoading(false));
         },
@@ -122,14 +124,14 @@ export const LogIn: React.VFC<LogInProps> = () => {
                         <Form.Item
                             name="username"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Username</label>}
+                            label={<label style={{ color: 'white' }}>{t('common.username')}</label>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="username" />
                         </Form.Item>
                         <Form.Item
                             name="password"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Password</label>}
+                            label={<label style={{ color: 'white' }}>{t('common.password')}</label>}
                         >
                             <FormInput prefix={<LockOutlined />} type="password" data-testid="password" />
                         </Form.Item>
@@ -145,7 +147,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                                         className={styles.login_button}
                                         disabled={!formIsComplete}
                                     >
-                                        Sign In
+                                        {t('authentification.signIn')}
                                     </Button>
                                 );
                             }}
@@ -154,7 +156,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     <SsoDivider />
                     <SsoButton type="primary" href="/sso" block htmlType="submit" className={styles.sso_button}>
                         <LoginLogo />
-                        <SsoTextSpan>Sign in with SSO</SsoTextSpan>
+                        <SsoTextSpan>{t('authentification.signInWithSso')}</SsoTextSpan>
                         <span />
                     </SsoButton>
                 </div>

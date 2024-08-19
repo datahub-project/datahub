@@ -7,13 +7,14 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import { useBaseEntity } from '../../shared/EntityContext';
 import { notEmpty } from '../../shared/utils';
-
+import { useTranslation } from 'react-i18next';
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
 `;
 
 export default function SourcesView() {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const baseEntity = useBaseEntity<GetMlFeatureTableQuery>();
     const featureTable = baseEntity?.mlFeatureTable;
@@ -69,7 +70,7 @@ export default function SourcesView() {
                 style={{ marginTop: '24px', padding: '16px 32px' }}
                 bordered
                 dataSource={sources}
-                header={<Typography.Title level={3}>Sources</Typography.Title>}
+                header={<Typography.Title level={3}>{t('common.sources')}</Typography.Title>}
                 renderItem={(item) => (
                     <List.Item style={{ paddingTop: '20px' }}>
                         {entityRegistry.renderPreview(item?.type || EntityType.Dataset, PreviewType.PREVIEW, item)}

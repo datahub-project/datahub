@@ -34,7 +34,7 @@ export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSe
                 label: (
                     <div>
                         <StyledPlus />
-                        Add Filter
+                        Adicionar Filtro
                     </div>
                 ),
             }}

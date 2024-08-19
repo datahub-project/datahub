@@ -22,7 +22,7 @@ export const UserAssets = ({ urn }: Props) => {
                     filters: [{ field: 'owners', values: [urn] }],
                 }}
                 emptySearchQuery="*"
-                placeholderText="Filter entities..."
+                placeholderText="Filtrar entidades..."
             />
         </UserAssetsWrapper>
     );

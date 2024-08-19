@@ -10,6 +10,7 @@ import { useIsOnTab } from '../../utils';
 import { ANTD_GRAY } from '../../../../constants';
 import { EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { useTranslation } from 'react-i18next';
 
 const ABBREVIATED_LIMIT = 150;
 
@@ -42,21 +43,22 @@ interface Props {
 
 export default function DescriptionSection({ description, baDescription, isExpandable, limit, baUrn }: Props) {
     const history = useHistory();
+    const { t } = useTranslation();
     const isOverLimit = description && removeMarkdown(description).length > ABBREVIATED_LIMIT;
     const isBaOverLimit = baDescription && removeMarkdown(baDescription).length > ABBREVIATED_LIMIT;
     const [isExpanded, setIsExpanded] = useState(!isOverLimit);
     const [isBaExpanded, setIsBaExpanded] = useState(!isBaOverLimit);
     const routeToTab = useRouteToTab();
     const isCompact = React.useContext(CompactContext);
-    const shouldShowReadMore = !useIsOnTab('Documentation') || isExpandable;
     const entityRegistry = useEntityRegistry();
+    const shouldShowReadMore = !useIsOnTab(t('common.documentation')) || isExpandable;
 
     // if we're not in compact mode, route them to the Docs tab for the best documentation viewing experience
     function readMore() {
         if (isCompact || isExpandable) {
             setIsExpanded(true);
         } else {
-            routeToTab({ tabName: 'Documentation' });
+            routeToTab({ tabName: t('common.documentation') });
         }
     }
 
@@ -75,7 +77,7 @@ export default function DescriptionSection({ description, baDescription, isExpan
                     <>
                         <MarkdownViewer source={description} ignoreLimit />
                         {isOverLimit && (
-                            <Typography.Link onClick={() => setIsExpanded(false)}>Read Less</Typography.Link>
+                            <Typography.Link onClick={() => setIsExpanded(false)}>{t('common.readLessDescription')}</Typography.Link>
                         )}
                     </>
                 )}
@@ -84,7 +86,7 @@ export default function DescriptionSection({ description, baDescription, isExpan
                         limit={limit || ABBREVIATED_LIMIT}
                         readMore={
                             shouldShowReadMore ? (
-                                <Typography.Link onClick={readMore}>Read More</Typography.Link>
+                                <Typography.Link onClick={readMore}>{t('common.readMoreDescription')}</Typography.Link>
                             ) : undefined
                         }
                         shouldWrap
@@ -98,7 +100,7 @@ export default function DescriptionSection({ description, baDescription, isExpan
                     <>
                         <MarkdownViewer source={baDescription || ''} ignoreLimit />
                         {isBaOverLimit && (
-                            <Typography.Link onClick={() => setIsBaExpanded(false)}>Read Less</Typography.Link>
+                            <Typography.Link onClick={() => setIsBaExpanded(false)}>{t('common.readLessDescription')}</Typography.Link>
                         )}
                     </>
                 )}
@@ -107,7 +109,7 @@ export default function DescriptionSection({ description, baDescription, isExpan
                         limit={limit || ABBREVIATED_LIMIT}
                         readMore={
                             shouldShowReadMore ? (
-                                <Typography.Link onClick={readBAMore}>Read More</Typography.Link>
+                                <Typography.Link onClick={readBAMore}>{t('common.readMoreDescription')}</Typography.Link>
                             ) : undefined
                         }
                         shouldWrap

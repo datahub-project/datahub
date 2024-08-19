@@ -10,6 +10,11 @@ import { RestrictedEntityProfile } from './RestrictedEntityProfile';
  * Definition of the DataHub Data Product entity.
  */
 export class RestrictedEntity implements Entity<Restricted> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
     type: EntityType = EntityType.Restricted;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -43,7 +48,7 @@ export class RestrictedEntity implements Entity<Restricted> {
 
     getEntityName = () => 'Restricted';
 
-    getCollectionName = () => 'Restricted Assets';
+    getCollectionName = () => this.translationService('common.restricted');
 
     renderProfile = (_: string) => <RestrictedEntityProfile />;
 

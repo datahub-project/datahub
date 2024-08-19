@@ -21,7 +21,8 @@ import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
 import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
 import { getModalDomContainer } from '../../../../../../../utils/focus';
-
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
 const SelectInput = styled(Select)`
     width: 480px;
 `;
@@ -73,6 +74,7 @@ export const EditOwnersModal = ({
     defaultValues,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
 
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Entity) => {
@@ -256,14 +258,14 @@ export const EditOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: 'Owners Added', duration: 2 });
+            message.success({ content: t('group.ownersAdded'), duration: 2 });
             emitAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to add owners: \n ${e.message || ''}`,
+                        content: `${t('crud.error.add')} \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );
@@ -284,14 +286,14 @@ export const EditOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: 'Owners Removed', duration: 2 });
+            message.success({ content: t('crud.success.removeWithName', { name: t('common.owners')}), duration: 2 });
             emitAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to remove owners: \n ${e.message || ''}`,
+                        content: `${t('crud.error.removeWithName', { name: t('common.owners')})}: \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );
@@ -335,25 +337,25 @@ export const EditOwnersModal = ({
 
     return (
         <Modal
-            title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
+            title={title || `${operationType === OperationType.ADD ? t('common.add') : t('common.remove')} ${t('common.owners')}`}
             visible
             onCancel={onModalClose}
             keyboard
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
-                        Done
+                        {t('common.done')}
                     </Button>
                 </>
             }
             getContainer={getModalDomContainer}
         >
             <Form layout="vertical" colon={false}>
-                <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
-                    <Typography.Paragraph>Find a user or group</Typography.Paragraph>
+                <Form.Item key="owners" name="owners" label={<Typography.Text strong>{t('common.owner')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('search.userOrGroupLabel')}</Typography.Paragraph>
                     <Form.Item name="owner">
                         <SelectInput
                             labelInValue
@@ -361,7 +363,7 @@ export const EditOwnersModal = ({
                             defaultOpen
                             mode="multiple"
                             ref={inputEl}
-                            placeholder="Search for users or groups..."
+                            placeholder={t('onBoarding.search.searchOwners')}
                             showSearch
                             filterOption={false}
                             defaultActiveFirstOption={false}
@@ -387,8 +389,8 @@ export const EditOwnersModal = ({
                     </Form.Item>
                 </Form.Item>
                 {!hideOwnerType && (
-                    <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
-                        <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
+                    <Form.Item label={<Typography.Text strong>{t('common.type')}</Typography.Text>}>
+                        <Typography.Paragraph>{t('search.chooseAnOwnerType')}</Typography.Paragraph>
                         <Form.Item name="type">
                             {loading && <Select />}
                             {!loading && (
@@ -399,12 +401,12 @@ export const EditOwnersModal = ({
                                         const ownershipTypeDescription = ownershipType?.info?.description || '';
                                         return (
                                             <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
-                                                <Typography.Text>{ownershipTypeName}</Typography.Text>
+                                                <Typography.Text>{translateDisplayNames(t, `ownership${ownershipTypeName}name`)}</Typography.Text>
                                                 <Typography.Paragraph
                                                     style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}
                                                     type="secondary"
                                                 >
-                                                    {ownershipTypeDescription}
+                                                    {translateDisplayNames(t, `ownership${ownershipTypeName}description`)}
                                                 </Typography.Paragraph>
                                             </Select.Option>
                                         );

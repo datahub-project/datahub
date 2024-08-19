@@ -1,10 +1,10 @@
-import React from 'react';
 import { Divider, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 import { useListPostsQuery } from '../../graphql/post.generated';
 import { Post, PostContentType } from '../../types.generated';
-import { PostTextCard } from '../search/PostTextCard';
 import { PostLinkCard } from '../search/PostLinkCard';
+import { PostTextCard } from '../search/PostTextCard';
 
 const RecommendationContainer = styled.div`
     margin-bottom: 92px;
@@ -42,6 +42,7 @@ const LinkPostsContainer = styled.div`
 `;
 
 export const HomePagePosts = () => {
+    const { t } = useTranslation();
     const { data: postsData } = useListPostsQuery({
         variables: {
             input: {
@@ -59,7 +60,7 @@ export const HomePagePosts = () => {
     const hasPosts = textPosts.length > 0 || linkPosts.length > 0;
     return hasPosts ? (
         <RecommendationContainer>
-            <RecommendationTitle level={4}>Pinned</RecommendationTitle>
+            <RecommendationTitle level={4}>{t('common.pinned')}</RecommendationTitle>
             <ThinDivider />
             <ContentContainer>
                 <TextPostsContainer>
