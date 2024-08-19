@@ -14,6 +14,7 @@ import {
 } from '../../../../graphql/ingestion.generated';
 
 interface Props {
+    preTest?: () => void;
     configValues: {
         account_id?: string;
         name?: string;
@@ -24,7 +25,7 @@ interface Props {
     };
 }
 
-export const TestConnection = ({ configValues }: Props) => {
+export const TestConnection = ({ preTest, configValues }: Props) => {
     // Test States
     const [isTesting, setIsTesting] = useState(false);
     const [isTestConnectionModalVisible, setIsTestConnectionModalVisible] = useState(false);
@@ -67,6 +68,8 @@ export const TestConnection = ({ configValues }: Props) => {
     }, [resultData]);
 
     const handleTest = () => {
+        if (preTest) preTest();
+
         setIsTesting(true);
         setIsTestConnectionModalVisible(true);
 

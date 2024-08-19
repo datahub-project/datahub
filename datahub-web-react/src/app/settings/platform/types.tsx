@@ -63,9 +63,9 @@ const ACRYL_INSTANCE_INTEGRATION = {
  */
 const SNOWFLAKE_INTEGRATION = {
     id: 'snowflake',
-    name: 'Snowflake Connections',
+    name: 'Snowflake',
     img: snowflakeLogo,
-    description: 'Manage Snowflake connections for DataHub ingestion',
+    description: 'Manage Snowflake connections for automations',
     content: <SnowflakeIntegration />,
 };
 

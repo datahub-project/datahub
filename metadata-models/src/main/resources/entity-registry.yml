@@ -56,9 +56,10 @@ entities:
       - access
       - structuredProperties
       - forms
+      - partitionsSummary
       - share
       - origin
-      - partitionsSummary
+      - documentation
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -73,7 +74,6 @@ entities:
       - domains
       - deprecation
       - versionInfo
-      - testResults
       - proposals
       - dataJobInfo
       - dataJobInputOutput
@@ -91,9 +91,11 @@ entities:
       - anomaliesSummary
       - subTypes
       - incidentsSummary
+      - testResults
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -101,7 +103,6 @@ entities:
       - domains
       - deprecation
       - versionInfo
-      - testResults
       - proposals
       - dataFlowInfo
       - editableDataFlowProperties
@@ -117,15 +118,18 @@ entities:
       - incidentsSummary
       - forms
       - subTypes
+      - testResults
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
       - dataProcessInfo
       - ownership
       - status
+      - testResults
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -136,6 +140,7 @@ entities:
       - dataProcessInstanceRelationships
       - dataProcessInstanceRunEvent
       - status
+      - testResults
       - lineageFeatures
   - name: chart
     category: core
@@ -145,7 +150,6 @@ entities:
       - editableChartProperties
       - chartQuery
       - inputFields
-      - testResults
       - usageFeatures
       - lineageFeatures
       - chartUsageStatistics
@@ -166,8 +170,10 @@ entities:
       - structuredProperties
       - incidentsSummary
       - forms
+      - testResults
       - share
       - origin
+      - documentation
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -178,7 +184,6 @@ entities:
       - inputFields
       - usageFeatures
       - lineageFeatures
-      - testResults
       - subTypes
       - embed
       - proposals
@@ -195,8 +200,10 @@ entities:
       - structuredProperties
       - incidentsSummary
       - forms
+      - testResults
       - share
       - origin
+      - documentation
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -215,8 +222,10 @@ entities:
       - dataPlatformInstance
       - proposals
       - browsePathsV2
+      - testResults
       - share
       - origin
+      - documentation
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -234,7 +243,9 @@ entities:
       - roleMembership
       - structuredProperties
       - forms
+      - testResults
       - share
+      - slackUserInfo
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -249,6 +260,7 @@ entities:
       - roleMembership
       - structuredProperties
       - forms
+      - testResults
       - share
   - name: domain
     doc: A data domain within an organization.
@@ -260,6 +272,7 @@ entities:
       - ownership
       - structuredProperties
       - forms
+      - testResults
       - displayProperties
       - share
       - origin
@@ -280,13 +293,14 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
-      - testResults
       - proposals
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
+      - documentation
   - name: tag
     category: core
     keyAspect: tagKey
@@ -294,8 +308,8 @@ entities:
       - tagProperties
       - ownership
       - deprecation
-      - testResults
       - status
+      - testResults
       - share
       - origin
   - name: glossaryTerm
@@ -308,12 +322,12 @@ entities:
       - schemaMetadata
       - ownership
       - deprecation
-      - testResults
       - domains
       - status
       - browsePaths
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
   - name: glossaryNode
@@ -383,7 +397,6 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
-      - testResults
       - proposals
       - ownership
       - mlModelProperties
@@ -406,9 +419,11 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -416,7 +431,6 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
-      - testResults
       - proposals
       - mlModelGroupProperties
       - ownership
@@ -428,9 +442,11 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -441,6 +457,7 @@ entities:
       - deprecation
       - globalTags
       - dataPlatformInstance
+      - testResults
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -448,7 +465,6 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
-      - testResults
       - proposals
       - mlFeatureTableProperties
       - ownership
@@ -461,9 +477,11 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -471,7 +489,6 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
-      - testResults
       - proposals
       - mlFeatureProperties
       - ownership
@@ -484,9 +501,11 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
+      - documentation
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -494,7 +513,6 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
-      - testResults
       - proposals
       - mlPrimaryKeyProperties
       - ownership
@@ -505,6 +523,7 @@ entities:
       - dataPlatformInstance
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
       - lineageFeatures
@@ -545,8 +564,9 @@ entities:
       - structuredProperties
       - forms
       - businessAttributes
-      - schemaFieldProfile
       - documentation
+      - testResults
+      - schemaFieldProfile
       - lineageFeatures
       - status
   - name: globalSettings
@@ -643,6 +663,7 @@ entities:
       - status
       - structuredProperties
       - forms
+      - testResults
       - share
       - origin
   - name: ownershipType
@@ -685,6 +706,10 @@ entities:
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
+  - name: dataHubAction
+    category: internal
+    keyAspect: dataHubActionKey
+    aspects: []
   - name: monitor
     category: core
     keyAspect: monitorKey
@@ -741,20 +766,25 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey
     aspects:
       - dataHubPersonaInfo
-  - name: genericEntity
-    doc: 
-    category: internal
-    keyAspect: genericEntityKey
+  - name: platformResource
+    doc:
+    category: core
+    keyAspect: platformResourceKey
     aspects:
-      - subTypes
-      - slackChannel
-      - slackMember
-
+      - dataPlatformInstance
+      - platformResourceInfo
+      - status
 events:
   - name: notificationRequest
 plugins:

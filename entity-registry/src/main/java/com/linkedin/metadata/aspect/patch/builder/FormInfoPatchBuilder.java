@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import java.util.List;
@@ -26,6 +27,7 @@ public class FormInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<FormInf
   public static final String OWNERS_FIELD = "owners";
   public static final String USERS_FIELD = "users";
   public static final String GROUPS_FIELD = "groups";
+  public static final String STATUS_FIELD = "status";
 
   public FormInfoPatchBuilder setName(@Nonnull String name) {
     this.pathValues.add(
@@ -97,6 +99,25 @@ public class FormInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<FormInf
     return this;
   }
 
+  // Caution - this will overwrite the existing state of prompts
+  public FormInfoPatchBuilder setPrompts(@Nonnull List<FormPrompt> prompts) {
+    // remove existing prompts
+    this.pathValues.add(
+        ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), PATH_DELIM + PROMPTS_FIELD, null));
+    // add empty prompts map
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), PATH_DELIM + PROMPTS_FIELD, instance.objectNode()));
+
+    // add the given prompts
+    try {
+      prompts.forEach(this::addPrompt);
+      return this;
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to set prompts.", e);
+    }
+  }
+
   public FormInfoPatchBuilder setOwnershipForm(boolean isOwnershipForm) {
     this.pathValues.add(
         ImmutableTriple.of(
@@ -140,6 +161,68 @@ public class FormInfoPatchBuilder extends AbstractMultiFieldPatchBuilder<FormInf
             PATH_DELIM + ACTORS_FIELD + PATH_DELIM + GROUPS_FIELD + PATH_DELIM + groupUrn,
             instance.textNode(groupUrn)));
     return this;
+  }
+
+  public FormInfoPatchBuilder setStatus(@Nonnull FormStatus status) {
+    try {
+      ObjectNode statusNode =
+          (ObjectNode) new ObjectMapper().readTree(RecordUtils.toJsonString(status));
+      pathValues.add(
+          ImmutableTriple.of(
+              PatchOperationType.ADD.getValue(), PATH_DELIM + STATUS_FIELD, statusNode));
+      return this;
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException(
+          "Failed to add prompt, failed to parse provided aspect json.", e);
+    }
+  }
+
+  // Caution - this will overwrite the existing state of assigned users
+  public FormInfoPatchBuilder setAssignedUsers(@Nonnull List<String> userUrns) {
+    // remove existing users
+    this.pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + USERS_FIELD,
+            null));
+    // add empty users map
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + USERS_FIELD,
+            instance.objectNode()));
+
+    // add the given users
+    try {
+      userUrns.forEach(this::addAssignedUser);
+      return this;
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to set assigned users.", e);
+    }
+  }
+
+  // Caution - this will overwrite the existing state of assigned groups
+  public FormInfoPatchBuilder setAssignedGroups(@Nonnull List<String> groupUrns) {
+    // remove existing groups
+    this.pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + GROUPS_FIELD,
+            null));
+    // add empty groups map
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            PATH_DELIM + ACTORS_FIELD + PATH_DELIM + GROUPS_FIELD,
+            instance.objectNode()));
+
+    // add the given groups
+    try {
+      groupUrns.forEach(this::addAssignedGroup);
+      return this;
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to set assigned users.", e);
+    }
   }
 
   @Override

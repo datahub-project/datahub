@@ -1,7 +1,10 @@
 import styled from 'styled-components';
 import { Divider, Typography } from 'antd';
+import { colors } from '@components/theme';
 import { sharedStyles } from '../sharedComponents';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import { AutomationStatus } from '../constants';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const sidebarWidth = '250px';
 
@@ -76,7 +79,7 @@ export const AutomationsContentBody = styled.div`
 
 export const AutomationsBody = styled.div`
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
     padding: 16px 0;
 `;
@@ -131,21 +134,21 @@ export const AutomationsContentTab = styled.div<{ isActive: boolean }>`
 export const ListCard = styled.div`
     padding: 24px;
     border-radius: 12px;
-    border: 1px solid ${sharedStyles.darkBorderColor};
-
-    &:hover {
-        border-color: ${sharedStyles.activeColor};
-        cursor: pointer;
-    }
+    border: 1px solid ${sharedStyles.borderColor};
 `;
 
-export const ListCardHeader = styled.div<{ status: string | undefined }>`
-    & .categoryAndDeployed {
+export const ListCardHeader = styled.div<{ status?: string | undefined }>`
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+
+    & .titleColumn {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
+        flex-direction: column;
+        align-items: start;
+        justify-content: start;
         margin-bottom: 4px;
-        height: 30.8516px;
+        gap: 42px;
 
         & h4 {
             color: ${sharedStyles.contentColor};
@@ -176,7 +179,7 @@ export const ListCardHeader = styled.div<{ status: string | undefined }>`
 
         & h2 {
             color: ${sharedStyles.subHeadingColor};
-            font-size: 22px;
+            font-size: 18px;
             font-weight: 700;
             line-height: normal;
             margin: 0;
@@ -199,27 +202,27 @@ export const ListCardHeader = styled.div<{ status: string | undefined }>`
     }
 
     ${({ status }) =>
-        status === 'running' &&
+        status === AutomationStatus.ACTIVE &&
         `
 			.status {
-				background: ${sharedStyles.statusActiveColor};
-				color: ${sharedStyles.statusActiveFontColor};
+				background: ${colors.green['100']};
+				color: ${colors.green['500']};
 
 				& svg {
-					color: ${sharedStyles.statusActiveFontColor};
+					color: ${colors.green['500']};
 				}
 			}
 		`}
 
     ${({ status }) =>
-        status === 'stopped' &&
+        (status === AutomationStatus.INACTIVE || !status) &&
         `
 			.status {
-				background: ${sharedStyles.statusInactiveColor};
-				color: ${sharedStyles.statusInactiveFontColor};
+				background: ${ANTD_GRAY[4]};
+				color: ${ANTD_GRAY[8]};
 
 				& svg {
-					color: ${sharedStyles.statusInactiveFontColor};
+					color: ${ANTD_GRAY[8]};
 				}
 			}
 		`}
@@ -321,11 +324,23 @@ export const AutomationModalFooter = styled.div`
     }
 `;
 
+export const AutomationsDescription = styled.div`
+    color: ${ANTD_GRAY[8]};
+    font-weight: normal;
+`;
+
 export const AutomationLogo = styled.img`
     width: 35px;
     height: 35px;
     object-fit: contain;
     margin-bottom: 16px;
+`;
+
+export const Description = styled.div`
+    color: ${ANTD_GRAY[7]};
+    font-weight: normal;
+    font-size: 14px;
+    margin-top: 8px;
 `;
 
 export const YamlButtonsContainer = styled.div`
@@ -345,60 +360,22 @@ export const ButtonsContainer = styled.div`
     gap: 8px;
 `;
 
-export const IconContainer = styled.div<{ addExtraPadding?: boolean; disabled?: boolean }>`
-    border-radius: 50%;
-    color: ${sharedStyles.activeColor};
-    border: 1px solid ${sharedStyles.buttonBorderColor};
-    padding: 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 25px;
-    width: 25px;
-
-    svg {
-        height: 15px;
-        width: 15px;
-    }
-`;
-
-export const UndoButton = styled.div`
-    border-radius: 50%;
-    color: ${sharedStyles.activeColor};
-    border: 1px solid ${sharedStyles.buttonBorderColor};
-    padding: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 25px;
-    width: 25px;
-
-    svg {
-        height: 15px;
-        width: 15px;
-
-        path {
-            fill: ${sharedStyles.activeColor};
-        }
-    }
-`;
-
 export const StyledDivider = styled(Divider)`
     margin: 14px 0;
     border-top: 1px solid ${sharedStyles.dividerColor};
+`;
+
+export const Name = styled.h2`
+    margin: 0px;
+    padding: 0px;
+    font-weight: 700;
 `;
 
 export const Category = styled(Typography.Text)`
     font-size: 12px;
     font-weight: 900;
     color: ${sharedStyles.greyDisabled};
-    letter-spacing: 2.4px;
-`;
-
-export const ContentTitle = styled(Typography.Text)`
-    font-size: 14px;
-    font-weight: 700;
-    color: ${sharedStyles.headingColor};
+    letter-spacing: 2.2px;
 `;
 
 export const Details = styled.div`
@@ -412,10 +389,6 @@ export const Details = styled.div`
  */
 
 export const ResultContainer = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-
     & .pass {
         color: ${sharedStyles.success};
     }
@@ -424,3 +397,17 @@ export const ResultContainer = styled.div`
         color: ${sharedStyles.fail};
     }
 `;
+
+export const ResultGroup = styled.div({
+    marginBottom: '8px',
+
+    '& strong': {
+        fontWeight: 700,
+    },
+});
+
+export const TitleColumn = styled.div({
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+});

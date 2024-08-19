@@ -1241,7 +1241,7 @@
                   "type" : "map",
                   "values" : "string"
                 },
-                "doc" : "The details associated with why this metadata was applied. For example, this could include\nthe actual regex rule, sql statement, ingestion pipeline ID, etc.",
+                "doc" : "The details associated with why this metadata was applied. For example, this could include\nthe actual regex rule, sql statement, ingestion pipeline ID, etc.\nAlso can include flags like 'propagated'=true or 'inferred'=true.",
                 "default" : { }
               } ]
             },
@@ -2660,6 +2660,15 @@
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT"
       }
+    }, {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Editable display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedName",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "editableDatasetProperties"
@@ -3258,6 +3267,14 @@
                     "name" : "email",
                     "type" : "string",
                     "doc" : "Email address to contact the user",
+                    "optional" : true
+                  }, {
+                    "name" : "informationSources",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "Information sources that have been used to populate this CorpUserEditableInfo.\nThese include platform resources, such as Slack members or Looker users.\nThey can also refer to other semantic urns in the future.",
                     "optional" : true
                   } ],
                   "Aspect" : {
@@ -3938,7 +3955,7 @@
                         }, {
                           "name" : "isPartitioningKey",
                           "type" : "boolean",
-                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.\nNote that multiple columns can be part of a partitioning key, but currently we do not support\nrendering the ordered partitioning key.",
                           "optional" : true
                         }, {
                           "name" : "jsonProps",

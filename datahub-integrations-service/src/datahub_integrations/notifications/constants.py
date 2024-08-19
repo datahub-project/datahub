@@ -13,7 +13,7 @@ MAX_NOTIFICATION_RETRIES = int(os.environ.get("MAX_NOTIFICATION_RETRIES", 3))
 
 # Email
 FROM_EMAIL_ADDRESS = "notifications@app.acryl.io"
-FROM_EMAIL_TITLE = "Acryl"
+FROM_EMAIL_TITLE = "DataHub Cloud"
 
 # SendGrid API Key - Generate a key from the sendgrid dashboard for local usage.
 SEND_GRID_API_KEY = os.environ.get("SENDGRID_API_KEY")

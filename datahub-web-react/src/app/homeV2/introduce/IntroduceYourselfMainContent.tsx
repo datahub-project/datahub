@@ -7,17 +7,22 @@ import CheckIcon from '@mui/icons-material/Check';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
+import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
 import { useListRecommendationsQuery } from '../../../graphql/recommendations.generated';
-import { DataPlatform, ScenarioType } from '../../../types.generated';
+import { DataHubViewType, DataPlatform, ScenarioType } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import { PLATFORMS_MODULE_ID } from '../content/tabs/discovery/sections/platform/useGetPlatforms';
-import { ROLE_TO_PERSONA_TYPE } from '../shared/types';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
+import { PERSONA_TYPE_TO_VIEW_URN, ROLE_TO_PERSONA_TYPE } from '../shared/types';
+import {
+    useUpdateCorpUserPropertiesMutation,
+    useUpdateCorpUserViewsSettingsMutation,
+} from '../../../graphql/user.generated';
 import { useGetDataPlatforms } from '../content/tabs/discovery/sections/platform/useGetDataPlatforms';
 import analytics, { EventType } from '../../analytics';
 import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
 import Loading from '../../shared/Loading';
 import OnboardingContext from '../../onboarding/OnboardingContext';
+import { PersonaSelector } from './PersonaSelector';
 
 const Container = styled.div`
     flex: 1;
@@ -238,10 +243,11 @@ const SelectTag = styled.div`
 
 // TODO: Make section ordering dynamic based on populated data.
 export const IntroduceYourselfMainContent = () => {
-    const { user, refetchUser } = useUserContext();
+    const userContext = useUserContext();
+    const { refetchUser, user } = userContext;
     const defaultDataPlatforms = useGetDataPlatforms();
     const [updateCorpUserMutation, { loading }] = useUpdateCorpUserPropertiesMutation();
-
+    const [updateUserViewSettingMutation] = useUpdateCorpUserViewsSettingsMutation();
     const history = useHistory();
     const authenticatedUser = useUserContext();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
@@ -249,6 +255,16 @@ export const IntroduceYourselfMainContent = () => {
     const [selectedPersona, setSelectedPersona] = useState('');
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
     const [selectedTitle, setSelectedTitle] = useState('');
+
+    const { loading: viewsLoading, data: globalViewsData } = useListGlobalViewsQuery({
+        variables: {
+            start: 0,
+            count: 100,
+        },
+        fetchPolicy: 'no-cache',
+    });
+
+    const globalViews = globalViewsData?.listGlobalViews?.views || [];
 
     const { data, loading: reccosLoading } = useListRecommendationsQuery({
         variables: {
@@ -282,15 +298,65 @@ export const IntroduceYourselfMainContent = () => {
 
     const platforms = getPlatformList();
 
-    const handlePersonaChange = (value: string) => {
-        setSelectedPersona(ROLE_TO_PERSONA_TYPE[value]);
+    const handleRoleChange = (value: string) => {
         setSelectedTitle(value);
     };
 
     const { setIsUserInitializing } = useContext(OnboardingContext);
 
+    /**
+     * Updates the User's Personal Default View via mutation.
+     *
+     * Then updates the User Context state to contain the new default.
+     */
+    const setUserDefault = (viewUrn: string | null) => {
+        return updateUserViewSettingMutation({
+            variables: {
+                input: {
+                    defaultView: viewUrn,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    userContext.updateState({
+                        ...userContext.state,
+                        views: {
+                            ...userContext.state.views,
+                            personalDefaultViewUrn: viewUrn,
+                        },
+                    });
+                    userContext.updateLocalState({
+                        ...userContext.localState,
+                        selectedViewUrn: viewUrn,
+                    });
+                    analytics.event({
+                        type: EventType.SetUserDefaultViewEvent,
+                        urn: viewUrn,
+                        viewType: (viewUrn && DataHubViewType.Global) || null,
+                    });
+                }
+            })
+            .catch((_) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to provision a default view. An unexpected error occurred.`,
+                    duration: 3,
+                });
+            });
+    };
+
     const onSubmitDetails = () => {
         setIsUserInitializing(true);
+
+        // The default views for each persona needs to be created prior
+        const personaDefaultView = globalViews.find((view) => view.urn === PERSONA_TYPE_TO_VIEW_URN[selectedPersona]);
+        const { globalDefaultViewUrn } = userContext.state.views;
+
+        if (personaDefaultView && !globalDefaultViewUrn) {
+            setUserDefault(personaDefaultView.urn);
+        }
+
         updateCorpUserMutation({
             variables: {
                 urn: user?.urn as string,
@@ -340,7 +406,7 @@ export const IntroduceYourselfMainContent = () => {
     const smallWindow = windowHeight <= 719;
 
     // Show loading state
-    const isLoading = loading && reccosLoading;
+    const isLoading = loading && reccosLoading && viewsLoading;
     if (isLoading) return <Loading />;
 
     return (
@@ -355,7 +421,7 @@ export const IntroduceYourselfMainContent = () => {
                         suffixIcon={<KeyboardArrowDownOutlinedIcon />}
                         size="large"
                         style={selectStyles}
-                        onChange={handlePersonaChange}
+                        onChange={handleRoleChange}
                         options={updatedRoles.map((key) => ({
                             value: key,
                             label: key,
@@ -367,7 +433,7 @@ export const IntroduceYourselfMainContent = () => {
                 <SelectWrapper>
                     <SettingsOutlinedIcon />
                     <Select
-                        placeholder="Tools you work with"
+                        placeholder="Select your Data Tools"
                         size="large"
                         style={selectStyles}
                         onChange={(value) => setSelectedPlatforms(value)}
@@ -409,6 +475,7 @@ export const IntroduceYourselfMainContent = () => {
                         menuItemSelectedIcon
                     />
                 </SelectWrapper>
+                <PersonaSelector selectedPersona={selectedPersona} onSelect={setSelectedPersona} />
                 <DoneButton
                     type="primary"
                     size="large"

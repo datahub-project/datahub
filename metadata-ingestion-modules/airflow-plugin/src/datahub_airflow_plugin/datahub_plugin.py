@@ -4,6 +4,7 @@ import os
 
 from airflow.plugins_manager import AirflowPlugin
 
+from datahub_airflow_plugin import __package_name__
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_LISTENER_API,
@@ -23,7 +24,10 @@ if _USE_AIRFLOW_LISTENER_INTERFACE:
         from openlineage.airflow.utils import try_import_from_string  # noqa: F401
     except ImportError:
         # If v2 plugin dependencies are not installed, we fall back to v1.
-        logger.debug("Falling back to v1 plugin due to missing dependencies.")
+        logger.warning(
+            "Falling back to the v1 DataHub plugin due to missing dependencies. "
+            f"Please install {__package_name__}[plugin-v2] to fix this."
+        )
         _USE_AIRFLOW_LISTENER_INTERFACE = False
 
 

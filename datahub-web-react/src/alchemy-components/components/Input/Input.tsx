@@ -7,6 +7,8 @@ import { InputWrapper, InputContainer, InputField, Label, Required, WarningMessa
 import { Icon } from '../Icon';
 
 export const inputDefaults: InputProps = {
+    value: '',
+    setValue: () => {},
     label: 'Label',
     placeholder: 'Placeholder',
     error: '',
@@ -20,6 +22,8 @@ export const inputDefaults: InputProps = {
 };
 
 export const Input = ({
+    value = inputDefaults.value,
+    setValue = inputDefaults.setValue,
     label = inputDefaults.label,
     placeholder = inputDefaults.placeholder,
     icon, // default undefined
@@ -59,6 +63,8 @@ export const Input = ({
             <InputContainer {...inputBaseProps}>
                 {icon && <Icon icon={icon} size="lg" />}
                 <InputField
+                    value={value}
+                    onChange={(e) => setValue?.(e.target.value)}
                     type={isPassword && !showPassword ? 'password' : 'text'}
                     placeholder={placeholder}
                     readOnly={isReadOnly}

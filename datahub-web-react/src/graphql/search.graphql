@@ -357,6 +357,7 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...dataPlatformInstanceFields
     }
     editableProperties {
+        name
         description
     }
     access {
@@ -923,6 +924,10 @@ fragment searchResultsWithoutSchemaField on Entity {
             description
             type
         }
+    }
+
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
     }
 }
 

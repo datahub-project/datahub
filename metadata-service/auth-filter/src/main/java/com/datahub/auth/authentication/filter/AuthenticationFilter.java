@@ -92,7 +92,7 @@ public class AuthenticationFilter implements Filter {
           "Failed to authenticate request. Received an AuthenticationExpiredException from authenticator chain.",
           e);
       ((HttpServletResponse) response)
-          .sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+          .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
       return;
     }
 

@@ -1,7 +1,9 @@
 import json
+from datetime import datetime, timezone
 
 import pytest
 import requests
+from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -9,6 +11,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 
+FROZEN_TIME = 1618987484580
 basicAuditStamp = models.AuditStampClass(
     time=1618987484580,
     actor="urn:li:corpuser:datahub",
@@ -76,7 +79,7 @@ basicAuditStamp = models.AuditStampClass(
                     }
                 },
                 "systemMetadata": {
-                    "lastObserved": 0,
+                    "lastObserved": FROZEN_TIME,
                     "lastRunId": "no-run-id-provided",
                     "properties": {
                         "clientId": "acryl-datahub",
@@ -134,7 +137,7 @@ basicAuditStamp = models.AuditStampClass(
                     }
                 },
                 "systemMetadata": {
-                    "lastObserved": 0,
+                    "lastObserved": FROZEN_TIME,
                     "lastRunId": "no-run-id-provided",
                     "properties": {
                         "clientId": "acryl-datahub",
@@ -178,7 +181,7 @@ basicAuditStamp = models.AuditStampClass(
                     }
                 },
                 "systemMetadata": {
-                    "lastObserved": 0,
+                    "lastObserved": FROZEN_TIME,
                     "lastRunId": "no-run-id-provided",
                     "properties": {
                         "clientId": "acryl-datahub",
@@ -263,7 +266,7 @@ basicAuditStamp = models.AuditStampClass(
                         "contentType": "application/json",
                     },
                     "systemMetadata": {
-                        "lastObserved": 0,
+                        "lastObserved": FROZEN_TIME,
                         "lastRunId": "no-run-id-provided",
                         "properties": {
                             "clientId": "acryl-datahub",
@@ -276,6 +279,7 @@ basicAuditStamp = models.AuditStampClass(
         ),
     ],
 )
+@freeze_time(datetime.fromtimestamp(FROZEN_TIME / 1000, tz=timezone.utc))
 def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
     def match_request_text(request: requests.Request) -> bool:
         requested_snapshot = request.json()

@@ -1,11 +1,10 @@
-import { Dropdown, Typography } from 'antd';
-import React from 'react';
-import styled from 'styled-components';
-import { useHistory } from 'react-router';
 import { Icon } from '@components';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { MenuItem } from './styledComponents';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { Dropdown, Typography } from 'antd';
+import React from 'react';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
 
 const FormName = styled(Typography.Text)`
     font-size: 14px;
@@ -70,6 +69,13 @@ const CardContainer = styled.div`
             display: block !important;
         }
     }
+`;
+
+const MenuItem = styled.div`
+    display: flex;
+    gap: 5px;
+    padding: 2px 20px 2px 4px;
+    color: ${REDESIGN_COLORS.BODY_TEXT_GREY};
 `;
 
 interface Props {

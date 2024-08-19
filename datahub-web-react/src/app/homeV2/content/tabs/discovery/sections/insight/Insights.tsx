@@ -33,7 +33,12 @@ const ALL_INSIGHTS: InsightSection[] = [
     {
         id: 'MostUsers',
         component: MostUsersCard,
-        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
+        personas: [
+            PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_ENGINEER,
+            PersonaType.DATA_STEWARD,
+            PersonaType.DATA_LEADER,
+        ],
     },
     {
         id: 'MostViewedDashboards',
@@ -43,6 +48,7 @@ const ALL_INSIGHTS: InsightSection[] = [
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,
             PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_ENGINEER,
         ],
     },
     {
@@ -50,6 +56,7 @@ const ALL_INSIGHTS: InsightSection[] = [
         component: PopularGlossaryTerms,
         personas: [
             PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_ENGINEER,
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,
             PersonaType.BUSINESS_USER,
@@ -61,6 +68,7 @@ const ALL_INSIGHTS: InsightSection[] = [
         personas: [
             PersonaType.BUSINESS_USER,
             PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_ENGINEER,
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,
         ],
@@ -68,22 +76,27 @@ const ALL_INSIGHTS: InsightSection[] = [
     {
         id: 'MostFrequentlyUpdated',
         component: MostFrequentlyUpdated,
-        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
+        personas: [
+            PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_ENGINEER,
+            PersonaType.DATA_STEWARD,
+            PersonaType.DATA_LEADER,
+        ],
     },
     {
         id: 'RecentlyUpdatedDatasets',
         component: RecentlyUpdatedDatasetsCard,
-        personas: [PersonaType.TECHNICAL_USER],
+        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER],
     },
     {
         id: 'RecentlyCreatedDatasets',
         component: RecentlyCreatedDatasetsCard,
-        personas: [PersonaType.TECHNICAL_USER],
+        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER],
     },
     {
         id: 'MostRows',
         component: MostRowsCard,
-        personas: [PersonaType.TECHNICAL_USER],
+        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER],
     },
 ];
 

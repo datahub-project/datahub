@@ -1,7 +1,6 @@
 package com.datahub.event.hook.change;
 
 import com.datahub.event.hook.PlatformEventHook;
-import com.linkedin.gms.factory.change.EntityChangeEventSinkManagerFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.change.EntityChangeEventSinkManager;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -11,7 +10,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,19 +19,23 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Import({EntityChangeEventSinkManagerFactory.class})
 public class EntityChangeEventSinkHook implements PlatformEventHook {
 
   private final EntityChangeEventSinkManager _sinkManager;
 
+  private final boolean enabled;
+
   @Autowired
-  public EntityChangeEventSinkHook(@Nonnull final EntityChangeEventSinkManager sinkManager) {
-    _sinkManager = sinkManager;
+  public EntityChangeEventSinkHook(
+      @Nonnull final EntityChangeEventSinkManager sinkManager,
+      @Value("${entityChangeEvents.enabled}") boolean enabled) {
+    this._sinkManager = sinkManager;
+    this.enabled = enabled;
   }
 
   @Override
-  public void init() {
-    // pass.
+  public boolean isEnabled() {
+    return enabled;
   }
 
   @Override

@@ -2,6 +2,7 @@ import logging
 import math
 import os
 import re
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -50,6 +51,18 @@ GET_SOFT_DELETED_ENTITIES = {
     "sort": [{"urn": {"order": "asc"}}],
 }
 
+GET_UPSTREAMS = {
+    "sort": [{"destination.urn": {"order": "asc"}}],
+    "query": {
+        "bool": {
+            "must": [
+                {"terms": {"destination.entityType": ["dataset"]}},
+                {"terms": {"source.entityType": ["dataset"]}},
+            ]
+        }
+    },
+}
+
 GET_DASHBOARD_USAGE_QUERY = {
     "sort": [{"urn": {"order": "asc"}}],
     "query": {
@@ -83,7 +96,22 @@ GET_DATASET_USAGE_QUERY = {
     },
 }
 
-DATASET_WRITE_USAGE_QUERY = {
+DATASET_WRITE_USAGE_RAW_QUERY = {
+    "sort": [{"urn": {"order": "asc"}}, {"@timestamp": {"order": "asc"}}],
+    "query": {
+        "bool": {
+            "must": [
+                {"range": {"@timestamp": {"gte": "now-30d/d", "lte": "now/d"}}},
+                {"terms": {"operationType": ["INSERT", "UPDATE", "CREATE"]}},
+            ]
+        }
+    },
+    "_source": {
+        "includes": ["urn", "@timestamp"],
+    },
+}
+
+DATASET_WRITE_USAGE_COMPOSITE_QUERY = {
     "query": {
         "bool": {
             "must": [
@@ -148,9 +176,15 @@ class DataHubUsageFeatureReportingSourceConfig(StatefulIngestionConfigBase):
         30, description="Timeout in seconds for the search queries."
     )
     extract_batch_size: int = Field(
-        2000,
+        1000,
         description="The number of documents to retrieve in each batch from ElasticSearch or OpenSearch.",
     )
+
+    extract_delay: Optional[float] = Field(
+        0.25,
+        description="The delay in seconds between each batch extraction from ElasticSearch or OpenSearch.",
+    )
+
     use_exp_cdf: bool = Field(
         True,
         description="Flag to determine whether to use the exponential cumulative distribution function for calculating percentiles.",
@@ -177,6 +211,16 @@ class DataHubUsageFeatureReportingSourceConfig(StatefulIngestionConfigBase):
     sibling_usage_enabled: bool = Field(
         True,
         description="Flag to enable or disable the setting dataset usage statistics for sibling entities (only DBT siblings are set).",
+    )
+
+    use_server_side_aggregation: bool = Field(
+        False,
+        description="Flag to enable server side aggregation for write usage statistics.",
+    )
+
+    set_upstream_table_max_modification_time_for_views: bool = Field(
+        True,
+        description="Flag to enable setting the max modification time for views based on their upstream tables' modification time.'",
     )
 
 
@@ -224,6 +268,10 @@ class DatahubUsageFeatureReport(IngestionStageReport, StatefulIngestionReport):
         default_factory=lambda: defaultdict(lambda: 0)
     )
     sibling_usage_count: int = 0
+
+    report_es_extraction_time: Dict[str, PerfTimer] = field(
+        default_factory=lambda: defaultdict(lambda: PerfTimer())
+    )
 
     dataset_usage_processing_time: PerfTimer = PerfTimer()
     dashboard_usage_processing_time: PerfTimer = PerfTimer()
@@ -280,6 +328,11 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         if "siblings" in doc["_source"]
                         else []
                     ),
+                    "isView": (
+                        "View" in doc["_source"]["typeNames"]
+                        if "typeNames" in doc["_source"]
+                        else False
+                    ),
                 }
             time_taken = timer.elapsed_seconds()
             logger.info(f"Entities processing took {time_taken:.3f} seconds")
@@ -306,6 +359,25 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 f"Write Operation aspect processing took {time_taken:.3f} seconds"
             )
 
+    def write_stat_raw_batch(self, results: Iterable) -> Iterable[Dict]:
+        with PerfTimer() as timer:
+            for doc in results:
+                match = re.match(platform_regexp, doc["_source"]["urn"])
+                if match:
+                    platform = match.group(1)
+                else:
+                    logging.warning("Platform not found in urn. Skipping...")
+                    continue
+
+                yield {
+                    "urn": doc["_source"]["urn"],
+                    "platform": platform,
+                }
+            time_taken = timer.elapsed_seconds()
+            logger.info(
+                f"Write Operation aspect processing took {time_taken:.3f} seconds"
+            )
+
     def process_dashboard_usage(self, results: Iterable) -> Iterable[Dict]:
         for doc in results:
             match = re.match(dashboard_chart_platform_regexp, doc["_source"]["urn"])
@@ -315,6 +387,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             else:
                 logging.warning("Platform not found in urn. Skipping...")
                 continue
+
             yield {
                 "timestampMillis": doc["_source"]["timestampMillis"],
                 "lastObserved": doc["_source"]["systemMetadata"]["lastObserved"],
@@ -341,6 +414,43 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     else []
                 ),
                 "platform": platform,
+            }
+
+    def upstream_lineage_batch(self, results: Iterable) -> Iterable[Dict]:
+        for doc in results:
+            if (
+                not doc["_source"]["source"]["urn"]
+                or not doc["_source"]["destination"]["urn"]
+            ):
+                logger.warning("Source urn not found in upstream lineage. Skipping...")
+                continue
+
+            source_platform_match = re.match(
+                platform_regexp, doc["_source"]["source"]["urn"]
+            )
+            if source_platform_match:
+                source_platform = source_platform_match.group(1)
+            else:
+                logging.warning("Source Platform not found in urn. Skipping...")
+                continue
+
+            destination_platform_match = re.match(
+                platform_regexp, doc["_source"]["destination"]["urn"]
+            )
+            if destination_platform_match:
+                destination_platform = destination_platform_match.group(1)
+            else:
+                logging.warning("Destination Platform not found in urn. Skipping...")
+                continue
+
+            # In some case like Tableau there is dataset which marked as view and points to a dataset on another platform
+            # We drop these now
+            if source_platform != destination_platform:
+                continue
+
+            yield {
+                "source_urn": doc["_source"]["source"]["urn"],
+                "destination_urn": doc["_source"]["destination"]["urn"],
             }
 
     def process_batch(self, results: Iterable) -> Iterable[Dict]:
@@ -384,17 +494,41 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         age_in_millis = current_time - last_update_time
         age_in_days = age_in_millis / (1000 * 60 * 60 * 24)
 
+        bucket = 0
         for factor in self.config.ranking_policy.freshness_factors:
             if len(factor.age_in_days) == 2:
-                if factor.age_in_days[0] < age_in_days <= factor.age_in_days[1]:
-                    freshness_factor = factor.value
+                if bucket == 0:
+                    if factor.age_in_days[0] <= age_in_days <= factor.age_in_days[1]:
+                        freshness_factor = factor.value
+                        break
+                else:
+                    if factor.age_in_days[0] < age_in_days <= factor.age_in_days[1]:
+                        freshness_factor = factor.value
+                        break
             elif age_in_days > factor.age_in_days[0]:
                 freshness_factor = factor.value
 
+        bucket = 0
         for pfactor in self.config.ranking_policy.usage_percentile_factors:
+            bucket += 1
             if len(pfactor.percentile) == 2:
-                if pfactor.percentile[0] < usage_percentile <= pfactor.percentile[1]:
-                    usage_search_score_multiplier = pfactor.value
+                # The first bucket min should be inclusive
+                if bucket == 1:
+                    if (
+                        pfactor.percentile[0]
+                        <= usage_percentile
+                        <= pfactor.percentile[1]
+                    ):
+                        usage_search_score_multiplier = pfactor.value
+                        break
+                else:
+                    if (
+                        pfactor.percentile[0]
+                        < usage_percentile
+                        <= pfactor.percentile[1]
+                    ):
+                        usage_search_score_multiplier = pfactor.value
+                        break
             elif usage_percentile > pfactor.percentile[0]:
                 usage_search_score_multiplier = pfactor.value
 
@@ -418,63 +552,66 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         process_function: Callable,
         aggregation_key: Optional[str] = None,
     ) -> Iterable[Dict]:
-        query_copy = query.copy()
-        endpoint = ""
-        if self.config.search_index:
-            if self.config.search_index.host and not self.config.search_index.port:
-                endpoint = f"{self.config.search_index.host}"
-            elif self.config.search_index.host and self.config.search_index.port:
-                endpoint = (
-                    f"{self.config.search_index.host}:{self.config.search_index.port}"
+        with self.report.report_es_extraction_time[index]:
+            query_copy = query.copy()
+            endpoint = ""
+            if self.config.search_index:
+                if self.config.search_index.host and not self.config.search_index.port:
+                    endpoint = f"{self.config.search_index.host}"
+                elif self.config.search_index.host and self.config.search_index.port:
+                    endpoint = f"{self.config.search_index.host}:{self.config.search_index.port}"
+
+                index_prefix = (
+                    self.config.search_index.index_prefix
+                    if self.config.search_index
+                    else ""
                 )
 
-            index_prefix = (
-                self.config.search_index.index_prefix
-                if self.config.search_index
-                else ""
-            )
+                index = f"{index_prefix}{index}" if index_prefix else index
+                user = self.config.search_index.username
+                password = self.config.search_index.password
+                batch_size = self.config.extract_batch_size
+                delay = self.config.extract_delay
+                server: Union[Elasticsearch, OpenSearch]
 
-            index = f"{index_prefix}{index}" if index_prefix else index
-            user = self.config.search_index.username
-            password = self.config.search_index.password
-            batch_size = self.config.extract_batch_size
-            server: Union[Elasticsearch, OpenSearch]
+                if self.config.search_index.opensearch_dialect:
+                    server = OpenSearch(
+                        [endpoint],
+                        http_auth=(user, password),
+                        use_ssl=(
+                            True
+                            if self.config.search_index
+                            and self.config.search_index.use_ssl
+                            else False
+                        ),
+                    )
 
-            if self.config.search_index.opensearch_dialect:
-                server = OpenSearch(
-                    [endpoint],
-                    http_auth=(user, password),
-                    use_ssl=(
-                        True
-                        if self.config.search_index and self.config.search_index.use_ssl
-                        else False
-                    ),
+                    response = server.create_pit(index, keep_alive="10m")
+
+                    # TODO: Save PIT, we can resume processing based on <pit, search_after> tuple
+                    pit = response.get("pit_id")
+                    query_copy.update({"pit": {"id": pit, "keep_alive": "10m"}})
+                else:
+                    server = Elasticsearch(
+                        [endpoint],
+                        http_auth=(user, password),
+                        use_ssl=(
+                            True
+                            if self.config.search_index
+                            and self.config.search_index.use_ssl
+                            else False
+                        ),
+                    )
+
+                yield from self.load_es_data(
+                    query_copy,
+                    server,
+                    index,
+                    process_function,
+                    batch_size=batch_size,
+                    delay=delay,
+                    aggregation_key=aggregation_key,
                 )
-
-                response = server.create_pit(index, keep_alive="10m")
-
-                # TODO: Save PIT, we can resume processing based on <pit, search_after> tuple
-                pit = response.get("pit_id")
-                query_copy.update({"pit": {"id": pit, "keep_alive": "10m"}})
-            else:
-                server = Elasticsearch(
-                    [endpoint],
-                    http_auth=(user, password),
-                    use_ssl=(
-                        True
-                        if self.config.search_index and self.config.search_index.use_ssl
-                        else False
-                    ),
-                )
-
-            yield from self.load_es_data(
-                query_copy,
-                server,
-                index,
-                process_function,
-                batch_size=batch_size,
-                aggregation_key=aggregation_key,
-            )
 
     def gen_rank_and_percentile(
         self,
@@ -531,12 +668,41 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def load_write_usage(
         self, soft_deleted_entities_df: polars.LazyFrame
     ) -> polars.LazyFrame:
-        query: Dict = DATASET_WRITE_USAGE_QUERY
+        wdf = polars.LazyFrame(
+            self.load_data_from_es(
+                "dataset_operationaspect_v1",
+                DATASET_WRITE_USAGE_RAW_QUERY,
+                self.write_stat_raw_batch,
+            ),
+            schema={"urn": polars.Categorical, "platform": polars.Categorical},
+            strict=True,
+        )
+        wdf = wdf.group_by(polars.col("urn"), polars.col("platform")).agg(
+            polars.col("urn").count().alias("write_count"),
+        )
+
+        wdf = (
+            wdf.join(
+                soft_deleted_entities_df,
+                left_on="urn",
+                right_on="entity_urn",
+                how="inner",
+            )
+            .filter(polars.col("removed") == False)  # noqa: E712
+            .drop(["removed"])
+        )
+
+        return wdf
+
+    def load_write_usage_server_side_aggregation(
+        self, soft_deleted_entities_df: polars.LazyFrame
+    ) -> polars.LazyFrame:
+        query: Dict = DATASET_WRITE_USAGE_COMPOSITE_QUERY
         query["aggs"]["urn_count"]["composite"]["size"] = self.config.extract_batch_size
         wdf = polars.LazyFrame(
             self.load_data_from_es(
                 "dataset_operationaspect_v1",
-                DATASET_WRITE_USAGE_QUERY,
+                DATASET_WRITE_USAGE_COMPOSITE_QUERY,
                 self.write_stat_batch,
                 aggregation_key="urn_count",
             ),
@@ -560,6 +726,60 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         )
 
         return wdf
+
+    def set_table_modification_time_for_views(
+        self, datasets_df: polars.LazyFrame
+    ) -> polars.LazyFrame:
+        upstreams_lf = polars.LazyFrame(
+            self.load_data_from_es(
+                "graph_service_v1",
+                GET_UPSTREAMS,
+                self.upstream_lineage_batch,
+            ),
+            schema={
+                "source_urn": polars.Categorical,
+                "destination_urn": polars.Categorical,
+            },
+            strict=True,
+        )
+        wdf = (
+            (
+                upstreams_lf.join(
+                    datasets_df.filter(polars.col("isView") == True),  # noqa: E712
+                    left_on="destination_urn",
+                    right_on="entity_urn",
+                    how="inner",
+                )
+            )
+            .join(
+                datasets_df.filter(polars.col("isView") == False),  # noqa: E712
+                left_on="source_urn",
+                right_on="entity_urn",
+            )
+            .group_by(
+                "destination_urn",
+            )
+            .agg(
+                polars.col("last_modified_at_right")
+                .max()
+                .alias("inherited_last_modified_at"),
+                polars.col("last_modified_at").first().alias("last_modified_at"),
+            )
+        )
+
+        dataset_df = (
+            datasets_df.join(
+                wdf, left_on="entity_urn", right_on="destination_urn", how="left"
+            )
+            .with_columns(
+                polars.coalesce("inherited_last_modified_at", "last_modified_at").alias(
+                    "last_modified_at"
+                )
+            )
+            .drop(["inherited_last_modified_at", "last_modified_at_right"])
+        )
+
+        return dataset_df
 
     def generate_dataset_usage_mcps(self) -> Iterable[MetadataWorkUnit]:
         with polars.StringCache():
@@ -618,27 +838,34 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             search_ranking_multipliers: SearchRankingMultipliers = (
                 SearchRankingMultipliers()
             )
-            if (
-                "queries_rank_percentile" in row
-                and row["queries_rank_percentile"]
-                and "last_modified_at" in row
-                and row["last_modified_at"]
-            ):
+
+            if "queries_rank_percentile" in row:
                 search_ranking_multipliers = self.search_score(
                     urn=row["urn"],
-                    last_update_time=row["last_modified_at"],
-                    usage_percentile=row["queries_rank_percentile"],
+                    last_update_time=(
+                        row["last_modified_at"]
+                        if "last_modified_at" in row and row["last_modified_at"]
+                        else 0
+                    ),
+                    usage_percentile=(
+                        row["queries_rank_percentile"]
+                        if row["queries_rank_percentile"]
+                        else 0
+                    ),
                 )
-            elif (
-                "viewsCount30Days_rank_percentile" in row
-                and row["viewsCount30Days_rank_percentile"]
-                and "last_modified_at" in row
-                and row["last_modified_at"]
-            ):
+            elif "viewsCount30Days_rank_percentile" in row:
                 search_ranking_multipliers = self.search_score(
                     urn=row["urn"],
-                    last_update_time=row["last_modified_at"],
-                    usage_percentile=row["viewsCount30Days_rank_percentile"],
+                    last_update_time=(
+                        row["last_modified_at"]
+                        if "last_modified_at" in row and row["last_modified_at"]
+                        else 0
+                    ),
+                    usage_percentile=(
+                        row["viewsCount30Days_rank_percentile"]
+                        if row["viewsCount30Days_rank_percentile"]
+                        else 0
+                    ),
                 )
                 logger.debug(f"Urn: {row['urn']} Score: {search_ranking_multipliers}")
 
@@ -767,6 +994,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 "removed": bool,
                 "last_modified_at": polars.Int64,
                 "siblings": polars.List(polars.String),
+                "isView": polars.Boolean,
             },
             strict=True,
         )
@@ -852,8 +1080,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         lf = views_sum_with_top_users.join(incremental_views_sum, on="urn", how="left")
         lf = lf.with_columns(
             polars.when(
-                polars.col("total_user_count") is None
-                or polars.col("total_user_count") <= 0
+                polars.col("total_user_count")
+                .is_null()
+                .or_(polars.col("total_user_count") <= 0)
             )
             .then(polars.col("viewsCountTotal30Days"))
             .otherwise(polars.col("total_user_count"))
@@ -867,20 +1096,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         return lf
 
     def generate_dataset_usage(self) -> polars.LazyFrame:
-        soft_deleted_df = polars.LazyFrame(
-            self.load_data_from_es(
-                index="datasetindex_v2",
-                query=GET_SOFT_DELETED_ENTITIES,
-                process_function=self.soft_deleted_batch,
-            ),
-            schema={
-                "entity_urn": polars.Categorical,
-                "removed": bool,
-                "last_modified_at": polars.Int64,
-                "siblings": polars.List(polars.String),
-            },
-            strict=True,
-        )
+        datasets_lf = self.get_datasets()
+        if self.config.set_upstream_table_max_modification_time_for_views:
+            datasets_lf = self.set_table_modification_time_for_views(datasets_lf)
 
         index = "dataset_datasetusagestatisticsaspect_v1"
         lf: polars.LazyFrame = polars.LazyFrame(
@@ -915,7 +1133,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         # Polaris/pandas join merges the join column into one column and that's why we need to filter based on the removed column
         lf = (
-            lf.join(soft_deleted_df, left_on="urn", right_on="entity_urn", how="inner")
+            lf.join(datasets_lf, left_on="urn", right_on="entity_urn", how="inner")
             .filter(polars.col("removed") == False)  # noqa: E712
             .drop(["removed"])
         )
@@ -938,7 +1156,11 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         )
 
         # Calculate write usage
-        write_lf = self.load_write_usage(soft_deleted_df)
+        if self.config.use_server_side_aggregation:
+            write_lf = self.load_write_usage_server_side_aggregation(datasets_lf)
+        else:
+            write_lf = self.load_write_usage(datasets_lf)
+
         usage_and_write_lf = (
             usage_with_top_users_with_ranks.join(
                 write_lf, on="urn", how="full", suffix="_write"
@@ -961,6 +1183,24 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             usage_and_write_lf, "write_count", "urn", "platform", "write_"
         )
         return usage_and_write_lf
+
+    def get_datasets(self) -> polars.LazyFrame:
+        datasets_df = polars.LazyFrame(
+            self.load_data_from_es(
+                index="datasetindex_v2",
+                query=GET_SOFT_DELETED_ENTITIES,
+                process_function=self.soft_deleted_batch,
+            ),
+            schema={
+                "entity_urn": polars.Categorical,
+                "removed": bool,
+                "last_modified_at": polars.Int64,
+                "siblings": polars.List(polars.String),
+                "isView": polars.Boolean,
+            },
+            strict=True,
+        )
+        return datasets_df
 
     def generate_top_users(
         self, lf: polars.LazyFrame, count_field_name: str = "count"
@@ -1029,7 +1269,8 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         index: str,
         process_function: Callable,
         aggregation_key: Optional[str] = None,
-        batch_size: int = 2000,
+        batch_size: int = 1000,
+        delay: Optional[float] = None,
     ) -> Iterable[Dict[str, Any]]:
         while True:
             with PerfTimer() as timer:
@@ -1071,6 +1312,12 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         query["aggs"][aggregation_key]["composite"]["after"] = results[
                             "aggregations"
                         ][aggregation_key]["after_key"]
+
+                if delay:
+                    logger.debug(
+                        f"Sleeping for {delay} seconds before getting next batch from ES"
+                    )
+                    time.sleep(delay)
 
     def get_report(self) -> SourceReport:
         return self.report

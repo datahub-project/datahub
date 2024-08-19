@@ -199,6 +199,14 @@ FIELD_TYPE_MAPPING = {
     description="Not supported yet",
     supported=False,
 )
+@capability(
+    capability_name=SourceCapability.SCHEMA_METADATA,
+    description="Enabled by default",
+)
+@capability(
+    capability_name=SourceCapability.TAGS,
+    description="Enabled by default",
+)
 class SalesforceSource(Source):
     base_url: str
     config: SalesforceConfig

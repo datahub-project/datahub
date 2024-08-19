@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Divider, Popover } from 'antd';
+import InfoPopover from '@app/sharedV2/icons/InfoPopover';
+import React from 'react';
+import { Divider } from 'antd';
 import {
     BoldOutlined,
-    InfoCircleOutlined,
     ItalicOutlined,
     OrderedListOutlined,
     StrikethroughOutlined,
@@ -45,13 +45,9 @@ const PopoverContainer = styled.div`
         font-size: 16px;
     }
 `;
-const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
+
+const StyledInfoPopover = styled(InfoPopover)`
     font-size: 14px;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    :hover {
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        border-radius: 50%;
-    }
 `;
 
 const PopoverContent = () => (
@@ -65,7 +61,6 @@ const PopoverContent = () => (
 export const Toolbar = () => {
     const commands = useCommands();
     const active = useActive(true);
-    const [showPopover, setShowPopover] = useState(false);
 
     return (
         <Container>
@@ -132,17 +127,7 @@ export const Toolbar = () => {
                     disabled={active.table()} /* Disables nested tables */
                 />
             </div>
-            <div>
-                <Popover
-                    placement="top"
-                    content={<PopoverContent />}
-                    trigger="hover"
-                    open={showPopover}
-                    onOpenChange={(visible) => setShowPopover(visible)}
-                >
-                    <StyledInfoCircleOutlined />
-                </Popover>
-            </div>
+            <StyledInfoPopover content={<PopoverContent />} />
         </Container>
     );
 };

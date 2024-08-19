@@ -15,11 +15,14 @@ import com.linkedin.datahub.graphql.generated.FormActorAssignment;
 import com.linkedin.datahub.graphql.generated.FormInfo;
 import com.linkedin.datahub.graphql.generated.FormPrompt;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
+import com.linkedin.datahub.graphql.generated.FormState;
+import com.linkedin.datahub.graphql.generated.FormStatus;
 import com.linkedin.datahub.graphql.generated.FormType;
 import com.linkedin.datahub.graphql.generated.OwnershipParams;
 import com.linkedin.datahub.graphql.generated.PromptCardinality;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParams;
+import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -67,7 +70,18 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     }
     formInfo.setPrompts(this.mapFormPrompts(gmsFormInfo, form.getUrn()));
     formInfo.setActors(mapFormActors(gmsFormInfo.getActors()));
+    formInfo.setStatus(mapFormStatus(gmsFormInfo.getStatus()));
     form.setInfo(formInfo);
+  }
+
+  private FormStatus mapFormStatus(@Nonnull com.linkedin.form.FormStatus gmsFormStatus) {
+    FormStatus formStatus = new FormStatus();
+    formStatus.setState(FormState.valueOf(gmsFormStatus.getState().toString()));
+    if (gmsFormStatus.getLastModified() != null) {
+      formStatus.setLastModified(AuditStampMapper.map(null, gmsFormStatus.getLastModified()));
+    }
+
+    return formStatus;
   }
 
   private List<FormPrompt> mapFormPrompts(

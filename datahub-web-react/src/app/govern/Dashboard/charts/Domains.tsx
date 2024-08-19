@@ -236,11 +236,7 @@ export const Domains = () => {
         <ChartGroup>
             <SecondaryHeading>Domains</SecondaryHeading>
             <Row>
-                <ChartCard
-                    title="Documentation Progress By Domain"
-                    chart={<DocumentationProgressPerDomain />}
-                    flex={2}
-                />
+                <ChartCard title="Progress By Domain" chart={<DocumentationProgressPerDomain />} flex={2} />
                 {!hidePerformanceCards && (
                     <Row style={{ flexDirection: 'column', width: 'auto' }}>
                         <ChartCard title="Top Performing Domains" chart={<DocProgressByDomainTopPerforming />} />

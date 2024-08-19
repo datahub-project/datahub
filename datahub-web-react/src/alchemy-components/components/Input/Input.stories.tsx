@@ -23,6 +23,15 @@ const meta = {
 
     // Component-level argTypes
     argTypes: {
+        value: {
+            description: 'Value for the Input.',
+            table: {
+                defaultValue: { summary: inputDefaults.value as string },
+            },
+            control: {
+                type: 'text',
+            },
+        },
         label: {
             description: 'Label for the Input.',
             table: {
@@ -126,6 +135,7 @@ const meta = {
         },
     },
     args: {
+        value: inputDefaults.value,
         label: inputDefaults.label,
         placeholder: inputDefaults.placeholder,
         icon: inputDefaults.icon,

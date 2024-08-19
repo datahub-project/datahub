@@ -37,8 +37,14 @@ const VerifyButton = styled(Button)`
     margin-left: 8px;
 `;
 
+const ButtonsWrapper = styled.div`
+    display: flex;
+`;
+
 export default function BulkVerifyHeader() {
     const {
+        refetchForBulk,
+        setShouldRefetch,
         form: { form },
         entity: { selectedEntities, areAllEntitiesSelected },
         search: { results },
@@ -48,6 +54,11 @@ export default function BulkVerifyHeader() {
 
     const [isVerifyModalVisible, setIsVerifyModalVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
+
+    function handleReload() {
+        refetchForBulk();
+        setShouldRefetch(true);
+    }
 
     const title = form?.info.name;
     const description = form?.info.description;
@@ -71,23 +82,25 @@ export default function BulkVerifyHeader() {
                     </SubTitle>
                 )}
             </div>
-
-            <VerifyButton
-                type="primary"
-                disabled={!selectedEntities.length}
-                onClick={() => setIsVerifyModalVisible(true)}
-                id={FORM_BULK_VERIFY_ID}
-            >
-                {areAllEntitiesSelected ? (
-                    <>
-                        Verify {totalResults} {pluralize(totalResults, 'Asset')}
-                    </>
-                ) : (
-                    <>
-                        Verify {selectedEntities.length} {pluralize(selectedEntities.length, 'Asset')}
-                    </>
-                )}
-            </VerifyButton>
+            <ButtonsWrapper>
+                <VerifyButton onClick={handleReload}>Reload</VerifyButton>
+                <VerifyButton
+                    type="primary"
+                    disabled={!selectedEntities.length}
+                    onClick={() => setIsVerifyModalVisible(true)}
+                    id={FORM_BULK_VERIFY_ID}
+                >
+                    {areAllEntitiesSelected ? (
+                        <>
+                            Verify {totalResults} {pluralize(totalResults, 'Asset')}
+                        </>
+                    ) : (
+                        <>
+                            Verify {selectedEntities.length} {pluralize(selectedEntities.length, 'Asset')}
+                        </>
+                    )}
+                </VerifyButton>
+            </ButtonsWrapper>
             {isVerifyModalVisible && (
                 <BulkVerifyModal
                     isVerifyModalVisible={isVerifyModalVisible}

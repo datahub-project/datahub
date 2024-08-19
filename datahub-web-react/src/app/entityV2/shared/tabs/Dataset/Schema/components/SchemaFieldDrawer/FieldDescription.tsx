@@ -3,6 +3,9 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import InferenceDetailsIndicator from '@src/app/sharedV2/inferred/InferenceDetailsIndicator';
+import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
+import InferDocsButton from '@src/app/entityV2/shared/components/inferredDocs/InferDocsButton';
 import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../../graphql/proposals.generated';
 import {
@@ -34,6 +37,7 @@ const AddNewDescription = styled.div`
         color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
     }
 `;
+
 const StyledPlusOutlined = styled(PlusOutlined)`
     && {
         font-size: 10px;
@@ -76,7 +80,9 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
     const [updateDescription] = useUpdateDescriptionMutation();
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [inferOnModalVisible, setInferOnModalVisible] = useState(false);
     const { entityType } = useEntityData();
+    const shouldShowInferenceButton = useShouldShowInferDocumentationButton(entityType);
 
     const sendAnalytics = () => {
         analytics.event({
@@ -103,6 +109,10 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
         message.destroy();
         if (e instanceof Error) message.error({ content: `Proposal Failed! \n ${e.message || ''}`, duration: 2 });
     };
+    const onClose = () => {
+        setIsModalVisible(false);
+        setInferOnModalVisible(false);
+    };
 
     const generateMutationVariables = (updatedDescription: string) => {
         return {
@@ -118,11 +128,13 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
     };
 
     const { schemaFieldEntity, description } = expandedField;
-    const { displayedDescription, isPropagated, sourceDetail, propagatedDescription } = getFieldDescriptionDetails({
-        schemaFieldEntity,
-        editableFieldInfo,
-        defaultDescription: description,
-    });
+    const { displayedDescription, isPropagated, isInferred, sourceDetail, propagatedDescription, inferredDescription } =
+        getFieldDescriptionDetails({
+            schemaFieldEntity,
+            editableFieldInfo,
+            defaultDescription: description,
+            enableInferredDescriptions: shouldShowInferenceButton,
+        });
     const shouldShowProposeButton = getShouldShowProposeButton(entityType);
 
     return (
@@ -141,18 +153,29 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                 }
                 content={
                     <>
-                        {!displayedDescription && isSchemaEditable && (
-                            <AddNewDescription
-                                onClick={() => {
-                                    setIsModalVisible(true);
-                                }}
-                            >
-                                <StyledPlusOutlined />
-                                <AddDescriptionText>Add Description</AddDescriptionText>
-                            </AddNewDescription>
-                        )}
+                        {!displayedDescription &&
+                            isSchemaEditable && [
+                                <AddNewDescription
+                                    onClick={() => {
+                                        setIsModalVisible(true);
+                                    }}
+                                >
+                                    <StyledPlusOutlined />
+                                    <AddDescriptionText>Add Description</AddDescriptionText>
+                                </AddNewDescription>,
+                                shouldShowInferenceButton && (
+                                    <InferDocsButton
+                                        style={{ height: 32, width: 132, marginTop: 12 }}
+                                        onClick={() => {
+                                            setInferOnModalVisible(true);
+                                            setIsModalVisible(true);
+                                        }}
+                                    />
+                                ),
+                            ]}
                         <DescriptionWrapper>
                             {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
+                            {isInferred && <InferenceDetailsIndicator />}
                             {!!displayedDescription && (
                                 <DescriptionSection description={displayedDescription} isExpandable />
                             )}
@@ -163,16 +186,18 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
             {isModalVisible && (
                 <UpdateDescriptionModal
                     title={displayedDescription ? 'Update description' : 'Add description'}
+                    fieldPath={expandedField.fieldPath}
                     description={displayedDescription || ''}
                     original={expandedField.description || ''}
                     propagatedDescription={propagatedDescription || ''}
-                    onClose={() => setIsModalVisible(false)}
+                    inferredDescription={inferredDescription || ''}
+                    onClose={onClose}
                     onSubmit={(updatedDescription: string) => {
                         message.loading({ content: 'Updating...' });
                         updateDescription(generateMutationVariables(updatedDescription))
                             .then(onSuccessfulMutation)
                             .catch(onFailMutation);
-                        setIsModalVisible(false);
+                        onClose();
                     }}
                     showPropose={shouldShowProposeButton}
                     onPropose={(updatedDescription) => {
@@ -180,9 +205,10 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                         proposeUpdateDescription(generateMutationVariables(updatedDescription))
                             .then(onSuccessfulMutation)
                             .catch(onFailMutation);
-                        setIsModalVisible(false);
+                        onClose();
                     }}
                     isAddDesc={!displayedDescription}
+                    inferOnMount={inferOnModalVisible}
                 />
             )}
             <StyledDivider dashed />

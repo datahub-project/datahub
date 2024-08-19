@@ -52,6 +52,7 @@ const ALL_SECTIONS: ReferenceSection[] = [
             PersonaType.TECHNICAL_USER,
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,
+            PersonaType.DATA_ENGINEER,
         ],
     },
     {
@@ -62,13 +63,19 @@ const ALL_SECTIONS: ReferenceSection[] = [
             PersonaType.TECHNICAL_USER,
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,
+            PersonaType.DATA_ENGINEER,
         ],
     },
     {
         id: 'DomainsYouOwn',
         component: DomainsYouOwn,
         hideIfEmpty: true,
-        personas: [PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
+        personas: [
+            PersonaType.DATA_STEWARD,
+            PersonaType.DATA_LEADER,
+            PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_ENGINEER,
+        ],
     },
     {
         id: 'GlossaryNodesYouOwn',
@@ -85,13 +92,19 @@ const ALL_SECTIONS: ReferenceSection[] = [
             PersonaType.TECHNICAL_USER,
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,
+            PersonaType.DATA_ENGINEER,
         ],
     },
     {
         id: 'GroupsYouAreIn',
         component: GroupsYouAreIn,
         hideIfEmpty: true,
-        personas: [PersonaType.BUSINESS_USER, PersonaType.TECHNICAL_USER, PersonaType.DATA_STEWARD],
+        personas: [
+            PersonaType.BUSINESS_USER,
+            PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_ENGINEER,
+            PersonaType.DATA_STEWARD,
+        ],
     },
     {
         id: 'PinnedLinks',
@@ -102,6 +115,7 @@ const ALL_SECTIONS: ReferenceSection[] = [
             PersonaType.TECHNICAL_USER,
             PersonaType.DATA_STEWARD,
             PersonaType.DATA_LEADER,
+            PersonaType.DATA_ENGINEER,
         ],
     },
 ];

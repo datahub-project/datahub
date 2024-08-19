@@ -24,4 +24,14 @@ record FormPromptResponse {
      * Response for an ownership type prompt
      */
     ownershipResponse: optional OwnershipPromptResponse
+
+    /**
+     * Response for a structured property type prompt
+     */
+    documentationResponse: optional record DocumentationPromptResponse {
+        /**
+        * The documentation provided for this specific response
+        */
+        documentation: string
+    }
 }

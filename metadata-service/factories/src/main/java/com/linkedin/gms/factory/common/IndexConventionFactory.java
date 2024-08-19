@@ -19,7 +19,8 @@ public class IndexConventionFactory {
   private String indexPrefix;
 
   @Bean(name = INDEX_CONVENTION_BEAN)
-  protected IndexConvention createInstance() {
-    return new IndexConventionImpl(indexPrefix);
+  protected IndexConvention createInstance(
+      @Value("${elasticsearch.idHashAlgo}") final String isHashAlgo) {
+    return new IndexConventionImpl(indexPrefix, isHashAlgo);
   }
 }

@@ -20,7 +20,6 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -173,7 +172,7 @@ public class SearchResolverTest {
       String entityName,
       String query,
       Filter filter,
-      @Nonnull List<SortCriterion> sortCriteria,
+      List<SortCriterion> sortCriteria,
       int start,
       int limit,
       com.linkedin.metadata.query.SearchFlags searchFlags)

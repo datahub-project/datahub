@@ -1,7 +1,7 @@
-import React from 'react';
 import { CopyOutlined, StopOutlined } from '@ant-design/icons';
 import { Button, Divider, Empty, Tag, Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
+import React from 'react';
 import { TestResult } from '../../../../../../types.generated';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { getResultColor, getResultIcon, getResultText } from './testUtils';

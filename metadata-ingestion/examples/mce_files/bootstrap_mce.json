@@ -976,7 +976,7 @@
                   "jsonPath": null,
                   "nullable": false,
                   "description": {
-                    "string": "Id of the user created"
+                    "string": ""
                   },
                   "type": {
                     "type": {
@@ -991,7 +991,7 @@
                   "jsonPath": null,
                   "nullable": false,
                   "description": {
-                    "string": "Name of the user who signed up"
+                    "string": ""
                   },
                   "type": {
                     "type": {

@@ -167,6 +167,10 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         ORIGIN_ASPECT_NAME,
         (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
     mappingHelper.mapToResult(
+        DOCUMENTATION_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setDocumentation(DocumentationMapper.map(context, new Documentation(dataMap))));
+    mappingHelper.mapToResult(
         LINEAGE_FEATURES_ASPECT_NAME,
         (entity, dataMap) ->
             entity.setLineageFeatures(
@@ -211,6 +215,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     properties.setQualifiedName(gmsProperties.getQualifiedName());
     dataset.setProperties(properties);
     dataset.setDescription(properties.getDescription());
+    dataset.setName(properties.getName());
     if (gmsProperties.getUri() != null) {
       dataset.setUri(gmsProperties.getUri().toString());
     }
@@ -237,6 +242,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         new EditableDatasetProperties(dataMap);
     final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
     editableProperties.setDescription(editableDatasetProperties.getDescription());
+    if (editableDatasetProperties.getName() != null) {
+      editableProperties.setName(editableDatasetProperties.getName());
+    }
     dataset.setEditableProperties(editableProperties);
   }
 

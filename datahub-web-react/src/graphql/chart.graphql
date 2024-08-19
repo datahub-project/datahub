@@ -37,6 +37,9 @@ query getChart($urn: String!) {
         ownership {
             ...ownershipFields
         }
+        documentation {
+            ...documentationFields
+        }
         globalTags {
             ...globalTagsFields
         }

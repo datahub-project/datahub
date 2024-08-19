@@ -31,7 +31,7 @@ public class SiblingsUtilsTest {
   public void testGetSiblingUrns() {
     UrnArray siblingUrns =
         new UrnArray(UrnUtils.getUrn(TEST_DATASET_URN2), UrnUtils.getUrn(TEST_DATASET_URN3));
-    EntityService mockService = mock(EntityService.class);
+    EntityService<?> mockService = mock(EntityService.class);
     Mockito.when(
             mockService.getLatestAspect(
                 any(), eq(UrnUtils.getUrn(TEST_DATASET_URN1)), eq(SIBLINGS_ASPECT_NAME)))
@@ -45,7 +45,7 @@ public class SiblingsUtilsTest {
 
   @Test
   public void testGetSiblingUrnsWithoutSiblings() {
-    EntityService mockService = mock(EntityService.class);
+    EntityService<?> mockService = mock(EntityService.class);
     Mockito.when(
             mockService.getLatestAspect(
                 any(), eq(UrnUtils.getUrn(TEST_DATASET_URN1)), eq(SIBLINGS_ASPECT_NAME)))
@@ -59,7 +59,7 @@ public class SiblingsUtilsTest {
 
   @Test
   public void testGetSiblingUrnsWithSiblingsAspect() {
-    EntityService mockService = mock(EntityService.class);
+    EntityService<?> mockService = mock(EntityService.class);
     Mockito.when(
             mockService.getLatestAspect(
                 any(), eq(UrnUtils.getUrn(TEST_DATASET_URN1)), eq(SIBLINGS_ASPECT_NAME)))

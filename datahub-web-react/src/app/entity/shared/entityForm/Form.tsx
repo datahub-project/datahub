@@ -50,7 +50,7 @@ interface Props {
 
 function Form({ formUrn, showHeader, showVerifyPrompt }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { entityType, entityData } = useEntityData();
+    const { entityType, entityData, loading } = useEntityData();
     const { entityPrompts, fieldPrompts } = useGetPromptInfo(formUrn);
     const shouldShowVerificationPrompt = useShouldShowVerificationPrompt(formUrn);
     const { hasRendered } = useHasComponentRendered();
@@ -89,21 +89,28 @@ function Form({ formUrn, showHeader, showVerifyPrompt }: Props) {
                     )}
                 </HeaderWrapper>
             )}
-            {entityPrompts?.map((prompt, index) => (
-                <Prompt
-                    key={`${prompt.id}-${entityData?.urn}`}
-                    promptNumber={index + 1}
-                    prompt={prompt as FormPrompt}
-                    associatedUrn={associatedUrn}
-                />
-            ))}
-            {fieldPrompts.length > 0 && <SchemaFieldPrompts prompts={fieldPrompts} associatedUrn={associatedUrn} />}
-            {shouldShowVerificationPrompt && showVerifyPrompt && (
-                <VerificationPrompt
-                    formUrn={formUrn}
-                    associatedUrn={associatedUrn}
-                    shouldShowVerificationPrompt={showVerifyPrompt && shouldShowVerificationPrompt}
-                />
+            {loading && <Loading />}
+            {!loading && (
+                <>
+                    {entityPrompts?.map((prompt, index) => (
+                        <Prompt
+                            key={`${prompt.id}-${entityData?.urn}`}
+                            promptNumber={index + 1}
+                            prompt={prompt as FormPrompt}
+                            associatedUrn={associatedUrn}
+                        />
+                    ))}
+                    {fieldPrompts.length > 0 && (
+                        <SchemaFieldPrompts prompts={fieldPrompts} associatedUrn={associatedUrn} />
+                    )}
+                    {shouldShowVerificationPrompt && showVerifyPrompt && (
+                        <VerificationPrompt
+                            formUrn={formUrn}
+                            associatedUrn={associatedUrn}
+                            shouldShowVerificationPrompt={showVerifyPrompt && shouldShowVerificationPrompt}
+                        />
+                    )}
+                </>
             )}
         </TabWrapper>
     );

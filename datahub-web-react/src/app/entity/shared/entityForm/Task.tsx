@@ -5,7 +5,7 @@ import Loading from '@src/app/shared/Loading';
 import { CheckCircleFilled } from '@ant-design/icons';
 import { blue } from '@ant-design/colors';
 import { FormView, useEntityFormContext } from './EntityFormContext';
-import { BULK_VERIFY_ID, getAssociatedPromptId } from './useEntityFormTasks';
+import { BULK_VERIFY_ID, getAssociatedPromptId, getFirstTestResult } from './useEntityFormTasks';
 
 const TaskWrapper = styled.div`
     padding: 12px 0;
@@ -59,23 +59,27 @@ interface Props {
 
 export default function Task({ task, isComplete, allTasks }: Props) {
     const {
+        setShouldRefetch,
+        refetchForBulk,
         prompt: { selectedPromptId },
         form: { formView },
-        search: { refetch },
     } = useEntityFormContext();
     const associatedPromptId = useMemo(() => getAssociatedPromptId(task.urn), [task.urn]);
 
     function handleReload() {
-        if (formView === FormView.BULK_VERIFY && associatedPromptId === BULK_VERIFY_ID) {
-            refetch();
-        } else if (selectedPromptId === associatedPromptId) {
-            refetch();
+        if (
+            (formView === FormView.BULK_VERIFY && associatedPromptId === BULK_VERIFY_ID) ||
+            selectedPromptId === associatedPromptId
+        ) {
+            refetchForBulk();
+            setShouldRefetch(true);
         }
     }
 
     // if multiple tasks have the same name, add a (1) etc to the end.
     const tasksWithSameName = allTasks.filter((t) => t.name === task.name);
     const myNameIndex = tasksWithSameName.reverse().findIndex((t) => t.urn === task.urn);
+    const firstResult = getFirstTestResult(task);
 
     return (
         <TaskWrapper>
@@ -87,7 +91,7 @@ export default function Task({ task, isComplete, allTasks }: Props) {
                     </TaskName>
                 </TextWrapper>
                 <SubmittedText $color={isComplete ? 'green' : blue[6]}>
-                    {isComplete ? `${task.results.passingCount} submitted` : 'Submitting...'}
+                    {isComplete ? `${firstResult?.result?.passingCount || 0} submitted` : 'Submitting...'}
                 </SubmittedText>
             </TaskHeader>
             {isComplete && (

@@ -136,9 +136,7 @@ export const SnowflakeIntegration = () => {
                     </div>
                     <Title>
                         <Typography.Title level={3}>Snowflake</Typography.Title>
-                        <Typography.Text type="secondary">
-                            Manage Snowflake connections for DataHub ingestion
-                        </Typography.Text>
+                        <Typography.Text type="secondary">Manage Snowflake connections for automations</Typography.Text>
                     </Title>
                     <CreateButtonContainer>
                         <Button type="primary" onClick={() => setModelKey('create')}>

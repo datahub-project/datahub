@@ -1,6 +1,6 @@
 package com.linkedin.metadata.entity;
 
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
@@ -37,10 +37,7 @@ public class EntityApiUtils {
 
   public static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
     if (jsonSystemMetadata == null || jsonSystemMetadata.equals("")) {
-      SystemMetadata response = new SystemMetadata();
-      response.setRunId(DEFAULT_RUN_ID);
-      response.setLastObserved(0);
-      return response;
+      return createDefaultSystemMetadata();
     }
     return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
   }

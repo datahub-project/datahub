@@ -30,7 +30,8 @@ public class Constants {
           ".", STRUCTURED_PROPERTY_MAPPING_FIELD, STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, "");
 
   // !!!!!!! IMPORTANT !!!!!!!
-  // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
+  // This effectively sets the max aspect size to 16 MB. Used in deserialization
+  // of messages.
   // Without this the limit is
   // whatever Jackson is defaulting to (5 MB currently).
   public static final String MAX_JACKSON_STRING_SIZE = "16000000";
@@ -40,10 +41,12 @@ public class Constants {
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
-  // Forces indexing for no-ops, enabled for restore indices calls. Only considered in the no-op
+  // Forces indexing for no-ops, enabled for restore indices calls. Only
+  // considered in the no-op
   // case
   public static final String FORCE_INDEXING_KEY = "forceIndexing";
-  // Indicates an event source from an application with hooks that have already been processed and
+  // Indicates an event source from an application with hooks that have already
+  // been processed and
   // should not be reprocessed
   public static final String APP_SOURCE = "appSource";
 
@@ -125,9 +128,9 @@ public class Constants {
   public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
+  public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
   public static final String ASSERTIONS_SUMMARY_ASPECT_NAME = "assertionsSummary";
   public static final String SHARE_ASPECT_NAME = "share";
-  public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -210,6 +213,9 @@ public class Constants {
   public static final String DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME = "dataPlatformInstanceKey";
   public static final String DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME =
       "dataPlatformInstanceProperties";
+  // PlatformResource
+  public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
+  public static final String PLATFORM_RESOURCE_INFO_ASPECT_NAME = "platformResourceInfo";
 
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
@@ -519,6 +525,11 @@ public class Constants {
 
   // Incidents
   public static final String ENTITY_REF = "entities";
+  public static final String INCIDENT_TYPE = "type";
+  public static final String INCIDENT_TITLE = "title";
+  public static final String INCIDENT_DESCRIPTION = "description";
+  public static final String INCIDENT_STATUS_STAGE = "stage";
+  public static final String INCIDENT_STATUS_MESSAGE = "message";
 
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 

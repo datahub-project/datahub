@@ -21,6 +21,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.validation.constraints.Null;
 
 public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
@@ -73,14 +75,7 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                 throw new IllegalArgumentException(
                     "Failed to provide structured property params for prompt type FIELDS_STRUCTURED_PROPERTY");
               }
-              if (fieldPath == null && fieldPaths.size() == 0) {
-                throw new IllegalArgumentException(
-                    "Failed to provide fieldPaths for prompt type FIELDS_STRUCTURED_PROPERTY");
-              }
-              if (fieldPath != null) {
-                fieldPaths.add(fieldPath);
-              }
-              List<String> uniqueFieldPaths = new ArrayList<>(new HashSet<>(fieldPaths));
+              List<String> uniqueFieldPaths = getAndVerifyFieldPaths(fieldPath, fieldPaths);
               final Urn structuredPropertyUrn =
                   UrnUtils.getUrn(input.getStructuredPropertyParams().getStructuredPropertyUrn());
               final PrimitivePropertyValueArray values =
@@ -114,6 +109,35 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   formUrn,
                   promptId,
                   UrnUtils.getUrn(context.getActorUrn()));
+            } else if (input.getType().equals(FormPromptType.DOCUMENTATION)) {
+              if (input.getDocumentationParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide documentation params for prompt type DOCUMENTATION");
+              }
+              final String documentation = input.getDocumentationParams().getDocumentation();
+              return _formService.submitDocumentationPromptResponse(
+                  context.getOperationContext(),
+                  entityUrn,
+                  documentation,
+                  formUrn,
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()));
+            } else if (input.getType().equals(FormPromptType.FIELDS_DOCUMENTATION)) {
+              if (input.getDocumentationParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide documentation params for prompt type FIELDS_DOCUMENTATION");
+              }
+              List<String> uniqueFieldPaths = getAndVerifyFieldPaths(fieldPath, fieldPaths);
+
+              final String documentation = input.getDocumentationParams().getDocumentation();
+              return _formService.submitFieldDocumentationPromptResponse(
+                  context.getOperationContext(),
+                  entityUrn,
+                  documentation,
+                  formUrn,
+                  promptId,
+                  uniqueFieldPaths,
+                  UrnUtils.getUrn(context.getActorUrn()));
             }
             return false;
           } catch (Exception e) {
@@ -139,5 +163,16 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
               "Failed to authorize form on entity as form with urn %s is not assigned to user",
               formUrn));
     }
+  }
+
+  private List<String> getAndVerifyFieldPaths(
+      @Nullable final String fieldPath, @Null final List<String> fieldPaths) {
+    if (fieldPath == null && fieldPaths.size() == 0) {
+      throw new IllegalArgumentException("Failed to provide fieldPaths for FIELDS prompt type");
+    }
+    if (fieldPath != null) {
+      fieldPaths.add(fieldPath);
+    }
+    return new ArrayList<>(new HashSet<>(fieldPaths));
   }
 }

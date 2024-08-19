@@ -4,7 +4,7 @@ import { EntityRegistryContext } from '../entityRegistryContext';
 import EntityRegistry from './entity/EntityRegistry';
 import useBuildEntityRegistry from './useBuildEntityRegistry';
 
-export const GlobalEntityRegistryV2 = buildEntityRegistryV2();
+export const globalEntityRegistryV2 = buildEntityRegistryV2();
 
 const EntityRegistryProvider = ({ children }: { children: React.ReactNode }) => {
     const entityRegistry = useBuildEntityRegistry() as EntityRegistry;

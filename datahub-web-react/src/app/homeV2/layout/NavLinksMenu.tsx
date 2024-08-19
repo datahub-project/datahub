@@ -130,7 +130,6 @@ export function NavLinksMenu(props: Props) {
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
     const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
     const isTestsEnabled = config?.testsConfig.enabled;
-    const isAutomationsEnabled = config?.classificationConfig.enabled;
 
     const showSettings = true;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
@@ -140,7 +139,9 @@ export function NavLinksMenu(props: Props) {
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
     const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
-    const showDocumentationCenter = config?.featureFlags?.documentationFormsEnabled || false; // TODO: Add platformPrivileges check
+    const showDocumentationCenter =
+        config?.featureFlags?.documentationFormsEnabled && me?.platformPrivileges?.manageDocumentationForms;
+    const showAutomations = config?.classificationConfig.enabled && me?.platformPrivileges?.manageIngestion; // TODO: Add a dedicated permission for automations.
 
     // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
@@ -205,7 +206,7 @@ export function NavLinksMenu(props: Props) {
                         title: 'Automations',
                         description: 'Monitor policies & automate actions across data assets',
                         link: PageRoutes.AUTOMATIONS,
-                        isHidden: !isAutomationsEnabled,
+                        isHidden: !showAutomations,
                     },
                     {
                         title: 'Documentation',

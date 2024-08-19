@@ -17,6 +17,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -25,16 +26,7 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -501,6 +493,24 @@ abstract class AbstractScimRepository<
     return result;
   }
 
+  private static Map<Urn, List<EnvelopedAspect>> getAspectsIncludeOrigin(
+      EntityService entityService,
+      OperationContext operationContext,
+      Set<Urn> urns,
+      Set<String> aspectNames)
+      throws UnableToResolveIdResourceException {
+    if (!aspectNames.contains(ORIGIN_ASPECT_NAME)) {
+      aspectNames = new HashSet<>(aspectNames);
+      aspectNames.add(ORIGIN_ASPECT_NAME);
+    }
+    try {
+      return entityService.getLatestEnvelopedAspects(operationContext, urns, aspectNames);
+    } catch (URISyntaxException e) {
+      throw new UnableToResolveIdResourceException(
+          HttpStatus.NOT_FOUND, "Some urns caused URISyntaxException");
+    }
+  }
+
   /**
    * Class used for mapping a DataHub entity to a SCIM resource. Object-state contains information
    * derived from entityService. Transformation function {@link #asScimResource()} is used to create
@@ -522,24 +532,24 @@ abstract class AbstractScimRepository<
     }
 
     ScimReadableCorpEntity(U urn) throws UnableToResolveIdResourceException {
+      this(
+          urn,
+          getAspectsIncludeOrigin(
+                  _entityService,
+                  systemOperationContext,
+                  ImmutableSet.of(urn),
+                  aspectNamesToClasses().keySet())
+              .get(urn));
+    }
+
+    ScimReadableCorpEntity(U urn, List<EnvelopedAspect> envAspects)
+        throws UnableToResolveIdResourceException {
+      if (envAspects == null) {
+        throw resourceNotFoundException(urnToId(urn));
+      }
       this.urn = urn;
       Map<String, Class<? extends RecordTemplate>> aspectNamesToClasses = aspectNamesToClasses();
       aspectNamesToClasses.putIfAbsent(ORIGIN_ASPECT_NAME, Origin.class);
-
-      List<EnvelopedAspect> envAspects = null;
-      Set<String> aspectNames = new HashSet<>(aspectNamesToClasses.keySet());
-
-      try {
-        Map<Urn, List<EnvelopedAspect>> envAspectsMap =
-            _entityService.getLatestEnvelopedAspects(
-                systemOperationContext, ImmutableSet.of(urn), aspectNames);
-        envAspects = envAspectsMap.get(urn);
-        if (envAspects == null) {
-          throw resourceNotFoundException(urnToId(urn));
-        }
-      } catch (URISyntaxException e) {
-        throw invalidResourceException(urnToId(urn));
-      }
 
       long lastModifiedAt = -1;
 
@@ -620,8 +630,8 @@ abstract class AbstractScimRepository<
 
   /*
   Query/find function.
-  At this stage, we only support minimal functionality based on what's needed for MS Entra.
-  That is, find users by userName, and groups by groupName.
+  At this stage, we only support minimal functionality based on what's needed for MS Entra and Okta.
+  That is, find users by userName, groups by groupName, and for Okta, pagination without filter.
    */
 
   // NOTE: this function isn't abstractable long-term when we want to support arbitrary filters.
@@ -631,23 +641,61 @@ abstract class AbstractScimRepository<
   public final FilterResponse<T> find(
       Filter filter, PageRequest pageRequest, SortRequest sortRequest) throws ResourceException {
 
-    FilterExpressionMapper filterMapper = new FilterExpressionMapper();
-    String userName = filterMapper.apply(filter.getExpression(), null);
     List<T> result = new ArrayList<>();
+    int totalResults;
 
-    if (Strings.isNullOrEmpty(userName)) {
-      throw new ResourceException(HttpStatus.BAD_REQUEST.value(), "Unparsable filter: " + filter);
-    }
+    // Note: the current implementation simply ignores sortRequest
+    if (filter == null) {
+      if (pageRequest.getStartIndex() == null || pageRequest.getCount() == null) {
+        throw new ResourceException(
+            HttpStatus.BAD_REQUEST.value(), "filter and pageRequest parameters are both null.");
+      }
+      ListUrnsResult urns =
+          _entityService.listUrns(
+              systemOperationContext,
+              entityName(),
+              pageRequest.getStartIndex() - 1,
+              pageRequest.getCount());
 
-    String id = urnToId(urnFromName(userName));
-    try {
-      result.add(get(id));
-      log.debug(String.format("Found entity %s with scim-id %s", urnToId(id), id));
-    } catch (UnableToResolveIdResourceException e) {
-      // gulp, it just means no results match filter
+      Map<Urn, List<EnvelopedAspect>> aspects =
+          getAspectsIncludeOrigin(
+              _entityService,
+              systemOperationContext,
+              ImmutableSet.copyOf(urns.getEntities()),
+              aspectNamesToClasses().keySet());
+
+      for (Map.Entry<Urn, List<EnvelopedAspect>> entry : aspects.entrySet()) {
+        ScimReadableCorpEntity scimEntity =
+            new ScimReadableCorpEntity(urnFromStr(entry.getKey().toString()), entry.getValue());
+        result.add(scimEntity.asScimResource());
+      }
+
+      totalResults =
+          _entityService.getCountAspect(
+              systemOperationContext, keyAspectName(), "urn:li:" + entityName() + ":%");
+    } else {
+      // note that pageRequest is ignored in this case
+      FilterExpressionMapper filterMapper = new FilterExpressionMapper();
+      String userName = filterMapper.apply(filter.getExpression(), null);
+
+      if (Strings.isNullOrEmpty(userName)) {
+        throw new ResourceException(HttpStatus.BAD_REQUEST.value(), "Unparsable filter: " + filter);
+      }
+
+      String id = urnToId(urnFromName(userName));
+      try {
+        result.add(get(id));
+        totalResults = 1;
+        log.debug(String.format("Found entity %s with scim-id %s", urnToId(id), id));
+      } catch (UnableToResolveIdResourceException e) {
+        // gulp, it just means no results match filter
+        totalResults = 0;
+      }
     }
-    return new FilterResponse<>(result, pageRequest, result.size());
+    return new FilterResponse<>(result, pageRequest, totalResults);
   }
+
+  protected abstract String keyAspectName();
 
   /*
   Class that walks the filter expression tree, and simply returns <value> if it

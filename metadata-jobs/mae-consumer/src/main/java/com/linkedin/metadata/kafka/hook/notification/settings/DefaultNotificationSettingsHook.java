@@ -8,6 +8,7 @@ import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.service.SettingsService.DEFAULT_CORP_USER_SETTINGS;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -15,6 +16,7 @@ import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.NotificationSettings;
+import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.settings.SettingsServiceFactory;
@@ -29,9 +31,13 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,16 +73,25 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
           CORP_GROUP_EDITABLE_INFO_ASPECT_NAME);
   private final SettingsService settingsService;
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   private final boolean isEnabled;
 
   @Autowired
   public DefaultNotificationSettingsHook(
       @Nonnull final SettingsService settingsService,
-      @Nonnull @Value("${notifications.defaultSettingsHook.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${notifications.defaultSettingsHook.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${notifications.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.settingsService =
         Objects.requireNonNull(settingsService, "settingsService must not be null");
     this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public DefaultNotificationSettingsHook(
+      @Nonnull final SettingsService settingsService, @Nonnull Boolean isEnabled) {
+    this(settingsService, isEnabled, "");
   }
 
   @Override
@@ -160,9 +175,9 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
       @Nonnull OperationContext opContext, @Nonnull Urn userUrn, @Nonnull CorpUserInfo userInfo) {
     if (userInfo.getEmail() == null) {
       log.debug("User {} has no email address. Skipping updating notification settings", userUrn);
-      return;
+    } else {
+      handleUserEmailUpdate(opContext, userUrn, userInfo.getEmail());
     }
-    handleUserEmailUpdate(opContext, userUrn, userInfo.getEmail());
   }
 
   private void handleUserEditableInfoUpdate(
@@ -170,10 +185,46 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
       @Nonnull Urn userUrn,
       @Nonnull CorpUserEditableInfo userEditableInfo) {
     if (userEditableInfo.getEmail() == null) {
-      log.debug("User {} has no email address. Skipping updating notification settings", userUrn);
+      log.debug(
+          "User {} has no email address. Skipping updating email notification settings", userUrn);
+    } else {
+      handleUserEmailUpdate(opContext, userUrn, userEditableInfo.getEmail());
+    }
+    if (userEditableInfo.getSlack() == null) {
+      log.debug(
+          "User {} has no slack handle. Skipping updating slack notification settings", userUrn);
+    } else {
+      handleUserSlackUpdate(opContext, userUrn, userEditableInfo.getSlack());
+    }
+  }
+
+  private void handleUserSlackUpdate(
+      @Nonnull OperationContext opContext, @Nonnull Urn userUrn, @Nonnull String handle) {
+    final CorpUserSettings userSettings = settingsService.getCorpUserSettings(opContext, userUrn);
+    if (userSettings != null
+        && userSettings.getNotificationSettings() != null
+        && userSettings.getNotificationSettings().getSlackSettings() != null
+        && userSettings.getNotificationSettings().getSlackSettings().getUserHandle() != null
+        && !userSettings.getNotificationSettings().getSlackSettings().getUserHandle().isEmpty()) {
+      log.debug(
+          "User {} already has slack notification settings. Skipping default notification settings creation.",
+          userUrn);
       return;
     }
-    handleUserEmailUpdate(opContext, userUrn, userEditableInfo.getEmail());
+    // If there are no notification settings. We can feel free to override.
+    final CorpUserSettings corpUserSettings =
+        userSettings == null ? DEFAULT_CORP_USER_SETTINGS : userSettings;
+    log.debug("Creating default notification settings for user {}", userUrn);
+    final NotificationSettings newSettings;
+    if (corpUserSettings.getNotificationSettings() != null) {
+      newSettings = corpUserSettings.getNotificationSettings();
+    } else {
+      newSettings = new NotificationSettings().setSinkTypes(new NotificationSinkTypeArray());
+    }
+    applyDefaultNotificationSettingsWithSlack(newSettings, handle);
+
+    settingsService.updateCorpUserSettings(
+        opContext, userUrn, corpUserSettings.setNotificationSettings(newSettings));
   }
 
   private void handleUserEmailUpdate(
@@ -189,7 +240,7 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     final CorpUserSettings newSettings =
         userSettings == null ? DEFAULT_CORP_USER_SETTINGS : userSettings;
     log.debug("Creating default notification settings for user {}", userUrn);
-    final NotificationSettings defaultSettings = createDefaultNotificationSettings(email);
+    final NotificationSettings defaultSettings = createDefaultNotificationSettingsWithEmail(email);
     settingsService.updateCorpUserSettings(
         opContext, userUrn, newSettings.setNotificationSettings(defaultSettings));
   }
@@ -230,17 +281,31 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     final CorpGroupSettings newSettings =
         groupSettings == null ? new CorpGroupSettings() : groupSettings;
     log.debug("Creating default notification settings for group {}", groupUrn);
-    final NotificationSettings defaultSettings = createDefaultNotificationSettings(email);
+    final NotificationSettings defaultSettings = createDefaultNotificationSettingsWithEmail(email);
     settingsService.updateCorpGroupSettings(
         opContext, groupUrn, newSettings.setNotificationSettings(defaultSettings));
   }
 
-  private NotificationSettings createDefaultNotificationSettings(@Nonnull String email) {
+  private NotificationSettings createDefaultNotificationSettingsWithEmail(@Nonnull String email) {
     NotificationSettings notificationSettings = new NotificationSettings();
     notificationSettings.setSinkTypes(
         new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(email));
     return notificationSettings;
+  }
+
+  private void applyDefaultNotificationSettingsWithSlack(
+      @Nonnull NotificationSettings existingSettings, @Nonnull String handle) {
+    final List<NotificationSinkType> sinkTypes =
+        Stream.concat(
+                !existingSettings.hasSinkTypes()
+                    ? Stream.empty()
+                    : existingSettings.getSinkTypes().stream(),
+                Stream.of(NotificationSinkType.SLACK))
+            .sorted()
+            .collect(Collectors.toList());
+    existingSettings.setSinkTypes(new NotificationSinkTypeArray(sinkTypes));
+    existingSettings.setSlackSettings(new SlackNotificationSettings().setUserHandle(handle));
   }
 
   /** Returns true if the event should be processed, false otherwise. */

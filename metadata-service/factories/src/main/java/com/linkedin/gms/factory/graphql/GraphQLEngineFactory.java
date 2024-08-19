@@ -218,10 +218,6 @@ public class GraphQLEngineFactory {
 
   // SaaS only
   @Autowired
-  @Qualifier("assertionService")
-  private AssertionService _assertionsService;
-
-  @Autowired
   @Qualifier("monitorService")
   private MonitorService _monitorService;
 
@@ -325,7 +321,6 @@ public class GraphQLEngineFactory {
     args.setEntitySearchService(_entitySearchService);
     args.setTestEngine(_testEngine);
     args.setProposalService(_proposalService);
-    args.setAssertionService(_assertionsService);
     args.setMonitorService(_monitorService);
     args.setIntegrationsService(_integrationsService);
     args.setConnectionService(_connectionService);
@@ -333,7 +328,6 @@ public class GraphQLEngineFactory {
     args.setShareService(_shareService);
     args.setExecutorConfiguration(configProvider.getExecutors());
     args.setDataContractService(_dataContractService);
-    args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
     args.setMetadataTestClient(metadataTestClient);
     return new GmsGraphQLEngine(args).builder().build();

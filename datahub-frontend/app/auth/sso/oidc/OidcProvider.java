@@ -3,6 +3,8 @@ package auth.sso.oidc;
 import auth.sso.SsoProvider;
 import auth.sso.oidc.custom.CustomOidcClient;
 import com.google.common.collect.ImmutableMap;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.http.callback.PathParameterCallbackUrlResolver;
@@ -64,9 +66,19 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     _oidcConfigs.getResponseType().ifPresent(oidcConfiguration::setResponseType);
     _oidcConfigs.getResponseMode().ifPresent(oidcConfiguration::setResponseMode);
     _oidcConfigs.getUseNonce().ifPresent(oidcConfiguration::setUseNonce);
+    Map<String, String> customParamsMap = new HashMap<>();
     _oidcConfigs
         .getCustomParamResource()
-        .ifPresent(value -> oidcConfiguration.setCustomParams(ImmutableMap.of("resource", value)));
+        .ifPresent(value -> customParamsMap.put("resource", value));
+    _oidcConfigs
+        .getGrantType()
+        .ifPresent(value -> customParamsMap.put("grant_type", value));
+    _oidcConfigs
+        .getAcrValues()
+        .ifPresent(value -> customParamsMap.put("acr_values", value));
+    if (!customParamsMap.isEmpty()) {
+      oidcConfiguration.setCustomParams(customParamsMap);
+    }
     _oidcConfigs
         .getPreferredJwsAlgorithm()
         .ifPresent(

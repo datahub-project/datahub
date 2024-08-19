@@ -9,34 +9,15 @@ import { useEntityFormContext } from '../../EntityFormContext';
 import BulkSubmissionButton from '../BulkSubmissionButton';
 import usePromptCompletionInfo from '../usePromptCompletionInfo';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
-import { Editor } from '../../../tabs/Documentation/components/editor/Editor';
 import { ColumnSelectorProps } from '../types';
 import ColumnSelector from '../ColumnSelector';
+import PromptHeader from '../PromptHeader';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
     justify-content: space-between;
     height: min-content;
     ${(props) => props.displayBulkStyles && `color: white;`}
-`;
-
-const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
-    font-size: 16px;
-    font-weight: 600;
-    line-height: 20px;
-    ${(props) => props.displayBulkStyles && `font-size: 20px;`}
-`;
-
-const RequiredText = styled.span<{ displayBulkStyles?: boolean }>`
-    font-size: 12px;
-    margin-left: 4px;
-    color: #a8071a;
-    ${(props) =>
-        props.displayBulkStyles &&
-        `
-        color: #FFCCC7;
-        margin-left: 8px;
-    `}
 `;
 
 export const PromptSubTitle = styled.div`
@@ -112,22 +93,12 @@ export default function StructuredPropertyPrompt({
         <>
             <PromptWrapper displayBulkStyles={displayBulkPromptStyles}>
                 <PromptInputWrapper>
-                    <PromptTitle displayBulkStyles={displayBulkPromptStyles}>
-                        {promptNumber !== undefined && <>{promptNumber}. </>}
-                        {displayName}
-                        {prompt.required && (
-                            <RequiredText displayBulkStyles={displayBulkPromptStyles}>required</RequiredText>
-                        )}
-                    </PromptTitle>
-                    {description && (
-                        <PromptSubTitle>
-                            <Editor
-                                content={description}
-                                readOnly
-                                editorStyle={!displayBulkPromptStyles ? 'padding: 0;' : 'padding: 0; color: white;'}
-                            />
-                        </PromptSubTitle>
-                    )}
+                    <PromptHeader
+                        title={displayName || prompt.title}
+                        description={description}
+                        promptNumber={promptNumber}
+                        required={prompt.required}
+                    />
                     <InputSection>
                         <StructuredPropertyInput
                             structuredProperty={structuredProperty}

@@ -3,6 +3,8 @@ import React from 'react';
 import { CheckCircleFilled } from '@ant-design/icons';
 import { message, notification } from 'antd';
 import styled from 'styled-components';
+import * as QueryString from 'query-string';
+import { useHistory, useLocation } from 'react-router';
 import { useEntityFormContext } from '../EntityFormContext';
 import { ArrowLeft, ArrowRight, BulkNavigationWrapper, NavigationWrapper } from './components';
 import { EntityType, FormPromptType, SubmitFormPromptInput } from '../../../../../types.generated';
@@ -16,6 +18,7 @@ import { FORM_ANSWER_IN_BULK_ID } from '../../../../onboarding/config/FormOnboar
 import { pluralize } from '../../../../shared/textUtil';
 import analytics, { EventType, DocRequestView } from '../../../../analytics';
 import OwnershipPrompt from '../prompts/OwnershipPrompt/OwnershipPrompt';
+import DocumentationPrompt from '../prompts/DocumentationPrompt/DocumentationPrompt';
 
 const FormPromptsWrapper = styled(BulkNavigationWrapper)`
     justify-content: space-between;
@@ -29,6 +32,8 @@ const RightColumn = styled.div`
 `;
 
 export default function PromptNavigation() {
+    const history = useHistory();
+    const location = useLocation();
     const {
         form: { isVerificationType },
         submission: { handlePromptSubmission, handleUndoPromptSubmission, handleAsyncBatchSubmit },
@@ -46,6 +51,12 @@ export default function PromptNavigation() {
 
     const [batchSubmitFormPromptResponse] = useBatchSubmitFormPromptMutation();
     const [asyncBatchSubmitFormPromptResponse] = useAsyncBatchSubmitFormPromptMutation();
+    const isOnLastPrompt = promptIndex === (prompts?.length || 0) - 1;
+
+    function resetPage() {
+        const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+        history.push({ search: QueryString.stringify({ ...params, page: 0 }) });
+    }
 
     function navigateLeft() {
         if (prompts) {
@@ -55,17 +66,19 @@ export default function PromptNavigation() {
                 setSelectedPromptId(prompts?.[promptIndex - 1].id);
             }
             setNumSubmittedEntities(0);
+            resetPage();
         }
     }
 
     function navigateRight() {
         if (prompts) {
-            if (promptIndex === (prompts?.length || 0) - 1) {
+            if (isOnLastPrompt) {
                 setSelectedPromptId(prompts?.[0].id);
             } else {
                 setSelectedPromptId(prompts?.[promptIndex + 1].id);
             }
             setNumSubmittedEntities(0);
+            resetPage();
         }
     }
 
@@ -180,14 +193,22 @@ export default function PromptNavigation() {
                     submitResponse={submitResponse}
                 />
             )}
+            {prompt?.type === FormPromptType.Documentation && (
+                <DocumentationPrompt
+                    key={promptIndex}
+                    promptNumber={promptIndex + 1}
+                    prompt={prompt}
+                    submitResponse={submitResponse}
+                />
+            )}
             <RightColumn>
                 <NavigationWrapper isHidden={!prompts?.length}>
-                    <ArrowLeft onClick={navigateLeft} />
+                    <ArrowLeft onClick={navigateLeft} $shouldHide={promptIndex === 0} />
                     {promptIndex + 1}
                     &nbsp;of&nbsp;
                     {prompts?.length}
                     &nbsp;Questions
-                    <ArrowRight onClick={navigateRight} />
+                    <ArrowRight onClick={navigateRight} $shouldHide={isOnLastPrompt} />
                 </NavigationWrapper>
                 {isVerificationType && <VerificationCTA />}
             </RightColumn>

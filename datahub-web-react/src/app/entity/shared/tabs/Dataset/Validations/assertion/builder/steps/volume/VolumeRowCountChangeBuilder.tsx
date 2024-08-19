@@ -80,6 +80,7 @@ export const VolumeRowCountChangeBuilder = ({
                     <VolumeNumberInput
                         name="parameters.value"
                         placeholder="Number"
+                        enableNegatives
                         value={value?.value?.value ? parseInt(value.value.value, 10) : undefined}
                         onChange={(newValue) => handleValueChange(newValue as number)}
                         disabled={disabled}
@@ -109,6 +110,7 @@ export const VolumeRowCountChangeBuilder = ({
                     <VolumeNumberInput
                         name="parameters.minValue"
                         placeholder="Min"
+                        enableNegatives
                         value={value?.minValue?.value ? parseInt(value.minValue.value, 10) : undefined}
                         onChange={(newValue) => handleMinValueChange(newValue as number)}
                         disabled={disabled}
@@ -141,6 +143,7 @@ export const VolumeRowCountChangeBuilder = ({
                     <VolumeNumberInput
                         name="parameters.maxValue"
                         placeholder="Max"
+                        enableNegatives
                         value={value?.maxValue?.value ? parseInt(value.maxValue.value, 10) : undefined}
                         onChange={(newValue) => handleMaxValueChange(newValue as number)}
                         disabled={disabled}

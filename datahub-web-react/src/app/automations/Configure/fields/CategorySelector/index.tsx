@@ -3,7 +3,8 @@ import React from 'react';
 import { Select, Input, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { TestCategory, TEST_CATEGORIES } from '../../constants';
+import { AutomationCategory, DEFAULT_AUTOMATION_CATEGORY, AUTOMATION_CATEGORIES } from '@app/automations/constants';
+import { isSupportedCategory } from '@app/automations/utils';
 
 const OptionDescription = styled(Typography.Paragraph)`
     && {
@@ -18,25 +19,39 @@ const OptionDescription = styled(Typography.Paragraph)`
     }
 `;
 
-export const CategorySelector = ({ categorySelected, setCategorySelected }: any) => (
-    <>
-        <Select value={categorySelected} onChange={(value) => setCategorySelected(value)}>
-            {TEST_CATEGORIES.map((category) => (
-                <Select.Option key={category.name} value={category.name}>
-                    <Typography.Text>
-                        <strong>{category.name}</strong>
-                    </Typography.Text>
-                    <OptionDescription>{category.description}</OptionDescription>
-                </Select.Option>
-            ))}
-        </Select>
-        {categorySelected === TestCategory.CUSTOM && (
-            <Input
-                type="text"
-                onChange={(e) => setCategorySelected(e.target.value)}
-                placeholder="Enter a custom category…"
-                style={{ marginTop: '8px' }}
-            />
-        )}
-    </>
-);
+export const CategorySelector = ({ categorySelected, setCategorySelected, isDisabled }: any) => {
+    // If we know about the category, then we select it.
+    // Otherwise it's something non-default (custom) so we select CUSTOM.
+    let selectedCategoryName = '';
+    if (!selectedCategoryName) selectedCategoryName = DEFAULT_AUTOMATION_CATEGORY;
+    if (categorySelected)
+        selectedCategoryName = isSupportedCategory(categorySelected) ? categorySelected : AutomationCategory.CUSTOM;
+
+    return (
+        <>
+            <Select
+                value={selectedCategoryName || DEFAULT_AUTOMATION_CATEGORY}
+                onChange={(value) => setCategorySelected(value)}
+                disabled={isDisabled}
+            >
+                {AUTOMATION_CATEGORIES.map((category) => (
+                    <Select.Option key={category.name} value={category.name}>
+                        <Typography.Text>
+                            <strong>{category.name}</strong>
+                        </Typography.Text>
+                        <OptionDescription>{category.description}</OptionDescription>
+                    </Select.Option>
+                ))}
+            </Select>
+            {selectedCategoryName === AutomationCategory.CUSTOM && (
+                <Input
+                    type="text"
+                    value={categorySelected}
+                    onChange={(e) => setCategorySelected(e.target.value)}
+                    placeholder="Enter a custom category…"
+                    style={{ marginTop: '8px' }}
+                />
+            )}
+        </>
+    );
+};

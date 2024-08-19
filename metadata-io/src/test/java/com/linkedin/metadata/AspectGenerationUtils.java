@@ -1,5 +1,7 @@
 package com.linkedin.metadata;
 
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
+
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.ChangeAuditStamps;
@@ -48,11 +50,10 @@ public class AspectGenerationUtils {
       @Nonnull String runId,
       @Nonnull String lastRunId,
       @Nullable String version) {
-    SystemMetadata metadata = new SystemMetadata();
-    metadata.setLastObserved(lastObserved);
-    metadata.setRunId(runId);
+    SystemMetadata metadata = createDefaultSystemMetadata(runId);
     metadata.setLastRunId(lastRunId);
     metadata.setVersion(version, SetMode.IGNORE_NULL);
+    metadata.setLastObserved(lastObserved);
     return metadata;
   }
 

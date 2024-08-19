@@ -6,8 +6,7 @@ import { RefreshOutlined } from '@mui/icons-material';
 import { ActionItem } from './ActionItem';
 import { Assertion, AssertionSourceType, Monitor } from '../../../../../../../../../types.generated';
 import { RunAssertionModal } from '../../builder/steps/preview/RunAssertionModal';
-import { isMonitorActive, useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
-import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
+import { isMonitorActive } from '../../../acrylUtils';
 import { useAppConfig } from '../../../../../../../../useAppConfig';
 
 const StyledRefresh = styled(RefreshOutlined)`
@@ -26,14 +25,12 @@ type Props = {
 };
 
 export const RunAction = ({ assertion, monitor, canEdit, refetch }: Props) => {
-    const { urn: entityUrn } = useEntityData();
     const [showResult, setShowResult] = useState(false);
     const { config } = useAppConfig();
     const isRunAssertionsEnabled = config?.featureFlags?.runAssertionsEnabled;
-    const isReachable = useConnectionWithRunAssertionCapabilitiesForEntityExists(entityUrn ?? '');
     const isNonNative = assertion.info?.source?.type !== AssertionSourceType.Native;
 
-    if (!isRunAssertionsEnabled || !monitor || isNonNative || !isReachable) {
+    if (!isRunAssertionsEnabled || !monitor || isNonNative) {
         // 4 cases to hide the run assertion button entirely:
         //      1. Feature flag is disabled.
         //      2. Monitor is missing for assertion (no params).

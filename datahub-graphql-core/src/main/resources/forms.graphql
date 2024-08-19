@@ -1,11 +1,3 @@
-extend type Query {
-    """
-    Fetch a Form by primary key (urn)
-    """
-    form(urn: String!): Form
-}
-
-
 extend type Mutation {
     """
     Remove a form from a given list of entities.
@@ -139,6 +131,11 @@ type FormPromptResponse {
     Response for an ownership type prompt
     """
     ownershipResponse: OwnershipPromptResponse
+
+    """
+    Response for a documentation type prompt
+    """
+    documentationResponse: DocumentationResponse
 }
 
 """
@@ -169,6 +166,16 @@ type OwnershipPromptResponse {
     The type of ownership applied from this prompt response
     """
     ownershipTypeUrn: String!
+}
+
+"""
+Response for a documentation type prompt
+"""
+type DocumentationResponse {
+    """
+    The documentation provided in the response
+    """
+    documentation: String!
 }
 
 """
@@ -264,7 +271,47 @@ type FormInfo {
     The actors that are assigned to complete the forms for the associated entities.
     """
     actors: FormActorAssignment!
+
+    """
+    Information about the state and status of this form
+    """
+    status: FormStatus!
 }
+
+"""
+Information about the state and status of this form
+"""
+type FormStatus {
+    """
+    The actors that are assigned to complete the forms for the associated entities.
+    """
+    state: FormState!
+
+    """
+    The audit stamp related to the last modification of the form state
+    """
+    lastModified: AuditStamp
+}
+
+"""
+The state of this form. Draft means no users are prompted to fill it out yet and unpublished is hidden.
+Published forms are out in the world for users to see. Setting default to PUBLISHED for old data.
+"""
+enum FormState {
+    """
+    This form is in draft state and is not viewable by any users
+    """
+    DRAFT
+    """
+    This form is published and viewable by users to fill it out
+    """
+    PUBLISHED
+    """
+    This form is unpublished and is not viewable by users
+    """
+    UNPUBLISHED
+}
+
 
 """
 A prompt shown to the user to collect metadata about an entity
@@ -327,6 +374,14 @@ enum FormPromptType {
     This prompt is meant to apply ownership to an entity
     """
     OWNERSHIP
+    """
+    This prompt is meant to apply documentation to an entity
+    """
+    DOCUMENTATION
+    """
+    A schema field-level documentation form prompt type.
+    """
+    FIELDS_DOCUMENTATION
 }
 
 """
@@ -404,6 +459,11 @@ input SubmitFormPromptInput {
     Input params for an ownership type prompt
     """
     ownershipParams: OwnershipInputParams
+
+    """
+    Input params for a documentation type prompt
+    """
+    documentationParams: DocumentationInputParams
 }
 
 
@@ -450,6 +510,16 @@ input OwnershipInputParams {
     The ownership type urn being applied to these owners
     """
     ownershipTypeUrn: String!
+}
+
+"""
+Input params for an documentation type prompt
+"""
+input DocumentationInputParams {
+    """
+    The documentation to be applied on an entity
+    """
+    documentation: String!
 }
 
 """
@@ -571,6 +641,11 @@ input CreateFormInput {
     Information on how this form should be assigned to users/groups
     """
     actors: FormActorAssignmentInput
+
+    """
+    The state of this form (whether it's draft/published/unpublished)
+    """
+    state: FormState
 }
 
 """
@@ -601,6 +676,11 @@ input CreatePromptInput {
     The params required if this prompt type is STRUCTURED_PROPERTY or FIELDS_STRUCTURED_PROPERTY
     """
     structuredPropertyParams: StructuredPropertyParamsInput
+
+    """
+    The params if this prompt type is OWNERSHIP
+    """
+    ownershipParams: OwnershipParamsInput
 
     """
     Whether this prompt will be required or not. Default is false.
@@ -640,6 +720,16 @@ input StructuredPropertyParamsInput {
 }
 
 """
+Input for an ownership type prompt
+"""
+input OwnershipParamsInput {
+    """
+    The cardinality of the ownership prompts (single or multiple) - default is multiple
+    """
+    cardinality: PromptCardinality!
+}
+
+"""
 Input for updating a form
 """
 input UpdateFormInput {
@@ -674,9 +764,20 @@ input UpdateFormInput {
     promptsToRemove: [String!]
 
     """
+    Set the state of prompts on this form with these prompts.
+    Caution! This will overwrite the existing list of prompts for this form.
+    """
+    prompts: [CreatePromptInput!]
+
+    """
     Information on how this form should be assigned to users/groups
     """
     actors: FormActorAssignmentUpdateInput
+
+    """
+    The state of this form (whether it's draft/published/unpublished)
+    """
+    state: FormState
 }
 
 """
@@ -694,6 +795,12 @@ input FormActorAssignmentUpdateInput {
     usersToAdd: [String!]
 
     """
+    The optional list of user urns to overwrite the existing list
+    Caution! This will overwrite the existing list of users for this form.
+    """
+    users: [String!]
+
+    """
     The users being removed from being assigned to this form
     """
     usersToRemove: [String!]
@@ -702,6 +809,12 @@ input FormActorAssignmentUpdateInput {
     The optional list of group urns to assign this form to
     """
     groupsToAdd: [String!]
+
+    """
+    The optional list of group urns to overwrite the existing list
+    Caution! This will overwrite the existing list of groups for this form.
+    """
+    groups: [String!]
 
     """
     The groups being removed from being assigned to this form

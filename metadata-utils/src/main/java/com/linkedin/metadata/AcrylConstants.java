@@ -55,5 +55,15 @@ public class AcrylConstants {
   // For notifications
   public static final String NOTIFICATION_SETTINGS_ASPECT_NAME = "notificationSettings";
 
+  public static final String FORWARDING_ACTION_URN =
+      "urn:li:dataHubAction:__system__forwardingAction";
+  public static final String METADATA_TESTS_FORWARDING_ACTION_DISPLAY_NAME = "Forwarding Action";
+  public static final String METADATA_TESTS_FORWARDING_ACTION_TYPE =
+      "datahub_integrations.actions.forward.forwarding_action.ForwardingAction";
+
+  // Personas
+  public static final String PERSONA_ENTITY_NAME = "dataHubPersona";
+  public static final String PERSONA_INFO_ASPECT_NAME = "dataHubPersonaInfo";
+
   private AcrylConstants() {}
 }

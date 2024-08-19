@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -84,7 +85,7 @@ public class MutationUtils {
     proposal.setChangeType(ChangeType.UPSERT);
 
     // Assumes proposal is generated first from the builder methods above so SystemMetadata is empty
-    SystemMetadata systemMetadata = new SystemMetadata();
+    SystemMetadata systemMetadata = createDefaultSystemMetadata();
     StringMap properties = new StringMap();
     properties.put(APP_SOURCE, UI_SOURCE);
     systemMetadata.setProperties(properties);

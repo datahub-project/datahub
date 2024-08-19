@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { useIsDocumentationInferenceEnabled } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../../../../../types.generated';
 import DescriptionField from '../../../../../dataset/profile/schema/components/SchemaDescriptionField';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
@@ -24,6 +25,9 @@ const CompactDescription = styled.div`
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
     isCompact: boolean,
+    options?: {
+        onInferSchemaDescriptions?: () => Promise<void>;
+    },
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -31,6 +35,7 @@ export default function useDescriptionRenderer(
     const [updateDescription] = useUpdateDescriptionMutation();
     const [expandedRows, setExpandedRows] = useState({});
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
+    const enableInferredDescriptions = useIsDocumentationInferenceEnabled();
 
     const refresh: any = () => {
         refetch?.();
@@ -42,10 +47,11 @@ export default function useDescriptionRenderer(
             pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
         const { schemaFieldEntity } = record;
-        const { displayedDescription, isPropagated, sourceDetail } = getFieldDescriptionDetails({
+        const { displayedDescription, isPropagated, isInferred, sourceDetail } = getFieldDescriptionDetails({
             schemaFieldEntity,
             editableFieldInfo,
             defaultDescription: description,
+            enableInferredDescriptions,
         });
         const sanitizedDescription = sanitizeRichText(displayedDescription);
         const original = record.description ? sanitizeRichText(record.description) : undefined;
@@ -60,6 +66,7 @@ export default function useDescriptionRenderer(
             <DescriptionField
                 onExpanded={handleExpandedRows}
                 expanded={!!expandedRows[index]}
+                fieldPath={schemaFieldEntity?.fieldPath}
                 description={sanitizedDescription}
                 original={original}
                 isEdited={!!editableFieldInfo?.description}
@@ -87,8 +94,11 @@ export default function useDescriptionRenderer(
                         },
                     }).then(refresh)
                 }
+                onInferDescription={options?.onInferSchemaDescriptions}
                 isReadOnly
+                enableInferenceButton
                 isPropagated={isPropagated}
+                isInferred={isInferred}
                 sourceDetail={sourceDetail}
             />
         );

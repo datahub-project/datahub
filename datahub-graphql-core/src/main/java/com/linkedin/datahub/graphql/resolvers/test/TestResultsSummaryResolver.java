@@ -3,13 +3,14 @@ package com.linkedin.datahub.graphql.resolvers.test;
 import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResultsSummary;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -19,6 +20,7 @@ import com.linkedin.test.TestInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,8 +71,6 @@ public class TestResultsSummaryResolver
 
     return CompletableFuture.supplyAsync(
         () -> {
-          long passingCount = 0;
-          long failingCount = 0;
           List<EnvelopedAspect> lastComputed =
               timeseriesAspectService.getAspectValues(
                   context.getOperationContext(),
@@ -80,7 +80,7 @@ public class TestResultsSummaryResolver
                   null,
                   null,
                   1,
-                  null);
+                  createFilter());
           Long timestamp = null;
           if (!lastComputed.isEmpty()) {
             EnvelopedAspect envelopedAspect = lastComputed.get(0);
@@ -90,32 +90,23 @@ public class TestResultsSummaryResolver
                     "application/json",
                     BatchTestRunEvent.class);
             timestamp = batchTestRunEvent.getTimestampMillis();
-            if (batchTestRunEvent.getResult() != null) {
-              // We first try to fetch passing and failing counts from the batchTestRunEvent
-              passingCount = batchTestRunEvent.getResult().getPassingCount();
-              failingCount = batchTestRunEvent.getResult().getFailingCount();
-            }
           }
-          if (passingCount == 0 && failingCount == 0) {
-            // If the batchTestRunEvent does not have the results, we fall back to fetching the
-            // counts from the search index
-            passingCount =
-                getResultsCount(
-                    context.getOperationContext(),
-                    testUrn,
-                    PASSING_TESTS_FIELD,
-                    () ->
-                        TestUtils.buildTestPassingFilter(
-                            testUrn, md5, context.getOperationContext().getAspectRetriever()));
-            failingCount =
-                getResultsCount(
-                    context.getOperationContext(),
-                    testUrn,
-                    FAILING_TESTS_FIELD,
-                    () ->
-                        TestUtils.buildTestFailingFilter(
-                            testUrn, md5, context.getOperationContext().getAspectRetriever()));
-          }
+          long passingCount =
+              getResultsCount(
+                  context.getOperationContext(),
+                  testUrn,
+                  PASSING_TESTS_FIELD,
+                  () ->
+                      TestUtils.buildTestPassingFilter(
+                          testUrn, md5, context.getOperationContext().getAspectRetriever()));
+          long failingCount =
+              getResultsCount(
+                  context.getOperationContext(),
+                  testUrn,
+                  FAILING_TESTS_FIELD,
+                  () ->
+                      TestUtils.buildTestFailingFilter(
+                          testUrn, md5, context.getOperationContext().getAspectRetriever()));
           final TestResultsSummary result = new TestResultsSummary();
           result.setPassingCount(passingCount);
           result.setFailingCount(failingCount);
@@ -125,6 +116,18 @@ public class TestResultsSummaryResolver
           }
           return result;
         });
+  }
+
+  public static Filter createFilter() {
+    Filter filter = new Filter();
+    final ArrayList<Criterion> criteria = new ArrayList<>();
+    Criterion partitionCriterion =
+        new Criterion().setField("partition").setCondition(Condition.EQUAL).setValue("FULL");
+    criteria.add(partitionCriterion);
+    filter.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
+    return filter;
   }
 
   private long getResultsCount(

@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.incident;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
@@ -27,6 +28,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,14 +50,23 @@ public class IncidentActivityEventHook implements MetadataChangeLogHook {
   private OperationContext systemOperationContext;
   private final EntityClient entityClient;
   private final boolean isEnabled;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public IncidentActivityEventHook(
       @Nonnull final SystemEntityClient systemEntityClient,
-      @Nonnull @Value("${incidents.activityEventsHook.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${incidents.activityEventsHook.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${incidents.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.entityClient =
         Objects.requireNonNull(systemEntityClient, "systemEntityClient is required");
     this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public IncidentActivityEventHook(
+      @Nonnull final SystemEntityClient systemEntityClient, @Nonnull Boolean isEnabled) {
+    this(systemEntityClient, isEnabled, "");
   }
 
   @Override

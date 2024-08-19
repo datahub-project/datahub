@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 import click
 
-from datahub.cli.cli_utils import get_url_and_token
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
@@ -43,6 +43,9 @@ def open(ctx: Any, urn: Optional[str], host: Optional[str]) -> None:
     """
     if not urn:
         raise click.UsageError("Nothing for me to open. Maybe provide an urn?")
-    (server, token) = get_url_and_token()
-    final_url = get_frontend_url_from_server(server, urn)
+    graph = get_default_graph()
+    print(graph.get_server_config())
+    final_url = get_frontend_url_from_server(
+        graph.get_server_config().get("baseUrl", {}), urn
+    )
     webbrowser.open_new_tab(final_url)

@@ -94,7 +94,7 @@ Confirm you see the Basic Information Tab
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_oauth_and_permissions.png)
 
 Here you'll find a “Bot User OAuth Token” which DataHub will need to communicate with your slack through the bot. 
-In the next steps, we'll show you how to configure the Slack Integration inside of Acryl DataHub.
+In the next steps, we'll show you how to configure the Slack Integration inside of DataHub Cloud.
 
 ## Configuring Notifications
 

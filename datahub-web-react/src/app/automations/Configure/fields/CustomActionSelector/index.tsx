@@ -4,6 +4,7 @@ import { Delete, Add } from '@mui/icons-material';
 import { Select } from 'antd';
 import uniqid from 'uniqid';
 
+import { PrimaryButton, TextButton, DeleteButton, SuccessIcon, FailureIcon } from '@app/automations/sharedComponents';
 import { SelectInputMode } from '../types/values';
 
 import {
@@ -16,8 +17,6 @@ import {
     ActionSelectorContainer,
     ActionsButtonContainer,
 } from './components';
-
-import { PrimaryButton, TextButton, DeleteButton, SuccessIcon, FailureIcon } from '../../../sharedComponents';
 
 import { AssetTypeSelect } from '../inputs/AssetTypeSelect';
 

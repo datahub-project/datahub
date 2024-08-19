@@ -1,7 +1,7 @@
 package com.linkedin.datahub.upgrade.system.ownershiptypes;
 
 import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +31,6 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
@@ -228,10 +227,7 @@ public class OwnershipTypesStep implements UpgradeStep {
                   proposal.setEntityType(result.getKey().getEntityType());
                   proposal.setAspectName(Constants.OWNERSHIP_ASPECT_NAME);
                   proposal.setChangeType(ChangeType.UPSERT);
-                  proposal.setSystemMetadata(
-                      new SystemMetadata()
-                          .setRunId(DEFAULT_RUN_ID)
-                          .setLastObserved(System.currentTimeMillis()));
+                  proposal.setSystemMetadata(createDefaultSystemMetadata());
                   proposal.setAspect(
                       GenericRecordUtils.serializeAspect(
                           result.getValue().get(Constants.OWNERSHIP_ASPECT_NAME)));

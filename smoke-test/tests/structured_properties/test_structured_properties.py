@@ -119,9 +119,11 @@ def create_property_definition(
         qualifiedName=f"{namespace}.{property_name}",
         valueType=Urn.make_data_type_urn(value_type),
         description="The retention policy for the dataset",
-        entityTypes=[Urn.make_entity_type_urn(e) for e in entity_types]
-        if entity_types
-        else [Urn.make_entity_type_urn("dataset")],
+        entityTypes=(
+            [Urn.make_entity_type_urn(e) for e in entity_types]
+            if entity_types
+            else [Urn.make_entity_type_urn("dataset")]
+        ),
         cardinality=cardinality,
         allowedValues=allowed_values,
     )
@@ -137,7 +139,7 @@ def create_property_definition(
 def attach_property_to_entity(
     urn: str,
     property_name: str,
-    property_value: Union[str, float, List[str | float]],
+    property_value: Union[str, float, List[Union[str, float]]],
     graph: DataHubGraph,
     namespace: str = default_namespace,
 ):

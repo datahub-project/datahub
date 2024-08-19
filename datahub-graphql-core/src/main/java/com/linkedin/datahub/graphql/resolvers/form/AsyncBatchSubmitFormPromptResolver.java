@@ -29,6 +29,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.MetadataTestClient;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
+import com.linkedin.test.TestInterval;
+import com.linkedin.test.TestSchedule;
 import com.linkedin.test.TestSource;
 import com.linkedin.test.TestSourceType;
 import graphql.schema.DataFetcher;
@@ -82,6 +84,9 @@ public class AsyncBatchSubmitFormPromptResolver
     Urn formUrn = UrnUtils.getUrn(input.getInput().getFormUrn());
     testSource.setSourceEntity(formUrn);
     testInfo.setSource(testSource);
+    TestSchedule testSchedule = new TestSchedule();
+    testSchedule.setInterval(TestInterval.NONE);
+    testInfo.setSchedule(testSchedule);
     com.linkedin.test.TestDefinition definition = new com.linkedin.test.TestDefinition();
     definition.setType(TestDefinitionType.JSON);
     definition.setJson(buildJsonTestDefinition(context, input, searchableFieldsToPathSpecs));
@@ -145,6 +150,8 @@ public class AsyncBatchSubmitFormPromptResolver
       addStructuredPropertyPromptParams(submitPromptParamsNode, promptInput);
     } else if (promptInput.getType().equals(FormPromptType.OWNERSHIP)) {
       addOwnershipPromptParams(submitPromptParamsNode, promptInput);
+    } else if (promptInput.getType().equals(FormPromptType.DOCUMENTATION)) {
+      addDocumentationPromptParams(submitPromptParamsNode, promptInput);
     }
 
     try {
@@ -205,5 +212,19 @@ public class AsyncBatchSubmitFormPromptResolver
     promptInput.getOwnershipParams().getOwners().forEach(ownersArray::add);
     submitPromptParamsNode.put(
         "ownershipTypeUrn", promptInput.getOwnershipParams().getOwnershipTypeUrn());
+  }
+
+  /*
+   * Adds the params necessary to submit a documentation response
+   */
+  private void addDocumentationPromptParams(
+      ObjectNode submitPromptParamsNode, SubmitFormPromptInput promptInput)
+      throws IllegalArgumentException {
+    if (promptInput.getDocumentationParams() == null) {
+      throw new IllegalArgumentException(
+          "Failed to submit as no documentation params were provided for documentation response");
+    }
+    submitPromptParamsNode.put(
+        "documentation", promptInput.getDocumentationParams().getDocumentation());
   }
 }

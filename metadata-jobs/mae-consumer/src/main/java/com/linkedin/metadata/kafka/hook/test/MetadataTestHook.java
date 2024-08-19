@@ -37,6 +37,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.validation.constraints.NotNull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,12 +63,13 @@ import org.springframework.stereotype.Component;
 })
 public class MetadataTestHook implements MetadataChangeLogHook {
 
-  private final EntityRegistry _entityRegistry;
-  private final MetadataTestClient _testClient;
-  private final Authentication _systemAuthentication;
-  private final Cache<Urn, Long> _urnObserverCache;
-  private final Set<String> _supportedEntityTypes;
-  private final boolean _isEnabled;
+  private final EntityRegistry entityRegistry;
+  private final MetadataTestClient testClient;
+  private final Authentication systemAuthentication;
+  private final Cache<Urn, Long> urnObserverCache;
+  private final Set<String> supportedEntityTypes;
+  private final boolean isEnabled;
+  @Getter private final String consumerGroupSuffix;
 
   // Set of aspects to ignore a.k.a do not run tests when these aspects change
   // TestResults needs to be ignored, because otherwise tests will always trigger twice
@@ -75,8 +77,8 @@ public class MetadataTestHook implements MetadataChangeLogHook {
   // Status is ignored for now, as massive delete operations can cause massive test triggering
   private static final Set<String> ASPECTS_TO_IGNORE =
       ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME, Constants.STATUS_ASPECT_NAME);
-  private final Boolean _isOnTestChangeEnabled;
-  private final Boolean _isOnEntityChangeEnabled;
+  private final Boolean isOnTestChangeEnabled;
+  private final Boolean isOnEntityChangeEnabled;
 
   @Autowired
   public MetadataTestHook(
@@ -85,7 +87,8 @@ public class MetadataTestHook implements MetadataChangeLogHook {
       @Nonnull final Authentication systemAuthentication,
       @Nonnull @Value("${metadataTests.hook.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${metadataTests.hook.onTestChange:true}") Boolean onTestChangeEnabled,
-      @Nonnull @Value("${metadataTests.hook.onEntityChange:false}") Boolean onEntityChangeEnabled) {
+      @Nonnull @Value("${metadataTests.hook.onEntityChange:false}") Boolean onEntityChangeEnabled,
+      @Nonnull @Value("${metadataTests.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
     this(
         entityRegistry,
         testClient,
@@ -94,7 +97,8 @@ public class MetadataTestHook implements MetadataChangeLogHook {
         2,
         TimeUnit.SECONDS,
         onTestChangeEnabled,
-        onEntityChangeEnabled);
+        onEntityChangeEnabled,
+        consumerGroupSuffix);
   }
 
   @VisibleForTesting
@@ -102,7 +106,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final MetadataTestClient testClient,
       @Nonnull final Authentication systemAuthentication,
-      @Nonnull @Value("${metadataTests.hook.enabled:true}") Boolean isEnabled,
+      @Nonnull Boolean isEnabled,
       final int cacheExpirationTime,
       final TimeUnit cacheExpirationUnit) {
     // Defaults here indicate the previous behavior where enabled true implied that we are
@@ -115,28 +119,29 @@ public class MetadataTestHook implements MetadataChangeLogHook {
         cacheExpirationTime,
         cacheExpirationUnit,
         false,
-        isEnabled);
+        isEnabled,
+        "");
   }
 
-  @VisibleForTesting
   MetadataTestHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final MetadataTestClient testClient,
       @Nonnull final Authentication systemAuthentication,
-      @Nonnull @Value("${metadataTests.hook.enabled:true}") Boolean isEnabled,
+      @Nonnull Boolean isEnabled,
       final int cacheExpirationTime,
       final TimeUnit cacheExpirationUnit,
-      @Nonnull @Value("${metadataTests.hook.onTestChange:true}") Boolean onTestChangeEnabled,
-      @Nonnull @Value("${metadataTests.hook.onEntityChange:false}") Boolean onEntityChangeEnabled) {
-    _entityRegistry = entityRegistry;
-    _testClient = testClient;
-    _systemAuthentication = systemAuthentication;
-    _isEnabled = isEnabled;
-    _isOnTestChangeEnabled = onTestChangeEnabled;
-    _isOnEntityChangeEnabled = onEntityChangeEnabled;
+      @Nonnull Boolean onTestChangeEnabled,
+      @Nonnull Boolean onEntityChangeEnabled,
+      @Nonnull String consumerGroupSuffix) {
+    this.entityRegistry = entityRegistry;
+    this.testClient = testClient;
+    this.systemAuthentication = systemAuthentication;
+    this.isEnabled = isEnabled;
+    isOnTestChangeEnabled = onTestChangeEnabled;
+    isOnEntityChangeEnabled = onEntityChangeEnabled;
     // Inserts tests to run into an in-memory cache that evaluates tests when the cache entry
     // expires
-    _urnObserverCache =
+    urnObserverCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(cacheExpirationTime, cacheExpirationUnit)
             .removalListener(
@@ -149,14 +154,15 @@ public class MetadataTestHook implements MetadataChangeLogHook {
                         },
                     Executors.newCachedThreadPool()))
             .build();
-    _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityRegistry);
+    supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityRegistry);
     ScheduledExecutorService cleanUpService = Executors.newScheduledThreadPool(1);
-    cleanUpService.scheduleAtFixedRate(_urnObserverCache::cleanUp, 0, 5, TimeUnit.SECONDS);
+    cleanUpService.scheduleAtFixedRate(urnObserverCache::cleanUp, 0, 5, TimeUnit.SECONDS);
+    this.consumerGroupSuffix = consumerGroupSuffix;
   }
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @WithSpan
@@ -164,7 +170,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     try (Timer.Context ignored =
         MetricUtils.timer(this.getClass(), "evaluateTestOnChange").time()) {
       log.debug("Evaluating tests for urn {}", entity);
-      _testClient.evaluate(entity, null, true, _systemAuthentication);
+      testClient.evaluate(entity, null, true, systemAuthentication);
       MetricUtils.counter(this.getClass(), "evaluateTestOnChangeSucceeded").inc();
     } catch (RemoteInvocationException e) {
       MetricUtils.counter(this.getClass(), "evaluateTestOnChangeFailed").inc();
@@ -175,8 +181,8 @@ public class MetadataTestHook implements MetadataChangeLogHook {
   private void processTestChange(MetadataChangeLog event) {
     try {
       BatchedTestResults results =
-          _testClient.evaluateSingleTest(
-              Objects.requireNonNull(event.getEntityUrn()), true, _systemAuthentication);
+          testClient.evaluateSingleTest(
+              Objects.requireNonNull(event.getEntityUrn()), true, systemAuthentication);
       log.info(
           "Test {} evaluated successfully with results for {} entries",
           event.getEntityUrn(),
@@ -189,7 +195,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
   @Override
   public void invoke(@NotNull MetadataChangeLog event) throws Exception {
     // Check if this is a new or updated Metadata Test
-    if (this._isOnTestChangeEnabled
+    if (this.isOnTestChangeEnabled
         && event.getChangeType() == ChangeType.UPSERT
         && event.getEntityType().equals(TEST_ENTITY_NAME)
         && event.getAspectName().equals(TEST_INFO_ASPECT_NAME)
@@ -202,14 +208,14 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     }
 
     // Rest of the function deals with Entity changes, so we short-circuit here
-    if (!this._isOnEntityChangeEnabled) {
+    if (!this.isOnEntityChangeEnabled) {
       return;
     }
 
     // Process other changes in other entities
     // Only trigger tests if the change is an UPSERT, change is not for test entity
     if (event.getChangeType() != ChangeType.UPSERT
-        || !_supportedEntityTypes.contains(event.getEntityType())) {
+        || !supportedEntityTypes.contains(event.getEntityType())) {
       return;
     }
     // Do not trigger tests if the change is for an aspect among the aspects to ignore set
@@ -237,7 +243,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
 
     EntitySpec entitySpec;
     try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+      entitySpec = entityRegistry.getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       return;
@@ -248,7 +254,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
     // This will eventually run the process that evaluates the tests
     // We take this approach to make sure tests are not run for a given urn multiple times when a
     // batch of ingestion events come in
-    _urnObserverCache.put(
+    urnObserverCache.put(
         EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec()),
         System.currentTimeMillis());
   }
@@ -273,6 +279,6 @@ public class MetadataTestHook implements MetadataChangeLogHook {
 
   @VisibleForTesting
   void cleanUpCache() {
-    _urnObserverCache.cleanUp();
+    urnObserverCache.cleanUp();
   }
 }

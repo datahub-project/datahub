@@ -258,7 +258,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "NUMBER(asdecimal=False)",
+                                "nativeDataType": "NUMBER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -380,7 +380,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "NUMBER(asdecimal=False)",
+                                "nativeDataType": "NUMBER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -505,7 +505,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "NUMBER(asdecimal=False)",
+                                "nativeDataType": "NUMBER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -754,7 +754,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "NUMBER(asdecimal=False)",
+                                "nativeDataType": "NUMBER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -876,7 +876,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "NUMBER(asdecimal=False)",
+                                "nativeDataType": "NUMBER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             }
@@ -1001,7 +1001,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "NUMBER(asdecimal=False)",
+                                "nativeDataType": "NUMBER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1045,214 +1045,6 @@
             "materialized": false,
             "viewLogic": "CREATE VIEW mock_view AS\n                                  SELECT\n                                      mock_column1,\n                                      mock_column2\n                                  FROM mock_table",
             "viewLanguage": "SQL"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.view1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
-                },
-                {
-                    "id": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-                    "urn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.test1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
-                },
-                {
-                    "id": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-                    "urn": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.test2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
-                },
-                {
-                    "id": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-                    "urn": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.view1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
-                },
-                {
-                    "id": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-                    "urn": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.test3,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
-                },
-                {
-                    "id": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-                    "urn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.test4,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
-                },
-                {
-                    "id": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-                    "urn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
-                }
-            ]
         }
     },
     "systemMetadata": {

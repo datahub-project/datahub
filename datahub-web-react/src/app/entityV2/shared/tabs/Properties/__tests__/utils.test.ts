@@ -1,9 +1,8 @@
-import { getTestEntityRegistryV2 } from '../../../../../../utils/test-utils/TestEntityRegistry';
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { PropertyRow } from '../types';
 import { filterStructuredProperties } from '../utils';
 
 describe('filterSchemaRows', () => {
-    const testEntityRegistry = getTestEntityRegistryV2();
     const rows = [
         {
             displayName: 'Has PII',
@@ -30,7 +29,7 @@ describe('filterSchemaRows', () => {
     it('should properly filter structured properties based on field name', () => {
         const filterText = 'has pi';
         const { filteredRows, expandedRowsFromFilter } = filterStructuredProperties(
-            testEntityRegistry,
+            globalEntityRegistryV2,
             rows,
             filterText,
         );
@@ -50,7 +49,7 @@ describe('filterSchemaRows', () => {
     it('should properly filter structured properties based on field value', () => {
         const filterText = 'new york';
         const { filteredRows, expandedRowsFromFilter } = filterStructuredProperties(
-            testEntityRegistry,
+            globalEntityRegistryV2,
             rows,
             filterText,
         );
@@ -70,7 +69,7 @@ describe('filterSchemaRows', () => {
     it('should properly filter structured properties based on field value even for numbers', () => {
         const filterText = '100';
         const { filteredRows, expandedRowsFromFilter } = filterStructuredProperties(
-            testEntityRegistry,
+            globalEntityRegistryV2,
             rows,
             filterText,
         );

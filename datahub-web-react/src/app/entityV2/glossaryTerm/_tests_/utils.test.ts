@@ -1,8 +1,6 @@
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { EntityType } from '../../../../types.generated';
-import { getTestEntityRegistryV2 } from '../../../../utils/test-utils/TestEntityRegistry';
 import { getRelatedAssetsUrl, getRelatedEntitiesUrl, sortGlossaryTerms } from '../utils';
-
-const testEntityRegistry = getTestEntityRegistryV2();
 
 describe('sortGlossaryTerms', () => {
     it('should correctly sort glossary terms when both nodes are provided', () => {
@@ -22,7 +20,7 @@ describe('sortGlossaryTerms', () => {
                 name: 'test child 1',
             },
         };
-        const result = sortGlossaryTerms(testEntityRegistry, nodeA, nodeB);
+        const result = sortGlossaryTerms(globalEntityRegistryV2, nodeA, nodeB);
         expect(result).toBeGreaterThan(0);
     });
 
@@ -43,7 +41,7 @@ describe('sortGlossaryTerms', () => {
                 name: 'test child 2',
             },
         };
-        const result = sortGlossaryTerms(testEntityRegistry, nodeA, nodeB);
+        const result = sortGlossaryTerms(globalEntityRegistryV2, nodeA, nodeB);
         expect(result).toBeLessThan(0);
     });
 
@@ -56,12 +54,12 @@ describe('sortGlossaryTerms', () => {
                 name: 'test child 1',
             },
         };
-        const result = sortGlossaryTerms(testEntityRegistry, nodeA);
+        const result = sortGlossaryTerms(globalEntityRegistryV2, nodeA);
         expect(result).toBeGreaterThan(0);
     });
 
     it('should handle null nodes by considering them equal in sorting', () => {
-        const result = sortGlossaryTerms(testEntityRegistry);
+        const result = sortGlossaryTerms(globalEntityRegistryV2);
         expect(result).toBe(0);
     });
 });
@@ -69,7 +67,7 @@ describe('sortGlossaryTerms', () => {
 describe('getRelatedEntitiesUrl', () => {
     it('should return Related Entities URL', () => {
         const urn = 'urn123';
-        const url = getRelatedEntitiesUrl(testEntityRegistry, urn);
+        const url = getRelatedEntitiesUrl(globalEntityRegistryV2, urn);
         const expectedURL = `/glossaryTerm/${urn}/${encodeURIComponent('Related Entities')}`;
         expect(url).toEqual(expectedURL);
     });
@@ -78,7 +76,7 @@ describe('getRelatedEntitiesUrl', () => {
 describe('getRelatedAssetsUrl', () => {
     it('should return Related Assets URL', () => {
         const urn = 'urn123';
-        const url = getRelatedAssetsUrl(testEntityRegistry, urn);
+        const url = getRelatedAssetsUrl(globalEntityRegistryV2, urn);
         const expectedURL = `/glossaryTerm/${urn}/${encodeURIComponent('Related Assets')}`;
         expect(url).toEqual(expectedURL);
     });

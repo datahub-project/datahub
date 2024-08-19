@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -271,7 +270,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable List<SortCriterion> sortCriteria,
+      List<SortCriterion> sortCriteria,
       @Nullable String predicateJson)
       throws RemoteInvocationException;
 
@@ -295,7 +294,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nonnull List<SortCriterion> sortCriteria,
+      List<SortCriterion> sortCriteria,
       List<String> facets,
       @Nullable String predicateJson)
       throws RemoteInvocationException;
@@ -522,27 +521,17 @@ public interface EntityClient {
     return ingestProposal(opContext, metadataChangeProposal, false);
   }
 
-  String ingestProposal(
+  /**
+   * Ingest a MetadataChangeProposal event.
+   *
+   * @return the urn string ingested
+   */
+  default String ingestProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal,
       final boolean async)
-      throws RemoteInvocationException;
-
-  @Deprecated
-  default String wrappedIngestProposal(
-      @Nonnull OperationContext opContext, @Nonnull MetadataChangeProposal metadataChangeProposal) {
-    return wrappedIngestProposal(opContext, metadataChangeProposal, false);
-  }
-
-  default String wrappedIngestProposal(
-      @Nonnull OperationContext opContext,
-      @Nonnull MetadataChangeProposal metadataChangeProposal,
-      final boolean async) {
-    try {
-      return ingestProposal(opContext, metadataChangeProposal, async);
-    } catch (RemoteInvocationException e) {
-      throw new RuntimeException(e);
-    }
+      throws RemoteInvocationException {
+    return batchIngestProposals(opContext, List.of(metadataChangeProposal), async).get(0);
   }
 
   @Deprecated
@@ -553,15 +542,20 @@ public interface EntityClient {
     return batchIngestProposals(opContext, metadataChangeProposals, false);
   }
 
-  default List<String> batchIngestProposals(
+  /**
+   * Ingest a list of proposals in a batch.
+   *
+   * @param opContext operation context
+   * @param metadataChangeProposals list of proposals
+   * @param async async or sync ingestion path
+   * @return ingested urns
+   */
+  @Nonnull
+  List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
       @Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
       final boolean async)
-      throws RemoteInvocationException {
-    return metadataChangeProposals.stream()
-        .map(proposal -> wrappedIngestProposal(opContext, proposal, async))
-        .collect(Collectors.toList());
-  }
+      throws RemoteInvocationException;
 
   @Deprecated
   <T extends RecordTemplate> Optional<T> getVersionedAspect(

@@ -129,6 +129,18 @@ task run(type: Exec) {
   commandLine "java", "-jar", "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdate"
 }
 
+task runMetadataTests(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the metadata test process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  commandLine "java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
+          "-Dserver.port=8083",
+          bootJar.getArchiveFile().get(), "-u", "EvaluateTests", "-a", "batchSize=3"
+}
+
 docker {
   name "${docker_registry}/${docker_repo}:v${version}"
   version "v${version}"

@@ -1,3 +1,8 @@
+from typing import List
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.source import partitioned_folder_comparator
 
@@ -91,3 +96,76 @@ def test_path_spec_dir_allowed():
 
     path = "s3://my-bucket/my-folder/year=2022/month=10/day=10/"
     assert path_spec.dir_allowed(path) is False, f"{path} should be denied"
+
+
+def test_container_generation_without_folders():
+    cwu = ContainerWUCreator("s3", None, "PROD")
+    mcps = cwu.create_container_hierarchy(
+        "s3://my-bucket/my-file.json.gz", "urn:li:dataset:123"
+    )
+
+    def container_properties_filter(x: MetadataWorkUnit) -> bool:
+        assert isinstance(x.metadata, MetadataChangeProposalWrapper)
+        return x.metadata.aspectName == "containerProperties"
+
+    container_properties: List = list(filter(container_properties_filter, mcps))
+    assert len(container_properties) == 1
+    assert container_properties[0].metadata.aspect.customProperties == {
+        "bucket_name": "my-bucket",
+        "env": "PROD",
+        "platform": "s3",
+    }
+
+
+def test_container_generation_with_folder():
+    cwu = ContainerWUCreator("s3", None, "PROD")
+    mcps = cwu.create_container_hierarchy(
+        "s3://my-bucket/my-dir/my-file.json.gz", "urn:li:dataset:123"
+    )
+
+    def container_properties_filter(x: MetadataWorkUnit) -> bool:
+        assert isinstance(x.metadata, MetadataChangeProposalWrapper)
+        return x.metadata.aspectName == "containerProperties"
+
+    container_properties: List = list(filter(container_properties_filter, mcps))
+    assert len(container_properties) == 2
+    assert container_properties[0].metadata.aspect.customProperties == {
+        "bucket_name": "my-bucket",
+        "env": "PROD",
+        "platform": "s3",
+    }
+    assert container_properties[1].metadata.aspect.customProperties == {
+        "env": "PROD",
+        "folder_abs_path": "my-bucket/my-dir",
+        "platform": "s3",
+    }
+
+
+def test_container_generation_with_multiple_folders():
+    cwu = ContainerWUCreator("s3", None, "PROD")
+    mcps = cwu.create_container_hierarchy(
+        "s3://my-bucket/my-dir/my-dir2/my-file.json.gz", "urn:li:dataset:123"
+    )
+
+    def container_properties_filter(x: MetadataWorkUnit) -> bool:
+        assert isinstance(x.metadata, MetadataChangeProposalWrapper)
+        return x.metadata.aspectName == "containerProperties"
+
+    container_properties: List = list(filter(container_properties_filter, mcps))
+
+    assert len(container_properties) == 3
+    assert container_properties[0].metadata.aspect.customProperties == {
+        "bucket_name": "my-bucket",
+        "env": "PROD",
+        "platform": "s3",
+    }
+    assert container_properties[1].metadata.aspect.customProperties == {
+        "env": "PROD",
+        "folder_abs_path": "my-bucket/my-dir",
+        "platform": "s3",
+    }
+    assert container_properties[2].metadata.aspect.customProperties == {
+        "env": "PROD",
+        "folder_abs_path": "my-bucket/my-dir/my-dir2",
+        "platform": "s3",
+    }

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { message } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
+import { message, Modal } from 'antd';
 import styled from 'styled-components/macro';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
@@ -12,7 +12,12 @@ import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDescription';
 import { sanitizeRichText } from './editor/utils';
-import { DiscardDescriptionModal } from './DiscardDescriptionModal';
+import InferDocsPanel from '../../../components/inferredDocs/InferDocsPanel';
+import { getAssetDescriptionDetails } from '../utils';
+import {
+    useIsDocumentationInferenceEnabled,
+    useShouldShowInferDocumentationButton,
+} from '../../../components/inferredDocs/utils';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
@@ -31,29 +36,48 @@ const EditorSourceWrapper = styled.div`
     flex: 1;
 `;
 
+const InferDocsPanelWrapper = styled.div`
+    padding: 16px;
+`;
+
 type DescriptionEditorProps = {
+    inferOnMount?: boolean;
     onComplete?: () => void;
 };
 
-export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
+export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEditorProps) => {
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
+
+    const shouldShowInferDocsAction = useShouldShowInferDocumentationButton(entityType);
+
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
+
+    const { displayedDescription, isUsingDocumentationAspect: isUsingDocumentationAspectRaw } =
+        getAssetDescriptionDetails({
+            entityProperties: entityData,
+            enableInferredDescriptions: useIsDocumentationInferenceEnabled(),
+            defaultDescription: '',
+        });
+
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
-    const description = editedDescriptions.hasOwnProperty(mutationUrn)
-        ? editedDescriptions[mutationUrn]
-        : entityData?.editableProperties?.description || entityData?.properties?.description || '';
+    const shouldUseEditedDescription = editedDescriptions.hasOwnProperty(mutationUrn);
+    const description = shouldUseEditedDescription ? editedDescriptions[mutationUrn] : displayedDescription;
+    const isUsingDocumentationAspect = !shouldUseEditedDescription && isUsingDocumentationAspectRaw;
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
     // Key to force re-render of the editor when the description is updated from server data. Only needed for full page refreshes mid edit
     const [editorKey, setEditorKey] = useState(0);
-    const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(mutationUrn));
-    const [confirmCloseModalVisible, setConfirmCloseModalVisible] = useState(false);
+    const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(
+        editedDescriptions.hasOwnProperty(mutationUrn) || isUsingDocumentationAspect,
+    );
+    const hasUnsavedChangesRef = useRef(isDescriptionUpdated);
+    hasUnsavedChangesRef.current = isDescriptionUpdated;
 
     /**
      * Auto-Save the description edits to local storage every 5 seconds.
@@ -75,10 +99,15 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
      * If the documentation editor is refreshed mid edit, then this component will load without a description. if that description
      * comes in on the next frame, we need to update updatedDescription
      */
+    const hasInitializedDescriptionRef = useRef(!!updatedDescription);
     useEffect(() => {
-        if (description && !updatedDescription) {
+        if (hasInitializedDescriptionRef.current) return;
+        if (updatedDescription) {
+            hasInitializedDescriptionRef.current = true;
+        } else if (description) {
             setUpdatedDescription(description);
             setEditorKey((prevKey) => prevKey + 1);
+            hasInitializedDescriptionRef.current = true;
         }
     }, [description, updatedDescription]);
 
@@ -159,11 +188,44 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     }
 
     function handleCancel() {
-        const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
-        delete editedDescriptionsLocal[mutationUrn];
-        localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
-        if (onComplete) onComplete();
+        const onCancel = () => {
+            delete editedDescriptions[mutationUrn];
+            if (Object.keys(editedDescriptions).length === 0) {
+                localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
+            } else {
+                localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptions || description));
+            }
+            if (onComplete) onComplete();
+        };
+        if (!hasUnsavedChangesRef.current) {
+            onCancel();
+        } else {
+            Modal.confirm({
+                title: `Discard unsaved changes?`,
+                content: `Your changes will be lost.`,
+                onOk: onCancel,
+                onCancel() {},
+                okText: 'Yes',
+                maskClosable: true,
+                closable: true,
+            });
+        }
     }
+
+    // Prevent closing tab by mistake
+    useEffect(() => {
+        function onBeforeUnload(e) {
+            if (hasUnsavedChangesRef.current) {
+                // This automatically shows the unsaved changes alert.
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        }
+
+        window.addEventListener('beforeunload', onBeforeUnload);
+
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, []);
 
     // Function to handle all changes in Editor
     const handleEditorChange = (editedDescription: string) => {
@@ -175,27 +237,29 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         }
     };
 
-    const handleCloseWithoutSaving = () => {
-        delete editedDescriptions[mutationUrn];
-        if (Object.keys(editedDescriptions).length === 0) {
-            localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
-        } else {
-            localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptions || description));
-        }
-        if (onComplete) onComplete();
-    };
-
     const shouldShowProposeButton = getShouldShowProposeButton(entityType);
 
     return !loading ? (
         <>
             <EditorSourceWrapper>
-                <EditorContainer key={editorKey}>
+                <EditorContainer>
                     <Editor
+                        key={editorKey}
                         content={updatedDescription}
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
                     />
+                    {shouldShowInferDocsAction && (
+                        <InferDocsPanelWrapper>
+                            <InferDocsPanel
+                                inferOnMount={inferOnMount}
+                                onInsertDescription={(desc) => {
+                                    handleEditorChange(updatedDescription + desc);
+                                    setEditorKey((v) => v + 1);
+                                }}
+                            />
+                        </InferDocsPanelWrapper>
+                    )}
                 </EditorContainer>
                 <SourceDescription />
             </EditorSourceWrapper>
@@ -206,13 +270,6 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 disableSave={!isDescriptionUpdated}
                 showPropose={shouldShowProposeButton}
             />
-            {confirmCloseModalVisible && (
-                <DiscardDescriptionModal
-                    cancelModalVisible={confirmCloseModalVisible}
-                    onDiscard={handleCloseWithoutSaving}
-                    onCancel={() => setConfirmCloseModalVisible(false)}
-                />
-            )}
         </>
     ) : null;
 };

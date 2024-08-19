@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.CreatePromptInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FormActorAssignmentInput;
 import com.linkedin.datahub.graphql.generated.FormFilter;
+import com.linkedin.datahub.graphql.generated.OwnershipParamsInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParamsInput;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -27,7 +28,11 @@ import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
 import com.linkedin.form.FormPromptType;
+import com.linkedin.form.FormState;
+import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
+import com.linkedin.form.OwnershipParams;
+import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
@@ -40,6 +45,7 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.util.MetadataTestServiceUtils;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.test.MetadataTestClient;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -253,7 +259,8 @@ public class FormUtils {
   }
 
   @Nonnull
-  public static FormInfo mapFormInfo(@Nonnull final CreateFormInput input) {
+  public static FormInfo mapFormInfo(
+      @Nonnull OperationContext context, @Nonnull final CreateFormInput input) {
     Objects.requireNonNull(input, "input must not be null");
 
     final FormInfo result = new FormInfo();
@@ -270,8 +277,23 @@ public class FormUtils {
     if (input.getActors() != null) {
       result.setActors(mapFormActorAssignment(input.getActors()));
     }
+    // always set status when creating a form
+    result.setStatus(createFormStatus(context, input));
 
     return result;
+  }
+
+  private static FormStatus createFormStatus(
+      @Nonnull OperationContext context, @Nonnull final CreateFormInput input) {
+    FormStatus formStatus = new FormStatus();
+    if (input.getState() != null) {
+      formStatus.setState(FormState.valueOf(input.getState().toString()));
+    } else {
+      // default set state as draft when creating a form
+      formStatus.setState(FormState.DRAFT);
+    }
+    formStatus.setLastModified(context.getAuditStamp());
+    return formStatus;
   }
 
   @Nonnull
@@ -305,6 +327,9 @@ public class FormUtils {
       result.setStructuredPropertyParams(
           mapStructuredPropertyParams(promptInput.getStructuredPropertyParams()));
     }
+    if (promptInput.getOwnershipParams() != null) {
+      result.setOwnershipParams(mapOwnershipParams(promptInput.getOwnershipParams()));
+    }
     if (promptInput.getRequired() != null) {
       result.setRequired(promptInput.getRequired());
     }
@@ -319,6 +344,16 @@ public class FormUtils {
 
     final StructuredPropertyParams result = new StructuredPropertyParams();
     result.setUrn(UrnUtils.getUrn(paramsInput.getUrn()));
+    return result;
+  }
+
+  @Nonnull
+  public static OwnershipParams mapOwnershipParams(
+      @Nonnull final OwnershipParamsInput paramsInput) {
+    Objects.requireNonNull(paramsInput, "paramsInput must not be null");
+
+    final OwnershipParams result = new OwnershipParams();
+    result.setCardinality(PromptCardinality.valueOf(paramsInput.getCardinality().toString()));
     return result;
   }
 

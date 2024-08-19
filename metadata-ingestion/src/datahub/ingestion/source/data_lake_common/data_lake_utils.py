@@ -160,23 +160,24 @@ class ContainerWUCreator:
             )
             return
 
-        for folder in parent_folder_path.split("/"):
-            abs_path = folder
-            if parent_key:
-                prefix: str = ""
-                if isinstance(parent_key, BucketKey):
-                    prefix = parent_key.bucket_name
-                elif isinstance(parent_key, FolderKey):
-                    prefix = parent_key.folder_abs_path
-                abs_path = prefix + "/" + folder
-            folder_key = self.gen_folder_key(abs_path)
-            yield from self.create_emit_containers(
-                container_key=folder_key,
-                name=folder,
-                sub_types=[DatasetContainerSubTypes.FOLDER],
-                parent_container_key=parent_key,
-            )
-            parent_key = folder_key
+        if parent_folder_path:
+            for folder in parent_folder_path.split("/"):
+                abs_path = folder
+                if parent_key:
+                    prefix: str = ""
+                    if isinstance(parent_key, BucketKey):
+                        prefix = parent_key.bucket_name
+                    elif isinstance(parent_key, FolderKey):
+                        prefix = parent_key.folder_abs_path
+                    abs_path = prefix + "/" + folder
+                folder_key = self.gen_folder_key(abs_path)
+                yield from self.create_emit_containers(
+                    container_key=folder_key,
+                    name=folder,
+                    sub_types=[DatasetContainerSubTypes.FOLDER],
+                    parent_container_key=parent_key,
+                )
+                parent_key = folder_key
 
         assert parent_key is not None
         yield from add_dataset_to_container(parent_key, dataset_urn)

@@ -45,12 +45,14 @@ export const RequestItem = ({ request, refetch }: Props) => {
         });
     };
 
+    const displayedNumEntities = numEntitiesToComplete >= 10000 ? '10,000+' : numEntitiesToComplete;
+
     return (
         <>
             <List.Item key={form.urn}>
                 <Typography.Text>
                     <strong>{message}</strong> <br />
-                    Please complete {name} for {numEntitiesToComplete} {pluralize(numEntitiesToComplete, 'asset')}
+                    Please complete {name} for {displayedNumEntities} {pluralize(numEntitiesToComplete, 'asset')}
                 </Typography.Text>
                 <Button onClick={openModal}>Open in Documentation Center</Button>
             </List.Item>

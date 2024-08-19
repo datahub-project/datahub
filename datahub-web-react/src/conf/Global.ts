@@ -62,11 +62,6 @@ export const CLIENT_AUTH_COOKIE = 'actor';
  */
 export const BROWSER_ID_COOKIE = 'bid';
 
-/**
- * String for No Domain in the domain selector
- */
-export const NO_DOMAIN = '-- No Domain --';
-
 /** New Routes Map for redirection */
 export const NEW_ROUTE_MAP = {
     '/Validation/Assertions': '/Quality/List',
@@ -74,3 +69,8 @@ export const NEW_ROUTE_MAP = {
     '/Validation/Data%20Contract': '/Quality/Data%20Contract',
     '/Validation': '/Quality',
 };
+
+/**
+ * String for No Domain in the domain selector
+ */
+export const NO_DOMAIN = '-- No Domain --';

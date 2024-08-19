@@ -70,7 +70,7 @@ export function getDataForEntityType<T>({
             (sibling) => getDataForEntityType({ data: sibling.entity, getOverrideProperties: () => ({}) }),
         );
 
-        const allPlatforms = anyEntityData.siblings.isPrimary
+        const allPlatforms = anyEntityData.siblings?.isPrimary
             ? [anyEntityData.platform, genericSiblingProperties?.[0]?.platform]
             : [genericSiblingProperties?.[0]?.platform, anyEntityData.platform];
 

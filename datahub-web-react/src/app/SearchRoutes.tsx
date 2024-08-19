@@ -1,50 +1,49 @@
 import React from 'react';
-import { Switch, Route, Redirect } from 'react-router-dom';
-import { NoPageFound } from './shared/NoPageFound';
+import { Redirect, Route, Switch } from 'react-router-dom';
 import { PageRoutes } from '../conf/Global';
-import { SearchablePage } from './search/SearchablePage';
-import { SearchablePage as SearchablePageV2 } from './searchV2/SearchablePage';
-import { useEntityRegistry } from './useEntityRegistry';
+import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
+import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
+import { Automations } from './automations/Automations';
+import { BrowseResultsPage } from './browse/BrowseResultsPage';
+import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
+import DomainRoutes from './domain/DomainRoutes';
+import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { EntityPage } from './entity/EntityPage';
 import { EntityPage as EntityPageV2 } from './entityV2/EntityPage';
-import { BrowseResultsPage } from './browse/BrowseResultsPage';
-import { SearchPage } from './search/SearchPage';
-import { SearchPage as SearchPageV2 } from './searchV2/SearchPage';
-import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
-import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import GlossaryRoutes from './glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from './glossaryV2/GlossaryRoutes';
+import { ManageIngestionPage } from './ingest/ManageIngestionPage';
+import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
+import { SearchPage } from './search/SearchPage';
+import { SearchablePage } from './search/SearchablePage';
+import { SearchPage as SearchPageV2 } from './searchV2/SearchPage';
+import { SearchablePage as SearchablePageV2 } from './searchV2/SearchablePage';
 import { SettingsPage } from './settings/SettingsPage';
 import { SettingsPage as SettingsPageV2 } from './settingsV2/SettingsPage';
-import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
-import { Automations } from './automations/Automations';
+import { NoPageFound } from './shared/NoPageFound';
 import { ManageTestsPage } from './tests/ManageTestsPage';
-import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
-import DomainRoutes from './domain/DomainRoutes';
 import {
     useBusinessAttributesFlag,
     useIsAppConfigContextLoaded,
-    useIsNestedDomainsEnabled,
     useIsDocumentationFormsEnabled,
-    useAppConfig,
+    useIsNestedDomainsEnabled,
 } from './useAppConfig';
-import { ManageDomainsPage } from './domain/ManageDomainsPage';
-import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
+import { useEntityRegistry } from './useEntityRegistry';
 
-import { useIsThemeV2 } from './useIsThemeV2';
+import { useUserContext } from './context/useUserContext';
 import DomainRoutesV2 from './domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
-import { TaskCenter } from './taskCenter/TaskCenter';
 import { GovernDashboard } from './govern/Dashboard/Dashboard';
-import { useUserContext } from './context/useUserContext';
-import NewForm from './govern/Dashboard/Forms/NewForm';
+import CreateForm from './govern/Dashboard/Forms/CreateForm';
+import { LoadingPermissions } from './govern/Dashboard/charts/AuxViews';
+import { TaskCenter } from './taskCenter/TaskCenter';
+import { useIsThemeV2 } from './useIsThemeV2';
 
 /**
  * Container for all searchable page routes
  */
 export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const appConfig = useAppConfig();
     const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const entities = isNestedDomainsEnabled
@@ -57,8 +56,6 @@ export const SearchRoutes = (): JSX.Element => {
 
     const businessAttributesFlag = useBusinessAttributesFlag();
     const appConfigContextLoaded = useIsAppConfigContextLoaded();
-
-    const { config } = appConfig;
 
     return (
         <FinalSearchablePage>
@@ -108,9 +105,7 @@ export const SearchRoutes = (): JSX.Element => {
                     path={PageRoutes.ACTION_REQUESTS}
                     render={() => (isDocumentationFormsEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
                 />
-                {config.classificationConfig.enabled && (
-                    <Route path={PageRoutes.AUTOMATIONS} render={() => <Automations />} />
-                )}
+                <Route path={PageRoutes.AUTOMATIONS} render={() => <Automations />} />
                 {/* TODO: Remove this route - currently in place for a grafeful redirect to new Automations center */}
                 <Route path={PageRoutes.TESTS} render={() => <ManageTestsPage />} />
                 <Route path={PageRoutes.DATASET_HEALTH_DASHBOARD} render={() => <DatasetHealthPage />} />
@@ -130,13 +125,20 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
+                {!me.loaded && (
+                    <>
+                        <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <LoadingPermissions />} />
+                        <Route path={PageRoutes.NEW_FORM} render={() => <LoadingPermissions />} />
+                        <Route path={PageRoutes.EDIT_FORM} render={() => <LoadingPermissions />} />
+                    </>
+                )}
                 {includeGovernDashboard && (
                     <>
                         <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
 
-                        <Route path={PageRoutes.NEW_FORM} render={() => <NewForm mode="create" />} />
+                        <Route path={PageRoutes.NEW_FORM} render={() => <CreateForm mode="create" />} />
 
-                        <Route path={PageRoutes.EDIT_FORM} render={() => <NewForm mode="edit" />} />
+                        <Route path={PageRoutes.EDIT_FORM} render={() => <CreateForm mode="edit" />} />
                     </>
                 )}
                 <Route component={NoPageFound} />

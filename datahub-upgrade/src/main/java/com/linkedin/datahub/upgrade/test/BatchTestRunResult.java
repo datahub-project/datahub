@@ -1,83 +1,65 @@
 package com.linkedin.datahub.upgrade.test;
 
 import com.linkedin.common.urn.Urn;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nonnull;
+import lombok.Data;
+import lombok.Getter;
 
 /**
  * Stores the results of running a batch Metadata Test by Metadata Urn. Used for reporting purposes.
  */
+@Data
 class BatchTestResult {
-
-  private final Urn urn;
-  private int passCount;
-  private int failCount;
+  @Getter @Nonnull private final Urn urn;
+  private final AtomicLong passCount;
+  private final AtomicLong failCount;
 
   public BatchTestResult(@Nonnull final Urn urn) {
     this.urn = Objects.requireNonNull(urn);
-    this.passCount = 0;
-    this.failCount = 0;
+    this.passCount = new AtomicLong(0);
+    this.failCount = new AtomicLong(0);
   }
 
-  public synchronized void incrementPass() {
-    passCount++;
+  public void incrementPass(long count) {
+    passCount.addAndGet(count);
   }
 
-  public synchronized void incrementFail() {
-    failCount++;
+  public void incrementFail(long count) {
+    failCount.addAndGet(count);
   }
 
-  public Urn getUrn() {
-    return urn;
+  public long getPassCount() {
+    return passCount.get();
   }
 
-  public int getPassCount() {
-    return passCount;
-  }
-
-  public int getFailCount() {
-    return failCount;
+  public long getFailCount() {
+    return failCount.get();
   }
 }
 
 /** Thread-safe object for storing the results of running a batch Metadata Test. */
+@Data
 class BatchTestResultAggregator {
-  private Map<Urn, BatchTestResult> tests;
+  @Nonnull private final ConcurrentHashMap<Urn, BatchTestResult> tests;
 
   public BatchTestResultAggregator() {
-    this.tests = new HashMap<>();
+    this.tests = new ConcurrentHashMap<>();
   }
 
-  public synchronized void addTestResultSummary(@Nonnull final Urn urn) {
-    if (!tests.containsKey(urn)) {
-      tests.put(urn, new BatchTestResult(urn));
-    }
+  public void incrementPass(@Nonnull final Urn urn, long count) {
+    tests.computeIfAbsent(urn, BatchTestResult::new).incrementPass(count);
   }
 
-  public void incrementPass(@Nonnull final Urn urn) {
-    synchronized (this) {
-      if (!tests.containsKey(urn)) {
-        addTestResultSummary(urn);
-      }
-    }
-    tests.get(urn).incrementPass();
-  }
-
-  public void incrementFail(@Nonnull final Urn urn) {
-    synchronized (this) {
-      if (!tests.containsKey(urn)) {
-        addTestResultSummary(urn);
-      }
-    }
-    tests.get(urn).incrementFail();
+  public void incrementFail(@Nonnull final Urn urn, long count) {
+    tests.computeIfAbsent(urn, BatchTestResult::new).incrementFail(count);
   }
 
   @Nonnull
   public Map<Urn, BatchTestResult> getTestResultSummaries() {
-    synchronized (this) {
-      return new HashMap<>(tests);
-    }
+    return tests;
   }
 }

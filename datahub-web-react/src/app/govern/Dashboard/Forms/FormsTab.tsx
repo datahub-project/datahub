@@ -1,15 +1,15 @@
-import React, { useEffect } from 'react';
-import { Skeleton } from 'antd';
-import styled from 'styled-components';
-import { useHistory } from 'react-router';
 import { NetworkStatus } from '@apollo/client';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { EntityType } from '../../../../types.generated';
-import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
-import { HorizontalListSkeletons } from '../../../homeV2/content/HorizontalListSkeletons';
-import FormCard from './FormCard';
-import { StyledButton } from '../../../shared/share/v2/styledComponents';
+import { Skeleton } from 'antd';
+import React, { useEffect } from 'react';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
 import { PageRoutes } from '../../../../conf/Global';
+import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
+import { EntityType } from '../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
+import { HorizontalListSkeletons } from '../../../homeV2/content/HorizontalListSkeletons';
+import { StyledButton } from '../../../shared/share/v2/styledComponents';
+import FormCard from './FormCard';
 
 const Container = styled.div`
     display: flex;

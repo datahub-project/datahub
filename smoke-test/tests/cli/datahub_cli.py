@@ -1,7 +1,11 @@
 import json
 
 import pytest
-from datahub.cli.cli_utils import get_aspects_for_entity, get_session_and_host
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    EditableDatasetPropertiesClass,
+)
 
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
@@ -22,23 +26,19 @@ def test_setup():
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
 
-    session, gms_host = get_session_and_host()
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
 
-    assert "browsePathsV2" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
-    )
-    assert "editableDatasetProperties" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
-    )
+    assert client.get_aspect(dataset_urn, BrowsePathsV2Class) is None
+    assert client.get_aspect(dataset_urn, EditableDatasetPropertiesClass) is None
 
     ingested_dataset_run_id = ingest_file_via_rest(
         "tests/cli/cli_test_data.json"
     ).config.run_id
     print("Setup ingestion id: " + ingested_dataset_run_id)
 
-    assert "browsePathsV2" in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
-    )
+    assert client.get_aspect(dataset_urn, BrowsePathsV2Class) is not None
 
     yield
 
@@ -58,12 +58,8 @@ def test_setup():
         ),
     )
 
-    assert "browsePathsV2" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
-    )
-    assert "editableDatasetProperties" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
-    )
+    assert client.get_aspect(dataset_urn, BrowsePathsV2Class) is None
+    assert client.get_aspect(dataset_urn, EditableDatasetPropertiesClass) is None
 
 
 @pytest.mark.dependency()
@@ -75,13 +71,14 @@ def test_rollback_editable():
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
 
-    session, gms_host = get_session_and_host()
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
 
     print("Ingested dataset id:", ingested_dataset_run_id)
     # Assert that second data ingestion worked
-    assert "browsePathsV2" in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
-    )
+
+    assert client.get_aspect(dataset_urn, BrowsePathsV2Class) is not None
 
     # Make editable change
     ingested_editable_run_id = ingest_file_via_rest(
@@ -89,9 +86,8 @@ def test_rollback_editable():
     ).config.run_id
     print("ingested editable id:", ingested_editable_run_id)
     # Assert that second data ingestion worked
-    assert "editableDatasetProperties" in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
-    )
+
+    assert client.get_aspect(dataset_urn, EditableDatasetPropertiesClass) is not None
 
     # rollback ingestion 1
     rollback_url = f"{gms_host}/runs?action=rollback"
@@ -107,10 +103,7 @@ def test_rollback_editable():
     wait_for_writes_to_sync()
 
     # EditableDatasetProperties should still be part of the entity that was soft deleted.
-    assert "editableDatasetProperties" in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False
-    )
+    assert client.get_aspect(dataset_urn, EditableDatasetPropertiesClass) is not None
+
     # But first ingestion aspects should not be present
-    assert "browsePathsV2" not in get_aspects_for_entity(
-        entity_urn=dataset_urn, aspects=["browsePathsV2"], typed=False
-    )
+    assert client.get_aspect(dataset_urn, BrowsePathsV2Class) is None

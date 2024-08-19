@@ -13,6 +13,7 @@ import { useEntityContext, useMutationUrn } from '../../EntityContext';
 import analytics, { EventType, DocRequestView } from '../../../../analytics';
 import useColumnSelector from './useColumnSelector';
 import OwnershipPrompt from './OwnershipPrompt/OwnershipPrompt';
+import DocumentationPrompt from './DocumentationPrompt/DocumentationPrompt';
 
 export const PromptWrapper = styled.div`
     background-color: white;
@@ -112,6 +113,24 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
                     optimisticCompletedTimestamp={optimisticCompletedTimestamp}
+                />
+            )}
+            {prompt.type === FormPromptType.Documentation && (
+                <DocumentationPrompt
+                    promptNumber={promptNumber}
+                    prompt={prompt}
+                    submitResponse={handleSubmitResponse}
+                    optimisticCompletedTimestamp={optimisticCompletedTimestamp}
+                />
+            )}
+            {prompt.type === FormPromptType.FieldsDocumentation && (
+                <DocumentationPrompt
+                    promptNumber={promptNumber}
+                    prompt={prompt}
+                    submitResponse={handleSubmitResponse}
+                    field={field}
+                    optimisticCompletedTimestamp={optimisticCompletedTimestamp}
+                    columnSelectorProps={columnSelectorProps}
                 />
             )}
         </PromptWrapper>

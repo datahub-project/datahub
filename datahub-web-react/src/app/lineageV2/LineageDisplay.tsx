@@ -38,6 +38,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
         selectedColumn,
         hoveredColumn,
         fineGrainedLineage.indirect,
+        shownUrns,
     );
 
     useEffect(() => {

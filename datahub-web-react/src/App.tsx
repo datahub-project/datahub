@@ -39,6 +39,7 @@ const errorLink = onError((error) => {
     //     // Fallback in case the calling component does not handle.
     //     message.error(`${firstError.message} (code ${errorCode})`, 3); // TODO: Decide if we want this back.
     // }
+    // TODO: Decide if we want this back.
 });
 
 const client = new ApolloClient({

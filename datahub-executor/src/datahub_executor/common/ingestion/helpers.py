@@ -215,7 +215,7 @@ def emit_execution_request_input(
     try:
         STATS_MCP_EMIT_EVENTS.inc()
         graph = create_datahub_graph()
-        graph.emit_mcp(mcpw)
+        graph.emit_mcp(mcpw, async_flag=False)
     except Exception as e:
         STATS_MCP_EMIT_ERRORS.labels("GmsError").inc()
         logger.exception(

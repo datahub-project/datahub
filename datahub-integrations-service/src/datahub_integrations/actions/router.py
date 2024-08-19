@@ -13,6 +13,12 @@ import httpx
 import reactpy
 import starlette
 import starlette.background
+from datahub.secret.datahub_secret_store import (
+    DataHubSecretStore,
+    DataHubSecretStoreConfig,
+)
+from datahub.secret.secret_common import resolve_recipe
+from datahub.secret.secret_store import SecretStore
 from fastapi import HTTPException, status
 from loguru import logger
 from reactpy import html
@@ -25,6 +31,8 @@ from datahub_integrations.actions.actions_manager import (
 from datahub_integrations.actions.reporter import ActionStatsReporter
 from datahub_integrations.actions.stats_util import Stage
 from datahub_integrations.app import DATAHUB_SERVER, graph
+
+secret_stores: list[SecretStore] = []
 
 ACTIONS_ROUTE = "/actions"
 actions_router = fastapi.APIRouter()
@@ -146,7 +154,18 @@ async def start_or_restart_action(
 
 def get_config_from_details(action_urn: str, action_details: dict) -> dict:
     # TODO Respect version / other execution parameters from action_details.
-    action_details_recipe = json.loads(action_details["config"]["recipe"])
+    if len(secret_stores) == 0:
+        secret_stores.append(
+            DataHubSecretStore(
+                DataHubSecretStoreConfig(
+                    graph_client=graph,
+                )
+            )
+        )
+
+    action_details_recipe = resolve_recipe(
+        action_details["config"]["recipe"], secret_stores
+    )
 
     action_name = action_urn
     consumer_group_prefix = os.getenv("KAFKA_PROPERTIES_GROUP_ID")

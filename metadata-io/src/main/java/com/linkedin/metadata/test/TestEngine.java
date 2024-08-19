@@ -42,6 +42,7 @@ import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.BatchTestRunEvent;
 import com.linkedin.test.BatchTestRunResult;
 import com.linkedin.test.BatchTestRunStatus;
@@ -54,6 +55,7 @@ import com.linkedin.test.TestResults;
 import com.linkedin.test.TestSourceType;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,6 +65,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -385,8 +388,8 @@ public class TestEngine {
 
     // Step 3 (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      batchIngestResults(results, mode, partial, batchedTestRunResults, null, true);
-      batchApplyActions(opContext, results);
+      batchIngestResults(results, mode, partial, null, true);
+      batchApplyActions(opContext, results, null);
     }
 
     return results;
@@ -651,7 +654,8 @@ public class TestEngine {
   }
 
   /**
-   * Overwrites test results into GMS for a given urn.
+   * Overwrites test results into GMS for a given urn. This function is designed to operate on a
+   * subset of target entities for the test.
    *
    * @param testResults Test result map
    * @param mode Evaluation mode
@@ -660,7 +664,6 @@ public class TestEngine {
       @Nonnull Map<Urn, TestResults> testResults,
       EvaluationMode mode,
       boolean partial,
-      @Nonnull Map<Urn, BatchTestRunResult> batchTestRunResults,
       @Nullable Map<Urn, TestResults> previousResults,
       boolean shouldWriteAssetResults) {
     Stream<MetadataChangeProposal> mcps = Stream.empty();
@@ -747,27 +750,8 @@ public class TestEngine {
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
 
-    Stream<MetadataChangeProposal> reportingMCPs =
-        batchTestRunResults.entrySet().stream()
-            .map(
-                entry -> {
-                  final MetadataChangeProposal proposal = new MetadataChangeProposal();
-                  proposal.setEntityUrn(entry.getKey());
-                  proposal.setEntityType(entry.getKey().getEntityType());
-                  proposal.setAspectName("batchTestRunEvent");
-                  proposal.setAspect(
-                      GenericRecordUtils.serializeAspect(
-                          new BatchTestRunEvent()
-                              .setTimestampMillis(System.currentTimeMillis())
-                              .setStatus(BatchTestRunStatus.COMPLETE)
-                              .setResult(entry.getValue())));
-                  proposal.setChangeType(ChangeType.UPSERT);
-                  log.info("Reporting Batch Test Result: {}", entry.getValue());
-                  return proposal;
-                });
-
     List<MetadataChangeProposal> allMCPs =
-        Stream.concat(Stream.concat(mcps, removalMcps), reportingMCPs).collect(Collectors.toList());
+        Stream.concat(mcps, removalMcps).collect(Collectors.toList());
     log.info("Total number of mcps = {}", allMCPs.size());
     AspectsBatchImpl batch =
         AspectsBatchImpl.builder()
@@ -785,37 +769,49 @@ public class TestEngine {
    */
   private void batchApplyActions(
       @Nonnull OperationContext opContext,
-      @Nonnull final Map<Urn, TestResults> entityUrnToResults) {
+      @Nonnull final Map<Urn, TestResults> entityUrnToResults,
+      @Nullable final TestDefinition testDefinition) {
     // First, aggregate by Action -> URNs, so we can batch the action execution
     // itself.
     Map<TestAction, Set<Urn>> actionToEntityUrns = new HashMap<>();
     for (Map.Entry<Urn, TestResults> entry : entityUrnToResults.entrySet()) {
       addActionsToEntityMap(
-          entry.getKey(), entry.getValue().getPassing(), actionToEntityUrns); // Passing Actions
+          entry.getKey(),
+          entry.getValue().getPassing(),
+          actionToEntityUrns,
+          testDefinition); // Passing Actions
       addActionsToEntityMap(
-          entry.getKey(), entry.getValue().getFailing(), actionToEntityUrns); // Failing Actions
+          entry.getKey(),
+          entry.getValue().getFailing(),
+          actionToEntityUrns,
+          testDefinition); // Failing Actions
     }
 
     // Apply the action for each batch.
-    for (Map.Entry<TestAction, Set<Urn>> entry : actionToEntityUrns.entrySet()) {
-      _actionApplier.apply(
-          opContext,
-          entry.getKey().getType(),
-          new ArrayList<>(entry.getValue()),
-          new ActionParameters(entry.getKey().getParams()));
-    }
+    CompletableFuture.runAsync(
+        () -> {
+          for (Map.Entry<TestAction, Set<Urn>> entry : actionToEntityUrns.entrySet()) {
+            _actionApplier.apply(
+                opContext,
+                entry.getKey().getType(),
+                new ArrayList<>(entry.getValue()),
+                new ActionParameters(entry.getKey().getParams()));
+          }
+        });
   }
 
   /** Batch applies actions for an entity. */
   private void addActionsToEntityMap(
       @Nonnull final Urn entityUrn,
       @Nonnull final List<TestResult> testResults,
-      @Nonnull final Map<TestAction, Set<Urn>> actionToEntityUrns) {
+      @Nonnull final Map<TestAction, Set<Urn>> actionToEntityUrns,
+      @Nullable final TestDefinition testDefinition) {
 
     cacheReadLock.lock();
     try {
       for (TestResult result : testResults) {
-        TestDefinition definition = _testCache.get(result.getTest());
+        TestDefinition definition =
+            testDefinition != null ? testDefinition : _testCache.get(result.getTest());
         if (definition == null) {
           log.warn("Test {} does not exist: Skipping", result.getTest());
           continue;
@@ -1103,14 +1099,50 @@ public class TestEngine {
           mode,
           results.keySet().size(),
           testUrn);
-      batchIngestResults(
-          results, mode, true, batchTestRunResults, oldResults, !shouldSkipAssetResults);
+
+      // Writes entity results
+      batchIngestResults(results, mode, true, oldResults, !shouldSkipAssetResults);
+
+      // Writes test summary results
+      List<MetadataChangeProposal> reportingMCPs =
+          batchTestRunResults.entrySet().stream()
+              .map(
+                  entry -> {
+                    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+                    proposal.setEntityUrn(entry.getKey());
+                    proposal.setEntityType(entry.getKey().getEntityType());
+                    proposal.setAspectName(BATCH_TEST_RUN_EVENT_ASPECT_NAME);
+                    proposal.setAspect(
+                        GenericRecordUtils.serializeAspect(
+                            new BatchTestRunEvent()
+                                .setTimestampMillis(System.currentTimeMillis())
+                                .setStatus(BatchTestRunStatus.COMPLETE)
+                                .setResult(entry.getValue())));
+                    proposal.setChangeType(ChangeType.UPSERT);
+                    proposal.setSystemMetadata(
+                        new SystemMetadata().setRunId(String.format("single-%s", Instant.now())));
+                    log.info("Reporting Batch Test Result: {}", entry.getValue());
+                    return proposal;
+                  })
+              .collect(Collectors.toList());
+      AspectsBatchImpl batch =
+          AspectsBatchImpl.builder()
+              .mcps(
+                  reportingMCPs,
+                  new AuditStamp()
+                      .setTime(System.currentTimeMillis())
+                      .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)),
+                  systemOpContext.getRetrieverContext().get())
+              .build();
+
+      _entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
+
       log.info(
           "Mode {}: Applying {} results to DataHub for test {}",
           mode,
           results.keySet().size(),
           testUrn);
-      batchApplyActions(opContext, results);
+      batchApplyActions(opContext, results, testDefinition);
       log.info("Mode {}: Test {} evaluation done", mode, testUrn);
     }
     log.debug("Test {} has been evaluated. Results keys = {}", testUrn, results.keySet().size());
@@ -1349,7 +1381,7 @@ public class TestEngine {
         testDefinition =
             _testDefinitionParser.deserialize(
                 test.getUrn(), test.getTestInfo().getDefinition().getJson());
-      } catch (TestDefinitionParsingException e) {
+      } catch (TestDefinitionParsingException | IllegalArgumentException e) {
         log.error(
             "Issue while deserializing test definition {}",
             test.getTestInfo().getDefinition().getJson(),

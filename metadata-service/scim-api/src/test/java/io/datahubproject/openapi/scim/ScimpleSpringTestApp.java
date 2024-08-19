@@ -150,7 +150,8 @@ public class ScimpleSpringTestApp {
             mock(TimeseriesAspectService.class),
             mock(SystemMetadataService.class),
             mock(SearchDocumentTransformer.class),
-            mock(EntityIndexBuilders.class));
+            mock(EntityIndexBuilders.class),
+            systemOperationContext.getSearchContext().getIndexConvention().getIdHashAlgo());
 
     EventProducer _mockProducer = mock(EventProducer.class);
     when(_mockProducer.produceMetadataChangeLog(any(), any(), any()))

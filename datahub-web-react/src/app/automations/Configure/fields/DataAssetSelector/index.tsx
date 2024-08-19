@@ -8,12 +8,12 @@ import React from 'react';
 
 import { Select } from 'antd';
 
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { EntityType } from '../../../../../types.generated';
-import { EntityCapabilityType } from '../../../../entityV2/Entity';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import type { EntityType } from '@src/types.generated';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
 
+import { SecondaryButton } from '@app/automations/sharedComponents';
 import { InputWithButton } from '../../components';
-import { SecondaryButton } from '../../../sharedComponents';
 
 interface Props {
     dataAssetSelected: any;

@@ -28,7 +28,7 @@ To get started with DataHub, you can use a simple CLI command. Alternatively, yo
 
 - [Quickstart](quickstart.md)
 - [Self-hosted DataHub](deploy/kubernetes.md)
-- [Managed DataHub](managed-datahub/managed-datahub-overview.md)
+- [DataHub Cloud](managed-datahub/managed-datahub-overview.md)
 
 ### Ingestion
 

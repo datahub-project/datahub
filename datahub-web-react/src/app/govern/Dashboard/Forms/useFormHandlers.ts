@@ -8,11 +8,20 @@ export const useFormHandlers = () => {
     // Handler for input changes
     const handleInputChange = (event) => {
         const { id, value } = event.target;
+
         setFormValues((prev) => ({
             ...prev,
             [id]: value,
         }));
     };
 
-    return { handleInputChange };
+    // Handler for select changes
+    const handleSelectChange = (fieldName, value) => {
+        setFormValues((prev) => ({
+            ...prev,
+            [fieldName]: value,
+        }));
+    };
+
+    return { handleInputChange, handleSelectChange };
 };

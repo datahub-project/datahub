@@ -42,7 +42,7 @@ public class CreateFormResolver implements DataFetcher<CompletableFuture<Form>> 
 
     final CreateFormInput input =
         bindArgument(environment.getArgument("input"), CreateFormInput.class);
-    final FormInfo formInfo = FormUtils.mapFormInfo(input);
+    final FormInfo formInfo = FormUtils.mapFormInfo(context.getOperationContext(), input);
 
     return CompletableFuture.supplyAsync(
         () -> {

@@ -12,4 +12,5 @@ public class TestsConfiguration {
   private int cacheRefreshIntervalSecs;
   private TestsBootstrapConfiguration bootstrap;
   private ElasticSearchTestExecutorConfiguration elasticSearchExecutor;
+  private ForwardingActionConfiguration forwardingAction;
 }

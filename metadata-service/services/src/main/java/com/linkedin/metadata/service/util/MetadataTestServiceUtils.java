@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service.util;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,7 +37,7 @@ public class MetadataTestServiceUtils {
     changes.forEach(
         change -> {
           SystemMetadata systemMetadata =
-              Optional.ofNullable(change.getSystemMetadata()).orElse(new SystemMetadata());
+              Optional.ofNullable(change.getSystemMetadata()).orElse(createDefaultSystemMetadata());
           StringMap properties =
               Optional.ofNullable(systemMetadata.getProperties()).orElse(new StringMap());
           properties.put(APP_SOURCE, appSource);

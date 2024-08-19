@@ -53,6 +53,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -136,17 +137,29 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
   private OperationContext systemOperationContext;
 
   private final boolean isEnabled;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public OwnerSubscriptionHook(
       @Nonnull final SubscriptionService subscriptionService,
       @Nonnull final SettingsService settingsService,
-      @Nonnull @Value("${subscriptions.ownerSubscriptionHook.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${subscriptions.ownerSubscriptionHook.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${subscriptions.ownerSubscriptionHook.consumerGroupSuffix}")
+          String consumerGroupSuffix) {
     this.subscriptionService =
         Objects.requireNonNull(subscriptionService, "subscriptionService must not be null");
     this.settingsService =
         Objects.requireNonNull(settingsService, "settingsService must not be null");
     this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public OwnerSubscriptionHook(
+      @Nonnull final SubscriptionService subscriptionService,
+      @Nonnull final SettingsService settingsService,
+      @Nonnull Boolean isEnabled) {
+    this(subscriptionService, settingsService, isEnabled, "");
   }
 
   @Override

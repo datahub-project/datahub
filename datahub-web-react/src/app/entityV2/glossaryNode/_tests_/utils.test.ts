@@ -1,8 +1,6 @@
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { EntityType } from '../../../../types.generated';
-import { getTestEntityRegistryV2 } from '../../../../utils/test-utils/TestEntityRegistry';
 import { sortGlossaryNodes } from '../utils';
-
-const testEntityRegistry = getTestEntityRegistryV2();
 
 describe('sortGlossaryNodes', () => {
     it('should correctly sort glossary nodes when both nodes are provided', () => {
@@ -22,7 +20,7 @@ describe('sortGlossaryNodes', () => {
                 name: 'test child 1',
             },
         };
-        const result = sortGlossaryNodes(testEntityRegistry, nodeA, nodeB);
+        const result = sortGlossaryNodes(globalEntityRegistryV2, nodeA, nodeB);
         expect(result).toBeGreaterThan(0);
     });
 
@@ -43,7 +41,7 @@ describe('sortGlossaryNodes', () => {
                 name: 'test child 2',
             },
         };
-        const result = sortGlossaryNodes(testEntityRegistry, nodeA, nodeB);
+        const result = sortGlossaryNodes(globalEntityRegistryV2, nodeA, nodeB);
         expect(result).toBeLessThan(0);
     });
 
@@ -56,12 +54,12 @@ describe('sortGlossaryNodes', () => {
                 name: 'test child 1',
             },
         };
-        const result = sortGlossaryNodes(testEntityRegistry, nodeA);
+        const result = sortGlossaryNodes(globalEntityRegistryV2, nodeA);
         expect(result).toBeGreaterThan(0);
     });
 
     it('should handle null nodes by considering them equal in sorting', () => {
-        const result = sortGlossaryNodes(testEntityRegistry);
+        const result = sortGlossaryNodes(globalEntityRegistryV2);
         expect(result).toBe(0);
     });
 });

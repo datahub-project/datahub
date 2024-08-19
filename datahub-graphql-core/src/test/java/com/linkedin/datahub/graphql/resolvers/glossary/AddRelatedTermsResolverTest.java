@@ -28,7 +28,7 @@ public class AddRelatedTermsResolverTest {
   private static final String DATASET_URN = "urn:li:dataset:(test,test,test)";
 
   private EntityService setUpService() {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
     Mockito.when(
             mockService.getAspect(
                 any(),
@@ -41,7 +41,7 @@ public class AddRelatedTermsResolverTest {
 
   @Test
   public void testGetSuccessIsRelatedNonExistent() throws Exception {
-    EntityService mockService = setUpService();
+    EntityService<?> mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
@@ -75,7 +75,7 @@ public class AddRelatedTermsResolverTest {
 
   @Test
   public void testGetSuccessHasRelatedNonExistent() throws Exception {
-    EntityService mockService = setUpService();
+    EntityService<?> mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
@@ -109,7 +109,7 @@ public class AddRelatedTermsResolverTest {
 
   @Test
   public void testGetFailAddSelfAsRelatedTerm() throws Exception {
-    EntityService mockService = setUpService();
+    EntityService<?> mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
@@ -131,7 +131,7 @@ public class AddRelatedTermsResolverTest {
 
   @Test
   public void testGetFailAddNonTermAsRelatedTerm() throws Exception {
-    EntityService mockService = setUpService();
+    EntityService<?> mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
@@ -153,7 +153,7 @@ public class AddRelatedTermsResolverTest {
 
   @Test
   public void testGetFailAddNonExistentTermAsRelatedTerm() throws Exception {
-    EntityService mockService = setUpService();
+    EntityService<?> mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
@@ -177,7 +177,7 @@ public class AddRelatedTermsResolverTest {
 
   @Test
   public void testGetFailAddToNonExistentUrn() throws Exception {
-    EntityService mockService = setUpService();
+    EntityService<?> mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
@@ -201,7 +201,7 @@ public class AddRelatedTermsResolverTest {
 
   @Test
   public void testGetFailAddToNonTerm() throws Exception {
-    EntityService mockService = setUpService();
+    EntityService<?> mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(DATASET_URN)), eq(true)))
@@ -225,7 +225,7 @@ public class AddRelatedTermsResolverTest {
 
   @Test
   public void testFailNoPermissions() throws Exception {
-    EntityService mockService = setUpService();
+    EntityService<?> mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))

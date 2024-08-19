@@ -25,6 +25,9 @@ enum TabPaths {
 
 const DEFAULT_TAB = TabPaths.TESTS;
 
+/**
+ * Component used for rendering the Entity Governance Tab.
+ */
 export const GovernanceTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
@@ -32,8 +35,9 @@ export const GovernanceTab = () => {
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const passingTests = (entityData as any)?.testResults?.passing || [];
-    const failingTests = (entityData as any)?.testResults?.failing || [];
-    const totalTests = failingTests.length + passingTests.length;
+    const maybeFailingTests = (entityData as any)?.testResults?.failing || [];
+    const totalTests = maybeFailingTests.length + passingTests.length;
+
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
 
     // If no tab was selected, select a default tab.

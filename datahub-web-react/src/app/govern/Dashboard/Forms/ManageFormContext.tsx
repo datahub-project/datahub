@@ -1,11 +1,8 @@
-import React from 'react';
 import { FormInstance } from 'antd';
-import { FormType } from '../../../../types.generated';
+import React from 'react';
 import { FormFields, FormMode } from './formUtils';
 
 interface ManageFormState {
-    currentStep: number;
-    setCurrentStep: React.Dispatch<React.SetStateAction<number>>;
     formValues: FormFields;
     setFormValues: React.Dispatch<React.SetStateAction<FormFields>>;
     form: FormInstance | undefined;
@@ -16,11 +13,10 @@ interface ManageFormState {
 }
 
 const ManageFormContext = React.createContext<ManageFormState>({
-    currentStep: 1,
-    setCurrentStep: () => {},
     formValues: {
-        formType: FormType.Verification,
-        formName: '',
+        formName: undefined,
+        formType: undefined,
+        questions: [],
     },
     setFormValues: () => {},
     form: undefined,

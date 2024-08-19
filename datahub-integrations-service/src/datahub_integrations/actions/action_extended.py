@@ -37,14 +37,9 @@ class ExtendedActionStats(BaseModel):
 
 class AutomationActionConfig(ConfigModel):
 
-    bootstrap: bool = Field(
-        False,
-        description="Indicates whether to bootstrap the action. Default is False.",
-    )
-
     event_processing_rate_limit: int = Field(
-        1,
-        description="Rate limit for processing events. Default is 1 event per rate period.",
+        10,
+        description="Rate limit for processing events. Default is 10 event per rate period.",
     )
 
     event_processing_rate_period: int = Field(
@@ -62,13 +57,7 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
     """
 
     def __init__(self, config: AutomationActionConfig, ctx: PipelineContext):
-        self.ctx: PipelineContext = ctx
-
-        self.action_urn: str
-        if not ctx.pipeline_name.startswith("urn:li:dataHubAction"):
-            self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
-        else:
-            self.action_urn = ctx.pipeline_name
+        super().__init__(ctx)
 
         self._stats = ActionStageReport()
 
@@ -141,7 +130,7 @@ class ExtendedAction(ReportingAction, Generic[T], ABC):
                         logger.error(f"Error bootstrapping dataset: {e}")
                         success = False
         except Exception as e:
-            logger.error(f"Error bootstrapping action: {e}")
+            logger.error(f"Error bootstrapping action: {e}", exc_info=True)
             success = False
 
         self.bootstrapping = False

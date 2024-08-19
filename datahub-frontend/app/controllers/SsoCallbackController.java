@@ -66,7 +66,8 @@ public class SsoCallbackController extends CallbackController {
 
   public CompletionStage<Result> handleCallback(String protocol, Http.Request request) {
     if (shouldHandleCallback(protocol)) {
-      log.debug(String.format("Handling SSO callback. Protocol: %s", protocol));
+      log.debug("Handling SSO callback. Protocol: {}",
+        _ssoManager.getSsoProvider().protocol().getCommonName());
       return callback(request)
           .handle(
               (res, e) -> {

@@ -33,6 +33,7 @@ source ./set-cypress-creds.sh
 
 # set environment variables for the test
 source ./set-test-env-vars.sh
+
 # no_cypress_suite0, no_cypress_suite1, cypress_suite1, cypress_rest
 if [[ -z "${TEST_STRATEGY}" ]]; then
     pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml

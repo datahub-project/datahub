@@ -12,11 +12,18 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.test.TestEngine;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.BatchTestRunEvent;
 import com.linkedin.test.BatchTestRunResult;
 import com.linkedin.test.BatchTestRunStatus;
+import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
+import com.linkedin.timeseries.PartitionSpec;
+import com.linkedin.timeseries.PartitionType;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,6 +39,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,11 +50,12 @@ public class EvaluateTestsStep implements UpgradeStep {
       System.getenv().getOrDefault(EvaluateTests.ELASTIC_TIMEOUT_ENV_NAME, "5m");
 
   private final OperationContext systemOpContext;
-  private final EntityClient _entityClient;
+  private final EntityClient entityClient;
   private final EntitySearchService _entitySearchService;
-  private final TestEngine _testEngine;
-  private final ExecutorService _executorService;
+  private final TestEngine testEngine;
+  private final ExecutorService executorService;
   private final TestEngine.EvaluationMode evaluationMode;
+  private final String runId;
 
   public EvaluateTestsStep(
       @Nonnull OperationContext systemOpContext,
@@ -54,9 +63,10 @@ public class EvaluateTestsStep implements UpgradeStep {
       @Nonnull EntitySearchService entitySearchService,
       @Nonnull TestEngine testEngine) {
     this.systemOpContext = systemOpContext;
-    _entityClient = entityClient;
+    this.entityClient = entityClient;
     _entitySearchService = entitySearchService;
-    _testEngine = testEngine;
+    this.testEngine = testEngine;
+    this.runId = String.format("cron-%s", Instant.now());
 
     int numThreads =
         Integer.parseInt(
@@ -64,7 +74,7 @@ public class EvaluateTestsStep implements UpgradeStep {
                 .getOrDefault(
                     EvaluateTests.EXECUTOR_POOL_SIZE,
                     String.valueOf(Runtime.getRuntime().availableProcessors() + 1)));
-    _executorService = Executors.newFixedThreadPool(numThreads);
+    executorService = Executors.newFixedThreadPool(numThreads);
     String envEvalMode = System.getenv(EvaluateTests.EVALUATION_MODE);
     evaluationMode = TestEngine.EvaluationMode.getEvaluationMode(envEvalMode);
   }
@@ -86,9 +96,6 @@ public class EvaluateTestsStep implements UpgradeStep {
       BatchTestResultAggregator resultAggregator = new BatchTestResultAggregator();
 
       try {
-        // Force a synchronous initial load to populate the test cache.
-        _testEngine.loadTests();
-
         int batchSize =
             context
                 .parsedArgs()
@@ -102,7 +109,7 @@ public class EvaluateTestsStep implements UpgradeStep {
                 .map(Integer::parseInt)
                 .orElse(250);
 
-        Set<String> entityTypesToEvaluate = new HashSet<>(_testEngine.getEntityTypesToEvaluate());
+        Set<String> entityTypesToEvaluate = new HashSet<>(testEngine.getEntityTypesToEvaluate());
 
         context
             .report()
@@ -136,7 +143,7 @@ public class EvaluateTestsStep implements UpgradeStep {
                     .collect(Collectors.toSet());
             final int batchNumber = batch;
             futures.add(
-                _executorService.submit(
+                executorService.submit(
                     () ->
                         processBatch(
                             entitiesInBatch,
@@ -193,7 +200,7 @@ public class EvaluateTestsStep implements UpgradeStep {
       Map<Urn, TestResults> result;
       try {
         result =
-            _testEngine.evaluateTests(
+            testEngine.evaluateTests(
                 systemOpContext, entitiesInBatch, TestEngine.EvaluationMode.DEFAULT);
         context
             .report()
@@ -201,7 +208,7 @@ public class EvaluateTestsStep implements UpgradeStep {
                 String.format(
                     "Pushed %d test results for batch %d of %s entities",
                     result.size(), batchNumber, entityType));
-        incrementBatchCounters(entitiesInBatch, result, resultAggregator);
+        incrementBatchCounters(result, resultAggregator);
         return result;
       } catch (Exception e) {
         context
@@ -221,24 +228,25 @@ public class EvaluateTestsStep implements UpgradeStep {
 
   /** Increment the counters used to report results for the metadata test */
   private void incrementBatchCounters(
-      @Nonnull final Set<Urn> entitiesInBatch,
       @Nonnull final Map<Urn, TestResults> results,
       @Nonnull final BatchTestResultAggregator resultAggregator) {
-    for (Urn entityUrn : entitiesInBatch) {
-      TestResults result = results.get(entityUrn);
-      if (result != null) {
-        if (result.hasPassing()) {
-          result
-              .getPassing()
-              .forEach(passingTest -> resultAggregator.incrementPass(passingTest.getTest()));
-        }
-        if (result.hasFailing()) {
-          result
-              .getFailing()
-              .forEach(failingTest -> resultAggregator.incrementFail(failingTest.getTest()));
-        }
-      }
-    }
+
+    results.values().stream()
+        .flatMap(
+            r ->
+                Stream.concat(
+                    r.hasPassing() ? r.getPassing().stream() : Stream.empty(),
+                    r.hasFailing() ? r.getFailing().stream() : Stream.empty()))
+        .collect(
+            Collectors.groupingBy(r -> Pair.of(r.getTest(), r.getType()), Collectors.counting()))
+        .forEach(
+            (key, count) -> {
+              if (TestResultType.SUCCESS.equals(key.getSecond())) {
+                resultAggregator.incrementPass(key.getKey(), count);
+              } else {
+                resultAggregator.incrementFail(key.getKey(), count);
+              }
+            });
   }
 
   /**
@@ -266,15 +274,19 @@ public class EvaluateTestsStep implements UpgradeStep {
     BatchTestRunEvent event = new BatchTestRunEvent();
     event.setTimestampMillis(currentTime);
     event.setStatus(BatchTestRunStatus.COMPLETE);
+    PartitionSpec partitionSpec =
+        new PartitionSpec().setType(PartitionType.FULL_TABLE).setPartition("FULL");
+    event.setPartitionSpec(partitionSpec);
     event.setResult(
         new BatchTestRunResult()
             .setPassingCount(result.getPassCount())
             .setFailingCount(result.getFailCount()));
     try {
-      _entityClient.ingestProposal(
-          systemOpContext,
+      MetadataChangeProposal mcp =
           AspectUtils.buildMetadataChangeProposal(
-              testUrn, AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME, event));
+              testUrn, AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME, event);
+      mcp.setSystemMetadata(new SystemMetadata().setRunId(runId));
+      entityClient.ingestProposal(systemOpContext, mcp);
     } catch (Exception e) {
       log.error(
           "Failed to produce Metadata Test Run Result aspect! This may mean that the results shown in the UI are stale!",

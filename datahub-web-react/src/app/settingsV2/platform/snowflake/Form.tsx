@@ -53,7 +53,7 @@ export interface SnowflakeFormValues {
 
 interface Props {
     snowflakeConnectionId?: string;
-    postSave?: () => void;
+    postSave?: (value: any) => void;
 }
 
 export const decodeJson = (json: string) => {
@@ -135,7 +135,7 @@ export const SnowflakeConnectionForm = ({ snowflakeConnectionId, postSave }: Pro
             },
         })
             .then(() => {
-                message.success({ content: 'Success!', duration: 2 });
+                message.success({ content: 'Saved connection details!', duration: 2 });
             })
             .catch((e: unknown) => {
                 message.destroy();
@@ -148,7 +148,7 @@ export const SnowflakeConnectionForm = ({ snowflakeConnectionId, postSave }: Pro
             });
 
         // Whatever else needs to be done after save
-        if (postSave) postSave();
+        if (postSave) postSave(formValues);
     };
 
     React.useEffect(() => {

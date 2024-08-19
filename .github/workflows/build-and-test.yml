@@ -48,6 +48,8 @@ jobs:
             # metadata-ingestion and airflow-plugin each have dedicated build jobs
             "except_metadata_ingestion",
             "frontend",
+            "integrations-service",
+            "executor",
           ]
         timezone: ["UTC"]
         include:
@@ -58,6 +60,11 @@ jobs:
     timeout-minutes: 60
     needs: setup
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
       - uses: szenius/set-timezone@v1.2
         with:
           timezoneLinux: ${{ matrix.timezone }}
@@ -76,7 +83,7 @@ jobs:
           cache: pip
       - name: Gradle build (and test) for NOT metadata ingestion
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
-        # Acryl-only channges for `acryl-cloud`
+        # Acryl-only changes for acryl-cloud, integrations-service, executor
         run: |
           ./gradlew build \
             -x :metadata-ingestion:build \
@@ -90,6 +97,10 @@ jobs:
             -x :metadata-ingestion-modules:dagster-plugin:check \
             -x :metadata-ingestion-modules:acryl-cloud:build \
             -x :metadata-ingestion-modules:acryl-cloud:check \
+            -x :datahub-integrations-service:build \
+            -x :datahub-integrations-service:check \
+            -x :datahub-executor:build \
+            -x :datahub-executor:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
             --parallel
@@ -99,6 +110,14 @@ jobs:
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
         env:
           NODE_OPTIONS: "--max-old-space-size=3072"
+      - name: Gradle build (and test) for integrations-service
+        if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
+        run: |
+          ./gradlew :datahub-integrations-service:build --parallel
+      - name: Gradle build (and test) for executor
+        if: ${{  matrix.command == 'executor' && needs.setup.outputs.backend_change == 'true' }}
+        run: |
+          ./gradlew :datahub-executor:build --parallel
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |

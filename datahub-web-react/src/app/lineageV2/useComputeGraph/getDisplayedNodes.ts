@@ -1,9 +1,13 @@
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
+import { SubType } from '@app/entityV2/shared/components/subtypes';
 import {
     createLineageFilterNodeId,
     getEdgeId,
     getParents,
+    isDbt,
     isQuery,
     isTransformational,
+    isUrnTransformational,
     LINEAGE_FILTER_PAGINATION,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
@@ -30,7 +34,10 @@ export default function getDisplayedNodes(
         return [];
     }
 
-    const orderedNodes = Array.from(nodes.values()).sort((a, b) => a.urn.localeCompare(b.urn));
+    const orderedNodes = {
+        [LineageDirection.Upstream]: orderNodes(urn, LineageDirection.Upstream, context),
+        [LineageDirection.Downstream]: orderNodes(urn, LineageDirection.Downstream, context),
+    };
 
     const displayedNodes: LineageNode[] = [rootNode];
     const seenNodes = new Set<string>([urn]);
@@ -39,7 +46,7 @@ export default function getDisplayedNodes(
         const current = queue.shift() as string; // Just checked length
         const node = nodes.get(current);
         getDirectionsToExpand(node).forEach((direction) => {
-            const filteredChildren = applyFilters(current, direction, orderedNodes, context);
+            const filteredChildren = applyFilters(current, direction, orderedNodes[direction], context);
             filteredChildren.forEach((child) => {
                 if (!seenNodes.has(child.id)) {
                     displayedNodes.push(child);
@@ -53,6 +60,44 @@ export default function getDisplayedNodes(
     }
 
     return displayedNodes;
+}
+
+/**
+ * Orders nodes in BFS order, starting from the root node.
+ * Within a single node, children are ordered transformations last, then alphabetically.
+ * Note: Transformations should be put first once show more is put at the bottom.
+ * @param urn Root node urn.
+ * @param direction Direction in which to perform BFS.
+ * @param context Lineage node context.
+ */
+function orderNodes(
+    urn: string,
+    direction: LineageDirection,
+    { nodes, adjacencyList }: Pick<NodeContext, 'adjacencyList' | 'nodes'>,
+): LineageEntity[] {
+    const orderedNodes: string[] = [];
+    const seenNodes = new Set<string>([urn]);
+    const queue = [urn]; // Note: uses array for queue, slow for large graphs
+    while (queue.length > 0) {
+        const current = queue.shift() as string; // Just checked length
+        const children = Array.from(adjacencyList[direction].get(current) || []).sort(compareNodes);
+        children?.forEach((child) => {
+            if (!seenNodes.has(child)) {
+                queue.push(child);
+                seenNodes.add(child);
+                orderedNodes.push(child);
+            }
+        });
+    }
+    return orderedNodes.map((id) => nodes.get(id)).filter((node): node is LineageEntity => !!node);
+}
+
+function compareNodes(a: string, b: string): number {
+    const isATransformation = isUrnTransformational(a, globalEntityRegistryV2);
+    const isBTransformation = isUrnTransformational(b, globalEntityRegistryV2);
+    if (isATransformation && !isBTransformation) return 1;
+    if (!isATransformation && isBTransformation) return -1;
+    return a.localeCompare(b);
 }
 
 function getDirectionsToExpand(node) {
@@ -127,6 +172,7 @@ function applyFilters(
 /**
  * Returns the set of children to filter for the given parent node.
  * This is calculated as: all adjacent non-transformational nodes and any transformational leaves.
+ * Drops DBT sources that are transformational leaves, because they add no information.
  * Loop invariant: all nodes in `queue` are transformational.
  * @param parent The parent node, whose children are to be filtered.
  * @param direction Direction of children.
@@ -144,7 +190,9 @@ function getChildrenToFilter(
     for (let node = queue.pop(); node; node = queue.pop()) {
         const children = adjacencyList[direction].get(node.urn);
         // Include non-query transformational nodes if they have no children
-        if (!children?.size && !isQuery(node)) childrenToFilter.add(node.urn);
+        if (!children?.size && !isQuery(node) && !(isDbt(node) && node.entity?.subtype === SubType.DbtSource)) {
+            childrenToFilter.add(node.urn);
+        }
         children?.forEach((childUrn) => {
             const child = nodes.get(childUrn);
             if (!child || seen.has(childUrn) || child.entity?.status?.removed) return;

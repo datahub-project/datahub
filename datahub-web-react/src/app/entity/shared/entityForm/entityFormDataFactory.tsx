@@ -19,6 +19,8 @@ import {
 import { generateFormCompletionFilter } from './utils';
 import { FormResponsesFilter, FormView } from './EntityFormContext';
 
+export const MAX_ENTITY_URN_COUNT = 1000;
+
 // Common query configs
 export const config = {
     searchFlags: { skipCache: true },
@@ -32,7 +34,7 @@ export const useEntityFormDataFactory = (
     submittedEntitiesMap,
     verifiedEntities,
 ) => {
-    const { user, refetchUnfinishedTaskCount } = useUserContext();
+    const { user } = useUserContext();
     const { query, orFilters, page, sortInput } = useGetSearchQueryInputs();
 
     const [searchResults, setSearchResults] = useState();
@@ -40,11 +42,7 @@ export const useEntityFormDataFactory = (
     const [isLoading, setIsLoading] = useState(true);
 
     // Get current form data
-    const {
-        data: formData,
-        loading: formDataLoading,
-        refetch: refetchFormData,
-    } = useGetFormQuery({
+    const { data: formData, loading: formDataLoading } = useGetFormQuery({
         variables: { urn: formUrn },
         skip: !formUrn,
     });
@@ -101,11 +99,7 @@ export const useEntityFormDataFactory = (
     });
 
     // Get urns of assets assigned to form that need to be completed (for by entity navigation)
-    const {
-        data: entityUrnsByForm,
-        loading: entityUrnsByFormLoading,
-        refetch: refetchEntityUrnsByForm,
-    } = useSearchForEntityUrnsByFormQuery({
+    const { data: entityUrnsByForm, loading: entityUrnsByFormLoading } = useSearchForEntityUrnsByFormQuery({
         variables: {
             input: {
                 query: '*',
@@ -115,7 +109,7 @@ export const useEntityFormDataFactory = (
                     ...generateFormCompletionFilter(formView, isVerificationType),
                 },
                 start: 0,
-                count: 1000,
+                count: MAX_ENTITY_URN_COUNT,
                 searchFlags: config.searchFlags,
             },
         },
@@ -260,30 +254,17 @@ export const useEntityFormDataFactory = (
         assetsWithFormNotCompleteLoading ||
         searchLoading;
 
-    // Grouped Refetch
-    const refetch = () => {
-        if (!isLoading) {
-            setIsLoading(true);
-
-            // delay for elastic data lag
-            setTimeout(() => {
-                // Always not optimistic
-                refetchFormData();
-                refetchUnfinishedTaskCount();
-                refetchEntityUrnsByForm();
-                if (isVerificationType) {
-                    refetchAssetsReadyForVerification();
-                    refetchAssetsNotReadyForVerification();
-                } else {
-                    refetchAssetsWithFormNotComplete();
-                }
-                refetchAssetsWithPromptComplete();
-                refetchAssestsWithPromptNotComplete();
-                refetchSearch();
-
-                if (!loading) setIsLoading(false);
-            }, 3000);
+    // Update search and all counts for states in Bulk By Question view
+    const refetchForBulk = () => {
+        refetchSearch();
+        if (isVerificationType) {
+            refetchAssetsReadyForVerification();
+            refetchAssetsNotReadyForVerification();
+        } else {
+            refetchAssetsWithFormNotComplete();
         }
+        refetchAssetsWithPromptComplete();
+        refetchAssestsWithPromptNotComplete();
     };
 
     const refetchNonOptimisticData = () => {
@@ -310,7 +291,7 @@ export const useEntityFormDataFactory = (
     if (isLoading) setIsLoading(false);
 
     return {
-        refetch,
+        refetchForBulk,
         loading,
         filter: {
             formFilter,

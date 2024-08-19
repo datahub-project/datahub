@@ -75,6 +75,11 @@ type Query {
     view(urn: String!): DataHubView
 
     """
+    Fetch a Form by primary key (urn)
+    """
+    form(urn: String!): Form
+
+    """
     Fetch a Role by primary key (urn)
     """
     role(urn: String!): Role
@@ -941,7 +946,7 @@ type Mutation {
     """
     Creates a filter for a form to apply it to certain entities. Entities that match this filter will have
     a given form applied to them.
-    This feature is ONLY supported in Acryl DataHub.
+    This feature is ONLY supported in DataHub Cloud.
     """
     createDynamicFormAssignment(input: CreateDynamicFormAssignmentInput!): Boolean
 
@@ -1338,6 +1343,11 @@ input RelationshipsInput {
   The number of results to be returned
   """
   count: Int
+
+  """
+  Whether to include soft-deleted, related, entities
+  """
+  includeSoftDelete: Boolean = true
 }
 
 """
@@ -1642,6 +1652,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Editable schema metadata of the dataset
     """
     editableSchemaMetadata: EditableSchemaMetadata
+
+    """
+    Documentation aspect for this asset
+    """
+    documentation: Documentation
 
     """
     Status of the Dataset
@@ -3742,6 +3757,11 @@ type DatasetEditableProperties {
     Description of the Dataset
     """
     description: String
+
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """
@@ -5181,6 +5201,10 @@ input DatasetEditablePropertiesUpdate {
     Writable description aka documentation for a Dataset
     """
     description: String!
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """
@@ -5793,6 +5817,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     editableProperties: DashboardEditableProperties
 
     """
+    Documentation aspect for this asset
+    """
+    documentation: Documentation
+
+    """
     Ownership metadata of the dashboard
     """
     ownership: Ownership
@@ -6135,6 +6164,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Additional read write properties about the Chart
     """
     editableProperties: ChartEditableProperties
+
+    """
+    Documentation aspect for this asset
+    """
+    documentation: Documentation
 
     """
     Info about the query which is used to render the chart
@@ -6562,6 +6596,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     editableProperties: DataFlowEditableProperties
 
     """
+    Documentation aspect for this asset
+    """
+    documentation: Documentation
+
+    """
     Ownership metadata of the flow
     """
     ownership: Ownership
@@ -6821,6 +6860,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Additional read only properties associated with the Data Job
     """
     properties: DataJobProperties
+
+    """
+    Documentation aspect for this asset
+    """
+    documentation: Documentation
 
     """
     The specific instance of the data platform that this entity belongs to

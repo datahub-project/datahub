@@ -46,6 +46,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
      */
 
     const {
+        refetchForBulk,
         loading,
         data: {
             form,
@@ -242,6 +243,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
 
     // Prompt
     const prompts = form ? getBulkByQuestionPrompts(form) : [];
+    const promptIndex = (selectedPromptId && prompts.findIndex((p) => p.id === selectedPromptId)) || 0;
     const prompt = {
         // All Prompts
         prompts,
@@ -252,7 +254,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
 
         // Current Prompt Data
         prompt: prompts.find((p) => p.id === selectedPromptId),
-        promptIndex: (selectedPromptId && prompts.findIndex((p) => p.id === selectedPromptId)) || 0,
+        promptIndex,
 
         // Bulk utils on a prompt
         displayBulkPromptStyles: formView === FormView.BY_QUESTION,
@@ -263,10 +265,24 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     const isByQuestion = formView === FormView.BY_QUESTION;
     const isBulkVerify = formView === FormView.BULK_VERIFY;
     const noSearchResults = search.resultItemCount === 0;
+    const isLastQuestion = promptIndex === prompts.length - 1;
     const states = {
         byQuestion: {
             showFinishRemainingAssets: isByQuestion && noSearchResults && promptCounts.numNotComplete > 0,
-            showContinueToNextQuestion: isByQuestion && noSearchResults && promptCounts.numNotComplete === 0,
+            showContinueToVerification:
+                isByQuestion &&
+                isVerificationType &&
+                noSearchResults &&
+                promptCounts.numNotComplete === 0 &&
+                isLastQuestion,
+            showGoToPreviousQuestion:
+                isByQuestion &&
+                !isVerificationType &&
+                noSearchResults &&
+                promptCounts.numNotComplete === 0 &&
+                isLastQuestion,
+            showContinueToNextQuestion:
+                isByQuestion && noSearchResults && promptCounts.numNotComplete === 0 && !isLastQuestion,
             showCompleted: isByQuestion && !isVerificationType && completionType.notComplete === 0,
             showVerifyCTAHeader: isByQuestion && isVerificationType && verificationType.verifyReady > 0,
             showVerifyCTA:
@@ -299,6 +315,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
                 isInFormContext,
                 loading: isLoading,
                 refetch: handleRefetch,
+                refetchForBulk,
                 shouldRefetch,
                 setShouldRefetch,
                 submission,

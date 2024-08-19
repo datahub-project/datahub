@@ -101,7 +101,7 @@ November Town Hall (in December!)
 
 **Agenda**
 
-- Conquer Data Governance with Acryl Data’s Metadata Tests - Learn how to tackle Data Governance with incremental, automation-driven governance using Metadata Tests provided in Acryl Data’s managed DataHub offering
+- Conquer Data Governance with Acryl Data’s Metadata Tests - Learn how to tackle Data Governance with incremental, automation-driven governance using Metadata Tests provided in Acryl Data’s DataHub Cloud offering
 - Community Case Study - The Grab Team shares how they are using DataHub for data discoverability, automated classification and governance workflows, data quality observability, and beyond!
 - Upcoming Ingestion Sources - We’ll tell you the ins and outs of our upcoming dbt Cloud and Unity Catalog connectors
 - Sneak Peek! Saved Views - Learn how you can soon use Saved Views to help end-users navigate entities in DataHub with more precision and focus

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.graph;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfiguration;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -270,6 +271,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   /** Any source and destination type value. */
   protected static @Nullable List<String> anyType = null;
 
+  protected final GraphQueryConfiguration _graphQueryConfiguration = getGraphQueryConfiguration();
+
   /** Timeout used to test concurrent ops in doTestConcurrentOp. */
   protected Duration getTestConcurrentOpTimeout() {
     return Duration.ofMinutes(1);
@@ -376,8 +379,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   }
 
   protected GraphService getLineagePopulatedGraphService() throws Exception {
-    return getLineagePopulatedGraphService(
-        GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch());
+    return getLineagePopulatedGraphService(_graphQueryConfiguration.isEnableMultiPathSearch());
   }
 
   protected GraphService getLineagePopulatedGraphService(boolean multiPathSearch) throws Exception {
@@ -1894,15 +1896,24 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             allRelationships,
             outgoingRelationships,
             0,
-            nodes * relationshipTypes * 2);
+            edges.size());
 
-    Set<RelatedEntity> expectedRelatedEntities =
-        edges.stream()
-            .map(
-                edge ->
-                    new RelatedEntity(edge.getRelationshipType(), edge.getDestination().toString()))
-            .collect(Collectors.toSet());
-    assertEquals(new HashSet<>(relatedEntities.entities), expectedRelatedEntities);
+    Set<RelatedEntity> expectedRelatedEntities = convertEdgesToRelatedEntities(edges);
+    assertEquals(
+        deduplicateRelatedEntitiesByRelationshipTypeAndDestination(relatedEntities),
+        expectedRelatedEntities);
+  }
+
+  protected Set<RelatedEntity> convertEdgesToRelatedEntities(List<Edge> edges) {
+    return edges.stream()
+        .map(
+            edge -> new RelatedEntity(edge.getRelationshipType(), edge.getDestination().toString()))
+        .collect(Collectors.toSet());
+  }
+
+  protected Set<RelatedEntity> deduplicateRelatedEntitiesByRelationshipTypeAndDestination(
+      RelatedEntitiesResult relatedEntitiesResult) {
+    return Set.copyOf(relatedEntitiesResult.getEntities());
   }
 
   @Test
@@ -1931,8 +1942,10 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             allRelationships,
             outgoingRelationships,
             0,
-            nodes * relationshipTypes * 2);
-    assertEquals(relatedEntities.entities.size(), nodes * relationshipTypes);
+            edges.size());
+    assertEquals(
+        deduplicateRelatedEntitiesByRelationshipTypeAndDestination(relatedEntities).size(),
+        nodes * relationshipTypes);
 
     // delete all edges concurrently
     Stream<Runnable> operations =
@@ -1990,8 +2003,10 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             allRelationships,
             outgoingRelationships,
             0,
-            nodes * relationshipTypes * 2);
-    assertEquals(relatedEntities.entities.size(), nodes * relationshipTypes);
+            edges.size());
+    assertEquals(
+        deduplicateRelatedEntitiesByRelationshipTypeAndDestination(relatedEntities).size(),
+        nodes * relationshipTypes);
 
     // remove all nodes concurrently
     // nodes will be removed multiple times
@@ -2136,30 +2151,20 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     doTestConcurrentOp(operations);
     syncAfterWrite();
 
-    Set<RelatedEntity> expectedRelatedEntities =
-        edges.stream()
-            .map(
-                edge ->
-                    new RelatedEntity(edge.getRelationshipType(), edge.getDestination().toString()))
-            .collect(Collectors.toSet());
-    RelatedEntitiesResult relatedEntities = null;
-    for (int i = 0; i < 3; i++) {
-      relatedEntities =
-          service.findRelatedEntities(
-              null,
-              EMPTY_FILTER,
-              null,
-              EMPTY_FILTER,
-              allRelationships,
-              outgoingRelationships,
-              0,
-              400);
-      if (!new HashSet<>(relatedEntities.getEntities()).equals(expectedRelatedEntities)) {
-        // Sleep up to 6 seconds in case Elastic needs to catch up
-        Thread.sleep(2000);
-      }
-    }
-    assertEquals(new HashSet<>(relatedEntities.getEntities()), expectedRelatedEntities);
+    Set<RelatedEntity> expectedRelatedEntities = convertEdgesToRelatedEntities(edges);
+    RelatedEntitiesResult relatedEntities =
+        service.findRelatedEntities(
+            null,
+            EMPTY_FILTER,
+            null,
+            EMPTY_FILTER,
+            allRelationships,
+            outgoingRelationships,
+            0,
+            edges.size());
+    assertEquals(
+        deduplicateRelatedEntitiesByRelationshipTypeAndDestination(relatedEntities),
+        expectedRelatedEntities);
 
     Urn root = dataset1Urn;
     EntityLineageResult lineageResult =

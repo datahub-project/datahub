@@ -8,22 +8,23 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 
 @Slf4j
 public class NotificationGeneratorHook implements MetadataChangeLogHook {
 
-  private final List<MclNotificationGenerator> _notificationGenerators;
-  private final boolean _isEnabled;
+  private final List<MclNotificationGenerator> mclNotificationGenerators;
+  private final boolean isEnabled;
+  @Getter private final String consumerGroupSuffix;
 
-  @Autowired
   public NotificationGeneratorHook(
       @Nonnull final List<MclNotificationGenerator> notificationGenerators,
-      @Nonnull @Value("${notifications.enabled:true}") Boolean isEnabled) {
-    _notificationGenerators = Objects.requireNonNull(notificationGenerators);
-    _isEnabled = isEnabled;
+      @Nonnull Boolean isEnabled,
+      @Nonnull String consumerGroupSuffix) {
+    mclNotificationGenerators = Objects.requireNonNull(notificationGenerators);
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
   }
 
   @Override
@@ -33,13 +34,13 @@ public class NotificationGeneratorHook implements MetadataChangeLogHook {
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override
   public void invoke(@Nonnull MetadataChangeLog event) {
     List<CompletableFuture<Void>> futures =
-        _notificationGenerators.stream()
+        mclNotificationGenerators.stream()
             .map(
                 notificationGenerator ->
                     CompletableFuture.runAsync(

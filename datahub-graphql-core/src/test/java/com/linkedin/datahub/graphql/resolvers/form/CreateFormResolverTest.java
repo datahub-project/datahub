@@ -26,7 +26,8 @@ public class CreateFormResolverTest {
   private static final String TEST_FORM_URN = "urn:li:form:1";
 
   private static final CreateFormInput TEST_INPUT =
-      new CreateFormInput(null, "test name", null, FormType.VERIFICATION, new ArrayList<>(), null);
+      new CreateFormInput(
+          null, "test name", null, FormType.VERIFICATION, new ArrayList<>(), null, null);
 
   @Test
   public void testGetSuccess() throws Exception {

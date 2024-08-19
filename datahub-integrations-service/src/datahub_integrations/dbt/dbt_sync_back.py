@@ -14,7 +14,6 @@ import pydantic
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import CorpGroupUrn, DatasetUrn, GlossaryTermUrn, TagUrn, Urn
-from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import EntityChangeEvent
 from datahub_actions.pipeline.pipeline_context import PipelineContext
@@ -23,9 +22,13 @@ from pydantic import BaseModel
 from pygitops.exceptions import PyGitOpsStagedItemsError
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
+from datahub_integrations.actions.oss.stats_util import (
+    ActionStageReport,
+    EventProcessingStats,
+    ReportingAction,
+)
 from datahub_integrations.app import graph
 from datahub_integrations.dbt.dbt_utils import (
-    DEFAULT_YML_FILE_CREATION_MODE,
     AdvancedDbtProject,
     DbtFileLocator,
     DbtIncorrectProjectError,
@@ -41,6 +44,7 @@ _TEMP_DIR = pathlib.Path("/tmp/dbt-sync-action")
 _TEMP_DIR.mkdir(exist_ok=True, parents=True)
 
 _DEFAULT_ACRYL_BRANCH_NAME = "acryl-dbt-sync"
+DEFAULT_YML_FILE_CREATION_MODE = YmlFileCreationMode.DIRECTORY_SCHEMA_YML
 
 
 class DbtOperationExtractConfig(ConfigModel):
@@ -66,10 +70,20 @@ class DbtSyncBackConfig(GitHubRepoConfig, DbtOperationExtractConfig):
     acryl_branch_name: str = _DEFAULT_ACRYL_BRANCH_NAME
 
 
-class DbtSyncBackAction(Action):
+class DbtSyncBackReport(ActionStageReport):
+    total_ignored_changes: int = 0
+    total_ignored_incorrect_project: int = 0
+    total_already_synced: int = 0
+    total_unexpected_no_changes: int = 0
+    total_unsupported_docs_blocks: int = 0
+    total_synced_back: int = 0
+
+
+class DbtSyncBackAction(ReportingAction):
     def __init__(self, config: DbtSyncBackConfig, ctx: PipelineContext):
+        super().__init__(ctx)
         self.config = config
-        self.ctx = ctx
+        self.report = DbtSyncBackReport()
 
         self.repo = GitHubRepoWrapper(config, base_temp_dir=_TEMP_DIR)
 
@@ -97,6 +111,20 @@ class DbtSyncBackAction(Action):
         ).strip()
 
     def act(self, event: EventEnvelope) -> None:
+        if not self.report.event_processing_stats:
+            self.report.event_processing_stats = EventProcessingStats()
+        self.report.event_processing_stats.start(event)
+
+        success = True
+        try:
+            self.act_internal(event)
+        except Exception as e:
+            success = False
+            logger.exception(f"dbt sync action failed: {e}")
+        finally:
+            self.report.event_processing_stats.end(event, success=success)
+
+    def act_internal(self, event: EventEnvelope) -> None:
         # TODO extract event type
         # TODO extract dbt unique id
 
@@ -104,8 +132,11 @@ class DbtSyncBackAction(Action):
             envelope=event, config=self.config, graph=graph
         )
         if not operation_tuple:
+            self.report.total_ignored_changes += 1
             return
+
         target, operation = operation_tuple
+        self.report.increment_assets_processed(target.dataset_urn)
 
         # We might want to tweak when .enrich() is called, since the graph is available during extraction.
         operation.enrich(graph)
@@ -128,12 +159,19 @@ class DbtSyncBackAction(Action):
                         yml_file_creation_mode=self.config.yml_file_creation_mode,
                     ),
                 )
+                self.report.increment_assets_impacted(target.dataset_urn)
             except AlreadySyncedError as e:
                 logger.info(f"Nothing to do for '{operation_oneliner}': {e}")
+                self.report.total_already_synced += 1
+                return
+            except UnsupportedDbtDocsBlockError as e:
+                logger.info(e)
+                self.report.total_unsupported_docs_blocks += 1
                 return
             except DbtIncorrectProjectError as e:
                 # This is fine, so we can just log it and move on.
                 logger.info(e)
+                self.report.total_ignored_incorrect_project += 1
                 return
 
             operation_oneliner = (
@@ -148,6 +186,7 @@ class DbtSyncBackAction(Action):
                 logger.warning(
                     f"Operation applier for {operation_oneliner} did not make any changes"
                 )
+                self.report.total_unexpected_no_changes += 1
                 return
 
             self.repo.upsert_github_pr(
@@ -158,6 +197,7 @@ class DbtSyncBackAction(Action):
                 draft=self.config.open_draft_prs,
             )
             logger.info(f"Synced back: {operation_oneliner}")
+            self.report.total_synced_back += 1
 
     def close(self) -> None:
         return super().close()
@@ -184,7 +224,7 @@ class ApplyContext:
     graph: DataHubGraph
     proj: DbtProject
 
-    yml_file_creation_mode: YmlFileCreationMode = DEFAULT_YML_FILE_CREATION_MODE
+    yml_file_creation_mode: YmlFileCreationMode
 
     def resolve_dataset(self, dataset_urn: str) -> Tuple[str, str]:
         # returns dbt_unique_id, original_file_path
@@ -567,10 +607,12 @@ class SetDocsOperation(DbtOperation):
             # See https://docs.getdbt.com/reference/resource-properties/description
             # and https://docs.getdbt.com/reference/dbt-jinja-functions/doc
             raise UnsupportedDbtDocsBlockError(
-                f"Documentation references docs block: {existing_docs}"
+                f"Documentation references docs block: {existing_docs}, will not sync anything"
             )
         elif existing_docs == self.docs:
-            raise AlreadySyncedError(f"Documentation already set to {self.docs}")
+            raise AlreadySyncedError(
+                f"Documentation already set to {truncate_docs(self.docs)}"
+            )
 
         doc["description"] = self.docs
 
@@ -635,7 +677,9 @@ if __name__ == "__main__":
     if command == "no-op":
         pass
     elif command == "test-dbt-locator":
-        locator = DbtFileLocator(proj)
+        locator = DbtFileLocator(
+            proj, yml_file_creation_mode=DEFAULT_YML_FILE_CREATION_MODE
+        )
         with locator.get_dbt_yml_config(
             dbt_unique_id=dbt_unique_id, original_file_path=file_location
         ) as node:

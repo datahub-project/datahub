@@ -19,7 +19,9 @@ export default function MatchTextSizeWrapper({ defaultHeight, children, classNam
                 setHeight(node.clientHeight);
             });
             resizeObserver.observe(node);
+            return () => resizeObserver.disconnect();
         }
+        return () => {};
     }, []);
 
     return (

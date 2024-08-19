@@ -27,7 +27,7 @@ public class DeleteMonitorResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
 
     Mockito.when(
             mockService.exists(
@@ -59,7 +59,7 @@ public class DeleteMonitorResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     Mockito.when(
             mockService.exists(
                 any(OperationContext.class),
@@ -89,7 +89,7 @@ public class DeleteMonitorResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     Mockito.when(
             mockService.exists(
                 any(OperationContext.class),
@@ -118,7 +118,7 @@ public class DeleteMonitorResolverTest {
         .when(mockClient)
         .deleteEntity(any(OperationContext.class), Mockito.any());
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
     Mockito.when(
             mockService.exists(
                 any(OperationContext.class),

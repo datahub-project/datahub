@@ -389,3 +389,13 @@ def extract_sql_agg_log(query_log_file: str, output: Optional[str]) -> None:
         logger.info(f"Extracted {len(queries)} queries to {output}")
     else:
         click.echo(json.dumps(queries, indent=2))
+
+
+@check.command()
+def server_config() -> None:
+    """Print the server config."""
+    graph = get_default_graph()
+
+    server_config = graph.get_server_config()
+
+    click.echo(pprint.pformat(server_config))

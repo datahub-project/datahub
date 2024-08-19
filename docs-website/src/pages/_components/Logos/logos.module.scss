@@ -1,3 +1,7 @@
+.pillTabs {
+  justify-content: center;
+}
+
 .marquee {
   width: 100%;
   overflow: hidden;
@@ -35,7 +39,6 @@
 }
 
 .companyWrapper {
-  background: #fff;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -45,16 +48,25 @@
     filter: invert(1);
     mix-blend-mode: exclusion;
   }
+
+  :global {
+    .swiper-wrapper {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+      .swiper-slide {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+      }
+    }
+  }
 }
 
 .companyLogoContainer {
-  display: flex;
-  align-items: center;
   justify-content: center;
   > div {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     ul[role="tablist"] {
       padding: 0 1rem;
       overflow-x: auto;
@@ -79,23 +91,35 @@
   }
 }
 
+.companyLogoWithLink {
+  &:hover {
+    opacity: 1;
+    filter: grayscale(0%);
+  }
+}
+
 .companyLogo {
-  width: auto;
+  flex-shrink: 0;
+  width: 100%;
+  height: auto;
   mix-blend-mode: luminosity;
   opacity: 0.66;
-  margin: 2.5rem;
-  height: 60px;
+  filter: grayscale(100%);
 
   &.default {
-    height: 60px;
+    padding: 30px;
   }
   &.large {
-    height: 100px;
+    padding: 5px;
   }
   &.medium {
-    height: 30px;
+    padding: 15px;
   }
   &.small {
-    height: 20px;
+    padding: 10px;
   }
+}
+
+.swiper-pagination {
+  margin-top: 1rem;
 }

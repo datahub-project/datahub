@@ -108,7 +108,7 @@ extend type Dataset {
     """
     The results of evaluating tests
     """
-    testResults: TestResults
+    testResults(includeSoftDeleted: Boolean): TestResults
 }
 
 extend type Query {

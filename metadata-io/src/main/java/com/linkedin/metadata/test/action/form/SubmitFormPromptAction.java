@@ -31,6 +31,7 @@ public class SubmitFormPromptAction implements Action {
   private static final String NUMBER_VALUES_PARAMETER = "numberValues";
   private static final String OWNERS_PARAMETER = "owners";
   private static final String OWNERSHIP_TYPE_URN_PARAMETER = "ownershipTypeUrn";
+  private static final String DOCUMENTATION_PARAMETER = "documentation";
 
   private final FormService formService;
 
@@ -80,6 +81,8 @@ public class SubmitFormPromptAction implements Action {
             opContext, params, urnStrings, formUrn, promptId, actorUrn);
       } else if (promptType.equals(FormPromptType.OWNERSHIP)) {
         submitOwnershipResponse(opContext, params, urnStrings, formUrn, promptId, actorUrn);
+      } else if (promptType.equals(FormPromptType.DOCUMENTATION)) {
+        submitDocumentationResponse(opContext, params, urnStrings, formUrn, promptId, actorUrn);
       } else {
         log.error(
             String.format(
@@ -168,6 +171,31 @@ public class SubmitFormPromptAction implements Action {
 
       formService.batchSubmitOwnershipPromptResponse(
           opContext, urnStrings, owners, ownershipTypeUrn, formUrn, promptId, actorUrn, false);
+    } catch (Exception e) {
+      log.error(
+          String.format(
+              "Failed to submit ownership response for urns %s, form urn %s", urnStrings, formUrn),
+          e);
+    }
+  }
+
+  private void submitDocumentationResponse(
+      @Nonnull OperationContext opContext,
+      ActionParameters params,
+      List<String> urnStrings,
+      Urn formUrn,
+      String promptId,
+      Urn actorUrn) {
+    try {
+      // Grab params specific to submitting documentation response
+      if (!paramsContainsKey(params, DOCUMENTATION_PARAMETER)) {
+        throw new InvalidActionParamsException(
+            "Action parameters are missing the required 'documentation' parameter.");
+      }
+      final String documentation = params.getParams().get(DOCUMENTATION_PARAMETER).get(0);
+
+      formService.batchSubmitDocumentationPromptResponse(
+          opContext, urnStrings, documentation, formUrn, promptId, actorUrn, false);
     } catch (Exception e) {
       log.error(
           String.format(

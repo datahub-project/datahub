@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class GMSDisableWriteModeStep implements UpgradeStep {
 
-  private final SystemEntityClient entityClient;
+  private final SystemEntityClient systemEntityClient;
 
   @Override
   public String id() {
@@ -29,7 +29,7 @@ public class GMSDisableWriteModeStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        entityClient.setWritable(context.opContext(), false);
+        systemEntityClient.setWritable(context.opContext(), false);
       } catch (Exception e) {
         log.error("Failed to turn write mode off in GMS", e);
         context.report().addLine("Failed to turn write mode off in GMS");

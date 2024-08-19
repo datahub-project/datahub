@@ -1,0 +1,11 @@
+
+enum PlatformResourceType {
+    /**
+     * e.g. a Slack member resource, Looker user resource, etc.
+     */
+    USER_INFO,
+    /**
+     * I.e. a Slack channel
+     */
+    CONVERSATION
+}

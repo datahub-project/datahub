@@ -588,12 +588,6 @@ fragment entityFields on Entity {
       name
     }
   }
-  ... on Form {
-    info {
-      name
-      description
-    }
-  }
 }
 
 fragment nonSiblingsDatasetSearchFields on Dataset {

@@ -46,6 +46,7 @@ const Body = styled.div`
     align-items: space-between;
     justify-content: start;
     flex: 1;
+    overflow: auto;
 `;
 
 const Content = styled.div`
@@ -53,15 +54,24 @@ const Content = styled.div`
     min-height: 100%;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: auto;
     white-space: nowrap;
+    /* hide the scrollbar */
+
+    ::-webkit-scrollbar {
+        display: none; /* for Chrome, Safari and Opera */
+    }
+
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
 `;
 
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
     ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
     overflow: auto;
-
+    display: flex;
+    flex-direction: column;
     /* hide the scrollbar */
 
     ::-webkit-scrollbar {

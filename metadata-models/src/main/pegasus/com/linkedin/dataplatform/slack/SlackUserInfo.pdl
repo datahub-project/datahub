@@ -1,0 +1,116 @@
+namespace com.linkedin.dataplatform.slack
+
+import com.linkedin.common.Urn
+
+/**
+ * Information about a Slack user.
+ */
+@Aspect = {
+  "name": "slackUserInfo"
+}
+record SlackUserInfo {
+
+  /**
+   * The dataplatform instance that this Slack member belongs to.
+   */
+  @Relationship = {
+    "name": "PartOfSlackWorkspace",
+    "entityTypes": ["dataPlatformInstance"]
+  }
+  slackInstance: Urn
+  
+  /**
+   * The unique identifier for the Slack member.
+   */
+  id: string
+
+  /**
+   * The username of the Slack member.
+   */
+  name: string
+
+  /**
+   * The real name of the Slack member.
+   */
+  realName: string
+
+  /**
+   * The display name of the Slack member.
+   */
+  displayName: string
+
+  /**
+   * The email associated with the Slack member.
+   */
+  email: optional string
+
+  /**
+   * The ID associated with the Slack team.
+   */
+  teamId: string
+
+  /**
+   * Whether the member is deleted or not.
+   */
+  isDeleted: boolean
+
+  /**
+   * Whether the member is an admin.
+   */
+  isAdmin: boolean
+
+  /**
+   * Whether the member is an owner.
+   */
+  isOwner: boolean
+
+  /**
+   * Whether the member is a primary owner.
+   */
+  isPrimaryOwner: boolean
+
+  /**
+   * Whether the member is a bot.
+   */
+  isBot: boolean
+
+  /**
+   * The timezone of the Slack member.
+   */
+  timezone: optional string
+
+  /**
+   * The timezone offset of the Slack member.
+   */
+  timezoneOffset: optional int
+
+  /**
+   * The title of the Slack member.
+   */
+  title: optional string
+
+  /**
+   * The phone number of the Slack member.
+   */
+  phone: optional string
+
+  /**
+   * The URL of the member's profile picture.
+   */
+  profilePictureUrl: optional string
+
+  /**
+   * The status text of the Slack member.
+   */
+  statusText: optional string
+
+  /**
+   * The status emoji of the Slack member.
+   */
+  statusEmoji: optional string
+
+  /**
+   * The timestamp of when the member was last updated. (in seconds)
+   */
+  lastUpdatedSeconds: optional long
+}

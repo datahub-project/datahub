@@ -5,6 +5,7 @@ import com.linkedin.common.FieldFormPromptAssociationArray;
 import com.linkedin.common.FormPromptAssociationArray;
 import com.linkedin.common.Forms;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.DocumentationResponse;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FieldFormPromptAssociation;
@@ -142,6 +143,14 @@ public class FormsMapper {
           gmsOwnerResponse.getOwnershipTypeUrn().toString());
       result.setOwnershipResponse(ownershipPromptResponse);
     }
+    if (promptResponse.getDocumentationResponse() != null) {
+      com.linkedin.common.DocumentationPromptResponse gmsDocumentationResponse =
+          promptResponse.getDocumentationResponse();
+      DocumentationResponse documentationResponse = new DocumentationResponse();
+      documentationResponse.setDocumentation(gmsDocumentationResponse.getDocumentation());
+      result.setDocumentationResponse(documentationResponse);
+    }
+
     return result;
   }
 
@@ -154,6 +163,9 @@ public class FormsMapper {
           association.setFieldPath(fieldFormPromptAssociation.getFieldPath());
           association.setLastModified(
               createAuditStamp(fieldFormPromptAssociation.getLastModified()));
+          if (fieldFormPromptAssociation.getResponse() != null) {
+            association.setResponse(mapPromptResponse(fieldFormPromptAssociation.getResponse()));
+          }
           result.add(association);
         });
     return result;

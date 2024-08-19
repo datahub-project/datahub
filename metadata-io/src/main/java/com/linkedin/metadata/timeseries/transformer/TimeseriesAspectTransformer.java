@@ -54,7 +54,8 @@ public class TimeseriesAspectTransformer {
       @Nonnull final Urn urn,
       @Nonnull final RecordTemplate timeseriesAspect,
       @Nonnull final AspectSpec aspectSpec,
-      @Nullable final SystemMetadata systemMetadata)
+      @Nullable final SystemMetadata systemMetadata,
+      @Nonnull final String idHashAlgo)
       throws JsonProcessingException {
     ObjectNode commonDocument = getCommonDocument(urn, timeseriesAspect, systemMetadata);
     Map<String, JsonNode> finalDocuments = new HashMap<>();
@@ -74,7 +75,7 @@ public class TimeseriesAspectTransformer {
     final Map<TimeseriesFieldSpec, List<Object>> timeseriesFieldValueMap =
         FieldExtractor.extractFields(timeseriesAspect, aspectSpec.getTimeseriesFieldSpecs());
     timeseriesFieldValueMap.forEach((k, v) -> setTimeseriesField(document, k, v));
-    finalDocuments.put(getDocId(document, null), document);
+    finalDocuments.put(getDocId(document, null, idHashAlgo), document);
 
     // Create new rows for the member collection fields.
     final Map<TimeseriesFieldCollectionSpec, List<Object>> timeseriesFieldCollectionValueMap =
@@ -83,7 +84,7 @@ public class TimeseriesAspectTransformer {
     timeseriesFieldCollectionValueMap.forEach(
         (key, values) ->
             finalDocuments.putAll(
-                getTimeseriesFieldCollectionDocuments(key, values, commonDocument)));
+                getTimeseriesFieldCollectionDocuments(key, values, commonDocument, idHashAlgo)));
     return finalDocuments;
   }
 
@@ -216,12 +217,13 @@ public class TimeseriesAspectTransformer {
   private static Map<String, JsonNode> getTimeseriesFieldCollectionDocuments(
       final TimeseriesFieldCollectionSpec fieldSpec,
       final List<Object> values,
-      final ObjectNode commonDocument) {
+      final ObjectNode commonDocument,
+      @Nonnull final String idHashAlgo) {
     return values.stream()
         .map(value -> getTimeseriesFieldCollectionDocument(fieldSpec, value, commonDocument))
         .collect(
             Collectors.toMap(
-                keyDocPair -> getDocId(keyDocPair.getSecond(), keyDocPair.getFirst()),
+                keyDocPair -> getDocId(keyDocPair.getSecond(), keyDocPair.getFirst(), idHashAlgo),
                 Pair::getSecond));
   }
 
@@ -257,7 +259,9 @@ public class TimeseriesAspectTransformer {
         finalDocument);
   }
 
-  private static String getDocId(@Nonnull JsonNode document, String collectionId) {
+  private static String getDocId(
+      @Nonnull JsonNode document, String collectionId, @Nonnull String idHashAlgo)
+      throws IllegalArgumentException {
     String docId = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).toString();
     JsonNode eventGranularity = document.get(MappingsBuilder.EVENT_GRANULARITY);
     if (eventGranularity != null) {
@@ -276,6 +280,11 @@ public class TimeseriesAspectTransformer {
       docId += partitionSpec.toString();
     }
 
-    return DigestUtils.md5Hex(docId);
+    if (idHashAlgo.equalsIgnoreCase("SHA-256")) {
+      return DigestUtils.sha256Hex(docId);
+    } else if (idHashAlgo.equalsIgnoreCase("MD5")) {
+      return DigestUtils.md5Hex(docId);
+    }
+    throw new IllegalArgumentException("Hash function not handled !");
   }
 }

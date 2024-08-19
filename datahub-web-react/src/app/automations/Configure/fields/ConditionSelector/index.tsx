@@ -9,6 +9,7 @@ import { Input, Select } from 'antd';
 import { Delete, Add } from '@mui/icons-material';
 import uniqid from 'uniqid';
 
+import { PrimaryButton, SecondaryButton, TextButton, DeleteButton } from '@app/automations/sharedComponents';
 import { SortableList } from './SortableList';
 
 import { predicateOptions, operatorOptions, transformConditions } from './utils';
@@ -27,8 +28,6 @@ import {
     GroupAddContainer,
     MatchingAssetText,
 } from './components';
-
-import { PrimaryButton, SecondaryButton, TextButton, DeleteButton } from '../../../sharedComponents';
 
 type ConditionType = {
     id: number;

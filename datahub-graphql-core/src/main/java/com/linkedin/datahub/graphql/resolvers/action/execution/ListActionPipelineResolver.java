@@ -60,7 +60,7 @@ public class ListActionPipelineResolver
                   _entityClient.search(
                       context
                           .getOperationContext()
-                          .withSearchFlags(flags -> flags.setFulltext(true)),
+                          .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
                       Constants.ACTIONS_PIPELINE_ENTITY_NAME,
                       query,
                       buildFilter(

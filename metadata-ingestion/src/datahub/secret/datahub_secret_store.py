@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataHubSecretStoreConfig(BaseModel):
-    graph_client: Optional[DataHubGraph] = None
+    graph_client: Optional[Any] = None
     graph_client_config: Optional[DatahubClientConfig] = None
 
     class Config:
@@ -64,3 +64,6 @@ class DataHubSecretStore(SecretStore):
     def create(cls, config: Any) -> "DataHubSecretStore":
         config = DataHubSecretStoreConfig.parse_obj(config)
         return cls(config)
+
+    def close(self) -> None:
+        self.client.graph.close()

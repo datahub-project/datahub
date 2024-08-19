@@ -73,14 +73,14 @@ const PillColumn = styled.div`
 
 export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     const { id, data } = props;
-    const { parent, direction, contents, shown, numShown, limit } = data;
+    const { parent, direction, contents, shown, allChildren, numShown, limit } = data;
 
     const { total, platforms, subtypes } = useFetchFilterNodeContents(parent, direction);
 
     useAvoidIntersectionsOften(id, 52);
 
     const numerator = numShown ?? shown.size;
-    const denominator = total ?? contents.length;
+    const denominator = total ?? allChildren.size;
     return (
         <NodeWrapper>
             <ExtraCard className="extra-card" bottom={-3} />

@@ -4,11 +4,12 @@ import DOMPurify from 'dompurify';
 import { message } from 'antd';
 import styled from 'styled-components/macro';
 import { useLocation, useHistory } from 'react-router';
+import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { GenericEntityUpdate } from '../../../types';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../EntityContext';
 import {
-    useSuggestDescriptionMutation,
+    useInferDocumentationMutation,
     useUpdateDescriptionMutation,
 } from '../../../../../../graphql/mutations.generated';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
@@ -18,25 +19,11 @@ import { ActionRequestType, EntityType } from '../../../../../../types.generated
 import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDesription';
-import { useAppConfig } from '../../../../../useAppConfig';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
-const GENERATE_ENTITY_TYPES = [
-    EntityType.Dataset,
-    EntityType.Chart,
-    EntityType.Dashboard,
-    EntityType.DataJob,
-    EntityType.DataFlow,
-];
 
 export function getShouldShowProposeButton(entityType: EntityType) {
     return PROPOSAL_ENTITY_TYPES.includes(entityType);
-}
-
-export function useShouldShowGenerateButton(entityType: EntityType) {
-    const appConfig = useAppConfig();
-
-    return GENERATE_ENTITY_TYPES.includes(entityType) && appConfig.config.featureFlags?.documentationAiEnabled;
 }
 
 const EditorContainer = styled.div`
@@ -61,7 +48,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
-    const [suggestDescription] = useSuggestDescriptionMutation();
+    const [inferDocumentation] = useInferDocumentationMutation();
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
@@ -174,9 +161,10 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
 
     const handleGenerate = useCallback(() => {
         message.loading({ content: 'Generating...' });
-        suggestDescription({
+        inferDocumentation({
             variables: {
                 urn: mutationUrn,
+                saveResult: false,
             },
         })
             .then(({ data, errors }) => {
@@ -186,8 +174,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 }
                 message.destroy();
 
-                const suggestedDescription = data?.suggestDescription || '';
-                // console.log('suggestedDescription', suggestedDescription);
+                const suggestedDescription = data?.inferDocumentation?.entityDescription || '';
                 setUpdatedDescription((prevDescription) => prevDescription + suggestedDescription);
                 setIsDescriptionUpdated(true);
             })
@@ -195,7 +182,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 message.destroy();
                 message.error({ content: `Failed to generate: \n ${e.message || ''}`, duration: 3 });
             });
-    }, [mutationUrn, suggestDescription, setUpdatedDescription, setIsDescriptionUpdated]);
+    }, [mutationUrn, inferDocumentation, setUpdatedDescription, setIsDescriptionUpdated]);
 
     // Function to handle all changes in Editor
     const handleEditorChange = (editedDescription: string) => {
@@ -225,7 +212,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     };
 
     const shouldShowProposeButton = getShouldShowProposeButton(entityType);
-    const shouldShowGenerateButton = useShouldShowGenerateButton(entityType);
+    const shouldShowGenerateButton = useShouldShowInferDocumentationButton(entityType);
 
     // If the generate param is set in the URL, run suggestion generation on load.
     const location = useLocation();

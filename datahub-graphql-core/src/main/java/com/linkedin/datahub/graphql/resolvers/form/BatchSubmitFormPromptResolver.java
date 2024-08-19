@@ -115,6 +115,20 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   promptId,
                   UrnUtils.getUrn(context.getActorUrn()),
                   true);
+            } else if (promptInput.getType().equals(FormPromptType.DOCUMENTATION)) {
+              if (promptInput.getDocumentationParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide ownership params for prompt type DOCUMENTATION");
+              }
+              final String documentation = promptInput.getDocumentationParams().getDocumentation();
+              return _formService.batchSubmitDocumentationPromptResponse(
+                  context.getOperationContext(),
+                  entityUrns,
+                  documentation,
+                  formUrn,
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()),
+                  true);
             }
             return false;
           } catch (Exception e) {

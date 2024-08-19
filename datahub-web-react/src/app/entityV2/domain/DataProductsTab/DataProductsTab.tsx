@@ -11,7 +11,7 @@ import { SearchBar } from '../../../search/SearchBar';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { scrollToTop } from '../../../shared/searchUtils';
 import { DomainsPaginationContainer } from '../../../domain/DomainsList';
-import { ANTD_GRAY } from '../../shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
 import { useEntityData } from '../../../entity/shared/EntityContext';
 import { DOMAINS_FILTER_NAME } from '../../../search/utils/constants';
 import DataProductResult from './DataProductResult';
@@ -22,10 +22,16 @@ const DataProductsPaginationWrapper = styled(DomainsPaginationContainer)`
 `;
 
 const ResultsWrapper = styled.div`
-    flex: 1;
-    background-color: ${ANTD_GRAY[2]};
-    padding: 16px;
+    height: auto;
     overflow: auto;
+    flex: 1;
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+    background: ${REDESIGN_COLORS.BACKGROUND};
 `;
 
 const StyledLoading = styled(LoadingOutlined)`
@@ -68,6 +74,7 @@ export default function DataProductsTab() {
                 searchFlags: { skipCache: true },
             },
         },
+        fetchPolicy: 'no-cache',
     });
     const totalResults = data?.searchAcrossEntities?.total || 0;
     const searchResults = data?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
