@@ -236,7 +236,7 @@ def test_bigquery_v2_project_labels_ingest(
 
     del pipeline_config_dict["source"]["config"]["project_ids"]
 
-    pipeline_config_dict["source"]["config"]["project_labels"] = ["development"]
+    pipeline_config_dict["source"]["config"]["project_labels"] = ["environment:development"]
 
     run_and_get_pipeline(pipeline_config_dict)
 

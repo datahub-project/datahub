@@ -1251,7 +1251,7 @@ def test_get_projects_with_project_labels(
 
     config = BigQueryV2Config.parse_obj(
         {
-            "project_labels": ["dev", "qa"],
+            "project_labels": ["environment:dev", "environment:qa"],
         }
     )
 

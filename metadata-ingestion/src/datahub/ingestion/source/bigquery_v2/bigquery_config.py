@@ -235,7 +235,8 @@ class BigQueryV2Config(
     project_labels: List[str] = Field(
         default_factory=list,
         description=(
-            "Ingests projects with the specified labels. Use this property to define which projects to ingest based "
+            "Ingests projects with the specified labels. Set value in the format of `key:value`. Use this property to "
+            "define which projects to ingest based"
             "on project-level labels. If project_ids or project_id is set, this configuration has no effect. The "
             "ingestion process filters projects by label first, and then applies the project_id_pattern."
         ),
