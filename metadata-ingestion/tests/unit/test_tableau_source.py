@@ -1,3 +1,5 @@
+from typing import Dict, Any
+
 import pytest
 
 import datahub.ingestion.source.tableau_constant as c
@@ -11,7 +13,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 
 def test_tablea_source_handles_none_nativedatatype():
-    field = {
+    field: Dict[str, Any] = {
         "__typename": "CalculatedField",
         "id": "abcd",
         "name": "Test Field",
