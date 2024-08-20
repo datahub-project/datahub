@@ -24,7 +24,10 @@ export const AcrylAssertionList = () => {
     const [showAssertionBuilder, setShowAssertionBuilder] = useState<boolean>(false);
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const [visibleAssertions, setVisibleAssertions] = useState<AssertionTable>();
+    const [visibleAssertions, setVisibleAssertions] = useState<AssertionTable>({
+        assertions: [],
+        groupBy: { type: [], status: [] },
+    });
     // TODO we need to create setter function to set the filter as per the filter component
     const [filter] = useState<AssertionListFilter>({
         sortBy: '',
@@ -86,7 +89,7 @@ export const AcrylAssertionList = () => {
             return (
                 <AcrylAssertionListTable
                     contract={contract}
-                    assertionData={visibleAssertions as AssertionTable}
+                    assertionData={visibleAssertions}
                     filter={filter}
                     refetch={() => {
                         refetch();

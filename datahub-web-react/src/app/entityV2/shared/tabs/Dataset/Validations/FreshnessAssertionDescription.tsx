@@ -15,18 +15,18 @@ type Props = {
     monitorSchedule?: Maybe<CronSchedule>;
 };
 
-const getCronAsLabel = (cronSchedule: CronSchedule) => {
+export const getCronAsLabel = (cronSchedule: CronSchedule) => {
     const { cron, timezone } = cronSchedule;
     if (!cron) {
         return '';
     }
     return `${cronstrue.toString(cron).toLocaleLowerCase().replace('at', '')} (${timezone})`;
 };
-const createCronText = (cronSchedule: CronSchedule) => {
+export const createCronText = (cronSchedule: CronSchedule) => {
     return `between cron windows scheduled at ${getCronAsLabel(cronSchedule)}`;
 };
 
-const createFixedIntervalText = (
+export const createFixedIntervalText = (
     fixedIntervalSchedule?: FixedIntervalSchedule | null,
     monitorSchedule?: Maybe<CronSchedule>,
 ) => {
@@ -38,7 +38,7 @@ const createFixedIntervalText = (
     return `in the past ${multiple} ${unit.toLocaleLowerCase()}s${cronText}`;
 };
 
-const createSinceTheLastCheckText = (monitorSchedule?: Maybe<CronSchedule>) => {
+export const createSinceTheLastCheckText = (monitorSchedule?: Maybe<CronSchedule>) => {
     const cronText = monitorSchedule ? `, as of ${getCronAsLabel(monitorSchedule)}` : '';
     return `since the previous check${cronText}.`;
 };

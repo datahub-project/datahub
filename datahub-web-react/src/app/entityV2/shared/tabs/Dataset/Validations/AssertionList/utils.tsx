@@ -51,8 +51,11 @@ import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import { AssertionStatusGroup, AssertionTable, AssertionListFilter, AssertionListTableRow } from './types';
+import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
 
 /**
+ * It refers the {@link getSchemaAggregationText} utility function to get plain text from html description.
+ * @link getSchemaAggregationText
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Schemas.
  *
@@ -78,7 +81,8 @@ export const getSchemaAggregationPlainText = (
 };
 
 /**
- * Returns the Plain Text to render for the aggregation portion of the Assertion Description
+ * It refers the {@link getRowsAggregationText} utility function to get plain text from html description.
+ * @link getRowsAggregationText
  * for Assertions on Dataset Rows
  *
  * Row assertions require an aggregation.
@@ -96,6 +100,10 @@ export const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation
 };
 
 /**
+ *
+ * It refers the {@link getColumnAggregationText} utility function to get plain text from html description.
+ * @link getColumnAggregationText
+ *
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Columns
  */
@@ -149,6 +157,8 @@ export const getColumnAggregationPlainText = (
 };
 
 /**
+ * It refers the {@link getAggregationText} utility function to get plain text from html description.
+ * @link getAggregationText
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  */
 export const getAggregationPlainText = (
@@ -170,6 +180,8 @@ export const getAggregationPlainText = (
 };
 
 /**
+ * It refers the {@link getOperatorText} utility function to get plain text from html description.
+ * @link getOperatorText
  * Returns the Plain Text to render for the operator portion of the Assertion Description
  */
 export const getOperatorPlainText = (
@@ -234,7 +246,8 @@ export const getOperatorPlainText = (
 };
 
 /**
- *
+ * It refers the {@link DatasetAssertionDescription} utility function to get plain text from html description.
+ * @link DatasetAssertionDescription
  * A human-readable Plain Text description of a Dataset Assertion.
  */
 
@@ -246,6 +259,8 @@ export const getDatasetAssertionPlainTextDescription = (datasetAssertion: Datase
 };
 
 /**
+ * It refers the {@link getAggregationText} utility function to get plain text from html description.
+ * @link getAggregationText
  * A human-readable Plain Text description of a Volume Assertion.
  */
 export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
@@ -262,6 +277,8 @@ export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAsse
 };
 
 /**
+ * It refers the {@link getAggregationText} utility function to get plain text from html description.
+ * @link getAggregationText
  * A human-readable Plain Text description of a Field Assertion.
  */
 export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
@@ -273,6 +290,8 @@ export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssert
 };
 
 /**
+ * It refers the {@link getAggregationText} utility function to get plain text from html description.
+ * @link getAggregationText
  * A human-readable Plain Text description of a Schema Assertion.
  */
 export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
@@ -283,35 +302,6 @@ export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAsse
 };
 
 /** below functions are related to Freshness */
-
-const getCronAsLabel = (cronSchedule: CronSchedule) => {
-    const { cron, timezone } = cronSchedule;
-    if (!cron) {
-        return '';
-    }
-    return `${cronstrue.toString(cron).toLocaleLowerCase().replace('at', '')} (${timezone})`;
-};
-
-const createCronText = (cronSchedule: CronSchedule) => {
-    return `between cron windows scheduled at ${getCronAsLabel(cronSchedule)}`;
-};
-
-const createFixedIntervalText = (
-    fixedIntervalSchedule?: FixedIntervalSchedule | null,
-    monitorSchedule?: CronSchedule,
-) => {
-    if (!fixedIntervalSchedule) {
-        return 'No interval found!';
-    }
-    const { multiple, unit } = fixedIntervalSchedule;
-    const cronText = monitorSchedule ? `, as of ${getCronAsLabel(monitorSchedule)}` : '';
-    return `in the past ${multiple} ${unit.toLocaleLowerCase()}s${cronText}`;
-};
-
-const createSinceTheLastCheckText = (monitorSchedule?: CronSchedule) => {
-    const cronText = monitorSchedule ? `, as of ${getCronAsLabel(monitorSchedule)}` : '';
-    return `since the previous check${cronText}.`;
-};
 
 /**
  * A human-readable Plain Text description of an Freshness Assertion.
