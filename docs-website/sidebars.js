@@ -101,12 +101,12 @@ module.exports = {
             {
               label: "Documentation Propagation",
               type: "doc",
-              id: "docs/managed-datahub/automation/docs-propagation",
+              id: "docs/automation/docs-propagation",
             },
             {
               label: "Snowflake Tag Sync",
               type: "doc",
-              id: "docs/managed-datahub/automation/snowflake-tag-propagation",
+              id: "docs/automation/snowflake-tag-propagation",
               className: "saasOnly",
             },
           ],
