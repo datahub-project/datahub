@@ -6,6 +6,7 @@ import { Tooltip, Typography } from 'antd';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { AssertionSourceType, EntityType, DataContract } from '@src/types.generated';
+import { SMART_ASSERTION_STALE_IN_DAYS, UNKNOWN_DATA_PLATFORM } from '@src/app/entityV2/shared/constants';
 import { InferredAssertionPopover } from '../InferredAssertionPopover';
 import { InferredAssertionBadge } from '../InferredAssertionBadge';
 import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
@@ -16,7 +17,7 @@ import { AssertionPlatformAvatar } from '../AssertionPlatformAvatar';
 import { isAssertionPartOfContract } from '../contract/utils';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { DataContractBadge } from './DataContractBadge';
-import { TableRowType } from './types';
+import { AssertionListTableRow } from './types';
 
 const StyledAssertionNameContainer = styled.div`
     display: flex;
@@ -45,12 +46,8 @@ const StyledAssertionBadgeContainer = styled.div`
     align-items: center;
 `;
 
-export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
-
-const SMART_ASSERTION_STALE_IN_DAYS = 3;
-
 type Props = {
-    record: TableRowType;
+    record: AssertionListTableRow;
     groupBy: string;
     contract: DataContract;
 };
@@ -84,6 +81,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
 
     return (
         <StyledAssertionNameContainer>
+            {/* ******** Popover on hover ******** */}
             <AssertionResultPopover
                 assertion={assertion}
                 run={lastEvaluation}
@@ -95,8 +93,12 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                     <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
                 </Result>
             </AssertionResultPopover>
+
+            {/* ******** Assertion description ******** */}
             <AssertionDescriptionContainer>
                 <Typography.Paragraph style={{ marginBottom: 0 }}>{name}</Typography.Paragraph>
+
+                {/* ****render external Icon if the assertion is external**** */}
                 {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
                     <AssertionPlatformWrapper>
                         <AssertionPlatformAvatar
@@ -105,6 +107,8 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                         />
                     </AssertionPlatformWrapper>
                 )}
+
+                {/* ******** Stale smart assertion indicator ******** */}
                 {isSmartAssertionStale ? (
                     <Tooltip
                         title={
@@ -120,11 +124,14 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                     </Tooltip>
                 ) : null}
                 <StyledAssertionBadgeContainer>
+                    {/* ******** Smart assertion Popover ******** */}
                     {isSmartAssertion && (
                         <InferredAssertionPopover>
                             <InferredAssertionBadge />
                         </InferredAssertionPopover>
                     )}
+                    {/* ******** Data Contract Popover ******** */}
+
                     {(isPartOfContract && entityData?.urn && (
                         <DataContractBadge
                             link={`${entityRegistry.getEntityUrl(

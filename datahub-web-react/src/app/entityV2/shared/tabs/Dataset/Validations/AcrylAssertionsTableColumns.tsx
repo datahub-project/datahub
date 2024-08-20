@@ -24,7 +24,7 @@ import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDo
 import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { AssertionListItemActions } from './assertion/profile/actions/AssertionActionList';
+import { AssertionListItemActions } from './assertion/profile/actions/AssertionListItemActions';
 
 const DetailsContainer = styled.div`
     display: flex;

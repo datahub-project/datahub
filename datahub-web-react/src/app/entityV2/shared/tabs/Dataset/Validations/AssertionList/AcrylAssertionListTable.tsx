@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Table, Empty } from 'antd';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
@@ -8,13 +8,13 @@ import styled from 'styled-components';
 import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
 import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/builder/hooks';
-import { AssertionTableType, IFilter } from './types';
-import { useAssertionsTableColumns, usePinnedTableHeaderProps } from './hooks';
+import { AssertionTable, AssertionListFilter } from './types';
+import { useAssertionsTableColumns, usePinnedAssertionTableHeaderProps } from './hooks';
 import { AssertionListStyledTable } from './StyledComponents';
 
 type Props = {
-    assertionData: AssertionTableType;
-    filter: IFilter;
+    assertionData: AssertionTable;
+    filter: AssertionListFilter;
     refetch: () => void;
     contract: DataContract;
     canEditAssertions: boolean;
@@ -27,7 +27,7 @@ const ExpandIcon = styled(RightOutlined)<{ expanded: boolean }>`
     transform: rotate(${(props) => (props.expanded ? 90 : 0)}deg);
 `;
 
-export const AssertionListTable = ({
+export const AcrylAssertionListTable = ({
     assertionData,
     filter,
     refetch,
@@ -41,7 +41,7 @@ export const AssertionListTable = ({
 
     const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(
         assertionData?.groupBy ? assertionData?.groupBy[groupBy] : [],
-        groupBy,
+        { isGroupBy: !!groupBy },
     );
 
     // get columns data from the custom hooks
@@ -66,9 +66,12 @@ export const AssertionListTable = ({
         : false;
     const canEditFocusMonitor = focusedAssertion ? canEditMonitors : false;
 
-    if (focusAssertionUrn && !focusedAssertion) {
-        setFocusAssertionUrn(null);
-    }
+    useEffect(() => {
+        if (focusAssertionUrn && !focusedAssertion) {
+            setFocusAssertionUrn(null);
+        }
+    }, [focusAssertionUrn, focusedAssertion]);
+
     useOpenAssertionDetailModal(setFocusAssertionUrn);
 
     const onAssertionExpand = (_, record) => {
@@ -101,7 +104,7 @@ export const AssertionListTable = ({
     };
 
     // get dynamic height for table row data to scroll which help to stick the table header
-    const { tableContainerRef, scrollY } = usePinnedTableHeaderProps();
+    const { tableContainerRef, scrollY } = usePinnedAssertionTableHeaderProps();
 
     return (
         <>

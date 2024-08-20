@@ -8,13 +8,13 @@ import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode
 import { AssertionWithMonitorDetails, tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '../acrylUtils';
 import { combineEntityDataWithSiblings } from '../../../../../../entity/shared/siblingUtils';
 import { getFilteredTransformedAssertionData } from './utils';
-import { AssertionListTable } from './AssertionListTable';
 import { AssertionMonitorBuilderDrawer } from '../assertion/builder/AssertionMonitorBuilderDrawer';
 import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '../acrylCacheUtils';
 import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
-import { AssertionTableType, IFilter } from './types';
+import { AssertionTable, AssertionListFilter } from './types';
 import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
+import { AcrylAssertionListTable } from './AcrylAssertionListTable';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -25,9 +25,12 @@ export const AcrylAssertionList = () => {
     const [showAssertionBuilder, setShowAssertionBuilder] = useState<boolean>(false);
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const [visibleAssertions, setVisibleAssertions] = useState<AssertionTableType>();
+    const [visibleAssertions, setVisibleAssertions] = useState<AssertionTable>({
+        assertions: [],
+        groupBy: { type: [], status: [] },
+    });
     // TODO we need to create setter function to set the filter as per the filter component
-    const [filter] = useState<IFilter>({
+    const [filter] = useState<AssertionListFilter>({
         sortBy: '',
         groupBy: 'type',
         filterCriteria: {
@@ -53,7 +56,7 @@ export const AcrylAssertionList = () => {
 
     // get filtered Assertion as per the filter object
     const getFilteredAssertions = (assertions: AssertionWithMonitorDetails[]) => {
-        const filteredAssertionData: AssertionTableType = getFilteredTransformedAssertionData(assertions, filter);
+        const filteredAssertionData: AssertionTable = getFilteredTransformedAssertionData(assertions, filter);
         setVisibleAssertions(filteredAssertionData);
     };
 
@@ -85,15 +88,13 @@ export const AcrylAssertionList = () => {
         }
         if ((visibleAssertions?.assertions || []).length > 0) {
             return (
-                <AssertionListTable
+                <AcrylAssertionListTable
                     contract={contract}
-                    assertionData={visibleAssertions as AssertionTableType}
+                    assertionData={visibleAssertions}
                     filter={filter}
                     refetch={() => {
-                        setTimeout(() => {
-                            refetch();
-                            contractRefetch();
-                        }, 500);
+                        refetch();
+                        contractRefetch();
                     }}
                     canEditAssertions={canEditAssertions}
                     canEditMonitors={canEditMonitors}

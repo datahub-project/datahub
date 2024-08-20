@@ -95,7 +95,7 @@ export const useAssertionsTableColumns = ({
     }, [groupBy, contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch]);
 };
 
-export const usePinnedTableHeaderProps = () => {
+export const usePinnedAssertionTableHeaderProps = () => {
     // Dynamic height calculation
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const [scrollY, setScrollY] = useState<number>(0);

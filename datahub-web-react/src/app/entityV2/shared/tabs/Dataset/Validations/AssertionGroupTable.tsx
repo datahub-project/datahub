@@ -42,7 +42,7 @@ export const AssertionGroupTable = ({
     canEditSqlAssertions,
     refetch,
 }: Props) => {
-    const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(groups, true);
+    const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(groups, { isGroupBy: true });
 
     const onAssertionExpand = (expanded, record) => {
         if (expanded) {

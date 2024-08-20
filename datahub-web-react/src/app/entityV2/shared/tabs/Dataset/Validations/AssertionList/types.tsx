@@ -10,7 +10,7 @@ import {
 import { AssertionWithMonitorDetails } from '../acrylUtils';
 import { AssertionGroup } from '../acrylTypes';
 
-export type IFilter = {
+export type AssertionListFilter = {
     sortBy: string;
     groupBy: string;
     filterCriteria: {
@@ -22,7 +22,7 @@ export type IFilter = {
     };
 };
 
-export type TableRowType = {
+export type AssertionListTableRow = {
     type?: string;
     lastUpdated?: AuditStamp;
     tags: GlobalTags;
@@ -42,24 +42,24 @@ export type TableRowType = {
 };
 
 export type AssertionGroupExtended = Omit<AssertionGroup, 'assertions'> & {
-    assertions: TableRowType[];
+    assertions: AssertionListTableRow[];
     groupName?: JSX.Element;
 };
 
 export type AssertionStatusGroup = {
     name: string;
-    assertions: TableRowType[];
+    assertions: AssertionListTableRow[];
     summary: { [key: string]: number };
     groupName?: JSX.Element;
 };
 
-type AssertionGroupByType = {
+type AssertionGroupBy = {
     type: any[];
     status: AssertionStatusGroup[];
 };
 
-export type AssertionTableType = {
-    assertions: TableRowType[];
-    groupBy: AssertionGroupByType;
+export type AssertionTable = {
+    assertions: AssertionListTableRow[];
+    groupBy: AssertionGroupBy;
     filterOptions?: any;
 };

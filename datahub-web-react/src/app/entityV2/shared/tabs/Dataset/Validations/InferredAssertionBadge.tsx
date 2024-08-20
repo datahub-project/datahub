@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Sparkle } from 'phosphor-react';
+import { REDESIGN_COLORS } from '@src/app/entity/shared/constants';
 import { ANTD_GRAY } from '../../../constants';
-import SmartAssertionIcon from '../../../../../../images/sparkle-fill.svg?react';
 
 const Container = styled.span`
     color: ${ANTD_GRAY[8]};
@@ -10,11 +11,14 @@ const Container = styled.span`
     border: 1px solid transparent;
     cursor: pointer;
 `;
+const Logo = styled(Sparkle)`
+    color: ${REDESIGN_COLORS.BLUE};
+`;
 
 export const InferredAssertionBadge = () => {
     return (
         <Container>
-            <SmartAssertionIcon />
+            <Logo />
         </Container>
     );
 };

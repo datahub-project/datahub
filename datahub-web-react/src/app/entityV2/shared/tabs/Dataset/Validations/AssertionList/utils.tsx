@@ -1,6 +1,5 @@
 import React from 'react';
 import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
-import cronstrue from 'cronstrue';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 
@@ -20,7 +19,6 @@ import {
     DatasetAssertionInfo,
     DatasetAssertionScope,
     FieldAssertionInfo,
-    FixedIntervalSchedule,
     FreshnessAssertionInfo,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
@@ -51,11 +49,13 @@ import {
 import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
-import { AssertionStatusGroup, AssertionTableType, IFilter, TableRowType } from './types';
-import { UNKNOWN_DATA_PLATFORM } from './AssertionName';
-import { isExternalAssertion } from '@src/app/entity/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
+import { AssertionStatusGroup, AssertionTable, AssertionListTableRow, AssertionListFilter } from './types';
+import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
+import { isExternalAssertion } from '../assertion/profile/shared/isExternalAssertion';
 
 /**
+ * It refers the {@link getSchemaAggregationText} utility function to get plain text from html description.
+ * @link getSchemaAggregationText
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Schemas.
  *
@@ -81,7 +81,8 @@ export const getSchemaAggregationPlainText = (
 };
 
 /**
- * Returns the Plain Text to render for the aggregation portion of the Assertion Description
+ * It refers the {@link getRowsAggregationText} utility function to get plain text from html description.
+ * @link getRowsAggregationText
  * for Assertions on Dataset Rows
  *
  * Row assertions require an aggregation.
@@ -99,6 +100,10 @@ export const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation
 };
 
 /**
+ *
+ * It refers the {@link getColumnAggregationText} utility function to get plain text from html description.
+ * @link getColumnAggregationText
+ *
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Columns
  */
@@ -152,6 +157,8 @@ export const getColumnAggregationPlainText = (
 };
 
 /**
+ * It refers the {@link getAggregationText} utility function to get plain text from html description.
+ * @link getAggregationText
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  */
 export const getAggregationPlainText = (
@@ -173,6 +180,8 @@ export const getAggregationPlainText = (
 };
 
 /**
+ * It refers the {@link getOperatorText} utility function to get plain text from html description.
+ * @link getOperatorText
  * Returns the Plain Text to render for the operator portion of the Assertion Description
  */
 export const getOperatorPlainText = (
@@ -237,7 +246,8 @@ export const getOperatorPlainText = (
 };
 
 /**
- *
+ * It refers the {@link DatasetAssertionDescription} utility function to get plain text from html description.
+ * @link DatasetAssertionDescription
  * A human-readable Plain Text description of a Dataset Assertion.
  */
 
@@ -249,6 +259,8 @@ export const getDatasetAssertionPlainTextDescription = (datasetAssertion: Datase
 };
 
 /**
+ * It refers the {@link getAggregationText} utility function to get plain text from html description.
+ * @link getAggregationText
  * A human-readable Plain Text description of a Volume Assertion.
  */
 export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
@@ -265,6 +277,8 @@ export const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAsse
 };
 
 /**
+ * It refers the {@link getAggregationText} utility function to get plain text from html description.
+ * @link getAggregationText
  * A human-readable Plain Text description of a Field Assertion.
  */
 export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
@@ -276,6 +290,8 @@ export const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssert
 };
 
 /**
+ * It refers the {@link getAggregationText} utility function to get plain text from html description.
+ * @link getAggregationText
  * A human-readable Plain Text description of a Schema Assertion.
  */
 export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
@@ -286,35 +302,6 @@ export const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAsse
 };
 
 /** below functions are related to Freshness */
-
-const getCronAsLabel = (cronSchedule: CronSchedule) => {
-    const { cron, timezone } = cronSchedule;
-    if (!cron) {
-        return '';
-    }
-    return `${cronstrue.toString(cron).toLocaleLowerCase().replace('at', '')} (${timezone})`;
-};
-
-const createCronText = (cronSchedule: CronSchedule) => {
-    return `between cron windows scheduled at ${getCronAsLabel(cronSchedule)}`;
-};
-
-const createFixedIntervalText = (
-    fixedIntervalSchedule?: FixedIntervalSchedule | null,
-    monitorSchedule?: CronSchedule,
-) => {
-    if (!fixedIntervalSchedule) {
-        return 'No interval found!';
-    }
-    const { multiple, unit } = fixedIntervalSchedule;
-    const cronText = monitorSchedule ? `, as of ${getCronAsLabel(monitorSchedule)}` : '';
-    return `in the past ${multiple} ${unit.toLocaleLowerCase()}s${cronText}`;
-};
-
-const createSinceTheLastCheckText = (monitorSchedule?: CronSchedule) => {
-    const cronText = monitorSchedule ? `, as of ${getCronAsLabel(monitorSchedule)}` : '';
-    return `since the previous check${cronText}.`;
-};
 
 /**
  * A human-readable Plain Text description of an Freshness Assertion.
@@ -436,14 +423,14 @@ const getGroupNameBySummary = (record) => {
 };
 
 // transform assertions into table data
-const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[]): TableRowType[] => {
+const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[]): AssertionListTableRow[] => {
     return assertions.map((assertion: AssertionWithMonitorDetails) => {
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
 
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
         const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
-        const rowData: TableRowType = {
+        const rowData: AssertionListTableRow = {
             type: assertion.info?.type,
             lastUpdated: assertion.info?.lastUpdated as AuditStamp,
             tags: assertion.tags as GlobalTags,
@@ -500,8 +487,8 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
 };
 
 /** return assertions table data structure to render on table from assertions */
-export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]): AssertionTableType => {
-    const assertionRawData: AssertionTableType = { assertions: [], groupBy: { type: [], status: [] } };
+export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]): AssertionTable => {
+    const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] } };
 
     const assertionsTableData = mapAssertionData(assertions);
     assertionRawData.assertions = assertionsTableData;
@@ -584,15 +571,10 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
 /** return fitlered transformed assertions */
 export const getFilteredTransformedAssertionData = (
     assertions: AssertionWithMonitorDetails[],
-    filter: IFilter,
-): AssertionTableType => {
-    const assertionRawData: AssertionTableType = {
-        assertions: [],
-        groupBy: { type: [], status: [] },
-        filterOptions: {},
-    };
+    filter: AssertionListFilter,
+): AssertionTable => {
+    const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] }, filterOptions: {} };
     assertionRawData.filterOptions = extractFilterOptionListFromAssertions(assertions);
-
     const filteredAssertions = assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const { searchText, type, status } = filter.filterCriteria;
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
