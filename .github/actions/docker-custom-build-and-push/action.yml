@@ -26,10 +26,13 @@ inputs:
   build-args:
     description: "List of build-time variables. Same as docker/build-push-action"
     required: false
-  tags:
-    # e.g. latest,head,sha12345
-    description: "List of tags to use for the Docker image"
+  image_tag:
+    # e.g. pr12345 OR head OR v0.1.2.3
+    description: "Main tag to use for the Docker image"
     required: true
+  flavor:
+    description: 'Image flavor (e.g., slim, full)'
+    required: false
   target:
     description: "Sets the target stage to build"
     required: false
@@ -45,13 +48,16 @@ runs:
   steps:
     - name: Docker meta
       id: docker_meta
-      uses: crazy-max/ghaction-docker-meta@v1
+      uses: docker/metadata-action@v5
       with:
-        # list of Docker images to use as base name for tags
         images: ${{ inputs.images }}
-        # add git short SHA as Docker tag
-        tag-custom: ${{ inputs.tags }}
-        tag-custom-only: true
+        flavor: |
+          latest=false
+          suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
+        tags: |
+          type=raw,value=${{ inputs.image_tag }}
+          type=raw,value=head,enable={{is_default_branch}}
+          type=sha,prefix=,format=short
 
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
@@ -74,10 +80,13 @@ runs:
       if: ${{ inputs.publish != 'true' }}
       shell: bash
       run: |
-        TAGS="""
-        ${{ steps.docker_meta.outputs.tags }}
+        IMAGES="""
+        ${{ inputs.images }}
         """
-        echo "SINGLE_TAG=$(echo $TAGS | tr '\n' ' ' | awk -F' ' '{ print $1 }')" >> $GITHUB_OUTPUT
+        TAGS="""
+        ${{ inputs.image_tag }}
+        """
+        echo "SINGLE_TAG=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }'):$(echo $TAGS | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> $GITHUB_OUTPUT
       id: single_tag
     - name: Upload image locally for testing (if not publishing)
       uses: ishworkh/docker-image-artifact-upload@v1

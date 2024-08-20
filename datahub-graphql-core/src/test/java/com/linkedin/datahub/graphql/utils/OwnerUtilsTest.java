@@ -59,6 +59,7 @@ public class OwnerUtilsTest {
     Urn technicalOwnershipTypeUrn = new Urn(TECHNICAL_OWNER_OWNERSHIP_TYPE_URN);
     Urn businessOwnershipTypeUrn = new Urn(BUSINESS_OWNER_OWNERSHIP_TYPE_URN);
     Urn ownerUrn1 = new Urn("urn:li:corpuser:foo");
+    Urn ownerUrn2 = new Urn("urn:li:corpuser:bar");
 
     Owner ownerWithTechnicalOwnership = new Owner();
     ownerWithTechnicalOwnership.setOwner(ownerUrn1);
@@ -72,12 +73,17 @@ public class OwnerUtilsTest {
     ownerWithoutOwnershipType.setOwner(ownerUrn1);
     ownerWithoutOwnershipType.setType(OwnershipType.NONE);
 
+    Owner owner2WithoutOwnershipType = new Owner();
+    owner2WithoutOwnershipType.setOwner(ownerUrn2);
+    owner2WithoutOwnershipType.setType(OwnershipType.NONE);
+
     assertTrue(
         OwnerUtils.isOwnerEqual(ownerWithTechnicalOwnership, ownerUrn1, technicalOwnershipTypeUrn));
     assertFalse(
         OwnerUtils.isOwnerEqual(ownerWithBusinessOwnership, ownerUrn1, technicalOwnershipTypeUrn));
-    assertFalse(OwnerUtils.isOwnerEqual(ownerWithTechnicalOwnership, ownerUrn1, null));
+    assertTrue(OwnerUtils.isOwnerEqual(ownerWithTechnicalOwnership, ownerUrn1, null));
     assertTrue(OwnerUtils.isOwnerEqual(ownerWithoutOwnershipType, ownerUrn1, null));
+    assertFalse(OwnerUtils.isOwnerEqual(owner2WithoutOwnershipType, ownerUrn1, null));
   }
 
   public void testIsOwnerEqualWithBothLegacyAndNewType() throws URISyntaxException {

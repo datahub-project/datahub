@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -64,9 +65,10 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
                       CORP_GROUP_ENTITY_NAME,
                       query,
                       null,
-                      new SortCriterion()
-                          .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
-                          .setOrder(SortOrder.DESCENDING),
+                      Collections.singletonList(
+                          new SortCriterion()
+                              .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
+                              .setOrder(SortOrder.DESCENDING)),
                       start,
                       count);
 

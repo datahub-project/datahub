@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import typing
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -13,7 +14,7 @@ from datahub.cli import config_utils
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
-from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -153,10 +154,11 @@ def post_entity(
     aspect_value: Dict,
     cached_session_host: Optional[Tuple[Session, str]] = None,
     is_async: Optional[str] = "false",
+    system_metadata: Union[None, SystemMetadataClass] = None,
 ) -> int:
     endpoint: str = "/aspects/?action=ingestProposal"
 
-    proposal = {
+    proposal: Dict[str, Any] = {
         "proposal": {
             "entityType": entity_type,
             "entityUrn": urn,
@@ -169,6 +171,12 @@ def post_entity(
         },
         "async": is_async,
     }
+
+    if system_metadata is not None:
+        proposal["proposal"]["systemMetadata"] = json.dumps(
+            pre_json_transform(system_metadata.to_obj())
+        )
+
     payload = json.dumps(proposal)
     url = gms_host + endpoint
     curl_command = make_curl_command(session, "POST", url, payload)
@@ -396,6 +404,8 @@ def ensure_has_system_metadata(
     if event.systemMetadata is None:
         event.systemMetadata = SystemMetadataClass()
     metadata = event.systemMetadata
+    if metadata.lastObserved == 0:
+        metadata.lastObserved = int(time.time() * 1000)
     if metadata.properties is None:
         metadata.properties = {}
     props = metadata.properties

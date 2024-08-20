@@ -120,6 +120,9 @@ from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
+from datahub.utilities.sqlalchemy_type_converter import (
+    get_native_data_type_for_sqlalchemy_type,
+)
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -260,8 +263,11 @@ def get_column_type(
                 break
 
     if TypeClass is None:
-        sql_report.report_warning(
-            dataset_name, f"unable to map type {column_type!r} to metadata schema"
+        sql_report.info(
+            title="Unable to map column types to DataHub types",
+            message="Got an unexpected column type. The column's parsed field type will not be populated.",
+            context=f"{dataset_name} - {column_type!r}",
+            log=False,
         )
         TypeClass = NullTypeClass
 
@@ -318,6 +324,26 @@ class ProfileMetadata:
 @capability(
     SourceCapability.CLASSIFICATION,
     "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Enabled by default",
+    supported=True,
+)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    supported=True,
+)
+@capability(
+    SourceCapability.DESCRIPTIONS,
+    "Enabled by default",
+    supported=True,
+)
+@capability(
+    SourceCapability.DOMAINS,
+    "Enabled by default",
     supported=True,
 )
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
@@ -713,18 +739,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                             data_reader,
                         )
                     except Exception as e:
-                        self.warn(
-                            logger,
-                            f"{schema}.{table}",
-                            f"Ingestion error: {e}",
+                        self.report.warning(
+                            "Error processing table",
+                            context=f"{schema}.{table}",
+                            exc=e,
                         )
-                        logger.debug(
-                            f"Error processing table {schema}.{table}: Error was: {e} Traceback:",
-                            exc_info=e,
-                        )
-
             except Exception as e:
-                self.error(logger, f"{schema}", f"Tables error: {e}")
+                self.report.failure(
+                    "Error processing tables",
+                    context=schema,
+                    exc=e,
+                )
 
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
         pass
@@ -788,6 +813,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema_fields = self.get_schema_fields(
             dataset_name,
             columns,
+            inspector,
             pk_constraints,
             tags=extra_tags,
             partition_keys=partitions,
@@ -968,6 +994,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_name: str,
         columns: List[dict],
+        inspector: Inspector,
         pk_constraints: Optional[dict] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
@@ -980,6 +1007,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             fields = self.get_schema_fields_for_column(
                 dataset_name,
                 column,
+                inspector,
                 pk_constraints,
                 tags=column_tags,
                 partition_keys=partition_keys,
@@ -991,6 +1019,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_name: str,
         column: dict,
+        inspector: Inspector,
         pk_constraints: Optional[dict] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
@@ -1000,10 +1029,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             tags_str = [make_tag_urn(t) for t in tags]
             tags_tac = [TagAssociationClass(t) for t in tags_str]
             gtc = GlobalTagsClass(tags_tac)
+        full_type = column.get("full_type")
         field = SchemaField(
             fieldPath=column["name"],
             type=get_column_type(self.report, dataset_name, column["type"]),
-            nativeDataType=column.get("full_type", repr(column["type"])),
+            nativeDataType=full_type
+            if full_type is not None
+            else get_native_data_type_for_sqlalchemy_type(
+                column["type"],
+                inspector=inspector,
+            ),
             description=column.get("comment", None),
             nullable=column["nullable"],
             recursive=False,
@@ -1047,13 +1082,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         sql_config=sql_config,
                     )
                 except Exception as e:
-                    self.warn(
-                        logger,
-                        f"{schema}.{view}",
-                        f"Ingestion error: {e} {traceback.format_exc()}",
+                    self.report.warning(
+                        "Error processing view",
+                        context=f"{schema}.{view}",
+                        exc=e,
                     )
         except Exception as e:
-            self.error(logger, f"{schema}", f"Views error: {e}")
+            self.report.failure(
+                "Error processing views",
+                context=schema,
+                exc=e,
+            )
 
     def _process_view(
         self,
@@ -1076,7 +1115,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             self.warn(logger, dataset_name, "unable to get schema for this view")
             schema_metadata = None
         else:
-            schema_fields = self.get_schema_fields(dataset_name, columns)
+            schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
             schema_metadata = get_schema_metadata(
                 self.report,
                 dataset_name,

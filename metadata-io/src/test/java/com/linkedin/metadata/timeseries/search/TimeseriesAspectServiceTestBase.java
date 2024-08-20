@@ -126,7 +126,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            entityRegistry, new IndexConventionImpl("es_timeseries_aspect_service_test"));
+            entityRegistry, new IndexConventionImpl("es_timeseries_aspect_service_test", "MD5"));
 
     elasticSearchTimeseriesAspectService = buildService();
     elasticSearchTimeseriesAspectService.reindexAll(Collections.emptySet());
@@ -152,7 +152,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
   private void upsertDocument(TestEntityProfile dp, Urn urn) throws JsonProcessingException {
     Map<String, JsonNode> documents =
-        TimeseriesAspectTransformer.transform(urn, dp, aspectSpec, null);
+        TimeseriesAspectTransformer.transform(urn, dp, aspectSpec, null, "MD5");
     assertEquals(documents.size(), 3);
     documents.forEach(
         (key, value) ->
@@ -1291,7 +1291,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   @Test(
       groups = {"testCountAfterDelete"},
       dependsOnGroups = {"deleteAspectValues1"})
-  public void testCountByFilterAfterDelete() throws InterruptedException {
+  public void testCountByFilterAfterDelete() throws Exception {
     syncAfterWrite(getBulkProcessor());
     // Test with filter
     Criterion hasUrnCriterion =
