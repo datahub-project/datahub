@@ -123,7 +123,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                 </ModalFooter>
             }
         >
-            <Form form={form} onFinish={handleCreateOrUpdateQuestion} onValuesChange={handleValuesChange}>
+            <Form form={form} onValuesChange={handleValuesChange}>
                 <FormFieldsContainer>
                     <FieldLabel> Type</FieldLabel>
                     <Form.Item

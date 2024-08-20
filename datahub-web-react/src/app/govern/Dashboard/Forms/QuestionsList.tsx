@@ -5,7 +5,7 @@ import React, { useContext } from 'react';
 import ManageFormContext from './ManageFormContext';
 import QuestionCard from './QuestionCard';
 import { FormQuestion } from './formUtils';
-import { ListContainer } from './styledComponents';
+import { CardsList } from './styledComponents';
 
 interface Props {
     setShowQuestionModal: React.Dispatch<React.SetStateAction<boolean>>;
@@ -36,7 +36,7 @@ const QuestionsList = ({ setShowQuestionModal, setCurrentQuestion }: Props) => {
     return (
         <DndContext sensors={sensors} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
             <SortableContext items={formValues.questions.map((ques) => ques.id)} strategy={verticalListSortingStrategy}>
-                <ListContainer>
+                <CardsList>
                     {formValues.questions?.map((question) => {
                         return (
                             <QuestionCard
@@ -47,7 +47,7 @@ const QuestionsList = ({ setShowQuestionModal, setCurrentQuestion }: Props) => {
                             />
                         );
                     })}
-                </ListContainer>
+                </CardsList>
             </SortableContext>
         </DndContext>
     );

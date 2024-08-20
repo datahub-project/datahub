@@ -1,6 +1,6 @@
 import { colors, Icon } from '@src/alchemy-components';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { Modal, Spin, Tag, Typography } from 'antd';
+import { Divider, Modal, Spin, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const CreateFormContainer = styled.div`
@@ -120,7 +120,7 @@ export const ModalFooter = styled.div`
     justify-content: end;
 `;
 
-export const ListContainer = styled.div`
+export const CardsList = styled.div`
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -174,4 +174,40 @@ export const CardIcons = styled.div`
             cursor: pointer;
         }
     }
+`;
+
+export const NameColumn = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+`;
+
+export const VerticalFlexBox = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
+export const ItemDivider = styled(Divider)`
+    margin: 0;
+`;
+
+export const ListContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    margin: 16px 0;
+`;
+
+export const ListItem = styled.div`
+    display: flex;
+    align-items: center;
+    margin: 12px 20px;
+    justify-content: space-between;
+`;
+
+export const StyledTag = styled(Tag)`
+    padding: 0px 7px 0px 0px;
+    margin: 2px;
+    display: flex;
+    justify-content: start;
+    align-items: center;
 `;
