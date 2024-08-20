@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import partial
@@ -135,6 +136,11 @@ class MetadataCleanupConfig(ConfigModel):
         description="The number of entities to get in a batch from GraphQL",
     )
 
+    max_workers: int = Field(
+        10,
+        description="The number of workers to use for deletion",
+    )
+
 
 @dataclass
 class DataFlowEntity:
@@ -221,18 +227,28 @@ class MetadataCleanupSource(Source):
                 break
         return dpis
 
-    def keep_last_n_dpi(self, dpis: List[Dict], job: DataJobEntity) -> None:
+    def keep_last_n_dpi(
+        self, dpis: List[Dict], job: DataJobEntity, executor: ThreadPoolExecutor
+    ) -> None:
         if not self.config.keep_last_n:
             return
 
         deleted_count_last_n = 0
         if len(dpis) >= self.config.keep_last_n:
+            futures = {}
             for dpi in dpis[self.config.keep_last_n :]:
+                future = executor.submit(
+                    self.delete_entity, dpi["urn"], "dataprocessInstance"
+                )
+                futures[future] = dpi
+
+            for future in as_completed(futures):
                 deleted_count_last_n += 1
-                self.delete_entity(dpi["urn"], "dataprocessInstance")
-                dpi["deleted"] = True
-                if deleted_count_last_n % self.config.batch_size == 0:
-                    logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
+                futures[future]["deleted"] = True
+
+            if deleted_count_last_n % self.config.batch_size == 0:
+                logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
+
         logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
 
     def delete_entity(self, urn: str, type: str) -> None:
@@ -254,11 +270,12 @@ class MetadataCleanupSource(Source):
         dpis = self.fetch_dpis(job.urn, self.config.batch_size)
         dpis.sort(key=lambda x: x["created"]["time"], reverse=True)
 
-        if self.config.keep_last_n:
-            self.keep_last_n_dpi(dpis, job)
+        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+            if self.config.keep_last_n:
+                self.keep_last_n_dpi(dpis, job, executor)
 
-        if self.config.retention_days is not None:
-            self.remove_old_dpis(dpis, job)
+            if self.config.retention_days is not None:
+                self.remove_old_dpis(dpis, job, executor)
 
         job.total_runs = len(
             list(
@@ -266,7 +283,9 @@ class MetadataCleanupSource(Source):
             )
         )
 
-    def remove_old_dpis(self, dpis: List[Dict], job: DataJobEntity) -> None:
+    def remove_old_dpis(
+        self, dpis: List[Dict], job: DataJobEntity, executor: ThreadPoolExecutor
+    ) -> None:
         if self.config.retention_days is None:
             return
 
@@ -275,18 +294,26 @@ class MetadataCleanupSource(Source):
             int(datetime.now(timezone.utc).timestamp())
             - self.config.retention_days * 24 * 60 * 60
         )
+
+        futures = {}
         for dpi in dpis:
             if dpi.get("deleted"):
                 continue
 
             if dpi["created"]["time"] < retention_time * 1000:
-                deleted_count_retention += 1
-                self.delete_entity(dpi["urn"], "dataprocessInstance")
-                dpi["deleted"] = True
-                if deleted_count_retention % self.config.batch_size == 0:
-                    logger.info(
-                        f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
-                    )
+                future = executor.submit(
+                    self.delete_entity, dpi["urn"], "dataprocessInstance"
+                )
+                futures[future] = dpi
+
+        for future in as_completed(futures):
+            deleted_count_retention += 1
+            futures[future]["deleted"] = True
+
+            if deleted_count_retention % self.config.batch_size == 0:
+                logger.info(
+                    f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+                )
 
         logger.info(
             f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
@@ -296,6 +323,7 @@ class MetadataCleanupSource(Source):
         assert self.ctx.graph
 
         scroll_id: Optional[str] = None
+        previous_scroll_id: Optional[str] = None
 
         while True:
             result = self.ctx.graph.execute_graphql(
@@ -319,8 +347,10 @@ class MetadataCleanupSource(Source):
                     last_ingested=flow.get("entity").get("lastIngested"),
                 )
 
-            if not scroll_id:
+            if not scroll_id or previous_scroll_id == scroll_id:
                 break
+
+            previous_scroll_id = scroll_id
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         assert self.ctx.graph
