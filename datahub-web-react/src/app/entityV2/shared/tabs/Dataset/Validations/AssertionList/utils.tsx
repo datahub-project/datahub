@@ -1,6 +1,5 @@
 import React from 'react';
 import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
-import cronstrue from 'cronstrue';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 
@@ -19,7 +18,6 @@ import {
     DatasetAssertionInfo,
     DatasetAssertionScope,
     FieldAssertionInfo,
-    FixedIntervalSchedule,
     FreshnessAssertionInfo,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
