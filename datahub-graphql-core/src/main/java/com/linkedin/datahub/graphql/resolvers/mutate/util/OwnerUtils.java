@@ -171,7 +171,7 @@ public class OwnerUtils {
     if (!owner.getOwner().equals(ownerUrn)) {
       return false;
     }
-    if (owner.getTypeUrn() != null) {
+    if (owner.getTypeUrn() != null && ownershipTypeUrn != null) {
       return owner.getTypeUrn().equals(ownershipTypeUrn);
     }
     if (ownershipTypeUrn == null) {
