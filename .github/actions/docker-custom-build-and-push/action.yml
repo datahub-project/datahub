@@ -56,8 +56,7 @@ runs:
           suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
         tags: |
           type=raw,value=${{ inputs.image_tag }}
-          type=raw,value=head,enable=${{ github.ref == format('refs/heads/{0}', 'acryl-main') }}
-          type=ref,event=pr,prefix=pr
+          type=raw,value=head,enable={{is_default_branch}}
           type=sha,prefix=,format=short
 
     # Code for testing the build when not pushing to Docker Hub.
