@@ -7,6 +7,7 @@ import { GridList } from '@components/.docs/mdx-components';
 
 import { Select, selectDefaults } from './Select';
 import { SelectSizeOptions } from './types';
+import { SimpleSelect } from './SimpleSelect';
 
 // Auto Docs
 const meta: Meta = {
@@ -134,9 +135,82 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
+const sizeOptions: SelectSizeOptions[] = ['sm', 'md', 'lg'];
+
+export const simpleSelectSandbox: Story = {
+    tags: ['dev'],
+
+    render: (props) => (
+        <SimpleSelect
+            options={props.options}
+            label={props.label}
+            value={props.value}
+            showSearch={props.showSearch}
+            isDisabled={props.isDisabled}
+            isReadOnly={props.isReadOnly}
+            isRequired={props.isRequired}
+            size={props.size}
+            width={props.width}
+            onUpdate={props.onUpdate} // Optional: to log the selected value
+        />
+    ),
+};
+
+export const simpleSelectStates = () => (
+    <GridList isVertical>
+        <>
+            <SimpleSelect options={[{ label: 'Default', value: 'default' }]} label="Default" value="default" />
+            <SimpleSelect
+                options={[{ label: 'Disabled State', value: 'disabled' }]}
+                label="Disabled State"
+                isDisabled
+                value="disabled"
+            />
+            <SimpleSelect
+                options={[{ label: 'Read Only State', value: 'readonly' }]}
+                label="Read Only State"
+                isReadOnly
+                value="readonly"
+            />
+        </>
+    </GridList>
+);
+
+export const simpleSelectWithSearch = () => (
+    <SimpleSelect
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Simple Select with Search"
+        showSearch
+        value="2"
+    />
+);
+
+export const simpleSelectSizes = () => (
+    <GridList isVertical>
+        {sizeOptions.map((size, index) => (
+            <SimpleSelect
+                key={`simpleselect-${size}`}
+                options={[
+                    { label: 'Option 1', value: '1' },
+                    { label: 'Option 2', value: '2' },
+                    { label: 'Option 3', value: '3' },
+                ]}
+                label={`Simple Select - Font Size: ${size}, Width: ${255 + 50 * index}px`}
+                value="3"
+                size={size}
+                width={255 + 50 * index}
+            />
+        ))}
+    </GridList>
+);
+
 // Basic story is what is displayed 1st in storybook & is used as the code sandbox
 // Pass props to this so that it can be customized via the UI props panel
-export const sandbox: Story = {
+export const BasicSelectSandbox: Story = {
     tags: ['dev'],
 
     render: (props) => (
@@ -155,8 +229,6 @@ export const sandbox: Story = {
         />
     ),
 };
-
-const sizeOptions: SelectSizeOptions[] = ['sm', 'md', 'lg'];
 
 export const states = () => (
     <GridList isVertical>
