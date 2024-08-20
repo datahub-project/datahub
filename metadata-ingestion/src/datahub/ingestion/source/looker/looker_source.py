@@ -1340,9 +1340,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 looker_dashboard.folder_path
             )
         ):
-            print(
-                f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern {self.source_config.folder_path_pattern}"
-            )
             logger.debug(
                 f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern"
             )
