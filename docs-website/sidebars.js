@@ -99,6 +99,23 @@ module.exports = {
           ],
         },
         {
+          label: "Automations",
+          type: "category",
+          items: [
+            {
+              label: "Documentation Propagation",
+              type: "doc",
+              id: "docs/automation/docs-propagation",
+            },
+            {
+              label: "Snowflake Tag Sync",
+              type: "doc",
+              id: "docs/automation/snowflake-tag-propagation",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           label: "Business Attributes",
           type: "doc",
           id: "docs/businessattributes",
@@ -924,6 +941,7 @@ module.exports = {
     // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
+    // "smoke-test/tests/openapi/README"
     // ],
   ],
 };
