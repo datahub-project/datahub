@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 95,
+  "id": 56,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -65,6 +65,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -78,6 +79,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -136,10 +138,12 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_get_Count{}[1m])/60",
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_get_Count{}[1m])/60",
           "interval": "",
           "legendFormat": "Get QPS",
+          "range": true,
           "refId": "A"
         },
         {
@@ -147,11 +151,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_get_failed_Count{}[1m])/60",
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_get_failed_Count{}[1m])/60",
           "hide": false,
           "interval": "",
           "legendFormat": "Get Failure",
+          "range": true,
           "refId": "B"
         },
         {
@@ -159,11 +165,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_Count{}[1m])/60",
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_batchGet_Count{}[1m])/60",
           "hide": false,
           "interval": "",
           "legendFormat": "BatchGet QPS",
+          "range": true,
           "refId": "C"
         },
         {
@@ -171,11 +179,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_failed_Count{}[1m])/60",
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_batchGet_failed_Count{}[1m])/60",
           "hide": false,
           "interval": "",
           "legendFormat": "BatchGet Failure",
+          "range": true,
           "refId": "D"
         }
       ],
@@ -193,6 +203,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -206,6 +217,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -264,10 +276,12 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_get_Mean{}",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_get_Mean{}",
           "interval": "",
           "legendFormat": "Get Avg",
+          "range": true,
           "refId": "A"
         },
         {
@@ -275,11 +289,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_get_75thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_get_75thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "Get P75",
+          "range": true,
           "refId": "B"
         },
         {
@@ -287,11 +303,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_get_95thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_get_95thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "Get P95",
+          "range": true,
           "refId": "C"
         },
         {
@@ -299,11 +317,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_Mean{}",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_batchGet_Mean{}",
           "hide": false,
           "interval": "",
           "legendFormat": "BatchGet Avg",
+          "range": true,
           "refId": "D"
         },
         {
@@ -311,11 +331,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_75thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_batchGet_75thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "BatchGet P75",
+          "range": true,
           "refId": "E"
         },
         {
@@ -323,11 +345,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_batchGet_95thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityV2Resource_batchGet_95thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "BatchGet P95",
+          "range": true,
           "refId": "F"
         }
       ],
@@ -371,6 +395,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -384,6 +409,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -442,20 +468,9 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_Count{}[1m])/60",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Ingest Count",
-          "refId": "E"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchIngest_Count{}[1m])/60",
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_AspectResource_ingestProposal_Count{}[1m])/60",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -467,24 +482,28 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_failed_Count[1m])/60",
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_AspectResource_ingestProposal_success_Count{}[1m])/60",
           "hide": false,
           "interval": "",
-          "legendFormat": "Ingest Failure",
-          "refId": "C"
+          "legendFormat": "Ingest Count",
+          "range": true,
+          "refId": "E"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "builder",
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_batchIngest_failed_Count[1m])/60",
-          "hide": false,
+          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_AspectResource_ingestProposal_failed_Count{}[1m])/60",
+          "hide": true,
           "interval": "",
-          "legendFormat": "BatchIngest Failure",
-          "refId": "D"
+          "legendFormat": "Ingest Failure",
+          "range": true,
+          "refId": "C"
         }
       ],
       "title": "Ingest QPS",
@@ -501,6 +520,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -514,6 +534,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -583,11 +604,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
           "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_75thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P75",
+          "range": true,
           "refId": "B"
         },
         {
@@ -595,11 +618,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_ingest_95thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_AspectResource_ingestProposal_95thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P95",
+          "range": true,
           "refId": "C"
         }
       ],
@@ -617,6 +642,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -630,6 +656,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -688,11 +715,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_entity_EntityService_ingestAspectsToLocalDB_Mean{}",
+          "expr": "metrics_com_linkedin_metadata_entity_EntityServiceImpl_ingestAspectsToLocalDB_MeanRate{}",
           "hide": false,
           "interval": "",
           "legendFormat": "Ingest To DB",
+          "range": true,
           "refId": "B"
         },
         {
@@ -700,11 +729,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
           "expr": "metrics_com_linkedin_metadata_entity_EntityService_produceMAE_Mean{}",
-          "hide": false,
+          "hide": true,
           "interval": "",
           "legendFormat": "Produce MAE",
+          "range": true,
           "refId": "C"
         }
       ],
@@ -722,6 +753,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -735,6 +767,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -793,10 +826,12 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_maeProcess_Mean",
+          "expr": "metrics_postEntity_MeanRate",
           "interval": "",
           "legendFormat": "Avg",
+          "range": true,
           "refId": "A"
         },
         {
@@ -804,11 +839,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "builder",
           "exemplar": true,
           "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_maeProcess_75thPercentile",
-          "hide": false,
+          "hide": true,
           "interval": "",
           "legendFormat": "P75",
+          "range": true,
           "refId": "B"
         },
         {
@@ -816,11 +853,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
           "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_maeProcess_95thPercentile",
-          "hide": false,
+          "hide": true,
           "interval": "",
           "legendFormat": "P95",
+          "range": true,
           "refId": "C"
         }
       ],
@@ -838,6 +877,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -851,6 +891,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -958,6 +999,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -971,6 +1013,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1077,6 +1120,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -1090,6 +1134,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1148,9 +1193,9 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_MetadataTestHook_latency_Mean",
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_UpdateIndicesHook_latency_Mean",
           "legendFormat": "Avg",
           "range": true,
           "refId": "A"
@@ -1160,9 +1205,9 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_MetadataTestHook_latency_75thPercentile",
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_UpdateIndicesHook_latency_75thPercentile",
           "hide": false,
           "legendFormat": "P75",
           "range": true,
@@ -1173,16 +1218,16 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_MetadataTestHook_latency_95thPercentile",
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_UpdateIndicesHook_latency_95thPercentile",
           "hide": false,
           "legendFormat": "P95",
           "range": true,
           "refId": "C"
         }
       ],
-      "title": "Metadata Test Latency",
+      "title": "Metadata Update Latency",
       "type": "timeseries"
     },
     {
@@ -1196,6 +1241,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -1209,6 +1255,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1248,7 +1295,7 @@
         "x": 7,
         "y": 26
       },
-      "id": 51,
+      "id": 56,
       "options": {
         "legend": {
           "calcs": [],
@@ -1267,9 +1314,10 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_NotificationGeneratorHook_latency_Mean",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_delete_Mean{}",
+          "interval": "",
           "legendFormat": "Avg",
           "range": true,
           "refId": "A"
@@ -1279,10 +1327,24 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "editorMode": "builder",
-          "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_NotificationGeneratorHook_latency_75thPercentile",
+          "editorMode": "code",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_delete_StdDev{}",
           "hide": false,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_delete_75thPercentile{}",
+          "hide": false,
+          "interval": "",
           "legendFormat": "P75",
           "range": true,
           "refId": "B"
@@ -1292,16 +1354,17 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_NotificationGeneratorHook_latency_95thPercentile",
+          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_delete_95thPercentile{}",
           "hide": false,
+          "interval": "",
           "legendFormat": "P95",
           "range": true,
           "refId": "C"
         }
       ],
-      "title": "Notification Generator latency",
+      "title": "Delete Latency",
       "type": "timeseries"
     },
     {
@@ -1315,6 +1378,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -1328,6 +1392,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1434,6 +1499,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -1447,6 +1513,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1580,6 +1647,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -1593,6 +1661,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1651,23 +1720,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_search_Count{}[1m])/60",
+          "expr": "increase(metrics_com_linkedin_metadata_search_elasticsearch_query_ESSearchDAO_searchRequest_Count{}[1m])/60",
           "interval": "",
           "legendFormat": "QPS",
+          "range": true,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_search_failed_Count{}[1m])/60",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Failure",
-          "refId": "B"
         }
       ],
       "title": "Search QPS",
@@ -1684,6 +1743,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -1697,6 +1757,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1755,10 +1816,12 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_Mean{}",
+          "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESSearchDAO_searchRequest_Mean{}",
           "interval": "",
           "legendFormat": "Avg",
+          "range": true,
           "refId": "A"
         },
         {
@@ -1766,11 +1829,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_75thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESSearchDAO_searchRequest_75thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P75",
+          "range": true,
           "refId": "B"
         },
         {
@@ -1778,11 +1843,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_search_95thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_search_elasticsearch_query_ESSearchDAO_searchRequest_95thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P95",
+          "range": true,
           "refId": "C"
         }
       ],
@@ -1800,6 +1867,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -1813,6 +1881,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -1943,6 +2012,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -1956,6 +2026,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -2014,23 +2085,17 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "disableTextWrap": false,
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_Count{}[1m])/60",
+          "expr": "increase(metrics_com_datahub_graphql_GraphQLController_browseV2_Count[1m]) / 60",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
           "interval": "",
           "legendFormat": "QPS",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_failed_Count{}[1m])/60",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Failure",
-          "refId": "B"
+          "range": true,
+          "refId": "A",
+          "useBackend": false
         }
       ],
       "title": "Browse QPS",
@@ -2047,6 +2112,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -2060,6 +2126,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -2118,10 +2185,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_datahub_graphql_GraphQLController_browse_Mean{}",
+          "expr": "metrics_com_datahub_graphql_GraphQLController_browseV2_Mean{}",
+          "hide": false,
           "interval": "",
           "legendFormat": "Avg",
+          "range": true,
           "refId": "A"
         },
         {
@@ -2129,23 +2199,31 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "disableTextWrap": false,
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_datahub_graphql_GraphQLController_browse_75thPercentile{}",
+          "expr": "metrics_com_datahub_graphql_GraphQLController_browseV2_75thPercentile{}",
+          "fullMetaSearch": false,
           "hide": false,
+          "includeNullMetadata": true,
           "interval": "",
           "legendFormat": "P75",
-          "refId": "B"
+          "range": true,
+          "refId": "B",
+          "useBackend": false
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_datahub_graphql_GraphQLController_browse_95thPercentile{}",
+          "expr": "metrics_com_datahub_graphql_GraphQLController_browseV2_95thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P95",
+          "range": true,
           "refId": "C"
         }
       ],
@@ -2163,6 +2241,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -2176,6 +2255,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -2306,6 +2386,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -2319,6 +2400,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -2377,47 +2459,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_Count{}[1m])/60",
+          "expr": "increase(metrics_com_linkedin_metadata_graph_elastic_ESGraphQueryDAO_esQuery_Count{}[1m])/60",
+          "hide": false,
           "interval": "",
           "legendFormat": "Relationships QPS",
+          "range": true,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_Count{}[1m])/60",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Lineage QPS",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_failed_Count{}[1m])/60",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Relationships Failure",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Lineage_get_failed_Count{}[1m])/60",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Lineage Failure",
-          "refId": "D"
         }
       ],
       "title": "Graph QPS",
@@ -2434,6 +2483,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -2447,6 +2497,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -2505,10 +2556,12 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_Mean{}",
+          "expr": "metrics_com_linkedin_metadata_entity_validation_ValidationUtils_validateLineageResult_Mean{}",
           "interval": "",
           "legendFormat": "Avg",
+          "range": true,
           "refId": "A"
         },
         {
@@ -2516,11 +2569,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_75thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_entity_validation_ValidationUtils_validateLineageResult_75thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P75",
+          "range": true,
           "refId": "B"
         },
         {
@@ -2528,11 +2583,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_95thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_entity_validation_ValidationUtils_validateLineageResult_95thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P95",
+          "range": true,
           "refId": "C"
         }
       ],
@@ -2576,6 +2633,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -2589,6 +2647,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -2668,6 +2727,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -2681,6 +2741,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -2760,6 +2821,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -2773,6 +2835,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -2876,6 +2939,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -2889,6 +2953,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -2992,6 +3057,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -3005,6 +3071,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -3108,6 +3175,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -3121,6 +3189,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -3224,6 +3293,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -3237,6 +3307,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
@@ -3331,16 +3402,15 @@
     }
   ],
   "refresh": "5s",
-  "schemaVersion": 37,
-  "style": "dark",
+  "schemaVersion": 39,
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "Prometheus",
-          "value": "Prometheus"
+          "value": "prometheus"
         },
         "hide": 0,
         "includeAll": false,
@@ -3358,13 +3428,13 @@
     ]
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-12h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "DataHub Dashboard",
   "uid": "x4fS54Vnk",
-  "version": 2,
+  "version": 6,
   "weekStart": ""
 }
