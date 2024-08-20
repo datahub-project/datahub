@@ -5,6 +5,8 @@ import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
+import { StringMapEntry } from '../../../../../../types.generated';
+import PropagationDetails from '../../../../shared/propagation/PropagationDetails';
 import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
 import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
@@ -27,6 +29,11 @@ const AddNewDescription = styled(Button)`
 
 const ExpandedActions = styled.div`
     height: 10px;
+`;
+
+const DescriptionWrapper = styled.span`
+    display: inline-flex;
+    align-items: center;
 `;
 
 const DescriptionContainer = styled.div`
@@ -106,6 +113,8 @@ type Props = {
     isEdited?: boolean;
     isReadOnly?: boolean;
     businessAttributeDescription?: string;
+    isPropagated?: boolean;
+    sourceDetail?: StringMapEntry[] | null;
 };
 
 const ABBREVIATED_LIMIT = 80;
@@ -121,6 +130,8 @@ export default function DescriptionField({
     original,
     isReadOnly,
     businessAttributeDescription,
+    isPropagated,
+    sourceDetail,
 }: Props) {
     const { t } = useTranslation();
     const [showAddModal, setShowAddModal] = useState(false);
@@ -165,7 +176,7 @@ export default function DescriptionField({
 
     return (
         <DescriptionContainer>
-            {expanded || !overLimit ? (
+            {expanded ? (
                 <>
                     {!!description && <StyledViewer content={description} readOnly />}
                     {!!description && (EditButton || overLimit) && (
@@ -186,25 +197,29 @@ export default function DescriptionField({
                 </>
             ) : (
                 <>
-                    <StripMarkdownText
-                        limit={ABBREVIATED_LIMIT}
-                        readMore={
-                            <>
-                                <Typography.Link
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleExpanded(true);
-                                    }}
-                                >
-                                   {t('common.readMoreDescription')}
-                                </Typography.Link>
-                            </>
-                        }
-                        suffix={EditButton}
-                        shouldWrap
-                    >
-                        {description}
-                    </StripMarkdownText>
+                    <DescriptionWrapper>
+                        {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
+                        &nbsp;
+                        <StripMarkdownText
+                            limit={ABBREVIATED_LIMIT}
+                            readMore={
+                                <>
+                                    <Typography.Link
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleExpanded(true);
+                                        }}
+                                    >
+                                        {t('common.readMoreDescription')}
+                                    </Typography.Link>
+                                </>
+                            }
+                            suffix={EditButton}
+                            shouldWrap
+                        >
+                            {description}
+                        </StripMarkdownText>
+                    </DescriptionWrapper>
                 </>
             )}
             {isEdited && <EditedLabel>{t('common.edited')}</EditedLabel>}

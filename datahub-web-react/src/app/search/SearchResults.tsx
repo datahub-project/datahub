@@ -266,6 +266,7 @@ export const SearchResults = ({
                                         selectedEntities={selectedEntities}
                                         setSelectedEntities={setSelectedEntities}
                                         suggestions={suggestions}
+                                        pageNumber={page}
                                     />
                                     {totalResults > 0 && (
                                         <PaginationControlContainer id="search-pagination">
