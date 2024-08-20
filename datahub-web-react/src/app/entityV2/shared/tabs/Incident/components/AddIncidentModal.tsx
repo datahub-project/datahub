@@ -3,7 +3,6 @@ import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import TextArea from 'antd/lib/input/TextArea';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
 import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../incidentUtils';
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
@@ -11,13 +10,14 @@ import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 import { useUserContext } from '../../../../../context/useUserContext';
 
 type AddIncidentProps = {
+    urn: string;
+    entityType: EntityType;
     visible: boolean;
     onClose?: () => void;
     refetch?: () => Promise<any>;
 };
 
-export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps) => {
-    const { urn, entityType } = useEntityData();
+export const AddIncidentModal = ({ urn, entityType, visible, onClose, refetch }: AddIncidentProps) => {
     const { user } = useUserContext();
     const incidentTypes = INCIDENT_DISPLAY_TYPES;
     const [selectedIncidentType, setSelectedIncidentType] = useState<IncidentType>(IncidentType.Operational);

@@ -384,6 +384,8 @@ const EntityDropdown = (props: Props) => {
             {/* acryl-main only */}
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
+                    urn={urn}
+                    entityType={entityType}
                     visible={isRaiseIncidentModalVisible}
                     onClose={() => setIsRaiseIncidentModalVisible(false)}
                     refetch={
