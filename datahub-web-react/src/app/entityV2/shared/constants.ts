@@ -220,3 +220,7 @@ export enum EntityProfileTab {
 }
 
 export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
+
+export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
+
+export const SMART_ASSERTION_STALE_IN_DAYS = 3;

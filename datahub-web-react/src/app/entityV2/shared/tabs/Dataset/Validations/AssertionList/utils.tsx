@@ -50,7 +50,7 @@ import {
 import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
-import { AssertionStatusGroup, AssertionTableType, IFilter, TableRowType } from './types';
+import { AssertionStatusGroup, AssertionTable, AssertionListFilter, AssertionListTableRow } from './types';
 
 /**
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
@@ -433,14 +433,14 @@ const getGroupNameBySummary = (record) => {
 };
 
 // transform assertions into table data
-const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[]): TableRowType[] => {
+const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[]): AssertionListTableRow[] => {
     return assertions.map((assertion: AssertionWithMonitorDetails) => {
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
 
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
         const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
-        const rowData: TableRowType = {
+        const rowData: AssertionListTableRow = {
             type: assertion.info?.type,
             lastUpdated: assertion.info?.lastUpdated as AuditStamp,
             tags: assertion.tags as GlobalTags,
@@ -497,8 +497,8 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
 };
 
 /** return assertions table data structure to render on table from assertions */
-export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]): AssertionTableType => {
-    const assertionRawData: AssertionTableType = { assertions: [], groupBy: { type: [], status: [] } };
+export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]): AssertionTable => {
+    const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] } };
 
     const assertionsTableData = mapAssertionData(assertions);
     assertionRawData.assertions = assertionsTableData;
@@ -510,9 +510,9 @@ export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]
 /** return fitlered transformed assertions */
 export const getFilteredTransformedAssertionData = (
     assertions: AssertionWithMonitorDetails[],
-    filter: IFilter,
-): AssertionTableType => {
-    const assertionRawData: AssertionTableType = { assertions: [], groupBy: { type: [], status: [] } };
+    filter: AssertionListFilter,
+): AssertionTable => {
+    const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] } };
     const filteredAssertions = assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const { searchText, type, status } = filter.filterCriteria;
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];

@@ -67,7 +67,7 @@ export const AssertionListTitleContainer = ({
         </>
     );
 
-    const isNotAllowedToCreateAssertionMessage = 'You do not have permission to create an assertion for this asset';
+    const noPermissionsMessage = 'You do not have permission to create an assertion for this asset';
 
     /* We do not enable the create button if the user does not have the privilege, OR if sibling mode is enabled */
     const canEditAssertions = privileges?.canEditAssertions || false;
@@ -75,7 +75,7 @@ export const AssertionListTitleContainer = ({
     const isAllowedToCreateAssertion = canEditAssertions && canEditMonitors;
 
     const disableCreateAssertion = !isAllowedToCreateAssertion || isSiblingMode;
-    const disableCreateAssertionMessage = isSiblingMode ? isSiblingModeMessage : isNotAllowedToCreateAssertionMessage;
+    const disableCreateAssertionMessage = isSiblingMode ? isSiblingModeMessage : noPermissionsMessage;
 
     return (
         <AssertionTitleContainer>

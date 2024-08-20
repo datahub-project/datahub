@@ -92,7 +92,7 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
  *  - expandedRowKeys: Array of currently expanded row keys.
  *  - setExpandedRowKeys: Function to manually set the expanded row keys.
  */
-export const useExpandedRowKeys = (groups, isGroupBy) => {
+export const useExpandedRowKeys = (groups, { isGroupBy }: { isGroupBy: boolean }) => {
     const location = useLocation();
     const assertionUrnParam = new URLSearchParams(location.search).get('assertion_urn');
     const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
