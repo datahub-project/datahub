@@ -246,7 +246,6 @@ class BigQueryQueriesExtractor:
                     if i > 0 and i % 10000 == 0:
                         logger.info(f"Added {i} query log entries to SQL aggregator")
 
-                    logger.info(f"{query.query_hash}, {query.timestamp}")
                     self.aggregator.add(query)
                     i += 1
 
