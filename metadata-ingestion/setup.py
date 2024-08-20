@@ -175,6 +175,7 @@ looker_common = {
     *sqlglot_lib,
     "GitPython>2",
     "python-liquid",
+    "deepmerge>=1.1.1"
 }
 
 bigquery_common = {
