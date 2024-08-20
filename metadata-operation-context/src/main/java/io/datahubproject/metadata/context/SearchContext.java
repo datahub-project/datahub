@@ -21,7 +21,7 @@ import lombok.Getter;
 public class SearchContext implements ContextInterface {
 
   public static SearchContext EMPTY =
-      SearchContext.builder().indexConvention(IndexConventionImpl.NO_PREFIX).build();
+      SearchContext.builder().indexConvention(IndexConventionImpl.noPrefix("")).build();
 
   public static SearchContext withFlagDefaults(
       @Nonnull SearchContext searchContext,

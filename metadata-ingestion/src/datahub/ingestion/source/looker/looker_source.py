@@ -96,13 +96,11 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     ContainerClass,
     DashboardInfoClass,
-    DataPlatformInfoClass,
     InputFieldClass,
     InputFieldsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    PlatformTypeClass,
     SubTypesClass,
 )
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
@@ -1572,25 +1570,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             ]
 
         looker_dashboards_for_usage: List[looker_usage.LookerDashboardForUsage] = []
-
-        # Emit platform instance entity
-        if self.source_config.platform_instance:
-            platform_instance_urn = builder.make_dataplatform_instance_urn(
-                platform=self.source_config.platform_name,
-                instance=self.source_config.platform_instance,
-            )
-
-            yield MetadataWorkUnit(
-                id=f"{platform_instance_urn}-aspect-dataplatformInfo",
-                mcp=MetadataChangeProposalWrapper(
-                    entityUrn=platform_instance_urn,
-                    aspect=DataPlatformInfoClass(
-                        name=self.source_config.platform_instance,
-                        type=PlatformTypeClass.OTHERS,
-                        datasetNameDelimiter=".",
-                    ),
-                ),
-            )
 
         with self.reporter.report_stage("dashboard_chart_metadata"):
             for job in BackpressureAwareExecutor.map(
