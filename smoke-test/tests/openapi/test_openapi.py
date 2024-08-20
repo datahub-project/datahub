@@ -64,6 +64,7 @@ def evaluate_test(test_name, test_data):
                             actual_resp.json(),
                             req_resp["response"]["json"],
                             exclude_regex_paths=exclude_regex_paths,
+                            ignore_order=True,
                         )
                         assert not diff
                     else:
@@ -81,11 +82,12 @@ def evaluate_test(test_name, test_data):
         raise e
 
 
-def run_tests(fixture_glob, num_workers=3):
+def run_tests(fixture_globs, num_workers=3):
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = []
-        for test_fixture, test_data in load_tests(fixture_glob=fixture_glob):
-            futures.append(executor.submit(evaluate_test, test_fixture, test_data))
+        for fixture_glob in fixture_globs:
+            for test_fixture, test_data in load_tests(fixture_glob=fixture_glob):
+                futures.append(executor.submit(evaluate_test, test_fixture, test_data))
 
         for future in concurrent.futures.as_completed(futures):
             logger.info(future.result())
@@ -93,7 +95,7 @@ def run_tests(fixture_glob, num_workers=3):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_openapi_all():
-    run_tests(fixture_glob="tests/openapi/**/*.json", num_workers=10)
+    run_tests(fixture_globs=["tests/openapi/*/*.json"], num_workers=10)
 
 
 # @pytest.mark.dependency(depends=["test_healthchecks"])

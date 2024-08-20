@@ -40,6 +40,7 @@ x-kafka-env: &kafka-env
   # KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
   SCHEMA_REGISTRY_TYPE: INTERNAL
   KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+  SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET: ${SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET:-earliest}
 
 x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-quickstart}

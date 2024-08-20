@@ -191,7 +191,7 @@ public class TestOperationContexts {
     IndexConvention indexConvention =
         Optional.ofNullable(indexConventionSupplier)
             .map(Supplier::get)
-            .orElse(IndexConventionImpl.NO_PREFIX);
+            .orElse(IndexConventionImpl.noPrefix("MD5"));
 
     ServicesRegistryContext servicesRegistryContext =
         Optional.ofNullable(servicesRegistrySupplier).orElse(() -> null).get();
