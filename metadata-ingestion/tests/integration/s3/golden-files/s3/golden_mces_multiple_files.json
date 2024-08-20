@@ -69,10 +69,10 @@
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.DateType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "date",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -454,8 +454,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847610000
@@ -480,7 +480,8 @@
                 "env": "DEV",
                 "bucket_name": "my-test-bucket"
             },
-            "name": "my-test-bucket"
+            "name": "my-test-bucket",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -574,7 +575,8 @@
                 "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -688,7 +690,8 @@
                 "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -806,7 +809,8 @@
                 "env": "DEV",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
@@ -1111,8 +1115,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847620000
@@ -1320,8 +1324,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847630000
@@ -1505,8 +1509,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847640000
@@ -1714,8 +1718,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847650000
@@ -1923,8 +1927,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847660000
@@ -2427,8 +2431,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847670000

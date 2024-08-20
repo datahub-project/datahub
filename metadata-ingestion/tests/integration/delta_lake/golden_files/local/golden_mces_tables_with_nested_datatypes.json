@@ -146,7 +146,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests"
             },
-            "name": "tests"
+            "name": "tests",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -240,7 +241,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration"
             },
-            "name": "integration"
+            "name": "integration",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -354,7 +356,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake"
             },
-            "name": "delta_lake"
+            "name": "delta_lake",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -472,7 +475,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake/test_data"
             },
-            "name": "test_data"
+            "name": "test_data",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -594,7 +598,8 @@
                 "env": "UAT",
                 "folder_abs_path": "tests/integration/delta_lake/test_data/delta_tables_nested_datatype"
             },
-            "name": "delta_tables_nested_datatype"
+            "name": "delta_tables_nested_datatype",
+            "env": "UAT"
         }
     },
     "systemMetadata": {
@@ -732,8 +737,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -958,8 +963,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1136,8 +1141,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1340,8 +1345,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1592,8 +1597,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",
@@ -1770,8 +1775,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "CUSTOM",
             "customOperationType": "WRITE",

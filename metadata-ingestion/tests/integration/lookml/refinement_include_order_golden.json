@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "project_name": "lkml_refinement_sample1"
             },
-            "name": "lkml_refinement_sample1"
+            "name": "lkml_refinement_sample1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

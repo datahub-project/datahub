@@ -15,6 +15,7 @@
             "externalUrl": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/",
             "name": "TEST_DB",
             "description": "Comment for TEST_DB",
+            "env": "PROD",
             "created": {
                 "time": 1623110400000
             },
@@ -225,6 +226,7 @@
             "externalUrl": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/",
             "name": "TEST_SCHEMA",
             "description": "comment for TEST_DB.TEST_SCHEMA",
+            "env": "PROD",
             "created": {
                 "time": 1623110400000
             },

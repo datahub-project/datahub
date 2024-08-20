@@ -238,7 +238,8 @@
                 "env": "PROD",
                 "model_name": "bogus data"
             },
-            "name": "bogus data"
+            "name": "bogus data",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -334,7 +335,8 @@
                 "env": "PROD",
                 "model_name": "data"
             },
-            "name": "data"
+            "name": "data",
+            "env": "PROD"
         }
     },
     "systemMetadata": {

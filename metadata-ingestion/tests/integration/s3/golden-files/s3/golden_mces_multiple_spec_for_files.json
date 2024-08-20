@@ -18,7 +18,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -111,7 +112,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -133,7 +135,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -145,8 +148,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847620000
@@ -154,7 +157,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -169,12 +173,14 @@
                 "env": "PROD",
                 "bucket_name": "my-test-bucket"
             },
-            "name": "my-test-bucket"
+            "name": "my-test-bucket",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -189,7 +195,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -204,7 +211,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -221,7 +229,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -236,7 +245,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -251,12 +261,14 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -271,7 +283,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -286,7 +299,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -303,7 +317,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -318,7 +333,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -338,7 +354,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -353,12 +370,14 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -373,7 +392,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -388,7 +408,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -405,7 +426,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -420,7 +442,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -444,7 +467,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -459,12 +483,14 @@
                 "env": "PROD",
                 "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -479,7 +505,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -494,7 +521,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -511,7 +539,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -526,7 +555,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -554,7 +584,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -569,7 +600,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -601,7 +633,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -623,7 +656,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -716,7 +750,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -738,7 +773,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -750,8 +786,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
             "lastUpdatedTimestamp": 1586847630000
@@ -759,7 +795,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -774,7 +811,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -806,7 +844,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -821,7 +860,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -836,7 +876,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -851,7 +892,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -866,7 +908,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_spec_for_files.json"
+        "runId": "multiple_spec_for_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]
