@@ -374,7 +374,7 @@ public class FormUtils {
     if (input.getGroups() != null) {
       UrnArray groupUrns = new UrnArray();
       input.getGroups().forEach(group -> groupUrns.add(UrnUtils.getUrn(group)));
-      result.setUsers(groupUrns);
+      result.setGroups(groupUrns);
     }
 
     return result;
