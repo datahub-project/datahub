@@ -48,7 +48,7 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
 
     return (
         <Modal
-            title={`Atualizar ${dataProduct.properties?.name || t('common.dataProduct')}`}
+            title={`${t('common.refresh')} ${dataProduct.properties?.name || t('common.dataProduct')}`}
             onCancel={onClose}
             style={MODAL_BODY_STYLE}
             width={MODAL_WIDTH}

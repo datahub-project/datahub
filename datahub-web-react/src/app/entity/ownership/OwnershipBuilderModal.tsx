@@ -180,7 +180,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                         rules={[
                             {
                                 required: true,
-                                message: 'Insira um nome para o tipo de propriedade',
+                                message: t('form.ownershipTypeNameRequired'),
                             },
                             { whitespace: true },
                             { min: 1, max: 50 },

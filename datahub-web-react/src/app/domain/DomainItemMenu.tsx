@@ -25,25 +25,25 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success('Domínio excluído!');
+                    message.success(t('crud.success.deleteWithName', { name: t('common.domain') }));
                     onDelete?.();
                 }
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: `Falha ao excluir o domínio!: Ocorreu um erro desconhecido.`, duration: 3 });
+                message.error({ content: t('crud.error.deleteWithName', { name: t('common.domain') }), duration: 3 });
             });
     };
 
     const onConfirmDelete = () => {
         Modal.confirm({
-            title: `Excluir domínio '${name}'`,
-            content: `Tem certeza de que deseja remover isto ${entityRegistry.getEntityName(EntityType.Domain)}?`,
+            title: `${t('crud.deleteWithName', { name: name })}`,
+            content: `${t('crud.doYouWantTo.deleteContentWithThisName', { name: entityRegistry.getEntityName(EntityType.Domain) })}?`,
             onOk() {
                 deleteDomain();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });

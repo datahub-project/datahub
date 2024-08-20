@@ -36,11 +36,8 @@ export function DataProductAdvancedOption({ builderState, updateBuilderState }: 
         <Collapse ghost>
             <Collapse.Panel header={<AdvancedLabel>{t('common.advancedOptions')}</AdvancedLabel>} key="1">
                 <FormItemWithMargin
-                    label={<Typography.Text strong>ID do produto de dados</Typography.Text>}
-                    help="Por padrão, um UUID aleatório será gerado para identificar exclusivamente este produto de dados. Se
-                        você gostaria de fornecer um ID personalizado para acompanhar esse produto de dados com mais facilidade,
-                        você pode fornecê-lo aqui. Tenha cuidado, você não pode alterar facilmente o ID do produto de dados depois
-                        criação."
+                    label={<Typography.Text strong>{t('dataProduct.id')}</Typography.Text>}
+                    help={t('dataProduct.advancedOption')}
                 >
                     <FormItemNoMargin
                         rules={[
@@ -49,7 +46,7 @@ export function DataProductAdvancedOption({ builderState, updateBuilderState }: 
                                     if (value && validateCustomUrnId(value)) {
                                         return Promise.resolve();
                                     }
-                                    return Promise.reject(new Error('Insira um ID de produto de dados válido'));
+                                    return Promise.reject(new Error('Please enter a valid Data product id'));
                                 },
                             }),
                         ]}

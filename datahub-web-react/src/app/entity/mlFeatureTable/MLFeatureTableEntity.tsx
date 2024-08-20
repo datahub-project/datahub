@@ -60,7 +60,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getPathName = () => 'featureTables';
 
-    getEntityName = () => 'Feature Tables';
+    getEntityName = () => 'Feature Table';
 
     getCollectionName = () => this.translationService('entity.featureTables');
 

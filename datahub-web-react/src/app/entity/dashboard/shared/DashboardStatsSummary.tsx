@@ -69,7 +69,7 @@ export const DashboardStatsSummary = ({
                     <>
                         {createdMs && <div>{t('reporting.createdOnWithDate')} {toLocalDateTimeString(createdMs)}.</div>}
                         <div>
-                        Alterado em {toLocalDateTimeString(lastUpdatedMs)}.{' '}
+                        {t('common.changed')} {toLocalDateTimeString(lastUpdatedMs)}.{' '}
                             <Tooltip title={t('chart.lastChangedTimeInSource')}>
                                 <HelpIcon />
                             </Tooltip>

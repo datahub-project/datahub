@@ -63,7 +63,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
         })
             .then(() => {
                 notification.success({
-                    message: `Sucesso`,
+                    message: t('common.success'),
                     description: t('crud.success.youDeletedProperty'),
                     placement: 'bottomLeft',
                     duration: 3,

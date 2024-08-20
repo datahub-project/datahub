@@ -1949,7 +1949,9 @@
   },
   "dataProduct": {
     "emptyTitle": "Nenhum produto de dados definido",
-    "emptyDescription": "Agrupe entidades relacionadas com base em características compartilhadas adicionando-as a um Produto de Dados."
+    "emptyDescription": "Agrupe entidades relacionadas com base em características compartilhadas adicionando-as a um Produto de Dados.",
+    "advancedOption": "Por padrão, um UUID aleatório será gerado para identificar exclusivamente este produto de dados. Se você gostaria de fornecer um ID personalizado para acompanhar esse produto de dados com mais facilidade, você pode fornecê-lo aqui. Tenha cuidado, você não pode alterar facilmente o ID do produto de dados depois criação.",
+    "id": "ID do produto de dados"
   },
   "contains": {
     "emptyTitle": "Não contém termos",
