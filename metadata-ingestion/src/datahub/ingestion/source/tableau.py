@@ -219,6 +219,11 @@ class TableauConnectionConfig(ConfigModel):
         description="Whether to verify SSL certificates. If using self-signed certificates, set to false or provide the path to the .pem certificate bundle.",
     )
 
+    session_trust_env: bool = Field(
+        False,
+        description="Sets the trust_env property in the requests session to for example bypass proxy settings.",
+    )
+
     extract_column_level_lineage: bool = Field(
         True,
         description="When enabled, extracts column-level lineage from Tableau Datasources",
@@ -268,8 +273,9 @@ class TableauConnectionConfig(ConfigModel):
                 },
             )
 
-            # From https://stackoverflow.com/a/50159273/5004662.
-            server._session.trust_env = False
+            if not self.session_trust_env:
+                # From https://stackoverflow.com/a/50159273/5004662.
+                server._session.trust_env = False
 
             # Setup request retries.
             adapter = HTTPAdapter(
@@ -344,7 +350,7 @@ class AccessRolesIngestionConfig(ConfigModel):
     request_url: str = Field(
         default="",
         description="Request URL that is added to the role for requesting access. "
-        "You can use the variable $PERMISSION_NAME inside the URL string. "
+        "You can use the variable $ROLE_NAME inside the URL string. "
         "For example 'https://example-host.com/order/$ROLE_NAME'",
     )
 
@@ -3161,12 +3167,13 @@ class TableauSiteSource:
 
                 self.ingested_role_urns[role_urn] = role_properties
 
-        access = AccessClass(roles=role_associations)
-        logger.info(f"Add access aspect to '{urn}'.")
-        yield MetadataChangeProposalWrapper(
-            aspect=access,
-            entityUrn=urn,
-        ).as_workunit()
+        if len(role_associations):
+            access = AccessClass(roles=role_associations)
+            logger.info(f"Add access aspect to '{urn}'.")
+            yield MetadataChangeProposalWrapper(
+                aspect=access,
+                entityUrn=urn,
+            ).as_workunit()
 
     def ingest_tableau_site(self):
         # Initialise the dictionary to later look-up for chart and dashboard stat
