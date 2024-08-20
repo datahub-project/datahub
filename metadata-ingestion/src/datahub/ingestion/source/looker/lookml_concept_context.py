@@ -28,6 +28,39 @@ from datahub.ingestion.source.looker.str_functions import (
 logger = logging.getLogger(__name__)
 
 
+def merge_parent_and_child_fields(
+    child_fields: List[dict], parent_fields: List[dict]
+) -> List[Dict]:
+    # Fetch the fields from the parent view, i.e., the view name mentioned in view.extends, and include those
+    # fields in child_fields. This inclusion will resolve the fields according to the precedence rules mentioned
+    # in the LookML documentation: https://cloud.google.com/looker/docs/reference/param-view-extends.
+
+    # Create a map field-name vs field
+    child_field_map: dict = {}
+    for field in child_fields:
+        assert (
+            NAME in field
+        ), "A lookml view must have a name field"  # name is required field of lookml field array
+
+        child_field_map[field[NAME]] = field
+
+    for field in parent_fields:
+        assert (
+            NAME in field
+        ), "A lookml view must have a name field"  # name is required field of lookml field array
+
+        if field[NAME] in child_field_map:
+            # Fields defined in the child view take higher precedence.
+            # This is an override case where the child has redefined the parent field.
+            # There are some additive attributes; however, we are not consuming them in metadata ingestion
+            # and hence not adding them to the child field.
+            continue
+
+        child_fields.append(field)
+
+    return child_fields
+
+
 class LookerFieldContext:
     raw_field: Dict[Any, Any]
 
@@ -257,7 +290,9 @@ class LookerViewContext:
         self,
         attribute_name: str,
     ) -> Optional[Any]:
-
+        """
+        Search for the attribute_name in the parent views of the current view and return its value.
+        """
         extends = list(
             itertools.chain.from_iterable(
                 self.raw_view.get("extends", self.raw_view.get("extends__all", []))
@@ -265,6 +300,7 @@ class LookerViewContext:
         )
 
         # Following Looker's precedence rules.
+        # reversed the view-names mentioned in `extends` attribute
         for extend in reversed(extends):
             assert extend != self.raw_view[NAME], "a view cannot extend itself"
             extend_view = self.resolve_extends_view_name(
@@ -285,13 +321,18 @@ class LookerViewContext:
         field: str,
     ) -> Optional[Any]:
 
+        # According to Looker's inheritance rules, we need to merge the fields(i.e. dimensions, measures and
+        # dimension_groups) from both the child and parent.
         if field in [DIMENSIONS, DIMENSION_GROUPS, MEASURES]:
+            # Get the child fields
             child_fields = self._get_list_dict(field)
-            return self._include_parent_fields(
+            # merge parent and child fields
+            return merge_parent_and_child_fields(
                 child_fields=child_fields,
                 parent_fields=self._get_parent_attribute(attribute_name=field) or [],
             )
         else:
+            # Return the field from the current view if it exists.
             if field in self.raw_view:
                 return self.raw_view[field]
 
@@ -401,37 +442,6 @@ class LookerViewContext:
         if ans is not None:
             return ans
         return []
-
-    def _include_parent_fields(
-        self, child_fields: List[dict], parent_fields: List[dict]
-    ) -> List[Dict]:
-        # Fetch the fields from the parent view, i.e., the view name mentioned in view.extends, and include those
-        # fields in child_fields. This inclusion will resolve the fields according to the precedence rules mentioned
-        # in the LookML documentation: https://cloud.google.com/looker/docs/reference/param-view-extends
-
-        # Create a map field-name vs field
-        child_field_map: dict = {}
-        for field in child_fields:
-            assert (
-                NAME in field
-            ), "A lookml view must have a name field"  # name is required field of lookml field array
-
-            child_field_map[field[NAME]] = field
-
-        for field in parent_fields:
-            assert (
-                NAME in field
-            ), "A lookml view must have a name field"  # name is required field of lookml field array
-
-            if field[NAME] in child_field_map:
-                # This is an override case where the child has redefined the parent field.
-                # There are some additive attributes; however, we are not consuming them in metadata ingestion
-                # and hence not adding them to the child field.
-                continue
-
-            child_fields.append(field)
-
-        return child_fields
 
     def dimensions(self) -> List[Dict]:
         return self.get_including_extends(field=DIMENSIONS) or []
