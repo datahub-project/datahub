@@ -57,7 +57,6 @@ describe("glossaryTerm", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
-    cy.wait(1000);
     cy.handleIntroducePage();
     nevigateGlossaryPage();
   });

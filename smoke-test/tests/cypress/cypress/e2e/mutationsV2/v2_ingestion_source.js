@@ -13,7 +13,6 @@ describe("ingestion source creation flow", () => {
   it("create a ingestion source using ui, verify ingestion source details saved correctly, remove ingestion source", () => {
     // Go to ingestion page, create a snowflake source
     cy.loginWithCredentials();
-    cy.wait(2000);
     cy.handleIntroducePage();
     cy.goToIngestionPage();
     cy.get('[data-node-key="Sources"]').click();

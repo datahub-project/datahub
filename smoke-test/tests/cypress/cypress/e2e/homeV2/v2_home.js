@@ -5,7 +5,6 @@ describe("home", () => {
   it("home page shows ", () => {
     cy.login();
     cy.visit("/");
-    cy.wait(2000);
     cy.handleIntroducePage();
     cy.get('[xmlns="http://www.w3.org/2000/svg"]').should("exist");
     cy.get('[id^="v2-home-pag').should("exist");

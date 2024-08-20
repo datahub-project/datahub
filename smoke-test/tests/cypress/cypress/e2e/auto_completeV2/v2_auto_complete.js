@@ -1,15 +1,14 @@
 describe("auto-complete", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-  });
-
-  it("should see auto-complete results after typing in a search query", () => {
     cy.login();
     // look for a dataset
     cy.visit("/");
-    cy.wait(3000);
+    cy.wait(2000);
     cy.handleIntroducePage();
-    cy.get("body").click();
+  });
+
+  it("should see auto-complete results after typing in a search query", () => {
     cy.get("input[data-testid=search-input]")
       .should("be.visible")
       .type("SampleCypressHive");
@@ -31,12 +30,6 @@ describe("auto-complete", () => {
   });
 
   it("should send you to the entity profile after clicking on an auto-complete option", () => {
-    cy.login();
-    // look for a dataset
-    cy.visit("/");
-    cy.wait(3000);
-    cy.handleIntroducePage();
-    cy.reload();
     cy.get("input[data-testid=search-input]")
       .should("be.visible")
       .type("SampleCypressHiveDataset");

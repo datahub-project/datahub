@@ -53,7 +53,6 @@ describe("create and manage freshness assertion", () => {
     // create freshness assertion, submit, verify assertion on ui
     setAssertionMonitorsFlag(true);
     cy.loginWithCredentials();
-    cy.wait(3000);
     cy.handleIntroducePage();
     cy.goToDataset(datasetUrn, datasetName);
     cy.openEntityTab("Quality");

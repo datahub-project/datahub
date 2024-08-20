@@ -57,7 +57,6 @@ describe("create and manage volume assertion", () => {
     // create volume assertion, submit, verify assertion on ui
     setAssertionMonitorsFlag(true);
     cy.loginWithCredentials();
-    cy.wait(2000);
     cy.handleIntroducePage();
     cy.goToDataset(datasetUrn, datasetName);
     cy.openEntityTab("Quality");
