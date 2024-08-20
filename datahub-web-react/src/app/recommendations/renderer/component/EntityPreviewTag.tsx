@@ -1,5 +1,5 @@
 import React from 'react';
-import { Divider, Image, Tag } from 'antd';
+import { Divider, Image, Tag, Tooltip } from 'antd';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { Maybe } from 'graphql/jsutils/Maybe';
@@ -7,6 +7,7 @@ import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 const EntityTag = styled(Tag)`
     margin: 4px;
+    max-width: inherit;
 `;
 
 const TitleContainer = styled.div`
@@ -14,6 +15,7 @@ const TitleContainer = styled.div`
     align-items: center;
     justify-content: space-between;
     padding: 4px;
+    max-width: inherit;
 `;
 
 const IconContainer = styled.span`
@@ -33,6 +35,13 @@ const PlatformLogo = styled(Image)`
 const DisplayNameContainer = styled.span`
     padding-left: 4px;
     padding-right: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 `;
 
 const ColumnName = styled.span`
@@ -43,6 +52,10 @@ const ColumnName = styled.span`
 export const StyledDivider = styled(Divider)`
     background-color: ${ANTD_GRAY[6]};
     margin: 0 7px;
+`;
+
+const StyledLink = styled(Link)`
+    max-width: inherit;
 `;
 
 type Props = {
@@ -67,7 +80,7 @@ export const EntityPreviewTag = ({
     dataTestId,
 }: Props) => {
     return (
-        <Link to={url} onClick={onClick} data-testid={dataTestId}>
+        <StyledLink to={url} onClick={onClick} data-testid={dataTestId}>
             <EntityTag>
                 <TitleContainer>
                     <IconContainer>
@@ -83,16 +96,18 @@ export const EntityPreviewTag = ({
                             logoComponent}
                     </IconContainer>
                     <DisplayNameContainer>
-                        <span className="test-mini-preview-class">{displayName}</span>
+                        <Tooltip title={displayName}>
+                            <span className="test-mini-preview-class">{displayName}</span>
+                        </Tooltip>
                         {columnName && (
-                            <>
+                            <Tooltip title={columnName}>
                                 <StyledDivider type="vertical" />
                                 <ColumnName>{columnName}</ColumnName>
-                            </>
+                            </Tooltip>
                         )}
                     </DisplayNameContainer>
                 </TitleContainer>
             </EntityTag>
-        </Link>
+        </StyledLink>
     );
 };
