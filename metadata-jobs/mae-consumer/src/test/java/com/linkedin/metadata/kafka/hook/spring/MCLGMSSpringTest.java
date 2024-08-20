@@ -3,7 +3,7 @@ package com.linkedin.metadata.kafka.hook.spring;
 import static org.testng.AssertJUnit.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.kafka.MetadataChangeLogProcessor;
+import com.linkedin.metadata.kafka.MCLKafkaListenerRegistrar;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
@@ -35,23 +35,23 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testHooks() {
-    MetadataChangeLogProcessor metadataChangeLogProcessor =
-        applicationContext.getBean(MetadataChangeLogProcessor.class);
+    MCLKafkaListenerRegistrar registrar =
+        applicationContext.getBean(MCLKafkaListenerRegistrar.class);
     assertTrue(
-        metadataChangeLogProcessor.getHooks().stream()
+        registrar.getMetadataChangeLogHooks().stream()
             .noneMatch(hook -> hook instanceof IngestionSchedulerHook));
     assertTrue(
-        metadataChangeLogProcessor.getHooks().stream()
+        registrar.getMetadataChangeLogHooks().stream()
             .anyMatch(hook -> hook instanceof UpdateIndicesHook));
     assertTrue(
-        metadataChangeLogProcessor.getHooks().stream()
+        registrar.getMetadataChangeLogHooks().stream()
             .anyMatch(hook -> hook instanceof SiblingAssociationHook));
     assertTrue(
-        metadataChangeLogProcessor.getHooks().stream()
+        registrar.getMetadataChangeLogHooks().stream()
             .anyMatch(hook -> hook instanceof EntityChangeEventGeneratorHook));
     assertEquals(
         1,
-        metadataChangeLogProcessor.getHooks().stream()
+        registrar.getMetadataChangeLogHooks().stream()
             .filter(hook -> hook instanceof IncidentsSummaryHook)
             .count());
   }

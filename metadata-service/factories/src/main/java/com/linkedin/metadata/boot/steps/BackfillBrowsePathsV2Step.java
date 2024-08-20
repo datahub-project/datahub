@@ -1,6 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -23,7 +24,6 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -152,8 +152,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     proposal.setEntityType(urn.getEntityType());
     proposal.setAspectName(Constants.BROWSE_PATHS_V2_ASPECT_NAME);
     proposal.setChangeType(ChangeType.UPSERT);
-    proposal.setSystemMetadata(
-        new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
+    proposal.setSystemMetadata(createDefaultSystemMetadata());
     proposal.setAspect(GenericRecordUtils.serializeAspect(browsePathsV2));
     entityService.ingestProposal(systemOperationContext, proposal, auditStamp, false);
   }

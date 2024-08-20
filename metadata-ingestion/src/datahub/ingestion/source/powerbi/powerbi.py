@@ -89,6 +89,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import ChartUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -127,7 +128,7 @@ class Mapper:
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
         if flag is True:
-            return value.lower()
+            return lowercase_dataset_urn(value)
 
         return value
 
@@ -390,11 +391,13 @@ class Mapper:
 
         for table in dataset.tables:
             # Create a URN for dataset
-            ds_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=self.__config.platform_name,
-                name=self.assets_urn_to_lowercase(table.full_name),
-                platform_instance=self.__config.platform_instance,
-                env=self.__config.env,
+            ds_urn = self.assets_urn_to_lowercase(
+                builder.make_dataset_urn_with_platform_instance(
+                    platform=self.__config.platform_name,
+                    name=table.full_name,
+                    platform_instance=self.__config.platform_instance,
+                    env=self.__config.env,
+                )
             )
 
             logger.debug(f"dataset_urn={ds_urn}")

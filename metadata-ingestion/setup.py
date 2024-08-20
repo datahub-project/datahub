@@ -99,11 +99,13 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.3.1.dev3",
+    "acryl-sqlglot[rs]==25.8.2.dev9",
 }
 
 classification_lib = {
     "acryl-datahub-classify==0.0.11",
+    # schwifty is needed for the classify plugin but in 2024.08.0 they broke the python 3.8 compatibility
+    "schwifty<2024.08.0",
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
@@ -171,6 +173,7 @@ looker_common = {
     *sqlglot_lib,
     "GitPython>2",
     "python-liquid",
+    "deepmerge>=1.1.1"
 }
 
 bigquery_common = {
@@ -295,7 +298,7 @@ slack = {"slack-sdk==3.18.1"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.9.0",
+    "databricks-sdk>=0.30.0",
     "pyspark~=3.3.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes

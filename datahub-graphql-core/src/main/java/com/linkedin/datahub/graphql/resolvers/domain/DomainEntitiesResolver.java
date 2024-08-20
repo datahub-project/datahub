@@ -19,6 +19,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -98,7 +99,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                                 new ConjunctiveCriterion().setAnd(criteria))),
                     start,
                     count,
-                    null,
+                    Collections.emptyList(),
                     null));
 
           } catch (Exception e) {

@@ -69,6 +69,7 @@ query appConfig {
             platformBrowseV2
             businessAttributeEntityEnabled
             dataContractsEnabled
+            editableDatasetNameEnabled
             showSeparateSiblings
         }
     }

@@ -49,7 +49,7 @@ jobs:
         run: ./gradlew :metadata-ingestion:modelDocGen
       - name: Configure AWS Credentials
         if: ${{ needs.setup.outputs.publish == 'true' }}
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY }}
