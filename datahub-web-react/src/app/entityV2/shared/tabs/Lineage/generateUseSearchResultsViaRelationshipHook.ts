@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
 import { LineageDirection } from '../../../../../types.generated';
 import { GetSearchResultsParams } from '../../components/styled/search/types';
@@ -25,6 +26,8 @@ export default function generateUseSearchResultsViaRelationshipHook({
     setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
     return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
+        const userContext = useUserContext();
+
         const {
             variables: {
                 input: { types, query, start, count, filters, orFilters },
@@ -39,6 +42,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
             count,
             filters,
             orFilters,
+            viewUrn: userContext.localState?.selectedViewUrn || undefined,
             startTimeMillis: startTimeMillis || undefined,
             endTimeMillis: endTimeMillis || undefined,
         };

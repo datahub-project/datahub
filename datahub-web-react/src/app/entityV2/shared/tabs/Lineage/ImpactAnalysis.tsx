@@ -70,6 +70,7 @@ export const ImpactAnalysis = ({
             resetShouldRefetch={resetShouldRefetch}
             placeholderText="Search related assets..."
             showFilterBar={showFilterBar}
+            applyView
         />
     );
 };
