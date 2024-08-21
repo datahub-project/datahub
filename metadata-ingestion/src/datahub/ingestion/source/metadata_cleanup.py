@@ -330,7 +330,7 @@ class MetadataCleanupSource(Source):
                 DATAFLOW_QUERY,
                 {
                     "query": "*",
-                    "scroll_id": scroll_id if scroll_id else None,
+                    "scrollId": scroll_id if scroll_id else None,
                     "batchSize": self.config.batch_size,
                 },
             )
@@ -367,7 +367,7 @@ class MetadataCleanupSource(Source):
                 DATAJOB_QUERY,
                 {
                     "query": "*",
-                    "scroll_id": scroll_id if scroll_id else None,
+                    "scrollId": scroll_id if scroll_id else None,
                     "batchSize": self.config.batch_size,
                 },
             )
