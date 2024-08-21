@@ -1,4 +1,5 @@
 import React from 'react';
+import Fuse from 'fuse.js';
 import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
 import styled from 'styled-components';
 import { Typography } from 'antd';
@@ -47,7 +48,7 @@ import {
 } from '../fieldDescriptionUtils';
 
 import { getFormattedParameterValue } from '../assertionUtils';
-import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
+import { AssertionWithMonitorDetails, createAssertionGroups, getAssertionGroupName } from '../acrylUtils';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import { AssertionStatusGroup, AssertionTable, AssertionListTableRow, AssertionListFilter } from './types';
 import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
@@ -372,6 +373,22 @@ export const getPlainTextDescriptionFromAssertion = (
     }
     return primaryLabel;
 };
+const STATUS_GROUP_NAME_MAP = {
+    FAILURE: 'Failing',
+    SUCCESS: 'Passing',
+    ERROR: 'Error',
+    VOLUME: 'Volume',
+    SQL: 'Sql',
+    FIELD: 'Field',
+    FRESHNESS: 'Freshness',
+    DATASET: 'Other',
+};
+
+const RECOMMENDED_FILTER_NAME_MAP = {
+    external: 'External',
+    native: 'Native',
+    smartAssertions: 'Smart Assertions',
+};
 
 // Create Group's Summary to name and number of records for each group
 const getGroupNameBySummary = (record) => {
@@ -396,27 +413,17 @@ const getGroupNameBySummary = (record) => {
         }
     `;
 
-    const NAME_MAP = {
-        FAILURE: 'Failing',
-        SUCCESS: 'Passing',
-        ERROR: 'Error',
-        VOLUME: 'Volume',
-        SQL: 'Sql',
-        FIELD: 'Field',
-        FRESHNESS: 'Freshness',
-        DATASET: 'Other',
-    };
     const newSummary = record.summary;
     const list: string[] = [];
     Object.keys(newSummary).forEach((key) => {
         if (newSummary[key] > 0) {
-            list.push(`${newSummary[key]} ${NAME_MAP[key]}`);
+            list.push(`${newSummary[key]} ${STATUS_GROUP_NAME_MAP[key]}`);
         }
     });
 
     return (
         <TextContainer>
-            <Title strong>{NAME_MAP[record.name]}</Title>
+            <Title strong>{STATUS_GROUP_NAME_MAP[record.name]}</Title>
             <Message type="secondary">{list.join(', ')}</Message>
         </TextContainer>
     );
@@ -551,19 +558,41 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
     });
 
     for (const [key, value] of Object.entries(filterGroupOptions)) {
-        if (['type', 'status'].includes(key)) {
+        if (['status', 'type'].includes(key)) {
             for (const [key2, value2] of Object.entries(value)) {
-                filterOptions.recommendedFilters.push({ name: key2, category: key, count: value2 });
+                filterOptions.recommendedFilters.push({
+                    name: key2,
+                    category: key,
+                    count: value2,
+                    displayName: key === 'type' ? getAssertionGroupName(key2) : STATUS_GROUP_NAME_MAP[key2],
+                });
                 if (filterOptions.filterGroupOptions[key]) {
-                    filterOptions.filterGroupOptions[key].push({ name: key2, category: key, count: value2 });
+                    filterOptions.filterGroupOptions[key].push({
+                        name: key2,
+                        category: key,
+                        count: value2,
+                        displayName: key === 'type' ? getAssertionGroupName(key2) : STATUS_GROUP_NAME_MAP[key2],
+                    });
                 } else {
-                    filterOptions.filterGroupOptions[key] = [{ name: key2, category: key, count: value2 }];
+                    filterOptions.filterGroupOptions[key] = [
+                        {
+                            name: key2,
+                            category: key,
+                            count: value2,
+                            displayName: key === 'type' ? getAssertionGroupName(key2) : STATUS_GROUP_NAME_MAP[key2],
+                        },
+                    ];
                 }
             }
         }
     }
     for (const [key, value] of Object.entries(others)) {
-        filterOptions.recommendedFilters.push({ name: key, category: 'others', count: value });
+        filterOptions.recommendedFilters.push({
+            name: key,
+            category: 'others',
+            count: value,
+            displayName: RECOMMENDED_FILTER_NAME_MAP[key],
+        });
     }
     return filterOptions;
 };
@@ -575,16 +604,29 @@ export const getFilteredTransformedAssertionData = (
 ): AssertionTable => {
     const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] }, filterOptions: {} };
     assertionRawData.filterOptions = extractFilterOptionListFromAssertions(assertions);
-    const filteredAssertions = assertions.filter((assertion: AssertionWithMonitorDetails) => {
-        const { searchText, type, status } = filter.filterCriteria;
-        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
-        const resultType = mostRecentRun?.result?.type || '';
+    const asseertionsWithDescription = assertions.map((assertion) => {
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
+        return {
+            ...assertion,
+            description,
+        };
+    });
+    const fuse = new Fuse(asseertionsWithDescription, {
+        keys: ['description'],
+        threshold: 0.4,
+    });
 
-        if (searchText && description.indexOf(searchText) === -1) {
-            return false;
-        }
+    let filteredAssertionsBySearch = asseertionsWithDescription;
+    const { searchText, type, status } = filter.filterCriteria;
+
+    if (searchText) {
+        const result = fuse.search(searchText);
+        filteredAssertionsBySearch = result.map((assertion) => assertion.item);
+    }
+    const filteredAssertions = filteredAssertionsBySearch.filter((assertion: AssertionWithMonitorDetails) => {
+        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+        const resultType = mostRecentRun?.result?.type || '';
         if (type.length > 0 && !type.includes(assertion.info?.type || '')) {
             return false;
         }

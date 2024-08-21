@@ -10,6 +10,7 @@ interface FilterItem {
     name: string;
     category: string;
     count: number;
+    displayName: string;
 }
 
 const SearchFilterContainer = styled.div`

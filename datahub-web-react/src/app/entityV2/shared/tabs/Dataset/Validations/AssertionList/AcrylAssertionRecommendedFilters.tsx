@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 interface FilterItem {
     name: string;
+    displayName: string;
     category: string;
     count: number;
 }
@@ -67,7 +68,7 @@ const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommendedFilter
                     selected={appliedFilters.some((appliedFilter) => appliedFilter.name === filter.name)}
                     onClick={() => handleFilterClick(filter)}
                 >
-                    <FilterName>{filter.name}</FilterName>
+                    <FilterName>{filter.displayName}</FilterName>
                     <FilterCount>({filter.count})</FilterCount>
                 </FilterItemRow>
             ))}

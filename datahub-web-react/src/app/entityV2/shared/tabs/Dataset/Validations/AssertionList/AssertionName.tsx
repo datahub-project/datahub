@@ -123,25 +123,27 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                         <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
                     </Tooltip>
                 ) : null}
-                <StyledAssertionBadgeContainer>
-                    {/* ******** Smart assertion Popover ******** */}
-                    {isSmartAssertion && (
-                        <InferredAssertionPopover>
-                            <InferredAssertionBadge />
-                        </InferredAssertionPopover>
-                    )}
-                    {/* ******** Data Contract Popover ******** */}
+                {(isSmartAssertion || isPartOfContract) && (
+                    <StyledAssertionBadgeContainer>
+                        {/* ******** Smart assertion Popover ******** */}
+                        {isSmartAssertion && (
+                            <InferredAssertionPopover>
+                                <InferredAssertionBadge />
+                            </InferredAssertionPopover>
+                        )}
+                        {/* ******** Data Contract Popover ******** */}
 
-                    {(isPartOfContract && entityData?.urn && (
-                        <DataContractBadge
-                            link={`${entityRegistry.getEntityUrl(
-                                EntityType.Dataset,
-                                entityData.urn,
-                            )}/Quality/Data Contract`}
-                        />
-                    )) ||
-                        undefined}
-                </StyledAssertionBadgeContainer>
+                        {(isPartOfContract && entityData?.urn && (
+                            <DataContractBadge
+                                link={`${entityRegistry.getEntityUrl(
+                                    EntityType.Dataset,
+                                    entityData.urn,
+                                )}/Quality/Data Contract`}
+                            />
+                        )) ||
+                            undefined}
+                    </StyledAssertionBadgeContainer>
+                )}
             </AssertionDescriptionContainer>
         </StyledAssertionNameContainer>
     );
