@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { Tooltip } from 'antd';
-
+import { TooltipPlacement } from 'antd/es/tooltip';
 import { ActionItemButton } from './styledComponents';
 
 type Props = {
@@ -11,11 +11,20 @@ type Props = {
     onClick: () => void;
     icon: React.ReactNode;
     key?: string;
+    placement?: TooltipPlacement;
 };
 
-export const ActionItem = ({ primary = false, tip, disabled = false, onClick, icon, key }: Props) => {
+export const ActionItem = ({
+    primary = false,
+    tip,
+    disabled = false,
+    onClick,
+    icon,
+    key,
+    placement = 'top',
+}: Props) => {
     return (
-        <Tooltip placement="top" title={tip}>
+        <Tooltip placement={placement} title={tip}>
             <span style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}>
                 <ActionItemButton
                     primary={primary}

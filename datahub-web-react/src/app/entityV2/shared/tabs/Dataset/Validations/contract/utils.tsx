@@ -73,13 +73,13 @@ export const getContractSummaryMessage = (state: DataContractState, summary: Ass
  * Returns true if a given assertion is part of a given contract, false otherwise.
  */
 export const isAssertionPartOfContract = (assertion: Assertion, contract: DataContract) => {
-    if (contract.properties?.dataQuality?.some((c) => c.assertion.urn === assertion.urn)) {
+    if (contract.properties?.dataQuality?.some((c) => c.assertion.urn === assertion?.urn)) {
         return true;
     }
-    if (contract.properties?.schema?.some((c) => c.assertion.urn === assertion.urn)) {
+    if (contract.properties?.schema?.some((c) => c.assertion.urn === assertion?.urn)) {
         return true;
     }
-    if (contract.properties?.freshness?.some((c) => c.assertion.urn === assertion.urn)) {
+    if (contract.properties?.freshness?.some((c) => c.assertion.urn === assertion?.urn)) {
         return true;
     }
     return false;

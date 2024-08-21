@@ -1,26 +1,40 @@
 import React, { useEffect } from 'react';
-import { Button, Tooltip } from 'antd';
+import { Tooltip } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
-import { ANTD_GRAY } from '../../../constants';
-import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
-import { AcrylAssertions } from './AcrylAssertions';
+import { REDESIGN_COLORS } from '../../../constants';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
-import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
+import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
 
 const TabTitle = styled.span`
     margin-left: 4px;
 `;
 
-const TabButton = styled(Button)<{ selected: boolean }>`
-    background-color: ${(props) => (props.selected && ANTD_GRAY[3]) || 'none'};
+const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
+    display: flex;
+    background-color: ${(props) => (props.selected && '#f1f3fd') || 'none'};
+    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : 'none')};
+    align-items: center;
+    justify-content: center;
+    cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
+    border-radius: 5px;
+    padding: 0px 12px 0px 12px;
+    font-size: 14px;
+    height: 40px;
     margin-left: 4px;
+    color: ${(props) => (props.disabled && '#00000040') || 'none'};
+`;
+const TabToolbar = styled.div`
+    display: flex;
+    position: relative;
+    z-index: 1;
+    height: 46px;
+    padding: 7px 16px;
+    flex: 0 0 auto;
 `;
 
 enum TabPaths {
@@ -36,15 +50,10 @@ const DEFAULT_TAB = TabPaths.ASSERTIONS;
 export const AcrylValidationsTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
-    const { urn, entityData } = useEntityData();
+    const { entityData } = useEntityData();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
     const appConfig = useAppConfig();
-
-    const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
-
-    const combinedData = isHideSiblingMode ? assertionsData : combineEntityDataWithSiblings(assertionsData);
-    const totalAssertions = combinedData?.dataset?.assertions?.assertions?.length || 0;
 
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
 
@@ -63,13 +72,12 @@ export const AcrylValidationsTab = () => {
         {
             title: (
                 <>
-                    <FileProtectOutlined />
-                    <TabTitle>Assertions ({totalAssertions})</TabTitle>
+                    <TabTitle>Assertions</TabTitle>
                 </>
             ),
             path: TabPaths.ASSERTIONS,
             disabled: false, // Always keep the assertions tab clickable in saas.
-            content: <AcrylAssertions />,
+            content: <AcrylAssertionList />,
         },
     ];
 
@@ -78,7 +86,6 @@ export const AcrylValidationsTab = () => {
         tabs.push({
             title: (
                 <>
-                    <AuditOutlined />
                     <TabTitle>Data Contract</TabTitle>
                 </>
             ),
@@ -99,25 +106,24 @@ export const AcrylValidationsTab = () => {
     return (
         <>
             <TabToolbar>
-                <div>
-                    {tabs.map((tab) => (
-                        <Tooltip showArrow={false} title={tab.tip}>
-                            <TabButton
-                                key={tab.path}
-                                type="text"
-                                disabled={tab.disabled}
-                                selected={selectedTab === tab.path}
-                                onClick={() =>
+                {tabs.map((tab) => (
+                    <Tooltip showArrow={false} title={tab.tip}>
+                        <TabButton
+                            key={tab.path}
+                            disabled={tab.disabled}
+                            selected={selectedTab === tab.path}
+                            onClick={() => {
+                                if (!tab.disabled) {
                                     history.replace(
                                         `${basePath}/${tab.path}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`,
-                                    )
+                                    );
                                 }
-                            >
-                                {tab.title}
-                            </TabButton>
-                        </Tooltip>
-                    ))}
-                </div>
+                            }}
+                        >
+                            {tab.title}
+                        </TabButton>
+                    </Tooltip>
+                ))}
             </TabToolbar>
             {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
         </>

@@ -9,7 +9,6 @@ import {
     Assertion,
     EntityType,
     DataContract,
-    DataPlatform,
     AssertionSourceType,
     AssertionRunEvent,
     Monitor,
@@ -17,16 +16,15 @@ import {
 import { InferredAssertionPopover } from './InferredAssertionPopover';
 import { InferredAssertionBadge } from './InferredAssertionBadge';
 import { REDESIGN_COLORS } from '../../../constants';
-import { AssertionPlatformAvatar } from './AssertionPlatformAvatar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { isMonitorActive } from './acrylUtils';
 import { isAssertionPartOfContract } from './contract/utils';
-import { Actions } from './assertion/profile/actions/Actions';
 import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
 import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
 import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import { AssertionListItemActions } from './assertion/profile/actions/AssertionListItemActions';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -49,12 +47,6 @@ const ActionButtonContainer = styled.div`
     justify-content: right;
     align-items: center;
 `;
-
-const AssertionPlatformWrapper = styled.div`
-    margin-right: 20px;
-`;
-
-const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
 const DataContractLogo = styled(AuditOutlined)`
     margin-left: 8px;
@@ -159,38 +151,26 @@ export function DetailsColumn({
 
 interface ActionsColumnProps {
     assertion: Assertion;
-    platform?: DataPlatform;
     monitor?: Monitor;
     contract?: DataContract;
     canEditAssertion: boolean;
     canEditMonitor: boolean;
     canEditContract: boolean;
-    lastEvaluationUrl?: string;
     refetch?: () => void;
 }
 
 export function ActionsColumn({
     assertion,
-    platform,
     contract,
     monitor,
     canEditAssertion,
     canEditMonitor,
     canEditContract,
-    lastEvaluationUrl,
     refetch,
 }: ActionsColumnProps) {
     return (
         <ActionButtonContainer>
-            {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
-                <AssertionPlatformWrapper>
-                    <AssertionPlatformAvatar
-                        platform={platform}
-                        externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
-                    />
-                </AssertionPlatformWrapper>
-            )}
-            <Actions
+            <AssertionListItemActions
                 assertion={assertion}
                 monitor={monitor}
                 contract={contract}

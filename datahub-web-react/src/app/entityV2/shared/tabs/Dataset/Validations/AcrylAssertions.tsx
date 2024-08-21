@@ -21,6 +21,7 @@ import { combineEntityDataWithSiblings } from '../../../../../entity/shared/sibl
 import { AcrylAssertionsSummaryLoading } from './AcrylAssertionsSummaryLoading';
 
 /**
+ * @deprecated
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
 export const AcrylAssertions = () => {

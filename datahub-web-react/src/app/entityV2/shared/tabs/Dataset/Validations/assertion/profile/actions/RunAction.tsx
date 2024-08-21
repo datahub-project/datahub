@@ -59,6 +59,7 @@ export const RunAction = ({ assertion, monitor, canEdit, refetch }: Props) => {
     return (
         <>
             <ActionItem
+                placement="left"
                 key="run-action"
                 tip={!isActive ? isActiveTip : unauthorizedTip}
                 disabled={runDisabled}

@@ -1,0 +1,115 @@
+import React from 'react';
+import styled from 'styled-components';
+import { Button, Dropdown, Menu } from 'antd';
+import { MoreOutlined } from '@ant-design/icons';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useAppConfig } from '@src/app/useAppConfig';
+
+import { StartStopAction } from './StartStopAction';
+import {
+    Assertion,
+    AssertionRunStatus,
+    AssertionSourceType,
+    DataContract,
+    Monitor,
+} from '../../../../../../../../../types.generated';
+import { DeleteAction } from './DeleteAction';
+import { ContractAction } from './ContractAction';
+import { CopyLinkAction } from './CopyLinkAction';
+import { CopyUrnAction } from './CopyUrnAction';
+import { SubscribeAction } from './SubscribeAction';
+import { RunAction } from './RunAction';
+import { ExternalUrlAction } from './ExternalUrlAction';
+import { useIsSeparateSiblingsMode } from '../../../../../../useIsSeparateSiblingsMode';
+import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+
+const ActionList = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0px 20px;
+`;
+
+type Props = {
+    assertion: Assertion;
+    monitor?: Monitor;
+    contract?: DataContract;
+    canEditAssertion: boolean;
+    canEditMonitor: boolean;
+    canEditContract: boolean;
+    refetch?: () => void;
+};
+
+export const AssertionListItemActions = ({
+    assertion,
+    monitor,
+    contract,
+    canEditAssertion,
+    canEditMonitor,
+    canEditContract,
+    refetch,
+}: Props) => {
+    const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
+    const mostRun = assertion.runEvents?.runEvents;
+    const externalUrl =
+        assertion?.info?.externalUrl ||
+        (mostRun?.length && mostRun[0].status === AssertionRunStatus.Complete && mostRun[0].result?.externalUrl);
+    const { urn: entityUrn } = useEntityData();
+    const { config } = useAppConfig();
+    const isRunAssertionsEnabled = config?.featureFlags?.runAssertionsEnabled;
+    const isReachable = useConnectionWithRunAssertionCapabilitiesForEntityExists(entityUrn ?? '');
+    const isNonNative = assertion.info?.source?.type !== AssertionSourceType.Native;
+    const menu = (
+        <Menu>
+            {/** Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract. */}
+            {(isSeparateSiblingsMode && (
+                <Menu.Item key="1">
+                    <ContractAction
+                        assertion={assertion}
+                        monitor={monitor}
+                        contract={contract}
+                        canEdit={canEditContract}
+                        refetch={refetch}
+                    />
+                </Menu.Item>
+            )) ||
+                null}
+            {externalUrl && (
+                <Menu.Item key="2">
+                    <ExternalUrlAction assertion={assertion} />
+                </Menu.Item>
+            )}
+            {isRunAssertionsEnabled && !monitor && !isNonNative && isReachable && (
+                <Menu.Item key="3">
+                    <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
+                </Menu.Item>
+            )}
+
+            <Menu.Item key="4">
+                <CopyLinkAction assertion={assertion} />
+            </Menu.Item>
+            <Menu.Item key="5">
+                <CopyUrnAction assertion={assertion} />
+            </Menu.Item>
+            <Menu.Item key="6">
+                <DeleteAction
+                    assertion={assertion}
+                    monitor={monitor}
+                    canEdit={monitor ? canEditAssertion && canEditMonitor : canEditAssertion}
+                    refetch={refetch}
+                />
+            </Menu.Item>
+        </Menu>
+    );
+    return (
+        <ActionList onClick={(e) => e.stopPropagation()}>
+            <StartStopAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
+
+            <SubscribeAction assertion={assertion} refetch={refetch} />
+
+            <Dropdown overlay={menu} trigger={['click']}>
+                <Button type="text" icon={<MoreOutlined />} />
+            </Dropdown>
+        </ActionList>
+    );
+};

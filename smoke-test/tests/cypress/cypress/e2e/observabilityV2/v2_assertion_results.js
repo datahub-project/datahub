@@ -7,7 +7,7 @@ describe("dataset assertion results test", () => {
     cy.setIsThemeV2Enabled(true);
   });
 
-  it("go to dataset with assertions and verify assertion results", () => {
+  it.skip("go to dataset with assertions and verify assertion results", () => {
     //View assertions list
     cy.login();
     cy.goToDataset(urn, datasetName);

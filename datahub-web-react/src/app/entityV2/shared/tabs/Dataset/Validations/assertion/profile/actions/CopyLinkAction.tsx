@@ -22,6 +22,7 @@ export const CopyLinkAction = ({ assertion }: Props) => {
     const onCopyLink = useAssertionURNCopyLink(assertion.urn);
     return (
         <ActionItem
+            placement="left"
             key="copy-link"
             tip="Copy link to this assertion"
             icon={<StyledLinkOutlined />}

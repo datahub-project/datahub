@@ -46,6 +46,7 @@ export const ExternalUrlAction = ({ assertion }: Props) => {
     return (
         <ActionItem
             key="external-url"
+            placement="left"
             primary
             tip={`View in ${platformName}.`}
             onClick={handleRedirect}
