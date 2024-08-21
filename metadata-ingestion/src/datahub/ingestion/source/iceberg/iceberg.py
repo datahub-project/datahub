@@ -162,6 +162,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 table = self.config.get_catalog().load_table(dataset_path)
                 self.report.report_table_load_time(time() - start_ts)
                 LOGGER.debug("Loaded table: %s", table)
+                # sleep(0.1)
                 return [*self._create_iceberg_workunit(dataset_name, table)]
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
