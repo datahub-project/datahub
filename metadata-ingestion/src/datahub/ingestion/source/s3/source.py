@@ -148,9 +148,7 @@ class Folder:
     is_partition: bool = False
 
     def partition_id_text(self) -> Optional[str]:
-        if self.partition_id:
-            return "/".join([f"{k}={v}" for k, v in self.partition_id])
-        return None
+        return "/".join([f"{k}={v}" for k, v in self.partition_id]) if self.partition_id else None
 
 
 @dataclasses.dataclass
