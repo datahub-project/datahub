@@ -227,7 +227,7 @@ class DbtTestConfig:
             source_config_modifiers={
                 "prefer_sql_parser_lineage": True,
                 "skip_sources_in_lineage": True,
-                "entities_enabled": {"sources": "NO"},
+                # "entities_enabled": {"sources": "NO"},
             },
         ),
     ],

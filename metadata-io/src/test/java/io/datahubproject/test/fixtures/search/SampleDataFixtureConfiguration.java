@@ -86,12 +86,12 @@ public class SampleDataFixtureConfiguration {
 
   @Bean(name = "sampleDataIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("sampleDataPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(prefix, "MD5");
   }
 
   @Bean(name = "longTailIndexConvention")
   protected IndexConvention longTailIndexConvention(@Qualifier("longTailPrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(prefix, "MD5");
   }
 
   @Bean(name = "sampleDataFixtureName")
