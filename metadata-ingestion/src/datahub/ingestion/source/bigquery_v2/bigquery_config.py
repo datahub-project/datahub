@@ -3,7 +3,7 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
-from google.cloud import bigquery, datacatalog_v1
+from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
@@ -34,12 +34,16 @@ class BigQueryUsageConfig(BaseUsageConfig):
 
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
-        description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
+        description="Correction to pad start_time and end_time with. For handling the case where the read happens "
+        "within our time range but the query completion event is delayed and happens after the configured"
+        " end time.",
     )
 
     apply_view_usage_to_tables: bool = Field(
         default=False,
-        description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies usage to views / tables mentioned in the query. If set to True, usage is applied to base tables only.",
+        description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies "
+        "usage to views / tables mentioned in the query. If set to True, usage is applied to base tables "
+        "only.",
     )
 
 
@@ -73,6 +77,9 @@ class BigQueryConnectionConfig(ConfigModel):
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
         return bigquery.Client(self.project_on_behalf, **client_options)
+
+    def get_projects_client(self) -> resourcemanager_v3.ProjectsClient:
+        return resourcemanager_v3.ProjectsClient()
 
     def get_policy_tag_manager_client(self) -> datacatalog_v1.PolicyTagManagerClient:
         return datacatalog_v1.PolicyTagManagerClient()
@@ -143,12 +150,14 @@ class BigQueryV2Config(
 
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
+        description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. "
+        "e.g. to match all tables in schema analytics, use the regex 'analytics'",
     )
 
     match_fully_qualified_names: bool = Field(
         default=True,
-        description="[deprecated] Whether `dataset_pattern` is matched against fully qualified dataset name `<project_id>.<dataset_name>`.",
+        description="[deprecated] Whether `dataset_pattern` is matched against fully qualified dataset name "
+        "`<project_id>.<dataset_name>`.",
     )
 
     include_external_url: bool = Field(
@@ -169,7 +178,9 @@ class BigQueryV2Config(
 
     table_snapshot_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+        description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire "
+        "snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with "
+        "customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
     debug_include_full_payloads: bool = Field(
@@ -180,17 +191,22 @@ class BigQueryV2Config(
     number_of_datasets_process_in_batch: int = Field(
         hidden_from_docs=True,
         default=10000,
-        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care.",
+        description="Number of table queried in batch when getting metadata. This is a low level config property "
+        "which should be touched with care.",
     )
 
     number_of_datasets_process_in_batch_if_profiling_enabled: int = Field(
         default=1000,
-        description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+        description="Number of partitioned table queried in batch when getting metadata. This is a low level config "
+        "property which should be touched with care. This restriction is needed because we query "
+        "partitions system view which throws error if we try to touch too many tables.",
     )
 
     use_tables_list_query_v2: bool = Field(
         default=False,
-        description="List tables using an improved query that extracts partitions and last modified timestamps more accurately. Requires the ability to read table data. Automatically enabled when profiling is enabled.",
+        description="List tables using an improved query that extracts partitions and last modified timestamps more "
+        "accurately. Requires the ability to read table data. Automatically enabled when profiling is "
+        "enabled.",
     )
 
     @property
@@ -199,7 +215,9 @@ class BigQueryV2Config(
 
     column_limit: int = Field(
         default=300,
-        description="Maximum number of columns to process in a table. This is a low level config property which should be touched with care. This restriction is needed because excessively wide tables can result in failure to ingest the schema.",
+        description="Maximum number of columns to process in a table. This is a low level config property which "
+        "should be touched with care. This restriction is needed because excessively wide tables can "
+        "result in failure to ingest the schema.",
     )
     # The inheritance hierarchy is wonky here, but these options need modifications.
     project_id: Optional[str] = Field(
@@ -212,6 +230,15 @@ class BigQueryV2Config(
             "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
             "don't want to give project resourcemanager.projects.list to your service account. "
             "Overrides `project_id_pattern`."
+        ),
+    )
+    project_labels: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ingests projects with the specified labels. Set value in the format of `key:value`. Use this property to "
+            "define which projects to ingest based"
+            "on project-level labels. If project_ids or project_id is set, this configuration has no effect. The "
+            "ingestion process filters projects by label first, and then applies the project_id_pattern."
         ),
     )
 
