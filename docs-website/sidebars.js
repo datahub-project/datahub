@@ -243,17 +243,6 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              type: "doc",
-              id: "docs/lineage/prefect",
-              label: "Prefect",
-            },
-
-            //"docker/airflow/local_airflow",
-            "metadata-integration/java/spark-lineage/README",
-            "metadata-ingestion/integration_docs/great-expectations",
-            "metadata-integration/java/datahub-protobuf/README",
-            //"metadata-ingestion/source-docs-template",
-            {
               "GraphQL API": [
                 "docs/managed-datahub/datahub-api/graphql-api/getting-started",
               ],
@@ -454,6 +443,11 @@ module.exports = {
           type: "doc",
           id: "docs/lineage/openlineage",
           label: "OpenLineage",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/prefect",
+          label: "Prefect",
         },
         {
           type: "doc",
