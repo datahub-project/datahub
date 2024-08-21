@@ -24,6 +24,8 @@ export default function RaiseIncidentMenuAction() {
             </ActionMenuItem>
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
+                    urn={urn}
+                    entityType={entityType}
                     visible={isRaiseIncidentModalVisible}
                     onClose={() => setIsRaiseIncidentModalVisible(false)}
                     refetch={

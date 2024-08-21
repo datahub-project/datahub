@@ -47,7 +47,6 @@ describe("manage queries", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
-    cy.wait(3000);
     cy.handleIntroducePage();
     cy.goToDataset(DATASET_URN, "SampleCypressHdfsDataset");
     cy.get("body").click();

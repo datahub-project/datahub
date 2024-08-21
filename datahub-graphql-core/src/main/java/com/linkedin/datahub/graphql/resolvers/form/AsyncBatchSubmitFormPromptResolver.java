@@ -152,6 +152,10 @@ public class AsyncBatchSubmitFormPromptResolver
       addOwnershipPromptParams(submitPromptParamsNode, promptInput);
     } else if (promptInput.getType().equals(FormPromptType.DOCUMENTATION)) {
       addDocumentationPromptParams(submitPromptParamsNode, promptInput);
+    } else {
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to submit, unexpected prompt type submitted %s.", promptInput.getType()));
     }
 
     try {

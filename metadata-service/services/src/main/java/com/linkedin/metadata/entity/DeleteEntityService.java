@@ -90,6 +90,7 @@ public class DeleteEntityService {
     // Delete references for entities referencing the deleted urn with searchables.
     // Only works for Form deletion for now
     int totalSearchAssetCount = deleteSearchReferences(opContext, urn, dryRun);
+    int subscriptionsCount = deleteSubscriptions(opContext, urn, dryRun);
 
     RelatedEntitiesResult relatedEntities =
         _graphService.findRelatedEntities(
@@ -115,7 +116,7 @@ public class DeleteEntityService {
             .collect(Collectors.toList());
 
     result.setRelatedAspects(new RelatedAspectArray(relatedAspects));
-    result.setTotal(relatedEntities.getTotal() + totalSearchAssetCount);
+    result.setTotal(relatedEntities.getTotal() + totalSearchAssetCount + subscriptionsCount);
 
     if (dryRun) {
       return result;
@@ -744,6 +745,44 @@ public class DeleteEntityService {
       return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updatedAspect.get());
     }
     return null;
+  }
+
+  private int deleteSubscriptions(
+      @Nonnull OperationContext opContext, @Nonnull final Urn deletedUrn, final boolean dryRun) {
+
+    int subscriptionsCount = 0;
+    String scrollId = null;
+    Filter filter = newFilter(newCriterion("entityUrn", deletedUrn.toString()));
+
+    while (true) {
+      ScrollResult scrollResult =
+          _searchService.structuredScroll(
+              opContext,
+              ImmutableList.of("subscription"),
+              "*",
+              filter,
+              null,
+              scrollId,
+              "5m",
+              dryRun ? 1 : BATCH_SIZE);
+
+      if (dryRun) {
+        return scrollResult.getNumEntities();
+      }
+
+      scrollResult.getEntities().stream()
+          .map(SearchEntity::getEntity)
+          .forEach(referringUrn -> _entityService.deleteUrn(opContext, referringUrn));
+
+      subscriptionsCount += scrollResult.getEntities().size();
+
+      if (scrollResult.getScrollId() == null) {
+        break;
+      }
+      scrollId = scrollResult.getScrollId();
+    }
+
+    return subscriptionsCount;
   }
 
   private AuditStamp createAuditStamp() {

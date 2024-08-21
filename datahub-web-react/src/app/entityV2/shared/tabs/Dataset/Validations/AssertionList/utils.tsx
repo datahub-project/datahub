@@ -49,10 +49,10 @@ import {
 
 import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups, getAssertionGroupName } from '../acrylUtils';
-import { AssertionGroupHeader } from './AssertionGroupHeader';
-import { AssertionStatusGroup, AssertionTable, AssertionListTableRow, AssertionListFilter } from './types';
-import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
 import { isExternalAssertion } from '../assertion/profile/shared/isExternalAssertion';
+import { AssertionGroupHeader } from './AssertionGroupHeader';
+import { AssertionStatusGroup, AssertionTable, AssertionListFilter, AssertionListTableRow } from './types';
+import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
 
 /**
  * It refers the {@link getSchemaAggregationText} utility function to get plain text from html description.

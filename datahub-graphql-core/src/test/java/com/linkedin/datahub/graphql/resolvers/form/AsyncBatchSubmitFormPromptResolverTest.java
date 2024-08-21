@@ -156,6 +156,88 @@ public class AsyncBatchSubmitFormPromptResolverTest {
   }
 
   @Test
+  public void testGetInvalidInputDocumentation() throws Exception {
+    FormService mockFormService = initMockFormService(true);
+    EntityClient mockClient = initMockClient();
+    MetadataTestClient mockTestClient = Mockito.mock(MetadataTestClient.class);
+    AsyncBatchSubmitFormPromptResolver resolver =
+        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient, mockTestClient);
+
+    // null ownership params with documentation input
+    final SubmitFormPromptInput promptInput =
+        new SubmitFormPromptInput(
+            TEST_PROMPT_ID,
+            TEST_FORM_URN,
+            FormPromptType.DOCUMENTATION,
+            null,
+            null,
+            null,
+            null,
+            null);
+    final AsyncBatchSubmitFormPromptInput testInput =
+        new AsyncBatchSubmitFormPromptInput(
+            new ArrayList<>(),
+            new ArrayList<>(),
+            new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
+            promptInput,
+            null);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we never called ingest test
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+  }
+
+  @Test
+  public void testGetInvalidInputFieldsDocumentation() throws Exception {
+    FormService mockFormService = initMockFormService(true);
+    EntityClient mockClient = initMockClient();
+    MetadataTestClient mockTestClient = Mockito.mock(MetadataTestClient.class);
+    AsyncBatchSubmitFormPromptResolver resolver =
+        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient, mockTestClient);
+
+    // null ownership params with documentation input
+    final SubmitFormPromptInput promptInput =
+        new SubmitFormPromptInput(
+            TEST_PROMPT_ID,
+            TEST_FORM_URN,
+            FormPromptType.FIELDS_DOCUMENTATION,
+            null,
+            null,
+            null,
+            null,
+            null);
+    final AsyncBatchSubmitFormPromptInput testInput =
+        new AsyncBatchSubmitFormPromptInput(
+            new ArrayList<>(),
+            new ArrayList<>(),
+            new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
+            promptInput,
+            null);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we never called ingest test
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+  }
+
+  @Test
   public void testThrowsError() throws Exception {
     FormService mockFormService = initMockFormService(false);
     EntityClient mockClient = initMockClient();

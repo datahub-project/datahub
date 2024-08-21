@@ -1,4 +1,3 @@
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { SubType } from '@app/entityV2/shared/components/subtypes';
 import {
     createLineageFilterNodeId,
@@ -7,37 +6,42 @@ import {
     isDbt,
     isQuery,
     isTransformational,
-    isUrnTransformational,
     LINEAGE_FILTER_PAGINATION,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
     LineageFilter,
     LineageNode,
     NodeContext,
+    setDefault,
 } from '@app/lineageV2/common';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { LineageDirection } from '@types';
 
+interface Output {
+    displayedNodes: LineageNode[];
+    parents: Map<string, Set<string>>;
+}
+
 /**
  * Filters nodes based on per-node filters.
  * @param urn The urn of the root node.
+ * @param orderedNodes Nodes ordered by `orderNodes`, in BFS order.
  * @param context Lineage node context.
- * @returns A list of nodes to display in rough topological order.
+ * @returns A list of nodes to display in rough topological order,
+ *          and a map of nodes to their non-transformational parents.
  */
 export default function getDisplayedNodes(
     urn: string,
+    orderedNodes: Record<LineageDirection, LineageEntity[]>,
     context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>,
-): LineageNode[] {
+): Output {
+    const parents = new Map<string, Set<string>>();
+
     const { nodes } = context;
     const rootNode = nodes.get(urn);
     if (!rootNode) {
-        return [];
+        return { displayedNodes: [], parents };
     }
-
-    const orderedNodes = {
-        [LineageDirection.Upstream]: orderNodes(urn, LineageDirection.Upstream, context),
-        [LineageDirection.Downstream]: orderNodes(urn, LineageDirection.Downstream, context),
-    };
 
     const displayedNodes: LineageNode[] = [rootNode];
     const seenNodes = new Set<string>([urn]);
@@ -46,7 +50,7 @@ export default function getDisplayedNodes(
         const current = queue.shift() as string; // Just checked length
         const node = nodes.get(current);
         getDirectionsToExpand(node).forEach((direction) => {
-            const filteredChildren = applyFilters(current, direction, orderedNodes[direction], context);
+            const filteredChildren = applyFilters(current, direction, orderedNodes[direction], parents, context);
             filteredChildren.forEach((child) => {
                 if (!seenNodes.has(child.id)) {
                     displayedNodes.push(child);
@@ -59,45 +63,7 @@ export default function getDisplayedNodes(
         });
     }
 
-    return displayedNodes;
-}
-
-/**
- * Orders nodes in BFS order, starting from the root node.
- * Within a single node, children are ordered transformations last, then alphabetically.
- * Note: Transformations should be put first once show more is put at the bottom.
- * @param urn Root node urn.
- * @param direction Direction in which to perform BFS.
- * @param context Lineage node context.
- */
-function orderNodes(
-    urn: string,
-    direction: LineageDirection,
-    { nodes, adjacencyList }: Pick<NodeContext, 'adjacencyList' | 'nodes'>,
-): LineageEntity[] {
-    const orderedNodes: string[] = [];
-    const seenNodes = new Set<string>([urn]);
-    const queue = [urn]; // Note: uses array for queue, slow for large graphs
-    while (queue.length > 0) {
-        const current = queue.shift() as string; // Just checked length
-        const children = Array.from(adjacencyList[direction].get(current) || []).sort(compareNodes);
-        children?.forEach((child) => {
-            if (!seenNodes.has(child)) {
-                queue.push(child);
-                seenNodes.add(child);
-                orderedNodes.push(child);
-            }
-        });
-    }
-    return orderedNodes.map((id) => nodes.get(id)).filter((node): node is LineageEntity => !!node);
-}
-
-function compareNodes(a: string, b: string): number {
-    const isATransformation = isUrnTransformational(a, globalEntityRegistryV2);
-    const isBTransformation = isUrnTransformational(b, globalEntityRegistryV2);
-    if (isATransformation && !isBTransformation) return 1;
-    if (!isATransformation && isBTransformation) return -1;
-    return a.localeCompare(b);
+    return { displayedNodes, parents };
 }
 
 function getDirectionsToExpand(node) {
@@ -109,6 +75,7 @@ function applyFilters(
     urn: string,
     direction: LineageDirection,
     orderedNodes: LineageEntity[],
+    parents: Map<string, Set<string>>,
     context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>,
 ): LineageNode[] {
     const { adjacencyList, nodes } = context;
@@ -143,6 +110,8 @@ function applyFilters(
     const limit = filters?.limit || filteredChildren.length;
     const shownNodes = filteredChildren.slice(Math.max(0, filteredChildren.length - limit));
     const allShownNodes = [...getTransformationalNodes(node, shownNodes, direction, context), ...shownNodes];
+    allShownNodes.forEach((child) => setDefault(parents, child.urn, new Set<string>()).add(urn));
+
     const result: LineageNode[] = [];
     if (childrenToFilter.size > LINEAGE_FILTER_PAGINATION && (!node?.direction || node.direction === direction)) {
         const filterNode: LineageFilter = {
@@ -182,7 +151,10 @@ function getChildrenToFilter(
     parent: LineageEntity,
     direction: LineageDirection,
     context: Pick<NodeContext, 'adjacencyList' | 'nodes'>,
-): { allChildren: Set<string>; childrenToFilter: Set<string> } {
+): {
+    allChildren: Set<string>;
+    childrenToFilter: Set<string>;
+} {
     const { adjacencyList, nodes } = context;
     const seen = new Set<string>();
     const childrenToFilter = new Set<string>();

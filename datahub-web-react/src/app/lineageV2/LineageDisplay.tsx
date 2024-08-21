@@ -25,7 +25,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
-    const { fineGrainedLineage, flowNodes, flowEdges } = useComputeGraph(urn, type);
+    const { fineGrainedLineage, flowNodes, flowEdges, resetPositions } = useComputeGraph(urn, type);
     const shownUrns = useMemo(
         () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
         [flowNodes],
@@ -46,7 +46,8 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
         setNodes((oldNodes) => {
             const oldNodeIds = new Set(oldNodes.map((n) => n.id));
             const nodesToAdd = flowNodes.filter((n) => !oldNodeIds.has(n.id));
-            nodesToAdd.forEach((n) => {
+            const nodesToResetPosition = resetPositions ? flowNodes : nodesToAdd;
+            nodesToResetPosition.forEach((n) => {
                 // eslint-disable-next-line no-param-reassign
                 n.data.dragged = false;
             });
@@ -61,7 +62,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                 ...nodesToAdd.map((n) => ({ ...n, data: { ...n.data, dragged: false } })),
             ];
         });
-    }, [flowNodes, setNodes]);
+    }, [flowNodes, setNodes, resetPositions]);
 
     useEffect(() => setEdges(flowEdges), [flowEdges, getEdge, setEdges]);
 

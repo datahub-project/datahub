@@ -46,7 +46,7 @@ const IncidentStateSelect = styled(Select)`
 `;
 
 export const IncidentTab = () => {
-    const { urn } = useEntityData();
+    const { urn, entityType } = useEntityData();
     const incidentStates = INCIDENT_DISPLAY_STATES;
     const [selectedIncidentState, setSelectedIncidentState] = useState<IncidentState | undefined>(IncidentState.Active);
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
@@ -99,6 +99,8 @@ export const IncidentTab = () => {
                             Raise Incident
                         </Button>
                         <AddIncidentModal
+                            urn={urn}
+                            entityType={entityType}
                             refetch={refetch}
                             visible={isRaiseIncidentModalVisible}
                             onClose={() => setIsRaiseIncidentModalVisible(false)}

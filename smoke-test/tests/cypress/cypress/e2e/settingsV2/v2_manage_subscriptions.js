@@ -30,6 +30,18 @@ describe("entity subscription test", () => {
     });
   };
 
+  const handleNotifications = (value, source, locator) => {
+    cy.get(".ant-space-item")
+      .eq(value)
+      .then(($container) => {
+        const numberOfSpans = $container.find("span").length;
+        if (numberOfSpans > 1) {
+          cy.get(`[data-testid="${source}-channel-edit-button"]`).click();
+        } else if (numberOfSpans <= 1) {
+          cy.clickOptionWithTestId(locator);
+        }
+      });
+  };
   it("subscribe to entity, edit and remove subscription", () => {
     // Configure a slack integration in settings
     setSubscriptionsEnabledFlag(true);
@@ -54,11 +66,11 @@ describe("entity subscription test", () => {
     cy.get(".ant-tree-checkbox").click({ multiple: true });
 
     // Slack
-    cy.get('[data-testid="slack-channel-edit-button"]').click();
+    handleNotifications(1, "slack", "alternative-slack-member-id");
     cy.enterTextInTestId("alternative-slack-member-id", test_id);
 
     // Email
-    cy.get('[data-testid="alternative-email"]').click();
+    handleNotifications(0, "email", "alternative-email");
     cy.enterTextInTestId("alternative-email", test_email);
 
     cy.clickOptionWithTestId("subscribe-button");

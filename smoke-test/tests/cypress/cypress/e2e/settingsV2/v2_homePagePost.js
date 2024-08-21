@@ -36,7 +36,6 @@ describe("create announcement and link post", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
-    cy.wait(2000);
     cy.handleIntroducePage();
     cy.goToHomePagePostSettings();
   });

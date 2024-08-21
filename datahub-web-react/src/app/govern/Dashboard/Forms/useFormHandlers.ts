@@ -23,5 +23,15 @@ export const useFormHandlers = () => {
         }));
     };
 
-    return { handleInputChange, handleSelectChange };
+    const handleOwnersCheckBox = (event) => {
+        setFormValues((prev) => ({
+            ...prev,
+            actors: {
+                ...prev.actors,
+                owners: event.target.checked,
+            },
+        }));
+    };
+
+    return { handleInputChange, handleSelectChange, handleOwnersCheckBox };
 };

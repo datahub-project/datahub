@@ -26,19 +26,18 @@ import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.ScrollResult;
-import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.*;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.Map;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class DeleteEntityServiceTest {
@@ -65,6 +64,11 @@ public class DeleteEntityServiceTest {
         new DeleteEntityService(_entityServiceImpl, _graphService, _mockSearchService);
   }
 
+  @BeforeTest
+  public void setUp() {
+    Mockito.reset(_mockSearchService, _graphService, _mockUpdateIndicesService);
+  }
+
   /**
    * This test checks whether deleting non array references in PDL aspects generates a valid MCP.
    */
@@ -88,6 +92,18 @@ public class DeleteEntityServiceTest {
                 0,
                 10000))
         .thenReturn(mockRelatedEntities);
+
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.eq(newFilter(newCriterion("entityUrn", container.toString()))),
+                Mockito.eq(null),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq(1000)))
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
 
     final EntityResponse entityResponse = new EntityResponse();
     entityResponse.setUrn(dataset);
@@ -205,6 +221,18 @@ public class DeleteEntityServiceTest {
                 10000))
         .thenReturn(mockRelatedEntities);
 
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.eq(newFilter(newCriterion("entityUrn", form.toString()))),
+                Mockito.eq(null),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq(1000)))
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
+
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, form, false);
 
@@ -258,6 +286,18 @@ public class DeleteEntityServiceTest {
                 0,
                 10000))
         .thenReturn(mockRelatedEntities);
+
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.eq(newFilter(newCriterion("entityUrn", form.toString()))),
+                Mockito.eq(null),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq(1000)))
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
 
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, form, false);
@@ -318,6 +358,18 @@ public class DeleteEntityServiceTest {
                 10000))
         .thenReturn(mockRelatedEntities);
 
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.eq(newFilter(newCriterion("entityUrn", form.toString()))),
+                Mockito.eq(null),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq(1000)))
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
+
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, form, false);
 
@@ -329,6 +381,244 @@ public class DeleteEntityServiceTest {
             Mockito.any(AuditStamp.class),
             Mockito.eq(true));
     assertEquals(1, (int) response.getTotal());
+    assertTrue(response.getRelatedAspects().isEmpty());
+  }
+
+  /** This test checks whether deleting subscriptions works properly */
+  @Test
+  public void testDeleteSubscriptions() throws URISyntaxException {
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService);
+
+    Urn deletedUrn = Urn.createFromString("urn:li:dataProduct:dp1");
+
+    SearchEntityArray searchEntities =
+        new SearchEntityArray(
+            new SearchEntity().setEntity(Urn.createFromString("urn:li:subscription:sub1")),
+            new SearchEntity().setEntity(Urn.createFromString("urn:li:subscription:sub2")));
+
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setEntities(searchEntities);
+    scrollResult.setNumEntities(searchEntities.size());
+
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.isNull(),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq(1000)))
+        .thenReturn(scrollResult);
+
+    Mockito.when(
+            _graphService.findRelatedEntities(
+                null,
+                newFilter("urn", deletedUrn.toString()),
+                null,
+                EMPTY_FILTER,
+                ImmutableList.of(),
+                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+                0,
+                10000))
+        .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
+
+    final DeleteReferencesResponse response =
+        deleteEntityService.deleteReferencesTo(opContext, deletedUrn, false);
+
+    Mockito.verify(mockEntityService, Mockito.times(1))
+        .deleteUrn(
+            Mockito.any(OperationContext.class), Mockito.eq(searchEntities.get(0).getEntity()));
+    Mockito.verify(mockEntityService, Mockito.times(1))
+        .deleteUrn(
+            Mockito.any(OperationContext.class), Mockito.eq(searchEntities.get(1).getEntity()));
+
+    assertEquals(2, (int) response.getTotal());
+    assertTrue(response.getRelatedAspects().isEmpty());
+  }
+
+  /** This test checks whether deleting subscriptions more than one batch-size works properly */
+  @Test
+  public void testDeleteSubscriptionsTwoBatches() throws URISyntaxException {
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService);
+
+    Urn deletedUrn = Urn.createFromString("urn:li:dataProduct:dp1");
+
+    SearchEntityArray searchEntities1 = new SearchEntityArray();
+    for (int i = 0; i < 1000; i++) {
+      searchEntities1.add(
+          new SearchEntity().setEntity(Urn.createFromString("urn:li:subscription:sub" + i)));
+    }
+
+    SearchEntityArray searchEntities2 = new SearchEntityArray();
+    for (int i = 1000; i < 1100; i++) {
+      searchEntities1.add(
+          new SearchEntity().setEntity(Urn.createFromString("urn:li:subscription:sub" + i)));
+    }
+
+    ScrollResult scrollResult1 = new ScrollResult();
+    scrollResult1.setEntities(searchEntities1);
+    scrollResult1.setNumEntities(searchEntities1.size());
+    scrollResult1.setScrollId("scrollIdValue");
+
+    ScrollResult scrollResult2 = new ScrollResult();
+    scrollResult2.setEntities(searchEntities2);
+    scrollResult2.setNumEntities(searchEntities2.size());
+
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.isNull(),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq(1000)))
+        .thenReturn(scrollResult1);
+
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.isNull(),
+                Mockito.eq("scrollIdValue"),
+                Mockito.any(),
+                Mockito.eq(1000)))
+        .thenReturn(scrollResult2);
+
+    Mockito.when(
+            _graphService.findRelatedEntities(
+                null,
+                newFilter("urn", deletedUrn.toString()),
+                null,
+                EMPTY_FILTER,
+                ImmutableList.of(),
+                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+                0,
+                10000))
+        .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
+
+    final DeleteReferencesResponse response =
+        deleteEntityService.deleteReferencesTo(opContext, deletedUrn, false);
+
+    for (int i = 0; i < 1100; i++) {
+      Mockito.verify(mockEntityService, Mockito.times(1))
+          .deleteUrn(
+              Mockito.any(OperationContext.class),
+              Mockito.eq(Urn.createFromString("urn:li:subscription:sub" + i)));
+    }
+
+    assertEquals(1100, (int) response.getTotal());
+    assertTrue(response.getRelatedAspects().isEmpty());
+  }
+
+  /** This test ensures we aren't deleting any urns when there are no subscriptions */
+  @Test
+  public void testDeleteNoSubscriptions() throws URISyntaxException {
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService);
+
+    Urn deletedUrn = Urn.createFromString("urn:li:dataProduct:dp1");
+
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setEntities(searchEntities);
+    scrollResult.setNumEntities(searchEntities.size());
+
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.isNull(),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq(1000)))
+        .thenReturn(scrollResult);
+
+    Mockito.when(
+            _graphService.findRelatedEntities(
+                null,
+                newFilter("urn", deletedUrn.toString()),
+                null,
+                EMPTY_FILTER,
+                ImmutableList.of(),
+                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+                0,
+                10000))
+        .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
+
+    final DeleteReferencesResponse response =
+        deleteEntityService.deleteReferencesTo(opContext, deletedUrn, false);
+
+    Mockito.verify(mockEntityService, Mockito.times(0))
+        .deleteUrn(Mockito.any(OperationContext.class), Mockito.any());
+
+    assertEquals(0, (int) response.getTotal());
+    assertTrue(response.getRelatedAspects().isEmpty());
+  }
+
+  /**
+   * This test checks to make sure we don't delete any urns, and count is correct, if this is a
+   * dry-run
+   */
+  @Test
+  public void testDeleteSubscriptionsDryRun() throws URISyntaxException {
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(mockEntityService, _graphService, _mockSearchService);
+
+    Urn deletedUrn = Urn.createFromString("urn:li:dataProduct:dp1");
+
+    SearchEntityArray searchEntities =
+        new SearchEntityArray(
+            new SearchEntity().setEntity(Urn.createFromString("urn:li:subscription:sub1")));
+
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setEntities(searchEntities);
+    scrollResult.setNumEntities(1100);
+
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.eq(newFilter(newCriterion("entityUrn", deletedUrn.toString()))),
+                Mockito.isNull(),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq(1)))
+        .thenReturn(scrollResult);
+
+    Mockito.when(
+            _graphService.findRelatedEntities(
+                null,
+                newFilter("urn", deletedUrn.toString()),
+                null,
+                EMPTY_FILTER,
+                ImmutableList.of(),
+                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+                0,
+                10000))
+        .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
+
+    final DeleteReferencesResponse response =
+        deleteEntityService.deleteReferencesTo(opContext, deletedUrn, true);
+
+    Mockito.verify(mockEntityService, Mockito.times(0))
+        .deleteUrn(Mockito.any(OperationContext.class), Mockito.any());
+
+    assertEquals(1100, (int) response.getTotal());
     assertTrue(response.getRelatedAspects().isEmpty());
   }
 }

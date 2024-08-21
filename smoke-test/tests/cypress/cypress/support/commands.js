@@ -558,6 +558,7 @@ Cypress.Commands.add("rejectProposalInbox", () => {
 });
 
 Cypress.Commands.add("handleIntroducePage", () => {
+  cy.visit("/introduce");
   cy.url().then((url) => {
     const myUrl = url;
     if (myUrl.includes("/introduce")) {
@@ -569,6 +570,7 @@ Cypress.Commands.add("handleIntroducePage", () => {
       cy.get(".ant-select-selection-overflow").click();
       cy.get('[src*="bigquerylogo.png"]').should("be.visible").click();
       cy.get("body").click();
+      cy.contains("Data Engineer").click();
       cy.get(".ant-btn-primary").click();
     } else {
       cy.waitTextVisible("Discover");

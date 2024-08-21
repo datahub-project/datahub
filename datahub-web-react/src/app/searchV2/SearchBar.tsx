@@ -354,9 +354,14 @@ export const SearchBar = ({
     useEffect(() => {
         if (showCommandK) {
             const handleKeyDown = (event) => {
-                // Support command-k to select the search bar.
+                const isMac = (navigator as any).userAgentData
+                    ? (navigator as any).userAgentData.platform.includes('Mac')
+                    : navigator.userAgent.includes('Mac');
+
+                // Support command-k to select the search bar on all platforms
+                // Support ctrl-k to select the search bar on non-Mac platforms
                 // 75 is the keyCode for 'k'
-                if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
+                if ((event.metaKey || (!isMac && event.ctrlKey)) && event.keyCode === 75) {
                     (searchInputRef?.current as any)?.focus();
                 }
             };

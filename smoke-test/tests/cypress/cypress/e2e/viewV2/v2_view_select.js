@@ -24,7 +24,6 @@ describe("view select", () => {
     });
 
     cy.visit("/");
-    cy.wait(2000);
     cy.handleIntroducePage();
     cy.goToStarSearchList();
     cy.ensureElementPresent("#browse-v2");

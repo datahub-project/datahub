@@ -37,7 +37,6 @@ describe("download lineage results to .csv file", () => {
 
   it("download and verify lineage results for 1st, 2nd and 3+ degree of dependencies", () => {
     cy.loginWithCredentials();
-    cy.wait(2000);
     cy.handleIntroducePage();
     cy.goToDataset(test_dataset, "SampleCypressKafkaDataset");
     cy.get('[data-node-key="Lineage"]').first().should("be.visible").click();

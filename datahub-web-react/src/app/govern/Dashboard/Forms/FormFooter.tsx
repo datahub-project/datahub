@@ -39,6 +39,11 @@ const FormFooter = () => {
                         name: formValues.formName,
                         description: formValues.formDescription,
                         prompts: formValues.questions as CreatePromptInput[],
+                        actors: {
+                            owners: formValues.actors?.owners,
+                            users: formValues.actors?.users?.map((user) => user.urn),
+                            groups: formValues.actors?.groups?.map((group) => group.urn),
+                        },
                     };
                     setIsFormLoading(true);
 
@@ -62,6 +67,11 @@ const FormFooter = () => {
                         name: formValues.formName || '',
                         description: formValues.formDescription,
                         prompts: formValues.questions as CreatePromptInput[],
+                        actors: {
+                            owners: formValues.actors?.owners,
+                            users: formValues.actors?.users?.map((user) => user.urn),
+                            groups: formValues.actors?.groups?.map((group) => group.urn),
+                        },
                     };
                     setIsFormLoading(true);
 

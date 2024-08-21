@@ -32,7 +32,6 @@ describe("create, edit and remove metadata test", () => {
     // create new test at governance > tests, test conditions and save the test
     setTestsConfigFlag(true);
     cy.loginWithCredentials();
-    cy.wait(3000);
     cy.handleIntroducePage();
     cy.visit("/tests");
     cy.get('[aria-label="Ingestion"]').should("be.visible");

@@ -262,7 +262,7 @@ export function sortSharedList(sharedItems: ShareResult[]) {
         if (a.lastSuccess === null && b.lastSuccess === null) {
             return 0;
         }
-        return b!.lastSuccess!.time - a!.lastSuccess!.time;
+        return (b.lastSuccess?.time || 0) - (a.lastSuccess?.time || 0);
     });
 
     return sortedItems;

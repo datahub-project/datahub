@@ -96,7 +96,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
 
             {/* ******** Assertion description ******** */}
             <AssertionDescriptionContainer>
-                <Typography.Paragraph style={{ marginBottom: 0 }}>{name}</Typography.Paragraph>
+                <Typography.Paragraph>{name}</Typography.Paragraph>
 
                 {/* ****render external Icon if the assertion is external**** */}
                 {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (

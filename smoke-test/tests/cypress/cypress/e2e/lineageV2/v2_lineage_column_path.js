@@ -38,7 +38,6 @@ describe("column-Level lineage and impact analysis path test", () => {
   it("verify column-level lineage path at lineage praph and impact analysis ", () => {
     // Open dataset with column-level lineage configured an navigate to lineage tab -> visualize lineage
     cy.loginWithCredentials();
-    cy.wait(2000);
     cy.handleIntroducePage();
     cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
 

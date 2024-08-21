@@ -14,7 +14,12 @@ function generateInputWithNestedFilters(filters: FacetFilterInput[], nestedFilte
             const [entityValue, subTypeValue] = value.split(FILTER_DELIMITER);
             const andFilters = [...filters, { field: entity, values: [entityValue] }];
             if (subTypeValue) {
-                andFilters.push({ field: subType, values: [subTypeValue] });
+                andFilters.push({
+                    field: subType,
+                    values: [subTypeValue],
+                    condition: nestedFilter.condition,
+                    negated: nestedFilter.negated,
+                });
             }
             filtersWithNestedFilters.push({ and: andFilters });
         });

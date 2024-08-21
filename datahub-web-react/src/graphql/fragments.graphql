@@ -1707,6 +1707,27 @@ fragment formFields on Form {
         actors {
             owners
             isAssignedToMe
+            users {
+                urn
+                properties {
+                    displayName
+                    email
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+            groups {
+                urn
+                properties {
+                    displayName
+                    description
+                }
+                editableProperties {
+                    pictureLink
+                }
+            }
         }
     }
     ownership {

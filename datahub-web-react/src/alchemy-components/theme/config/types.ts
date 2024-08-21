@@ -33,3 +33,6 @@ export type SpacingOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | '3xl' | '4xl';
 
 // Transform types
 export type RotationOptions = '0' | '90' | '180' | '270';
+
+// Variant types
+export type VariantOptions = 'filled' | 'outline';

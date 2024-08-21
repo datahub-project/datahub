@@ -12,6 +12,7 @@ import { ANTD_GRAY } from '../../../entity/shared/constants';
 const NameWrapper = styled.span<{ addMargin }>`
     display: inline-flex;
     align-items: center;
+    max-width: 100%;
     ${(props) => props.addMargin && 'margin: 2px 0;'}
 `;
 

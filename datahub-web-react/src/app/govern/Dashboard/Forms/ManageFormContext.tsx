@@ -17,6 +17,11 @@ const ManageFormContext = React.createContext<ManageFormState>({
         formName: undefined,
         formType: undefined,
         questions: [],
+        actors: {
+            owners: false,
+            users: [],
+            groups: [],
+        },
     },
     setFormValues: () => {},
     form: undefined,
