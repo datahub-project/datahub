@@ -151,7 +151,7 @@ export const DefaultEntityHeader = ({
     return (
         <>
             <Row>
-                {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
+                {!loading && (entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
                     <GlossaryPreviewCardDecoration
                         urn={urn}
                         entityData={entityData}
