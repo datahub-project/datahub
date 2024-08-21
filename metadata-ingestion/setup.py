@@ -175,7 +175,7 @@ looker_common = {
     *sqlglot_lib,
     "GitPython>2",
     "python-liquid",
-    "deepmerge>=1.1.1"
+    "deepmerge>=1.1.1",
 }
 
 bigquery_common = {
@@ -485,6 +485,9 @@ all_exclude_plugins: Set[str] = {
     # The Airflow extra is only retained for compatibility, but new users should
     # be using the datahub-airflow-plugin package instead.
     "airflow",
+    # The great-expectations extra is only retained for compatibility, but new users should
+    # be using the datahub-gx-plugin package instead.
+    "great-expectations",
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
