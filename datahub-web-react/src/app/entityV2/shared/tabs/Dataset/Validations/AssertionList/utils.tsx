@@ -602,7 +602,6 @@ export const getFilteredTransformedAssertionData = (
     filter: AssertionListFilter,
 ): AssertionTable => {
     const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] }, filterOptions: {} };
-    assertionRawData.filterOptions = extractFilterOptionListFromAssertions(assertions);
     const asseertionsWithDescription = assertions.map((assertion) => {
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
@@ -655,5 +654,6 @@ export const getFilteredTransformedAssertionData = (
         item.groupName = <AssertionGroupHeader group={item} />;
     });
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
+    assertionRawData.filterOptions = extractFilterOptionListFromAssertions(filteredAssertions);
     return assertionRawData;
 };

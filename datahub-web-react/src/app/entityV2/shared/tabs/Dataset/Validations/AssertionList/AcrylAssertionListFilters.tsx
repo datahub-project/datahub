@@ -66,6 +66,9 @@ export const AcrylAssertionListFilters = ({
         if (!selectedRecommendedFilters?.status) {
             selectedRecommendedFilters.status = [];
         }
+        if (!selectedRecommendedFilters?.others) {
+            selectedRecommendedFilters.others = [];
+        }
         setFilters({ ...filter, filterCriteria: { ...filter.filterCriteria, ...selectedRecommendedFilters } });
         setAppliedFilters(updatedFilters);
     };
