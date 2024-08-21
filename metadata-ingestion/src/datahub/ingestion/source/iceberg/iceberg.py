@@ -83,6 +83,9 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     logging.WARNING
 )
 
+import faulthandler
+faulthandler.enable()
+
 
 @platform_name("Iceberg")
 @support_status(SupportStatus.TESTING)
@@ -137,7 +140,7 @@ class IcebergSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         def _process_dataset(dataset_path):
-            thread_local = threading.local()
+            # thread_local = threading.local()
             LOGGER.debug("Processing dataset for path %s", dataset_path)
             dataset_name = ".".join(dataset_path)
             if not self.config.table_pattern.allowed(dataset_name):
@@ -145,15 +148,17 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.report_dropped(dataset_name)
                 return
             try:
-                if not hasattr(thread_local, "local_catalog"):
-                    LOGGER.debug(
-                        "Didn't find local_catalog in thread_local (%s), initializing new catalog",
-                        thread_local
-                    )
-                    thread_local.local_catalog = self.config.get_catalog()
+                # if not hasattr(thread_local, "local_catalog"):
+                #     LOGGER.debug(
+                #         "Didn't find local_catalog in thread_local (%s), initializing new catalog",
+                #         thread_local
+                #     )
+                #     thread_local.local_catalog = self.config.get_catalog()
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
+
                 start_ts = time()
-                table = thread_local.local_catalog.load_table(dataset_path)
+                # table = thread_local.local_catalog.load_table(dataset_path)
+                table = self.config.get_catalog().load_table(dataset_path)
                 self.report.report_table_load_time(time() - start_ts)
                 LOGGER.debug("Loaded table: %s", table)
                 return [*self._create_iceberg_workunit(dataset_name, table)]
