@@ -6,7 +6,6 @@ from time import time
 from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
-from pyiceberg.exceptions import NoSuchIcebergTableError
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
@@ -137,9 +136,8 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield from catalog.list_tables(namespace)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        thread_local = threading.local()
-
         def _process_dataset(dataset_path):
+            thread_local = threading.local()
             LOGGER.debug("Processing dataset for path %s", dataset_path)
             dataset_name = ".".join(dataset_path)
             if not self.config.table_pattern.allowed(dataset_name):
@@ -149,19 +147,22 @@ class IcebergSource(StatefulIngestionSourceBase):
             try:
                 if not hasattr(thread_local, "local_catalog"):
                     LOGGER.debug(
-                        "Didn't find local_catalog in thread_local (%s), initializing new catalog"
+                        "Didn't find local_catalog in thread_local (%s), initializing new catalog",
+                        thread_local
                     )
                     thread_local.local_catalog = self.config.get_catalog()
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
                 start_ts = time()
                 table = thread_local.local_catalog.load_table(dataset_path)
                 self.report.report_table_load_time(time() - start_ts)
+                LOGGER.debug("Loaded table: %s", table)
                 return [*self._create_iceberg_workunit(dataset_name, table)]
-            except NoSuchIcebergTableError as e:
+            except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
+                return []
 
         try:
             start = time()
@@ -179,7 +180,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             len(datasets),
             datasets[0] if len(datasets) > 0 else None,
         )
-        datasets = datasets[:100]
+        # datasets = datasets[:100]
 
         for wu in ThreadedIteratorExecutor.process(
             worker_func=_process_dataset,
