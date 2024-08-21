@@ -135,6 +135,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
 
         # Retrieve the dict associated with the one catalog entry
         catalog_name, catalog_config = next(iter(self.catalog.items()))
+        logger.debug("Initializing the catalog %s with config: %s", catalog_name, catalog_config)
         return load_catalog(name=catalog_name, **catalog_config)
 
 
