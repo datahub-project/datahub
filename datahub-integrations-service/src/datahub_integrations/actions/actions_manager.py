@@ -213,11 +213,23 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         return urn in self.job_pipelines.get(stage, {})
 
     async def rollback_pipeline(self, urn: str, config: Optional[dict] = None) -> None:
+        # Check if the pipeline is currently executing the ROLLBACK stage
+        if self.is_currently_executing_stage(urn, Stage.ROLLBACK):
+            raise Exception(
+                f"Cannot rollback pipeline {urn} because it is currently running a rollback stage."
+            )
+
         await self.run_action_pipeline_task(
             urn, Stage.ROLLBACK, config, cancel_stages=[Stage.LIVE, Stage.BOOTSTRAP]
         )
 
     async def bootstrap_pipeline(self, urn: str, config: Optional[dict] = None) -> None:
+        # # Check if the pipeline is currently executing the BOOTSTRAP stage
+        if self.is_currently_executing_stage(urn, Stage.BOOTSTRAP):
+            raise Exception(
+                f"Cannot bootstrap pipeline {urn} because it is currently running a bootstrap stage."
+            )
+
         await self.run_action_pipeline_task(
             urn, Stage.BOOTSTRAP, config, cancel_stages=[Stage.ROLLBACK]
         )

@@ -254,6 +254,10 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
     const isRunning = state === AutomationStatus.ACTIVE;
     const isStopped = state === AutomationStatus.INACTIVE;
 
+    // Sub Status States
+    const isRollbacking = status?.rollback?.statusCode === AutomationActionStatus.RUNNING;
+    const isBootstrapping = status?.bootstrap?.statusCode === AutomationActionStatus.RUNNING;
+
     return (
         <>
             <ListCardHeader status={state}>
@@ -287,7 +291,7 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
                                 {
                                     key: 'bootstrap',
                                     onClick: bootstrapAction,
-                                    disabled: false,
+                                    disabled: isBootstrapping,
                                     icon: 'AutoMode',
                                     label: 'Initialize',
                                     tooltip: 'Backfill the automation for existing data assets. This may take a while!',
@@ -295,7 +299,7 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
                                 {
                                     key: 'undo',
                                     onClick: () => setShowUndoConfirmation(true),
-                                    disabled: isRunning, // update this to be disabled if "rollback" stage is active
+                                    disabled: isRunning || isRollbacking,
                                     icon: 'Restore',
                                     label: 'Rollback',
                                     tooltip: `This will rollback all metadata changes made by this automation. ${
