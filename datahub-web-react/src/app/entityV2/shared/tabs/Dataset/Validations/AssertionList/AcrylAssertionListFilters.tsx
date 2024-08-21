@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { isEmpty } from 'lodash';
 import AcrylAssertionRecommendedFilters from './AcrylAssertionRecommendedFilters';
 import AcrylAssertionListSearch from './AcrylAssertionListSearch';
 import AcryAssertionTypeSelect from './AcryAssertionTypeSelect';
 import styled from 'styled-components';
+import { AssertionListFilter } from './types';
 
 interface FilterItem {
     name: string;
@@ -16,13 +18,20 @@ const SearchFilterContainer = styled.div`
     align-items: center;
 `;
 
-export const AcrylAssertionListFilters = ({ filterOptions }: { filterOptions: any }) => {
+export const AcrylAssertionListFilters = ({
+    filterOptions,
+    setFilters,
+    filter,
+}: {
+    filterOptions: any;
+    setFilters: Dispatch<SetStateAction<AssertionListFilter>>;
+    filter: AssertionListFilter;
+}) => {
     const [appliedFilters, setAppliedFilters] = useState<FilterItem[]>([]);
     const [assertionFilter, setAssertionFilter] = useState<string>('');
     const [matches, setMatches] = useState<string[]>([]);
     const [highlightedMatchIndex, setHighlightedMatchIndex] = useState<number | null>(null);
-    const [selectedAssertionType, setSelectedAssertionType] = useState<string | null>(null); // Updated to allow null
-    const [recommendedFilterOptions, setRecommendedFilterOptions] = useState<any>([]);
+    const [selectedAssertionType, setSelectedAssertionType] = useState<string>(''); // Updated to allow null
     const handleFilterTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const filterText = event.target.value;
         setAssertionFilter(filterText);
@@ -32,32 +41,17 @@ export const AcrylAssertionListFilters = ({ filterOptions }: { filterOptions: an
         setHighlightedMatchIndex(null);
     };
 
-    const handleAssertionTypeChange = (value: string | null) => {
+    const handleAssertionTypeChange = (value: string) => {
+        setFilters({ ...filter, groupBy: value });
+
         setSelectedAssertionType(value);
     };
 
     useEffect(() => {
-        // const options = [];
-        // if (filterOptions.filterGroupOptions?.type) {
-        //     for(let)
-        // }
         console.log('filterOptions>>>', filterOptions);
     }, [filterOptions]);
 
     const numRows = 100;
-
-    const filters: FilterItem[] = [
-        { name: 'Freshness', category: 'type', count: 10 },
-        { name: 'Volume', category: 'type', count: 5 },
-        { name: 'Column', category: 'type', count: 15 },
-        { name: 'Custom', category: 'type', count: 10 },
-        { name: 'Schema', category: 'type', count: 5 },
-        { name: 'Failing', category: 'status', count: 15 },
-        { name: 'Passing', category: 'status', count: 10 },
-        { name: 'Native', category: 'other', count: 5 },
-        { name: 'Smart Assertion', category: 'other', count: 15 },
-        { name: 'External', category: 'other', count: 15 },
-    ];
 
     const assertionTypeFilters: Array<{ label: string; value: string }> = [
         { label: 'Type', value: 'type' },
@@ -65,6 +59,21 @@ export const AcrylAssertionListFilters = ({ filterOptions }: { filterOptions: an
     ];
 
     const handleFilterChange = (updatedFilters: FilterItem[]) => {
+        let selectedRecommendedFilters = {};
+        updatedFilters.forEach((filter: FilterItem) => {
+            if (selectedRecommendedFilters[filter.category]) {
+                selectedRecommendedFilters[filter.category].push(filter.name);
+            } else {
+                selectedRecommendedFilters[filter.category] = [filter.name];
+            }
+        });
+        if (isEmpty(selectedRecommendedFilters)) {
+            selectedRecommendedFilters = {
+                type: [],
+                status: [],
+            };
+        }
+        setFilters({ ...filter, filterCriteria: { ...filter.filterCriteria, ...selectedRecommendedFilters } });
         setAppliedFilters(updatedFilters);
     };
 
@@ -82,7 +91,7 @@ export const AcrylAssertionListFilters = ({ filterOptions }: { filterOptions: an
                 <div>
                     <AcryAssertionTypeSelect
                         options={assertionTypeFilters}
-                        selectedValue={selectedAssertionType || ''}
+                        selectedValue={selectedAssertionType}
                         onSelect={handleAssertionTypeChange}
                         placeholder="Group By"
                     />

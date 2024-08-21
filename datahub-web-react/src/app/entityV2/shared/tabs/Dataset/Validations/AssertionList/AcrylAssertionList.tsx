@@ -30,7 +30,7 @@ export const AcrylAssertionList = () => {
         groupBy: { type: [], status: [] },
     });
     // TODO we need to create setter function to set the filter as per the filter component
-    const [filter] = useState<AssertionListFilter>({
+    const [filter, setFilters] = useState<AssertionListFilter>({
         sortBy: '',
         groupBy: 'type',
         filterCriteria: {
@@ -111,7 +111,11 @@ export const AcrylAssertionList = () => {
                 privileges={privileges as EntityPrivileges}
                 setShowAssertionBuilder={setShowAssertionBuilder}
             />
-            <AcrylAssertionListFilters filterOptions={visibleAssertions?.filterOptions} />
+            <AcrylAssertionListFilters
+                filterOptions={visibleAssertions?.filterOptions}
+                setFilters={setFilters}
+                filter={filter}
+            />
             {renderListTable()}
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer

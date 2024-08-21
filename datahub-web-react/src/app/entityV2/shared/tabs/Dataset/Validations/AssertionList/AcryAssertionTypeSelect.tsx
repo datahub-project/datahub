@@ -18,7 +18,7 @@ const StyledSelect = styled(Select)`
 type Props = {
     options: Array<{ label: string; value: string }>;
     selectedValue: string;
-    onSelect: (value: string | null) => void;
+    onSelect: (value: string) => void;
     placeholder: string;
 };
 

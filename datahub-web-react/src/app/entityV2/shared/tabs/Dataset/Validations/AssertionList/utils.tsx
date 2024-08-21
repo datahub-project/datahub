@@ -578,6 +578,7 @@ export const getFilteredTransformedAssertionData = (
     const filteredAssertions = assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const { searchText, type, status } = filter.filterCriteria;
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+        const resultType = mostRecentRun?.result?.type || '';
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
 
@@ -587,7 +588,7 @@ export const getFilteredTransformedAssertionData = (
         if (type.length > 0 && !type.includes(assertion.info?.type || '')) {
             return false;
         }
-        if (status.length > 0 && !status.includes(mostRecentRun?.status || '')) {
+        if (status.length > 0 && !status.includes(resultType || '')) {
             return false;
         }
         return true;
