@@ -1,86 +1,80 @@
-# Prefect Integration
+# Prefect Integration with DataHub
 
-DataHub supports integration of
+## Overview
+
+DataHub supports integration with Prefect, allowing you to ingest:
 
 - Prefect flow and task metadata
-- Flow run and Task run information as well as
-- Lineage information when present
+- Flow run and Task run information
+- Lineage information (when available)
 
-## What is Prefect Datahub Block?
+This integration enables you to track and monitor your Prefect workflows within DataHub, providing a comprehensive view of your data pipeline activities.
 
-Blocks are primitive within Prefect that enable the storage of configuration and provide an interface for interacting with external systems. We integrated `prefect-datahub` block which use [Datahub Rest](../../metadata-ingestion/sink_docs/datahub.md#datahub-rest) emitter to emit metadata events while running prefect flow.
+## Prefect DataHub Block
 
-## Prerequisites to use Prefect Datahub Block
+### What is a Prefect DataHub Block?
 
-1. You need to use either Prefect Cloud (recommended) or the self hosted Prefect server.
-2. Refer [Cloud Quickstart](https://docs.prefect.io/latest/getting-started/quickstart/) to setup Prefect Cloud.
-3. Refer [Host Prefect server](https://docs.prefect.io/latest/guides/host/) to setup self hosted Prefect server.
-4. Make sure the Prefect api url is set correctly. You can check it by running below command:
-```shell
-prefect profile inspect
-```
-5. If you are using Prefect Cloud, the API URL should be set as `https://api.prefect.cloud/api/accounts/<account_id>/workspaces/<workspace_id>`.
-6. If you are using a self-hosted Prefect server, the API URL should be set as `http://<host>:<port>/api`.
+Blocks in Prefect are primitives that enable the storage of configuration and provide an interface for interacting with external systems. The `prefect-datahub` block uses the [DataHub REST](../../metadata-ingestion/sink_docs/datahub.md#datahub-rest) emitter to send metadata events while running Prefect flows.
 
-## Setup
+### Prerequisites
 
-### Installation
+1. Use either Prefect Cloud (recommended) or a self-hosted Prefect server.
+2. For Prefect Cloud setup, refer to the [Cloud Quickstart](https://docs.prefect.io/latest/getting-started/quickstart/) guide.
+3. For self-hosted Prefect server setup, refer to the [Host Prefect Server](https://docs.prefect.io/latest/guides/host/) guide.
+4. Ensure the Prefect API URL is set correctly. Verify using:
 
-Install `prefect-datahub` with `pip`:
+   ```shell
+   prefect profile inspect
+   ```
+
+5. API URL format:
+   - Prefect Cloud: `https://api.prefect.cloud/api/accounts/<account_id>/workspaces/<workspace_id>`
+   - Self-hosted: `http://<host>:<port>/api`
+
+## Setup Instructions
+
+### 1. Installation
+
+Install `prefect-datahub` using pip:
 
 ```shell
 pip install 'prefect-datahub'
 ```
 
-Requires an installation of Python 3.7+.
+Note: Requires Python 3.7+
 
-### Saving configurations to a block
+### 2. Saving Configurations to a Block
 
-This is a one-time activity, where you can save the configuration on the [Prefect block document store](https://docs.prefect.io/latest/concepts/blocks/#saving-blocks).
-While saving you can provide below configurations. Default value will get set if not provided while saving the configuration to block.
-
-Config | Type | Default | Description
---- | --- | --- | ---
-datahub_rest_url | `str` | *http://localhost:8080* | DataHub GMS REST URL
-env | `str` | *PROD* | The environment that all assets produced by this orchestrator belong to. For more detail and possible values refer [here](https://datahubproject.io/docs/graphql/enums/#fabrictype).
-platform_instance | `str` | *None* | The instance of the platform that all assets produced by this recipe belong to. For more detail please refer [here](https://datahubproject.io/docs/platform-instances/).
+Save your configuration to the [Prefect block document store](https://docs.prefect.io/latest/concepts/blocks/#saving-blocks):
 
 ```python
 from prefect_datahub.datahub_emitter import DatahubEmitter
+
 DatahubEmitter(
     datahub_rest_url="http://localhost:8080",
     env="PROD",
     platform_instance="local_prefect"
-).save("BLOCK-NAME-PLACEHOLDER")
+).save("MY-DATAHUB-BLOCK")
 ```
 
-Congrats! You can now load the saved block to use your configurations in your Flow code:
- 
-```python
-from prefect_datahub.datahub_emitter import DatahubEmitter
-DatahubEmitter.load("BLOCK-NAME-PLACEHOLDER")
-```
+Configuration options:
 
-!!! info "Registering blocks"
+| Config | Type | Default | Description |
+|--------|------|---------|-------------|
+| datahub_rest_url | `str` | `http://localhost:8080` | DataHub GMS REST URL |
+| env | `str` | `PROD` | Environment for assets (see [FabricType](https://datahubproject.io/docs/graphql/enums/#fabrictype)) |
+| platform_instance | `str` | `None` | Platform instance for assets (see [Platform Instances](https://datahubproject.io/docs/platform-instances/)) |
 
-    Register blocks in this module to
-    [view and edit them](https://docs.prefect.io/ui/blocks/)
-    on Prefect Cloud:
+### 3. Using the Block in Prefect Workflows
 
-    ```bash
-    prefect block register -m prefect_datahub
-    ```
-
-### Load the saved block in prefect workflows
-
-After installing `prefect-datahub` and [saving the configution](#saving-configurations-to-a-block), you can easily use it within your prefect workflows to help you emit metadata event as show below!
+Load and use the saved block in your Prefect workflows:
 
 ```python
 from prefect import flow, task
 from prefect_datahub.dataset import Dataset
 from prefect_datahub.datahub_emitter import DatahubEmitter
 
-datahub_emitter = DatahubEmitter.load("MY_BLOCK_NAME")
+datahub_emitter = DatahubEmitter.load("MY-DATAHUB-BLOCK")
 
 @task(name="Transform", description="Transform the data")
 def transform(data):
@@ -97,39 +91,47 @@ def etl():
     datahub_emitter.emit_flow()
 ```
 
-**Note**: To emit the tasks, user compulsory need to emit flow. Otherwise nothing will get emit.
+**Note**: To emit tasks, you must call `emit_flow()`. Otherwise, no metadata will be emitted.
 
-## Concept mapping
+## Concept Mapping
 
-Prefect concepts are documented [here](https://docs.prefect.io/latest/concepts/), and datahub concepts are documented [here](https://datahubproject.io/docs/what-is-datahub/datahub-concepts).
+| Prefect Concept | DataHub Concept |
+|-----------------|-----------------|
+| [Flow](https://docs.prefect.io/latest/concepts/flows/) | [DataFlow](https://datahubproject.io/docs/generated/metamodel/entities/dataflow/) |
+| [Flow Run](https://docs.prefect.io/latest/concepts/flows/#flow-runs) | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance) |
+| [Task](https://docs.prefect.io/latest/concepts/tasks/) | [DataJob](https://datahubproject.io/docs/generated/metamodel/entities/datajob/) |
+| [Task Run](https://docs.prefect.io/latest/concepts/tasks/#tasks) | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance) |
+| [Task Tag](https://docs.prefect.io/latest/concepts/tasks/#tags) | [Tag](https://datahubproject.io/docs/generated/metamodel/entities/tag/) |
 
-Prefect Concept | DataHub Concept
---- | ---
-[Flow](https://docs.prefect.io/latest/concepts/flows/) | [DataFlow](https://datahubproject.io/docs/generated/metamodel/entities/dataflow/)
-[Flow Run](https://docs.prefect.io/latest/concepts/flows/#flow-runs) | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance)
-[Task](https://docs.prefect.io/latest/concepts/tasks/) | [DataJob](https://datahubproject.io/docs/generated/metamodel/entities/datajob/)
-[Task Run](https://docs.prefect.io/latest/concepts/tasks/#tasks) | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance)
-[Task Tag](https://docs.prefect.io/latest/concepts/tasks/#tags) | [Tag](https://datahubproject.io/docs/generated/metamodel/entities/tag/)
+## Validation and Troubleshooting
 
+### Validating the Setup
 
-## How to validate saved block and emit of metadata
+1. Check the Prefect UI's Blocks menu for the DataHub emitter.
+2. Run a Prefect workflow and look for DataHub-related log messages:
 
-1. Go and check in Prefect UI at the Blocks menu if you can see the datahub emitter.
-2. Run a Prefect workflow. In the flow logs, you should see Datahub related log messages like:
+   ```
+   Emitting flow to datahub...
+   Emitting tasks to datahub...
+   ```
 
-```
-Emitting flow to datahub...
-Emitting tasks to datahub...
-```
-## Debugging
+### Debugging Common Issues
 
-### Incorrect Prefect API URL
+#### Incorrect Prefect API URL
 
-If your Prefect API URL aren't being generated correctly or set incorrectly, then in that case you can set the Prefect API URL manually as show below:
+If the Prefect API URL is incorrect, set it manually:
 
 ```shell
 prefect config set PREFECT_API_URL='http://127.0.0.1:4200/api'
 ```
 
-### Connection error for Datahub Rest URL
-If you get ConnectionError: HTTPConnectionPool(host='localhost', port=8080), then in that case your GMS service is not up.
+#### DataHub Connection Error
+
+If you encounter a `ConnectionError: HTTPConnectionPool(host='localhost', port=8080)`, ensure that your DataHub GMS service is running.
+
+## Additional Resources
+
+- [Prefect Documentation](https://docs.prefect.io/)
+- [DataHub Documentation](https://datahubproject.io/docs/)
+
+For more information or support, please refer to the official Prefect and DataHub documentation or reach out to their respective communities.
