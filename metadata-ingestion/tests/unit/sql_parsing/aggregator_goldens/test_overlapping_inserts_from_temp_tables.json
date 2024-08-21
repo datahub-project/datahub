@@ -169,9 +169,6 @@
         "json": {
             "subjects": [
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
-                },
-                {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.customer,PROD)"
                 },
                 {
@@ -179,6 +176,21 @@
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_survey,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_email)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_reason)"
                 }
             ]
         }
@@ -227,13 +239,22 @@
         "json": {
             "subjects": [
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
-                },
-                {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.customer,PROD)"
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_email)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
                 }
             ]
         }

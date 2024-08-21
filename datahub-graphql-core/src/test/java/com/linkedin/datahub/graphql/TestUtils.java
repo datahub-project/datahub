@@ -12,14 +12,19 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.testng.Assert;
 
 public class TestUtils {
 
@@ -120,52 +125,88 @@ public class TestUtils {
   }
 
   public static void verifyIngestProposal(
-      EntityService<ChangeItemImpl> mockService,
-      int numberOfInvocations,
-      MetadataChangeProposal proposal) {
+      EntityService<?> mockService, int numberOfInvocations, MetadataChangeProposal proposal) {
     verifyIngestProposal(mockService, numberOfInvocations, List.of(proposal));
   }
 
   public static void verifyIngestProposal(
-      EntityService<ChangeItemImpl> mockService,
+      EntityService<?> mockService,
       int numberOfInvocations,
       List<MetadataChangeProposal> proposals) {
 
-    AspectsBatchImpl batch =
-        AspectsBatchImpl.builder()
-            .mcps(
-                proposals,
-                mock(AuditStamp.class),
-                TestOperationContexts.emptyRetrieverContext(null))
-            .build();
+    ArgumentCaptor<AspectsBatchImpl> batchCaptor = ArgumentCaptor.forClass(AspectsBatchImpl.class);
+
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
-        .ingestProposal(any(), Mockito.eq(batch), Mockito.eq(false));
+        .ingestProposal(any(), batchCaptor.capture(), Mockito.eq(false));
+
+    // check has time
+    Assert.assertTrue(
+        batchCaptor.getValue().getItems().stream()
+            .allMatch(prop -> prop.getSystemMetadata().getLastObserved() > 0L));
+
+    // check without time
+    Assert.assertEquals(
+        batchCaptor.getValue().getItems().stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()),
+        proposals.stream()
+            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .collect(Collectors.toList()));
   }
 
   public static void verifySingleIngestProposal(
-      EntityService<ChangeItemImpl> mockService,
+      EntityService<?> mockService,
       int numberOfInvocations,
-      MetadataChangeProposal proposal) {
+      MetadataChangeProposal expectedProposal) {
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
-        .ingestProposal(any(), Mockito.eq(proposal), any(AuditStamp.class), Mockito.eq(false));
+        .ingestProposal(any(), proposalCaptor.capture(), any(AuditStamp.class), Mockito.eq(false));
+
+    // check has time
+    Assert.assertTrue(proposalCaptor.getValue().getSystemMetadata().getLastObserved() > 0L);
+
+    // check without time
+    proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().setLastObserved(0L);
+    Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 
-  public static void verifyIngestProposal(
-      EntityService<ChangeItemImpl> mockService, int numberOfInvocations) {
+  public static void verifyIngestProposal(EntityService<?> mockService, int numberOfInvocations) {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
         .ingestProposal(any(), any(AspectsBatchImpl.class), Mockito.eq(false));
   }
 
   public static void verifySingleIngestProposal(
-      EntityService<ChangeItemImpl> mockService, int numberOfInvocations) {
+      EntityService<?> mockService, int numberOfInvocations) {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations))
         .ingestProposal(
             any(), any(MetadataChangeProposal.class), any(AuditStamp.class), Mockito.eq(false));
   }
 
-  public static void verifyNoIngestProposal(EntityService<ChangeItemImpl> mockService) {
+  public static void verifyNoIngestProposal(EntityService<?> mockService) {
     Mockito.verify(mockService, Mockito.times(0))
         .ingestProposal(any(), any(AspectsBatchImpl.class), Mockito.anyBoolean());
+  }
+
+  public static void verifyIngestProposal(
+      EntityClient mockClient, int numberOfInvocations, MetadataChangeProposal expectedProposal)
+      throws RemoteInvocationException {
+
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+
+    Mockito.verify(mockClient, Mockito.times(numberOfInvocations))
+        .ingestProposal(any(), proposalCaptor.capture(), Mockito.eq(false));
+
+    // check has time
+    Assert.assertTrue(proposalCaptor.getValue().getSystemMetadata().getLastObserved() > 0L);
+
+    // check without time
+    proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().setLastObserved(0L);
+    Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 
   private TestUtils() {}

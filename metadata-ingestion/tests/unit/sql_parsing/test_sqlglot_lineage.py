@@ -2,9 +2,20 @@ import pathlib
 
 import pytest
 
+import datahub.testing.check_sql_parser_result as checker
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
+
+
+@pytest.fixture(autouse=True)
+def set_update_sql_parser(
+    pytestconfig: pytest.Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    update_golden = pytestconfig.getoption("--update-golden-files")
+
+    if update_golden:
+        monkeypatch.setattr(checker, "UPDATE_FILES", True)
 
 
 def test_invalid_sql():
@@ -1170,4 +1181,75 @@ INSERT INTO my_table (id, month, total_cost, area)
 """,
         dialect="sqlite",
         expected_file=RESOURCE_DIR / "test_sqlite_insert_into_values.json",
+    )
+
+
+def test_bigquery_information_schema_query() -> None:
+    # Special case - the BigQuery INFORMATION_SCHEMA views are prefixed with a
+    # project + possibly a dataset/region, so sometimes are 4 parts instead of 3.
+    # https://cloud.google.com/bigquery/docs/information-schema-intro#syntax
+
+    assert_sql_result(
+        """\
+select
+  c.table_catalog as table_catalog,
+  c.table_schema as table_schema,
+  c.table_name as table_name,
+  c.column_name as column_name,
+  c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
+  c.is_nullable as is_nullable,
+  CASE WHEN CONTAINS_SUBSTR(cfp.field_path, ".") THEN NULL ELSE c.data_type END as data_type,
+  description as comment,
+  c.is_hidden as is_hidden,
+  c.is_partitioning_column as is_partitioning_column,
+  c.clustering_ordinal_position as clustering_ordinal_position,
+from
+  `acryl-staging-2`.`smoke_test_db_4`.INFORMATION_SCHEMA.COLUMNS c
+  join `acryl-staging-2`.`smoke_test_db_4`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  and cfp.column_name = c.column_name
+ORDER BY
+  table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_information_schema_query.json",
+    )
+
+
+def test_bigquery_alter_table_column() -> None:
+    assert_sql_result(
+        """\
+ALTER TABLE `my-bq-project.covid_data.covid_deaths` drop COLUMN patient_name
+    """,
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_alter_table_column.json",
+    )
+
+
+def test_sqlite_drop_table() -> None:
+    assert_sql_result(
+        """\
+DROP TABLE my_schema.my_table
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_drop_table.json",
+    )
+
+
+def test_sqlite_drop_view() -> None:
+    assert_sql_result(
+        """\
+DROP VIEW my_schema.my_view
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_drop_view.json",
+    )
+
+
+def test_snowflake_drop_schema() -> None:
+    assert_sql_result(
+        """\
+DROP SCHEMA my_schema
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_drop_schema.json",
     )

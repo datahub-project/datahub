@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.LineageInput;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.Restricted;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
@@ -63,7 +64,10 @@ public class EntityLineageResultResolver
     @Nullable final Integer count = input.getCount(); // Optional!
     @Nullable final Boolean separateSiblings = input.getSeparateSiblings(); // Optional!
     @Nullable final Long startTimeMillis = input.getStartTimeMillis(); // Optional!
-    @Nullable final Long endTimeMillis = input.getEndTimeMillis(); // Optional!
+    @Nullable
+    final Long endTimeMillis =
+        ResolverUtils.getLineageEndTimeMillis(
+            input.getStartTimeMillis(), input.getEndTimeMillis()); // Optional!
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());

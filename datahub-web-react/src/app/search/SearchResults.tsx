@@ -29,6 +29,7 @@ import SearchQuerySuggester from './suggestions/SearchQuerySugggester';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
 import SearchResultsLoadingSection from './SearchResultsLoadingSection';
+import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -173,7 +174,11 @@ export const SearchResults = ({
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
     const authenticatedUserUrn = useUserContext().user?.urn;
-    const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const combinedSiblingSearchResults = combineSiblingsInSearchResults(
+        showSeparateSiblings,
+        searchResponse?.searchResults,
+    );
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -259,6 +264,7 @@ export const SearchResults = ({
                                         selectedEntities={selectedEntities}
                                         setSelectedEntities={setSelectedEntities}
                                         suggestions={suggestions}
+                                        pageNumber={page}
                                     />
                                     {totalResults > 0 && (
                                         <PaginationControlContainer id="search-pagination">

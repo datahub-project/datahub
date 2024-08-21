@@ -118,6 +118,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Cabify](https://cabify.tech/)
 - [ClassDojo](https://www.classdojo.com/)
 - [Coursera](https://www.coursera.org/)
+- [CVS Health](https://www.cvshealth.com/)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
 - [Digital Turbine](https://www.digitalturbine.com/)
@@ -137,7 +138,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Peloton](https://www.onepeloton.com)
 - [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/)
 - [Razer](https://www.razer.com)
-- [Saxo Bank](https://www.home.saxo)
+- [Rippling](https://www.rippling.com/)
 - [Showroomprive](https://www.showroomprive.com/)
 - [SpotHero](https://spothero.com)
 - [Stash](https://www.stash.com)
@@ -151,6 +152,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Wikimedia](https://www.wikimedia.org)
 - [Wolt](https://wolt.com)
 - [Zynga](https://www.zynga.com)
+
 
 
 ## Select Articles & Talks
@@ -172,6 +174,23 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Emerging Architectures for Modern Data Infrastructure](https://future.com/emerging-architectures-for-modern-data-infrastructure-2020/)
 
 See the full list [here](docs/links.md).
+
+## Security Notes
+
+### Multi-Component
+
+The DataHub project uses a wide range of code which is responsible for build automation, documentation generation, and 
+include both service (i.e. GMS) and client (i.e. ingestion) components. When evaluating security vulnerabilities in
+upstream dependencies, it is important to consider which component and how it is used in the project. For example, an 
+upstream javascript library may include a Denial of Service (DoS) vulnerability however when used for generating 
+documentation it does not affect the running of DataHub itself and cannot be used to impact DataHub's service. Similarly, 
+python dependencies for ingestion are part of the DataHub client and are not exposed as a service.
+
+### Known False Positives
+
+DataHub's ingestion client does not include credentials in the code repository, python package, or Docker images.
+Upstream python dependencies may include files that look like credentials and are often misinterpreted as credentials
+by automated scanners.
 
 ## License
 

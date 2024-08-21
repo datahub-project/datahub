@@ -61,6 +61,28 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(airflow,sqlite_operator,prod)",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,sqlite_operator,prod)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -69,6 +91,28 @@
                     "id": "sqlite_operator"
                 }
             ]
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -155,19 +199,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:sqlite",
-            "name": "public.costs",
-            "origin": "PROD"
-        }
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),create_cost_table)",
     "changeType": "UPSERT",
@@ -192,6 +223,17 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
     "changeType": "UPSERT",
@@ -201,6 +243,17 @@
             "platform": "urn:li:dataPlatform:sqlite",
             "name": "public.costs",
             "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -265,23 +318,6 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:fbeed1180fa0434e02ac6f75ace87869",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceRunEvent",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1717180072004,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "status": "STARTED",
-            "attempt": 1
-        }
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:fbeed1180fa0434e02ac6f75ace87869",
-    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
         "json": {
@@ -292,20 +328,19 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fbeed1180fa0434e02ac6f75ace87869",
     "changeType": "UPSERT",
-    "aspectName": "operation",
+    "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1718780495946,
+            "timestampMillis": 1717180072004,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
-            "actor": "urn:li:corpuser:airflow",
-            "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1718780495946
+            "status": "STARTED",
+            "attempt": 1
         }
     }
 },
@@ -335,6 +370,24 @@
             "type": {
                 "string": "COMMAND"
             }
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719864194882,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1719864194882
         }
     }
 },
@@ -382,8 +435,8 @@
         "json": {
             "timestampMillis": 1717180072275,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -588,8 +641,8 @@
         "json": {
             "timestampMillis": 1717180078196,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
@@ -669,27 +722,14 @@
         "json": {
             "timestampMillis": 1717180078619,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResultType": "airflow"
             }
-        }
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:04e1badac1eacd1c41123d07f579fa92",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
-    "aspect": {
-        "json": {
-            "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
-            ]
         }
     }
 },
@@ -894,6 +934,19 @@
 },
 {
     "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:04e1badac1eacd1c41123d07f579fa92",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
@@ -947,8 +1000,8 @@
         "json": {
             "timestampMillis": 1717180084642,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
@@ -1028,27 +1081,14 @@
         "json": {
             "timestampMillis": 1717180085266,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResultType": "airflow"
             }
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:sqlite",
-            "name": "public.processed_costs",
-            "origin": "PROD"
         }
     }
 },
@@ -1146,10 +1186,10 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [
+            "inputDatasets": [],
+            "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
             ],
-            "outputDatasets": [],
             "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),transform_cost_table)"
             ],
@@ -1189,32 +1229,6 @@
     "aspect": {
         "json": {
             "tags": []
-        }
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
-    "aspect": {
-        "json": {
-            "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
-    "aspect": {
-        "json": {
-            "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
-            ]
         }
     }
 },
@@ -1273,29 +1287,11 @@
         "json": {
             "timestampMillis": 1717180091148,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1718780501750,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "actor": "urn:li:corpuser:airflow",
-            "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1718780501750
         }
     }
 },
@@ -1372,14 +1368,27 @@
         "json": {
             "timestampMillis": 1717180091923,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResultType": "airflow"
             }
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.processed_costs",
+            "origin": "PROD"
         }
     }
 },
@@ -1471,20 +1480,46 @@
     }
 },
 {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
+            ]
+        }
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [
+            "inputDatasets": [],
+            "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
             ],
-            "outputDatasets": [],
             "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),transform_cost_table)"
             ],
             "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
+            ]
         }
     }
 },
@@ -1578,11 +1613,29 @@
         "json": {
             "timestampMillis": 1717180096108,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719864203487,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1719864203487
         }
     }
 },
@@ -1659,8 +1712,8 @@
         "json": {
             "timestampMillis": 1717180096993,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -1674,10 +1727,10 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
+    "aspectName": "dataProcessInstanceOutput",
     "aspect": {
         "json": {
-            "inputs": [
+            "outputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
             ]
         }
@@ -1687,10 +1740,10 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
+    "aspectName": "dataProcessInstanceOutput",
     "aspect": {
         "json": {
-            "inputs": [
+            "outputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
             ]
         }

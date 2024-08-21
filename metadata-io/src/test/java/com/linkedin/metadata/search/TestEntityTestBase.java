@@ -62,7 +62,8 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
   public void setup() {
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            new SnapshotEntityRegistry(new Snapshot()), new IndexConventionImpl("es_service_test"));
+            new SnapshotEntityRegistry(new Snapshot()),
+            new IndexConventionImpl("es_service_test", "MD5"));
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildService();
     elasticSearchService.reindexAll(Collections.emptySet());
@@ -70,7 +71,9 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(opContext);
+    syncAfterWrite(getBulkProcessor());
   }
 
   @Nonnull

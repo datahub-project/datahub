@@ -10,6 +10,7 @@ import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -190,7 +191,7 @@ public class TestOperationContexts {
     IndexConvention indexConvention =
         Optional.ofNullable(indexConventionSupplier)
             .map(Supplier::get)
-            .orElse(IndexConventionImpl.NO_PREFIX);
+            .orElse(IndexConventionImpl.noPrefix("MD5"));
 
     ServicesRegistryContext servicesRegistryContext =
         Optional.ofNullable(servicesRegistrySupplier).orElse(() -> null).get();
@@ -266,6 +267,13 @@ public class TestOperationContexts {
     @Override
     public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
         Set<Urn> urns, Set<String> aspectNames) {
+      return Map.of();
+    }
+
+    @Nonnull
+    @Override
+    public Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(
+        Map<Urn, Set<String>> urnAspectNames) {
       return Map.of();
     }
 

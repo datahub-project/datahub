@@ -143,6 +143,20 @@ def run_in_thread(f: _F) -> _F:
     return cast(_F, wrapper)
 
 
+def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
+    # Render templates in a copy of the task instance.
+    # This is necessary to get the correct operator args in the extractors.
+    try:
+        task_instance_copy = copy.deepcopy(task_instance)
+        task_instance_copy.render_templates()
+        return task_instance_copy
+    except Exception as e:
+        logger.info(
+            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
+        )
+        return task_instance
+
+
 class DataHubListener:
     __name__ = "DataHubListener"
 
@@ -360,10 +374,7 @@ class DataHubListener:
             f"DataHub listener got notification about task instance start for {task_instance.task_id}"
         )
 
-        # Render templates in a copy of the task instance.
-        # This is necessary to get the correct operator args in the extractors.
-        task_instance = copy.deepcopy(task_instance)
-        task_instance.render_templates()
+        task_instance = _render_templates(task_instance)
 
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
@@ -454,8 +465,17 @@ class DataHubListener:
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
-        task = self._task_holder.get_task(task_instance) or task_instance.task
+
+        task_instance = _render_templates(task_instance)
+
+        # We must prefer the task attribute, in case modifications to the task's inlets/outlets
+        # were made by the execute() method.
+        if getattr(task_instance, "task", None):
+            task = task_instance.task
+        else:
+            task = self._task_holder.get_task(task_instance)
         assert task is not None
+
         dag: "DAG" = task.dag  # type: ignore[assignment]
 
         datajob = AirflowGenerator.generate_datajob(
@@ -536,14 +556,27 @@ class DataHubListener:
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
 
+        event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+            entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
+        )
+        self.emitter.emit(event)
+
+        for task in dag.tasks:
+            task_urn = builder.make_data_job_urn_with_flow(
+                str(dataflow.urn), task.task_id
+            )
+            event = MetadataChangeProposalWrapper(
+                entityUrn=task_urn, aspect=StatusClass(removed=False)
+            )
+            self.emitter.emit(event)
+
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
 
-            event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+            event = MetadataChangeProposalWrapper(
                 entityUrn=tag_urn, aspect=StatusClass(removed=False)
             )
-
             self.emitter.emit(event)
 
         browse_path_v2_event: MetadataChangeProposalWrapper = (

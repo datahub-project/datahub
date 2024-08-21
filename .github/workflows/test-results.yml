@@ -10,6 +10,11 @@ jobs:
   unit-test-results:
     name: Unit Test Results
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+      issues: read
     if: github.event.workflow_run.conclusion != 'skipped'
 
     steps:

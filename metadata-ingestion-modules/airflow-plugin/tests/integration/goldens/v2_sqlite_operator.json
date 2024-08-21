@@ -61,6 +61,28 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(airflow,sqlite_operator,prod)",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,sqlite_operator,prod)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -99,6 +121,39 @@
             "type": {
                 "string": "COMMAND"
             }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -152,6 +207,17 @@
                     "confidenceScore": 1.0
                 }
             ]
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -284,8 +350,8 @@
         "json": {
             "timestampMillis": 1717179743558,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
@@ -301,8 +367,8 @@
         "json": {
             "timestampMillis": 1717179743932,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
@@ -486,8 +552,8 @@
         "json": {
             "timestampMillis": 1717179743960,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -676,8 +742,8 @@
         "json": {
             "timestampMillis": 1717179748679,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
@@ -693,8 +759,8 @@
         "json": {
             "timestampMillis": 1717179749258,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
@@ -809,8 +875,8 @@
         "json": {
             "timestampMillis": 1717179749324,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -1095,8 +1161,8 @@
         "json": {
             "timestampMillis": 1717179757397,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
@@ -1112,8 +1178,8 @@
         "json": {
             "timestampMillis": 1717179758424,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
@@ -1354,8 +1420,8 @@
         "json": {
             "timestampMillis": 1717179758496,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -1417,10 +1483,10 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [
+            "inputDatasets": [],
+            "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
             ],
-            "outputDatasets": [],
             "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),transform_cost_table)"
             ],
@@ -1486,6 +1552,19 @@
             "platform": "urn:li:dataPlatform:sqlite",
             "name": "public.costs",
             "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
+            ]
         }
     }
 },
@@ -1578,26 +1657,13 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
-    "aspect": {
-        "json": {
-            "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
-    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
             "timestampMillis": 1718733767964,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
@@ -1613,8 +1679,8 @@
         "json": {
             "timestampMillis": 1718733768638,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
@@ -1631,10 +1697,10 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [
+            "inputDatasets": [],
+            "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
             ],
-            "outputDatasets": [],
             "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),transform_cost_table)"
             ],
@@ -1747,19 +1813,6 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
-    "aspect": {
-        "json": {
-            "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
-    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
@@ -1777,8 +1830,8 @@
         "json": {
             "timestampMillis": 1718733773354,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
@@ -1794,14 +1847,27 @@
         "json": {
             "timestampMillis": 1718733774147,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
                 "nativeResultType": "airflow"
             }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
+            ]
         }
     }
 }

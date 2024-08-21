@@ -177,13 +177,18 @@ public class ESGraphQueryDAO {
     sourceFilterQuery.minimumShouldMatch(1);
     validEdges.stream()
         .filter(pair -> RelationshipDirection.OUTGOING.equals(pair.getValue().getDirection()))
-        .forEach(pair -> sourceFilterQuery.should(getAggregationFilter(pair)));
+        .forEach(
+            pair ->
+                sourceFilterQuery.should(
+                    getAggregationFilter(pair, RelationshipDirection.OUTGOING)));
 
     BoolQueryBuilder destFilterQuery = QueryBuilders.boolQuery();
     destFilterQuery.minimumShouldMatch(1);
     validEdges.stream()
         .filter(pair -> RelationshipDirection.INCOMING.equals(pair.getValue().getDirection()))
-        .forEach(pair -> destFilterQuery.should(getAggregationFilter(pair)));
+        .forEach(
+            pair ->
+                destFilterQuery.should(getAggregationFilter(pair, RelationshipDirection.INCOMING)));
 
     FilterAggregationBuilder sourceRelationshipTypeFilters =
         AggregationBuilders.filter(FILTER_BY_SOURCE_RELATIONSHIP, sourceFilterQuery);
@@ -226,17 +231,28 @@ public class ESGraphQueryDAO {
     }
   }
 
-  private BoolQueryBuilder getAggregationFilter(Pair<String, EdgeInfo> pair) {
+  private BoolQueryBuilder getAggregationFilter(
+      Pair<String, EdgeInfo> pair, RelationshipDirection direction) {
     BoolQueryBuilder subFilter = QueryBuilders.boolQuery();
     TermQueryBuilder relationshipTypeTerm =
-        QueryBuilders.termQuery(RELATIONSHIP_TYPE, pair.getValue().getType());
+        QueryBuilders.termQuery(RELATIONSHIP_TYPE, pair.getValue().getType()).caseInsensitive(true);
     subFilter.must(relationshipTypeTerm);
+
+    String sourceType;
+    String destinationType;
+    if (direction.equals(RelationshipDirection.OUTGOING)) {
+      sourceType = pair.getKey();
+      destinationType = pair.getValue().getOpposingEntityType();
+    } else {
+      sourceType = pair.getValue().getOpposingEntityType();
+      destinationType = pair.getKey();
+    }
+
     TermQueryBuilder sourceTypeTerm =
-        QueryBuilders.termQuery(SOURCE + ".entityType", pair.getKey());
+        QueryBuilders.termQuery(SOURCE + ".entityType", sourceType).caseInsensitive(true);
     subFilter.must(sourceTypeTerm);
     TermQueryBuilder destinationTypeTerm =
-        QueryBuilders.termQuery(
-            DESTINATION + ".entityType", pair.getValue().getOpposingEntityType());
+        QueryBuilders.termQuery(DESTINATION + ".entityType", destinationType).caseInsensitive(true);
     subFilter.must(destinationTypeTerm);
     return subFilter;
   }
@@ -1307,7 +1323,7 @@ public class ESGraphQueryDAO {
       @Nullable final Filter destinationEntityFilter,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count) {
 
@@ -1320,12 +1336,12 @@ public class ESGraphQueryDAO {
             relationshipTypes,
             relationshipFilter);
 
-    return executeScrollSearchQuery(finalQuery, sortCriterion, scrollId, count);
+    return executeScrollSearchQuery(finalQuery, sortCriteria, scrollId, count);
   }
 
   private SearchResponse executeScrollSearchQuery(
       @Nonnull final QueryBuilder query,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       final int count) {
 
@@ -1341,7 +1357,7 @@ public class ESGraphQueryDAO {
 
     searchSourceBuilder.size(count);
     searchSourceBuilder.query(query);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, List.of(), false);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, List.of(), false);
     searchRequest.source(searchSourceBuilder);
     ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
 
