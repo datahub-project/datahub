@@ -881,12 +881,8 @@ class S3Source(StatefulIngestionSourceBase):
             id = path_spec.get_partition_from_path(
                 self.create_s3_path(max_file.bucket_name, max_file.key)
             )
-            if id is None:
-                logger.warning(
-                    f"Unable to extract partition from path {max_file.key}. Skipping..."
-                )
-                continue
 
+            # If id is None, it means the folder is not a partition
             partitions.append(
                 Folder(
                     partition_id=id,
