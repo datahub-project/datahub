@@ -62,7 +62,11 @@ We support the following operations:
 1. add_tag - Requires `tag` property in config.
 2. add_term - Requires `term` property in config.
 3. add_terms - Accepts an optional `separator` property in config.
-4. add_owner - Requires `owner_type` property in config which can be either user or group. Optionally accepts the `owner_category` config property which can be set to either a [custom ownership type](../../../../docs/ownership/ownership-types.md) urn like `urn:li:ownershipType:architect` or one of `['TECHNICAL_OWNER', 'BUSINESS_OWNER', 'DATA_STEWARD', 'DATAOWNER'` (defaults to `DATAOWNER`).
+4. add_owner - Requires `owner_type` property in config which can be either `user` or `group`. Optionally accepts the `owner_category` config property which can be set to either a [custom ownership type](../../../../docs/ownership/ownership-types.md) urn like `urn:li:ownershipType:architect` or one of `['TECHNICAL_OWNER', 'BUSINESS_OWNER', 'DATA_STEWARD', 'DATAOWNER'` (defaults to `DATAOWNER`).
+
+   - The `owner_type` property will be ignored if the owner is a fully qualified urn.
+   - You can use commas to specify multiple owners - e.g. `business_owner: "jane,john,urn:li:corpGroup:data-team"`.
+
 5. add_doc_link - Requires `link` and `description` properties in config. Upon ingestion run, this will overwrite current links in the institutional knowledge section with this new link. The anchor text is defined here in the meta_mappings as `description`.
 
 Note:
