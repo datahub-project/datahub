@@ -47,10 +47,6 @@ export const AcrylAssertionListFilters = ({
         setSelectedAssertionType(value);
     };
 
-    useEffect(() => {
-        console.log('filterOptions>>>', filterOptions);
-    }, [filterOptions]);
-
     const numRows = 100;
 
     const assertionTypeFilters: Array<{ label: string; value: string }> = [
@@ -59,7 +55,7 @@ export const AcrylAssertionListFilters = ({
     ];
 
     const handleFilterChange = (updatedFilters: FilterItem[]) => {
-        let selectedRecommendedFilters = {};
+        let selectedRecommendedFilters: any = {};
         updatedFilters.forEach((filter: FilterItem) => {
             if (selectedRecommendedFilters[filter.category]) {
                 selectedRecommendedFilters[filter.category].push(filter.name);
@@ -67,15 +63,28 @@ export const AcrylAssertionListFilters = ({
                 selectedRecommendedFilters[filter.category] = [filter.name];
             }
         });
-        if (isEmpty(selectedRecommendedFilters)) {
-            selectedRecommendedFilters = {
-                type: [],
-                status: [],
-            };
+        if (!selectedRecommendedFilters?.type) {
+            selectedRecommendedFilters.type = [];
+        }
+        if (!selectedRecommendedFilters?.status) {
+            selectedRecommendedFilters.status = [];
         }
         setFilters({ ...filter, filterCriteria: { ...filter.filterCriteria, ...selectedRecommendedFilters } });
         setAppliedFilters(updatedFilters);
     };
+
+    useEffect(() => {
+        const status = filter.filterCriteria?.status || [];
+        const types = filter.filterCriteria?.type || [];
+        const recommendedFilters = filterOptions?.recommendedFilters || [];
+        let appliedRecommendedFilters = [];
+        if (status.length > 0 || types.length > 0) {
+            appliedRecommendedFilters = recommendedFilters.filter(
+                (item) => status.includes(item.name) || types.includes(item.name),
+            );
+        }
+        setAppliedFilters(appliedRecommendedFilters);
+    }, [filter, filterOptions]);
 
     return (
         <>

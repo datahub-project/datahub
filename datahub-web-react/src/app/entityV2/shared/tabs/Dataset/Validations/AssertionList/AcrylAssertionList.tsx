@@ -35,8 +35,8 @@ export const AcrylAssertionList = () => {
         groupBy: 'type',
         filterCriteria: {
             searchText: '',
-            status: [],
-            type: [],
+            status: ['SUCCESS'],
+            type: ['VOLUME'],
             tags: [],
             columns: [],
         },
