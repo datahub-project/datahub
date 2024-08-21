@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
 ## Advanced Usage
 
-For more advanced usage and configuration options, please refer to the [prefect-datahub documentation](https://datahubproject.io/docs/integrations/prefect/).
+For more advanced usage and configuration options, please refer to the [prefect-datahub documentation](https://datahubproject.io/docs/lineage/prefect/).
 
 ## Contributing
 

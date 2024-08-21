@@ -110,7 +110,7 @@ def etl():
 1. Check the Prefect UI's Blocks menu for the DataHub emitter.
 2. Run a Prefect workflow and look for DataHub-related log messages:
 
-   ```
+   ```text
    Emitting flow to datahub...
    Emitting tasks to datahub...
    ```
