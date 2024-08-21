@@ -384,11 +384,10 @@ const STATUS_GROUP_NAME_MAP = {
     DATASET: 'Other',
 };
 
-const RECOMMENDED_FILTER_NAME_MAP = {
-    external: 'External',
-    native: 'Native',
-    smartAssertions: 'Smart Assertions',
-};
+const RECOMMENDED_FILTER_NAME_MAP = {};
+RECOMMENDED_FILTER_NAME_MAP[AssertionSourceType.External] = 'External';
+RECOMMENDED_FILTER_NAME_MAP[AssertionSourceType.Native] = 'Native';
+RECOMMENDED_FILTER_NAME_MAP[AssertionSourceType.Inferred] = 'Smart Assertions';
 
 // Create Group's Summary to name and number of records for each group
 const getGroupNameBySummary = (record) => {
@@ -543,17 +542,17 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         // filterGroupOptions.column[column] = (filterGroupOptions.column[column] || 0) + 1;
 
         const assertionInfo = assertion.info;
-        const isSmartAssertion = assertionInfo?.source?.type === AssertionSourceType.Inferred;
-        if (isSmartAssertion) {
-            others.smartAssertions = (others.smartAssertions || 0) + 1;
+        switch (assertionInfo?.source?.type) {
+            case AssertionSourceType.Inferred:
+                others[AssertionSourceType.Inferred] = (others[AssertionSourceType.Inferred] || 0) + 1;
+                break;
+            case AssertionSourceType.Native:
+                others[AssertionSourceType.Native] = (others[AssertionSourceType.Native] || 0) + 1;
+                break;
         }
         const isExternal = isExternalAssertion(assertion);
         if (isExternal) {
-            others.external = (others.external || 0) + 1;
-        }
-        const isNative = assertion?.info?.source?.type !== AssertionSourceType.Native;
-        if (isNative) {
-            others.native = (others.native || 0) + 1;
+            others[AssertionSourceType.External] = (others[AssertionSourceType.External] || 0) + 1;
         }
     });
 
@@ -618,7 +617,7 @@ export const getFilteredTransformedAssertionData = (
     });
 
     let filteredAssertionsBySearch = asseertionsWithDescription;
-    const { searchText, type, status } = filter.filterCriteria;
+    const { searchText, type, status, others } = filter.filterCriteria;
 
     if (searchText) {
         const result = fuse.search(searchText);
@@ -626,11 +625,20 @@ export const getFilteredTransformedAssertionData = (
     }
     const filteredAssertions = filteredAssertionsBySearch.filter((assertion: AssertionWithMonitorDetails) => {
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
-        const resultType = mostRecentRun?.result?.type || '';
-        if (type.length > 0 && !type.includes(assertion.info?.type || '')) {
+        const resultType = mostRecentRun?.result?.type as AssertionResultType;
+        if (type.length > 0 && !type.includes(assertion.info?.type as AssertionType)) {
             return false;
         }
-        if (status.length > 0 && !status.includes(resultType || '')) {
+        if (status.length > 0 && !status.includes(resultType)) {
+            return false;
+        }
+        if (others.length > 0) {
+            if (others.includes(assertion?.info?.source?.type as AssertionSourceType)) {
+                return true;
+            }
+            if (others.includes(AssertionSourceType.External) && isExternalAssertion(assertion)) {
+                return true;
+            }
             return false;
         }
         return true;

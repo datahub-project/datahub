@@ -2,6 +2,8 @@ import {
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
+    AssertionSourceType,
+    AssertionType,
     AuditStamp,
     DataPlatform,
     GlobalTags,
@@ -15,15 +17,16 @@ export type AssertionListFilter = {
     groupBy: string;
     filterCriteria: {
         searchText: string;
-        status: string[];
-        type: string[];
+        status: AssertionResultType[];
+        type: AssertionType[];
         tags: string[];
         columns: string[];
+        others: AssertionSourceType[];
     };
 };
 
 export type AssertionListTableRow = {
-    type?: string;
+    type?: AssertionType;
     lastUpdated?: AuditStamp;
     tags: GlobalTags;
     descriptionHTML: JSX.Element | null;

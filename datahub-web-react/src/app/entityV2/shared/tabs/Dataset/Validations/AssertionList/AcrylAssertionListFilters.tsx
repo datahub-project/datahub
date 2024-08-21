@@ -73,11 +73,12 @@ export const AcrylAssertionListFilters = ({
     useEffect(() => {
         const status = filter.filterCriteria?.status || [];
         const types = filter.filterCriteria?.type || [];
+        const others = filter.filterCriteria?.others || [];
         const recommendedFilters = filterOptions?.recommendedFilters || [];
         let appliedRecommendedFilters = [];
-        if (status.length > 0 || types.length > 0) {
+        if (status.length > 0 || types.length > 0 || others.length > 0) {
             appliedRecommendedFilters = recommendedFilters.filter(
-                (item) => status.includes(item.name) || types.includes(item.name),
+                (item) => status.includes(item.name) || types.includes(item.name) || others.includes(item.name),
             );
         }
         setSelectedGroupBy(filter.groupBy);

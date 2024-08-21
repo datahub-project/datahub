@@ -39,6 +39,7 @@ export const AcrylAssertionList = () => {
             type: [],
             tags: [],
             columns: [],
+            others: [],
         },
     });
     const [assertionMonitorData, setAssertionMonitorData] = useState<AssertionWithMonitorDetails[]>([]);
