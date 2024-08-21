@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
-from google.cloud import bigquery, datacatalog_v1
+from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
@@ -144,9 +144,11 @@ class BigQuerySchemaApi:
         self,
         report: BigQuerySchemaApiPerfReport,
         client: bigquery.Client,
+        projects_client: resourcemanager_v3.ProjectsClient,
         datacatalog_client: Optional[datacatalog_v1.PolicyTagManagerClient] = None,
     ) -> None:
         self.bq_client = client
+        self.projects_client = projects_client
         self.report = report
         self.datacatalog_client = datacatalog_client
 
@@ -175,7 +177,7 @@ class BigQuerySchemaApi:
                     # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
                     # Hence, added the api request retry of 15 min.
                     # We already tried adding rate_limit externally, proving max_result and page_size
-                    # to restrict the request calls inside list_project but issue still occured.
+                    # to restrict the request calls inside list_project but issue still occurred.
                     projects_iterator = self.bq_client.list_projects(
                         max_results=max_results_per_page,
                         page_token=page_token,
@@ -201,6 +203,26 @@ class BigQuerySchemaApi:
                     logger.error(f"Error getting projects. {e}", exc_info=True)
                     return []
         return projects
+
+    def get_projects_with_labels(self, labels: List[str]) -> List[BigqueryProject]:
+        with self.report.list_projects_with_labels:
+            try:
+                projects = []
+                labels_query = " OR ".join([f"labels.{label}" for label in labels])
+                for project in self.projects_client.search_projects(query=labels_query):
+                    projects.append(
+                        BigqueryProject(
+                            id=project.project_id, name=project.display_name
+                        )
+                    )
+
+                return projects
+
+            except Exception as e:
+                logger.error(
+                    f"Error getting projects with labels: {labels}. {e}", exc_info=True
+                )
+                return []
 
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
