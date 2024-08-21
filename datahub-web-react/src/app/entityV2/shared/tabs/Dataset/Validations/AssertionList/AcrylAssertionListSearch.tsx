@@ -76,18 +76,18 @@ const SearchContainer = styled.div`
 `;
 
 interface AcrylAssertionListSearchProps {
-    assertionFilter: string;
+    searchText: string;
     debouncedSetFilterText: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    matches: string[];
+    matchResultCount: number;
     highlightedMatchIndex: number | null;
     setHighlightedMatchIndex: (val: number | null) => void;
     numRows: number;
 }
 
 const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
-    assertionFilter,
+    searchText,
     debouncedSetFilterText,
-    matches,
+    matchResultCount,
     highlightedMatchIndex,
     setHighlightedMatchIndex,
     numRows,
@@ -96,20 +96,20 @@ const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
         <SearchContainer>
             <StyledInput
                 bordered={false}
-                defaultValue={assertionFilter}
+                defaultValue={searchText}
                 placeholder="Search"
                 onChange={debouncedSetFilterText}
                 allowClear
                 prefix={<SearchOutlined />}
                 onKeyDown={(e) => {
-                    if (e.code === 'Enter' && highlightedMatchIndex !== null && matches.length > 0) {
-                        setHighlightedMatchIndex((highlightedMatchIndex + 1) % matches.length);
+                    if (e.code === 'Enter' && highlightedMatchIndex !== null && matchResultCount > 0) {
+                        setHighlightedMatchIndex((highlightedMatchIndex + 1) % matchResultCount);
                     }
                 }}
             />
-            {assertionFilter.length > 0 && (
+            {searchText.length > 0 && (
                 <MatchLabelText>
-                    Matched {matches.length} {pluralize(matches.length, 'assertion')} of {numRows}
+                    Matched {matchResultCount} {pluralize(matchResultCount, 'assertion')} of {numRows}
                 </MatchLabelText>
             )}
         </SearchContainer>

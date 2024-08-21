@@ -35,8 +35,8 @@ export const AcrylAssertionList = () => {
         groupBy: 'type',
         filterCriteria: {
             searchText: '',
-            status: ['SUCCESS'],
-            type: ['VOLUME'],
+            status: [],
+            type: [],
             tags: [],
             columns: [],
         },
@@ -115,6 +115,8 @@ export const AcrylAssertionList = () => {
                 filterOptions={visibleAssertions?.filterOptions}
                 setFilters={setFilters}
                 filter={filter}
+                allAssertionCount={assertionMonitorData?.length || 0}
+                filteredAssertions={visibleAssertions}
             />
             {renderListTable()}
             {showAssertionBuilder && (
