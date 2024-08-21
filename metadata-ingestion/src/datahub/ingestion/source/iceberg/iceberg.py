@@ -1,6 +1,8 @@
+import faulthandler
 import json
 import logging
-import threading
+
+# import threading
 import uuid
 from time import time
 from typing import Any, Dict, Iterable, List, Optional
@@ -83,7 +85,6 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     logging.WARNING
 )
 
-import faulthandler
 faulthandler.enable()
 
 
