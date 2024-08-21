@@ -883,7 +883,7 @@ class S3Source(StatefulIngestionSourceBase):
             partitions.append(
                 Folder(
                     partition_id=id,
-                    is_partition=True if id else False,
+                    is_partition=bool(id),
                     creation_time=creation_time if creation_time else None,
                     modification_time=modification_time,
                     sample_file=self.create_s3_path(max_file.bucket_name, max_file.key),
