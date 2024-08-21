@@ -147,8 +147,10 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.report_dropped(dataset_name)
                 return
             try:
-                if not hasattr(thread_local, 'local_catalog'):
-                    LOGGER.debug("Didn't find local_catalog in thread_local (%s), initializing new catalog")
+                if not hasattr(thread_local, "local_catalog"):
+                    LOGGER.debug(
+                        "Didn't find local_catalog in thread_local (%s), initializing new catalog"
+                    )
                     thread_local.local_catalog = self.config.get_catalog()
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
                 start_ts = time()
@@ -172,8 +174,11 @@ class IcebergSource(StatefulIngestionSourceBase):
 
         LOGGER.debug("Retrieving list of datasets in the catalog")
         datasets = [*self._get_datasets(catalog)]
-        LOGGER.debug("Retrieved %s datasets, starting with: %s", len(datasets),
-                     datasets[0] if len(datasets) > 0 else None)
+        LOGGER.debug(
+            "Retrieved %s datasets, starting with: %s",
+            len(datasets),
+            datasets[0] if len(datasets) > 0 else None,
+        )
         datasets = datasets[:100]
 
         for wu in ThreadedIteratorExecutor.process(
@@ -219,13 +224,21 @@ class IcebergSource(StatefulIngestionSourceBase):
         # Dataset ownership aspect.
         dataset_ownership = self._get_ownership_aspect(table)
         if dataset_ownership:
-            LOGGER.debug("Adding ownership: %s to the dataset %s", dataset_ownership, dataset_name)
+            LOGGER.debug(
+                "Adding ownership: %s to the dataset %s",
+                dataset_ownership,
+                dataset_name,
+            )
             dataset_snapshot.aspects.append(dataset_ownership)
 
         LOGGER.debug("Attempting to process schema of dataset %s", dataset_name)
         schema_metadata = self._create_schema_metadata(dataset_name, table)
         dataset_snapshot.aspects.append(schema_metadata)
-        LOGGER.debug("Processed schema of dataset %s, number of fields: %s", dataset_name, len(schema_metadata.fields))
+        LOGGER.debug(
+            "Processed schema of dataset %s, number of fields: %s",
+            dataset_name,
+            len(schema_metadata.fields),
+        )
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         self.report.report_table_processing_time(time() - start_ts)
