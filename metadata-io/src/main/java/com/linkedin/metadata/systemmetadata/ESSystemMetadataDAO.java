@@ -54,10 +54,7 @@ public class ESSystemMetadataDAO {
     try {
       return client.tasks().get(taskRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
-      log.error(
-          String.format(
-              "ERROR: Failed to get task status for %s:%d. See stacktrace for a more detailed error:",
-              nodeId, taskId));
+      log.error("ERROR: Failed to get task status: ", e);
       e.printStackTrace();
     }
     return Optional.empty();
