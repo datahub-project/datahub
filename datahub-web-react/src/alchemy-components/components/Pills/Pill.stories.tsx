@@ -14,7 +14,7 @@ const meta = {
     // Display Properties
     parameters: {
         layout: 'centered',
-        badges: [BADGE.EXPIREMENTAL],
+        badges: [BADGE.EXPERIMENTAL],
         docs: {
             subtitle: 'A component that is used to get pill',
         },
