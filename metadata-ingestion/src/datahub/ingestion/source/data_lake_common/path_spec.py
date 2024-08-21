@@ -362,7 +362,7 @@ class PathSpec(ConfigModel):
     def get_partition_from_path(self, path: str) -> Optional[List[Tuple[str, str]]]:
         # Automatic partition detection supports four methods to get partiton keys and values from path:
         # Let's say we have the following path => year=2024/month=10/day=11 for this example you can specify the following path spec expressions:
-        #   1. User can specify partition_key and partition_value in the path like => {partition_key[0]}={partition_value[0]}{partition_key[1]}={partition_value[1]}{partition_key[2]}={partition_value[2]}
+        #   1. User can specify partition_key and partition_value in the path like => {partition_key[0]}={partition_value[0]}/{partition_key[1]}={partition_value[1]}/{partition_key[2]}={partition_value[2]}
         #   2. User can specify only partition key and the partition key will be used as partition name like => year={year}month={month}day={day}
         #   3. You omit specifying anything and it will detect partiton key and value based on the equal signs (this only works if partitioned are specified in the key=value way.
         #   4. if the path is in the form of /value1/value2/value3 we infer it from the path and assign partition_0, partition_1, partition_2 etc
