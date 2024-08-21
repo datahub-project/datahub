@@ -148,7 +148,11 @@ class Folder:
     is_partition: bool = False
 
     def partition_id_text(self) -> Optional[str]:
-        return "/".join([f"{k}={v}" for k, v in self.partition_id]) if self.partition_id else None
+        return (
+            "/".join([f"{k}={v}" for k, v in self.partition_id])
+            if self.partition_id
+            else None
+        )
 
 
 @dataclasses.dataclass
@@ -838,7 +842,6 @@ class S3Source(StatefulIngestionSourceBase):
         path_spec (PathSpec): The path specification used to determine partitioning.
         bucket (Any): The S3 bucket object.
         prefix (str): The prefix path in the S3 bucket to list objects from.
-        partition (Optional[str]): An optional partition string to append to the prefix.
 
         Returns:
         List[Folder]: A list of Folder objects representing the partitions found.
@@ -878,6 +881,12 @@ class S3Source(StatefulIngestionSourceBase):
             id = path_spec.get_partition_from_path(
                 self.create_s3_path(max_file.bucket_name, max_file.key)
             )
+            if id is None:
+                logger.warning(
+                    f"Unable to extract partition from path {max_file.key}. Skipping..."
+                )
+                continue
+
             partitions.append(
                 Folder(
                     partition_id=id,

@@ -509,6 +509,7 @@ class PathSpec(ConfigModel):
             raise ValueError("path_spec.table_name is not set")
         return self.table_name.format_map(named_vars)
 
+    # TODO: Add support to sort partition folders by the defined partition key pattern. This is not implemented yet.
     def extract_datetime_partition(
         self, path: str, is_folder: bool = False
     ) -> Optional[datetime.datetime]:
