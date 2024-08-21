@@ -5,6 +5,7 @@ import AcrylAssertionListSearch from './AcrylAssertionListSearch';
 import AcryAssertionTypeSelect from './AcryAssertionTypeSelect';
 import styled from 'styled-components';
 import { AssertionListFilter, AssertionTable } from './types';
+import { AcrylAssertionFilters } from './AcrylAssertionFilters';
 
 interface FilterItem {
     name: string;
@@ -99,6 +100,13 @@ export const AcrylAssertionListFilters = ({
                     setHighlightedMatchIndex={setHighlightedMatchIndex}
                     numRows={allAssertionCount}
                 />
+                <div>
+                    <AcrylAssertionFilters
+                        filterOptions={filterOptions?.filterGroupOptions || []}
+                        selectedFilters={appliedFilters}
+                        onFilterChange={handleFilterChange}
+                    />
+                </div>
                 <div>
                     <AcryAssertionTypeSelect
                         options={assertionTypeFilters}
