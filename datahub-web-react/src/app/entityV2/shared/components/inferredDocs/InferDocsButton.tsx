@@ -94,16 +94,17 @@ const AiSparkle = styled(Sparkle)`
 `;
 
 type Props = {
+    title?: string;
     onClick: () => void;
     style?: React.CSSProperties;
 };
 
-export default function InferDocsButton({ onClick, style }: Props) {
+export default function InferDocsButton({ title = 'Generate with AI', onClick, style }: Props) {
     return (
         <GenerateButton style={style} type="button" onClick={onClick}>
             <ButtonContent>
                 <AiSparkle />
-                <span>Generate with AI</span>
+                <span>{title}</span>
             </ButtonContent>
             <ButtonBackground>
                 <ButtonBackgroundInner />

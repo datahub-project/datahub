@@ -24,6 +24,7 @@ interface Props {
     showDetails?: boolean;
     showEdit?: boolean;
     showDelete?: boolean;
+    isAllowedToEdit?: boolean;
     onDeleted?: (query) => void;
     onEdited?: (query) => void;
     sorting?: Sorting;
@@ -36,6 +37,7 @@ export default function useQueryTableColumns({
     showDetails,
     showEdit,
     showDelete,
+    isAllowedToEdit,
     onDeleted,
     onEdited,
     sorting,
@@ -81,6 +83,7 @@ export default function useQueryTableColumns({
                         showDelete={showDelete}
                         showEdit={showEdit}
                         showDetails={showDetails}
+                        isAllowedToEdit={isAllowedToEdit}
                         showHeader={false}
                         onDeleted={() => onDeleted?.(query)}
                         onEdited={(newQuery) => onEdited?.(newQuery)}

@@ -2,8 +2,6 @@ import { Button, message, Skeleton, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Sparkle } from 'phosphor-react';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-
 import { ANTD_GRAY } from '../../constants';
 import { useInferDocumentationForItem, useIsDocumentationInferenceEnabled } from './utils';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
@@ -73,23 +71,38 @@ const InsertButton = styled(Button)`
 `;
 
 type Props = {
+    urn: string;
+    buttonText?: string;
+    insertText?: string;
+    showInsert?: boolean;
+    collapseOnInsert?: boolean;
     onInsertDescription: (desc: string) => void;
     inferOnMount?: boolean;
     forColumnPath?: string;
 };
 
-export default function InferDocsPanel({ onInsertDescription, forColumnPath, inferOnMount }: Props) {
-    const { urn: entityUrn } = useEntityData();
+export default function InferDocsPanel({
+    urn,
+    buttonText,
+    insertText = 'Insert',
+    showInsert = true,
+    collapseOnInsert = true,
+    onInsertDescription,
+    inferOnMount,
+    forColumnPath,
+}: Props) {
     const [isPanelExpanded, setIsPanelExpanded] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [generatedDescription, setGeneratedDescription] = useState('');
+    const [hasInserted, setHasInserted] = useState(false);
 
     const enableDocInference = useIsDocumentationInferenceEnabled();
 
     const inferDocumentationForItem = useInferDocumentationForItem({
-        entityUrn,
+        entityUrn: urn,
         columnPath: forColumnPath,
     });
+
     const generateSuggestion = async () => {
         setIsLoading(true);
         setIsPanelExpanded(true);
@@ -101,14 +114,19 @@ export default function InferDocsPanel({ onInsertDescription, forColumnPath, inf
             setGeneratedDescription(result);
         } catch (e: unknown) {
             const error = e as Error;
-            message.error({ content: `Failed to generate: \n ${error.message || ''}`, duration: 3 });
+            console.error(error);
+            message.error({ content: `Failed to generate summary. An unexpected error occured!`, duration: 3 });
             setIsPanelExpanded(false);
         } finally {
             setIsLoading(false);
         }
     };
+
     const onClose = () => {
-        setIsPanelExpanded(false);
+        if (collapseOnInsert) {
+            setIsPanelExpanded(false);
+        }
+        setHasInserted(true);
     };
 
     // Wrapping in ref so method doesn't need to be a dependency of the useEffect
@@ -122,6 +140,7 @@ export default function InferDocsPanel({ onInsertDescription, forColumnPath, inf
 
     // --------------------------------- render --------------------------------- //
     if (!enableDocInference) return null;
+
     return isPanelExpanded ? (
         <InferencePanelContainer>
             <InferencePanelHeader>
@@ -140,18 +159,20 @@ export default function InferDocsPanel({ onInsertDescription, forColumnPath, inf
                 <CollapseButton type="button" onClick={onClose}>
                     Dismiss
                 </CollapseButton>
-                <InsertButton
-                    disabled={isLoading}
-                    onClick={() => {
-                        onInsertDescription(`\n\n\n${generatedDescription}`);
-                        onClose();
-                    }}
-                >
-                    Insert
-                </InsertButton>
+                {showInsert && (
+                    <InsertButton
+                        disabled={isLoading || hasInserted}
+                        onClick={() => {
+                            onInsertDescription(`\n\n\n${generatedDescription}`);
+                            onClose();
+                        }}
+                    >
+                        {insertText}
+                    </InsertButton>
+                )}
             </InferencePanelFooter>
         </InferencePanelContainer>
     ) : (
-        <InferDocsButton onClick={generateSuggestion} />
+        <InferDocsButton title={buttonText} onClick={generateSuggestion} />
     );
 }

@@ -145,6 +145,7 @@ export default function QueriesTab() {
                                 addQueryDisabled={!canEditQueries}
                                 onAddQuery={() => setShowQueryBuilder(true)}
                                 isTopSection
+                                isAllowedToEdit={canEditQueries}
                                 {...props}
                             />
                         )}
@@ -168,6 +169,7 @@ export default function QueriesTab() {
                                 loading={popularQueriesLoading}
                                 totalQueries={total}
                                 pagination={popularQueriesPagination}
+                                isAllowedToEdit={canEditQueries}
                                 sorting={popularSorting}
                                 {...props}
                             />
@@ -179,6 +181,7 @@ export default function QueriesTab() {
                                 tooltip="Queries that power downstream assets"
                                 queries={downstreamQueries}
                                 totalQueries={downstreamQueries.length}
+                                isAllowedToEdit={canEditQueries}
                                 {...props}
                             />
                         )}
@@ -189,6 +192,7 @@ export default function QueriesTab() {
                                 tooltip="Recently executed queries against this dataset"
                                 queries={recentQueries}
                                 totalQueries={recentQueries.length}
+                                isAllowedToEdit={canEditQueries}
                                 {...props}
                             />
                         )}
