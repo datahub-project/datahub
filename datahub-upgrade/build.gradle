@@ -49,6 +49,9 @@ dependencies {
     implementation('io.airlift:aircompressor:0.27') {
       because("CVE-2024-36114")
     }
+    implementation('dnsjava:dnsjava:3.6.1') {
+      because("CVE-2024-25638")
+    }
   }
 
 
