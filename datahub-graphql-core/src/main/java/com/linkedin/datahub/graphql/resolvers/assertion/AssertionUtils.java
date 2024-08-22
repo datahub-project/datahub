@@ -162,6 +162,8 @@ public class AssertionUtils {
         return info.getFieldAssertion().getEntity();
       case DATA_SCHEMA:
         return info.getSchemaAssertion().getEntity();
+      case CUSTOM:
+        return info.getCustomAssertion().getEntity();
       default:
         throw new RuntimeException(
             String.format("Unsupported Assertion Type %s provided", info.getType()));
