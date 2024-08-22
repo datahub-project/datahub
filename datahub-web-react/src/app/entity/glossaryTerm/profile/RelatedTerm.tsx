@@ -1,5 +1,5 @@
 import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
-import { Divider, Dropdown, Menu } from 'antd';
+import { Divider, Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
@@ -51,23 +51,23 @@ function RelatedTerm(props: Props) {
 
     if (loading) return null;
 
+    const items = [
+        {
+            key: '0',
+            label: (
+                <MenuItem onClick={onRemove}>
+                    <DeleteOutlined /> &nbsp; Remove Term
+                </MenuItem>
+            ),
+        },
+    ];
+
     return (
         <ListItem>
             <Profile>
                 {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
                 {isEditable && (
-                    <Dropdown
-                        overlay={
-                            <Menu>
-                                <Menu.Item key="0">
-                                    <MenuItem onClick={onRemove}>
-                                        <DeleteOutlined /> &nbsp; Remove Term
-                                    </MenuItem>
-                                </Menu.Item>
-                            </Menu>
-                        }
-                        trigger={['click']}
-                    >
+                    <Dropdown menu={{ items }} trigger={['click']}>
                         <MenuIcon />
                     </Dropdown>
                 )}
