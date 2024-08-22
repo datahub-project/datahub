@@ -1,12 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.jobs;
 
+import static com.linkedin.metadata.Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.generated.DataProcessInstance;
-import com.linkedin.datahub.graphql.generated.DataProcessInstanceResult;
-import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -33,6 +33,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** GraphQL Resolver used for fetching a list of Task Runs associated with a Data Job */
 public class DataJobRunsResolver
@@ -40,6 +42,7 @@ public class DataJobRunsResolver
 
   private static final String PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME = "parentTemplate";
   private static final String CREATED_TIME_SEARCH_INDEX_FIELD_NAME = "created";
+  private static final Logger log = LoggerFactory.getLogger(DataJobRunsResolver.class);
 
   private final EntityClient _entityClient;
 
@@ -93,6 +96,27 @@ public class DataJobRunsResolver
                 gmsResults.stream()
                     .filter(Objects::nonNull)
                     .map(p -> DataProcessInstanceMapper.map(context, p))
+                    .filter(
+                        p -> {
+                          try {
+                            // check that at least one run-event exists
+                            return !_entityClient
+                                .getTimeseriesAspectValues(
+                                    context.getOperationContext(),
+                                    p.getUrn(),
+                                    "dataProcessInstance",
+                                    DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
+                                    null,
+                                    null,
+                                    1,
+                                    null,
+                                    null)
+                                .isEmpty();
+                          } catch (RemoteInvocationException e) {
+                            log.error("Could not fetch runEvent aspect of {}", p.getUrn());
+                            return false;
+                          }
+                        })
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
