@@ -300,7 +300,7 @@ class DagsterGenerator:
                     self.logger.debug(
                         f"Asset group name cache updated: {asset_urn.urn()} -> {group_name}"
                     )
-        self.logger.info(
+        self.logger.debug(
             f"Asset group name cache: {DagsterGenerator.asset_group_name_cache}"
         )
 
@@ -384,10 +384,12 @@ class DagsterGenerator:
         """
         Generates a Datajob object from an Dagster op snapshot
         :param job_snapshot: JobSnapshot - Job snapshot object
+        :param step_deps: Dict[str, List] - step dependencies
         :param op_def_snap: OpDefSnap - Op def snapshot object
         :param env: str
         :param platform_instance: Optional[str]
         :param output_datasets: dict[str, Set[DatasetUrn]] - output datasets for each op
+        :param input_datasets: dict[str, Set[DatasetUrn]] - input datasets for each op
         :return: DataJob - Data generated datajob
         """
         self.logger.info(f"Generating datajob for Op Def Snap: {op_def_snap}")
@@ -750,7 +752,6 @@ class DagsterGenerator:
             graph, asset_urn=dataset_urn, target_urn=dataset_urn
         )
         if tag_mcp:
-            print(f"tag_mcp: {tag_mcp}")
             graph.emit_mcp(tag_mcp)
 
         if downstreams:
@@ -826,5 +827,4 @@ class DagsterGenerator:
                 path=browsePaths,
             ),
         )
-        print(f"browsepath_mcp: {mcp}")
         graph.emit_mcp(mcp)
