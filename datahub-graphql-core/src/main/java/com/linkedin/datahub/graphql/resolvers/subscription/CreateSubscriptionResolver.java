@@ -49,6 +49,7 @@ public class CreateSubscriptionResolver
                     ? null
                     : mapSubscriptionNotificationConfig(input.getNotificationConfig());
             final String groupUrnString = input.getGroupUrn();
+            final String userUrnString = input.getUserUrn();
 
             if (groupUrnString != null && !canManageGroupSubscriptions(groupUrnString, context)) {
               throw new DataHubGraphQLException(
@@ -56,12 +57,25 @@ public class CreateSubscriptionResolver
                   DataHubGraphQLErrorCode.UNAUTHORIZED);
             }
 
+            if (userUrnString != null && !canManageUserSubscriptions(context)) {
+              throw new DataHubGraphQLException(
+                  String.format(
+                      "Unauthorized to create subscription for user %s, missing MANAGE_USER_SUBSCRIPTIONS privilege",
+                      userUrnString),
+                  DataHubGraphQLErrorCode.UNAUTHORIZED);
+            }
+
             // The subscription actor is the user who created the subscription, or the group if
-            // nonnull.
-            final Urn actorUrn =
-                groupUrnString == null
-                    ? UrnUtils.getUrn(context.getActorUrn())
-                    : UrnUtils.getUrn(groupUrnString);
+            // nonnull or the explicit user urn if provided.
+
+            final Urn actorUrn;
+            if (userUrnString != null) {
+              actorUrn = UrnUtils.getUrn(userUrnString);
+            } else if (groupUrnString != null) {
+              actorUrn = UrnUtils.getUrn(groupUrnString);
+            } else {
+              actorUrn = UrnUtils.getUrn(context.getActorUrn());
+            }
 
             final Map.Entry<Urn, SubscriptionInfo> subscription =
                 _subscriptionService.createSubscription(
