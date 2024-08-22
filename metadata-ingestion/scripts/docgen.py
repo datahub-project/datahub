@@ -8,6 +8,7 @@ import sys
 import textwrap
 from importlib.metadata import metadata, requires
 from typing import Any, Dict, Iterable, List, Optional
+import shutil
 
 import click
 from pydantic import BaseModel, Field
@@ -773,9 +774,9 @@ def generate(
                         f"<td>\n\n\n{platform_docs['plugins'][plugin].get('source_doc') or ''} [Read more...](#module-{plugin})\n\n\n</td>\n"
                     )
                     f.write("</tr>\n")
-                #                    f.write(
-                #                        f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
-                #                    )
+                                   # f.write(
+                                   #     f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
+                                   # )
                 f.write("</table>\n\n")
             # insert platform level custom docs before plugin section
             f.write(platform_docs.get("custom_docs") or "")
@@ -1097,6 +1098,25 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
         )
 
     print("Lineage Documentation Generation Complete")
+
+    # duplicate generated docs for managed-datahub directory
+    source_dir = "../docs/generated/"
+    target_dir = "../docs/managed-datahub/generated/"
+
+    # fetch all file from source dir and copy to target dir
+    # iterate though nested directories
+    for root, dirs, files in os.walk(source_dir):
+        for file in files:
+            # construct the full file path
+            source_file = os.path.join(root, file)
+            target_file = source_file.replace(source_dir, target_dir)
+            # create the directories if not exist
+            os.makedirs(os.path.dirname(target_file), exist_ok=True)
+            # copy the file
+            shutil.copyfile(source_file, target_file)
+
+    print("Copied generated docs to managed-datahub directory")
+
 
 
 if __name__ == "__main__":
