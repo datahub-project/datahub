@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Form, Input, InputRef, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { useForm } from 'antd/lib/form/Form';
-import { trim } from 'lodash';
 import { Link } from 'react-router-dom';
 import { EditTwoTone, MoreOutlined } from '@ant-design/icons';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -160,11 +159,11 @@ export default function SlackNotificationRecipientSection() {
     };
 
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
-        let channelName = value;
-        if (!isPersonal) {
-            // trim # from string and add only one # in front
-            channelName = '#'.concat(trim(value, '#'));
-        }
+        const channelName = value;
+        // if (!isPersonal) {
+        //     // trim # from string and add only one # in front
+        //     channelName = '#'.concat(trim(value, '#'));
+        // }
         setSlackChannelName(channelName);
         updateSlackInState(channelName);
     };
