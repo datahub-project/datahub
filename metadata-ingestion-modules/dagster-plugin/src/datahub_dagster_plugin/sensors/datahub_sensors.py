@@ -670,6 +670,8 @@ class DatahubSensors:
             )
 
             dataflow.emit(self.graph)
+            for mcp in dataflow.generate_mcp():
+                context.log.debug(f"Emitted MCP: {mcp}")
 
             # Emit dagster job run which get mapped with datahub data process instance entity
             dagster_generator.emit_job_run(
@@ -707,6 +709,8 @@ class DatahubSensors:
                 )
 
                 datajob.emit(self.graph)
+                for mcp in datajob.generate_mcp():
+                    context.log.debug(f"Emitted MCP: {mcp}")
 
                 self.graph.emit_mcp(
                     mcp=MetadataChangeProposalWrapper(
