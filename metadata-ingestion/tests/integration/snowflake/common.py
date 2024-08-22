@@ -156,7 +156,7 @@ large_sql_query = """WITH object_access_history AS
                 on basic_usage_counts.bucket_start_time = user_usage_counts.bucket_start_time
                 and basic_usage_counts.object_name = user_usage_counts.object_name
         where
-            basic_usage_counts.object_domain in ('Table','External table','View','Materialized view')
+            basic_usage_counts.object_domain in ('Table','External table','View','Materialized view','Iceberg table')
             and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
