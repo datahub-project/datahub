@@ -1,6 +1,7 @@
 import React, { MouseEvent } from 'react';
 import { Empty, Select } from 'antd';
 import { CloseCircleFilled } from '@ant-design/icons';
+import { useDomainsContext } from '@src/app/domainV2/DomainsContext';
 import { Domain, EntityType } from '../../../../types.generated';
 import domainAutocompleteOptions from '../../../domainV2/DomainAutocompleteOptions';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -9,7 +10,6 @@ import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
 import { ANTD_GRAY } from '../constants';
 import useParentSelector from './useParentSelector';
 import DomainNavigator from '../../../domain/nestedDomains/domainNavigator/DomainNavigator';
-import { useDomainsContext } from '../../../domain/DomainsContext';
 
 // filter out entity itself and its children
 export function filterResultsForMove(entity: Domain, entityUrn: string) {
