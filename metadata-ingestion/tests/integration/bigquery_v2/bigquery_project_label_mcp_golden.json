@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "project_id": "dev"
             },
-            "name": "dev"
+            "name": "dev",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -100,7 +101,8 @@
                 "dataset_id": "bigquery-dataset-1"
             },
             "externalUrl": "https://console.cloud.google.com/bigquery?project=dev&ws=!1m4!1m3!3m2!1sdev!2sbigquery-dataset-1",
-            "name": "bigquery-dataset-1"
+            "name": "bigquery-dataset-1",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
