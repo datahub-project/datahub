@@ -16,7 +16,10 @@ plugins = {
     "datahub-reporting-forms": stats_common | aws_common,
     "datahub-reporting-extract-graph": stats_common | aws_common | open_search_common,
     "datahub-reporting-extract-sql": stats_common | aws_common,
-    "datahub-usage-feature-reporting": stats_common | aws_common| {"opensearch-py==2.4.2", "polars", "elasticsearch==7.13.4", "numpy<2", "scipy"},
+    "datahub-usage-feature-reporting": stats_common
+    | aws_common
+    | {"opensearch-py==2.4.2", "polars", "elasticsearch==7.13.4", "numpy<2", "scipy"},
+    "acryl-cs-issues": {"zenpy", "openai", "jinja2", "slack-sdk"},
 }
 
 dev_requirements = {
@@ -29,7 +32,8 @@ dev_requirements = {
             "datahub-reporting-extract-graph",
             "datahub-reporting-extract-sql",
             "datahub-lineage-features",
-            "datahub-usage-feature-reporting"
+            "datahub-usage-feature-reporting",
+            "acryl-cs-issues",
         ]
         for dependency in plugins[plugin]
     ),
@@ -52,6 +56,7 @@ setup(
                 "datahub-reporting-extract-sql = acryl_datahub_cloud.datahub_reporting.extract_sql:DataHubReportingExtractSQLSource",
                 "datahub-lineage-features = acryl_datahub_cloud.lineage_features.source:DataHubLineageFeaturesSource",
                 "datahub-usage-reporting = acryl_datahub_cloud.datahub_usage_reporting.usage_feature_reporter:DataHubUsageFeatureReportingSource",
+                "acryl-cs-issues = acryl_datahub_cloud.acryl_cs_issues.source:AcrylCSIssuesSource",
             ],
         },
     },
