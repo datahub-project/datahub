@@ -499,6 +499,26 @@ type TestsConfig {
   Whether Tests feature is enabled
   """
   enabled: Boolean!
+
+  """
+  Configurations related to the asset count limit we can run on tests either manually or in hooks
+  """
+  executionLimitConfig: TestsExecutionLimitConfig!
+}
+
+"""
+Configurations related to the asset count limit we can run on tests either manually or in hooks
+"""
+type TestsExecutionLimitConfig {
+  """
+  The execution limit on the elastic search executor
+  """
+  elasticSearchExecutor: Int!
+
+  """
+  The execution limit on the default executor
+  """
+  defaultExecutor: Int!
 }
 
 """

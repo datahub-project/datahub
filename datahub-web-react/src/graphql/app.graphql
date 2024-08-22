@@ -61,6 +61,10 @@ query appConfig {
         }
         testsConfig {
             enabled
+            executionLimitConfig {
+                elasticSearchExecutor
+                defaultExecutor
+            }
         }
         viewsConfig {
             enabled

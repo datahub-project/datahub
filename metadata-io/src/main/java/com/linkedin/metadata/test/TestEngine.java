@@ -1085,15 +1085,15 @@ public class TestEngine {
             .setTestDefinition(testDefinition.getRawDefinition()));
     log.info("BatchTestRunResult pre eval: {}", batchTestRunResults.get(testUrn));
 
+    boolean isBulkFormSubmission =
+        testInfo.getSource() != null
+            && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
+
     final Map<Urn, TestResults> results =
-        getUrnTestResultsMap(testUrn, testDefinition, batchTestRunResults);
+        getUrnTestResultsMap(testUrn, testDefinition, batchTestRunResults, isBulkFormSubmission);
     log.info("BatchTestRunResult post eval: {}", batchTestRunResults.get(testUrn));
     // (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
-      // skip writing asset results if the source type is bulk form submission
-      boolean shouldSkipAssetResults =
-          testInfo.getSource() != null
-              && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
       log.info(
           "Mode: {}: Writing {} results to DataHub for test {}",
           mode,
@@ -1101,7 +1101,8 @@ public class TestEngine {
           testUrn);
 
       // Writes entity results
-      batchIngestResults(results, mode, true, oldResults, !shouldSkipAssetResults);
+      // skip writing asset results if the source type is bulk form submission
+      batchIngestResults(results, mode, true, oldResults, !isBulkFormSubmission);
 
       // Writes test summary results
       List<MetadataChangeProposal> reportingMCPs =
@@ -1152,7 +1153,8 @@ public class TestEngine {
   private Map<Urn, TestResults> getUrnTestResultsMap(
       Urn testUrn,
       TestDefinition testDefinition,
-      Map<Urn, BatchTestRunResult> batchTestRunResults) {
+      Map<Urn, BatchTestRunResult> batchTestRunResults,
+      boolean shouldExecuteBatchBeyondLimit) {
     final Map<Urn, TestResults> results;
     Map<Urn, TestResults> tempResults;
     // Prefer ElasticSearchTestExecutor if it can execute the test
@@ -1162,7 +1164,8 @@ public class TestEngine {
       if (canSelect && elasticSearchTestExecutor.canEvaluate(testDefinition)) {
         log.info("ElasticSearchTestExecutor can execute test {}", testUrn);
         tempResults =
-            elasticSearchTestExecutor.evaluate(testDefinition, batchTestRunResults.get(testUrn));
+            elasticSearchTestExecutor.evaluate(
+                testDefinition, batchTestRunResults.get(testUrn), shouldExecuteBatchBeyondLimit);
         log.info("Test results size for test {} is {}", testUrn, tempResults.size());
       } else {
         final Set<Urn> candidateUrns = new HashSet<>();

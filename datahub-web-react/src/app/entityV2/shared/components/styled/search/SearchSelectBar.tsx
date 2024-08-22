@@ -2,6 +2,7 @@ import { Button, Checkbox, Modal, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchSelectActions } from './SearchSelectActions';
 
@@ -32,8 +33,6 @@ const StyledButton = styled(Button)`
     margin-left: 8px;
     color: ${(props) => props.theme.styles['primary-color']};
 `;
-
-const MAX_BULK_SELECT_COUNT = 10000;
 
 type Props = {
     isSelectAll: boolean;
@@ -68,7 +67,10 @@ export const SearchSelectBar = ({
     setAreAllEntitiesSelected,
 }: Props) => {
     const { isInFormContext } = useEntityFormContext();
+    const appConfig = useAppConfig();
     const selectedEntityCount = selectedEntities.length;
+    const maxBulkLimit = appConfig.config.testsConfig.executionLimitConfig.elasticSearchExecutor;
+    const isBeyondAssetLimit = totalResults >= maxBulkLimit;
     const onClickCancel = () => {
         if (selectedEntityCount > 0) {
             Modal.confirm({
@@ -107,15 +109,15 @@ export const SearchSelectBar = ({
                 {!areAllEntitiesSelected && isInFormContext && isSelectAll && selectedEntityCount < totalResults && (
                     <Tooltip
                         title={
-                            totalResults >= MAX_BULK_SELECT_COUNT ? 'Cannot select more than 10,000 assets' : undefined
+                            isBeyondAssetLimit
+                                ? `Don’t worry! You’ll be able to select the rest once the first 10,000 are processed.`
+                                : undefined
                         }
                     >
-                        <StyledButton
-                            type="text"
-                            disabled={totalResults >= MAX_BULK_SELECT_COUNT}
-                            onClick={() => setAreAllEntitiesSelected?.(true)}
-                        >
-                            Select all {totalResults} assets
+                        <StyledButton type="text" onClick={() => setAreAllEntitiesSelected?.(true)}>
+                            {isBeyondAssetLimit
+                                ? `Select first ${maxBulkLimit.toLocaleString()} assets`
+                                : `Select all ${totalResults} assets`}
                         </StyledButton>
                     </Tooltip>
                 )}

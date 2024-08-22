@@ -44,6 +44,10 @@ export const DEFAULT_APP_CONFIG = {
     },
     testsConfig: {
         enabled: false,
+        executionLimitConfig: {
+            elasticSearchExecutor: 10000,
+            defaultExecutor: 1000,
+        },
     },
     viewsConfig: {
         enabled: false,
