@@ -88,6 +88,8 @@ class LoggedQuery:
 class ObservedQuery(LoggedQuery):
     query_hash: Optional[str] = None
     usage_multiplier: int = 1
+    # Use this to store addtitional key-value information about query for debugging
+    extra_info: Optional[dict] = None
 
 
 @dataclasses.dataclass

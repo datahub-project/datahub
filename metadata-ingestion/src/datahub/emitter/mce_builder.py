@@ -233,9 +233,9 @@ def make_actor_urn(actor: str) -> Union[CorpUserUrn, CorpGroupUrn]:
         CorpUserUrn(actor)
         if not actor.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
         else (
-            CorpUserUrn.create_from_string(actor)
+            CorpUserUrn.from_string(actor)
             if actor.startswith("urn:li:corpuser:")
-            else CorpGroupUrn.create_from_string(actor)
+            else CorpGroupUrn.from_string(actor)
         )
     )
 

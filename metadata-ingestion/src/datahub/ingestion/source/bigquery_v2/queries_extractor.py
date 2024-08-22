@@ -52,9 +52,9 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryTableReference(TypedDict):
-    projectId: str
-    datasetId: str
-    tableId: str
+    project_id: str
+    dataset_id: str
+    table_id: str
 
 
 class DMLJobStatistics(TypedDict):
@@ -67,21 +67,15 @@ class BigQueryJob(TypedDict):
     job_id: str
     project_id: str
     creation_time: datetime
-    start_time: datetime
-    end_time: datetime
-    total_slot_ms: int
     user_email: str
-    statement_type: str
-    job_type: Optional[str]
     query: str
-    destination_table: Optional[BigQueryTableReference]
-    # NOTE: This does not capture referenced_view unlike GCP Logging Event
-    referenced_tables: List[BigQueryTableReference]
-    total_bytes_billed: int
-    total_bytes_processed: int
-    dml_statistics: Optional[DMLJobStatistics]
     session_id: Optional[str]
     query_hash: Optional[str]
+
+    statement_type: str
+    destination_table: Optional[BigQueryTableReference]
+    referenced_tables: List[BigQueryTableReference]
+    # NOTE: This does not capture referenced_view unlike GCP Logging Event
 
 
 class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
@@ -127,6 +121,16 @@ class BigQueryQueriesExtractorReport(Report):
 
 
 class BigQueryQueriesExtractor:
+    """
+    Extracts query audit log and generates usage/lineage/operation workunits.
+
+    Some notable differences in this wrt older usage extraction method are:
+    1. For every lineage/operation workunit, corresponding query id is also present
+    2. Operation aspect for a particular query is emitted at max once(last occurence) for a day
+    3. "DROP" operation accounts for usage here
+
+    """
+
     def __init__(
         self,
         connection: Client,
@@ -342,8 +346,10 @@ class BigQueryQueriesExtractor:
         # Also _ at start considers this as temp dataset as per `temp_table_dataset_prefix` config
         TEMP_TABLE_QUALIFIER = "_SESSION"
 
+        query = _extract_query_text(row)
+
         entry = ObservedQuery(
-            query=row["query"],
+            query=query,
             session_id=row["session_id"],
             timestamp=row["creation_time"],
             user=(
@@ -354,9 +360,39 @@ class BigQueryQueriesExtractor:
             default_db=row["project_id"],
             default_schema=TEMP_TABLE_QUALIFIER,
             query_hash=row["query_hash"],
+            extra_info={
+                "job_id": row["job_id"],
+                "statement_type": row["statement_type"],
+                "destination_table": row["destination_table"],
+                "referenced_tables": row["referenced_tables"],
+            },
         )
 
         return entry
+
+
+def _extract_query_text(row: BigQueryJob) -> str:
+    # We wrap select statements in a CTE to make them parseable as DML statement.
+    # This is a workaround to support the case where the user runs a query and inserts the result into a table.
+    # NOTE This will result in showing modified query instead of original query in DataHub UI
+    # Alternatively, this support needs to be added more natively in aggregator.add_observed_query
+    if (
+        row["statement_type"] == "SELECT"
+        and row["destination_table"]
+        and not row["destination_table"]["table_id"].startswith("anon")
+    ):
+        table_name = BigqueryTableIdentifier(
+            row["destination_table"]["project_id"],
+            row["destination_table"]["dataset_id"],
+            row["destination_table"]["table_id"],
+        ).raw_table_name()
+        query = f"""CREATE TABLE `{table_name}` AS
+                (
+                    {row["query"]}
+                )"""
+    else:
+        query = row["query"]
+    return query
 
 
 def _build_enriched_query_log_query(
@@ -395,9 +431,8 @@ def _build_enriched_query_log_query(
 
     # NOTE the use of partition column creation_time as timestamp here.
     # Currently, only required columns are fetched. There are more columns such as
-    # total_slot_ms, statement_type, job_type, destination_table, referenced_tables,
-    # total_bytes_billed, dml_statistics(inserted_row_count, etc) that may be fetched
-    # as required in future. Refer below link for list of all columns
+    # total_slot_ms, job_type, total_bytes_billed, dml_statistics(inserted_row_count, etc)
+    # that may be fetched as required in future. Refer below link for list of all columns
     # https://cloud.google.com/bigquery/docs/information-schema-jobs#schema
     return f"""\
         SELECT
@@ -407,7 +442,10 @@ def _build_enriched_query_log_query(
             user_email,
             query,
             session_info.session_id as session_id,
-            query_info.query_hashes.normalized_literals as query_hash
+            query_info.query_hashes.normalized_literals as query_hash,
+            statement_type,
+            destination_table,
+            referenced_tables
         FROM
             `{project_id}`.`{region}`.INFORMATION_SCHEMA.JOBS
         WHERE

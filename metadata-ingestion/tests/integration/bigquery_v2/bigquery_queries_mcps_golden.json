@@ -13,7 +13,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549585813,
+                        "time": 1724322481569,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_3.base_table_2,PROD)",
@@ -71,7 +71,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549569547,
+                        "time": 1724322460257,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
@@ -156,7 +156,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549567376,
+                        "time": 1724322457731,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
@@ -242,7 +242,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549602653,
+                        "time": 1724322505477,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_4.external_table_us_states,PROD)",
@@ -311,7 +311,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549605511,
+                        "time": 1724322508214,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
@@ -364,7 +364,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549580688,
+                        "time": 1724322475572,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
@@ -394,7 +394,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549598252,
+                        "time": 1724322500148,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_4.sharded_table1,PROD)",
@@ -499,6 +499,103 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_4.destination_table_of_select_query,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1724050800000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1724322510656,
+                        "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:44c19e1fccfa56779f6958f62d3476819b48af701bbee43ccecf5c9e04d63fc4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:44c19e1fccfa56779f6958f62d3476819b48af701bbee43ccecf5c9e04d63fc4",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE TABLE `gcp-staging-2.smoke_test_db_4.destination_table_of_select_query` AS\n                (\n                    SELECT * FROM `gcp-staging.smoke_test_db.base_table`\n                )",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1724322510656,
+                "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
+            },
+            "lastModified": {
+                "time": 1724322510656,
+                "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:44c19e1fccfa56779f6958f62d3476819b48af701bbee43ccecf5c9e04d63fc4",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_4.destination_table_of_select_query,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:44c19e1fccfa56779f6958f62d3476819b48af701bbee43ccecf5c9e04d63fc4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "query",
     "entityUrn": "urn:li:query:49b267d0cd050c6a45b4d26bcdc6d9ddceb51aa7ed29399c52ef967e8da2b58d",
     "changeType": "UPSERT",
@@ -590,7 +687,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549572814,
+                        "time": 1724322465459,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.view_from_table,PROD)",
@@ -787,7 +884,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549588804,
+                        "time": 1724322485618,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db_2.table_from_other_db,PROD)",
@@ -1043,7 +1140,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549600590,
+                        "time": 1724322502689,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_4.sharded_table1,PROD)",
@@ -1089,7 +1186,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549578210,
+                        "time": 1724322472836,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
@@ -1102,7 +1199,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549578210,
+                        "time": 1724322472836,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.view_from_table,PROD)",
@@ -1181,7 +1278,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549588112,
+                        "time": 1724322484293,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
@@ -1194,7 +1291,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549588112,
+                        "time": 1724322484293,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.lineage_from_base,PROD)",
@@ -1207,7 +1304,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549588112,
+                        "time": 1724322484293,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db_2.table_from_other_db,PROD)",
@@ -1335,7 +1432,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549577574,
+                        "time": 1724322471500,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.snapshot_from_table,PROD)",
@@ -1381,7 +1478,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549583501,
+                        "time": 1724322478955,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_3.base_table_2,PROD)",
@@ -1455,7 +1552,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549571609,
+                        "time": 1724322462741,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
@@ -1485,7 +1582,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549572202,
+                        "time": 1724322464098,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.view_from_table,PROD)",
@@ -1554,7 +1651,7 @@
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 1721549574990,
+                        "time": 1724322467835,
                         "actor": "urn:li:corpuser:dh-bigquery-smoke-test"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
@@ -1715,7 +1812,7 @@
     "aspectName": "datasetUsageStatistics",
     "aspect": {
         "json": {
-            "timestampMillis": 1721520000000,
+            "timestampMillis": 1724284800000,
             "eventGranularity": {
                 "unit": "DAY",
                 "multiple": 1
@@ -1725,25 +1822,26 @@
                 "type": "FULL_TABLE"
             },
             "uniqueUserCount": 2,
-            "totalSqlQueries": 12,
+            "totalSqlQueries": 13,
             "topSqlQueries": [
-                "create or replace table _smoke_test_db_tmp_tables.tmp_table as (select * from smoke_test_db.base_table)",
-                "\n            create or replace table smoke_test_db.table_from_view_and_table\n            as (select b.date_utc, v.revenue from smoke_test_db.base_table b, smoke_test_db.view_from_table v)\n        ",
-                "\n            create or replace view smoke_test_db.view_from_table\n            as (select * from smoke_test_db.base_table)\n        ",
-                "create MATERIALIZED VIEW smoke_test_db.materialized_view_from_table as (select * from smoke_test_db.base_table where revenue>100)",
-                "select revenue from gcp-staging.smoke_test_db.base_table FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR)",
-                "select revenue, date_utc from gcp-staging.smoke_test_db.base_table FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR)",
-                "\n            create or replace table `gcp-staging-2.smoke_test_db_4.derived_table_from_timetravelled_table` as (\n                    SELECT *\n                    FROM `gcp-staging.smoke_test_db.base_table`\n                    FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR)\n            );\n        ",
-                "\n            create or replace view smoke_test_db.view_from_multiple_tables\n            as \n            (\n                select a.date_utc, a.revenue, b.revenue as revenue2, c.revenue as revenue3 \n                from \n                    smoke_test_db.base_table a\n                left join \n                    smoke_test_db.lineage_from_base b \n                    on a.date_utc = b.date_utc \n                left join \n                    smoke_test_db_2.table_from_other_db c \n                    on b.date_utc = c.date_utc \n            );\n        ",
-                "select revenue, date_utc from gcp-staging.smoke_test_db.base_table",
-                "select revenue from gcp-staging.smoke_test_db.base_table",
+                "create or replace table smoke_test_db.lineage_from_base as (select * from smoke_test_db.base_table)",
                 "\n            create or replace table smoke_test_db_2.table_from_other_db\n            as (select * from smoke_test_db.base_table)\n        ",
-                "create or replace table smoke_test_db.lineage_from_base as (select * from smoke_test_db.base_table)"
+                "\n            create or replace table smoke_test_db.table_from_view_and_table\n            as (select b.date_utc, v.revenue from smoke_test_db.base_table b, smoke_test_db.view_from_table v)\n        ",
+                "\n            create or replace table `gcp-staging-2.smoke_test_db_4.derived_table_from_timetravelled_table` as (\n                    SELECT *\n                    FROM `gcp-staging.smoke_test_db.base_table`\n                    FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR)\n            );\n        ",
+                "select revenue, date_utc from gcp-staging.smoke_test_db.base_table",
+                "\n            create or replace view smoke_test_db.view_from_table\n            as (select * from smoke_test_db.base_table)\n        ",
+                "create or replace table _smoke_test_db_tmp_tables.tmp_table as (select * from smoke_test_db.base_table)",
+                "select revenue from gcp-staging.smoke_test_db.base_table FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR)",
+                "select revenue from gcp-staging.smoke_test_db.base_table",
+                "\n            create or replace view smoke_test_db.view_from_multiple_tables\n            as \n            (\n                select a.date_utc, a.revenue, b.revenue as revenue2, c.revenue as revenue3 \n                from \n                    smoke_test_db.base_table a\n                left join \n                    smoke_test_db.lineage_from_base b \n                    on a.date_utc = b.date_utc \n                left join \n                    smoke_test_db_2.table_from_other_db c \n                    on b.date_utc = c.date_utc \n            );\n        ",
+                "create MATERIALIZED VIEW smoke_test_db.materialized_view_from_table as (select * from smoke_test_db.base_table where revenue>100)",
+                "CREATE TABLE `gcp-staging-2.smoke_test_db_4.destination_table_of_select_query` AS\n                (\n                    SELECT * FROM `gcp-staging.smoke_test_db.base_table`\n                )",
+                "select revenue, date_utc from gcp-staging.smoke_test_db.base_table FOR SYSTEM_TIME AS OF TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR)"
             ],
             "userCounts": [
                 {
                     "user": "urn:li:corpuser:dh-bigquery-smoke-test",
-                    "count": 10
+                    "count": 11
                 },
                 {
                     "user": "urn:li:corpuser:dh-bigquery-smoke-test-2",
@@ -2331,7 +2429,7 @@
     "aspectName": "datasetUsageStatistics",
     "aspect": {
         "json": {
-            "timestampMillis": 1721520000000,
+            "timestampMillis": 1724284800000,
             "eventGranularity": {
                 "unit": "DAY",
                 "multiple": 1
@@ -2341,13 +2439,13 @@
                 "type": "FULL_TABLE"
             },
             "uniqueUserCount": 2,
-            "totalSqlQueries": 5,
+            "totalSqlQueries": 15,
             "topSqlQueries": [
                 "\n    select revenue from gcp-staging.smoke_test_db.partition_test t\n    where cast(t.date_utc as DATE) < (select max(date_utc) from gcp-staging.smoke_test_db.partition_test)\n",
                 "\n    select extract(month from date_utc) month, count(*) count, sum(revenue) gross from gcp-staging.smoke_test_db.partition_test\n    group by month\n    order by gross\n",
                 "\n    select revenue from gcp-staging.smoke_test_db.partition_test t\n    where cast(t.date_utc as DATE) = (select max(date_utc) from gcp-staging.smoke_test_db.partition_test)\n",
-                "select revenue from gcp-staging.smoke_test_db.partition_test",
-                "select revenue, date_utc from gcp-staging.smoke_test_db.partition_test"
+                "select revenue, date_utc from gcp-staging.smoke_test_db.partition_test",
+                "select revenue from gcp-staging.smoke_test_db.partition_test"
             ],
             "userCounts": [
                 {
@@ -2372,8 +2470,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1724065178266,
-        "runId": "bigquery-queries-2024_08_19-16_29_19",
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3018,6 +3116,32 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_4.destination_table_of_select_query,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1724050800000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:dh-bigquery-smoke-test",
+            "operationType": "CREATE",
+            "customProperties": {
+                "query_urn": "urn:li:query:44c19e1fccfa56779f6958f62d3476819b48af701bbee43ccecf5c9e04d63fc4"
+            },
+            "lastUpdatedTimestamp": 1724322510656
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_4.table_with_nested_fields,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetUsageStatistics",
@@ -3156,7 +3280,7 @@
     "aspectName": "datasetUsageStatistics",
     "aspect": {
         "json": {
-            "timestampMillis": 1721520000000,
+            "timestampMillis": 1724284800000,
             "eventGranularity": {
                 "unit": "DAY",
                 "multiple": 1
@@ -3166,11 +3290,11 @@
                 "type": "FULL_TABLE"
             },
             "uniqueUserCount": 2,
-            "totalSqlQueries": 4,
+            "totalSqlQueries": 11,
             "topSqlQueries": [
                 "select * from gcp-staging.smoke_test_db.usage_test",
-                "select key from gcp-staging.smoke_test_db.usage_test",
                 "select value from gcp-staging.smoke_test_db.usage_test",
+                "select key from gcp-staging.smoke_test_db.usage_test",
                 "\n    select extract(month from date_utc) month, count(*) count, sum(value) total from gcp-staging.smoke_test_db.usage_test\n    group by month\n    order by total\n    "
             ],
             "userCounts": [
@@ -3200,8 +3324,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1724065178257,
-        "runId": "bigquery-queries-2024_08_19-16_29_19",
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3517,7 +3641,7 @@
     "aspectName": "datasetUsageStatistics",
     "aspect": {
         "json": {
-            "timestampMillis": 1721520000000,
+            "timestampMillis": 1724284800000,
             "eventGranularity": {
                 "unit": "DAY",
                 "multiple": 1
@@ -3527,31 +3651,31 @@
                 "type": "FULL_TABLE"
             },
             "uniqueUserCount": 1,
-            "totalSqlQueries": 5,
+            "totalSqlQueries": 79,
             "topSqlQueries": [
-                "SELECT COUNT(*) \nFROM gcp-staging.customer_demo.purchase_event \nWHERE amount < 0",
+                "\n            SELECT COUNT(*)\n            FROM gcp-staging.customer_demo.purchase_event\n            WHERE amount < 0\n        ",
+                "SELECT AVG(amount) FROM gcp-staging.customer_demo.purchase_event",
                 "SELECT COUNT(*) FROM gcp-staging.customer_demo.purchase_event WHERE user_id IS NULL",
                 "\n            SELECT COUNT(*)\n            FROM gcp-staging.customer_demo.purchase_event\n            WHERE quantity < 0\n        ",
-                "SELECT AVG(amount) FROM gcp-staging.customer_demo.purchase_event",
                 "SELECT\n  (SUM(CASE WHEN amount BETWEEN 0 AND 10 THEN 1 ELSE 0 END) * 100.0) / COUNT(*) AS percentage_in_range\nFROM\n  gcp-staging.customer_demo.purchase_event;"
             ],
             "userCounts": [
                 {
                     "user": "urn:li:corpuser:dh-bigquery-smoke-test",
-                    "count": 78
+                    "count": 79
                 }
             ],
             "fieldCounts": [
                 {
                     "fieldPath": "amount",
-                    "count": 18
+                    "count": 24
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1724065178270,
-        "runId": "bigquery-queries-2024_08_19-16_29_19",
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4705,6 +4829,22 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging-2.smoke_test_db_4.destination_table_of_select_query,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "query",
     "entityUrn": "urn:li:query:f53151fa3d689ec865c53fa535479e3fc3cc5794be5daaa9a5a4f7f40a7c660f",
     "changeType": "UPSERT",
@@ -5129,6 +5269,22 @@
     "systemMetadata": {
         "lastObserved": 1724065178328,
         "runId": "bigquery-queries-2024_08_19-16_29_19",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:44c19e1fccfa56779f6958f62d3476819b48af701bbee43ccecf5c9e04d63fc4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1724050800000,
+        "runId": "bigquery-queries-2024_08_19-07_00_00",
         "lastRunId": "no-run-id-provided"
     }
 },
