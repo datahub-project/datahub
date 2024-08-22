@@ -57,7 +57,7 @@ export default function LineageSidebar() {
                 isClosed: false,
                 setSidebarClosed,
                 forLineage: true,
-                separateSiblings: true,
+                separateSiblings: !selectedEntity.entity?.lineageSiblingIcon,
                 fineGrainedOperations: queryDetails,
             }}
         >

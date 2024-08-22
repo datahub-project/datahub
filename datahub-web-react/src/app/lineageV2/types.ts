@@ -64,5 +64,6 @@ export interface FetchedEntityV2 {
     canEditLineage?: boolean;
     health?: Health[];
     lineageAssets?: LineageAsset[];
+    lineageSiblingIcon?: string;
     parents?: GenericEntityProperties[];
 }

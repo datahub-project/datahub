@@ -104,6 +104,8 @@ export type GenericEntityProperties = {
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
     autoRenderAspects?: Maybe<Array<RawAspect>>;
+    lineageUrn?: string; // If set, render this urn's lineage instead if not in separate siblings mode
+    lineageSiblingIcon?: string; // If set, render this entity in lineage along with the sibling icon and do not separate siblings in the sidebar
     upstream?: Maybe<EntityLineageResult>;
     downstream?: Maybe<EntityLineageResult>;
     subTypes?: Maybe<SubTypes>;

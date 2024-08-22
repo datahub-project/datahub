@@ -83,6 +83,7 @@ export const DEFAULT_APP_CONFIG = {
         formCreationEnabled: false,
         schemaFieldCLLEnabled: false,
         editableDatasetNameEnabled: false,
+        hideDbtSourceInLineage: false,
     },
     chromeExtensionConfig: {
         enabled: false,

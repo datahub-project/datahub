@@ -26,6 +26,7 @@ const PER_HOP_LIMIT = 2;
 /**
  * Fetches the lineage structure for a given urn and direction, and updates the nodes map with the results.
  * @param urn Urn for which to fetch lineage
+ * @param type EntityType of the urn
  * @param context LineageExploreContext storing a map of urn to LineageNode
  * @param direction Direction for which to fetch lineage
  * @param lazy Whether to fetch the lineage immediately
@@ -86,7 +87,8 @@ export default function useSearchAcrossLineage(
         },
     };
 
-    const [processed, setProcessed] = useState(false);
+    const [processed] = useState(new Set<string>());
+
     const [fetchLineage, { data }] = useSearchAcrossLineageStructureLazyQuery({
         variables: { input },
         fetchPolicy: skipCache ? 'no-cache' : undefined,
@@ -137,7 +139,7 @@ export default function useSearchAcrossLineage(
 
         if (data) {
             pruneDuplicateEdges(urn, direction, smallContext, entityRegistry);
-            setProcessed(true);
+            processed.add(urn);
             if (addedNode) setNodeVersion((version) => version + 1);
 
             const nodesToZoom = urn === rootUrn ? [] : [urn, ...(adjacencyList[direction].get(urn) || [])];
@@ -155,10 +157,10 @@ export default function useSearchAcrossLineage(
         setDisplayVersion,
         maxDepth,
         entityRegistry,
-        setProcessed,
+        processed,
     ]);
 
-    return { fetchLineage, processed };
+    return { fetchLineage, processed: processed.has(urn) };
 }
 
 /**

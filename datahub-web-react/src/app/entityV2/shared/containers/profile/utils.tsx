@@ -4,7 +4,7 @@ import queryString from 'query-string';
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router';
 import { EntityRegistry } from '../../../../../entityRegistryContext';
-import { EntityType } from '../../../../../types.generated';
+import { EntityType, FeatureFlagsConfig } from '../../../../../types.generated';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOMAINS_ID,
@@ -55,11 +55,13 @@ export function getDataForEntityType<T>({
     data: entityData,
     getOverrideProperties,
     isHideSiblingMode,
+    flags,
 }: {
     data: T;
     entityType?: EntityType;
-    getOverrideProperties?: (T) => GenericEntityProperties;
+    getOverrideProperties?: (T, flags?: FeatureFlagsConfig) => GenericEntityProperties;
     isHideSiblingMode?: boolean;
+    flags?: FeatureFlagsConfig;
 }): GenericEntityProperties | null {
     if (!entityData) {
         return null;
@@ -101,7 +103,7 @@ export function getDataForEntityType<T>({
 
     return {
         ...modifiedEntityData,
-        ...getOverrideProperties?.(entityData),
+        ...getOverrideProperties?.(entityData, flags),
     };
 }
 
