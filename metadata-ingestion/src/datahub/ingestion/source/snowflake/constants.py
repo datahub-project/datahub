@@ -52,6 +52,7 @@ class SnowflakeObjectDomain(str, Enum):
     DATABASE = "database"
     SCHEMA = "schema"
     COLUMN = "column"
+    ICEBERG_TABLE = "iceberg table"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"
