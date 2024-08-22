@@ -34,7 +34,7 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '6.1.5'
+  ext.springVersion = '6.1.6'
   ext.springBootVersion = '3.2.6'
   ext.springKafkaVersion = '3.1.6'
   ext.openTelemetryVersion = '1.18.0'
