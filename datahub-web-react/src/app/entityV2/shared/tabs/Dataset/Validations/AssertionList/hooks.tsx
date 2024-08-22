@@ -1,12 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import * as QueryString from 'query-string';
+import React, { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { Table, TableColumnsType, Typography } from 'antd';
 import styled from 'styled-components';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { AssertionType } from '@src/types.generated';
+import { AssertionResultType, AssertionType } from '@src/types.generated';
 import { AssertionName } from './AssertionName';
 import { getAssertionGroupName } from '../acrylUtils';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
+import { useHistory, useLocation } from 'react-router';
+import { AssertionListFilter } from './types';
+import { getQueryParams } from '../assertionUtils';
 
 const CategoryType = styled.div`
     font-family: Mulish;
@@ -119,4 +123,42 @@ export const usePinnedAssertionTableHeaderProps = () => {
         };
     }, []);
     return { tableContainerRef, scrollY };
+};
+
+export const useSetFilterFromURLParams = (
+    filter: AssertionListFilter,
+    setFilters: Dispatch<SetStateAction<AssertionListFilter>>,
+) => {
+    const location = useLocation();
+    const history = useHistory();
+    const assertion_type = getQueryParams('assertion_type', location);
+    const assertion_status = getQueryParams('assertion_status', location);
+
+    useEffect(() => {
+        if (assertion_type || assertion_status) {
+            const decodedAssertionType = decodeURIComponent(assertion_type || '');
+            const decodedAssertionStatus = decodeURIComponent(assertion_status || '');
+
+            const filterCriteria = { ...filter.filterCriteria };
+            if (decodedAssertionType) {
+                filterCriteria.type = [decodedAssertionType as AssertionType];
+            }
+            if (decodedAssertionStatus) {
+                filterCriteria.status = [decodedAssertionStatus as AssertionResultType];
+            }
+
+            // Remove the query parameter from the URL
+            const newUrlParams = new URLSearchParams(location.search);
+            newUrlParams.delete('assertion_type');
+            newUrlParams.delete('assertion_status');
+            const newUrl = `${location.pathname}?${newUrlParams.toString()}`;
+            if (assertion_type || assertion_status) {
+                setFilters({ ...filter, filterCriteria });
+            }
+            // Use React Router's history.replace to replace the current URL
+            history.replace(newUrl);
+        }
+    }, [assertion_type, assertion_status, location.search, location.pathname, history]);
+
+    return { filter };
 };

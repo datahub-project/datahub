@@ -15,6 +15,20 @@ import { AssertionTable, AssertionListFilter } from './types';
 import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
 import { AcrylAssertionListTable } from './AcrylAssertionListTable';
+import { useSetFilterFromURLParams } from './hooks';
+
+const DEFAULT_FILTERS = {
+    sortBy: '',
+    groupBy: '',
+    filterCriteria: {
+        searchText: '',
+        status: [],
+        type: [],
+        tags: [],
+        columns: [],
+        others: [],
+    },
+};
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -30,18 +44,9 @@ export const AcrylAssertionList = () => {
         groupBy: { type: [], status: [] },
     });
     // TODO we need to create setter function to set the filter as per the filter component
-    const [filter, setFilters] = useState<AssertionListFilter>({
-        sortBy: '',
-        groupBy: 'type',
-        filterCriteria: {
-            searchText: '',
-            status: [],
-            type: [],
-            tags: [],
-            columns: [],
-            others: [],
-        },
-    });
+    const [filter, setFilters] = useState<AssertionListFilter>(DEFAULT_FILTERS);
+    useSetFilterFromURLParams(filter, setFilters);
+
     const [assertionMonitorData, setAssertionMonitorData] = useState<AssertionWithMonitorDetails[]>([]);
 
     const { data, refetch, client, loading } = useGetDatasetAssertionsWithMonitorsQuery({
