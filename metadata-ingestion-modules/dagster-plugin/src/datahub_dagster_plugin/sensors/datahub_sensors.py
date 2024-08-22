@@ -668,6 +668,7 @@ class DatahubSensors:
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
             )
+
             dataflow.emit(self.graph)
 
             # Emit dagster job run which get mapped with datahub data process instance entity
