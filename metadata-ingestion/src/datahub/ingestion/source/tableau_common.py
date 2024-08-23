@@ -910,6 +910,41 @@ def make_filter(filter_dict: dict) -> str:
     return filter
 
 
+def query_metadata_cursor_based_pagination(
+    server: Server,
+    main_query: str,
+    connection_name: str,
+    first: int,
+    after: Optional[str],
+    qry_filter: str = "",
+) -> dict:
+
+    query = f"""
+        query GetItems(
+          $first: Int,
+          $after: String
+        ) {{
+            {connection_name} (  first: $first, after: $after, filter:{{ {qry_filter} }})
+            {{
+                nodes {main_query}
+                pageInfo {{
+                    hasNextPage
+                    endCursor
+                }}
+            }}
+    }}"""
+
+    result = server.metadata.query(
+        query=query,
+        variables={
+            "first": first,
+            "after": after,
+        },
+    )
+
+    return result
+
+
 def query_metadata(
     server: Server,
     main_query: str,
@@ -961,7 +996,10 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
                     )
                 ]
             }
-            for start in range(0, len(ids), page_size)
+            for start in range(
+                0,
+                len(ids),
+            )
         ]
 
     return filter_pages
