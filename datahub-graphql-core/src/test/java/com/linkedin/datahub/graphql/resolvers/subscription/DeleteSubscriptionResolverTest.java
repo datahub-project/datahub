@@ -14,6 +14,8 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -52,11 +54,13 @@ public class DeleteSubscriptionResolverTest {
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
 
-  @Test
-  public void testDeleteSubscriptionUnauthorizedForOtherUser() {
+  @Test(
+      expectedExceptions = DataHubGraphQLException.class,
+      expectedExceptionsMessageRegExp = ".* missing MANAGE_USER_SUBSCRIPTIONS privilege")
+  public void testDeleteSubscriptionUnauthorizedForOtherUser() throws Throwable {
     final AuthorizationRequest request =
-        new AuthorizationRequest(USER_2_URN_STRING, "MANAGE_USER_SUBSCRIPTIONS", null);
-    final QueryContext mockContext = getMockDenyContext(USER_2_URN_STRING, request);
+        new AuthorizationRequest(USER_2_URN_STRING, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty());
+    final QueryContext mockContext = getMockDenyContext(USER_URN_STRING, request);
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(mockContext.getActorUrn()).thenReturn(USER_2_URN_STRING);
@@ -64,13 +68,16 @@ public class DeleteSubscriptionResolverTest {
             any(OperationContext.class), eq(SUBSCRIPTION_URN_1)))
         .thenReturn(SUBSCRIPTION_INFO_1);
 
-    assertThrows(
-        DataHubGraphQLException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+    ExecutionException exception =
+        expectThrows(ExecutionException.class, () -> _resolver.get(_dataFetchingEnvironment).get());
+    throw exception.getCause();
   }
 
   @Test
   public void testDeleteSubscriptionAuthorizedForOtherUser() throws Exception {
-    final QueryContext mockContext = getMockAllowContext();
+    final AuthorizationRequest request =
+        new AuthorizationRequest(USER_2_URN_STRING, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty());
+    final QueryContext mockContext = getMockAllowContext(USER_URN_STRING, request);
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(mockContext.getActorUrn()).thenReturn(USER_2_URN_STRING);
