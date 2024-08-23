@@ -17,9 +17,6 @@ const steps: Fields = {
         description: 'Choose the tags and glossary terms to propagate.',
         fields: [
             {
-                type: 'tagTermToggle',
-            },
-            {
                 type: 'termSelector',
                 props: {
                     fieldTypes: [EntityType.Tag, EntityType.GlossaryTerm],
