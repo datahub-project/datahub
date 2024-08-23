@@ -4,11 +4,17 @@ from typing import Any
 from acryl.executor.request.execution_request import ExecutionRequest
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 
-from datahub_executor.common.constants import SQS_MESSAGE_MAX_LENGTH
+from datahub_executor.common.constants import (
+    DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
+    DATAHUB_EXECUTION_REQUEST_SQS_TRUNCATED_ASPECT_NAME,
+)
 from datahub_executor.common.monitoring.metrics import (
     STATS_SCHEDULER_SQS_LIMIT_EXCEEDED,
 )
-from datahub_executor.config import DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION
+from datahub_executor.config import (
+    DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH,
+    DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION,
+)
 from datahub_executor.worker.celery_sqs.app import assertion_request, ingestion_request
 from datahub_executor.worker.celery_sqs.config import update_celery_credentials
 from datahub_executor.worker.celery_sqs.init import app
@@ -29,7 +35,7 @@ def apply_remote_assertion_request(
             return execution_request.args["urn"]
 
         message_size = len(execution_request.json())
-        if message_size > SQS_MESSAGE_MAX_LENGTH:
+        if message_size > DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH:
             STATS_SCHEDULER_SQS_LIMIT_EXCEEDED.inc()
             logger.error(
                 f"Assertion ExecutionRequest {execution_request.args['urn']} is too big ({message_size}) to send via SQS and will be dropped."
@@ -51,6 +57,32 @@ def apply_remote_assertion_request(
         )
 
 
+def truncate_remote_ingestion_request(
+    event: MetadataChangeLogClass,
+) -> MetadataChangeLogClass:
+    if event.aspect is None:
+        return event
+
+    message_size = len(event.aspect.value)
+    if message_size <= DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH:
+        return event
+
+    STATS_SCHEDULER_SQS_LIMIT_EXCEEDED.inc()
+    logger.error(
+        f"Ingestion ExecutionRequest {event.entityUrn} is too big ({message_size}) to send via SQS and will be truncated."
+    )
+
+    # strip event off of recipe data
+    new_event = MetadataChangeLogClass(
+        entityType=DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
+        changeType="UPSERT",
+        entityUrn=event.entityUrn,
+        aspectName=DATAHUB_EXECUTION_REQUEST_SQS_TRUNCATED_ASPECT_NAME,
+    )
+
+    return new_event
+
+
 def apply_remote_ingestion_request(
     event: MetadataChangeLogClass, executor_id: str
 ) -> Any:
@@ -69,18 +101,13 @@ def apply_remote_ingestion_request(
             )
             return event.entityUrn
 
-        message_size = len(event.aspect.value)
-        if message_size > SQS_MESSAGE_MAX_LENGTH:
-            STATS_SCHEDULER_SQS_LIMIT_EXCEEDED.inc()
-            logger.error(
-                f"Ingestion ExecutionRequest {event.entityUrn} is too big ({message_size}) to send via SQS and will be dropped."
-            )
-            return event.entityUrn
+        # Truncate ingestion event if it's too big to send over SQS
+        new_event = truncate_remote_ingestion_request(event)
 
         # for others (monitors/assertions) we directly trigger the task run.
         ingestion_request.apply_async(
-            args=[event],
-            task_id=event.entityUrn,
+            args=[new_event],
+            task_id=new_event.entityUrn,
             queue=executor_id,
             routing_key=f"{executor_id}.ingestion_request",
         )

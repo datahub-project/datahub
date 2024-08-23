@@ -51,6 +51,7 @@ class IngestionAction(Action):
         self.embedded_worker_id = embedded_worker_id
         self.embedded_worker_enabled = embedded_worker_enabled
         self.shutdown_flag = False
+        self.graph = create_datahub_graph()
 
         if self.embedded_worker_enabled:
             self.ingestion_executor = setup_ingestion_executor()
@@ -131,14 +132,12 @@ class IngestionAction(Action):
             logger.info(f"started task ingestion_request for exec_id = {task}")
 
     def _apply_ingestion_request(self, orig_event: MetadataChangeLogClass) -> None:
-        execution_request = extract_execution_request(orig_event)
+        execution_request = extract_execution_request(orig_event, self.graph)
         if execution_request:
             self.ingestion_executor.execute(execution_request)
 
     def _signal_thread_worker(self) -> None:
         if self.embedded_worker_enabled:
-            graph = create_datahub_graph()
-
             while not self.shutdown_flag:
-                handle_ingestion_signal_requests(graph, self.ingestion_executor)
+                handle_ingestion_signal_requests(self.graph, self.ingestion_executor)
                 time.sleep(DATAHUB_EXECUTOR_INGESTION_PIPELINE_SIGNAL_POLL_INTERVAL)

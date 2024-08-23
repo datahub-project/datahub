@@ -99,6 +99,10 @@ STATS_EXECUTION_FETCH_SIGNAL_REQUESTS = Summary(
     "datahub_executor_ingestion_fetch_singal_requests",
     "Count/time spent fetching ingestion singal/cancel requests",
 )
+STATS_EXECUTION_FETCH_REQUESTS = Summary(
+    "datahub_executor_ingestion_fetch_requests",
+    "Count/time spent fetching ingestion execution requests",
+)
 STATS_EXECUTION_FETCH_SIGNAL_ERRORS = Gauge(
     "datahub_executor_ingestion_fetch_singal_errors",
     "Number of errors occurred while fetching ingestion signal requests",
