@@ -198,7 +198,7 @@ public class AssertionUtils {
         }
         throw new RuntimeException("Schema Test Input is required for Schema Assertion");
       default:
-        throw new RuntimeException(
+        throw new InvalidAssertionTypeException(
             String.format("Unsupported Assertion Type %s provided", input.getType()));
     }
   }

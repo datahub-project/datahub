@@ -34,9 +34,6 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
     final QueryContext context = environment.getContext();
     final TestAssertionInput input =
         ResolverUtils.bindArgument(environment.getArgument("input"), TestAssertionInput.class);
-    if (AssertionType.CUSTOM.equals(input.getType())) {
-      throw new InvalidAssertionTypeException("Can not test external assertions");
-    }
     final Urn asserteeUrn = UrnUtils.getUrn(AssertionUtils.getAsserteeUrnFromTestInput(input));
     final Urn connectionUrn = UrnUtils.getUrn(input.getConnectionUrn());
 
