@@ -48,7 +48,6 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
-
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -140,7 +139,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   @Getter private final String consumerGroupSuffix;
 
   private static final EnumSet<AssertionType> EXTERNAL_ASSERTIONS =
-          EnumSet.of(AssertionType.DATASET, AssertionType.CUSTOM);
+      EnumSet.of(AssertionType.DATASET, AssertionType.CUSTOM);
 
   @Autowired
   public AssertionActionsHook(

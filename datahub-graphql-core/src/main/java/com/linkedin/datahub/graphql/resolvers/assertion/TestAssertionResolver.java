@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
-import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -12,7 +11,6 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils;
 import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.metadata.service.MonitorService;
-import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
