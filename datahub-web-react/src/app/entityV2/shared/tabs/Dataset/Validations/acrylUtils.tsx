@@ -188,7 +188,7 @@ export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
-const getAssertionGroupTypeIcon = (type: string) => {
+export const getAssertionGroupTypeIcon = (type: string) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 

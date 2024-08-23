@@ -373,16 +373,22 @@ export const getPlainTextDescriptionFromAssertion = (
     }
     return primaryLabel;
 };
-const STATUS_GROUP_NAME_MAP = {
-    FAILURE: 'Failing',
-    SUCCESS: 'Passing',
-    ERROR: 'Error',
+
+const ASSERTION_TYPE_NAME_MAP = {
     VOLUME: 'Volume',
     SQL: 'Sql',
     FIELD: 'Field',
     FRESHNESS: 'Freshness',
     DATASET: 'Other',
 };
+
+const ASSERTION_STATUS_NAME_MAP = {
+    FAILURE: 'Failing',
+    SUCCESS: 'Passing',
+    ERROR: 'Error',
+};
+
+const STATUS_GROUP_NAME_MAP = { ...ASSERTION_TYPE_NAME_MAP, ...ASSERTION_STATUS_NAME_MAP };
 
 const RECOMMENDED_FILTER_NAME_MAP = {};
 RECOMMENDED_FILTER_NAME_MAP[AssertionSourceType.External] = 'External';

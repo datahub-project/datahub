@@ -9,6 +9,7 @@ import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
+import { AcrylAssertionSummary } from './AssertionList/AcrylAssertionSummary';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -40,6 +41,7 @@ const TabToolbar = styled.div`
 enum TabPaths {
     ASSERTIONS = 'List',
     DATA_CONTRACT = 'Data Contract',
+    SUMMARY = 'Summary',
 }
 
 const DEFAULT_TAB = TabPaths.ASSERTIONS;
@@ -69,6 +71,16 @@ export const AcrylValidationsTab = () => {
      * The top-level Toolbar tabs to display.
      */
     const tabs: any[] = [
+        {
+            title: (
+                <>
+                    <TabTitle>Summary</TabTitle>
+                </>
+            ),
+            path: TabPaths.SUMMARY,
+            disabled: false, // Always keep the assertions tab clickable in saas.
+            content: <AcrylAssertionSummary />,
+        },
         {
             title: (
                 <>

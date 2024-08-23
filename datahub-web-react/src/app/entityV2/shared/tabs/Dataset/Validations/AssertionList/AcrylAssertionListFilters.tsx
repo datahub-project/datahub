@@ -58,11 +58,14 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     ];
 
     const handleFilterChange = (updatedFilters: FilterItem[]) => {
-        const selectedRecommendedFilters = updatedFilters.reduce<Record<string, string[]>>((acc, filter) => {
-            acc[filter.category] = acc[filter.category] || [];
-            acc[filter.category].push(filter.name);
-            return acc;
-        }, { type: [], status: [], others: [] });
+        const selectedRecommendedFilters = updatedFilters.reduce<Record<string, string[]>>(
+            (acc, filter) => {
+                acc[filter.category] = acc[filter.category] || [];
+                acc[filter.category].push(filter.name);
+                return acc;
+            },
+            { type: [], status: [], others: [] },
+        );
 
         setFilters((prev) => ({
             ...prev,
@@ -75,7 +78,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         const { status = [], type = [], others = [] } = filter.filterCriteria || {};
         const recommendedFilters = filterOptions?.recommendedFilters || [];
         const appliedRecommendedFilters = recommendedFilters.filter(
-            (item) => status.includes(item.name) || type.includes(item.name) || others.includes(item.name)
+            (item) => status.includes(item.name) || type.includes(item.name) || others.includes(item.name),
         );
 
         setAppliedFilters(appliedRecommendedFilters);
