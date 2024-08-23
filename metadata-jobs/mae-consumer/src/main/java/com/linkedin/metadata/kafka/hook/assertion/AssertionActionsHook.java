@@ -782,6 +782,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
         return info.getFieldAssertion().getEntity();
       case DATA_SCHEMA:
         return info.getSchemaAssertion().getEntity();
+      case CUSTOM:
+        return info.getCustomAssertion().getEntity();
       default:
         throw new IllegalArgumentException(
             "Failed to extract assertee urn from assertionInfo aspect! Unrecognized assertion type provided.");
@@ -791,7 +793,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   @Nonnull
   private IncidentType getIncidentTypeFromAssertionInfo(@Nonnull final AssertionInfo info) {
     switch (info.getType()) {
-      case DATASET:
+      case DATASET, CUSTOM:
         return IncidentType.CUSTOM;
       case FRESHNESS:
         return IncidentType.FRESHNESS;
