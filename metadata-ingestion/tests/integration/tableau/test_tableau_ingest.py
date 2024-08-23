@@ -1157,6 +1157,7 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
                 query=mock.MagicMock(),
                 connection_type=mock.MagicMock(),
                 query_filter=mock.MagicMock(),
+                current_cursor=None,
                 retries_remaining=1,
             )
 

@@ -976,7 +976,7 @@ class TableauSiteSource:
         count: int = 0,
         retry_on_auth_error: bool = True,
         retries_remaining: Optional[int] = None,
-    ) -> Tuple[dict, int, int]:
+    ) -> Tuple[dict, Optional[str], int]:
         retries_remaining = retries_remaining or self.config.max_retries
 
         logger.debug(
