@@ -141,7 +141,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                 </Dropdown>
             </ButtonGroup>
             <ViewResetTokenModal
-                visible={isViewingResetToken}
+                open={isViewingResetToken}
                 userUrn={user.urn}
                 username={user.username}
                 onClose={() => setIsViewingResetToken(false)}
