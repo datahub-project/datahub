@@ -78,21 +78,6 @@ const SubMenuContent = styled.div`
 
     & a,
     div {
-        display: block;
-        border-radius: 12px;
-        color: #fff;
-        font: 700 12px/20px Mulish;
-        padding: 8px 12px;
-        white-space: break-spaces;
-
-        & span {
-            display: block;
-            font: 600 10px/12px Mulish;
-        }
-
-        &:hover {
-            background-color: #4b39bc;
-        }
     }
 `;
 
@@ -102,6 +87,26 @@ const SubMenuTitle = styled.div`
     padding: 8px 12px;
     font: 700 12px/20px Mulish;
     margin-bottom: 4px;
+`;
+
+const SubMenuLink = styled.div`
+    & a,
+    div {
+        display: block;
+        border-radius: 12px;
+        color: #fff;
+        font: 700 12px/20px Mulish;
+        padding: 4px 12px 12px 12px;
+        white-space: break-spaces;
+
+        & span {
+            display: block;
+            font: 600 10px/12px Mulish;
+        }
+        &:hover {
+            background-color: #4b39bc;
+        }
+    }
 `;
 
 interface Props {
@@ -329,7 +334,12 @@ export function NavLinksMenu(props: Props) {
                                 <SubMenuTitle>{menuItem.title}</SubMenuTitle>
                                 {menuItem.subMenu?.items.map((subMenuItem) => {
                                     return (
-                                        <CustomNavLink menuItem={subMenuItem} key={subMenuItem.title.toLowerCase()} />
+                                        <SubMenuLink>
+                                            <CustomNavLink
+                                                menuItem={subMenuItem}
+                                                key={subMenuItem.title.toLowerCase()}
+                                            />
+                                        </SubMenuLink>
                                     );
                                 })}
                             </SubMenuContent>
