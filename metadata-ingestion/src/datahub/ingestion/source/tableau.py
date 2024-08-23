@@ -1044,6 +1044,7 @@ class TableauSiteSource:
                 # filter out PERMISSIONS_MODE_SWITCHED to report error in human-readable format
                 other_errors = []
                 permission_mode_errors = []
+                node_limit_errors = []
                 for error in errors:
                     if (
                         error.get("extensions")
@@ -1051,6 +1052,11 @@ class TableauSiteSource:
                         == "PERMISSIONS_MODE_SWITCHED"
                     ):
                         permission_mode_errors.append(error)
+                    elif (
+                        error.get("extensions")
+                        and error["extensions"].get("code") == "NODE_LIMIT_EXCEEDED"
+                    ):
+                        node_limit_errors.append(error)
                     else:
                         other_errors.append(error)
 
@@ -1069,6 +1075,19 @@ class TableauSiteSource:
                         context=f"{permission_mode_errors}",
                     )
 
+                if node_limit_errors:
+                    self.report.warning(
+                        title="Node Limit Errors",
+                        message="Increase your tableau node limit",
+                        context=str(
+                            {
+                                "errors": node_limit_errors,
+                                "connection_type": connection_type,
+                                "query_filter": query_filter,
+                                "query": query,
+                            }
+                        ),
+                    )
             else:
                 # As of Tableau Server 2024.2, the metadata API sporadically returns a 30 second
                 # timeout error. It doesn't reliably happen, so retrying a couple times makes sense.

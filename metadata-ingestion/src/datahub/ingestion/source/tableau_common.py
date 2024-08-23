@@ -932,7 +932,7 @@ def query_metadata_cursor_based_pagination(
                     endCursor
                 }}
             }}
-    }}"""
+    }}"""  # {{ is to escape { character of f-string
 
     result = server.metadata.query(
         query=query,
