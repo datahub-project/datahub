@@ -83,7 +83,10 @@ public class CreateNotificationConnectionTestResolver
         new ExecutionRequestSource()
             .setType(TEST_CONNECTION_SOURCE_NAME)
             .setConnection(connectionUrn));
-    execInput.setExecutorId(Constants.DEFAULT_EXECUTOR_ID);
+
+    // We use an executorId that maps to no executor since some requests are to be handled by the
+    // mae-consumer
+    execInput.setExecutorId(Constants.NONE_EXECUTOR_ID);
     execInput.setRequestedAt(System.currentTimeMillis());
     execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
     execInput.setArgs(args);
