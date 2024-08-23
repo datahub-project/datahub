@@ -1,6 +1,6 @@
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import React from 'react';
 import styled from 'styled-components';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 interface FilterItem {
     name: string;
@@ -26,24 +26,23 @@ const FilterContainer = styled.div`
 const FilterItemRow = styled.div<{ selected: boolean }>`
     display: flex;
     align-items: center;
-    color: ${({ selected }) => (selected ? REDESIGN_COLORS.WHITE : 'black')};
-    cursor: pointer;
     gap: 4px;
+    padding: 0 8px;
+    height: 24px;
+    font-size: 12px;
+    border-radius: 20px;
+    min-width: fit-content;
+    cursor: pointer;
+    color: ${({ selected }) => (selected ? REDESIGN_COLORS.WHITE : 'black')};
+    background-color: ${({ selected }) => (selected ? REDESIGN_COLORS.BACKGROUND_PRIMARY_1 : ANTD_GRAY[3])};
+
     &:hover {
         background-color: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_1};
         color: ${REDESIGN_COLORS.WHITE};
     }
-    background-color: ${({ selected }) => (selected ? REDESIGN_COLORS.BACKGROUND_PRIMARY_1 : ANTD_GRAY[3])};
-    height: 24px;
-    padding-left: 8px;
-    padding-right: 8px;
-    border-radius: 20px;
-    font-size: 12px;
-    min-width: fit-content;
 `;
 
 const FilterName = styled.span``;
-
 const FilterCount = styled.span``;
 
 const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommendedFiltersProps> = ({

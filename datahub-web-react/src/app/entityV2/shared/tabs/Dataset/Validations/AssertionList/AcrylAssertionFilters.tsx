@@ -15,12 +15,12 @@ interface FilterGroupOptions {
 
 interface AcrylAssertionFiltersProps {
     filterOptions: FilterGroupOptions;
-    selectedFilters: FilterOption[]; // Controlled by the parent
+    selectedFilters: FilterOption[];
     onFilterChange: (selectedFilters: FilterOption[]) => void;
 }
 
 export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
-    filterOptions = [],
+    filterOptions,
     selectedFilters,
     onFilterChange,
 }) => {
@@ -29,12 +29,10 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
             ? [...selectedFilters, filter]
             : selectedFilters.filter((f) => f.name !== filter.name);
 
-        onFilterChange(newSelectedFilters); // Notify the parent component of the selected filters
+        onFilterChange(newSelectedFilters);
     };
 
-    const isSelected = (filter: FilterOption) => {
-        return selectedFilters.some((f) => f.name === filter.name);
-    };
+    const isSelected = (filter: FilterOption) => selectedFilters.some((f) => f.name === filter.name);
 
     const renderSubMenu = (category: string, filters: FilterOption[]) => {
         return filters && filters.length > 0 ? (
@@ -54,7 +52,9 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
     };
 
     const menu = (
-        <Menu>{Object.keys(filterOptions).map((category) => renderSubMenu(category, filterOptions[category]))}</Menu>
+        <Menu>
+            {Object.entries(filterOptions).map(([category, filters]) => renderSubMenu(category, filters))}
+        </Menu>
     );
 
     return (

@@ -1,9 +1,9 @@
 import { SearchOutlined } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { pluralize } from '@src/app/shared/textUtil';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { pluralize } from '@src/app/shared/textUtil';
 
 const StyledInput = styled(Input)`
     max-width: 300px;
@@ -17,7 +17,6 @@ const StyledInput = styled(Input)`
 
 const MatchLabelText = styled.span`
     font-size: 12px;
-    font-style: normal;
     font-weight: 700;
     color: ${REDESIGN_COLORS.DARK_GREY};
     padding-left: 10px;
@@ -29,9 +28,9 @@ const SearchContainer = styled.div`
     padding: 10px;
     --antd-wave-shadow-color: transparent;
     flex: auto;
-    white-space: nowrap;
     display: flex;
     align-items: center;
+    white-space: nowrap;
 
     .ant-input-group-wrapper {
         border-radius: 20px;
@@ -92,6 +91,12 @@ const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
     setHighlightedMatchIndex,
     numRows,
 }) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.code === 'Enter' && highlightedMatchIndex !== null && matchResultCount > 0) {
+            setHighlightedMatchIndex((highlightedMatchIndex + 1) % matchResultCount);
+        }
+    };
+
     return (
         <SearchContainer>
             <StyledInput
@@ -101,13 +106,9 @@ const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
                 onChange={debouncedSetFilterText}
                 allowClear
                 prefix={<SearchOutlined />}
-                onKeyDown={(e) => {
-                    if (e.code === 'Enter' && highlightedMatchIndex !== null && matchResultCount > 0) {
-                        setHighlightedMatchIndex((highlightedMatchIndex + 1) % matchResultCount);
-                    }
-                }}
+                onKeyDown={handleKeyDown}
             />
-            {searchText.length > 0 && (
+            {searchText && (
                 <MatchLabelText>
                     Matched {matchResultCount} {pluralize(matchResultCount, 'assertion')} of {numRows}
                 </MatchLabelText>

@@ -22,6 +22,8 @@ const LastRun = styled(Typography.Text)`
     color: ${REDESIGN_COLORS.BODY_TEXT};
 `;
 
+const TABLE_HEADER_HEIGHT = 50;
+
 export const useAssertionsTableColumns = ({
     groupBy,
     contract,
@@ -73,11 +75,10 @@ export const useAssertionsTableColumns = ({
                 width: '10%',
                 render: (_, record) => {
                     const isSqlAssertion = record.type === AssertionType.Sql;
-                    const { assertion } = record;
                     return (
                         !record.groupName && (
                             <ActionsColumn
-                                assertion={assertion}
+                                assertion={record.assertion}
                                 monitor={record.monitor}
                                 contract={contract}
                                 canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
@@ -108,20 +109,18 @@ export const usePinnedAssertionTableHeaderProps = () => {
         const handleResize = () => {
             if (tableContainerRef.current) {
                 const containerHeight = tableContainerRef.current.getBoundingClientRect().height;
-                setScrollY(containerHeight - 50);
+                setScrollY(containerHeight - TABLE_HEADER_HEIGHT);
             }
         };
 
-        // Initial calculation
         handleResize();
-
-        // Recalculate on window resize
         window.addEventListener('resize', handleResize);
 
         return () => {
             window.removeEventListener('resize', handleResize);
         };
     }, []);
+
     return { tableContainerRef, scrollY };
 };
 
@@ -131,34 +130,34 @@ export const useSetFilterFromURLParams = (
 ) => {
     const location = useLocation();
     const history = useHistory();
-    const assertion_type = getQueryParams('assertion_type', location);
-    const assertion_status = getQueryParams('assertion_status', location);
+    const assertionType = getQueryParams('assertion_type', location);
+    const assertionStatus = getQueryParams('assertion_status', location);
 
     useEffect(() => {
-        if (assertion_type || assertion_status) {
-            const decodedAssertionType = decodeURIComponent(assertion_type || '');
-            const decodedAssertionStatus = decodeURIComponent(assertion_status || '');
+        if (assertionType || assertionStatus) {
+            const decodedAssertionType = decodeURIComponent(assertionType || '');
+            const decodedAssertionStatus = decodeURIComponent(assertionStatus || '');
 
-            const filterCriteria = { ...filter.filterCriteria };
+            const updatedFilterCriteria = { ...filter.filterCriteria };
             if (decodedAssertionType) {
-                filterCriteria.type = [decodedAssertionType as AssertionType];
+                updatedFilterCriteria.type = [decodedAssertionType as AssertionType];
             }
             if (decodedAssertionStatus) {
-                filterCriteria.status = [decodedAssertionStatus as AssertionResultType];
+                updatedFilterCriteria.status = [decodedAssertionStatus as AssertionResultType];
             }
 
-            // Remove the query parameter from the URL
             const newUrlParams = new URLSearchParams(location.search);
             newUrlParams.delete('assertion_type');
             newUrlParams.delete('assertion_status');
             const newUrl = `${location.pathname}?${newUrlParams.toString()}`;
-            if (assertion_type || assertion_status) {
-                setFilters({ ...filter, filterCriteria });
+
+            if (assertionType || assertionStatus) {
+                setFilters({ ...filter, filterCriteria: updatedFilterCriteria });
             }
-            // Use React Router's history.replace to replace the current URL
+
             history.replace(newUrl);
         }
-    }, [assertion_type, assertion_status, location.search, location.pathname, history]);
+    }, [assertionType, assertionStatus, location, history]);
 
     return { filter };
 };

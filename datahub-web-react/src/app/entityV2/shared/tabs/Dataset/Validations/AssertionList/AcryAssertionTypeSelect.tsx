@@ -15,8 +15,13 @@ const StyledSelect = styled(Select)`
     }
 `;
 
+type Option = {
+    label: string;
+    value: string;
+};
+
 type Props = {
-    options: Array<{ label: string; value: string }>;
+    options: Option[];
     selectedValue: string;
     onSelect: (value: string) => void;
     placeholder: string;
@@ -33,10 +38,10 @@ export default function AcryAssertionTypeSelect({ options, selectedValue, onSele
             placeholder={placeholder}
             allowClear
         >
-            {options.map((option) => (
-                <StyledSelect.Option key={option.value} value={option.value}>
-                    {option.label}
-                </StyledSelect.Option>
+            {options.map(({ label, value }) => (
+                <Select.Option key={value} value={value}>
+                    {label}
+                </Select.Option>
             ))}
         </StyledSelect>
     );

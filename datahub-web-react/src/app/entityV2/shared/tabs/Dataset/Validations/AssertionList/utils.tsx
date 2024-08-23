@@ -503,7 +503,7 @@ export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]
     return assertionRawData;
 };
 
-/** create filter Option List */
+/** Create filter option list */
 const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorDetails[]) => {
     const filterOptions: any = {
         filterGroupOptions: {
@@ -515,94 +515,85 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         groupByOptions: ['Type', 'Status'],
         recommendedFilters: [],
     };
-    const filterGroupOptions = {
-        type: {},
-        status: {},
-        column: {},
-        tags: {},
+
+    const filterGroupCounts = {
+        type: {} as Record<string, number>,
+        status: {} as Record<string, number>,
+        column: {} as Record<string, number>,
+        tags: {} as Record<string, number>,
     };
-    const others: any = {};
+
+    const others: Record<string, number> = {};
+
     assertions.forEach((assertion: AssertionWithMonitorDetails) => {
         const type = assertion.info?.type || '';
-        filterGroupOptions.type[type] = (filterGroupOptions.type[type] || 0) + 1;
+        filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
 
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
         const resultType = mostRecentRun?.result?.type || '';
         if (resultType) {
-            filterGroupOptions.status[resultType] = (filterGroupOptions.status[resultType] || 0) + 1;
+            filterGroupCounts.status[resultType] = (filterGroupCounts.status[resultType] || 0) + 1;
         }
+
         const tags = assertion.tags?.tags || [];
         tags.forEach((tag) => {
-            const name = tag.tag.properties?.name || '';
-            filterGroupOptions.tags[name] = (filterGroupOptions.tags[name] || 0) + 1;
+            const tagName = tag.tag.properties?.name || '';
+            filterGroupCounts.tags[tagName] = (filterGroupCounts.tags[tagName] || 0) + 1;
         });
 
-        // TODO Need to check for Column Option List
-        // const column = assertion.column || '';
-        // filterGroupOptions.column[column] = (filterGroupOptions.column[column] || 0) + 1;
-
-        const assertionInfo = assertion.info;
-        switch (assertionInfo?.source?.type) {
+        switch (assertion.info?.source?.type) {
             case AssertionSourceType.Inferred:
                 others[AssertionSourceType.Inferred] = (others[AssertionSourceType.Inferred] || 0) + 1;
                 break;
             case AssertionSourceType.Native:
                 others[AssertionSourceType.Native] = (others[AssertionSourceType.Native] || 0) + 1;
                 break;
-        }
-        const isExternal = isExternalAssertion(assertion);
-        if (isExternal) {
-            others[AssertionSourceType.External] = (others[AssertionSourceType.External] || 0) + 1;
+            default:
+                if (isExternalAssertion(assertion)) {
+                    others[AssertionSourceType.External] = (others[AssertionSourceType.External] || 0) + 1;
+                }
+                break;
         }
     });
 
-    for (const [key, value] of Object.entries(filterGroupOptions)) {
-        if (['status', 'type'].includes(key)) {
-            for (const [key2, value2] of Object.entries(value)) {
-                filterOptions.recommendedFilters.push({
-                    name: key2,
-                    category: key,
-                    count: value2,
-                    displayName: key === 'type' ? getAssertionGroupName(key2) : STATUS_GROUP_NAME_MAP[key2],
-                });
-                if (filterOptions.filterGroupOptions[key]) {
-                    filterOptions.filterGroupOptions[key].push({
-                        name: key2,
-                        category: key,
-                        count: value2,
-                        displayName: key === 'type' ? getAssertionGroupName(key2) : STATUS_GROUP_NAME_MAP[key2],
-                    });
-                } else {
-                    filterOptions.filterGroupOptions[key] = [
-                        {
-                            name: key2,
-                            category: key,
-                            count: value2,
-                            displayName: key === 'type' ? getAssertionGroupName(key2) : STATUS_GROUP_NAME_MAP[key2],
-                        },
-                    ];
-                }
-            }
-        }
-    }
-    for (const [key, value] of Object.entries(others)) {
-        filterOptions.recommendedFilters.push({
-            name: key,
-            category: 'others',
-            count: value,
-            displayName: RECOMMENDED_FILTER_NAME_MAP[key],
+    const buildFilterOptions = (key: string, value: Record<string, number>) => {
+        Object.entries(value).forEach(([name, count]) => {
+            const displayName = key === 'type' ? getAssertionGroupName(name) : STATUS_GROUP_NAME_MAP[name] || name;
+            const filterItem = { name, category: key, count, displayName };
+
+            filterOptions.recommendedFilters.push(filterItem);
+            filterOptions.filterGroupOptions[key].push(filterItem);
         });
-    }
+    };
+
+    buildFilterOptions('type', filterGroupCounts.type);
+    buildFilterOptions('status', filterGroupCounts.status);
+
+    Object.entries(others).forEach(([name, count]) => {
+        filterOptions.recommendedFilters.push({
+            name,
+            category: 'others',
+            count,
+            displayName: RECOMMENDED_FILTER_NAME_MAP[name] || name,
+        });
+    });
+
     return filterOptions;
 };
 
-/** return fitlered transformed assertions */
+/** Return filtered and transformed assertions */
 export const getFilteredTransformedAssertionData = (
     assertions: AssertionWithMonitorDetails[],
     filter: AssertionListFilter,
 ): AssertionTable => {
-    const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] }, filterOptions: {} };
-    const asseertionsWithDescription = assertions.map((assertion) => {
+    const assertionRawData: AssertionTable = {
+        assertions: [],
+        groupBy: { type: [], status: [] },
+        filterOptions: {},
+    };
+
+    // Add descriptions to assertions
+    const assertionsWithDescription = assertions.map((assertion) => {
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
         const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
         return {
@@ -610,39 +601,36 @@ export const getFilteredTransformedAssertionData = (
             description,
         };
     });
-    const fuse = new Fuse(asseertionsWithDescription, {
+
+    // Fuse.js setup for search functionality
+    const fuse = new Fuse(assertionsWithDescription, {
         keys: ['description'],
         threshold: 0.4,
     });
 
-    let filteredAssertionsBySearch = asseertionsWithDescription;
+    // Apply search filter if searchText is provided
+    let filteredAssertions = assertionsWithDescription;
     const { searchText, type, status, others } = filter.filterCriteria;
 
     if (searchText) {
-        const result = fuse.search(searchText);
-        filteredAssertionsBySearch = result.map((assertion) => assertion.item);
+        filteredAssertions = fuse.search(searchText).map((result) => result.item);
     }
-    const filteredAssertions = filteredAssertionsBySearch.filter((assertion: AssertionWithMonitorDetails) => {
-        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
-        const resultType = mostRecentRun?.result?.type as AssertionResultType;
-        if (type.length > 0 && !type.includes(assertion.info?.type as AssertionType)) {
-            return false;
-        }
-        if (status.length > 0 && !status.includes(resultType)) {
-            return false;
-        }
-        if (others.length > 0) {
-            if (others.includes(assertion?.info?.source?.type as AssertionSourceType)) {
-                return true;
-            }
-            if (others.includes(AssertionSourceType.External) && isExternalAssertion(assertion)) {
-                return true;
-            }
-            return false;
-        }
-        return true;
+
+    // Apply type, status, and other filters
+    filteredAssertions = filteredAssertions.filter((assertion: AssertionWithMonitorDetails) => {
+        const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
+
+        const matchesType = type.length === 0 || type.includes(assertion.info?.type as AssertionType);
+        const matchesStatus = status.length === 0 || status.includes(resultType);
+        const matchesOthers =
+            others.length === 0 ||
+            others.includes(assertion.info?.source?.type as AssertionSourceType) ||
+            (others.includes(AssertionSourceType.External) && isExternalAssertion(assertion));
+
+        return matchesType && matchesStatus && matchesOthers;
     });
 
+    // Transform filtered assertions
     assertionRawData.assertions = mapAssertionData(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = assertionsByType;

@@ -1,11 +1,11 @@
-import React, { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { isEmpty } from 'lodash';
+import styled from 'styled-components';
 import AcrylAssertionRecommendedFilters from './AcrylAssertionRecommendedFilters';
 import AcrylAssertionListSearch from './AcrylAssertionListSearch';
 import AcryAssertionTypeSelect from './AcryAssertionTypeSelect';
-import styled from 'styled-components';
-import { AssertionListFilter, AssertionTable } from './types';
 import { AcrylAssertionFilters } from './AcrylAssertionFilters';
+import { AssertionListFilter, AssertionTable } from './types';
 
 interface FilterItem {
     name: string;
@@ -14,79 +14,72 @@ interface FilterItem {
     displayName: string;
 }
 
+interface AcrylAssertionListFiltersProps {
+    filterOptions: any;
+    setFilters: React.Dispatch<React.SetStateAction<AssertionListFilter>>;
+    filter: AssertionListFilter;
+    allAssertionCount: number;
+    filteredAssertions: AssertionTable;
+}
+
 const SearchFilterContainer = styled.div`
     display: flex;
     gap: 20px;
     align-items: center;
 `;
 
-export const AcrylAssertionListFilters = ({
+export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
     filterOptions,
     setFilters,
     filter,
     allAssertionCount,
     filteredAssertions,
-}: {
-    filterOptions: any;
-    setFilters: Dispatch<SetStateAction<AssertionListFilter>>;
-    filter: AssertionListFilter;
-    allAssertionCount: number;
-    filteredAssertions: AssertionTable;
 }) => {
     const [appliedFilters, setAppliedFilters] = useState<FilterItem[]>([]);
     const [highlightedMatchIndex, setHighlightedMatchIndex] = useState<number | null>(null);
-    const [selectedGroupBy, setSelectedGroupBy] = useState<string>('');
+    const [selectedGroupBy, setSelectedGroupBy] = useState<string>(filter.groupBy || '');
 
     const handleSearchTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const filterText = event.target.value;
-        setFilters({ ...filter, filterCriteria: { ...filter.filterCriteria, searchText: filterText } });
+        const searchText = event.target.value;
+        setFilters((prev) => ({
+            ...prev,
+            filterCriteria: { ...prev.filterCriteria, searchText },
+        }));
     };
 
     const handleAssertionTypeChange = (value: string) => {
-        setFilters({ ...filter, groupBy: value });
         setSelectedGroupBy(value);
+        setFilters((prev) => ({ ...prev, groupBy: value }));
     };
 
-    const assertionTypeFilters: Array<{ label: string; value: string }> = [
+    const assertionTypeFilters = [
         { label: 'Type', value: 'type' },
         { label: 'Status', value: 'status' },
     ];
 
     const handleFilterChange = (updatedFilters: FilterItem[]) => {
-        let selectedRecommendedFilters: any = {};
-        updatedFilters.forEach((filter: FilterItem) => {
-            if (selectedRecommendedFilters[filter.category]) {
-                selectedRecommendedFilters[filter.category].push(filter.name);
-            } else {
-                selectedRecommendedFilters[filter.category] = [filter.name];
-            }
-        });
-        if (!selectedRecommendedFilters?.type) {
-            selectedRecommendedFilters.type = [];
-        }
-        if (!selectedRecommendedFilters?.status) {
-            selectedRecommendedFilters.status = [];
-        }
-        if (!selectedRecommendedFilters?.others) {
-            selectedRecommendedFilters.others = [];
-        }
-        setFilters({ ...filter, filterCriteria: { ...filter.filterCriteria, ...selectedRecommendedFilters } });
+        const selectedRecommendedFilters = updatedFilters.reduce<Record<string, string[]>>((acc, filter) => {
+            acc[filter.category] = acc[filter.category] || [];
+            acc[filter.category].push(filter.name);
+            return acc;
+        }, { type: [], status: [], others: [] });
+
+        setFilters((prev) => ({
+            ...prev,
+            filterCriteria: { ...prev.filterCriteria, ...selectedRecommendedFilters },
+        }));
         setAppliedFilters(updatedFilters);
     };
 
     useEffect(() => {
-        const status = filter.filterCriteria?.status || [];
-        const types = filter.filterCriteria?.type || [];
-        const others = filter.filterCriteria?.others || [];
+        const { status = [], type = [], others = [] } = filter.filterCriteria || {};
         const recommendedFilters = filterOptions?.recommendedFilters || [];
-        let appliedRecommendedFilters = [];
-        if (status.length > 0 || types.length > 0 || others.length > 0) {
-            appliedRecommendedFilters = recommendedFilters.filter(
-                (item) => status.includes(item.name) || types.includes(item.name) || others.includes(item.name),
-            );
-        }
-        setSelectedGroupBy(filter.groupBy);
+        const appliedRecommendedFilters = recommendedFilters.filter(
+            (item) => status.includes(item.name) || type.includes(item.name) || others.includes(item.name)
+        );
+
         setAppliedFilters(appliedRecommendedFilters);
+        setSelectedGroupBy(filter.groupBy);
     }, [filter, filterOptions]);
 
     return (
@@ -95,7 +88,7 @@ export const AcrylAssertionListFilters = ({
                 <AcrylAssertionListSearch
                     searchText={filter.filterCriteria.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
-                    matchResultCount={(filteredAssertions?.assertions || []).length}
+                    matchResultCount={filteredAssertions.assertions?.length || 0}
                     highlightedMatchIndex={highlightedMatchIndex}
                     setHighlightedMatchIndex={setHighlightedMatchIndex}
                     numRows={allAssertionCount}
