@@ -48,10 +48,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -140,6 +138,9 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   private OperationContext systemOpContext;
   private final boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
+
+  private static final EnumSet<AssertionType> EXTERNAL_ASSERTIONS =
+          EnumSet.of(AssertionType.DATASET, AssertionType.CUSTOM);
 
   @Autowired
   public AssertionActionsHook(
@@ -416,7 +417,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       incidentService.raiseIncident(
           systemOpContext,
           getIncidentTypeFromAssertionInfo(info),
-          AssertionType.DATASET.equals(info.getType()) ? "External Assertion" : null,
+          EXTERNAL_ASSERTIONS.contains(info.getType()) ? "External Assertion" : null,
           null,
           String.format(
               "%s Assertion `%s` has failed",
