@@ -6,7 +6,9 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationRequest;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.DeleteSubscriptionInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.service.SubscriptionService;
@@ -52,6 +54,22 @@ public class DeleteSubscriptionResolverTest {
 
   @Test
   public void testDeleteSubscriptionUnauthorizedForOtherUser() {
+    final AuthorizationRequest request =
+        new AuthorizationRequest(USER_2_URN_STRING, "MANAGE_USER_SUBSCRIPTIONS", null);
+    final QueryContext mockContext = getMockDenyContext(USER_2_URN_STRING, request);
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(mockContext.getActorUrn()).thenReturn(USER_2_URN_STRING);
+    when(_subscriptionService.getSubscriptionInfo(
+            any(OperationContext.class), eq(SUBSCRIPTION_URN_1)))
+        .thenReturn(SUBSCRIPTION_INFO_1);
+
+    assertThrows(
+        DataHubGraphQLException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+  }
+
+  @Test
+  public void testDeleteSubscriptionAuthorizedForOtherUser() throws Exception {
     final QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
@@ -60,7 +78,9 @@ public class DeleteSubscriptionResolverTest {
             any(OperationContext.class), eq(SUBSCRIPTION_URN_1)))
         .thenReturn(SUBSCRIPTION_INFO_1);
 
-    assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+    verify(_entityClient, times(1))
+        .deleteEntity(any(OperationContext.class), eq(SUBSCRIPTION_URN_1));
   }
 
   @Test

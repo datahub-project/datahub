@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionResolverUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -33,7 +32,6 @@ public class CreateSubscriptionResolver
   public CompletableFuture<DataHubSubscription> get(DataFetchingEnvironment environment)
       throws Exception {
     final QueryContext context = environment.getContext();
-    final Authentication authentication = context.getAuthentication();
     final CreateSubscriptionInput input =
         bindArgument(environment.getArgument("input"), CreateSubscriptionInput.class);
     return CompletableFuture.supplyAsync(
@@ -57,7 +55,9 @@ public class CreateSubscriptionResolver
                   DataHubGraphQLErrorCode.UNAUTHORIZED);
             }
 
-            if (userUrnString != null && !canManageUserSubscriptions(context)) {
+            if (userUrnString != null
+                && !userUrnString.equals(context.getActorUrn())
+                && !canManageUserSubscriptions(context)) {
               throw new DataHubGraphQLException(
                   String.format(
                       "Unauthorized to create subscription for user %s, missing MANAGE_USER_SUBSCRIPTIONS privilege",
@@ -87,6 +87,8 @@ public class CreateSubscriptionResolver
                     notificationConfig);
 
             return DataHubSubscriptionMapper.map(context, subscription);
+          } catch (DataHubGraphQLException e) { // Allow DataHub Exceptions to propagate up
+            throw e;
           } catch (Exception e) {
             throw new RuntimeException("Failed to create subscriptions", e);
           }

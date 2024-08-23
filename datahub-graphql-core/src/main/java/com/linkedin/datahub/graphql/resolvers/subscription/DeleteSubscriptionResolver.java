@@ -44,7 +44,8 @@ public class DeleteSubscriptionResolver implements DataFetcher<CompletableFuture
                   String.format("Unauthorized to delete subscription for group %s", actorUrn));
             }
             if (actorUrn.getEntityType().equals(CORP_USER_ENTITY_NAME)
-                && !actorUrn.toString().equals(context.getActorUrn())) {
+                && !actorUrn.toString().equals(context.getActorUrn())
+                && !canManageUserSubscriptions(context)) {
               throw new RuntimeException(
                   String.format(
                       "Unauthorized to delete personal subscription for actor user is not logged in as. User: %s, Subscription actor: %S",
