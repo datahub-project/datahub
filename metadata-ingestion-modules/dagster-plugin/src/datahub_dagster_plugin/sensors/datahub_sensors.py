@@ -670,8 +670,9 @@ class DatahubSensors:
             )
 
             dataflow.emit(self.graph)
-            for mcp in dataflow.generate_mcp():
-                context.log.debug(f"Emitted MCP: {mcp}")
+            if self.config.debug_mode:
+                for mcp in dataflow.generate_mcp():
+                    context.log.debug(f"Emitted MCP: {mcp}")
 
             # Emit dagster job run which get mapped with datahub data process instance entity
             dagster_generator.emit_job_run(
@@ -709,8 +710,10 @@ class DatahubSensors:
                 )
 
                 datajob.emit(self.graph)
-                for mcp in datajob.generate_mcp():
-                    context.log.debug(f"Emitted MCP: {mcp}")
+
+                if self.config.debug_mode:
+                    for mcp in datajob.generate_mcp():
+                        context.log.debug(f"Emitted MCP: {mcp}")
 
                 self.graph.emit_mcp(
                     mcp=MetadataChangeProposalWrapper(
@@ -726,7 +729,7 @@ class DatahubSensors:
                     datajob=datajob,
                     run_step_stats=run_step_stats[op_def_snap.name],
                 )
-
+            context.log.info("Metadata emitted to DataHub successfully")
             return SkipReason("Pipeline metadata is emitted to DataHub")
         except Exception as e:
             context.log.error(

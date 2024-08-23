@@ -213,6 +213,10 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         description="Whether to materialize asset dependency in DataHub. It emits a datasetKey for each dependencies. Default is False.",
     )
 
+    debug_mode: Optional[bool] = pydantic.Field(
+        default=False,
+        description="Whether to enable debug mode",
+    )
 
 def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
     return [DatasetUrn.create_from_string(urn) for urn in urns]
@@ -297,12 +301,14 @@ class DagsterGenerator:
                     DagsterGenerator.asset_group_name_cache[
                         asset_urn.urn()
                     ] = group_name
-                    self.logger.debug(
-                        f"Asset group name cache updated: {asset_urn.urn()} -> {group_name}"
-                    )
-        self.logger.debug(
-            f"Asset group name cache: {DagsterGenerator.asset_group_name_cache}"
-        )
+                    if self.config.debug_mode:
+                        self.logger.debug(
+                            f"Asset group name cache updated: {asset_urn.urn()} -> {group_name}"
+                        )
+        if self.config.debug_mode:
+            self.logger.debug(
+                f"Asset group name cache: {DagsterGenerator.asset_group_name_cache}"
+            )
 
     def path_metadata_resolver(self, value: PathMetadataValue) -> Optional[DatasetUrn]:
         """
