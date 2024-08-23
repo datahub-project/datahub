@@ -8,7 +8,9 @@ with open("./src/datahub/__init__.py") as fp:
 
 _version: str = package_metadata["__version__"]
 _self_pin = (
-    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
 )
 
 base_requirements = {
@@ -173,7 +175,7 @@ looker_common = {
     *sqlglot_lib,
     "GitPython>2",
     "python-liquid",
-    "deepmerge>=1.1.1"
+    "deepmerge>=1.1.1",
 }
 
 bigquery_common = {
@@ -181,6 +183,7 @@ bigquery_common = {
     "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
     "google-cloud-datacatalog>=1.5.0",
+    "google-cloud-resource-manager",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
 }
@@ -298,7 +301,7 @@ slack = {"slack-sdk==3.18.1"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.9.0",
+    "databricks-sdk>=0.30.0",
     "pyspark~=3.3.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
@@ -331,7 +334,9 @@ plugins: Dict[str, Set[str]] = {
         "gql[requests]>=3.3.0",
     },
     "datahub": mysql | kafka_common,
-    "great-expectations": sql_common | sqllineage_lib,
+    "great-expectations": {
+        f"acryl-datahub-gx-plugin{_self_pin}",
+    },
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
@@ -482,6 +487,9 @@ all_exclude_plugins: Set[str] = {
     # The Airflow extra is only retained for compatibility, but new users should
     # be using the datahub-airflow-plugin package instead.
     "airflow",
+    # The great-expectations extra is only retained for compatibility, but new users should
+    # be using the datahub-gx-plugin package instead.
+    "great-expectations",
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
@@ -527,9 +535,12 @@ mypy_stubs = {
 }
 
 
-pytest_dep = "pytest>=6.2.2"
-deepdiff_dep = "deepdiff"
-test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
+test_api_requirements = {
+    "pytest>=6.2.2",
+    "deepdiff",
+    "PyYAML",
+    "pytest-docker>=1.1.0",
+}
 
 debug_requirements = {
     "memray",
@@ -551,12 +562,9 @@ base_dev_requirements = {
     "isort>=5.7.0",
     "mypy==1.10.1",
     *test_api_requirements,
-    pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=1.1.0",
     "pytest-random-order~=1.1.0",
-    deepdiff_dep,
     "requests-mock",
     "freezegun",
     "jsonpickle",
@@ -590,7 +598,6 @@ base_dev_requirements = {
             "kafka",
             "datahub-rest",
             "datahub-lite",
-            "great-expectations",
             "presto",
             "redash",
             "redshift",

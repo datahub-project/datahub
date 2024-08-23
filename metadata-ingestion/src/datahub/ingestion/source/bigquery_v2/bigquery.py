@@ -111,8 +111,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf,
-            self.config.get_bigquery_client(),
+            report=BigQueryV2Report().schema_api_perf,
+            projects_client=config.get_projects_client(),
+            client=config.get_bigquery_client(),
         )
         if self.config.extract_policy_tags_from_catalog:
             self.bigquery_data_dictionary.datacatalog_client = (

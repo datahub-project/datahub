@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
-from google.cloud import bigquery, datacatalog_v1
+from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
@@ -146,9 +146,11 @@ class BigQuerySchemaApi:
         self,
         report: BigQuerySchemaApiPerfReport,
         client: bigquery.Client,
+        projects_client: resourcemanager_v3.ProjectsClient,
         datacatalog_client: Optional[datacatalog_v1.PolicyTagManagerClient] = None,
     ) -> None:
         self.bq_client = client
+        self.projects_client = projects_client
         self.report = report
         self.datacatalog_client = datacatalog_client
 
@@ -177,7 +179,7 @@ class BigQuerySchemaApi:
                     # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
                     # Hence, added the api request retry of 15 min.
                     # We already tried adding rate_limit externally, proving max_result and page_size
-                    # to restrict the request calls inside list_project but issue still occured.
+                    # to restrict the request calls inside list_project but issue still occurred.
                     projects_iterator = self.bq_client.list_projects(
                         max_results=max_results_per_page,
                         page_token=page_token,
@@ -203,6 +205,26 @@ class BigQuerySchemaApi:
                     logger.error(f"Error getting projects. {e}", exc_info=True)
                     return []
         return projects
+
+    def get_projects_with_labels(self, labels: List[str]) -> List[BigqueryProject]:
+        with self.report.list_projects_with_labels_timer:
+            try:
+                projects = []
+                labels_query = " OR ".join([f"labels.{label}" for label in labels])
+                for project in self.projects_client.search_projects(query=labels_query):
+                    projects.append(
+                        BigqueryProject(
+                            id=project.project_id, name=project.display_name
+                        )
+                    )
+
+                return projects
+
+            except Exception as e:
+                logger.error(
+                    f"Error getting projects with labels: {labels}. {e}", exc_info=True
+                )
+                return []
 
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
@@ -626,11 +648,31 @@ def get_projects(
             BigqueryProject(id=project_id, name=project_id)
             for project_id in filters.filter_config.project_ids
         ]
+    elif filters.filter_config.project_labels:
+        return list(query_project_list_from_labels(schema_api, report, filters))
     else:
-        return list(
-            query_project_list(
-                schema_api,
-                report,
-                filters,
-            )
+        return list(query_project_list(schema_api, report, filters))
+
+
+def query_project_list_from_labels(
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> Iterable[BigqueryProject]:
+    projects = schema_api.get_projects_with_labels(filters.filter_config.project_labels)
+
+    if not projects:  # Report failure on exception and if empty list is returned
+        report.report_failure(
+            "metadata-extraction",
+            "Get projects didn't return any project with any of the specified label(s). "
+            "Maybe resourcemanager.projects.list permission is missing for the service account. "
+            "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
         )
+
+    for project in projects:
+        if filters.filter_config.project_id_pattern.allowed(project.id):
+            yield project
+        else:
+            logger.debug(
+                f"Ignoring project {project.id} as it's not allowed by project_id_pattern"
+            )

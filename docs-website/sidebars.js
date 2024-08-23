@@ -99,6 +99,23 @@ module.exports = {
           ],
         },
         {
+          label: "Automations",
+          type: "category",
+          items: [
+            {
+              label: "Documentation Propagation",
+              type: "doc",
+              id: "docs/automation/docs-propagation",
+            },
+            {
+              label: "Snowflake Tag Sync",
+              type: "doc",
+              id: "docs/automation/snowflake-tag-propagation",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           label: "Business Attributes",
           type: "doc",
           id: "docs/businessattributes",
@@ -527,7 +544,12 @@ module.exports = {
       "Advanced Guides": [
         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
-        "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
+        {
+          "SCIM Provisioning": [
+            "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
+            "docs/managed-datahub/configuring-identity-provisioning-with-okta",
+          ],
+        },
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
         "docs/advanced/db-retention",
@@ -895,6 +917,7 @@ module.exports = {
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
+    //"metadata-ingestion-modules/gx-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",

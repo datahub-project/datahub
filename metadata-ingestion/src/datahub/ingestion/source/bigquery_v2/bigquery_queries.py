@@ -61,7 +61,11 @@ class BigQueryQueriesSource(Source):
 
         self.queries_extractor = BigQueryQueriesExtractor(
             connection=self.connection,
-            schema_api=BigQuerySchemaApi(self.report.schema_api_perf, self.connection),
+            schema_api=BigQuerySchemaApi(
+                self.report.schema_api_perf,
+                self.connection,
+                projects_client=self.config.connection.get_projects_client(),
+            ),
             config=self.config,
             structured_report=self.report,
             filters=self.filters,
