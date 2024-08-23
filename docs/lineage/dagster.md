@@ -8,6 +8,10 @@ This connector supports extracting:
 
 from Dagster.
 
+## Supported Versions
+
+It was tested with Dagster 1.7.0+ but that doesn't mean it is not working on older version.
+
 ## Using DataHub's Dagster Sensor
 
 Dagster Sensors allow us to perform actions when important events occur in Dagster. DataHub's Dagster Sensor allows you to emit metadata after every Dagster pipeline run. This sensor can emit Pipelines, Tasks, and run results. For more details about Dagster Sensors, please refer to [the documentation](https://docs.dagster.io/concepts/partitions-schedules-sensors/sensors).
