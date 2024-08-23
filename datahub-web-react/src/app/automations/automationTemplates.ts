@@ -18,13 +18,13 @@ const steps: Fields = {
             'Choose the tags and glossary terms to propagate to Snowflake. If none are selected, ALL will be propagated.',
         fields: [
             {
+                type: 'tagTermToggle',
+            },
+            {
                 type: 'termSelector',
                 props: {
                     fieldTypes: [EntityType.Tag, EntityType.GlossaryTerm],
                 },
-            },
-            {
-                type: 'tagTermToggle',
             },
         ],
     },
