@@ -43,7 +43,6 @@ RUN apt-get update && apt-get install -y -qq \
 
 COPY --from=dockerize-binary /usr/local/bin/dockerize /usr/local/bin
 
-COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 
 RUN addgroup --gid 1000 datahub && \
@@ -55,7 +54,7 @@ ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ENV VIRTUAL_ENV=/datahub-ingestion/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV && \
-    uv pip install --no-cache -r requirements.txt
+    uv pip install --no-cache --upgrade pip setuptools wheel
 
 ENTRYPOINT [ "/entrypoint.sh" ]
 
