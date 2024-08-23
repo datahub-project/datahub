@@ -87,6 +87,7 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     ':metadata-ingestion-modules:airflow-plugin:buildWheel',
     ':metadata-ingestion-modules:dagster-plugin:buildWheel',
     ':metadata-ingestion-modules:prefect-plugin:buildWheel',
+    ':metadata-ingestion-modules:gx-plugin:buildWheel',
     ]) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
