@@ -271,7 +271,7 @@ s3_base = {
 
 abs_base = {
     "azure-core==1.29.4",
-    "azure-identity>=1.14.0",
+    "azure-identity>=1.17.1",
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
     "more-itertools>=8.12.0",
