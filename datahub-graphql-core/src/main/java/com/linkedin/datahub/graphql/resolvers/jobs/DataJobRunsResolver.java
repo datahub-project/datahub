@@ -95,7 +95,6 @@ public class DataJobRunsResolver
             final List<DataProcessInstance> dataProcessInstances =
                 gmsResults.stream()
                     .filter(Objects::nonNull)
-                    .map(p -> DataProcessInstanceMapper.map(context, p))
                     .filter(
                         p -> {
                           try {
@@ -103,7 +102,7 @@ public class DataJobRunsResolver
                             return !_entityClient
                                 .getTimeseriesAspectValues(
                                     context.getOperationContext(),
-                                    p.getUrn(),
+                                    p.getUrn().toString(),
                                     "dataProcessInstance",
                                     DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
                                     null,
@@ -117,12 +116,19 @@ public class DataJobRunsResolver
                             return false;
                           }
                         })
+                    .map(p -> DataProcessInstanceMapper.map(context, p))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
             final DataProcessInstanceResult result = new DataProcessInstanceResult();
+
+            /* Note: the number of dataProcessInstance records may be less than the "count" due to the above filtering.
+              Pagination on a UI would work correctly, except that some pages may have less than "count" records.
+            */
             result.setCount(gmsResult.getPageSize());
             result.setStart(gmsResult.getFrom());
+
+            // Note: "total" could be an inexact upper bound due to the above filtering.
             result.setTotal(gmsResult.getNumEntities());
             result.setRuns(dataProcessInstances);
             return result;
