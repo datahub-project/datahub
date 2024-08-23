@@ -1076,6 +1076,7 @@ class TableauSiteSource:
                     )
 
                 if node_limit_errors:
+                    logger.debug(f"Node Limit Error. query_data {query_data}")
                     self.report.warning(
                         title="Node Limit Errors",
                         message="Increase your tableau node limit",
