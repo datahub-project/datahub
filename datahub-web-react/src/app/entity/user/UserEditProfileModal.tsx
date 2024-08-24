@@ -149,14 +149,14 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     hasFeedback
                 >
                     <Input
-                        placeholder="Data Analyst"
+                        placeholder="Analista de Dados"
                         value={data.title}
                         onChange={(event) => setData({ ...data, title: event.target.value })}
                         disabled={readOnlyModeEnabled}
                     />
                 </Form.Item>
                 <Tooltip
-                    title="Editing image URL has been disabled."
+                    title="A edição do URL da imagem foi desativada."
                     overlayStyle={readOnlyModeEnabled ? {} : { display: 'none' }}
                     placement="bottom"
                 >
@@ -180,7 +180,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                 >
                     <Input
-                        placeholder="Product Engineering"
+                        placeholder="Engenharia de produto"
                         value={data.team}
                         onChange={(event) => setData({ ...data, team: event.target.value })}
                         disabled={readOnlyModeEnabled}
@@ -192,11 +192,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     rules={[
                         {
                             required: true,
-                            message: 'Enter your email',
+                            message: 'Digite seu e-mail',
                         },
                         {
                             type: 'email',
-                            message: 'Please enter valid email',
+                            message: 'Por favor insira um e-mail válido',
                         },
                         { whitespace: true },
                         { min: 2, max: 50 },

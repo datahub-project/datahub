@@ -1476,12 +1476,12 @@
       "searchBarTitle": "Encontre seus Dados 🔍",
       "welcomeParaph": {
         "getStarted_component": "Vamos começar! 🚀",
-        "intro_component": "DataHub ajuda você a descobrir e organizar os dados importantes dentro da sua organização. Você pode:",
+        "intro_component": "<strong>DataHub</strong> ajuda você a descobrir e organizar os dados importantes dentro da sua organização. Você pode:",
         "listFeatures": {
-          "defineOwnership_component": "Definir propriedade e capturar conhecimento para capacitar os outros",
-          "gainInsight_component": "Obter insights sobre como outros dentro da sua organização estão usando dados",
-          "quicklySearch_component": "Pesquisar rapidamente Datasets, Dashboards, Pipelines de Dados e mais",
-          "viewAndUnderstand_component": "Visualizar e entender toda a Linagem de ponta a ponta de como os dados são criados, transformados e consumidos"
+          "defineOwnership_component": "Definir <strong>propriedade</strong> e capturar <strong>conhecimento</strong> para capacitar os outros",
+          "gainInsight_component": "Obter <strong>insights</strong> sobre como outros dentro da sua organização estão usando dados",
+          "quicklySearch_component": "<strong>Pesquisar</strong> rapidamente Datasets, Dashboards, Pipelines de Dados e mais",
+          "viewAndUnderstand_component": "Visualizar e entender toda a <strong>Linhagem de ponta a ponta</strong> de como os dados são criados, transformados e consumidos"
         },
         "pressKey_component": "Pressione  Cmd + Ctrl + T para abrir este tutorial a qualquer momento."
       },
@@ -1748,7 +1748,7 @@
 
     "searchHeader": "tabelas, tópicos, views e mais",
     "chooseAnOwnerType": "Escolha um tipo de proprietário",
-    "didYouMean_component": "Você quis dizer <suggest>{{suggestText}}</suggest>",
+    "didYouMean_component": "Você quis dizer {{suggestText}}",
     "exploreAll": "Explorar tudo",
     "loadResultError": "Falha ao carregar resultados",
     "modal": {

@@ -28,7 +28,6 @@ export class DomainEntity implements Entity<Domain> {
     }
 
 
-
     translationService: any;
 
     type: EntityType = EntityType.Domain;
@@ -52,6 +51,9 @@ export class DomainEntity implements Entity<Domain> {
                 />
             );
         }
+
+
+
 
 
 

@@ -106,7 +106,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                     component: ModelGroupModels,
                 },
                 {
-                    name: 'Documentation',
+                    name: 'Documentação',
                     component: DocumentationTab,
                 },
                 {

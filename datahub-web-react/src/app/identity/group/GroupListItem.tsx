@@ -73,7 +73,7 @@ export default function GroupListItem({ group, onDelete, selectRoleOptions, refe
                 <GroupItemButtonGroup>
                     {isExternalGroup && (
                         <Tooltip
-                            title={`A associação a este grupo não pode ser editada, pois ela é sincronizada de ${externalGroupType}.`}
+                            title={`Membership for this group cannot be edited as it is synced from ${externalGroupType}.`}
                         >
                             <LockOutlined />
                         </Tooltip>

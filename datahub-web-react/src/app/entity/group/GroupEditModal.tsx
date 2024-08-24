@@ -114,7 +114,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
                     hasFeedback
                 >
                     <Input
-                        placeholder="engineering@example.com"
+                        placeholder="seuemail@examplo.com"
                         value={data.email}
                         onChange={(event) => setData({ ...data, email: event.target.value })}
                     />
@@ -126,7 +126,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
                     hasFeedback
                 >
                     <Input
-                        placeholder="#engineering"
+                        placeholder="#engenharia"
                         value={data.slack}
                         onChange={(event) => setData({ ...data, slack: event.target.value })}
                     />
@@ -134,7 +134,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
 
                 <Form.Item
                     name="photoUrl"
-                    label={<Typography.Text strong>Image URL</Typography.Text>}
+                    label={<Typography.Text strong>Imagem da URL</Typography.Text>}
                     rules={[{ whitespace: true }, { type: 'url', message: 'not valid url' }]}
                     hasFeedback
                 >

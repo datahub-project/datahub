@@ -165,8 +165,8 @@ export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
 };
 
 export const PLATFORM: RecipeField = {
-    name: 'plataforma',
-    label: 'Plataforma',
+    name: 'platform',
+    label: 'Platform',
     tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
     type: FieldType.TEXT,
     fieldPath: 'platform',

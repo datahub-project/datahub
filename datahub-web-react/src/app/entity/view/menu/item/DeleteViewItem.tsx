@@ -14,7 +14,7 @@ type Props = {
 export const DeleteViewItem = ({ key, onClick }: Props) => {
     return (
         <Menu.Item key={key} onClick={onClick} data-testid="view-dropdown-delete">
-            <IconItemTitle tip="Delete this View" title="Delete" icon={<DeleteOutlined />} />
+            <IconItemTitle tip="Excluir esta View" title="Delete" icon={<DeleteOutlined />} />
         </Menu.Item>
     );
 };

@@ -78,7 +78,7 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getAutoCompleteFieldName = () => 'title';
 
-    getPathName = () => 'dashboard';
+    getPathName = () => 'Painéis';
 
     getEntityName = () => this.translationService('common.dashboard');
 
@@ -173,7 +173,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     component: IncidentTab,
                     getDynamicName: (_, dashboard) => {
                         const activeIncidentCount = dashboard?.dashboard?.activeIncidents.total;
-                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                        return `Incidentes${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
             ]}

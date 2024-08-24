@@ -48,15 +48,14 @@ const SUBTYPES = {
  */
 export class DatasetEntity implements Entity<Dataset> {
 
-
     constructor(translationService: any) {
         this.translationService = translationService;
     }
 
-
     translationService: any;
 
     type: EntityType = EntityType.Dataset;
+
 
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -214,7 +213,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Access Management',
+                    name: ' Access Management',
                     component: AccessManagement,
                     display: {
                         visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,

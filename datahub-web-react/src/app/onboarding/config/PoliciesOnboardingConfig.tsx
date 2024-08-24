@@ -11,18 +11,18 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
         title: 'Policies',
         content: (
             <Typography.Paragraph>
-              <p>
-                    Bem-vindo às <strong>Políticas</strong> do DataHub!
+                <p>
+                    Welcome to DataHub <strong>Policies</strong>!
                 </p>
                 <p>
-                    Na maioria dos casos, <strong>Funções</strong> são a melhor opção para conceder privilégios aos usuários do DataHub.
+                    In most cases, <strong>Roles</strong> are the best option for granting privileges to DataHub users.
                 </p>
                 <p>
-                    Quando for necessário um controle mais refinado sobre as permissões de usuários e grupos,{' '}
-                    <strong>Políticas</strong> resolverão o problema.
+                    When more fine-grained control over user and group permissions is required, then{' '}
+                    <strong>Policies</strong> will do the trick.
                 </p>
                 <p>
-                    Saiba mais sobre <strong>Políticas</strong>{' '}
+                    Learn more about <strong>Policies</strong>{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
@@ -42,7 +42,7 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                Clique aqui para criar uma nova <strong>Política</strong>.
+                    Click here to create a new <strong>Policy</strong>.
                 </p>
             </Typography.Paragraph>
         ),

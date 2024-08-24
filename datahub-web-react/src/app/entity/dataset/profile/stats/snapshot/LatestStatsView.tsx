@@ -17,7 +17,6 @@ export type Props = {
 
 export default function LatestStatsView({ profile, toggleView }: Props) {
     const { t } = useTranslation();
-
     const reportedAtDate = new Date(profile.timestampMillis);
     return (
         <>

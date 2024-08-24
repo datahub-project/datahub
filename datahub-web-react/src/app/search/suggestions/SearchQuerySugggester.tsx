@@ -34,7 +34,7 @@ export default function SearchQuerySuggester({ suggestions }: Props) {
 
     return (
         <TextWrapper>
-            {t('search.didYouMean_component')}<SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
+            {t('search.didYouMean_component',{suggestText:suggestText})}
         </TextWrapper>
     );
 }

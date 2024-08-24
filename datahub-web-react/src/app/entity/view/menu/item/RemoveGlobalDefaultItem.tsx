@@ -15,8 +15,8 @@ export const RemoveGlobalDefaultItem = ({ key, onClick }: Props) => {
     return (
         <Menu.Item key={key} onClick={onClick}>
             <IconItemTitle
-                tip="Remove this View as your organization's default."
-                title="Remove organization default"
+                tip="Remova esta View como padrão da sua organização."
+                title="Remover padrão da organização"
                 icon={<StopOutlined />}
             />
         </Menu.Item>

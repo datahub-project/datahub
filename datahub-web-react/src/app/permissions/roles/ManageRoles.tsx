@@ -124,7 +124,7 @@ export const ManageRoles = () => {
                         userUrns: actorUrns,
                     });
                     message.success({
-                        content: `Assigned Role to users!`,
+                        content: `Função atribuída aos usuários!`,
                         duration: 2,
                     });
                     setTimeout(() => {
@@ -135,7 +135,7 @@ export const ManageRoles = () => {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to assign Role to users: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Falha ao atribuir função aos usuários: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 resetRoleState();
@@ -228,7 +228,7 @@ export const ManageRoles = () => {
             {rolesLoading && !rolesData && (
                 <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
             )}
-            {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
+            {rolesError && message.error('Falha ao carregar funções! Um erro inesperado ocorreu.')}
             <SourceContainer>
                 <TabToolbar>
                     <div />

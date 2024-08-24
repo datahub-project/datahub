@@ -21,10 +21,10 @@ export function RestrictedEntityProfile() {
                 <LogoIcon>
                     <PreviewImage preview={false} src={RestrictedIcon} alt="restricted" />
                 </LogoIcon>
-                <PlatformText>Restricted</PlatformText>
+                <PlatformText>Restrito</PlatformText>
             </PlatformContentWrapper>
-            <EntityTitle level={3}>Restricted Asset</EntityTitle>
-            <SubHeader>This asset is Restricted. Please request access to see more.</SubHeader>
+            <EntityTitle level={3}>Ativo Restrito</EntityTitle>
+            <SubHeader>Este ativo é restrito. Solicite acesso para ver mais.</SubHeader>
         </>
     );
 }

@@ -63,7 +63,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                         rules={[
                             {
                                 required: true,
-                                message: 'Please enter a name for your View.',
+                                message: 'Insira um nome para sua Visualização.',
                             },
                             { whitespace: true },
                             { min: 1, max: 50 },
@@ -72,7 +72,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                     >
                         <Input
                             data-testid="view-name-input"
-                            placeholder="Data Analyst"
+                            placeholder="Analista de Dados"
                             onChange={(event) => setName(event.target.value)}
                             disabled={mode === ViewBuilderMode.PREVIEW}
                         />
@@ -83,7 +83,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                     <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                         <Input.TextArea
                             data-testid="view-description-input"
-                            placeholder="This View is useful for Data Analysts"
+                            placeholder="Esta visualização é útil para analistas de dados"
                             onChange={(event) => setDescription(event.target.value)}
                             disabled={mode === ViewBuilderMode.PREVIEW}
                         />

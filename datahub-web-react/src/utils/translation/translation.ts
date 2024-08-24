@@ -110,7 +110,7 @@ export function translateDisplayNames(t: any, displayName: string | null | undef
         searcheslastweek: t('analytics.searchesLastWeek'),
         sectionviewsacrossentitytypes: t('analytics.sectionViewsAcrossEntitytypes'),
 
-        //onBoarding
+        // onboarding
         businessglossary: t('onBoarding.businessGlossary.businessGlossaryIntroTitle'),
         businessglossarydescription: t('onBoarding.businessGlossary.businessGlossaryIntro_component'),
         glossarytermsdescription: t('onBoarding.businessGlossary.businessGlossaryCreateTerm_component'),
@@ -134,9 +134,6 @@ export function translateDisplayNames(t: any, displayName: string | null | undef
         groupsdescription: t('onBoarding.groups.groupsIntro_component'),
         createanewgroupdescription: t('onBoarding.groups.createGroups_component'),
         createanewgroup: t('onBoarding.groups.createGroupsTitle'),
-
-
-
 
         createGroups_component: t('onBoarding.groups.createGroups_component'),
         ingestionCreate_component: t('onBoarding.ingestion.ingestionCreate_component'),
@@ -183,18 +180,24 @@ export function translateDisplayNames(t: any, displayName: string | null | undef
         ownersdescription: t('onBoarding.entityProfile.owners_component'),
         tagsdescription: t('onBoarding.entityProfile.tags_component'),
         domaindescription: t('onBoarding.entityProfile.domains_component'),
-
-        //ingest
-        lookmlGithubDeployKeyToolTipOne: t('ingest.lookml.lookmlGithubDeployKeyToolTipOne'),
-        lookmlGithubDeployKeyToolTipTwo: t('ingest.lookml.lookmlGithubDeployKeyToolTipTwo'),
-        thePreferredWayToObboardNewUsers: t('ingest.common.thePreferredWayToObboardNewUsers'),
-        learnMoreAboutConfiguringSingleLogin: t('ingest.common.learnMoreAboutConfiguringSingleLogin'),
-
-        // onboarding
         ingestdata: t('onBoarding.homePage.ingestionTitle'),
         ingestdatadescription: t('onBoarding.homePage.ingestion_component'),
         findyourdata: t('onBoarding.homePage.searchBarTitle'),
         findyourdatadescription: t('onBoarding.homePage.searchBar_component'),
+        welcometodatahub: t('onBoarding.homePage.welcomeTitle'),
+        welcometodatahubdescription: `${t('onBoarding.homePage.welcomeParaph.intro_component')}<ul>
+            <li>${t('onBoarding.homePage.welcomeParaph.listFeatures.quicklySearch_component')}</li>
+            <li>${t('onBoarding.homePage.welcomeParaph.listFeatures.viewAndUnderstand_component')}</li>
+            <li>${t('onBoarding.homePage.welcomeParaph.listFeatures.gainInsight_component')}</li>
+            <li>${t('onBoarding.homePage.welcomeParaph.listFeatures.defineOwnership_component')}</li></ul>
+            <p>${t('onBoarding.homePage.welcomeParaph.getStarted_component')}</p>
+            ${t('onBoarding.homePage.welcomeParaph.pressKey_component')}`,
+
+        // ingest
+        lookmlGithubDeployKeyToolTipOne: t('ingest.lookml.lookmlGithubDeployKeyToolTipOne'),
+        lookmlGithubDeployKeyToolTipTwo: t('ingest.lookml.lookmlGithubDeployKeyToolTipTwo'),
+        thePreferredWayToObboardNewUsers: t('ingest.common.thePreferredWayToObboardNewUsers'),
+        learnMoreAboutConfiguringSingleLogin: t('ingest.common.learnMoreAboutConfiguringSingleLogin'),
 
     }
 

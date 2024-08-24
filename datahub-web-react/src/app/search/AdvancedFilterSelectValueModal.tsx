@@ -43,7 +43,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === OWNERS_FILTER_NAME) {
         return (
             <EditOwnersModal
-                title="Select Owners"
+                title="Selecione proprietários"
                 urns={[]}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
@@ -61,7 +61,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === DOMAINS_FILTER_NAME) {
         return (
             <SetDomainModal
-                titleOverride="Select Domain"
+                titleOverride="Selecione o domínio"
                 urns={[]}
                 defaultValue={
                     initialValues?.map((urn) => ({
@@ -81,7 +81,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === CONTAINER_FILTER_NAME) {
         return (
             <ContainerSelectModal
-                titleOverride="Select Container"
+                titleOverride="Selecione o contêiner"
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
                     entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
@@ -102,7 +102,7 @@ export const AdvancedFilterSelectValueModal = ({
                     urn,
                     entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
-                titleOverride="Select Platform"
+                titleOverride="Selecione a plataforma"
                 onCloseModal={onCloseModal}
                 onOk={(platformUrns) => {
                     onSelect(platformUrns);
@@ -115,7 +115,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === FIELD_PATHS_FILTER_NAME) {
         return (
             <EditTextModal
-                title="Filter by Column"
+                title="Filtrar por coluna"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOk={(newValue) => {
@@ -129,7 +129,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === DESCRIPTION_FILTER_NAME || filterField === FIELD_DESCRIPTIONS_FILTER_NAME) {
         return (
             <EditTextModal
-                title="Filter by Description"
+                title="Filtrar por descrição"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOk={(newValue) => {
@@ -143,7 +143,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === ORIGIN_FILTER_NAME) {
         return (
             <EditTextModal
-                title="Filter by Environment"
+                title="Filtrar por ambiente"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOk={(newValue) => {
@@ -157,7 +157,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === TYPE_NAMES_FILTER_NAME) {
         return (
             <EditTextModal
-                title="Filter by Sub Type"
+                title="Filtrar por subtipo"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOk={(newValue) => {
@@ -171,7 +171,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === ENTITY_FILTER_NAME) {
         return (
             <ChooseEntityTypeModal
-                title="Filter by Entity Type"
+                title="Filtrar por tipo de entidade"
                 defaultValues={initialValues}
                 onCloseModal={onCloseModal}
                 onOk={(newValues) => {

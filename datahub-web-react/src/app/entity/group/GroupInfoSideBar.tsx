@@ -49,9 +49,9 @@ type Props = {
 const AVATAR_STYLE = { margin: '3px 5px 3px 0px' };
 
 const TITLES = {
-    about: 'About',
-    members: 'Members ',
-    editGroup: 'Edit Group',
+    about: 'Sobre',
+    members: 'Membros ',
+    editGroup: 'Editar grupo',
 };
 
 const GroupNameHeader = styled(Row)`

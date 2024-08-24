@@ -120,7 +120,7 @@ export const UserList = () => {
         <>
             <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_INVITE_LINK_ID, USERS_ASSIGN_ROLE_ID]} />
             {!usersData && loading && <Message type="loading" content="Loading users..." />}
-            {error && <Message type="error" content="Falha ao carregar usuários! Um erro inesperado ocorreu." />}
+            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
             <UserContainer>
                 <TabToolbar>
                     <div>

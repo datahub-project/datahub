@@ -25,7 +25,8 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
         title: '💪 Dive deeper with advanced filters',
         content: (
             <Typography.Paragraph>
-                <strong>Filtros Avançados</strong> oferecem recursos adicionais para criar consultas de pesquisa mais específicas.            </Typography.Paragraph>
+                <strong>Advanced Filters</strong> offer additional capabilities to create more specific search queries.
+            </Typography.Paragraph>
         ),
     },
     {
@@ -35,9 +36,9 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
         style: { minWidth: '425px' },
         content: (
             <Typography.Paragraph>
-                Tem uma ideia clara do esquema ou pasta que está procurando? Navegue facilmente pelo seu
-                plataformas da organização inline. Em seguida, selecione um contêiner específico onde deseja filtrar seus resultados
-                por.
+                Have a clear idea of the schema or folder you&apos;re searching for? Easily navigate your
+                organization&apos;s platforms inline. Then select a specific container you want to filter your results
+                by.
             </Typography.Paragraph>
         ),
     },
@@ -48,8 +49,8 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
         title: 'Filters Have Moved',
         content: (
             <Typography.Paragraph>
-              Encontre rapidamente ativos relevantes com nossa interface de filtro nova e aprimorada! Nossa última atualização foi realocada
-              filtros na parte superior da tela para facilitar o acesso.
+                Quickly find relevant assets with our new and improved filter interface! Our latest update has relocated
+                filters to the top of the screen for ease of access.
             </Typography.Paragraph>
         ),
     },

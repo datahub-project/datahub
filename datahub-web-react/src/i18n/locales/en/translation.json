@@ -1461,12 +1461,12 @@
       "searchBarTitle": "Find your Data 🔍",
       "welcomeParaph": {
         "getStarted_component": "Let's get started! 🚀",
-        "intro_component": "DataHub helps you discover and organize the important data within your organization. You can:",
+        "intro_component": "<strong>DataHub</strong> helps you discover and organize the important data within your organization. You can:",
         "listFeatures": {
-          "defineOwnership_component": "Define ownership and capture knowledge to empower others",
-          "gainInsight_component": "Gain insights about how others within your organization are using data",
-          "quicklySearch_component": "Quickly search for Datasets, Dashboards, Data Pipelines, and more",
-          "viewAndUnderstand_component": "View and understand the full end-to-end Lineage of how data is created, transformed, and consumed"
+          "defineOwnership_component": "Define <strong>ownership</strong> and capture <strong>knowledge</strong> to empower others",
+          "gainInsight_component": "Gain <strong>insights</strong> about how others within your organization are using data",
+          "quicklySearch_component": "Quickly <strong>search</strong> for Datasets, Dashboards, Data Pipelines, and more",
+          "viewAndUnderstand_component": "View and understand the full <strong>end-to-end Lineage</strong> of how data is created, transformed, and consumed"
         },
         "pressKey_component": "Press  Cmd + Ctrl + T to open up this tutorial at any time."
       },

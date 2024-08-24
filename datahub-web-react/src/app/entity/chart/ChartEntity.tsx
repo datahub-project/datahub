@@ -167,7 +167,7 @@ export class ChartEntity implements Entity<Chart> {
                     component: PropertiesTab,
                 },
                 {
-                    name: 'Incidents',
+                    name: 'Incident',
                     component: IncidentTab,
                     getDynamicName: (_, chart) => {
                         const activeIncidentCount = chart?.chart?.activeIncidents.total;

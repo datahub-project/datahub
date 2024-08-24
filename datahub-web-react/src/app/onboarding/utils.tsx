@@ -84,7 +84,7 @@ export function getStepsToRender(
             content: (
                 <div>
                     <StepTitle level={5}>{translateDisplayNames(t, step?.title?.toString())}</StepTitle>
-                    <div>{step?.title ? translateDisplayNames(t, step?.title?.toString() + 'description') : step?.content}</div>
+                    <div dangerouslySetInnerHTML={{ __html: translateDisplayNames(t, step?.title?.toString() + 'description') }} />
                 </div>
             ),
         }));

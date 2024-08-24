@@ -132,7 +132,7 @@ function CreateGlossaryEntityModal(props: Props) {
 
     return (
         <Modal
-            title={`Criar ${entityRegistry.getEntityName(entityType)}`}
+            title={`${t('common.create')} ${entityRegistry.getEntityName(entityType)}`}
             visible
             onCancel={onClose}
             footer={
@@ -167,7 +167,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         rules={[
                             {
                                 required: true,
-                                message: `Enter a ${entityRegistry.getEntityName(entityType)} name.`,
+                                message: t('form.enterANameWithName', { name: entityRegistry.getEntityName(entityType)}),
                             },
                             { whitespace: true },
                             { min: 1, max: 100 },
@@ -200,7 +200,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 >
                     <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
                         <EditOutlined />
-                        {documentation ? t('common.edit') : t('common.add')} {t('common.documentation')} 
+                        {documentation ? t('common.edit') : t('common.add')} {t('common.documentation')}
                     </StyledButton>
                     {isDocumentationModalVisible && (
                         <DescriptionModal

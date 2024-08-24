@@ -240,7 +240,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             VIEW_ALLOW,
             VIEW_DENY,
         ],
-        filterSectionTooltip: 'Incluir ou excluir projetos, conjuntos de dados, tabelas e visualizações específicos da ingestão.',
+        filterSectionTooltip: 'Include or exclude specific Projects, Datasets, Tables and Views from ingestion.',
     },
     [BIGQUERY_BETA]: {
         fields: [
@@ -267,7 +267,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             VIEW_ALLOW,
             VIEW_DENY,
         ],
-        filterSectionTooltip: 'Incluir ou excluir projetos, conjuntos de dados, tabelas e visualizações específicos da ingestão.',
+        filterSectionTooltip: 'Include or exclude specific Projects, Datasets, Tables and Views from ingestion.',
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
@@ -281,7 +281,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
-        filterSectionTooltip: 'Incluir ou excluir esquemas, tabelas e visualizações específicos da ingestão.',
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
     [TABLEAU]: {
         fields: [

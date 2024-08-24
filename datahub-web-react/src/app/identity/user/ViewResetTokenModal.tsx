@@ -63,13 +63,13 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                         userUrn,
                     });
                     setHasGeneratedResetToken(true);
-                    message.success('Novo link gerado para redefinir credenciais');
+                    message.success('Generated new link to reset credentials');
                 }
             })
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Falha ao criar novo link para redefinir credenciais: \n ${e.message || ''}`,
+                    content: `Failed to create new link to reset credentials : \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
@@ -85,7 +85,7 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
             footer={null}
             title={
                 <Typography.Text>
-                    <b>{t('authentification.Reset User Password<')}</b>
+                    <b>{t('authentification.resetUserPassword')}</b>
                 </Typography.Text>
             }
             visible={visible}
@@ -95,7 +95,7 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                 <ModalSection>
                     <ModalSectionHeader strong>{t('authentification.shareResetLink')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                    {t('authentification.shareResetLinkDescription_component')}
+                        {t('authentification.shareResetLinkDescription_component', { username: username})}
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: inviteLink }}>
                         <pre>{inviteLink}</pre>
@@ -103,17 +103,16 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                 </ModalSection>
             ) : (
                 <ModalSection>
-                    <ModalSectionHeader strong>                    {t('authentification.newLinkMustBeGenerated')}
-                    </ModalSectionHeader>
+                    <ModalSectionHeader strong>{t('authentification.newLinkMustBeGenerated')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                    {t('authentification.newLinkMustBeGeneratedDescription')}
+                        {t('authentification.newLinkMustBeGeneratedDescription')}
                     </ModalSectionParagraph>
                 </ModalSection>
             )}
             <ModalSection>
                 <ModalSectionHeader strong>{t('authentification.generateNewLink')}</ModalSectionHeader>
                 <ModalSectionParagraph>
-                Gere um novo link de redefinição! Observe que todos os links antigos <b>deixarão de estar ativos</b>.
+                    {t('authentification.generateNewLinkDescription_component')}
                 </ModalSectionParagraph>
                 <CreateResetTokenButton
                     onClick={createNativeUserResetToken}

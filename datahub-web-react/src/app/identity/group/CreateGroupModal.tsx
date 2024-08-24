@@ -67,7 +67,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 })
                 .catch((e) => {
                     message.destroy();
-                    message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `${t('crud.error.createWithName', { name: t('common.group') })}!: \n ${e.message || ''}`, duration: 3 });
                 })
                 .finally(() => {
                     setStagedName('');
