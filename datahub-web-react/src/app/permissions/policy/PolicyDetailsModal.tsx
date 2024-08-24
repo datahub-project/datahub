@@ -118,31 +118,31 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                 </div>
             );
         }
-        return <PoliciesTag>Sim - Todos os proprietários</PoliciesTag>;
+        return <PoliciesTag>Yes - All owners</PoliciesTag>;
     };
 
     return (
         <Modal title={policy?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
-                    <Typography.Title level={5}>Tipo</Typography.Title>
+                    <Typography.Title level={5}>Type</Typography.Title>
                     <ThinDivider />
                     <PoliciesTag>{policy?.type}</PoliciesTag>
                 </div>
                 <div>
-                    <Typography.Title level={5}>Estado</Typography.Title>
+                    <Typography.Title level={5}>State</Typography.Title>
                     <ThinDivider />
                     <Tag color={isActive ? 'green' : 'red'}>{policy?.state}</Tag>
                 </div>
                 <div>
-                    <Typography.Title level={5}>Descrição</Typography.Title>
+                    <Typography.Title level={5}>Description</Typography.Title>
                     <ThinDivider />
                     <Typography.Text type="secondary">{policy?.description}</Typography.Text>
                 </div>
                 {isMetadataPolicy && (
                     <>
                         <div>
-                            <Typography.Title level={5}>Tipo de ativo</Typography.Title>
+                            <Typography.Title level={5}>Asset Type</Typography.Title>
                             <ThinDivider />
                             {(resourceTypes?.length &&
                                 resourceTypes.map((value, key) => {
@@ -157,10 +157,10 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                                             </Typography.Text>
                                         </PoliciesTag>
                                     );
-                                })) || <PoliciesTag>Todos</PoliciesTag>}
+                                })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                         <div>
-                            <Typography.Title level={5}>Ativos</Typography.Title>
+                            <Typography.Title level={5}>Assets</Typography.Title>
                             <ThinDivider />
                             {(resourceEntities?.length &&
                                 resourceEntities.map((value, key) => {
@@ -187,7 +187,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                             </div>
                         )}
                         <div>
-                            <Typography.Title level={5}>Domínios</Typography.Title>
+                            <Typography.Title level={5}>Domains</Typography.Title>
                             <ThinDivider />
                             {(domains?.length &&
                                 domains.map((value, key) => {
@@ -197,12 +197,12 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                                             {getEntityTag(value)}
                                         </PoliciesTag>
                                     );
-                                })) || <PoliciesTag>Tudo</PoliciesTag>}
+                                })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                     </>
                 )}
                 <Privileges>
-                    <Typography.Title level={5}>Privilégios</Typography.Title>
+                    <Typography.Title level={5}>Privileges</Typography.Title>
                     <ThinDivider />
                     {privileges?.map((priv, key) => (
                         // eslint-disable-next-line react/no-array-index-key
@@ -210,12 +210,12 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     ))}
                 </Privileges>
                 <div>
-                    <Typography.Title level={5}>Aplica-se aos proprietários</Typography.Title>
+                    <Typography.Title level={5}>Applies to Owners</Typography.Title>
                     <ThinDivider />
                     {resourceOwnersField(policy?.actors)}
                 </div>
                 <div>
-                    <Typography.Title level={5}>Aplica-se a usuários</Typography.Title>
+                    <Typography.Title level={5}>Applies to Users</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup
                         users={policy?.actors?.resolvedUsers}
@@ -223,10 +223,10 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                         maxCount={50}
                         size={28}
                     />
-                    {policy?.actors?.allUsers ? <Tag>Todos os usuários</Tag> : null}
+                    {policy?.actors?.allUsers ? <Tag>All Users</Tag> : null}
                 </div>
                 <div>
-                    <Typography.Title level={5}>Aplica-se a grupos</Typography.Title>
+                    <Typography.Title level={5}>Applies to Groups</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup
                         groups={policy?.actors?.resolvedGroups}
@@ -234,10 +234,10 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                         maxCount={50}
                         size={28}
                     />
-                    {policy?.actors?.allGroups ? <Tag>Todos os grupos</Tag> : null}
+                    {policy?.actors?.allGroups ? <Tag>All Groups</Tag> : null}
                 </div>
                 <div>
-                    <Typography.Title level={5}>Aplica-se a funções</Typography.Title>
+                    <Typography.Title level={5}>Applies to Roles</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup
                         roles={policy?.actors?.resolvedRoles}

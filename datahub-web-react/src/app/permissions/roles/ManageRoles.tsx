@@ -124,7 +124,7 @@ export const ManageRoles = () => {
                         userUrns: actorUrns,
                     });
                     message.success({
-                        content: `Função atribuída aos usuários!`,
+                        content: `Assigned Role to users!`,
                         duration: 2,
                     });
                     setTimeout(() => {
@@ -135,7 +135,7 @@ export const ManageRoles = () => {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Falha ao atribuir função aos usuários: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to assign Role to users: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 resetRoleState();

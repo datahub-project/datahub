@@ -27,7 +27,7 @@ function getRefineSearchText(filters: FacetFilterInput[], viewUrn?: string | nul
     if (filters.length && viewUrn) {
         text = 'clearing all filters and selected view';
     } else if (filters.length) {
-        text = 'limpando todos os filtros';
+        text = 'clearing all filters';
     } else if (viewUrn) {
         text = 'clearing the selected view';
     }
@@ -79,7 +79,7 @@ export default function EmptySearchResults({ suggestions }: Props) {
             )}
             {!refineSearchText && suggestText && (
                 <>
-                    {t('search.didYouMean_component',{suggestText:suggestText})} 
+                    {t('search.didYouMean_component',{suggestText:suggestText})}
                 </>
             )}
             {!refineSearchText && !suggestText && (

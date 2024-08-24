@@ -258,9 +258,9 @@ export const ManagePolicies = () => {
                             maxCount={3}
                             size={28}
                         />
-                        {record?.allUsers ? <ActorTag>Todos os usuários</ActorTag> : null}
-                        {record?.allGroups ? <ActorTag>Todos os grupos</ActorTag> : null}
-                        {record?.resourceOwners ? <ActorTag>Todos os proprietários</ActorTag> : null}
+                        {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
+                        {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
+                        {record?.resourceOwners ? <ActorTag>All Owners</ActorTag> : null}
                     </>
                 );
             },
