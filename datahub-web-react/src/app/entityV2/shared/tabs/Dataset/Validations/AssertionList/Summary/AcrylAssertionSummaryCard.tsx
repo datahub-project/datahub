@@ -104,7 +104,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
 
     const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
 
-    /** Build the Assertion Redirect Search Param URL to help add with location pathname for redirection*/
+    /** Build the Assertion Redirect Search Param URL to help add with location pathname for redirection */
     const buildAssertionUrlSearch = ({
         type,
         status,
