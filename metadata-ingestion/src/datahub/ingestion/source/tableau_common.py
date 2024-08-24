@@ -918,7 +918,6 @@ def query_metadata_cursor_based_pagination(
     after: Optional[str],
     qry_filter: str = "",
 ) -> dict:
-
     query = f"""
         query GetItems(
           $first: Int,

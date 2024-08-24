@@ -345,6 +345,11 @@ class TableauConfig(
         default=10,
         description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
     )
+
+    fetch_size: int = Field(
+        default=200, description="How many records to fetch at a time"
+    )
+
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
     # returns warnings like this:
     # {
@@ -1080,14 +1085,12 @@ class TableauSiteSource:
                     self.report.warning(
                         title="Node Limit Errors",
                         message="Increase your tableau node limit",
-                        context=str(
-                            {
-                                "errors": node_limit_errors,
-                                "connection_type": connection_type,
-                                "query_filter": query_filter,
-                                "query": query,
-                            }
-                        ),
+                        context=f"""{{
+                                "errors": {node_limit_errors},
+                                "connection_type": {connection_type},
+                                "query_filter": {query_filter},
+                                "query": {query},
+                        }}""",
                     )
             else:
                 # As of Tableau Server 2024.2, the metadata API sporadically returns a 30 second
@@ -1168,7 +1171,7 @@ class TableauSiteSource:
                     query=query,
                     connection_type=connection_type,
                     query_filter=filter_,
-                    count=page_size,
+                    count=self.config.fetch_size,
                     current_cursor=current_cursor,
                 )
 
