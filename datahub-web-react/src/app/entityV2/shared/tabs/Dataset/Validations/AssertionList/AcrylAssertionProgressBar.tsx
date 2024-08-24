@@ -16,7 +16,7 @@ const StyledProgressContainer = styled.div`
     display: flex;
     height: 8px;
     width: 100%;
-    border-radius: 10px,
+    border-radius: 20px,
     overflow: hidden;
     background-color: #e0e0e0;
 `;
@@ -25,7 +25,7 @@ const StyledSegment = styled.div<{ width: number; color: string }>`
     width: ${({ width }) => `${width}%`};
     background-color: ${({ color }) => color};
     height: 100%;
-    border-radius: 10px;
+    border-radius: 20px;
 `;
 
 export const AcrylAssertionProgressBar: React.FC<Props> = ({ summary }) => {
@@ -36,9 +36,9 @@ export const AcrylAssertionProgressBar: React.FC<Props> = ({ summary }) => {
 
     return (
         <StyledProgressContainer>
-            <StyledSegment width={passingPercent} color="#52C41A" /> {/* Green for passing */}
-            <StyledSegment width={failingPercent} color="#FF4D4F" /> {/* Red for failing */}
-            <StyledSegment width={erroringPercent} color="#FAAD14" />
+            <StyledSegment width={passingPercent} color="#548239" />
+            <StyledSegment width={failingPercent} color="#D23939" />
+            <StyledSegment width={erroringPercent} color="#EEAE09" />
         </StyledProgressContainer>
     );
 };
