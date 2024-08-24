@@ -24,7 +24,7 @@ export const ASSERTION_STATUS_WITH_COLOR_MAP = {
         icon: <CheckOutlined />,
         text: 'Passing',
         headerComponent: (
-            <StyledCardTitle background="#F1F8EE" color={'#548239'}>
+            <StyledCardTitle background="#F1F8EE" color="#548239">
                 <CheckOutlined /> Passing
             </StyledCardTitle>
         ),
@@ -36,7 +36,7 @@ export const ASSERTION_STATUS_WITH_COLOR_MAP = {
         icon: <CloseOutlined />,
         text: 'Failing',
         headerComponent: (
-            <StyledCardTitle background="#FCF2F2" color={'#D23939'}>
+            <StyledCardTitle background="#FCF2F2" color="#D23939">
                 <CloseOutlined /> Failing
             </StyledCardTitle>
         ),
@@ -48,7 +48,7 @@ export const ASSERTION_STATUS_WITH_COLOR_MAP = {
         icon: <InfoCircleOutlined />,
         text: 'Errors',
         headerComponent: (
-            <StyledCardTitle background="#FEF9ED" color={'#EEAE09'}>
+            <StyledCardTitle background="#FEF9ED" color="#EEAE09">
                 <InfoCircleOutlined /> Error
             </StyledCardTitle>
         ),

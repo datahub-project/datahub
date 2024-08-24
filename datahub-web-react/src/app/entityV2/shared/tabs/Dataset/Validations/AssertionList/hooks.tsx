@@ -1,14 +1,13 @@
-import * as QueryString from 'query-string';
 import React, { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { Table, TableColumnsType, Typography } from 'antd';
 import styled from 'styled-components';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
 import { AssertionResultType, AssertionType } from '@src/types.generated';
+import { useHistory, useLocation } from 'react-router';
 import { AssertionName } from './AssertionName';
 import { getAssertionGroupName } from '../acrylUtils';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
-import { useHistory, useLocation } from 'react-router';
 import { AssertionListFilter } from './types';
 import { getQueryParams } from '../assertionUtils';
 
@@ -155,6 +154,7 @@ export const useSetFilterFromURLParams = (
 
             history.replace(newUrl);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [assertionType, assertionStatus, location, history]);
 
     return { filter };

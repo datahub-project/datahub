@@ -4,11 +4,11 @@ import { RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { AssertionResultType, AssertionType, EntityType } from '@src/types.generated';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { AssertionGroup } from '../../acrylTypes';
 import { getAssertionGroupName } from '../../acrylUtils';
 import { AcrylAssertionProgressBar, AssertionProgressSummary } from '../AcrylAssertionProgressBar';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { ASSERTION_STATUS_WITH_COLOR_MAP, ASSERTION_STYPE_AND_ICON_MAP } from '../AcrylAssertionListConstants';
 import { AcrylAssertionSummarySection } from './AcrylAssertionSummarySection';
 

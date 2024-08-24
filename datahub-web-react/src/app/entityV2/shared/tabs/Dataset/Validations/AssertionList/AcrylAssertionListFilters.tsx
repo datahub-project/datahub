@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { isEmpty } from 'lodash';
 import styled from 'styled-components';
 import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFilters';
 import { AcrylAssertionListSearch } from './AcrylAssertionListSearch';
@@ -57,9 +56,9 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     const handleFilterChange = (updatedFilters: FilterItem[]) => {
         /** Set Recommended Filters when there is value in type,status or others if not then set it as empty to clear the filter */
         const selectedRecommendedFilters = updatedFilters.reduce<Record<string, string[]>>(
-            (acc, filter) => {
-                acc[filter.category] = acc[filter.category] || [];
-                acc[filter.category].push(filter.name);
+            (acc, selectedfilter) => {
+                acc[selectedfilter.category] = acc[selectedfilter.category] || [];
+                acc[selectedfilter.category].push(selectedfilter.name);
                 return acc;
             },
             { type: [], status: [], others: [] },

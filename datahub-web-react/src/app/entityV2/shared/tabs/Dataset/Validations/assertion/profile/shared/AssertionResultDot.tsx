@@ -1,8 +1,8 @@
 import React from 'react';
+import styled from 'styled-components';
 
 import { AssertionResultType, AssertionRunEvent } from '../../../../../../../../../types.generated';
 import { getResultDotIcon } from '../../../assertionUtils';
-import styled from 'styled-components';
 
 const StyledAssertionResultDotContainer = styled.div`
     display: flex;

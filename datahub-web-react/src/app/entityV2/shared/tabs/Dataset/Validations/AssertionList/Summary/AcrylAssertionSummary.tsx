@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { AcrylAssertionSummaryCard } from './AcrylAssertionSummaryCard';
 import styled from 'styled-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
@@ -9,7 +8,9 @@ import {
     createAssertionGroups,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
 } from '../../acrylUtils';
+import { AcrylAssertionSummaryCard } from './AcrylAssertionSummaryCard';
 import { AssertionGroup } from '../../acrylTypes';
+import { AcrylAssertionsSummaryLoading } from '../../AcrylAssertionsSummaryLoading';
 
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;
@@ -18,11 +19,6 @@ const AcrylAssertionSummaryContainer = styled.div`
     padding: 24px;
     row-gap: 24px;
     column-gap: 24px;
-`;
-
-const CardWrapper = styled.div`
-    display: flex;
-    justify-content: center;
 `;
 
 export const AcrylAssertionSummary = () => {
@@ -46,10 +42,16 @@ export const AcrylAssertionSummary = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
     return (
-        <AcrylAssertionSummaryContainer>
-            {groupedAssertions.map((group: AssertionGroup) => (
-                <AcrylAssertionSummaryCard group={group} />
-            ))}
-        </AcrylAssertionSummaryContainer>
+        <>
+            {loading ? (
+                <AcrylAssertionsSummaryLoading />
+            ) : (
+                <AcrylAssertionSummaryContainer>
+                    {groupedAssertions.map((group: AssertionGroup) => (
+                        <AcrylAssertionSummaryCard group={group} />
+                    ))}
+                </AcrylAssertionSummaryContainer>
+            )}
+        </>
     );
 };
