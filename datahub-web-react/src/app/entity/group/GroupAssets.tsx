@@ -21,7 +21,7 @@ export const GroupAssets = ({ urn }: Props) => {
                     filters: [{ field: 'owners', values: [urn] }],
                 }}
                 emptySearchQuery="*"
-                placeholderText="Filtrar entidades..."
+                placeholderText="Filter entities..."
             />
         </GroupAssetsWrapper>
     );

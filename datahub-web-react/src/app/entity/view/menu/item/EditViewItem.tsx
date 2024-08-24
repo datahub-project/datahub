@@ -14,7 +14,7 @@ type Props = {
 export const EditViewItem = ({ key, onClick }: Props) => {
     return (
         <Menu.Item key={key} onClick={onClick} data-testid="view-dropdown-edit">
-            <IconItemTitle tip="Editar esta View" title="Edit" icon={<FormOutlined />} />
+            <IconItemTitle tip="Edit this View" title="Edit" icon={<FormOutlined />} />
         </Menu.Item>
     );
 };

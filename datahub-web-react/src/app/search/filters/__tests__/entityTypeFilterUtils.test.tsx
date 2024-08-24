@@ -66,7 +66,7 @@ describe('getDisplayedFilterOptions', () => {
                     />
                 ),
                 style: { padding: 0 },
-                displayName: 'Conjuntos de Dados',
+                displayName: 'Datasets',
                 nestedOptions: [
                     { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'DATASET␞table', count: 6 },
                     { field: ENTITY_SUB_TYPE_FILTER_NAME, value: 'DATASET␞view', count: 6 },
@@ -164,7 +164,7 @@ describe('getDisplayedFilterOptions', () => {
                     />
                 ),
                 style: { padding: 0 },
-                displayName: 'Conjuntos de Dados',
+                displayName: 'Datasets',
                 nestedOptions: [],
             },
         ];

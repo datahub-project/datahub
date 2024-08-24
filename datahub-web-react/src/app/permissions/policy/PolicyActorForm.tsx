@@ -236,22 +236,22 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     return (
         <ActorForm layout="vertical">
             <ActorFormHeader>
-                <Typography.Title level={4}>Aplica-se a</Typography.Title>
-                <Typography.Paragraph>Selecione os usuários e grupos aos quais esta política deve ser aplicada</Typography.Paragraph>
+                <Typography.Title level={4}>Applies to</Typography.Title>
+                <Typography.Paragraph>Select the users & groups that this policy should apply to.</Typography.Paragraph>
             </ActorFormHeader>
             {showAppliesToOwners && (
-                <Form.Item label={<Typography.Text strong>os Proprietários</Typography.Text>} labelAlign="right">
+                <Form.Item label={<Typography.Text strong>Owners</Typography.Text>} labelAlign="right">
                     <Typography.Paragraph>
-                    Se esta política deve ser aplicada aos proprietários do ativo de metadados. Se for verdade, aqueles que são
-                        marcados como proprietários de um Ativo de Metadados, direta ou indiretamente por meio de um Grupo, terão o
-                        privilégios selecionados.
+                        Whether this policy should be apply to owners of the Metadata asset. If true, those who are
+                        marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the
+                        selected privileges.
                     </Typography.Paragraph>
                     <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
                             <Typography.Paragraph>
-                            Lista de tipos de propriedade que serão usados ​​para combinar proprietários. Se estiver vazio, as políticas
-                            será aplicado a qualquer tipo de propriedade.
+                                List of types of ownership which will be used to match owners. If empty, the policies
+                                will applied to any type of ownership.
                             </Typography.Paragraph>
                             <Select
                                 value={ownershipTypesSelectValue}
@@ -281,8 +281,8 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             )}
             <Form.Item label={<Typography.Text strong>Users</Typography.Text>}>
                 <Typography.Paragraph>
-                Pesquise usuários específicos aos quais esta política deve ser aplicada ou selecione "Todos os usuários" para aplicá-la a todos
-                Usuários.
+                    Search for specific users that this policy should apply to, or select `All Users` to apply it to all
+                    users.
                 </Typography.Paragraph>
                 <Select
                     data-testid="users"
@@ -298,13 +298,13 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {userSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">Todos os usuários</Select.Option>
+                    <Select.Option value="All">All Users</Select.Option>
                 </Select>
             </Form.Item>
             <Form.Item label={<Typography.Text strong>Groups</Typography.Text>}>
                 <Typography.Paragraph>
-                    Pesquise grupos específicos aos quais esta política deve ser aplicada ou selecione `Todos os grupos` para aplicá-la
-                    todos os grupos.
+                    Search for specific groups that this policy should apply to, or select `All Groups` to apply it to
+                    all groups.
                 </Typography.Paragraph>
                 <Select
                     data-testid="groups"
@@ -320,7 +320,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {groupSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">Todos os grupos</Select.Option>
+                    <Select.Option value="All">All Groups</Select.Option>
                 </Select>
             </Form.Item>
         </ActorForm>

@@ -1,4 +1,3 @@
-// TODO: Ajustar para utilizar o label original ao invés de sobrescrever.
 export function translateDisplayNames(t: any, displayName: string | null | undefined) {
     if (!displayName) return
     let displayNameFormatted = displayName.trim().replaceAll(' ', '').replaceAll(/[^a-zA-Z\s]/g, '').toLowerCase();

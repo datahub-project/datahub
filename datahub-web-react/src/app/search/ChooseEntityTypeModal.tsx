@@ -48,7 +48,7 @@ export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title
             <Select
                 mode="multiple"
                 style={{ width: '100%' }}
-                placeholder="Conjuntos de dados, painéis, gráficos e muito mais..."
+                placeholder="Datasets, Dashboards, Charts, and more..."
                 onSelect={(newValue) => addEntityType(newValue)}
                 onDeselect={(newValue) => removeEntityType(newValue)}
                 value={stagedValues.map((stagedEntityType) => ({

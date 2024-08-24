@@ -80,9 +80,8 @@ const SearchIcon = styled(SearchOutlined)`
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
 const RELEVANCE_QUERY_OPTION_TYPE = 'recommendation';
 
-// TODO: Ajustar para buscar do arquivo de traduções
 const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
-    label: <EntityTypeLabel>Filtrar por</EntityTypeLabel>,
+    label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
     options: [
         {
             value: 'quick-filter-unique-key',

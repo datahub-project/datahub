@@ -44,8 +44,8 @@ export const ViewOption = ({
     return (
         <Container>
             <IconPlaceholder>
-                {isUserDefault && <UserDefaultViewIcon title="Sua visualização padrão." />}
-                {isGlobalDefault && <GlobalDefaultViewIcon title="A visualização padrão da sua organização." />}
+                {isUserDefault && <UserDefaultViewIcon title="Your default View." />}
+                {isGlobalDefault && <GlobalDefaultViewIcon title="Your organization's default View." />}
             </IconPlaceholder>
             <ViewOptionName name={view.name} description={view.description} />
             <ViewDropdownMenu
