@@ -65,14 +65,21 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
         logger.info("[Config] Snowflake tag sync enabled")
         self.tag_propagator = None
         self.term_propagator = None
-        if self.config.tag_propagation:
+
+        if (
+            self.config.tag_propagation is not None
+            and self.config.tag_propagation.enabled
+        ):
             logger.info("[Config] Will propagate DataHub Tags")
             if self.config.tag_propagation.tag_prefixes:
                 logger.info(
                     f"[Config] Tag prefixes: {self.config.tag_propagation.tag_prefixes}"
                 )
             self.tag_propagator = TagPropagationAction(self.config.tag_propagation, ctx)
-        if self.config.term_propagation:
+        if (
+            self.config.term_propagation is not None
+            and self.config.term_propagation.enabled
+        ):
             logger.info("[Config] Will propagate Glossary Terms")
             self.term_propagator = TermPropagationAction(
                 self.config.term_propagation, ctx
@@ -114,6 +121,7 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
     def process_directive(
         self, directive: Union[TermPropagationDirective, TagPropagationDirective]
     ) -> None:
+
         entity_to_apply = directive.entity
         tag_to_apply = (
             directive.tag
@@ -124,24 +132,14 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
             f"Will {directive.operation.lower()} {tag_to_apply} on Snowflake {entity_to_apply}"
         )
 
-        if isinstance(directive, TagPropagationDirective):
-            if directive.operation == "ADD":
-                self.snowflake_tag_helper.apply_tag_or_term(
-                    entity_to_apply, tag_to_apply, self.ctx.graph
-                )
-            else:
-                self.snowflake_tag_helper.remove_tag_or_term(
-                    entity_to_apply, tag_to_apply, self.ctx.graph
-                )
+        if directive.operation == "ADD":
+            self.snowflake_tag_helper.apply_tag_or_term(
+                entity_to_apply, tag_to_apply, self.ctx.graph
+            )
         else:
-            if directive.operation == "ADD":
-                self.snowflake_tag_helper.apply_tag_or_term(
-                    entity_to_apply, tag_to_apply, self.ctx.graph
-                )
-            else:
-                self.snowflake_tag_helper.remove_tag_or_term(
-                    entity_to_apply, tag_to_apply, self.ctx.graph
-                )
+            self.snowflake_tag_helper.remove_tag_or_term(
+                entity_to_apply, tag_to_apply, self.ctx.graph
+            )
 
     def act(self, event: EventEnvelope) -> None:
         if not self._stats.event_processing_stats:
@@ -167,7 +165,10 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
                         event=event
                     )
 
-                if propagation_directive is not None:
+                if (
+                    propagation_directive is not None
+                    and propagation_directive.propagate
+                ):
                     self.process_directive(propagation_directive)
             self._stats.event_processing_stats.end(event, success=True)
         except Exception as e:

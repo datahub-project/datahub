@@ -1,3 +1,4 @@
+import { useAppConfig } from '@app/useAppConfig';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { useGetBulkEntityLineageV2Query } from '../../graphql/lineage.generated';
 import { LineageDirection } from '../../types.generated';
@@ -21,6 +22,7 @@ import { addQueryNodes, entityNodeDefault, pruneDuplicateEdges } from './useSear
 const BATCH_SIZE = 10;
 
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
+    const flags = useAppConfig().config.featureFlags;
     const { nodes, edges, adjacencyList, dataVersion, setDataVersion, setDisplayVersion } =
         useContext(LineageNodesContext);
     shownUrns.sort();
@@ -71,7 +73,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         let changed = false;
         data?.entities?.forEach((rawEntity) => {
             if (!rawEntity) return;
-            const config = entityRegistry.getLineageVizConfigV2(rawEntity.type, rawEntity);
+            const config = entityRegistry.getLineageVizConfigV2(rawEntity.type, rawEntity, flags);
             if (!config) return;
             const entity = { ...config, lineageAssets: entityRegistry.getLineageAssets(rawEntity.type, rawEntity) };
 
@@ -98,7 +100,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             setDataVersion((version) => version + 1);
             setDisplayVersion(([version, n]) => [version + 1, n]); // TODO: Also remove with above todo
         }
-    }, [data, nodes, edges, adjacencyList, entityRegistry, setDataVersion, setDisplayVersion]);
+    }, [data, nodes, edges, adjacencyList, entityRegistry, setDataVersion, setDisplayVersion, flags]);
 
     return useCallback(
         (urn: string) =>

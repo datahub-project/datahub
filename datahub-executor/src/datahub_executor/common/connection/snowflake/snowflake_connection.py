@@ -2,7 +2,9 @@ import logging
 from typing import Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeConfig
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
 from snowflake.connector import SnowflakeConnection as NativeSnowflakeConnection
 
 from datahub_executor.common.connection.connection import Connection
@@ -14,7 +16,9 @@ logger = logging.getLogger(__name__)
 class SnowflakeConnection(Connection):
     """A connection to Snowflake"""
 
-    def __init__(self, urn: str, config: SnowflakeConfig, graph: DataHubGraph):
+    def __init__(
+        self, urn: str, config: SnowflakeConnectionConfig, graph: DataHubGraph
+    ):
         super().__init__(urn, SNOWFLAKE_PLATFORM_URN)
         self.config = config
         self.graph = graph

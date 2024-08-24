@@ -252,6 +252,7 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
                     {shouldShowInferDocsAction && (
                         <InferDocsPanelWrapper>
                             <InferDocsPanel
+                                urn={mutationUrn}
                                 inferOnMount={inferOnMount}
                                 onInsertDescription={(desc) => {
                                     handleEditorChange(updatedDescription + desc);

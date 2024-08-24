@@ -6,10 +6,10 @@ ARG PIP_MIRROR_URL=null
 ARG VIRTUAL_ENV=/datahub-ingestion/.venv
 
 # Base Image Common To All
-FROM $BASE_IMAGE:$DOCKER_VERSION as base
+FROM $BASE_IMAGE:$DOCKER_VERSION AS base
 USER 0
 
-FROM base as build
+FROM base AS build
 
 COPY ./datahub-executor /datahub-executor
 COPY ./metadata-ingestion /metadata-ingestion
@@ -55,7 +55,7 @@ odbcinst -q -d -n "ODBC Driver 18 for SQL Server" || { echo 'ODBC Driver 18 for 
 EOF
 
 RUN if [ $(arch) = "x86_64" ]; then \
-    mkdir /opt/oracle && \
+    mkdir -p /opt/oracle && \
     cd /opt/oracle && \
     wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/216000/instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
     unzip instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
@@ -63,7 +63,7 @@ RUN if [ $(arch) = "x86_64" ]; then \
     sh -c "echo /opt/oracle/instantclient_21_6 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
     ldconfig; \
     else \
-    mkdir /opt/oracle && \
+    mkdir -p /opt/oracle && \
     cd /opt/oracle && \
     wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/191000/instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
     unzip instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
@@ -79,11 +79,11 @@ WORKDIR /datahub-ingestion
 RUN uv pip install --no-cache -e .
 
 ## Production Image Built From Build Image
-FROM build as prod-install
+FROM build AS prod-install
 
 USER datahub
 
-FROM prod-install as dev-install
+FROM prod-install AS dev-install
 
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
@@ -91,7 +91,7 @@ FROM prod-install as dev-install
 ENV PYTHONPATH="/metadata-ingestion/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
 ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion/src"
 
-FROM ${APP_ENV}-install as final
+FROM ${APP_ENV}-install AS final
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
 ENTRYPOINT []

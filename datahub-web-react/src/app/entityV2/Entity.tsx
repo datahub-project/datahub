@@ -1,5 +1,5 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import { EntityType, Exact, SearchResult } from '../../types.generated';
+import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '../../types.generated';
 import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { EntitySidebarSection, EntitySidebarTab } from './shared/types';
@@ -192,7 +192,7 @@ export interface Entity<T> {
     /**
      * Returns generic entity properties for the entity
      */
-    getGenericEntityProperties: (data: T) => GenericEntityProperties | null;
+    getGenericEntityProperties: (data: T, flags?: FeatureFlagsConfig) => GenericEntityProperties | null;
 
     /**
      * Returns the supported features for the entity

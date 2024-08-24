@@ -10,10 +10,11 @@ import {
     UnlockOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { Dataset, DatasetProperties, EntityType, SearchResult } from '../../../types.generated';
+import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '../../searchV2/matches/matchedFieldPathsRenderer';
@@ -22,7 +23,7 @@ import { useAppConfig } from '../../useAppConfig';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import { SubType, TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -312,7 +313,19 @@ export class DatasetEntity implements Entity<Dataset> {
         },
     ];
 
-    getOverridePropertiesFromEntity = (dataset?: Dataset | null): GenericEntityProperties => {
+    #shouldMergeInLineage(dataset?: Dataset | null, flags?: FeatureFlagsConfig): boolean {
+        // Lineage query must include platform and typeNames on dataset and its sibling
+        return (
+            !!flags?.hideDbtSourceInLineage &&
+            dataset?.platform?.urn === DBT_URN &&
+            !!dataset?.subTypes?.typeNames?.includes(SubType.DbtSource)
+        );
+    }
+
+    getOverridePropertiesFromEntity = (
+        dataset?: Dataset | null,
+        flags?: FeatureFlagsConfig,
+    ): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         const subTypes = dataset?.subTypes;
 
@@ -320,11 +333,27 @@ export class DatasetEntity implements Entity<Dataset> {
             ...dataset?.properties,
             qualifiedName: dataset?.properties?.qualifiedName || this.displayName(dataset),
         };
+
+        const firstSibling = dataset?.siblingsSearch?.searchResults?.[0]?.entity as Dataset | undefined;
+        const isReplacedBySibling = this.#shouldMergeInLineage(dataset, flags);
+        const isSiblingHidden = this.#shouldMergeInLineage(firstSibling, flags);
+
+        const lineageUrn = isReplacedBySibling ? firstSibling?.urn : undefined;
+        let lineageSiblingIcon: string | undefined;
+        if (isReplacedBySibling) {
+            // Swap lineage urn and show as merged with sibling, extra icon is the original entity icon
+            lineageSiblingIcon = dataset?.platform?.properties?.logoUrl ?? undefined;
+        } else if (isSiblingHidden) {
+            // Same lineage urn but show as merged with sibling, extra icon is the sibling's icon
+            lineageSiblingIcon = firstSibling?.platform?.properties?.logoUrl ?? undefined;
+        }
         return {
             name: dataset && this.displayName(dataset),
             externalUrl: dataset?.properties?.externalUrl,
             entityTypeOverride: subTypes ? capitalizeFirstLetterOnly(subTypes.typeNames?.[0]) : '',
             properties: extendedProperties,
+            lineageUrn,
+            lineageSiblingIcon,
         };
     };
 
@@ -455,11 +484,12 @@ export class DatasetEntity implements Entity<Dataset> {
         return data.platform.properties?.logoUrl || undefined;
     };
 
-    getGenericEntityProperties = (data: Dataset) => {
+    getGenericEntityProperties = (data: Dataset, flags?: FeatureFlagsConfig) => {
         return getDataForEntityType({
             data,
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
+            flags,
         });
     };
 

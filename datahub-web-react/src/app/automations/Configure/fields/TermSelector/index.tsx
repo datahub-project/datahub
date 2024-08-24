@@ -3,196 +3,157 @@
  * Please keep this agnostic and reusable
  */
 
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
-import { Select } from 'antd';
 import styled from 'styled-components';
 
-import { useGetSearchResultsQuery } from '@graphql/search.generated';
-import { EntityType, GlossaryTerm, Tag as TagType, GlossaryNode } from '@src/types.generated';
-import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
-
+import { EntityType } from '@src/types.generated';
 import { TagsAndTermsSelected } from '@app/automations/types';
+
+import { TermOption } from './TermOption';
+import type { RadioValue } from './types';
 
 const Wrapper = styled.div`
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 16px;
 `;
-
-const Label = styled.div`
-    font-size: 12px;
-    margin-bottom: 2px;
-`;
-
-// Clean data
-const cleanData = (data: any) =>
-    data?.search?.searchResults?.map((searchResult: any) => searchResult.entity as any) || [];
 
 interface Props {
-    tagsAndTermsSelected: TagsAndTermsSelected;
-    setTagsAndTermsSelected: (terms: TagsAndTermsSelected) => void;
+    termsSelected: TagsAndTermsSelected;
+    termPropagationEnabled: boolean;
+    tagPropagationEnabled: boolean;
+    setTermsSelected: (terms: TagsAndTermsSelected) => void;
+    setTermPropagationEnabled: (enabled: boolean) => void;
+    setTagPropagationEnabled: (enabled: boolean) => void;
     fieldTypes: EntityType[];
 }
 
 // Component
 export const TermSelector = ({
-    tagsAndTermsSelected: termsSelected,
-    setTagsAndTermsSelected: setTermsSelected,
+    termsSelected,
+    termPropagationEnabled,
+    tagPropagationEnabled,
+    setTermsSelected,
+    setTermPropagationEnabled,
+    setTagPropagationEnabled,
     fieldTypes,
 }: Props) => {
-    const [selectedTerms, setSelectedTerms] = React.useState<string[]>(termsSelected.terms);
-    const [selectedTags, setSelectedTags] = React.useState<string[]>(termsSelected.tags);
-    const [selectedNodes, setSelectedNodes] = React.useState<string[]>(termsSelected.nodes);
-    const [termsSearchQuery, setTermsSearchQuery] = useState('');
-    const [nodesSearchQuery, setNodesSearchQuery] = useState('');
-    const [tagsSearchQuery, setTagsSearchQuery] = useState('');
+    // Get the radio value based on the enabled state
+    const getRadioValue = (enabled: boolean) => {
+        if (!enabled) {
+            return 'none' as RadioValue;
+        }
+        return 'some' as RadioValue;
+    };
 
-    const prevProps = useRef(termsSelected);
-
-    // Get glossary terms
-    const {
-        data: glossaryTermData,
-        loading: termLoading,
-        error: termError,
-    } = useGetSearchResultsQuery({
-        variables: {
-            input: {
-                query: termsSearchQuery,
-                type: EntityType.GlossaryTerm,
-                filters: [],
-                start: 0,
-                count: 40,
+    // State
+    const [optionSelected, setOptionsSelected] = React.useState({
+        terms: {
+            selectionType: getRadioValue(termPropagationEnabled),
+            selected: {
+                [EntityType.GlossaryTerm]: termsSelected.terms || [],
+                [EntityType.GlossaryNode]: termsSelected.nodes || [],
+            },
+        },
+        tags: {
+            selectionType: getRadioValue(tagPropagationEnabled),
+            selected: {
+                [EntityType.Tag]: termsSelected.tags || [],
             },
         },
     });
 
-    // Get Tags
-    const {
-        data: tagData,
-        loading: tagLoading,
-        error: tagError,
-    } = useGetSearchResultsQuery({
-        variables: {
-            input: {
-                query: tagsSearchQuery,
-                type: EntityType.Tag,
-                filters: [],
-                start: 0,
-                count: 40,
-            },
-        },
-    });
+    const prevProps = useRef(optionSelected);
 
-    // Get glossary nodes
-    const {
-        data: glossaryNodeData,
-        loading: nodeLoading,
-        error: nodeError,
-    } = useGetSearchResultsQuery({
-        variables: {
-            input: {
-                query: nodesSearchQuery,
-                type: EntityType.GlossaryNode,
-                filters: [],
-                start: 0,
-                count: 40,
-            },
-        },
-    });
+    // Handle the change of the selected terms
+    const handleTermsChange = (values: any, type: string) => {
+        const newTerms = {
+            ...optionSelected[type],
+            selectionType: values.selectionType,
+            selected: values.selected,
+        };
 
-    // Data
-    const terms = cleanData(glossaryTermData);
-    const nodes = cleanData(glossaryNodeData);
-    const tags = cleanData(tagData);
+        if (type === 'terms' && values.selectionType === 'all') {
+            newTerms.selected[EntityType.GlossaryNode] = [];
+            newTerms.selected[EntityType.GlossaryTerm] = [];
+        }
+
+        if (type === 'tags' && values.selectionType === 'all') {
+            newTerms.selected[EntityType.Tag] = [];
+        }
+
+        setOptionsSelected({ ...optionSelected, [type]: newTerms });
+    };
 
     // Send the data back to the parent component
     // Only sends the data if the form data has changed
-    const combinedState = useMemo(
-        () => ({
-            terms: selectedTerms,
-            nodes: selectedNodes,
-            tags: selectedTags,
-        }),
-        [selectedTerms, selectedNodes, selectedTags],
-    );
     useEffect(() => {
         const prevData = prevProps.current;
-        const hasChanged = JSON.stringify(prevData) !== JSON.stringify(combinedState);
-        if (hasChanged) setTermsSelected(combinedState);
-        prevProps.current = combinedState;
-    }, [combinedState, setTermsSelected]);
+        const hasChanged = JSON.stringify(prevData) !== JSON.stringify(optionSelected);
+        if (hasChanged) {
+            setTermsSelected({
+                terms:
+                    optionSelected.terms.selectionType === 'some'
+                        ? optionSelected.terms.selected[EntityType.GlossaryTerm]
+                        : [],
+                nodes:
+                    optionSelected.terms.selectionType === 'some'
+                        ? optionSelected.terms.selected[EntityType.GlossaryNode]
+                        : [],
+                tags: optionSelected.tags.selectionType === 'some' ? optionSelected.tags.selected[EntityType.Tag] : [],
+            });
+
+            setTermPropagationEnabled(optionSelected.terms.selectionType !== 'none');
+            setTagPropagationEnabled(optionSelected.tags.selectionType !== 'none');
+        }
+        prevProps.current = optionSelected;
+    }, [optionSelected, setTermsSelected, setTermPropagationEnabled, setTagPropagationEnabled]);
 
     return (
         <Wrapper>
             {fieldTypes.map((fieldType) => {
                 if (fieldType === EntityType.GlossaryTerm) {
                     return (
-                        <div>
-                            <Label>Glossary Terms</Label>
-                            <Select
-                                mode="multiple"
-                                options={terms.map((term: GlossaryTerm) => ({
-                                    label: <TagTermLabel entity={term} termName={term.properties?.name} />,
-                                    value: term.urn,
-                                }))}
-                                loading={termLoading}
-                                status={termError && 'error'}
-                                value={selectedTerms}
-                                onChange={(value) => setSelectedTerms(value)}
-                                placeholder="Select Glossary Terms…"
-                                allowClear
-                                showArrow
-                                showSearch
-                                onSearch={(q) => setTermsSearchQuery(q)}
-                            />
-                        </div>
-                    );
-                }
-                if (fieldType === EntityType.GlossaryNode) {
-                    return (
-                        <div>
-                            <Label>Term Groups</Label>
-                            <Select
-                                mode="multiple"
-                                options={nodes.map((term: GlossaryNode) => ({
-                                    label: <TagTermLabel entity={term} termName={term.properties?.name} />,
-                                    value: term.urn,
-                                }))}
-                                loading={nodeLoading}
-                                status={nodeError && 'error'}
-                                value={selectedNodes}
-                                onChange={(value) => setSelectedNodes(value)}
-                                placeholder="Select Glossary Groups…"
-                                allowClear
-                                showArrow
-                                showSearch
-                                onSearch={(q) => setNodesSearchQuery(q)}
-                            />
-                        </div>
+                        <TermOption
+                            shortType="terms"
+                            selects={[
+                                {
+                                    label: 'Glossary Terms',
+                                    type: EntityType.GlossaryTerm,
+                                    preselectedOptions: optionSelected.terms.selected[EntityType.GlossaryTerm],
+                                    enabled: fieldTypes.includes(EntityType.GlossaryTerm),
+                                },
+                                {
+                                    label: 'Term Groups',
+                                    type: EntityType.GlossaryNode,
+                                    preselectedOptions: optionSelected.terms.selected[EntityType.GlossaryNode],
+                                    enabled: fieldTypes.includes(EntityType.GlossaryNode),
+                                },
+                            ]}
+                            radio={{
+                                preselectedValue: optionSelected.terms.selectionType,
+                            }}
+                            onChange={(values) => handleTermsChange(values, 'terms')}
+                        />
                     );
                 }
                 if (fieldType === EntityType.Tag) {
                     return (
-                        <div>
-                            <Label>Tags</Label>
-                            <Select
-                                mode="multiple"
-                                options={tags.map((tag: TagType) => ({
-                                    label: <TagTermLabel entity={tag} termName={tag.properties?.name} />,
-                                    value: tag.urn,
-                                }))}
-                                loading={tagLoading}
-                                status={tagError && 'error'}
-                                value={selectedTags}
-                                onChange={(value) => setSelectedTags(value)}
-                                placeholder="Select Tags…"
-                                allowClear
-                                showArrow
-                                showSearch
-                                onSearch={(q) => setTagsSearchQuery(q)}
-                            />
-                        </div>
+                        <TermOption
+                            shortType="tags"
+                            selects={[
+                                {
+                                    label: 'Tags',
+                                    type: EntityType.Tag,
+                                    preselectedOptions: optionSelected.tags.selected[EntityType.Tag],
+                                    enabled: fieldTypes.includes(EntityType.Tag),
+                                },
+                            ]}
+                            radio={{
+                                preselectedValue: optionSelected.tags.selectionType,
+                            }}
+                            onChange={(values) => handleTermsChange(values, 'tags')}
+                        />
                     );
                 }
 

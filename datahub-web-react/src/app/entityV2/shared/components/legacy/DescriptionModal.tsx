@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../constants';
 import InferDocsPanel from '../inferredDocs/InferDocsPanel';
+import { useMutationUrn } from '../../../../entity/shared/EntityContext';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
@@ -53,6 +54,7 @@ export default function UpdateDescriptionModal({
     showPropose,
     inferOnMount,
 }: Props) {
+    const urn = useMutationUrn();
     const [updatedDesc, setDesc] = useState(description || original || '');
     const [editorKey, setEditorKey] = useState(0);
 
@@ -103,6 +105,7 @@ export default function UpdateDescriptionModal({
 
                 {fieldPath && (
                     <InferDocsPanel
+                        urn={urn}
                         forColumnPath={fieldPath}
                         inferOnMount={inferOnMount}
                         onInsertDescription={(desc) => {

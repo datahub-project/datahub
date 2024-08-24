@@ -7,7 +7,7 @@ ARG GITHUB_REPO_URL=https://github.com
 ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
-FROM powerman/dockerize:0.19 as dockerize-binary
+FROM powerman/dockerize:0.19 AS dockerize-binary
 
 FROM python:3.10 AS base
 

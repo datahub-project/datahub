@@ -1,12 +1,12 @@
+import LineageGraph from '@app/lineageV2/LineageGraph';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
-import { EntityType, LineageDirection } from '../../../../../types.generated';
+import { LineageDirection } from '../../../../../types.generated';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { TabRenderType } from '../../types';
 import { CompactLineageTab } from './CompactLineageTab';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
-import LineageExplorerV2 from '../../../../lineageV2/LineageExplorer';
 import { LineageColumnView } from './LineageColumnView';
 import TabFullsizedContext from '../../../../shared/TabFullsizedContext';
 import { useLineageViewState } from './hooks';
@@ -48,7 +48,6 @@ const VisualizationWrapper = styled.div`
 const LineageTabHeader = styled.div`
     display: flex;
     justify-content: space-between;
-    // padding: 0 16px;
 `;
 
 interface Props {
@@ -87,15 +86,11 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
             )}
             {!isVisualizeView && <LineageColumnView defaultDirection={defaultDirection} />}
             {isVisualizeView && !isLineageV2 && <LineageExplorer urn={urn} type={entityType} />}
-            {isVisualizeView && isLineageV2 && <LineageEmbedded urn={urn} type={entityType} />}
+            {isVisualizeView && isLineageV2 && (
+                <VisualizationWrapper>
+                    <LineageGraph />
+                </VisualizationWrapper>
+            )}
         </LineageTabWrapper>
-    );
-}
-
-function LineageEmbedded({ urn, type }: { urn: string; type: EntityType }) {
-    return (
-        <VisualizationWrapper>
-            <LineageExplorerV2 urn={urn} type={type} embedded />
-        </VisualizationWrapper>
     );
 }

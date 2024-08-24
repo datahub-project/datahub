@@ -91,7 +91,8 @@ def assertion_request(execution_request: ExecutionRequest) -> None:
 @typing.no_type_check
 @app.task
 def ingestion_request(event: MetadataChangeLogClass) -> None:
-    execution_request = extract_execution_request(event)
+    global graph
+    execution_request = extract_execution_request(event, graph)
     if execution_request:
         global tp
         global ingestion_executor

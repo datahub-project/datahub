@@ -1,3 +1,4 @@
+import { useAppConfig } from '@src/app/useAppConfig';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import { getDataForEntityType } from './utils';
 import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
@@ -25,6 +26,7 @@ interface Props<T> {
 }
 
 export default function useGetDataForProfile<T>({ urn, entityType, useEntityQuery, getOverrideProperties }: Props<T>) {
+    const flags = useAppConfig().config.featureFlags;
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const {
         loading,
@@ -48,6 +50,7 @@ export default function useGetDataForProfile<T>({ urn, entityType, useEntityQuer
                 entityType,
                 getOverrideProperties,
                 isHideSiblingMode,
+                flags,
             })) ||
         null;
 

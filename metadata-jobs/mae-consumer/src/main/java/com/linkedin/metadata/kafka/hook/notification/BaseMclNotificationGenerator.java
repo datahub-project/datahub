@@ -147,6 +147,11 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       @Nullable final NotificationRecipientsGeneratorExtraContext extraContext) {
     final List<NotificationRecipient> recipients = new ArrayList<>();
 
+    // if entity is hard or soft deleted, return no recipients and send no notification
+    if (!entityExists(opContext, entityUrn)) {
+      return recipients;
+    }
+
     // If we should globally broadcast, build the broadcast recipient.
     if (isEligibleForGlobalRecipients(notificationScenarioType)) {
       recipients.addAll(buildGlobalRecipients(opContext, notificationScenarioType));
@@ -490,6 +495,17 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     } catch (Exception e) {
       log.error(String.format("Failed to get aspect data for  urn %s aspect %s", urn, aspectName));
       return null;
+    }
+  }
+
+  /** This checks if the entity is hard or soft deleted */
+  protected boolean entityExists(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    try {
+      return _entityClient.exists(opContext, entityUrn, false);
+    } catch (Exception e) {
+      log.error(String.format("Failed to get if entity exists for %s", entityUrn));
+      return false;
     }
   }
 

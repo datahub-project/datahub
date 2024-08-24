@@ -19,7 +19,6 @@ import useSearchAcrossLineage from './useSearchAcrossLineage';
 type Props = {
     urn: string;
     type: EntityType;
-    embedded?: boolean;
 };
 
 export default function LineageExplorer(props: Props) {

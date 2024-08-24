@@ -19,7 +19,6 @@ import { TraversalSelector } from './fields/TraversalSelector';
 import { CustomActionSelector } from './fields/CustomActionSelector';
 import { DataAssetSelector } from './fields/DataAssetSelector';
 import { ConditionSelector } from './fields/ConditionSelector';
-import { TagTermToggle } from './fields/TagTermToggle';
 
 interface Props {
     automation: any;
@@ -35,7 +34,7 @@ export const Configure = ({ automation, isEdit = false }: Props) => {
     const [actionSelection, setActionSelection] = useState<string[]>(formData?.actions || []);
     const [conditionSelection, setConditionSelection] = useState<string[]>([]);
     const [assetTypesSelected, setAssetTypesSelected] = useState<string[]>(formData?.source || []);
-    const [tagsAndTermsSelected, setTagsAndTermsSelected] = useState<any>(
+    const [tagsAndTermsSelected, setTermsSelected] = useState<any>(
         formData?.tagsAndTerms || { terms: [], nodes: [], tags: [] },
     );
     const [termPropagationEnabled, setTermPropagationEnabled] = useState<boolean>(
@@ -99,21 +98,14 @@ export const Configure = ({ automation, isEdit = false }: Props) => {
                                 {/* Term Selector */}
                                 {field.type === 'termSelector' && (
                                     <TermSelector
-                                        tagsAndTermsSelected={tagsAndTermsSelected}
-                                        setTagsAndTermsSelected={setTagsAndTermsSelected}
+                                        termsSelected={tagsAndTermsSelected}
+                                        termPropagationEnabled={termPropagationEnabled}
+                                        tagPropagationEnabled={tagPropagationEnabled}
+                                        setTermsSelected={setTermsSelected}
+                                        setTermPropagationEnabled={setTermPropagationEnabled}
+                                        setTagPropagationEnabled={setTagPropagationEnabled}
                                         isRequired={field.isRequired}
                                         fieldTypes={field.fieldTypes}
-                                        {...field.props}
-                                    />
-                                )}
-
-                                {/* Propagation Type Selector */}
-                                {field.type === 'tagTermToggle' && (
-                                    <TagTermToggle
-                                        tagPropagationEnabled={tagPropagationEnabled}
-                                        setTagPropagationEnabled={setTagPropagationEnabled}
-                                        termPropagationEnabled={termPropagationEnabled}
-                                        setTermPropagationEnabled={setTermPropagationEnabled}
                                         {...field.props}
                                     />
                                 )}

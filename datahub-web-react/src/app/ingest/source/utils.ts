@@ -260,7 +260,13 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
     }
 
     // 2. Convert into JSON
-    const structuredReportObject = JSON.parse(structuredReportStr);
+    let structuredReportObject;
+    try {
+        structuredReportObject = JSON.parse(structuredReportStr);
+    } catch (e) {
+        console.error(`Caught exception while parsing structured report!`, e);
+        return null;
+    }
 
     // 3. Transform into the typed model that we have.
     const structuredReport = transformToStructuredReport(structuredReportObject);
