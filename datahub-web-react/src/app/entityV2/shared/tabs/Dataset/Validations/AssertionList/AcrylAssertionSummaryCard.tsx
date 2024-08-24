@@ -2,15 +2,16 @@ import React from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { Tooltip } from 'antd';
 import { AssertionResultType, AssertionType, EntityType } from '@src/types.generated';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { AssertionGroup } from '../acrylTypes';
 import { getAssertionGroupName } from '../acrylUtils';
 import { AcrylAssertionProgressBar, AssertionProgressSummary } from './AcrylAssertionProgressBar';
-import { Tooltip } from 'antd';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { ASSERTION_STATUS_WITH_COLOR_MAP, ASSERTION_STYPE_AND_ICON_MAP } from './AcrylAssertionListConstants';
+import { AcrylAssertionSummarySection } from './Summary/AcrylAssertionSummarySection';
 
 const StyledCard = styled.div`
     display: flex;
@@ -112,7 +113,7 @@ type Props = {
     group: AssertionGroup;
 };
 
-export const AcrylAssertionSummaryCard = ({ group }: Props) => {
+export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
@@ -120,9 +121,9 @@ export const AcrylAssertionSummaryCard = ({ group }: Props) => {
     const name = getAssertionGroupName(group.name);
     const icon = ASSERTION_STYPE_AND_ICON_MAP[group.type];
 
-    const visibleStatus: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
+    const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
 
-    const getAssertionUrlSearch = ({
+    const buildAssertionUrlSearch = ({
         type,
         status,
     }: {
@@ -141,61 +142,61 @@ export const AcrylAssertionSummaryCard = ({ group }: Props) => {
         return params.toString() ? `?${params.toString()}` : '';
     };
 
-    const getTitle = () => {
+    const getHeaderTitle = () => {
         const status = ['failing', 'passing', 'erroring'].find((key) => group.summary[key]);
         return status ? ASSERTION_STATUS_WITH_COLOR_MAP[status].headerComponent : null;
     };
 
     const handleCardClick = (type: AssertionType, event: React.MouseEvent) => {
-        event.stopPropagation(); // Prevent any parent click handlers from being triggered
+        event.stopPropagation(); // Prevent parent click handlers from being triggered
         const url = `${entityRegistry.getEntityUrl(
             EntityType.Dataset,
             entityData.urn,
-        )}/Quality/List${getAssertionUrlSearch({ type })}`;
+        )}/Quality/List${buildAssertionUrlSearch({ type })}`;
         history.push(url);
     };
 
-    const SummarySectionWrapper = () => {
-        return (
-            <SummarySection>
-                {visibleStatus.map((key) => {
-                    const status = ASSERTION_STATUS_WITH_COLOR_MAP[key];
-                    const url = `${entityRegistry.getEntityUrl(
-                        EntityType.Dataset,
-                        entityData.urn,
-                    )}/Quality/List${getAssertionUrlSearch({ type: group.type, status: status.resultType })}`;
-                    return (
-                        <Tooltip
-                            title={
-                                <>
-                                    {group.name} {status.text} Assertions{' '}
-                                    <Link
-                                        to={url}
-                                        style={{ color: REDESIGN_COLORS.BLUE }}
-                                        onClick={(event) => event.stopPropagation()}
-                                    >
-                                        view
-                                    </Link>
-                                </>
-                            }
-                        >
-                            <SummaryContainer>
-                                <StyledSummaryLabel background={status.backgroundColor} color={status.color}>
-                                    {group.summary[key]} {status.text}
-                                </StyledSummaryLabel>
-                            </SummaryContainer>
-                        </Tooltip>
-                    );
-                })}
-            </SummarySection>
-        );
-    };
+    const renderSummarySection = () => (
+        <SummarySection>
+            {visibleStatuses.map((key) => {
+                const status = ASSERTION_STATUS_WITH_COLOR_MAP[key];
+                const url = `${entityRegistry.getEntityUrl(
+                    EntityType.Dataset,
+                    entityData.urn,
+                )}/Quality/List${buildAssertionUrlSearch({ type: group.type, status: status.resultType })}`;
+
+                return (
+                    <Tooltip
+                        key={key}
+                        title={
+                            <>
+                                {group.name} {status.text} Assertions{' '}
+                                <Link
+                                    to={url}
+                                    style={{ color: REDESIGN_COLORS.BLUE }}
+                                    onClick={(event) => event.stopPropagation()}
+                                >
+                                    view
+                                </Link>
+                            </>
+                        }
+                    >
+                        <SummaryContainer>
+                            <StyledSummaryLabel background={status.backgroundColor} color={status.color}>
+                                {group.summary[key]} {status.text}
+                            </StyledSummaryLabel>
+                        </SummaryContainer>
+                    </Tooltip>
+                );
+            })}
+        </SummarySection>
+    );
 
     return (
         <StyledCard onClick={(event) => handleCardClick(group.type, event)}>
-            <div>{getTitle()}</div>
+            <div>{getHeaderTitle()}</div>
             <AssertionDetailsContainer>
-                <AssertionIconWrapper> {icon}</AssertionIconWrapper>
+                <AssertionIconWrapper>{icon}</AssertionIconWrapper>
                 <AssertionTypeDetailsContainer>
                     <AssertionTitle>{name}</AssertionTitle>
                     <AssertionTextContainer>Verifies when this dataset should be updated.</AssertionTextContainer>
@@ -203,7 +204,11 @@ export const AcrylAssertionSummaryCard = ({ group }: Props) => {
             </AssertionDetailsContainer>
             <StyledCardChartSection>
                 <ChartSectionContainer>
-                    <SummarySectionWrapper />
+                    <AcrylAssertionSummarySection
+                        group={group}
+                        visibleStatus={visibleStatuses}
+                        buildAssertionUrlSearch={buildAssertionUrlSearch}
+                    />
                     <ViewAllWrapper>
                         <ViewAllText>View All</ViewAllText>
                         <RightOutlined />

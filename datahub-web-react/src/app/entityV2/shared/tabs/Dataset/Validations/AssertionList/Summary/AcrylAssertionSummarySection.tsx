@@ -1,0 +1,81 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Tooltip } from 'antd';
+import styled from 'styled-components';
+import { AssertionResultType, AssertionType, EntityType } from '@src/types.generated';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { AssertionGroup } from '../../acrylTypes';
+import { ASSERTION_STATUS_WITH_COLOR_MAP } from '../AcrylAssertionListConstants';
+
+const StyledSummaryLabel = styled.div<{ background: string; color: string }>`
+    background: ${({ background }) => background};
+    color: ${({ color }) => color};
+    font-weight: bold;
+    padding: 4px 6px;
+    border-radius: 4px;
+`;
+
+const SummaryContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+`;
+
+const SummarySection = styled.div`
+    display: flex;
+    flex-direction: row;
+    gap: 24px;
+`;
+
+type SummarySectionProps = {
+    group: AssertionGroup;
+    visibleStatus: string[];
+    buildAssertionUrlSearch: ({ type, status }: { type?: AssertionType; status?: AssertionResultType }) => string;
+};
+
+export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({
+    group,
+    visibleStatus,
+    buildAssertionUrlSearch,
+}) => {
+    const entityRegistry = useEntityRegistry();
+    const entityData = useEntityData();
+
+    return (
+        <SummarySection>
+            {visibleStatus.map((key) => {
+                const status = ASSERTION_STATUS_WITH_COLOR_MAP[key];
+                const url = `${entityRegistry.getEntityUrl(
+                    EntityType.Dataset,
+                    entityData.urn,
+                )}/Quality/List${buildAssertionUrlSearch({ type: group.type, status: status.resultType })}`;
+                return (
+                    <Tooltip
+                        title={
+                            <>
+                                {group.name} {status.text} Assertions{' '}
+                                <Link
+                                    to={url}
+                                    style={{ color: REDESIGN_COLORS.BLUE }}
+                                    onClick={(event) => event.stopPropagation()}
+                                >
+                                    view
+                                </Link>
+                            </>
+                        }
+                    >
+                        <SummaryContainer>
+                            <StyledSummaryLabel background={status.backgroundColor} color={status.color}>
+                                {group.summary[key]} {status.text}
+                            </StyledSummaryLabel>
+                        </SummaryContainer>
+                    </Tooltip>
+                );
+            })}
+        </SummarySection>
+    );
+};
