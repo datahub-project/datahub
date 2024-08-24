@@ -4,7 +4,6 @@ import styled from 'styled-components';
 import AcrylAssertionRecommendedFilters from './AcrylAssertionRecommendedFilters';
 import AcrylAssertionListSearch from './AcrylAssertionListSearch';
 import AcryAssertionTypeSelect from './AcryAssertionTypeSelect';
-import { AcrylAssertionFilters } from './AcrylAssertionFilters';
 import { AssertionListFilter, AssertionTable } from './types';
 
 interface FilterItem {
@@ -24,8 +23,7 @@ interface AcrylAssertionListFiltersProps {
 
 const SearchFilterContainer = styled.div`
     display: flex;
-    gap: 20px;
-    align-items: center;
+    align-items: baseline;
 `;
 
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
@@ -36,7 +34,6 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     filteredAssertions,
 }) => {
     const [appliedFilters, setAppliedFilters] = useState<FilterItem[]>([]);
-    const [highlightedMatchIndex, setHighlightedMatchIndex] = useState<number | null>(null);
     const [selectedGroupBy, setSelectedGroupBy] = useState<string>(filter.groupBy || '');
 
     const handleSearchTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,18 +89,9 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                     searchText={filter.filterCriteria.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
                     matchResultCount={filteredAssertions.assertions?.length || 0}
-                    highlightedMatchIndex={highlightedMatchIndex}
-                    setHighlightedMatchIndex={setHighlightedMatchIndex}
                     numRows={allAssertionCount}
                 />
-                <div>
-                    <AcrylAssertionFilters
-                        filterOptions={filterOptions?.filterGroupOptions || []}
-                        selectedFilters={appliedFilters}
-                        onFilterChange={handleFilterChange}
-                    />
-                </div>
-                <div>
+                <div style={{ padding: '10px' }}>
                     <AcryAssertionTypeSelect
                         options={assertionTypeFilters}
                         selectedValue={selectedGroupBy}

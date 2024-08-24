@@ -29,8 +29,9 @@ const SearchContainer = styled.div`
     --antd-wave-shadow-color: transparent;
     flex: auto;
     display: flex;
-    align-items: center;
+    align-items: start;
     white-space: nowrap;
+    flex-direction: column;
 
     .ant-input-group-wrapper {
         border-radius: 20px;
@@ -51,8 +52,10 @@ const SearchContainer = styled.div`
     }
 
     .ant-input-affix-wrapper {
-        border-radius: 20px;
-        border: none;
+        border-radius: 8px;
+        border: 1px solid ${REDESIGN_COLORS.GREY};
+        padding: 3.6px 10px !important;
+        transition: border-color 0.3s ease-in-out;
     }
 
     .ant-input-group-addon {
@@ -62,11 +65,11 @@ const SearchContainer = styled.div`
     }
 
     .ant-input-affix-wrapper:focus {
-        border: none;
+        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 
     .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
-        border: none;
+        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 
     .ant-input-affix-wrapper::selection {
@@ -78,8 +81,6 @@ interface AcrylAssertionListSearchProps {
     searchText: string;
     debouncedSetFilterText: (event: React.ChangeEvent<HTMLInputElement>) => void;
     matchResultCount: number;
-    highlightedMatchIndex: number | null;
-    setHighlightedMatchIndex: (val: number | null) => void;
     numRows: number;
 }
 
@@ -87,16 +88,8 @@ const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
     searchText,
     debouncedSetFilterText,
     matchResultCount,
-    highlightedMatchIndex,
-    setHighlightedMatchIndex,
     numRows,
 }) => {
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.code === 'Enter' && highlightedMatchIndex !== null && matchResultCount > 0) {
-            setHighlightedMatchIndex((highlightedMatchIndex + 1) % matchResultCount);
-        }
-    };
-
     return (
         <SearchContainer>
             <StyledInput
@@ -106,7 +99,6 @@ const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
                 onChange={debouncedSetFilterText}
                 allowClear
                 prefix={<SearchOutlined />}
-                onKeyDown={handleKeyDown}
             />
             {searchText && (
                 <MatchLabelText>

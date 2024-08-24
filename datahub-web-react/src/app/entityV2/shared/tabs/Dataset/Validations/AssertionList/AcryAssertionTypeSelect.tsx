@@ -1,17 +1,21 @@
 import { CaretDownOutlined } from '@ant-design/icons';
+import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
 const StyledSelect = styled(Select)`
-    min-width: 250px;
-    max-width: 250px;
+    min-width: 96px;
     &&& .ant-select-selector {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 500;
         line-height: 24px;
-        color: #595959;
+        color: ${ANTD_GRAY_V2[8]};
         border-radius: 8px;
+        :hover {
+            border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+            color: ${ANTD_GRAY_V2[8]};
+        }
     }
 `;
 
