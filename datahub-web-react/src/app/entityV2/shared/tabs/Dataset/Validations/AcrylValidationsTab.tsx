@@ -9,7 +9,7 @@ import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
-import { AcrylAssertionSummary } from './AssertionList/AcrylAssertionSummary';
+import { AcrylAssertionSummary } from './AssertionList/Summary/AcrylAssertionSummary';
 
 const TabTitle = styled.span`
     margin-left: 4px;

@@ -8,8 +8,8 @@ import {
     AssertionWithMonitorDetails,
     createAssertionGroups,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
-} from '../acrylUtils';
-import { AssertionGroup } from '../acrylTypes';
+} from '../../acrylUtils';
+import { AssertionGroup } from '../../acrylTypes';
 
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;

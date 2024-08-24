@@ -5,13 +5,13 @@ import styled from 'styled-components';
 import { Tooltip } from 'antd';
 import { AssertionResultType, AssertionType, EntityType } from '@src/types.generated';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { AssertionGroup } from '../acrylTypes';
-import { getAssertionGroupName } from '../acrylUtils';
-import { AcrylAssertionProgressBar, AssertionProgressSummary } from './AcrylAssertionProgressBar';
+import { AssertionGroup } from '../../acrylTypes';
+import { getAssertionGroupName } from '../../acrylUtils';
+import { AcrylAssertionProgressBar, AssertionProgressSummary } from '../AcrylAssertionProgressBar';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { ASSERTION_STATUS_WITH_COLOR_MAP, ASSERTION_STYPE_AND_ICON_MAP } from './AcrylAssertionListConstants';
-import { AcrylAssertionSummarySection } from './Summary/AcrylAssertionSummarySection';
+import { ASSERTION_STATUS_WITH_COLOR_MAP, ASSERTION_STYPE_AND_ICON_MAP } from '../AcrylAssertionListConstants';
+import { AcrylAssertionSummarySection } from './AcrylAssertionSummarySection';
 
 const StyledCard = styled.div`
     display: flex;
