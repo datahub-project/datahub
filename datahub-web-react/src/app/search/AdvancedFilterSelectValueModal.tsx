@@ -43,7 +43,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === OWNERS_FILTER_NAME) {
         return (
             <EditOwnersModal
-                title="Selecione proprietários"
+                title="Select Owners"
                 urns={[]}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
@@ -61,7 +61,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === DOMAINS_FILTER_NAME) {
         return (
             <SetDomainModal
-                titleOverride="Selecione o domínio"
+                titleOverride="Select Domain"
                 urns={[]}
                 defaultValue={
                     initialValues?.map((urn) => ({
@@ -81,7 +81,7 @@ export const AdvancedFilterSelectValueModal = ({
     if (filterField === CONTAINER_FILTER_NAME) {
         return (
             <ContainerSelectModal
-                titleOverride="Selecione o contêiner"
+                titleOverride="Select Container"
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
                     entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
@@ -102,7 +102,7 @@ export const AdvancedFilterSelectValueModal = ({
                     urn,
                     entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
-                titleOverride="Selecione a plataforma"
+                titleOverride="Select Platform"
                 onCloseModal={onCloseModal}
                 onOk={(platformUrns) => {
                     onSelect(platformUrns);
