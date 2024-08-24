@@ -4,7 +4,7 @@ import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFiel
 import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
-import React, { Dispatch, SetStateAction, useCallback, useContext } from 'react';
+import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 import { EntityType, LineageDirection } from '../../../types.generated';
@@ -15,7 +15,7 @@ import HealthIcon from '../../previewV2/HealthIcon';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { FetchStatus, getNodeColor, LineageEntity, LineageNodesContext, onClickPreventSelect } from '../common';
+import { FetchStatus, getNodeColor, LineageEntity, onClickPreventSelect } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { FetchedEntityV2 } from '../types';
 import Columns from './Columns';
@@ -111,6 +111,23 @@ const PlatformIcon = styled.img`
     width: 1em;
 `;
 
+const PlatformIconWithSibling = styled.img`
+    height: 0.9em;
+    width: 0.9em;
+    //clip-path: polygon(0 0, 100% 0, 100% 0%, 0% 100%, 0 100%);
+
+    margin-bottom: 0.8em;
+`;
+
+const SiblingPlatformIcon = styled.img`
+    height: 0.9em;
+    width: 0.9em;
+    //clip-path: polygon(100% 0, 100% 0, 100% 100%, 0 100%, 0 100%);
+
+    position: absolute;
+    top: 1.1em;
+`;
+
 const HorizontalDivider = styled.hr<{ margin: number }>`
     border: 0.5px solid;
     margin: ${({ margin }) => margin}px 0;
@@ -137,15 +154,22 @@ const MainTextWrapper = styled.div`
     min-width: 0;
 `;
 
+// Expands to fit vertical space
 const TitleWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    font-size: 14px;
-    gap: 4px;
     overflow: hidden;
-
     flex: 1 0 fit-content;
     min-height: 12px;
+`;
+
+// Positions and aligns title text with health icon
+// Can't be combined with TitleWrapper, or else centered health icon will not align with text when wrapper expands
+const TitleLine = styled.span`
+    font-size: 14px;
+
+    display: flex;
+    align-items: center;
+    height: min-content;
+    gap: 4px;
 `;
 
 const Title = styled(OverflowTitle)`
@@ -205,6 +229,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         selected,
         entity,
         fetchStatus,
+        isExpanded,
         transitionDuration,
         rootUrn,
         setHoveredNode,
@@ -225,8 +250,6 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     } = props;
 
     const entityRegistry = useEntityRegistry();
-    const { nodes } = useContext(LineageNodesContext);
-    const node = nodes.get(urn);
 
     const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
     const expandHeight =
@@ -243,8 +266,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     const [nodeColor] = getNodeColor(type);
     const hasUpstreamChildren = !!entity?.numUpstreamChildren;
     const hasDownstreamChildren = !!entity?.numDownstreamChildren;
-    const isExpandedDownstream = node?.isExpanded[LineageDirection.Downstream];
-    const isExpandedUpstream = node?.isExpanded[LineageDirection.Upstream];
+    const isExpandedDownstream = isExpanded[LineageDirection.Downstream];
+    const isExpandedUpstream = isExpanded[LineageDirection.Upstream];
     const isDownstreamHidden =
         fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE && !isExpandedDownstream;
     const isUpstreamHidden = fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE && !isExpandedUpstream;
@@ -274,7 +297,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 selected={selected}
                 hasUpstreamChildren={hasUpstreamChildren}
                 hasDownstreamChildren={hasDownstreamChildren}
-                isExpanded={node?.isExpanded}
+                isExpanded={isExpanded}
                 fetchStatus={fetchStatus}
                 entity={entity}
                 platformName={platformName}
@@ -344,11 +367,16 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 <CustomHandle type="target" position={Position.Left} isConnectable={false} />
                 <CustomHandle type="source" position={Position.Right} isConnectable={false} />
                 <IconsWrapper>
-                    {entity?.icon ? (
-                        <PlatformIcon src={entity.icon} alt={platformName || 'platform'} title={platformName} />
-                    ) : (
-                        <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />
+                    {entity?.icon && entity.lineageSiblingIcon && (
+                        <>
+                            <PlatformIconWithSibling src={entity.lineageSiblingIcon} />
+                            <SiblingPlatformIcon src={entity.icon} />
+                        </>
                     )}
+                    {entity?.icon && !entity.lineageSiblingIcon && (
+                        <PlatformIcon src={entity.icon} alt={platformName || 'platform'} title={platformName} />
+                    )}
+                    {!entity?.icon && <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />}
                     {entity ? (
                         getTypeIcon(entityRegistry, entity.type, entity.subtype, true)
                     ) : (
@@ -360,10 +388,15 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     <MainTextWrapper>
                         <ContainerPath parents={entity?.parents} />
                         <TitleWrapper>
-                            <Title title={entity?.name} />
-                            {entity?.health && (
-                                <HealthIcon health={entity.health} baseUrl={entityRegistry.getEntityUrl(type, urn)} />
-                            )}
+                            <TitleLine>
+                                <Title title={entity?.name} />
+                                {entity?.health && (
+                                    <HealthIcon
+                                        health={entity.health}
+                                        baseUrl={entityRegistry.getEntityUrl(type, urn)}
+                                    />
+                                )}
+                            </TitleLine>
                         </TitleWrapper>
                         {!!numColumnsTotal && (
                             <ExpandColumnsWrapper onClick={showHideColumns} defaultHeight={10}>

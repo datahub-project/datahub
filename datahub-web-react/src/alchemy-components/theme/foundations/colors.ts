@@ -19,6 +19,8 @@ const colors = {
         1200: '#FBF3EF',
         1300: '#F7FBF4',
         1400: '#E9EAEE',
+        1500: '#F9FAFC',
+        1600: '#5F6685',
     },
 
     violet: {

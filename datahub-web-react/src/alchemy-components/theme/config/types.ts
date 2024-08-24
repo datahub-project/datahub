@@ -36,3 +36,6 @@ export type RotationOptions = '0' | '90' | '180' | '270';
 
 // Variant types
 export type VariantOptions = 'filled' | 'outline';
+
+// Alignment types
+export type AlignmentOptions = 'left' | 'right' | 'center' | 'justify';

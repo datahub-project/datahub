@@ -22,14 +22,17 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     CorpUserEditableInfoClass,
+    CorpUserSettingsClass,
     DataPlatformInstanceClass,
     DataPlatformInstancePropertiesClass,
     DatasetPropertiesClass,
     DeprecationClass,
+    NotificationSettingsClass,
     PlatformResourceInfoClass,
     SerializedValueClass,
     SerializedValueContentTypeClass,
     SerializedValueSchemaTypeClass,
+    SlackNotificationSettingsClass,
     SlackUserInfoClass as SlackUserInfo,
     StatusClass,
     SubTypesClass,
@@ -393,6 +396,7 @@ class SlackSource(Source):
                         entityUrn=user_obj.urn,
                         aspect=slack_user_details.slack_user_info,
                     ).as_workunit()
+                yield from self.emit_corp_user_slack_settings(user_obj)
             cursor = str(response.data["response_metadata"]["next_cursor"])
             if not cursor:
                 break
@@ -543,6 +547,47 @@ class SlackSource(Source):
         slack_user = SlackUserDetails(slack_user_info=user)
         for mcp in slack_user.to_mcps():
             yield mcp.as_workunit()
+
+    def emit_corp_user_slack_settings(
+        self, user_obj: CorpUser
+    ) -> Iterable[MetadataWorkUnit]:
+        assert self.ctx.graph is not None
+
+        if not user_obj.urn:
+            return
+
+        corp_user_settings = self.ctx.graph.get_aspect(
+            user_obj.urn, CorpUserSettingsClass
+        )
+        if not corp_user_settings:
+            return
+
+        notification_settings = corp_user_settings.notificationSettings
+
+        if not notification_settings:
+            corp_user_settings.notificationSettings = NotificationSettingsClass(
+                sinkTypes=[],
+                slackSettings=SlackNotificationSettingsClass(
+                    userHandle=user_obj.slack_id
+                ),
+            )
+        elif (
+            not notification_settings.slackSettings
+            or not notification_settings.slackSettings.userHandle
+        ):
+            notification_settings.slackSettings = SlackNotificationSettingsClass(
+                userHandle=user_obj.slack_id
+            )
+        else:
+            return
+
+        yield MetadataWorkUnit(
+            id=f"{user_obj.urn}",
+            mcp=MetadataChangeProposalWrapper(
+                entityUrn=user_obj.urn,
+                aspect=corp_user_settings,
+            ),
+        )
 
     def get_user_to_be_updated(
         self,

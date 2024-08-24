@@ -44,6 +44,10 @@ export const DEFAULT_APP_CONFIG = {
     },
     testsConfig: {
         enabled: false,
+        executionLimitConfig: {
+            elasticSearchExecutor: 10000,
+            defaultExecutor: 1000,
+        },
     },
     viewsConfig: {
         enabled: false,
@@ -83,6 +87,7 @@ export const DEFAULT_APP_CONFIG = {
         formCreationEnabled: false,
         schemaFieldCLLEnabled: false,
         editableDatasetNameEnabled: false,
+        hideDbtSourceInLineage: false,
     },
     chromeExtensionConfig: {
         enabled: false,

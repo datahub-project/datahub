@@ -61,6 +61,10 @@ query appConfig {
         }
         testsConfig {
             enabled
+            executionLimitConfig {
+                elasticSearchExecutor
+                defaultExecutor
+            }
         }
         viewsConfig {
             enabled
@@ -102,6 +106,7 @@ query appConfig {
             formCreationEnabled
             schemaFieldCLLEnabled
             showSeparateSiblings
+            hideDbtSourceInLineage
         }
         chromeExtensionConfig {
             enabled

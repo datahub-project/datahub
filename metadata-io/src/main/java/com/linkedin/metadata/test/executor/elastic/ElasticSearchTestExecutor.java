@@ -89,7 +89,9 @@ public class ElasticSearchTestExecutor {
   }
 
   public Map<Urn, TestResults> evaluate(
-      TestDefinition testDefinition, @Nonnull final BatchTestRunResult batchTestRunResult) {
+      TestDefinition testDefinition,
+      @Nonnull final BatchTestRunResult batchTestRunResult,
+      final boolean shouldExecuteBatchBeyondLimit) {
     ElasticTestDefinition elasticTestDefinition = convertor.convert(testDefinition);
     TestResultArray emptyResults = new TestResultArray();
     Map<Urn, TestResults> results = new HashMap<>();
@@ -118,7 +120,7 @@ public class ElasticSearchTestExecutor {
     SearchResult passingSearchResult =
         searchService.predicateSearch(
             opContext, entityTypes, "*", passingFilters, null, 0, executionLimit, null);
-    if (passingSearchResult.getNumEntities() >= executionLimit) {
+    if (!shouldExecuteBatchBeyondLimit && passingSearchResult.getNumEntities() >= executionLimit) {
       throw abortBeyondLimitExecution(testDefinition, passingSearchResult.getNumEntities());
     }
     passingSearchResult

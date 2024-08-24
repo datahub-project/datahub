@@ -499,6 +499,26 @@ type TestsConfig {
   Whether Tests feature is enabled
   """
   enabled: Boolean!
+
+  """
+  Configurations related to the asset count limit we can run on tests either manually or in hooks
+  """
+  executionLimitConfig: TestsExecutionLimitConfig!
+}
+
+"""
+Configurations related to the asset count limit we can run on tests either manually or in hooks
+"""
+type TestsExecutionLimitConfig {
+  """
+  The execution limit on the elastic search executor
+  """
+  elasticSearchExecutor: Int!
+
+  """
+  The execution limit on the default executor
+  """
+  defaultExecutor: Int!
 }
 
 """
@@ -1170,6 +1190,14 @@ type FeatureFlagsConfig {
   If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   """
   showSeparateSiblings: Boolean!
+
+  """
+  If turned on, hides DBT Sources from lineage by:
+  i) Hiding the source in the lineage graph, if it has no downstreams
+  ii) Swapping to the source's sibling urn on V2 lineage graph
+  iii) Representing source sibling as a merged node, with both icons on graph and combined version in sidebar
+  """
+  hideDbtSourceInLineage: Boolean!
 }
 
 """

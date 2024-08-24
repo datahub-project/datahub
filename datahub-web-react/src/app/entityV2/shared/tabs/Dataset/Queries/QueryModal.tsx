@@ -1,10 +1,15 @@
 import React from 'react';
-import { Button, Modal, Typography } from 'antd';
+import { Button, Modal, Typography, message } from 'antd';
 import styled from 'styled-components';
 import CopyQuery from './CopyQuery';
 import { ANTD_GRAY } from '../../../constants';
 import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
 import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
+import { useShouldShowInferDocumentationButton } from '../../../components/inferredDocs/utils';
+import { EntityType, QueryLanguage } from '../../../../../../types.generated';
+import { useUpdateQueryMutation } from '../../../../../../graphql/query.generated';
+import analytics, { EventType } from '../../../../../analytics';
+import InferDocsPanel from '../../../components/inferredDocs/InferDocsPanel';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -62,15 +67,70 @@ const NestedSyntax = styled(StyledSyntaxHighlighter)`
     padding: 12px !important;
 `;
 
+const InferDocsWrapper = styled.div`
+    margin: 12px;
+`;
+
 type Props = {
+    urn?: string;
     query: string;
     title?: string;
     description?: string;
+    isAllowedToEdit?: boolean;
     onClose?: () => void;
+    onEditSubmitted: (newQuery) => void;
     showDetails?: boolean;
 };
 
-export default function QueryModal({ query, title, description, showDetails = true, onClose }: Props) {
+export default function QueryModal({
+    urn,
+    query,
+    title,
+    description,
+    showDetails = true,
+    isAllowedToEdit = false,
+    onClose,
+    onEditSubmitted,
+}: Props) {
+    const shouldShowInferenceButton = useShouldShowInferDocumentationButton(EntityType.Query);
+    const [updateQueryMutation] = useUpdateQueryMutation();
+
+    const updateDescription = (newDescription) => {
+        if (urn) {
+            updateQueryMutation({
+                variables: {
+                    urn,
+                    input: {
+                        properties: {
+                            name: title,
+                            description: newDescription,
+                            statement: {
+                                value: query as string,
+                                language: QueryLanguage.Sql,
+                            },
+                        },
+                    },
+                },
+            })
+                .then(({ data, errors }) => {
+                    if (!errors) {
+                        analytics.event({
+                            type: EventType.UpdateQueryEvent,
+                        });
+                        message.success({
+                            content: `Edited Query!`,
+                            duration: 3,
+                        });
+                        onEditSubmitted?.(data?.updateQuery);
+                    }
+                })
+                .catch(() => {
+                    message.destroy();
+                    message.error({ content: 'Failed to edit Query! An unexpected error occurred' });
+                });
+        }
+    };
+
     return (
         <StyledModal
             visible
@@ -101,6 +161,18 @@ export default function QueryModal({ query, title, description, showDetails = tr
                     </QueryTitle>
                     <StyledViewer readOnly secondary={!title} content={description || 'No description'} />
                 </QueryDetails>
+            )}
+            {shouldShowInferenceButton && urn && (
+                <InferDocsWrapper>
+                    <InferDocsPanel
+                        urn={urn}
+                        buttonText="Summarize"
+                        insertText="Save as description"
+                        collapseOnInsert={false}
+                        showInsert={isAllowedToEdit}
+                        onInsertDescription={updateDescription}
+                    />
+                </InferDocsWrapper>
             )}
         </StyledModal>
     );

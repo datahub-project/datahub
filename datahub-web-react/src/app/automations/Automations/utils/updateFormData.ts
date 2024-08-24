@@ -3,10 +3,11 @@ import { unmergeTagsAndTerms } from './unmergeTagsAndTerms';
 
 // Util for safe JSON parsing
 const safeParse = (str: string) => {
+    if (typeof str !== 'string') return str; // Already an object or not a string, no need to parse
     try {
         return JSON.parse(str);
     } catch (e) {
-        return null;
+        return [];
     }
 };
 
@@ -29,30 +30,38 @@ export const updateFormData = (definition, formData) => {
 
         // If the recipe has a config in the action
         if (config) {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            const { term_propagation, tag_propagation, snowflake } = config;
+            const { snowflake } = config;
+            const isSnowflakeConfig = !!snowflake;
 
-            const tagsAndTerms = unmergeTagsAndTerms(
-                safeParse(config?.term_propagation?.target_terms) ?? [],
-                config?.term_propagation?.term_groups ?? [],
-                config?.tag_propagation?.tag_prefixes ?? [],
-            ) || {
+            const terms = config?.term_propagation?.target_terms || config?.target_terms || [];
+
+            const nodes = config?.term_propagation?.term_groups || config?.term_groups || [];
+
+            const tags = config?.tag_propagation?.tag_prefixes || config?.tag_prefixes || [];
+
+            const tagsAndTerms = unmergeTagsAndTerms(safeParse(terms), safeParse(nodes), safeParse(tags)) || {
                 terms: [],
                 tags: [],
                 nodes: [],
             };
 
-            const connection = config?.snowflake || {};
-
-            // If the recipe has term propagation
-            if (term_propagation || tag_propagation) {
+            // If the recipe has tags or terms defined, update the form data
+            if (tagsAndTerms.terms.length > 0 || tagsAndTerms.nodes.length > 0 || tagsAndTerms.tags.length > 0) {
                 updatedFormData.tagsAndTerms = tagsAndTerms;
+            }
+
+            // Update the formData with config info from server
+            if (!isSnowflakeConfig) {
+                // Base Config
+                const hasTermsOrTermGroups = !!config?.term_groups || !!config?.target_terms;
+                updatedFormData.termPropagationEnabled = (hasTermsOrTermGroups && config?.enabled) || true;
+                updatedFormData.tagPropagationEnabled = (!!config?.tag_prefixes && config?.enabled) || true;
+            } else {
+                // If the recipe has a snowflake connection
+                updatedFormData.connection = snowflake ?? {};
                 updatedFormData.termPropagationEnabled = config?.term_propagation?.enabled ?? true;
                 updatedFormData.tagPropagationEnabled = config?.tag_propagation?.enabled ?? true;
             }
-
-            // If the recipe has a snowflake connection
-            if (snowflake) updatedFormData.connection = connection;
         }
     }
 

@@ -13,6 +13,10 @@
 # limitations under the License.
 
 import logging
+import os
+from collections import deque
+from datetime import datetime, timedelta
+from typing import Deque
 
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata._urns.urn_defs import (
@@ -21,7 +25,7 @@ from datahub.metadata._urns.urn_defs import (
     SchemaFieldUrn,
     TagUrn,
 )
-from datahub.metadata.schema_classes import GlossaryNodeInfoClass, GlossaryTermInfoClass
+from datahub.metadata.schema_classes import GlossaryTermInfoClass
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from sqlalchemy import create_engine
@@ -31,6 +35,11 @@ from datahub_integrations.propagation.snowflake.config import (
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+MAX_ERRORS_PER_HOUR = int(
+    os.getenv("MAX_SNOWFLAKE_ERRORS_PER_HOUR", 15)
+)  # To Prevent Locking Out of Snowflake Account.
 
 
 def is_snowflake_urn(urn: str) -> bool:
@@ -49,6 +58,10 @@ class SnowflakeTagHelper(Closeable):
         self.config: SnowflakeConnectionConfigPermissive = config
         url = self.config.get_sql_alchemy_url()
         self.engine = create_engine(url, **self.config.get_options())
+        self.error_timestamps: Deque[datetime] = (
+            deque()
+        )  # To store timestamps of errors
+        self.error_threshold = MAX_ERRORS_PER_HOUR  # Max errors per hour before dropping. To prevent getting locked out.
 
     @staticmethod
     def get_term_name_from_id(term_urn: str, graph: AcrylDataHubGraph) -> str:
@@ -58,20 +71,7 @@ class SnowflakeTagHelper(Closeable):
         if not term_info or not term_info.name:
             return term_id
 
-        term_name = term_info.name
-        parent = term_info.parentNode
-        while parent:
-            node_info = graph.graph.get_aspect(parent, GlossaryNodeInfoClass)
-            parent_name = Urn.create_from_string(parent).get_entity_id_as_string()
-            if node_info:
-                parent = node_info.parentNode
-                if node_info.name:
-                    parent_name = node_info.name
-            else:
-                parent = None
-            term_name = f"{parent_name}.{term_name}"
-
-        return term_name
+        return term_info.name
 
     @staticmethod
     def get_label_urn_to_tag(label_urn: str, graph: AcrylDataHubGraph) -> str:
@@ -82,8 +82,7 @@ class SnowflakeTagHelper(Closeable):
             # if this looks like a guid, we want to resolve to human friendly names
             term_name = SnowflakeTagHelper.get_term_name_from_id(label_urn, graph)
             if term_name is not None:
-                # terms use `.` for separation, replace with _
-                return term_name.replace(".", "_").replace(" ", "_")
+                return term_name
             else:
                 raise ValueError(f"Invalid tag or term urn {label_urn}")
         else:
@@ -116,13 +115,13 @@ class SnowflakeTagHelper(Closeable):
             self._run_query(
                 database,
                 schema,
-                f'ALTER TABLE {table} SET TAG {tag}="{tag_or_term_urn}";',
+                f'ALTER TABLE {table} SET TAG "{tag}"="{tag_or_term_urn}";',
             )
         elif isinstance(parsed_entity_urn, SchemaFieldUrn):
             self._run_query(
                 database,
                 schema,
-                f'ALTER TABLE {table} MODIFY COLUMN {parsed_entity_urn.field_path} SET TAG {tag}="{tag_or_term_urn}";',
+                f'ALTER TABLE {table} MODIFY COLUMN {parsed_entity_urn.field_path} SET TAG "{tag}"="{tag_or_term_urn}";',
             )
 
     def remove_tag_or_term(
@@ -140,7 +139,7 @@ class SnowflakeTagHelper(Closeable):
             self._run_query(
                 database,
                 schema,
-                f"ALTER TABLE {table} UNSET TAG {tag};",
+                f'ALTER TABLE {table} UNSET TAG "{tag}";',
             )
         elif isinstance(parsed_entity_urn, SchemaFieldUrn):
             dataset_urn = DatasetUrn.create_from_string(parsed_entity_urn.parent)
@@ -148,7 +147,7 @@ class SnowflakeTagHelper(Closeable):
             self._run_query(
                 database,
                 schema,
-                f"ALTER TABLE {table} MODIFY COLUMN {parsed_entity_urn.field_path} UNSET TAG {tag};",
+                f'ALTER TABLE {table} MODIFY COLUMN {parsed_entity_urn.field_path} UNSET TAG "{tag}";',
             )
         else:
             raise ValueError(
@@ -161,18 +160,41 @@ class SnowflakeTagHelper(Closeable):
         self._run_query(
             database,
             schema,
-            f"CREATE TAG IF NOT EXISTS {tag_name} COMMENT = 'Replicated Tag {tag_or_term_urn} from DataHub';",
+            f'CREATE TAG IF NOT EXISTS "{tag_name}" COMMENT = "Replicated Tag {tag_or_term_urn} from DataHub";',
         )
 
     def _run_query(self, database: str, schema: str, query: str) -> None:
+
+        # If we hit too many errors in the past 1 hour, then we simply start to drop.
+        if self._too_many_errors():
+            logger.warning(
+                f"Too many errors have occurred in the past hour; skipping issuing query to Snowflake to avoid account lockout! {query}"
+            )
+            return
+
         try:
             self.engine.execute(f"USE {database}.{schema};")
             self.engine.execute(query)
             logger.info(f"Successfully executed query {query}")
-        except Exception as e:
-            logger.warning(
-                f"Failed to execute snowflake query: {query}. Exception: ", e
+        except Exception:
+            logger.exception(
+                f"Failed to execute snowflake query: {query}. Total errors: {len(self.error_timestamps)}"
             )
+            self._log_error()
+
+    def _cleanup_old_errors(self) -> None:
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+        while self.error_timestamps and self.error_timestamps[0] < one_hour_ago:
+            self.error_timestamps.popleft()
+
+    def _log_error(self) -> None:
+        self.error_timestamps.append(datetime.now())
+        self._cleanup_old_errors()
+
+    def _too_many_errors(self) -> bool:
+        self._cleanup_old_errors()
+        logger.info(len(self.error_timestamps))
+        return len(self.error_timestamps) >= self.error_threshold
 
     def close(self) -> None:
         if self.engine:

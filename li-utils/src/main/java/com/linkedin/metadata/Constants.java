@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -350,6 +351,11 @@ public class Constants {
   public static final String EXECUTION_REQUEST_SOURCE_SCHEDULED_INGESTION_SOURCE =
       "SCHEDULED_INGESTION_SOURCE";
   public static final String DEFAULT_EXECUTOR_ID = "default";
+
+  // We use an executorId that maps to no executor since some requests are to be handled by the
+  // mae-consumer
+  public static final String NONE_EXECUTOR_ID =
+      String.join(":", "NONE_EXECUTOR", UUID.randomUUID().toString());
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";

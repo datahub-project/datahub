@@ -387,9 +387,9 @@ export const SearchResults = ({
                                                 highlightedIndex !== null &&
                                                 combinedSiblingSearchResults?.length > highlightedIndex
                                                     ? {
-                                                          urn: combinedSiblingSearchResults[highlightedIndex].entity
+                                                          urn: combinedSiblingSearchResults[highlightedIndex]?.entity
                                                               .urn,
-                                                          type: combinedSiblingSearchResults[highlightedIndex].entity
+                                                          type: combinedSiblingSearchResults[highlightedIndex]?.entity
                                                               .type,
                                                       }
                                                     : null

@@ -4,9 +4,9 @@ ARG APP_ENV=prod
 # ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 ARG RELEASE_VERSION
 
-FROM powerman/dockerize:0.19 as dockerize-binary
+FROM powerman/dockerize:0.19 AS dockerize-binary
 
-FROM python:3.10 as build
+FROM python:3.10 AS build
 
 # # Optionally set corporate mirror for deb
 # ARG DEBIAN_REPO_URL
@@ -75,9 +75,9 @@ RUN --mount=type=cache,target=/datahub-home/.cache/uv,uid=1000,gid=1000 \
     uv pip sync requirements.txt
 
 # Production Image Built From Build Image
-FROM build as prod-install
+FROM build AS prod-install
 
-FROM prod-install as dev-install
+FROM prod-install AS dev-install
 
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # The behavior is a bit tricky - we're mounting dev code over the code that was baked into the image
@@ -91,7 +91,7 @@ FROM prod-install as dev-install
 
 ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src"
 
-FROM ${APP_ENV}-install as final
+FROM ${APP_ENV}-install AS final
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9003/ping || exit 1
 ENTRYPOINT []

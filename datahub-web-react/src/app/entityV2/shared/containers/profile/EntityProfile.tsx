@@ -1,3 +1,4 @@
+import LineageGraph from '@app/lineageV2/LineageGraph';
 import React, { useCallback, useContext, useState } from 'react';
 import { Alert } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
@@ -6,7 +7,6 @@ import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';
 
 import { EntityType, Exact } from '../../../../../types.generated';
-import LineageFullscreen from '../../../../lineageV2/LineageFullscreen';
 import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
 import {
     getEntityPath,
@@ -351,7 +351,7 @@ export const EntityProfile = <T, U>({
                 <OnboardingTour stepIds={filteredStepIds} />
                 <EntityHead />
                 {showError && <ErrorSection />}
-                {showFullScreen && <LineageFullscreen urn={urn} type={entityType} />}
+                {showFullScreen && <LineageGraph isFullscreen />}
                 {!showFullScreen && (
                     <ContentContainer>
                         {showExplorer && <LineageExplorer type={entityType} urn={urn} />}

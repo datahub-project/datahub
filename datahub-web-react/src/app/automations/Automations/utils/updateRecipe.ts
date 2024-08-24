@@ -19,30 +19,57 @@ export const updateRecipe = (recipe, formData: FormDataType) => {
 
         // If the recipe has a config in the action
         if (config) {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            const { term_propagation, tag_propagation, snowflake } = config;
+            const { snowflake } = config;
+            const isSnowflakeConfig = !!snowflake;
 
-            const terms = formData?.tagsAndTerms?.terms || config?.term_propagation?.target_terms || [];
-            const nodes = formData?.tagsAndTerms?.nodes || config?.term_propagation?.term_groups || [];
-            const tags = formData?.tagsAndTerms?.tags || config?.tag_propagation?.tag_prefixes || [];
+            const terms =
+                formData?.tagsAndTerms?.terms || config?.term_propagation?.target_terms || config?.target_terms || [];
 
-            const connection = formData?.connection || config?.snowflake || {};
+            const nodes =
+                formData?.tagsAndTerms?.nodes || config?.term_propagation?.term_groups || config?.term_groups || [];
 
-            // If the recipe has term or term group propagation
-            if (term_propagation) {
-                updatedRecipe.action.config.term_propagation.enabled = formData?.termPropagationEnabled;
-                updatedRecipe.action.config.term_propagation.target_terms = terms;
-                updatedRecipe.action.config.term_propagation.term_groups = nodes;
+            const tags =
+                formData?.tagsAndTerms?.tags || config?.tag_propagation?.tag_prefixes || config?.tag_prefixes || [];
+
+            // Update the recipe with the new config
+            if (!isSnowflakeConfig) {
+                // Base Config
+                updatedRecipe.action.config = {
+                    enabled: true,
+                };
+
+                // If the recipe has term propagation
+                if (config?.target_terms) {
+                    updatedRecipe.action.config.enabled = formData?.termPropagationEnabled || true;
+                    updatedRecipe.action.config.target_terms = terms;
+                }
+
+                // If the recipe has term group propagation
+                if (config?.term_groups) {
+                    updatedRecipe.action.config.enabled = formData?.termPropagationEnabled || true;
+                    updatedRecipe.action.config.term_groups = nodes;
+                }
+
+                // If the recipe has tag propagation
+                if (config.tag_prefixes) {
+                    updatedRecipe.action.config.enabled = formData?.tagPropagationEnabled || true;
+                    updatedRecipe.action.config.tag_prefixes = tags;
+                }
+            } else {
+                // Snowflake config had dif config structure
+                updatedRecipe.action.config = {
+                    term_propagation: {
+                        enabled: formData?.termPropagationEnabled || true,
+                        target_terms: terms,
+                        term_groups: nodes,
+                    },
+                    tag_propagation: {
+                        enabled: formData?.tagPropagationEnabled || true,
+                        tag_prefixes: tags,
+                    },
+                    snowflake: formData?.connection || config?.snowflake || {},
+                };
             }
-
-            // If the recipe has tag propagation
-            if (tag_propagation) {
-                updatedRecipe.action.config.tag_propagation.enabled = formData?.tagPropagationEnabled;
-                updatedRecipe.action.config.tag_propagation.tag_prefixes = tags;
-            }
-
-            // If the recipe has a snowflake connection
-            if (snowflake) updatedRecipe.action.config.snowflake = connection;
         }
     }
 

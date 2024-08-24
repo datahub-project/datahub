@@ -39,7 +39,7 @@ framework_common = {
     "avro>=1.11.3,<1.12",
     "python-dateutil>=2.8.0",
     "tabulate",
-    "progressbar2",
+    "progressbar2==4.4.2",
     "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "Deprecated",

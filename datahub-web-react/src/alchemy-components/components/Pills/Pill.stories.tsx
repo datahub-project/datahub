@@ -1,11 +1,11 @@
 import React from 'react';
 
-import type { Meta, StoryObj } from '@storybook/react';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryObj } from '@storybook/react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { Pill, pillDefault } from './Pill';
 import { AVAILABLE_ICONS } from '../Icon';
+import { Pill, pillDefault } from './Pill';
 
 const meta = {
     title: 'Component / Pill',

@@ -25,10 +25,14 @@ from datahub.metadata.schema_classes import (
 
 from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
+    DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+    DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME,
+    DATAHUB_EXECUTION_REQUEST_SQS_TRUNCATED_ASPECT_NAME,
     RUN_INGEST_TASK_NAME,
 )
 from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.common.monitoring.metrics import (
+    STATS_EXECUTION_FETCH_REQUESTS,
     STATS_EXECUTION_FETCH_SIGNAL_ERRORS,
     STATS_EXECUTION_FETCH_SIGNAL_REQUESTS,
     STATS_INGESTION_HANDLER_CANCEL_REQUESTS,
@@ -83,13 +87,38 @@ def setup_ingestion_executor() -> ReportingExecutor:
 
 def extract_execution_request(
     event: MetadataChangeLogClass,
+    graph: Optional[DataHubGraph] = None,
 ) -> Optional[ExecutionRequest]:
+    # If MCL delivered a truncated ExecutionRequest, fetch is from GMS
+    if (
+        event.aspectName is not None
+        and event.aspectName == DATAHUB_EXECUTION_REQUEST_SQS_TRUNCATED_ASPECT_NAME
+    ):
+        if graph is None:
+            logger.error(
+                "Unable to fetch execution request: graph client is not provided"
+            )
+            return None
+
+        if event.entityUrn is None:
+            logger.error(
+                "Unable to fetch execution request: entity urn is not provided"
+            )
+            return None
+
+        ers = fetch_execution_requests(graph=graph, urns=[event.entityUrn])
+        if len(ers) != 1:
+            logger.error(f"Could not find ExecutionRequest: {event.entityUrn}")
+            return None
+        return ers[0]
+
     if not event.aspect or not event.entityKeyAspect:
         logger.error(
-            f"Unable to parse Execution Request Input, no aspect or entityKeyAspect {event.entityUrn}.."
+            f"Unable to parse ExecutionRequestInput: no aspect or entityKeyAspect; URN = {event.entityUrn}"
         )
         return None
 
+    # Otherwise extract ExecutionRequest from the MCL event
     aspect_dict = json.loads(event.aspect.value)
     entity_key_dict = json.loads(event.entityKeyAspect.value)
 
@@ -138,6 +167,43 @@ def fetch_execution_signal_requests(
         urns=exec_id_urns,
         aspects=[ExecutionRequestSignalClass.ASPECT_NAME],
     )
+
+
+@STATS_EXECUTION_FETCH_REQUESTS.time()
+def fetch_execution_requests(
+    graph: DataHubGraph, urns: List[str]
+) -> List[ExecutionRequest]:
+    entities = graph.get_entities_v2(
+        entity_name=DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
+        urns=urns,
+        aspects=[
+            DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+            DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME,
+        ],
+    )
+
+    results: List[ExecutionRequest] = []
+    for urn in urns:
+        try:
+            input_aspect = entities[urn][DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME][
+                "value"
+            ]
+            key_aspect = entities[urn][DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME][
+                "value"
+            ]
+            er = ExecutionRequest(
+                executor_id=input_aspect["executorId"],
+                exec_id=key_aspect["id"],
+                name=input_aspect["task"],
+                args=input_aspect["args"],
+            )
+            results.append(er)
+        except Exception as e:
+            logger.error(
+                f"fetch_execution_requests: failed to parse entity aspect: {e}"
+            )
+
+    return results
 
 
 def handle_ingestion_signal_requests(

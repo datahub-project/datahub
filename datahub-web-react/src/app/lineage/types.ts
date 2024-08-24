@@ -43,6 +43,7 @@ export type FetchedEntity = {
     type: EntityType;
     subtype?: string;
     icon?: string;
+    siblingIcon?: string;
     // children?: Array<string>;
     upstreamChildren?: Array<EntityAndType>;
     upstreamRelationships?: Array<LineageRelationship>;

@@ -25,6 +25,7 @@ import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
 import com.linkedin.datahub.graphql.generated.SearchResultsVisualConfig;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
+import com.linkedin.datahub.graphql.generated.TestsExecutionLimitConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
@@ -194,6 +195,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final TestsConfig testsConfig = new TestsConfig();
     testsConfig.setEnabled(_testsConfiguration.isEnabled());
+    TestsExecutionLimitConfig executionLimitConfig = new TestsExecutionLimitConfig();
+    executionLimitConfig.setElasticSearchExecutor(
+        _testsConfiguration.getHook().getHookExecutionLimit().getElasticSearchExecutor());
+    executionLimitConfig.setDefaultExecutor(
+        _testsConfiguration.getHook().getHookExecutionLimit().getDefaultExecutor());
+    testsConfig.setExecutionLimitConfig(executionLimitConfig);
     appConfig.setTestsConfig(testsConfig);
 
     final ViewsConfig viewsConfig = new ViewsConfig();
@@ -232,6 +239,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
             .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
+            .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

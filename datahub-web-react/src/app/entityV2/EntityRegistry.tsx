@@ -2,7 +2,7 @@ import { QueryHookOptions, QueryResult } from '@apollo/client';
 import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
 import React from 'react';
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
-import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
+import { Entity as EntityInterface, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '../../types.generated';
 import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '../lineageV2/types';
@@ -211,9 +211,9 @@ export default class EntityRegistry {
         } as FetchedEntity;
     }
 
-    getLineageVizConfigV2<T>(type: EntityType, data: T): FetchedEntityV2 | null {
+    getLineageVizConfigV2<T>(type: EntityType, data: T, flags?: FeatureFlagsConfig): FetchedEntityV2 | null {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
-        const genericEntityProperties = this.getGenericEntityProperties(type, data);
+        const genericEntityProperties = this.getGenericEntityProperties(type, data, flags);
         if (!genericEntityProperties || !entity.getLineageVizConfig) return null;
 
         const reversedBrowsePath = genericEntityProperties.browsePathV2?.path.slice();
@@ -249,6 +249,7 @@ export default class EntityRegistry {
             schemaMetadata: genericEntityProperties.schemaMetadata ?? undefined,
             inputFields: genericEntityProperties.inputFields ?? undefined,
             canEditLineage: genericEntityProperties.privileges?.canEditLineage ?? undefined,
+            lineageSiblingIcon: genericEntityProperties?.lineageSiblingIcon,
         };
     }
 
@@ -295,9 +296,13 @@ export default class EntityRegistry {
         return entity.getSidebarSections ? entity.getSidebarSections() : [];
     }
 
-    getGenericEntityProperties<T>(type: EntityType, data: T): GenericEntityProperties | null {
+    getGenericEntityProperties<T>(
+        type: EntityType,
+        data: T,
+        flags?: FeatureFlagsConfig,
+    ): GenericEntityProperties | null {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
-        return entity.getGenericEntityProperties(data);
+        return entity.getGenericEntityProperties(data, flags);
     }
 
     getSupportedEntityCapabilities(type: EntityType): Set<EntityCapabilityType> {
