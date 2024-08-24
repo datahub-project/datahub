@@ -44,7 +44,7 @@ enum TabPaths {
     SUMMARY = 'Summary',
 }
 
-const DEFAULT_TAB = TabPaths.ASSERTIONS;
+const DEFAULT_TAB = TabPaths.SUMMARY;
 
 /**
  * Acryl-specific component used for rendering the Entity Validations Tab.
