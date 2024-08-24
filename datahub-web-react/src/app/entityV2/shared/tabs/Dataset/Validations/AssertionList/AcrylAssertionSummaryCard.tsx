@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
-import { RightOutlined, CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { Clock, Database, GitFork, Hammer, Dresser } from '@phosphor-icons/react';
+import { RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { AssertionResultType, AssertionType, EntityType } from '@src/types.generated';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
@@ -11,6 +10,7 @@ import { AcrylAssertionProgressBar, AssertionProgressSummary } from './AcrylAsse
 import { Tooltip } from 'antd';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { ASSERTION_STATUS_WITH_COLOR_MAP, ASSERTION_STYPE_AND_ICON_MAP } from './AcrylAssertionListConstants';
 
 const StyledCard = styled.div`
     display: flex;
@@ -24,18 +24,6 @@ const StyledCard = styled.div`
     cursor: pointer;
 `;
 
-const StyledCardTitle = styled.div<{ background: string; color: string }>`
-    background: ${({ background }) => background};
-    color: ${({ color }) => color};
-    padding: 4px;
-    font-weight: 700;
-    padding-left: 24px;
-    gap: 8px;
-    display: flex;
-    align-items: center;
-    font-size: 12px;
-`;
-
 const StyledCardChartSection = styled.div`
     padding: 24px;
     border-top: 1px dashed ${ANTD_GRAY[5]};
@@ -46,7 +34,6 @@ const StyledCardChartSection = styled.div`
 
 const AssertionTypeDetailsContainer = styled.div`
     display: flex;
-    // gap: 4px;
     align-items: start;
     flex-direction: column;
 `;
@@ -125,58 +112,11 @@ type Props = {
     group: AssertionGroup;
 };
 
-const ASSERTION_STYPE_AND_ICON_MAP = {};
-ASSERTION_STYPE_AND_ICON_MAP[AssertionType.Freshness] = <Clock size={24} />;
-ASSERTION_STYPE_AND_ICON_MAP[AssertionType.Volume] = <Database size={24} />;
-ASSERTION_STYPE_AND_ICON_MAP[AssertionType.Field] = <Dresser size={24} />;
-ASSERTION_STYPE_AND_ICON_MAP[AssertionType.DataSchema] = <GitFork size={24} />;
-ASSERTION_STYPE_AND_ICON_MAP[AssertionType.Custom] = <Hammer size={24} />;
-ASSERTION_STYPE_AND_ICON_MAP[AssertionType.Sql] = <Database size={24} />;
-
-const ASSERTION_STATUS_WITH_COLOR_MAP = {
-    passing: {
-        color: '#548239',
-        backgroundColor: '#F1F8EE',
-        resultType: AssertionResultType.Success,
-        icon: <CheckOutlined />,
-        text: 'Passing',
-        headerComponent: (
-            <StyledCardTitle background="#F1F8EE" color={'#548239'}>
-                <CheckOutlined /> Passing
-            </StyledCardTitle>
-        ),
-    },
-    failing: {
-        color: '#D23939',
-        backgroundColor: '#FCF2F2',
-        resultType: AssertionResultType.Failure,
-        icon: <CloseOutlined />,
-        text: 'Failing',
-        headerComponent: (
-            <StyledCardTitle background="#FCF2F2" color={'#D23939'}>
-                <CloseOutlined /> Failing
-            </StyledCardTitle>
-        ),
-    },
-    erroring: {
-        color: '#EEAE09',
-        backgroundColor: '#FEF9ED',
-        resultType: AssertionResultType.Error,
-        icon: <InfoCircleOutlined />,
-        text: 'Errors',
-        headerComponent: (
-            <StyledCardTitle background="#FEF9ED" color={'#EEAE09'}>
-                <InfoCircleOutlined /> Error
-            </StyledCardTitle>
-        ),
-    },
-};
-
-export const AcrylAssertionSummaryCard = ({ group }: { group: AssertionGroup }) => {
+export const AcrylAssertionSummaryCard = ({ group }: Props) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
-    const { pathname, search } = useLocation();
+    const { search } = useLocation();
     const name = getAssertionGroupName(group.name);
     const icon = ASSERTION_STYPE_AND_ICON_MAP[group.type];
 
@@ -189,31 +129,21 @@ export const AcrylAssertionSummaryCard = ({ group }: { group: AssertionGroup }) 
         type?: AssertionType;
         status?: AssertionResultType;
     }): string => {
-        let searchUrl = search || '';
-        if (search) {
-            searchUrl += type ? '&assertion_type=' + type : '';
-            searchUrl += status ? '&assertion_status=' + status : '';
-        } else {
-            searchUrl += type ? `?assertion_type=${type}` : '';
-            if (status && type) {
-                searchUrl += `&assertion_status=${status}`;
-            } else if (status) {
-                searchUrl += `?assertion_status=${status}`;
-            }
+        const params = new URLSearchParams(search);
+
+        if (type) {
+            params.set('assertion_type', type);
         }
-        return searchUrl;
+        if (status) {
+            params.set('assertion_status', status);
+        }
+
+        return params.toString() ? `?${params.toString()}` : '';
     };
 
     const getTitle = () => {
-        let headerStatus = '';
-        if (group.summary.failing) {
-            headerStatus = 'failing';
-        } else if (group.summary.passing) {
-            headerStatus = 'passing';
-        } else if (group.summary.erroring) {
-            headerStatus = 'erroring';
-        }
-        return ASSERTION_STATUS_WITH_COLOR_MAP[headerStatus].headerComponent;
+        const status = ['failing', 'passing', 'erroring'].find((key) => group.summary[key]);
+        return status ? ASSERTION_STATUS_WITH_COLOR_MAP[status].headerComponent : null;
     };
 
     const handleCardClick = (type: AssertionType, event: React.MouseEvent) => {

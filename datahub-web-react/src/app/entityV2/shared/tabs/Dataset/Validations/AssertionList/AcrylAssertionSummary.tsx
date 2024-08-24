@@ -26,7 +26,7 @@ const CardWrapper = styled.div`
 `;
 
 export const AcrylAssertionSummary = () => {
-    const { urn, entityData, entityType } = useEntityData();
+    const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
@@ -43,8 +43,6 @@ export const AcrylAssertionSummary = () => {
             tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
         const assertionGroup = createAssertionGroups(assertionsWithMonitorsDetails);
         setGroupedAssertions(assertionGroup);
-        console.log('assertionGroup>>>>', assertionGroup);
-
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
     return (

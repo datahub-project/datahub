@@ -40,7 +40,6 @@ export const useAssertionsTableColumns = ({
                 key: 'name',
                 render: (_, record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
                 width: '50%',
-                sorter: (a, b) => a.description?.localeCompare(b.description),
             },
             {
                 title: 'Category',
@@ -48,7 +47,6 @@ export const useAssertionsTableColumns = ({
                 key: 'type',
                 render: (_, record) =>
                     !record.groupName && <CategoryType>{getAssertionGroupName(record?.type)}</CategoryType>,
-                sorter: (a, b) => a.type?.localeCompare(b.type),
                 width: '11%',
             },
             {
@@ -58,7 +56,6 @@ export const useAssertionsTableColumns = ({
                 render: (_, record) => {
                     return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
                 },
-                sorter: (a, b) => (a.lastEvaluationTimeMs || 0) - (b.lastEvaluationTimeMs || 0),
                 width: '12%',
             },
             {

@@ -390,10 +390,11 @@ const ASSERTION_STATUS_NAME_MAP = {
 
 const STATUS_GROUP_NAME_MAP = { ...ASSERTION_TYPE_NAME_MAP, ...ASSERTION_STATUS_NAME_MAP };
 
-const RECOMMENDED_FILTER_NAME_MAP = {};
-RECOMMENDED_FILTER_NAME_MAP[AssertionSourceType.External] = 'External';
-RECOMMENDED_FILTER_NAME_MAP[AssertionSourceType.Native] = 'Native';
-RECOMMENDED_FILTER_NAME_MAP[AssertionSourceType.Inferred] = 'Smart Assertions';
+const RECOMMENDED_FILTER_NAME_MAP = {
+    [AssertionSourceType.External]: 'External',
+    [AssertionSourceType.Native]: 'Native',
+    [AssertionSourceType.Inferred]: 'Smart Assertions',
+};
 
 // Create Group's Summary to name and number of records for each group
 const getGroupNameBySummary = (record) => {
