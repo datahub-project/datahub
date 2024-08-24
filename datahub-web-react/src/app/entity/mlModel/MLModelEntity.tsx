@@ -54,9 +54,9 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getPathName = () => 'mlModels';
 
-    getEntityName = () => 'Modelos de Aprendizagem de Máquina';
+    getEntityName = () => 'ML Model';
 
-    getCollectionName = () => 'Modelos de Aprendizagem de Máquina';
+    getCollectionName = () => 'ML Models';
 
     getOverridePropertiesFromEntity = (mlModel?: MlModel | null): GenericEntityProperties => {
         return {
@@ -101,23 +101,23 @@ export class MLModelEntity implements Entity<MlModel> {
             headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
-                    name: 'Resumo',
+                    name: 'Summary',
                     component: MLModelSummary,
                 },
                 {
-                    name: 'Documentação',
+                    name: 'Documentation',
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Grupo',
+                    name: 'Group',
                     component: MLModelGroupsTab,
                 },
                 {
-                    name: 'Característicos',
+                    name: 'Features',
                     component: MlModelFeaturesTab,
                 },
                 {
-                    name: 'Propriedades',
+                    name: 'Properties',
                     component: PropertiesTab,
                 },
             ]}
