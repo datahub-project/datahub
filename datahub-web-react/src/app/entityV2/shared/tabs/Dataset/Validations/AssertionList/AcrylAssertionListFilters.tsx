@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { isEmpty } from 'lodash';
 import styled from 'styled-components';
-import AcrylAssertionRecommendedFilters from './AcrylAssertionRecommendedFilters';
-import AcrylAssertionListSearch from './AcrylAssertionListSearch';
-import AcryAssertionTypeSelect from './AcryAssertionTypeSelect';
+import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFilters';
+import { AcrylAssertionListSearch } from './AcrylAssertionListSearch';
+import { AcryAssertionTypeSelect } from './AcryAssertionTypeSelect';
 import { AssertionListFilter, AssertionTable } from './types';
 
 interface FilterItem {
@@ -55,6 +55,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     ];
 
     const handleFilterChange = (updatedFilters: FilterItem[]) => {
+        /** Set Recommended Filters when there is value in type,status or others if not then set it as empty to clear the filter */
         const selectedRecommendedFilters = updatedFilters.reduce<Record<string, string[]>>(
             (acc, filter) => {
                 acc[filter.category] = acc[filter.category] || [];
@@ -85,12 +86,14 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     return (
         <>
             <SearchFilterContainer>
+                {/* ************Render Search Component ************************* */}
                 <AcrylAssertionListSearch
                     searchText={filter.filterCriteria.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
                     matchResultCount={filteredAssertions.assertions?.length || 0}
                     numRows={allAssertionCount}
                 />
+                {/* ************Render Group By Component ************************* */}
                 <div style={{ padding: '10px' }}>
                     <AcryAssertionTypeSelect
                         options={assertionTypeFilters}
@@ -101,6 +104,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 </div>
             </SearchFilterContainer>
             <div>
+                {/* ************Render Recommended Filter Component ************************* */}
                 <AcrylAssertionRecommendedFilters
                     filters={filterOptions?.recommendedFilters || []}
                     appliedFilters={appliedFilters}

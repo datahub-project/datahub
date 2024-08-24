@@ -31,7 +31,7 @@ type Props = {
     placeholder: string;
 };
 
-export default function AcryAssertionTypeSelect({ options, selectedValue, onSelect, placeholder }: Props) {
+export function AcryAssertionTypeSelect({ options, selectedValue, onSelect, placeholder }: Props) {
     return (
         <StyledSelect
             value={selectedValue || undefined}

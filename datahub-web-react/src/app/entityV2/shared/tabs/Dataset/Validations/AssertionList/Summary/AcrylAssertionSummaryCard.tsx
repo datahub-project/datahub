@@ -104,6 +104,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
 
     const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
 
+    /** Build the Assertion Redirect Search Param URL to help add with location pathname for redirection*/
     const buildAssertionUrlSearch = ({
         type,
         status,
@@ -139,7 +140,10 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
 
     return (
         <StyledCard onClick={(event) => handleCardClick(group.type, event)}>
+            {/* **********************Render Summary Card header **************************** */}
             <div>{getHeaderTitle()}</div>
+
+            {/* **********************Render Icon and Type of Assertion **************************** */}
             <AssertionDetailsContainer>
                 <AssertionIconWrapper>{icon}</AssertionIconWrapper>
                 <AssertionTypeDetailsContainer>
@@ -147,8 +151,10 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
                     <AssertionTextContainer>Verifies when this dataset should be updated.</AssertionTextContainer>
                 </AssertionTypeDetailsContainer>
             </AssertionDetailsContainer>
+
             <StyledCardChartSection>
                 <ChartSectionContainer>
+                    {/* **********************Render Assertion Summary Card Summary Section**************************** */}
                     <AcrylAssertionSummarySection
                         group={group}
                         visibleStatus={visibleStatuses}
@@ -159,6 +165,8 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
                         <RightOutlined />
                     </ViewAllWrapper>
                 </ChartSectionContainer>
+
+                {/* **********************Render Progress bar **************************** */}
                 <AcrylAssertionProgressBar summary={group.summary as AssertionProgressSummary} />
             </StyledCardChartSection>
         </StyledCard>

@@ -84,7 +84,7 @@ interface AcrylAssertionListSearchProps {
     numRows: number;
 }
 
-const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
+export const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
     searchText,
     debouncedSetFilterText,
     matchResultCount,
@@ -108,5 +108,3 @@ const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
         </SearchContainer>
     );
 };
-
-export default AcrylAssertionListSearch;

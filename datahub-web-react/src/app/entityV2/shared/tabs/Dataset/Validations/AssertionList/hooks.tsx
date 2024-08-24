@@ -121,6 +121,7 @@ export const usePinnedAssertionTableHeaderProps = () => {
     return { tableContainerRef, scrollY };
 };
 
+/** set filter as per the params we are getting from URL set assertion type and status as per the url */
 export const useSetFilterFromURLParams = (
     filter: AssertionListFilter,
     setFilters: Dispatch<SetStateAction<AssertionListFilter>>,

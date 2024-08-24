@@ -510,7 +510,7 @@ export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]
     return assertionRawData;
 };
 
-/** Create filter option list */
+/** Create filter option list as per the assertion data present */
 const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorDetails[]) => {
     const filterOptions: any = {
         filterGroupOptions: {

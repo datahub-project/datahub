@@ -45,7 +45,7 @@ const FilterItemRow = styled.div<{ selected: boolean }>`
 const FilterName = styled.span``;
 const FilterCount = styled.span``;
 
-const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommendedFiltersProps> = ({
+export const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommendedFiltersProps> = ({
     filters,
     appliedFilters,
     onFilterChange,
@@ -74,5 +74,3 @@ const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommendedFilter
         </FilterContainer>
     );
 };
-
-export default AcrylAssertionRecommendedFilters;
