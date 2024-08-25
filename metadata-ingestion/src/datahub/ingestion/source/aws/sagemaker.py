@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import DefaultDict, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, DefaultDict, Dict, Iterable, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -33,6 +33,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 
+if TYPE_CHECKING:
+    from mypy_boto3_sagemaker import SageMakerClient
+
 
 @platform_name("SageMaker")
 @config_class(SagemakerSourceConfig)
@@ -56,6 +59,7 @@ class SagemakerSource(StatefulIngestionSourceBase):
         self.report = SagemakerSourceReport()
         self.sagemaker_client = config.sagemaker_client
         self.env = config.env
+        self.client_factory = ClientFactory(config)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -92,7 +96,7 @@ class SagemakerSource(StatefulIngestionSourceBase):
         # extract jobs if specified
         if self.source_config.extract_jobs is not False:
             job_processor = JobProcessor(
-                sagemaker_client=self.sagemaker_client,
+                sagemaker_client=self.client_factory.get_client,
                 env=self.env,
                 report=self.report,
                 job_type_filter=self.source_config.extract_jobs,
@@ -118,3 +122,15 @@ class SagemakerSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
+
+
+class ClientFactory:
+    def __init__(self, config: SagemakerSourceConfig):
+        self.config = config
+        self._cached_client = self.config.sagemaker_client
+
+    def get_client(self) -> "SageMakerClient":
+        if self.config.allowed_cred_refresh():
+            # Always fetch the client dynamically with auto-refresh logic
+            return self.config.sagemaker_client
+        return self._cached_client
