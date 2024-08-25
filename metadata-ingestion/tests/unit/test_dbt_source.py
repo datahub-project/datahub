@@ -7,7 +7,10 @@ from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
+from datahub.ingestion.source.dbt.dbt_cloud import (
+    DBTCloudConfig,
+    infer_metadata_endpoint,
+)
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
@@ -226,6 +229,31 @@ def test_dbt_config_skip_sources_in_lineage():
     assert config.skip_sources_in_lineage is True
 
 
+def test_dbt_config_prefer_sql_parser_lineage():
+    with pytest.raises(
+        ValidationError,
+        match="prefer_sql_parser_lineage.*requires.*skip_sources_in_lineage",
+    ):
+        config_dict = {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "dummy_platform",
+            "prefer_sql_parser_lineage": True,
+        }
+        config = DBTCoreConfig.parse_obj(config_dict)
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "skip_sources_in_lineage": True,
+        "prefer_sql_parser_lineage": True,
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.skip_sources_in_lineage is True
+    assert config.prefer_sql_parser_lineage is True
+
+
 def test_dbt_s3_config():
     # test missing aws config
     config_dict: dict = {
@@ -340,7 +368,7 @@ def test_dbt_entity_emission_configuration_helpers():
 
 def test_dbt_cloud_config_access_url():
     config_dict = {
-        "access_url": "https://my-dbt-cloud.dbt.com",
+        "access_url": "https://emea.getdbt.com",
         "token": "dummy_token",
         "account_id": "123456",
         "project_id": "1234567",
@@ -349,8 +377,8 @@ def test_dbt_cloud_config_access_url():
         "target_platform": "dummy_platform",
     }
     config = DBTCloudConfig.parse_obj(config_dict)
-    assert config.access_url == "https://my-dbt-cloud.dbt.com"
-    assert config.metadata_endpoint == "https://metadata.my-dbt-cloud.dbt.com/graphql"
+    assert config.access_url == "https://emea.getdbt.com"
+    assert config.metadata_endpoint == "https://metadata.emea.getdbt.com/graphql"
 
 
 def test_dbt_cloud_config_with_defined_metadata_endpoint():
@@ -370,6 +398,20 @@ def test_dbt_cloud_config_with_defined_metadata_endpoint():
         config.metadata_endpoint
         == "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql"
     )
+
+
+def test_infer_metadata_endpoint() -> None:
+    assert (
+        infer_metadata_endpoint("https://cloud.getdbt.com")
+        == "https://metadata.cloud.getdbt.com/graphql"
+    )
+    assert (
+        infer_metadata_endpoint("https://prefix.us1.dbt.com")
+        == "https://prefix.metadata.us1.dbt.com/graphql"
+    )
+    assert (
+        infer_metadata_endpoint("http://dbt.corp.internal")
+    ) == "http://metadata.dbt.corp.internal/graphql"
 
 
 def test_dbt_time_parsing() -> None:

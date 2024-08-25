@@ -31,6 +31,7 @@ class BigQuerySchemaApiPerfReport(Report):
     num_get_snapshots_for_dataset_api_requests: int = 0
 
     list_projects: PerfTimer = field(default_factory=PerfTimer)
+    list_projects_with_labels: PerfTimer = field(default_factory=PerfTimer)
     list_datasets: PerfTimer = field(default_factory=PerfTimer)
 
     get_columns_for_dataset_sec: float = 0

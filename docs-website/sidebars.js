@@ -31,7 +31,11 @@ module.exports = {
           label: "Demo",
           href: "https://demo.datahubproject.io/",
         },
-        "docs/what-is-datahub/customer-stories",
+        {
+          type: "link",
+          label: "Adoption Stories",
+          href: "/adoption-stories",
+        },
         "docs/what-is-datahub/datahub-concepts",
       ],
     },
@@ -91,6 +95,23 @@ module.exports = {
                   id: "docs/assertions/snowflake/snowflake_dmfs",
                 },
               ],
+            },
+          ],
+        },
+        {
+          label: "Automations",
+          type: "category",
+          items: [
+            {
+              label: "Documentation Propagation",
+              type: "doc",
+              id: "docs/automation/docs-propagation",
+            },
+            {
+              label: "Snowflake Tag Sync",
+              type: "doc",
+              id: "docs/automation/snowflake-tag-propagation",
+              className: "saasOnly",
             },
           ],
         },
@@ -252,6 +273,11 @@ module.exports = {
             {
               type: "doc",
               id: "docs/managed-datahub/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
               className: "saasOnly",
             },
           ],
@@ -518,7 +544,12 @@ module.exports = {
       "Advanced Guides": [
         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
-        "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
+        {
+          "SCIM Provisioning": [
+            "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
+            "docs/managed-datahub/configuring-identity-provisioning-with-okta",
+          ],
+        },
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
         "docs/advanced/db-retention",
@@ -811,7 +842,6 @@ module.exports = {
     },
     {
       "API & SDK Guides": [
-        "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
@@ -887,6 +917,7 @@ module.exports = {
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
+    //"metadata-ingestion-modules/gx-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",
@@ -916,6 +947,7 @@ module.exports = {
     // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
+    // "smoke-test/tests/openapi/README"
     // ],
   ],
 };

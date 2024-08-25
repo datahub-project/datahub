@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -59,7 +60,7 @@ public class Edge {
         null);
   }
 
-  public String toDocId() {
+  public String toDocId(@Nonnull String idHashAlgo) {
     StringBuilder rawDocId = new StringBuilder();
     rawDocId
         .append(getSource().toString())
@@ -73,7 +74,7 @@ public class Edge {
 
     try {
       byte[] bytesOfRawDocID = rawDocId.toString().getBytes(StandardCharsets.UTF_8);
-      MessageDigest md = MessageDigest.getInstance("MD5");
+      MessageDigest md = MessageDigest.getInstance(idHashAlgo);
       byte[] thedigest = md.digest(bytesOfRawDocID);
       return Base64.getEncoder().encodeToString(thedigest);
     } catch (NoSuchAlgorithmException e) {

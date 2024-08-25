@@ -8,7 +8,9 @@ with open("./src/datahub/__init__.py") as fp:
 
 _version: str = package_metadata["__version__"]
 _self_pin = (
-    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
 )
 
 base_requirements = {
@@ -99,11 +101,13 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.3.1.dev3",
+    "acryl-sqlglot[rs]==25.8.2.dev9",
 }
 
 classification_lib = {
     "acryl-datahub-classify==0.0.11",
+    # schwifty is needed for the classify plugin but in 2024.08.0 they broke the python 3.8 compatibility
+    "schwifty<2024.08.0",
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
@@ -171,6 +175,7 @@ looker_common = {
     *sqlglot_lib,
     "GitPython>2",
     "python-liquid",
+    "deepmerge>=1.1.1",
 }
 
 bigquery_common = {
@@ -178,6 +183,7 @@ bigquery_common = {
     "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
     "google-cloud-datacatalog>=1.5.0",
+    "google-cloud-resource-manager",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
 }
@@ -295,7 +301,7 @@ slack = {"slack-sdk==3.18.1"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.9.0",
+    "databricks-sdk>=0.30.0",
     "pyspark~=3.3.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
@@ -328,7 +334,9 @@ plugins: Dict[str, Set[str]] = {
         "gql[requests]>=3.3.0",
     },
     "datahub": mysql | kafka_common,
-    "great-expectations": sql_common | sqllineage_lib,
+    "great-expectations": {
+        f"acryl-datahub-gx-plugin{_self_pin}",
+    },
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
@@ -454,7 +462,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
-    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
@@ -478,6 +486,9 @@ all_exclude_plugins: Set[str] = {
     # The Airflow extra is only retained for compatibility, but new users should
     # be using the datahub-airflow-plugin package instead.
     "airflow",
+    # The great-expectations extra is only retained for compatibility, but new users should
+    # be using the datahub-gx-plugin package instead.
+    "great-expectations",
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
@@ -491,7 +502,7 @@ all_exclude_plugins: Set[str] = {
 
 mypy_stubs = {
     "types-dataclasses",
-    "types-pkg_resources",
+    "types-setuptools",
     "types-six",
     "types-python-dateutil",
     # We need to avoid 2.31.0.5 and 2.31.0.4 due to
@@ -523,9 +534,12 @@ mypy_stubs = {
 }
 
 
-pytest_dep = "pytest>=6.2.2"
-deepdiff_dep = "deepdiff"
-test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
+test_api_requirements = {
+    "pytest>=6.2.2",
+    "deepdiff",
+    "PyYAML",
+    "pytest-docker>=1.1.0",
+}
 
 debug_requirements = {
     "memray",
@@ -547,12 +561,9 @@ base_dev_requirements = {
     "isort>=5.7.0",
     "mypy==1.10.1",
     *test_api_requirements,
-    pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=1.1.0",
     "pytest-random-order~=1.1.0",
-    deepdiff_dep,
     "requests-mock",
     "freezegun",
     "jsonpickle",
@@ -586,7 +597,6 @@ base_dev_requirements = {
             "kafka",
             "datahub-rest",
             "datahub-lite",
-            "great-expectations",
             "presto",
             "redash",
             "redshift",
@@ -750,7 +760,8 @@ entry_points = {
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
         "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
-        "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl",
+        "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrlDataset",
+        "replace_external_url_container = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrlContainer",
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
         "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
         "tags_to_term = datahub.ingestion.transformer.tags_to_terms:TagsToTermMapper",

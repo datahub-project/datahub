@@ -42,7 +42,7 @@ public class BatchRemoveTagsResolverTest {
 
   @Test
   public void testGetSuccessNoExistingTags() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -104,7 +104,7 @@ public class BatchRemoveTagsResolverTest {
 
   @Test
   public void testGetSuccessExistingTags() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     final GlobalTags oldTags1 =
         new GlobalTags()
@@ -177,7 +177,7 @@ public class BatchRemoveTagsResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.when(
             mockService.getAspect(
@@ -222,7 +222,7 @@ public class BatchRemoveTagsResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 
@@ -245,7 +245,7 @@ public class BatchRemoveTagsResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = getMockEntityService();
+    EntityService<?> mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)

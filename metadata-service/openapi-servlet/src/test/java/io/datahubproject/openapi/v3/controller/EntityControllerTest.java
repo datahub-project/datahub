@@ -37,6 +37,7 @@ import com.linkedin.metadata.utils.SearchUtil;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,7 +96,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             eq(List.of("dataset")),
             anyString(),
             nullable(Filter.class),
-            eq(SearchUtil.sortBy("urn", SortOrder.valueOf("ASCENDING"))),
+            eq(Collections.singletonList(SearchUtil.sortBy("urn", SortOrder.valueOf("ASCENDING")))),
             nullable(String.class),
             nullable(String.class),
             anyInt()))
@@ -113,7 +114,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             eq(List.of("dataset")),
             anyString(),
             nullable(Filter.class),
-            eq(SearchUtil.sortBy("urn", SortOrder.valueOf("DESCENDING"))),
+            eq(
+                Collections.singletonList(
+                    SearchUtil.sortBy("urn", SortOrder.valueOf("DESCENDING")))),
             nullable(String.class),
             nullable(String.class),
             anyInt()))
