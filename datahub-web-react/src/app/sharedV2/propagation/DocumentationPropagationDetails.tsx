@@ -52,7 +52,7 @@ interface Props {
     sourceDetail?: StringMapEntry[] | null;
 }
 
-export default function PropagationDetails({ sourceDetail }: Props) {
+export default function DocumentationPropagationDetails({ sourceDetail }: Props) {
     const {
         isPropagated,
         origin: { entity: originEntity },
