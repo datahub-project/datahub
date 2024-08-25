@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
@@ -50,6 +50,7 @@ export const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommende
     appliedFilters,
     onFilterChange,
 }) => {
+    const [visibleFilters, setVisibleFilters] = useState<FilterItem[]>([]);
     const handleFilterClick = (filter: FilterItem) => {
         const isSelected = appliedFilters.some((appliedFilter) => appliedFilter.name === filter.name);
         const updatedFilters = isSelected
@@ -59,9 +60,16 @@ export const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommende
         onFilterChange(updatedFilters);
     };
 
+    useEffect(() => {
+        const transformedAppliedFilters = appliedFilters.map((filter) => filter.name);
+        const newVisibleFilters = filters.filter(
+            (filter: FilterItem) => filter.count || transformedAppliedFilters.includes(filter.name),
+        );
+        setVisibleFilters(newVisibleFilters);
+    }, [filters, appliedFilters]);
     return (
         <FilterContainer>
-            {filters.map((filter) => (
+            {visibleFilters.map((filter) => (
                 <FilterItemRow
                     key={filter.name}
                     selected={appliedFilters.some((appliedFilter) => appliedFilter.name === filter.name)}

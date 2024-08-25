@@ -48,7 +48,12 @@ import {
 } from '../fieldDescriptionUtils';
 
 import { getFormattedParameterValue } from '../assertionUtils';
-import { AssertionWithMonitorDetails, createAssertionGroups, getAssertionGroupName } from '../acrylUtils';
+import {
+    ASSERTION_INFO,
+    AssertionWithMonitorDetails,
+    createAssertionGroups,
+    getAssertionGroupName,
+} from '../acrylUtils';
 import { isExternalAssertion } from '../assertion/profile/shared/isExternalAssertion';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import { AssertionStatusGroup, AssertionTable, AssertionListFilter, AssertionListTableRow } from './types';
@@ -463,18 +468,16 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[
     });
 };
 
+const STATUSES = [AssertionResultType.Success, AssertionResultType.Failure, AssertionResultType.Error];
+
 // Generate Assertion Group By Status
 const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]): AssertionStatusGroup[] => {
-    const STATUSES = [
-        AssertionResultType.Success,
-        AssertionResultType.Failure,
-        AssertionResultType.Error,
-        AssertionResultType.Init,
-    ];
+    const assertionStatus = [...STATUSES];
+    assertionStatus.push(AssertionResultType.Init);
 
     const assertionGroup: AssertionStatusGroup[] = [];
 
-    STATUSES.forEach((status) => {
+    assertionStatus.forEach((status) => {
         const filteredAssertions = assertions.filter((assertion) => {
             const mostRecentRun = assertion.runEvents?.runEvents?.[0];
             const resultType = mostRecentRun?.result?.type;
@@ -532,13 +535,30 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
 
     const others: Record<string, number> = {};
 
+    // maintain array to show all the Assertion Type count even if it is not present
+    const remainingAssertionTypes = ASSERTION_INFO.map((item) => item.type);
+    const remainingAssertionStatus = [...STATUSES];
+
     assertions.forEach((assertion: AssertionWithMonitorDetails) => {
-        const type = assertion.info?.type || '';
+        const type = (assertion.info?.type || '') as AssertionType;
+
+        // Remove assertion type if we aready calculating count
+        const index = remainingAssertionTypes.indexOf(type);
+        if (index > -1) {
+            remainingAssertionTypes.splice(index, 1);
+        }
+
         filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
 
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
         const resultType = mostRecentRun?.result?.type || '';
         if (resultType) {
+            // Remove assertion status if we aready calculating count
+            const index = remainingAssertionStatus.indexOf(resultType);
+            if (index > -1) {
+                remainingAssertionStatus.splice(index, 1);
+            }
+
             filterGroupCounts.status[resultType] = (filterGroupCounts.status[resultType] || 0) + 1;
         }
 
@@ -563,6 +583,16 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         }
     });
 
+    // Add remaining Assertion type with count 0
+    remainingAssertionTypes.forEach((assertionType: AssertionType) => {
+        filterGroupCounts.type[assertionType] = 0;
+    });
+
+    // Add remaining Assertion type with count 0
+    remainingAssertionStatus.forEach((status: AssertionResultType) => {
+        filterGroupCounts.status[status] = 0;
+    });
+
     const buildFilterOptions = (key: string, value: Record<string, number>) => {
         Object.entries(value).forEach(([name, count]) => {
             const displayName = key === 'type' ? getAssertionGroupName(name) : STATUS_GROUP_NAME_MAP[name] || name;
@@ -573,8 +603,8 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         });
     };
 
-    buildFilterOptions('type', filterGroupCounts.type);
     buildFilterOptions('status', filterGroupCounts.status);
+    buildFilterOptions('type', filterGroupCounts.type);
 
     Object.entries(others).forEach(([name, count]) => {
         filterOptions.recommendedFilters.push({

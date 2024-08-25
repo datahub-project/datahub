@@ -4,6 +4,7 @@ import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFil
 import { AcrylAssertionListSearch } from './AcrylAssertionListSearch';
 import { AcryAssertionTypeSelect } from './AcryAssertionTypeSelect';
 import { AssertionListFilter, AssertionTable } from './types';
+import { AcrylAssertionFilters } from './AcrylAssertionFilters';
 
 interface FilterItem {
     name: string;
@@ -77,7 +78,6 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         const appliedRecommendedFilters = recommendedFilters.filter(
             (item) => status.includes(item.name) || type.includes(item.name) || others.includes(item.name),
         );
-
         setAppliedFilters(appliedRecommendedFilters);
         setSelectedGroupBy(filter.groupBy);
     }, [filter, filterOptions]);
@@ -92,6 +92,15 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                     matchResultCount={filteredAssertions.assertions?.length || 0}
                     numRows={allAssertionCount}
                 />
+
+                {/* ************Render Filter Component ************************* */}
+                <div>
+                    <AcrylAssertionFilters
+                        filterOptions={filterOptions?.filterGroupOptions || []}
+                        selectedFilters={appliedFilters}
+                        onFilterChange={handleFilterChange}
+                    />
+                </div>
                 {/* ************Render Group By Component ************************* */}
                 <div style={{ padding: '10px' }}>
                     <AcryAssertionTypeSelect
