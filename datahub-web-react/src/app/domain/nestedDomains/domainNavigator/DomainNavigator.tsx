@@ -1,11 +1,11 @@
 import { Alert, Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import useListDomains from '../../useListDomains';
 import DomainNode from './DomainNode';
 import { Domain } from '../../../../types.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { useTranslation } from 'react-i18next';
 
 const NavigatorWrapper = styled.div`
     font-size: 14px;

@@ -11,6 +11,7 @@ import {
     TableOutlined,
 } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import CustomPagination from './CustomPagination';
 import TabToolbar from '../../../../shared/components/styled/TabToolbar';
 import { SemanticVersionStruct } from '../../../../../../types.generated';
@@ -18,7 +19,7 @@ import { toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../shared/constants';
 import { navigateToVersionedDatasetUrl } from '../../../../shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
 import getSchemaFilterFromQueryString from '../../../../shared/tabs/Dataset/Schema/utils/getSchemaFilterFromQueryString';
-import { useTranslation } from 'react-i18next';
+
 const SchemaHeaderContainer = styled.div`
     display: flex;
     justify-content: space-between;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Input, Typography, FormInstance, Radio } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import {
     DESCRIPTION_FIELD_NAME,
     LINK_FIELD_NAME,
@@ -9,7 +10,7 @@ import {
     TYPE_FIELD_NAME,
 } from './constants';
 import { PostContentType } from '../../../types.generated';
-import { useTranslation } from 'react-i18next';
+
 const TopFormItem = styled(Form.Item)`
     margin-bottom: 24px;
 `;

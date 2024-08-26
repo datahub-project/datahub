@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Button, Modal, Steps } from 'antd';
+import { useTranslation } from 'react-i18next';
 import PolicyPrivilegeForm from './PolicyPrivilegeForm';
 import PolicyTypeForm from './PolicyTypeForm';
 import PolicyActorForm from './PolicyActorForm';
@@ -8,7 +9,7 @@ import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../../types.
 import { EMPTY_POLICY } from './policyUtils';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import ClickOutside from '../../shared/ClickOutside';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     policy: Omit<Policy, 'urn'>;
     setPolicy: (policy: Omit<Policy, 'urn'>) => void;

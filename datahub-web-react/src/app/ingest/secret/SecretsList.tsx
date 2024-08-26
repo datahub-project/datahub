@@ -5,6 +5,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
+import { t } from 'i18next';
 import {
     useCreateSecretMutation,
     useDeleteSecretMutation,
@@ -25,7 +26,6 @@ import {
     updateSecretInListSecretsCache,
 } from './cacheUtils';
 import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
-import { t } from 'i18next';
 
 const DeleteButtonContainer = styled.div`
     display: flex;

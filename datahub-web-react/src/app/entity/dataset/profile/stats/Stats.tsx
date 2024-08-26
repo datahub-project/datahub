@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Radio } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { DatasetProfile } from '../../../../../types.generated';
 import LatestStatsView from './snapshot/LatestStatsView';
 import HistoricalStatsView from './historical/HistoricalStatsView';
-import { useTranslation } from 'react-i18next';
+
 export type Props = {
     urn: string;
     profile: DatasetProfile;

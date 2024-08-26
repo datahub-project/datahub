@@ -4,13 +4,14 @@ import { Divider, message, Modal, Popover, Tooltip, Typography } from 'antd';
 import { blue } from '@ant-design/colors';
 import styled from 'styled-components';
 import moment from 'moment';
+import { useTranslation } from 'react-i18next';
 import { Deprecation } from '../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
 import { ANTD_GRAY } from '../../constants';
 import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 import StripMarkdownText, { removeMarkdown } from './StripMarkdownText';
-import { useTranslation } from 'react-i18next';
+
 const DeprecatedContainer = styled.div`
     height: 18px;
     border: 1px solid #cd0d24;

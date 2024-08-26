@@ -2,10 +2,11 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { CSSProperties } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { SearchBar } from '../SearchBar';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { useTranslation } from 'react-i18next';
+
 const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;

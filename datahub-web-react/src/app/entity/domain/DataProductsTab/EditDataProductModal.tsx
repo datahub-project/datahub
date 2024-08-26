@@ -1,11 +1,12 @@
 import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import DataProductBuilderForm from './DataProductBuilderForm';
 import { DataProductBuilderState } from './types';
 import { useUpdateDataProductMutation } from '../../../../graphql/dataProduct.generated';
 import { DataProduct } from '../../../../types.generated';
 import { MODAL_BODY_STYLE, MODAL_WIDTH } from './CreateDataProductModal';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     dataProduct: DataProduct;
     onClose: () => void;

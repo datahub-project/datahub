@@ -3,6 +3,7 @@ import { Button, Empty, message, Pagination, Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useListRolesQuery } from '../../../graphql/role.generated';
 import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
@@ -20,7 +21,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
 import { clearUserListCache } from '../../identity/user/cacheUtils';
-import { useTranslation } from 'react-i18next';
+
 const SourceContainer = styled.div`
     overflow: auto;
     display: flex;

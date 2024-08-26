@@ -26,6 +26,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     }
 
     translationService: any;
+
     type: EntityType = EntityType.MlmodelGroup;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {

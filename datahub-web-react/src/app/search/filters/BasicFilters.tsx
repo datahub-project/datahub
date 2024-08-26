@@ -1,6 +1,7 @@
 import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import {
@@ -25,7 +26,6 @@ import {
 import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { FilterScenarioType } from './render/types';
 import BasicFiltersLoadingSection from './BasicFiltersLoadingSection';
-import { useTranslation } from 'react-i18next';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 5;
 

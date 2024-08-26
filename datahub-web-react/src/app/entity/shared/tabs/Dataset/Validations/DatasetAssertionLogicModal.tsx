@@ -1,7 +1,8 @@
 import { Modal, Button } from 'antd';
 import React from 'react';
-import Query from '../Queries/Query';
 import { useTranslation } from 'react-i18next';
+import Query from '../Queries/Query';
+
 export type AssertionsSummary = {
     totalAssertions: number;
     totalRuns: number;

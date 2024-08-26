@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { Button, Divider, Typography } from 'antd';
 import { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
 
+import { useTranslation } from 'react-i18next';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
 import { EmptyTab } from '../../components/styled/EmptyTab';
@@ -17,7 +18,6 @@ import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 import { Editor } from './components/editor/Editor';
 import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
 
-import { useTranslation } from 'react-i18next';
 const DocumentationContainer = styled.div`
     margin: 0 32px;
     padding: 40px 0;

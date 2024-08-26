@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Button, message, Space, Typography } from 'antd';
 import styled from 'styled-components';
+import { t } from 'i18next';
 import { StepProps } from './types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '../utils';
 import { YamlEditor } from './YamlEditor';
@@ -9,7 +10,6 @@ import { IngestionSourceBuilderStep } from './steps';
 import RecipeBuilder from './RecipeBuilder';
 import { CONNECTORS_WITH_FORM } from './RecipeForm/constants';
 import { getRecipeJson } from './RecipeForm/TestConnection/TestConnectionButton';
-import { t } from 'i18next';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 

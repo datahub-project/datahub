@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { message, Button, Modal, Typography, Form } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useEntityData, useRefetch } from '../EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
@@ -8,7 +9,7 @@ import NodeParentSelect from './NodeParentSelect';
 import { useGlossaryEntityData } from '../GlossaryEntityContext';
 import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
 import { getModalDomContainer } from '../../../../utils/focus';
-import { useTranslation } from 'react-i18next';
+
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
 `;

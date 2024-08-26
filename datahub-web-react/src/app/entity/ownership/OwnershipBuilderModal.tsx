@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, Input, Modal, Typography, message, notification } from 'antd';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useCreateOwnershipTypeMutation, useUpdateOwnershipTypeMutation } from '../../../graphql/ownership.generated';
 import { OwnershipTypeEntity } from '../../../types.generated';
 import { OwnershipTypeBuilderState } from './table/types';
-import { useTranslation } from 'react-i18next';
+
 const NAME_INPUT_TEST_ID = 'ownership-type-name-input';
 const DESCRIPTION_INPUT_TEST_ID = 'ownership-type-description-input';
 

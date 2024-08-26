@@ -3,8 +3,9 @@ import { Button, Dropdown, Menu, Tooltip } from 'antd';
 import { CaretDownOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import MenuItem from 'antd/lib/menu/MenuItem';
-import { ANTD_GRAY } from '../../../../constants';
 import { useTranslation } from 'react-i18next';
+import { ANTD_GRAY } from '../../../../constants';
+
 const DownArrow = styled(CaretDownOutlined)`
     && {
         padding-top: 4px;

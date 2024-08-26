@@ -1,9 +1,9 @@
 import { message, Modal } from 'antd';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEntityData } from '../EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useDeleteGlossaryEntityMutation } from '../../../../graphql/glossary.generated';
-import { useTranslation } from 'react-i18next';
 
 function useDeleteGlossaryEntity() {
     const { t } = useTranslation();

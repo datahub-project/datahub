@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useAppConfig, useBusinessAttributesFlag } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
@@ -18,7 +19,6 @@ import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEd
 import { useUserContext } from '../../context/useUserContext';
 import DomainIcon from '../../domain/DomainIcon';
 
-import { useTranslation } from 'react-i18next';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;

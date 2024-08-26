@@ -3,6 +3,7 @@ import { Button, Form, message, Modal, Select, Empty } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
@@ -18,7 +19,7 @@ import { ANTD_GRAY } from '../../../../constants';
 import { getModalDomContainer } from '../../../../../../../utils/focus';
 import ParentEntities from '../../../../../../search/filters/ParentEntities';
 import { getParentDomains } from '../../../../../../domain/utils';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     urns: string[];
     onCloseModal: () => void;

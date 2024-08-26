@@ -2,9 +2,9 @@ import React from 'react';
 import styled from 'styled-components';
 import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, message, Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import { useTranslation } from 'react-i18next';
 
 const StyledMoreOutlined = styled(MoreOutlined)`
     font-size: 14px;

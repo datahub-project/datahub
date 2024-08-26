@@ -1,10 +1,10 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import dataHubLogo from '../../../images/datahublogo.png';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 
-import { useTranslation } from 'react-i18next';
 const Section = styled.div`
     width: auto;
     margin-top: 40px;

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Collapse, Form, Input, Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { validateCustomUrnId } from '../../../shared/textUtil';
 import { DataProductBuilderFormProps } from './types';
 
-import { useTranslation } from 'react-i18next';
 const FormItem = styled(Form.Item)`
     .ant-form-item-label {
         padding-bottom: 2px;

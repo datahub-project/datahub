@@ -1,11 +1,11 @@
 import React from 'react';
 import { Button, DatePicker, Form, message, Modal } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useBatchUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import { handleBatchError } from '../utils';
 import { Editor } from '../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../constants';
-import { useTranslation } from 'react-i18next';
 
 type Props = {
     urns: string[];

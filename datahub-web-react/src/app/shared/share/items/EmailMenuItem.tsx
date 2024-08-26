@@ -4,8 +4,9 @@ import { Tooltip } from 'antd';
 import { CheckOutlined, MailOutlined } from '@ant-design/icons';
 import qs from 'query-string';
 import MenuItem from 'antd/lib/menu/MenuItem';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { useTranslation } from 'react-i18next';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+
 interface EmailMenuItemProps {
     urn: string;
     name: string;
@@ -31,7 +32,7 @@ export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemPro
     const [isClicked, setIsClicked] = useState(false);
     const linkText = window.location.href;
     const { t } = useTranslation();
-    const typeTranslated = t('common.' + type.toLowerCase())
+    const typeTranslated = t(`common.${  type.toLowerCase()}`)
 
     const link = qs.stringifyUrl({
         url: 'mailto:',

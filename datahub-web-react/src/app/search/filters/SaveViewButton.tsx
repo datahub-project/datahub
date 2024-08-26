@@ -1,6 +1,7 @@
 import { Tooltip } from 'antd';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { ViewBuilderMode } from '../../entity/view/builder/types';
 import { ViewBuilder } from '../../entity/view/builder/ViewBuilder';
 import { buildInitialViewState, fromUnionType } from '../../entity/view/builder/utils';
@@ -10,7 +11,6 @@ import { TextButton } from './styledComponents';
 import { Message } from '../../shared/Message';
 import { canCreateViewFromFilters } from './utils';
 
-import { useTranslation } from 'react-i18next';
 const ToolTipHeader = styled.div`
     margin-bottom: 12px;
 `;

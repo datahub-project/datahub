@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { ManageIdentities } from '../identity/ManageIdentities';
 import { ManagePermissions } from '../permissions/ManagePermissions';
@@ -23,7 +24,6 @@ import { ManageViews } from '../entity/view/ManageViews';
 import { useUserContext } from '../context/useUserContext';
 import { ManageOwnership } from '../entity/ownership/ManageOwnership';
 import ManagePosts from './posts/ManagePosts';
-import { useTranslation } from 'react-i18next';
 
 const MenuItem = styled(Menu.Item)`
     display: flex;

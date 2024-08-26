@@ -1,8 +1,9 @@
 import { Button, Form, Input, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { SecretBuilderState } from './types';
-import { useTranslation } from 'react-i18next';
+
 const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
 const VALUE_FIELD_NAME = 'value';

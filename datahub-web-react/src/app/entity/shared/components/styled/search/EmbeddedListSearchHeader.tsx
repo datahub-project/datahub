@@ -2,6 +2,7 @@ import React from 'react';
 import { Button, Typography } from 'antd';
 import { FilterOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -10,7 +11,7 @@ import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
 import { EntityAndType } from '../../../types';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-import { useTranslation } from 'react-i18next';
+
 const HeaderContainer = styled.div`
     display: flex;
     justify-content: space-between;

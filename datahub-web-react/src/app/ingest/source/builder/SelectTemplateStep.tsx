@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 import { Button, Input } from 'antd';
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { SourceConfig, SourceBuilderState, StepProps } from './types';
 import { IngestionSourceBuilderStep } from './steps';
 import useGetSourceLogoUrl from './useGetSourceLogoUrl';
 import { CUSTOM } from './constants';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { DataPlatformCard } from './DataPlatformCard';
-import { useTranslation } from 'react-i18next';
 
 const Container = styled.div`
     max-height: 82vh;

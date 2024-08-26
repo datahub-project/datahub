@@ -1,8 +1,8 @@
 import React from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import { EmptyTab } from '../../../components/styled/EmptyTab';
 import { useTranslation } from 'react-i18next';
+import { EmptyTab } from '../../../components/styled/EmptyTab';
 
 export type Props = {
     message?: string;

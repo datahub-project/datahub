@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { Button, Dropdown, List, Menu, message, Popover, Tag, Tooltip, Typography } from 'antd';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
 import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incidentUtils';
 import { useGetUserQuery } from '../../../../../../graphql/user.generated';
@@ -13,7 +14,7 @@ import analytics, { EntityActionType, EventType } from '../../../../../analytics
 import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
 import { ResolveIncidentModal } from './ResolveIncidentModal';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     incident: any;
     refetch?: () => Promise<any>;

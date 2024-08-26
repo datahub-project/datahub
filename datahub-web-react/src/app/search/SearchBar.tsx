@@ -3,6 +3,7 @@ import { Input, AutoComplete, Button } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import filterSearchQuery from './utils/filterSearchQuery';
@@ -25,7 +26,6 @@ import { ViewSelect } from '../entity/view/select/ViewSelect';
 import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 import { CommandK } from './CommandK';
 import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../utils/translation/translation';
 
 const StyledAutoComplete = styled(AutoComplete)`

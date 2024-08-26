@@ -3,6 +3,7 @@ import { Button } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import DomainsTitle from './DomainsTitle';
 import RootDomains from './RootDomains';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '../../onboarding/config/DomainsOnboardingConfig';
@@ -11,7 +12,6 @@ import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import CreateDomainModal from '../CreateDomainModal';
 import { updateListDomainsCache } from '../utils';
 import { useDomainsContext } from '../DomainsContext';
-import { useTranslation } from 'react-i18next';
 
 const PageWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};

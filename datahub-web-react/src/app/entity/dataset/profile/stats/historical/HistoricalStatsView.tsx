@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { Affix, Row, Select, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useGetDataProfilesLazyQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetProfile, DateInterval } from '../../../../../../types.generated';
 import { Message } from '../../../../../shared/Message';
@@ -10,7 +11,7 @@ import { getFixedLookbackWindow, TimeWindowSize } from '../../../../../shared/ti
 import ProfilingRunsChart from './charts/ProfilingRunsChart';
 import StatsSection from '../StatsSection';
 import StatChart from './charts/StatChart';
-import { useTranslation } from 'react-i18next';
+
 const HeaderRow = styled(Row)`
     padding-top: 24px;
     padding-bottom: 28px;

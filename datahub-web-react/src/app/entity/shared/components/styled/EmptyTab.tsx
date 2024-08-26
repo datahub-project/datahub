@@ -1,8 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Empty, Typography } from 'antd';
-import { translateDisplayNames } from '../../../../../utils/translation/translation';
 import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../../../../utils/translation/translation';
 
 const StyledEmpty = styled(Empty)`
     padding: 40px;
@@ -34,8 +34,8 @@ export const EmptyTab = ({ tab, children }: Props) => {
         <StyledEmpty
             description={
                 <EmptyDescription>
-                    <Typography.Title level={4}>{translateDisplayNames(t, 'empty' + tab + 'title')}</Typography.Title>
-                    <Typography.Text type="secondary">{translateDisplayNames(t, 'empty' + tab + 'description')}</Typography.Text>
+                    <Typography.Title level={4}>{translateDisplayNames(t, `empty${  tab  }title`)}</Typography.Title>
+                    <Typography.Text type="secondary">{translateDisplayNames(t, `empty${  tab  }description`)}</Typography.Text>
                 </EmptyDescription>
             }
         >

@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useApolloClient } from '@apollo/client';
 import { MoreOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, message, Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { useUpdateCorpUserViewsSettingsMutation } from '../../../../graphql/user.generated';
@@ -20,7 +21,7 @@ import { RemoveGlobalDefaultItem } from './item/RemoveGlobalDefaultItem';
 import { SetGlobalDefaultItem } from './item/SetGlobalDefaultItem';
 import { DeleteViewItem } from './item/DeleteViewItem';
 import analytics, { EventType } from '../../../analytics';
-import { useTranslation } from 'react-i18next';
+
 const MenuButton = styled(MoreOutlined)`
     width: 20px;
     &&& {

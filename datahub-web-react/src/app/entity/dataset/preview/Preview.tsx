@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     EntityType,
     FabricType,
@@ -22,7 +23,6 @@ import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
 import { translateDisplayNames } from '../../../../utils/translation/translation';
-import { useTranslation } from 'react-i18next';
 
 export const Preview = ({
     urn,
@@ -87,7 +87,7 @@ export const Preview = ({
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const { t } = useTranslation();
-    let subtypeDataset = subtype ? translateDisplayNames(t, subtype) : subtype;
+    const subtypeDataset = subtype ? translateDisplayNames(t, subtype) : subtype;
 
     return (
         <DefaultPreviewCard

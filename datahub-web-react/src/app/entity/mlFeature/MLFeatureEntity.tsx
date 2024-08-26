@@ -28,6 +28,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
     }
 
     translationService: any;
+
     type: EntityType = EntityType.Mlfeature;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {

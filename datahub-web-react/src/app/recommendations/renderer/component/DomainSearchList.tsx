@@ -2,6 +2,7 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { Domain, EntityType, RecommendationContent } from '../../../../types.generated';
 import { LogoCountCard } from '../../../shared/LogoCountCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -9,7 +10,6 @@ import DomainIcon from '../../../domain/DomainIcon';
 import { PageRoutes } from '../../../../conf/Global';
 import { HomePageButton } from '../../../shared/components';
 import { HoverEntityTooltip } from './HoverEntityTooltip';
-import { useTranslation } from 'react-i18next';
 
 const DomainListContainer = styled.div`
     display: flex;

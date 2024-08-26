@@ -2,11 +2,12 @@ import { Button, List, Space, Typography } from 'antd';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { DownstreamEntityRelationships, EntityType, UpstreamEntityRelationships } from '../../../../types.generated';
 import { navigateToLineageUrl } from '../../../lineage/utils/navigateToLineageUrl';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
-import { useTranslation } from 'react-i18next';
+
 export type Props = {
     upstreamLineage?: UpstreamEntityRelationships | null;
     downstreamLineage?: DownstreamEntityRelationships | null;

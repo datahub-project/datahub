@@ -1,11 +1,12 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import StripMarkdownText from '../../shared/components/styled/StripMarkdownText';
 import { SidebarHeader } from '../../shared/containers/profile/sidebar/SidebarHeader';
 import { useEntityData, useRouteToTab } from '../../shared/EntityContext';
-import { t } from 'i18next';
-import { useTranslation } from 'react-i18next';
+
 const DescriptionTypography = styled(Typography.Paragraph)`
     max-width: 65ch;
 `;

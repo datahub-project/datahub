@@ -3,11 +3,11 @@ import { message, Modal, Tag } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
-import { useTranslation } from 'react-i18next';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 

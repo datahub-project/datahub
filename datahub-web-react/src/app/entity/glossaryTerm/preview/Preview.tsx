@@ -1,12 +1,13 @@
 import React from 'react';
 import { BookOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType, PreviewType } from '../../Entity';
 import UrlButton from '../../shared/UrlButton';
 import { getRelatedEntitiesUrl } from '../utils';
-import { useTranslation } from 'react-i18next';
+
 export const Preview = ({
     urn,
     name,

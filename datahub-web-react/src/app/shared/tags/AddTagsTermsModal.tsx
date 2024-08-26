@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'antd';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
 import { EntityType, Tag, Entity, ResourceRefInput } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
@@ -22,7 +23,7 @@ import { ENTER_KEY_CODE } from '../constants';
 import { getModalDomContainer } from '../../../utils/focus';
 import ParentEntities from '../../search/filters/ParentEntities';
 import { getParentEntities } from '../../search/filters/utils';
-import { useTranslation } from 'react-i18next';
+
 export enum OperationType {
     ADD,
     REMOVE,

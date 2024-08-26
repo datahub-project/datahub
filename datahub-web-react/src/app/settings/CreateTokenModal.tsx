@@ -3,13 +3,13 @@ import { message, Button, Input, Modal, Typography, Form, Select } from 'antd';
 import styled from 'styled-components';
 import { red } from '@ant-design/colors';
 
+import { useTranslation } from 'react-i18next';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from './utils';
 import { useCreateAccessTokenMutation } from '../../graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '../../types.generated';
 import { AccessTokenModal } from './AccessTokenModal';
 import analytics, { EventType } from '../analytics';
-import { useTranslation } from 'react-i18next';
 
 type Props = {
     currentUserUrn: string;

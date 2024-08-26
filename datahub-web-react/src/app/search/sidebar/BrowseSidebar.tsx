@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Select, Tooltip, Typography } from 'antd';
 import Icon, { CaretDownFilled } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import EntityNode from './EntityNode';
 import { BrowseProvider } from './BrowseContext';
 import SidebarLoadingError from './SidebarLoadingError';
@@ -10,7 +11,6 @@ import useSidebarEntities from './useSidebarEntities';
 import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import { ProfileSidebarResizer } from '../../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import SortIcon from '../../../images/sort.svg?react';
-import { useTranslation } from 'react-i18next';
 
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;

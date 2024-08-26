@@ -2,6 +2,7 @@ import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import CompactContext from '../../../../../../shared/CompactContext';
 import MarkdownViewer, { MarkdownView } from '../../../../components/legacy/MarkdownViewer';
 import NoMarkdownViewer, { removeMarkdown } from '../../../../components/styled/StripMarkdownText';
@@ -10,7 +11,6 @@ import { useIsOnTab } from '../../utils';
 import { ANTD_GRAY } from '../../../../constants';
 import { EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useTranslation } from 'react-i18next';
 
 const ABBREVIATED_LIMIT = 150;
 

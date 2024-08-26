@@ -2,11 +2,11 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DisplayedFilterOption } from './mapFilterOption';
 import { SearchFilterLabel } from './styledComponents';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../utils/translation/translation';
 
 export const IconWrapper = styled.div`

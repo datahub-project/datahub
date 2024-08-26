@@ -1,11 +1,12 @@
 import { Button, Form, Modal, Select, Tag, Tooltip } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Container, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     onCloseModal: () => void;
     defaultValues?: { urn: string; entity?: Entity | null }[];

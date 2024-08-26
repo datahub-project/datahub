@@ -2,9 +2,9 @@ import { Button, Input, Tooltip } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { ADD_UNAUTHORIZED_MESSAGE } from './utils/constants';
-import { useTranslation } from 'react-i18next';
 
 const StyledInput = styled(Input)`
     border-radius: 70px;

@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { Alert, Button, Divider, Empty, message, Modal, Pagination, Select, Typography } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { red } from '@ant-design/colors';
+import { useTranslation } from 'react-i18next';
 import { EntityType, FacetFilterInput } from '../../types.generated';
 import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '../../graphql/auth.generated';
 import { Message } from '../shared/Message';
@@ -17,7 +18,6 @@ import { useAppConfig } from '../useAppConfig';
 import { useListUsersQuery } from '../../graphql/user.generated';
 import { OwnerLabel } from '../shared/OwnerLabel';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { useTranslation } from 'react-i18next';
 
 const SourceContainer = styled.div`
     width: 100%;

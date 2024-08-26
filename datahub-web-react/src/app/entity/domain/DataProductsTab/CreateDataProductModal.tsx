@@ -1,11 +1,12 @@
 import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import DataProductBuilderForm from './DataProductBuilderForm';
 import { DataProductBuilderState } from './types';
 import { useCreateDataProductMutation } from '../../../../graphql/dataProduct.generated';
 import { DataProduct, Domain } from '../../../../types.generated';
-import { t } from 'i18next';
-import { useTranslation } from 'react-i18next';
+
 export const MODAL_WIDTH = '75vw';
 
 export const MODAL_BODY_STYLE = {

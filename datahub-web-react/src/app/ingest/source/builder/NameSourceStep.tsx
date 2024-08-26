@@ -1,9 +1,9 @@
 import { Button, Checkbox, Collapse, Form, Input, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { t } from 'i18next';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
-import { t } from 'i18next';
 
 const ControlsContainer = styled.div`
     display: flex;

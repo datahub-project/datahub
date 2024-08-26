@@ -1,11 +1,12 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import { t } from 'i18next';
 import { RoutedTabs } from '../shared/RoutedTabs';
 import { GroupList } from './group/GroupList';
 import { UserList } from './user/UserList';
-import { useTranslation } from 'react-i18next';
-import { t } from 'i18next';
+
 const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;

@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { Popover } from 'antd';
 import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined, HddOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
@@ -9,7 +10,6 @@ import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { FormattedBytesStat } from './FormattedBytesStat';
 import { countFormatter, needsFormatting } from '../../../../utils/formatter';
 import ExpandingStat from './ExpandingStat';
-import { useTranslation } from 'react-i18next';
 
 const StatText = styled.span<{ color: string }>`
     color: ${(props) => props.color};

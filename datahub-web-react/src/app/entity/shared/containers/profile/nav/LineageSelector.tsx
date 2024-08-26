@@ -4,6 +4,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 import { Badge } from 'antd';
 import { InfoCircleOutlined, PartitionOutlined } from '@ant-design/icons';
 import { grey, blue } from '@ant-design/colors';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../../../../types.generated';
 import { navigateToLineageUrl } from '../../../../../lineage/utils/navigateToLineageUrl';
 import { ANTD_GRAY, ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../../constants';
@@ -11,7 +12,6 @@ import useIsLineageMode from '../../../../../lineage/utils/useIsLineageMode';
 import { useGetLineageTimeParams } from '../../../../../lineage/utils/useGetLineageTimeParams';
 import { useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { useGetLineageCountsQuery } from '../../../../../../graphql/lineage.generated';
-import { useTranslation } from 'react-i18next';
 
 const LineageIconGroup = styled.div`
     width: 180px;

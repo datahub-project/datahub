@@ -4,6 +4,7 @@ import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
 import styled, { useTheme } from 'styled-components/macro';
 import { useHistory } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
@@ -12,7 +13,6 @@ import { useAppConfig } from '../useAppConfig';
 import { PageRoutes } from '../../conf/Global';
 import useGetInviteTokenFromUrlParams from './useGetInviteTokenFromUrlParams';
 import { useAcceptRoleMutation } from '../../graphql/mutations.generated';
-import { useTranslation } from 'react-i18next';
 
 
 type FormValues = {

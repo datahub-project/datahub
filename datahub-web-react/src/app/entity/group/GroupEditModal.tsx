@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form } from 'antd';
-import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { t } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
+
 type PropsData = {
     email: string | undefined;
     slack: string | undefined;

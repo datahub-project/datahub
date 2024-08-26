@@ -3,6 +3,7 @@ import { Divider, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import {
     GlobalTags,
     Owner,
@@ -36,7 +37,7 @@ import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
-import { useTranslation } from 'react-i18next';
+
 const PreviewContainer = styled.div`
     display: flex;
     width: 100%;

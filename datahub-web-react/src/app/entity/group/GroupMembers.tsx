@@ -3,13 +3,14 @@ import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/i
 import { Col, Dropdown, message, Modal, Pagination, Row, Empty, Button, Typography, MenuProps } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '../../../graphql/group.generated';
 import { CorpUser, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { AddGroupMembersModal } from './AddGroupMembersModal';
 import { scrollToTop } from '../../shared/searchUtils';
-import { useTranslation } from 'react-i18next';
+
 const ADD_MEMBER_STYLE = {
     backGround: '#ffffff',
     boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.05)',

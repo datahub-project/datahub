@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import buildEntityRegistry from './buildEntityRegistry';
 import { useTranslation } from 'react-i18next';
+import buildEntityRegistry from './buildEntityRegistry';
 
 export default function useBuildEntityRegistry() {
     const { t } = useTranslation();

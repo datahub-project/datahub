@@ -2,13 +2,14 @@ import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { Button, Dropdown, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { DataProduct, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import EditDataProductModal from './EditDataProductModal';
 import { MenuIcon } from '../../shared/EntityDropdown/EntityDropdown';
 import { useDeleteDataProductMutation } from '../../../../graphql/dataProduct.generated';
-import { useTranslation } from 'react-i18next';
+
 const ResultWrapper = styled.div`
     background-color: white;
     border-radius: 8px;

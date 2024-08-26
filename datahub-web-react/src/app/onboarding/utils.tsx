@@ -1,10 +1,10 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { StepStateResult } from '../../types.generated';
 import { OnboardingConfig } from './OnboardingConfig';
 import { OnboardingStep } from './OnboardingStep';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../utils/translation/translation';
 
 export function convertStepId(stepId: string, userUrn: string) {
@@ -84,7 +84,7 @@ export function getStepsToRender(
             content: (
                 <div>
                     <StepTitle level={5}>{translateDisplayNames(t, step?.title?.toString())}</StepTitle>
-                    <div dangerouslySetInnerHTML={{ __html: translateDisplayNames(t, step?.title?.toString() + 'description') }} />
+                    <div dangerouslySetInnerHTML={{ __html: translateDisplayNames(t, `${step?.title?.toString()  }description`) }} />
                 </div>
             ),
         }));

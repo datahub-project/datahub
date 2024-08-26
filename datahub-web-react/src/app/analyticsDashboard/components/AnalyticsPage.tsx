@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Alert, Divider, Input, Select } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { ChartGroup } from './ChartGroup';
 import { useGetAnalyticsChartsQuery, useGetMetadataAnalyticsChartsQuery } from '../../../graphql/analytics.generated';
 import { useGetHighlightsQuery } from '../../../graphql/highlights.generated';
@@ -11,7 +12,6 @@ import { useListDomainsQuery } from '../../../graphql/domain.generated';
 import filterSearchQuery from '../../search/utils/filterSearchQuery';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useUserContext } from '../../context/useUserContext';
-import { useTranslation } from 'react-i18next';
 
 
 const HighlightGroup = styled.div`

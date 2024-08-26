@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -13,7 +14,6 @@ import { FilterButtonsWrapper, FlexSpacer, FlexWrapper } from './BasicFilters';
 import SaveViewButton from './SaveViewButton';
 import { TextButton } from './styledComponents';
 import { hasAdvancedFilters } from '../utils/hasAdvancedFilters';
-import { useTranslation } from 'react-i18next';
 
 const AnyAllToggle = styled.div`
     font-weight: 700;

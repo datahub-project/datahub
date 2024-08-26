@@ -3,13 +3,14 @@ import { Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../shared/constants';
 import { IconStyleType } from '../../Entity';
 import NoMarkdownViewer from '../../shared/components/styled/StripMarkdownText';
 import SearchTextHighlighter from '../../../search/matches/SearchTextHighlighter';
-import { useTranslation } from 'react-i18next';
+
 const PreviewContainer = styled.div`
     margin-bottom: 4px;
     display: flex;

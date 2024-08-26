@@ -5,6 +5,7 @@ import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
 import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { SourceBuilderState, StepProps } from './types';
 import { TimezoneSelect } from './TimezoneSelect';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../entity/shared/constants';
@@ -12,7 +13,6 @@ import { lowerFirstLetter } from '../../../shared/textUtil';
 import { IngestionSourceBuilderStep } from './steps';
 import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
 
-import { useTranslation } from 'react-i18next';
 const Section = styled.div`
     display: flex;
     flex-direction: column;

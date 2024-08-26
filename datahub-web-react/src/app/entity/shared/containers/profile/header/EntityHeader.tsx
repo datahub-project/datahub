@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
 import PlatformContent from './PlatformContent';
@@ -19,7 +20,6 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import EntityHeaderLoadingSection from './EntityHeaderLoadingSection';
 import { useIsEditableDatasetNameEnabled } from '../../../../../useAppConfig';
 import { translateDisplayNames } from '../../../../../../utils/translation/translation';
-import { useTranslation } from 'react-i18next';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -99,7 +99,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
     const entityCount = entityData?.entityCount;
 
     const entityName = entityData?.name;
-    let subtypeEntity = entityData?.subTypes?.typeNames?.[0] ? translateDisplayNames(t, entityData?.subTypes?.typeNames?.[0]) : entityData?.subTypes?.typeNames?.[0];
+    const subtypeEntity = entityData?.subTypes?.typeNames?.[0] ? translateDisplayNames(t, entityData?.subTypes?.typeNames?.[0]) : entityData?.subTypes?.typeNames?.[0];
     const subType = capitalizeFirstLetterOnly(subtypeEntity) || undefined;
 
     const isEditableDatasetNameEnabled = useIsEditableDatasetNameEnabled();

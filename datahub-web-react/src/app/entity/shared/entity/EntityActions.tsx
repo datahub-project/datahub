@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, message } from 'antd';
 import { LinkOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
@@ -8,7 +9,7 @@ import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../..
 import { handleBatchError } from '../utils';
 import { useBatchSetDataProductMutation } from '../../../../graphql/dataProduct.generated';
 import { useEntityContext } from '../EntityContext';
-import { useTranslation } from 'react-i18next';
+
 export enum EntityActionItem {
     
     /**

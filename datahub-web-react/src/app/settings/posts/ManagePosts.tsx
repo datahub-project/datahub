@@ -1,8 +1,9 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { PostList } from './PostsList';
 import { useTranslation } from 'react-i18next';
+import { PostList } from './PostsList';
+
 const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;

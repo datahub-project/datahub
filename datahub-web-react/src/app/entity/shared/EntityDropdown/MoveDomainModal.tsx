@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { message, Button, Modal, Typography, Form } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useRefetch } from '../EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
@@ -8,7 +9,7 @@ import DomainParentSelect from './DomainParentSelect';
 import { useHandleMoveDomainComplete } from './useHandleMoveDomainComplete';
 import { useDomainsContext } from '../../../domain/DomainsContext';
 import { EntityType } from '../../../../types.generated';
-import { useTranslation } from 'react-i18next';
+
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
 `;

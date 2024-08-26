@@ -1,6 +1,7 @@
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { UnionType } from './utils/constants';
 import { hasAdvancedFilters } from './utils/hasAdvancedFilters';
@@ -12,7 +13,7 @@ import { buildInitialViewState, fromUnionType } from '../entity/view/builder/uti
 import { SaveAsViewButton } from './SaveAsViewButton';
 import { useUserContext } from '../context/useUserContext';
 import { ViewBuilderMode } from '../entity/view/builder/types';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     filters?: Array<FacetMetadata> | null;
     selectedFilters: Array<FacetFilterInput>;

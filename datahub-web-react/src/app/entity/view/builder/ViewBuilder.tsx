@@ -1,6 +1,7 @@
 import React from 'react';
 import { message } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import { useTranslation } from 'react-i18next';
 import { useCreateViewMutation, useUpdateViewMutation } from '../../../../graphql/view.generated';
 import { ViewBuilderState } from '../types';
 import { ViewBuilderModal } from './ViewBuilderModal';
@@ -11,7 +12,7 @@ import { ViewBuilderMode } from './types';
 import analytics, { EventType } from '../../../analytics';
 import { DataHubView } from '../../../../types.generated';
 import { useSearchVersion } from '../../../search/useSearchAndBrowseVersion';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     mode: ViewBuilderMode;
     urn?: string | null; // When editing an existing view, this is provided.

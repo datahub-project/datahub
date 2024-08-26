@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 
+import { t } from 'i18next';
 import { useEntityData } from '../../EntityContext';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { getEntityPath } from '../../containers/profile/utils';
@@ -27,7 +28,6 @@ import ManageLineageMenu from '../../../../lineage/manage/ManageLineageMenu';
 import LineageTabTimeSelector from './LineageTabTimeSelector';
 import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 import { ANTD_GRAY } from '../../constants';
-import { t } from 'i18next';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: space-between;

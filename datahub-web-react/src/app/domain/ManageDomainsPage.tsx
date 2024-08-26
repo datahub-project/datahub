@@ -1,10 +1,11 @@
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { DomainsList } from './DomainsList';
 import { DomainsContext } from './DomainsContext';
 import { GenericEntityProperties } from '../entity/shared/types';
-import { useTranslation } from 'react-i18next';
+
 const PageContainer = styled.div`
     padding-top: 20px;
 `;

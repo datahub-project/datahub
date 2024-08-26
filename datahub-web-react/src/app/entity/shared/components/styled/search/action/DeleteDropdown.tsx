@@ -1,9 +1,10 @@
 import { message, Modal } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBatchUpdateSoftDeletedMutation } from '../../../../../../../graphql/mutations.generated';
 import ActionDropdown from './ActionDropdown';
 import { handleBatchError } from '../../../../utils';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     urns: Array<string>;
     disabled: boolean;

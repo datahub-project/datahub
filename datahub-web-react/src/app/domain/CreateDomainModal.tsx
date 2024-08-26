@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
 import DomainParentSelect from '../entity/shared/EntityDropdown/DomainParentSelect';
 import { useIsNestedDomainsEnabled } from '../useAppConfig';
-import { useTranslation } from 'react-i18next';
 import { useDomainsContext } from './DomainsContext';
 
 const SuggestedNamesGroup = styled.div`

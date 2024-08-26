@@ -10,6 +10,7 @@ import {
     AuditOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { DatasetAssertionDescription } from './DatasetAssertionDescription';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { DatasetAssertionDetails } from './DatasetAssertionDetails';
@@ -22,7 +23,6 @@ import { REDESIGN_COLORS } from '../../../constants';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { isAssertionPartOfContract } from './contract/utils';
 import { useEntityData } from '../../../EntityContext';
-import { useTranslation } from 'react-i18next';
 
 const ResultContainer = styled.div`
     display: flex;

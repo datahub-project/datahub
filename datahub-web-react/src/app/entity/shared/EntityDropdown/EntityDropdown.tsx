@@ -13,6 +13,7 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import { Redirect, useHistory } from 'react-router';
+import { t } from 'i18next';
 import { EntityType } from '../../../../types.generated';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
 import { UpdateDeprecationModal } from './UpdateDeprecationModal';
@@ -29,7 +30,6 @@ import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 import { getEntityPath } from '../containers/profile/utils';
 import { useIsSeparateSiblingsMode } from '../siblingUtils';
 import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
-import { t } from 'i18next';
 
 export enum EntityMenuItems {
     COPY_URL,

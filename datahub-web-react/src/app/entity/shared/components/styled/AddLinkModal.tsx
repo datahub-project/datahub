@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useEntityData, useMutationUrn } from '../../EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useUserContext } from '../../../../context/useUserContext';
 import { getModalDomContainer } from '../../../../../utils/focus';
-import { useTranslation } from 'react-i18next';
+
 type AddLinkProps = {
     buttonProps?: Record<string, unknown>;
     refetch?: () => Promise<any>;

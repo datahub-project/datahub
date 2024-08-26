@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { ReadOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { Message } from '../../shared/Message';
 import { ResultWrapper } from '../../search/SearchResultList';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -8,7 +9,7 @@ import { EntityType } from '../../../types.generated';
 import useListDomains from '../useListDomains';
 import EmptyDomainsSection from '../EmptyDomainsSection';
 import EmptyDomainDescription from '../EmptyDomainDescription';
-import { useTranslation } from 'react-i18next';
+
 const DomainsWrapper = styled.div`
     overflow: auto;
     padding: 0 28px 16px 28px;

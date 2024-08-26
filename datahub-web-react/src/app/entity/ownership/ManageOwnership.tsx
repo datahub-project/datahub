@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Typography } from 'antd';
-import { OwnershipList } from './OwnershipList';
 import { useTranslation } from 'react-i18next';
+import { OwnershipList } from './OwnershipList';
+
 const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;

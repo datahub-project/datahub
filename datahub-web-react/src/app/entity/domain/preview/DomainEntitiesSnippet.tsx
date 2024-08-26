@@ -2,11 +2,12 @@ import { DatabaseOutlined, FileDoneOutlined } from '@ant-design/icons';
 import { VerticalDivider } from '@remirror/react';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { SearchResultFields_Domain_Fragment } from '../../../../graphql/search.generated';
 import { ANTD_GRAY_V2 } from '../../shared/constants';
 import DomainIcon from '../../../domain/DomainIcon';
 import { pluralize } from '../../../shared/textUtil';
-import { useTranslation } from 'react-i18next';
+
 const Wrapper = styled.div`
     color: ${ANTD_GRAY_V2[8]};
     font-size: 12px;

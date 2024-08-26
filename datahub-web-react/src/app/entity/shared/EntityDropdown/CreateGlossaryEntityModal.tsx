@@ -4,6 +4,7 @@ import { EditOutlined } from '@ant-design/icons';
 import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import DOMPurify from 'dompurify';
 import { useHistory } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import {
     useCreateGlossaryTermMutation,
     useCreateGlossaryNodeMutation,
@@ -19,7 +20,6 @@ import { useGlossaryEntityData } from '../GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
 import { getEntityPath } from '../containers/profile/utils';
 
-import { useTranslation } from 'react-i18next';
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
 `;

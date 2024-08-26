@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
@@ -13,7 +14,6 @@ import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
 
-import { useTranslation } from 'react-i18next';
 
 import {
     BUSINESS_GLOSSARY_INTRO_ID,

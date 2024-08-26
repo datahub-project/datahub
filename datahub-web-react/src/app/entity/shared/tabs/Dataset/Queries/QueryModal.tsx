@@ -2,10 +2,10 @@ import React from 'react';
 import { Button, Modal, Typography } from 'antd';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import CopyQuery from './CopyQuery';
 import { ANTD_GRAY } from '../../../constants';
 import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
-import { useTranslation } from 'react-i18next';
 
 const StyledModal = styled(Modal)`
     top: 4vh;

@@ -2,11 +2,12 @@ import { message, Tag } from 'antd';
 import React, { useState } from 'react';
 import { FetchResult, MutationFunctionOptions } from '@apollo/client';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import MarkdownViewer from './MarkdownViewer';
 import UpdateDescriptionModal from './DescriptionModal';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { EntityType } from '../../../../../types.generated';
-import { useTranslation } from 'react-i18next';
+
 const DescriptionText = styled(MarkdownViewer)`
     ${(props) => (props.isCompact ? 'max-width: 377px;' : '')};
 `;

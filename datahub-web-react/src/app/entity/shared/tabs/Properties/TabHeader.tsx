@@ -2,8 +2,9 @@ import { SearchOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../constants';
 import { useTranslation } from 'react-i18next';
+import { ANTD_GRAY } from '../../constants';
+
 const StyledInput = styled(Input)`
     border-radius: 70px;
     max-width: 300px;

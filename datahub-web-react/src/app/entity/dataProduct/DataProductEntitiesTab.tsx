@@ -1,8 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEntityData } from '../shared/EntityContext';
 import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
 import generateUseListDataProductAssets from './generateUseListDataProductAssets';
-import { useTranslation } from 'react-i18next';
 
 export function DataProductEntitiesTab() {
     const { t } = useTranslation();

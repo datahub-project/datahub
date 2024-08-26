@@ -4,6 +4,7 @@ import { useLocation } from 'react-router';
 import { UserOutlined } from '@ant-design/icons';
 import { Button, message, Modal, Select, Tooltip, Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetInviteTokenQuery, useListRolesQuery } from '../../../graphql/role.generated';
 import { DataHubRole } from '../../../types.generated';
@@ -11,7 +12,7 @@ import { mapRoleIcon } from './UserUtils';
 import { useCreateInviteTokenMutation } from '../../../graphql/mutations.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import analytics, { EventType } from '../../analytics';
-import { useTranslation } from 'react-i18next';
+
 const ModalSection = styled.div`
     display: flex;
     flex-direction: column;

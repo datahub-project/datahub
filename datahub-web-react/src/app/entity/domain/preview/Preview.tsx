@@ -1,10 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Domain, EntityType, Owner, SearchInsight } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import DomainEntitiesSnippet from './DomainEntitiesSnippet';
 import DomainIcon from '../../../domain/DomainIcon';
-import { useTranslation } from 'react-i18next';
 
 export const Preview = ({
     domain,

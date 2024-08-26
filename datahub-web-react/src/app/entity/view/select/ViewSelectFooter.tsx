@@ -2,9 +2,9 @@ import React, { useRef } from 'react';
 import styled from 'styled-components';
 import { Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../shared/constants';
 import { NoMarginButton } from './styledComponents';
-import { useTranslation } from 'react-i18next';
 
 const ButtonContainer = styled.div`
     display: flex;

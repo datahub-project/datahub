@@ -1,9 +1,10 @@
 import { CheckOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
-import TabToolbar from '../../../components/styled/TabToolbar';
 import { t } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import TabToolbar from '../../../components/styled/TabToolbar';
+
 type DescriptionEditorToolbarProps = {
     disableSave: boolean;
     onClose: () => void;

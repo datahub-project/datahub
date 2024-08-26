@@ -1,12 +1,13 @@
 import { Button } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import Tour from 'reactour';
+import { useTranslation } from 'react-i18next';
 import { useBatchUpdateStepStatesMutation } from '../../graphql/step.generated';
 import { EducationStepsContext } from '../../providers/EducationStepsContext';
 import { StepStateResult } from '../../types.generated';
 import { useUserContext } from '../context/useUserContext';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     stepIds: string[];
 };

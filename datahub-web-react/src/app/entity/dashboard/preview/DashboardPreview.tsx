@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     AccessLevel,
     Domain,
@@ -20,7 +21,6 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
 import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../../utils/translation/translation';
 
 export const DashboardPreview = ({

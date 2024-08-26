@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form, Tooltip } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useAppConfig } from '../../useAppConfig';
-import { useTranslation } from 'react-i18next';
 
 type PropsData = {
     name: string | undefined;

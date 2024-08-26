@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
 
+import { useTranslation } from 'react-i18next';
 import {
     CorpUser,
     Entity,
@@ -21,8 +22,8 @@ import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
 import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
 import { getModalDomContainer } from '../../../../../../../utils/focus';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
+
 const SelectInput = styled(Select)`
     width: 480px;
 `;

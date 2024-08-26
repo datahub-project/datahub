@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { message } from 'antd';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { GenericEntityUpdate } from '../../../types';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../EntityContext';
@@ -10,7 +11,7 @@ import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
 import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDesription';
-import { useTranslation } from 'react-i18next';
+
 const EditorContainer = styled.div`
     flex: 1;
 `;

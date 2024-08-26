@@ -2,12 +2,13 @@ import React from 'react';
 import styled from 'styled-components';
 import { Divider, Typography, Switch, Card, message } from 'antd';
 
+import { useTranslation } from 'react-i18next';
 import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
 import { UserSetting } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import analytics, { EventType } from '../analytics';
 import { useUserContext } from '../context/useUserContext';
-import { useTranslation } from 'react-i18next';
+
 const Page = styled.div`
     width: 100%;
     display: flex;

@@ -1,9 +1,9 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { Post } from '../../types.generated';
-import { useTranslation } from 'react-i18next';
 
 const CardContainer = styled.div`
     display: flex;

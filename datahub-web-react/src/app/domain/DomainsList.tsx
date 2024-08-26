@@ -5,6 +5,8 @@ import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { PlusOutlined } from '@ant-design/icons';
 import { AlignType } from 'rc-table/lib/interface';
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../types.generated';
 import { useListDomainsQuery } from '../../graphql/domain.generated';
 import CreateDomainModal from './CreateDomainModal';
@@ -20,8 +22,6 @@ import { getElasticCappedTotalValueText } from '../entity/shared/constants';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
 import { DomainOwnersColumn, DomainListMenuColumn, DomainNameColumn } from './DomainListColumns';
 import DomainIcon from './DomainIcon';
-import { t } from 'i18next';
-import { useTranslation } from 'react-i18next';
 
 const DomainsContainer = styled.div``;
 

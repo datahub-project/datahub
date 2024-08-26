@@ -4,8 +4,8 @@ import { Redirect, useHistory } from 'react-router';
 import { Tabs } from 'antd';
 import { TabsProps } from 'antd/lib/tabs';
 import styled from 'styled-components';
-import { translateDisplayNames } from '../../utils/translation/translation';
 import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../utils/translation/translation';
 
 const { TabPane } = Tabs;
 

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Form, Input, Select, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { ViewBuilderState } from '../types';
 import { DataHubViewType } from '../../../../types.generated';
 import { ViewTypeLabel } from '../ViewTypeLabel';
@@ -8,7 +9,7 @@ import { ViewDefinitionBuilder } from './ViewDefinitionBuilder';
 import { ANTD_GRAY } from '../../shared/constants';
 import { useUserContext } from '../../../context/useUserContext';
 import { ViewBuilderMode } from './types';
-import { useTranslation } from 'react-i18next';
+
 const StyledFormItem = styled(Form.Item)`
     margin-bottom: 8px;
 `;

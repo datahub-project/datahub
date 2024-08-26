@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { EditOwnersModal, OperationType } from '../../../../containers/profile/sidebar/Ownership/EditOwnersModal';
 import ActionDropdown from './ActionDropdown';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     urns: Array<string>;
     disabled: boolean;

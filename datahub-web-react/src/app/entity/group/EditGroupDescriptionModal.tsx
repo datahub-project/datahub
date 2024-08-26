@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Button, Modal, Form } from 'antd';
 import styled from 'styled-components';
 
-import { Editor } from '../shared/tabs/Documentation/components/editor/Editor';
-import { ANTD_GRAY } from '../shared/constants';
 import { t } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import { Editor } from '../shared/tabs/Documentation/components/editor/Editor';
+import { ANTD_GRAY } from '../shared/constants';
+
 type Props = {
     onClose: () => void;
     onSaveAboutMe: () => void;

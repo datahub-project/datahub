@@ -1,7 +1,8 @@
 import React from 'react';
 import { Alert } from 'antd';
-import { LOOKER, LOOK_ML } from './constants';
 import { useTranslation } from 'react-i18next';
+import { LOOKER, LOOK_ML } from './constants';
+
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 const LOOKER_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-looker';
 

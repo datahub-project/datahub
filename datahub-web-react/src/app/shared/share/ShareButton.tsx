@@ -2,9 +2,10 @@ import React from 'react';
 import styled from 'styled-components';
 import { Button, Dropdown } from 'antd';
 import { ShareAltOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../types.generated';
 import ShareButtonMenu from './ShareButtonMenu';
-import { useTranslation } from 'react-i18next';
+
 interface ShareButtonProps {
     urn: string;
     entityType: EntityType;

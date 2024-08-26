@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-import DomainIcon from '../DomainIcon';
 import { useTranslation } from 'react-i18next';
+import DomainIcon from '../DomainIcon';
+
 const IconWrapper = styled.span`
     margin-right: 10px;
 `;

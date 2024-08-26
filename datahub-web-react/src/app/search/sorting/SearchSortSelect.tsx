@@ -2,11 +2,12 @@ import Icon, { CaretDownFilled } from '@ant-design/icons';
 import { Select, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import SortIcon from '../../../images/sort.svg?react';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { DEFAULT_SORT_OPTION, SORT_OPTIONS } from '../context/constants';
 import { useSearchContext } from '../context/SearchContext';
-import { useTranslation } from 'react-i18next';
+
 const SelectWrapper = styled.span`
     display: inline-flex;
     align-items: center;

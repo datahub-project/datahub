@@ -1,10 +1,11 @@
 import React from 'react';
 import { Button, Divider, Modal, Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { CorpUser, DataHubPolicy, DataHubRole } from '../../../types.generated';
 import AvatarsGroup from '../AvatarsGroup';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     role: DataHubRole;
     visible: boolean;

@@ -3,8 +3,9 @@ import styled from 'styled-components';
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import MenuItem from 'antd/lib/menu/MenuItem';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { useTranslation } from 'react-i18next';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+
 interface CopyUrnMenuItemProps {
     urn: string;
     key: string;

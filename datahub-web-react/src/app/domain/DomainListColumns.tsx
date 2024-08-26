@@ -2,11 +2,12 @@ import React from 'react';
 import { Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { Maybe, Ownership } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import DomainItemMenu from './DomainItemMenu';
-import { useTranslation } from 'react-i18next';
+
 interface DomainEntry {
     name: string;
     entities: string;

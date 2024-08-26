@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../../Entity';
 import { useEntityData } from '../../../../EntityContext';
@@ -10,7 +11,6 @@ import EntityRegistry from '../../../../../EntityRegistry';
 import { EntityType } from '../../../../../../../types.generated';
 import useContentTruncation from '../../../../../../shared/useContentTruncation';
 import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
-import { useTranslation } from 'react-i18next';
 
 export function getDisplayedEntityType(
     entityData: GenericEntityProperties | null,

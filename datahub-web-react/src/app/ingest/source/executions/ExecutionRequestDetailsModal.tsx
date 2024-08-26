@@ -3,6 +3,7 @@ import { Button, message, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
+import { t } from 'i18next';
 import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { downloadFile } from '../../../search/utils/csvUtils';
@@ -20,7 +21,6 @@ import {
 } from '../utils';
 import { ExecutionRequestResult } from '../../../../types.generated';
 import { StructuredReport } from './reporting/StructuredReport';
-import { t } from 'i18next';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;

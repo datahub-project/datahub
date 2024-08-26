@@ -1,10 +1,11 @@
 import styled from 'styled-components';
 import React from 'react';
 import { useHistory } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { SearchSuggestion } from '../../../types.generated';
 import { navigateToSearchUrl } from '../utils/navigateToSearchUrl';
 import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import { useTranslation } from 'react-i18next';
+
 const TextWrapper = styled.div`
     font-size: 14px;
     color: ${ANTD_GRAY_V2[8]};
@@ -34,7 +35,7 @@ export default function SearchQuerySuggester({ suggestions }: Props) {
 
     return (
         <TextWrapper>
-            {t('search.didYouMean_component',{suggestText:suggestText})}
+            {t('search.didYouMean_component',{suggestText})}
         </TextWrapper>
     );
 }

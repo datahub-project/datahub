@@ -3,6 +3,7 @@ import { Button, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { SectionHeader, StyledDivider } from './components';
 import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
 import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
@@ -14,7 +15,6 @@ import { useSchemaRefetch } from '../../SchemaContext';
 import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
 import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-import { useTranslation } from 'react-i18next';
 
 const EditIcon = styled(Button)`
     border: none;

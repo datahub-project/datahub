@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { PlusOutlined } from '@ant-design/icons';
 import { AlignType } from 'rc-table/lib/interface';
+import { useTranslation } from 'react-i18next';
 import CreatePostModal from './CreatePostModal';
 import { PostColumn, PostEntry, PostListMenuColumn } from './PostsListColumns';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -16,7 +17,7 @@ import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { SearchBar } from '../../search/SearchBar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { POST_TYPE_TO_DISPLAY_TEXT } from './constants';
-import { useTranslation } from 'react-i18next';
+
 const PostsContainer = styled.div`
     display: flex;
     flex-direction: column;

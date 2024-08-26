@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useListRecommendationsQuery } from '../../../../../../../graphql/recommendations.generated';
 import {
     EntityType,
@@ -10,7 +11,6 @@ import { RecommendationModule } from '../../../../../../recommendations/Recommen
 import { RecommendationDisplayType } from '../../../../../../recommendations/types';
 import { SidebarHeader } from '../SidebarHeader';
 import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
-import { useTranslation } from 'react-i18next';
 
 const RecommendationsContainer = styled.div``;
 

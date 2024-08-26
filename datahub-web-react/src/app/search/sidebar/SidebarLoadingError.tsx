@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, Button } from 'antd';
 import styled from 'styled-components';
 import { useTranslation } from 'react-i18next';
+
 const StyledAlert = styled(Alert)`
     white-space: normal;
 `;

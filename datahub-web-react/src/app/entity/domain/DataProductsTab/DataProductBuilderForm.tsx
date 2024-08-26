@@ -1,11 +1,12 @@
 import { Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { Editor as MarkdownEditor } from '../../shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../shared/constants';
 import { DataProductBuilderFormProps } from './types';
 import { DataProductAdvancedOption } from './DataProductAdvancedOption';
-import { useTranslation } from 'react-i18next';
+
 const StyledEditor = styled(MarkdownEditor)`
     border: 1px solid ${ANTD_GRAY[4]};
 `;

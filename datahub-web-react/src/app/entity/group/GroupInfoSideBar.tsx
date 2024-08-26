@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
 import { useHistory, useRouteMatch } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
 import { EntityRelationshipsResult, Ownership } from '../../../types.generated';
 import { useUpdateNameMutation } from '../../../graphql/mutations.generated';
@@ -26,7 +27,7 @@ import StripMarkdownText, { removeMarkdown } from '../shared/components/styled/S
 import { Editor } from '../shared/tabs/Documentation/components/editor/Editor';
 import EditGroupDescriptionModal from './EditGroupDescriptionModal';
 import { REDESIGN_COLORS } from '../shared/constants';
-import { useTranslation } from 'react-i18next';
+
 type SideBarData = {
     photoUrl: string | undefined;
     avatarName: string | undefined;

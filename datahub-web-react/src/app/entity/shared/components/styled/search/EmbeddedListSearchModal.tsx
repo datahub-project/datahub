@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Button, Modal } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FacetFilterInput } from '../../../../../../types.generated';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
 import { UnionType } from '../../../../../search/utils/constants';
 import { FilterSet } from './types';
 import { EntityActionProps } from './EntitySearchResults';
-import { useTranslation } from 'react-i18next';
+
 const SearchContainer = styled.div`
     height: 500px;
 `;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Typography } from 'antd';
 
+import { useTranslation } from 'react-i18next';
 import { AnalyticsChart as AnalyticsChartType } from '../../../types.generated';
 import { TimeSeriesChart } from './TimeSeriesChart';
 import { BarChart } from './BarChart';
@@ -8,7 +9,6 @@ import { TableChart } from './TableChart';
 import { ChartCard } from './ChartCard';
 import { ChartContainer } from './ChartContainer';
 import { translateDisplayNames } from '../../../utils/translation/translation';
-import { useTranslation } from 'react-i18next';
 
 type Props = {
     chartData: AnalyticsChartType;

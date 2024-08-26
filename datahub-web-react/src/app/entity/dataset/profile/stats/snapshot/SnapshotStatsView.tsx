@@ -3,10 +3,11 @@ import styled from 'styled-components';
 
 import { ColumnsType, ColumnType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DatasetProfile } from '../../../../../../types.generated';
 import { Highlight } from '../../../../../analyticsDashboard/components/Highlight';
 import StatsSection from '../StatsSection';
-import { useTranslation } from 'react-i18next';
+
 const ColumnStatsTable = styled(Table)`
     margin-top: 24px;
 `;

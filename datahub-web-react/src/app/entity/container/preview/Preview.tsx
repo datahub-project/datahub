@@ -1,6 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import {
     Container,
     EntityType,
@@ -21,7 +22,6 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 import { translateDisplayNames } from '../../../../utils/translation/translation';
-import { useTranslation } from 'react-i18next';
 
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};

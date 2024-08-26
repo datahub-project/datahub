@@ -1,5 +1,6 @@
 import { Result } from 'antd';
 import { useTranslation } from 'react-i18next';
+
 export const UnauthorizedPage = () => {
     const { t } = useTranslation();
     return (

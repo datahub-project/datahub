@@ -3,13 +3,14 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { PageRoutes } from '../../conf/Global';
 import { GlossaryNode, GlossaryTerm, ParentNodesResult } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { BreadcrumbItem } from '../entity/shared/containers/profile/nav/ProfileNavBrowsePath';
 import { useGlossaryEntityData } from '../entity/shared/GlossaryEntityContext';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { useTranslation } from 'react-i18next';
+
 const PathWrapper = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
     display: flex;

@@ -2,11 +2,12 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { EntityType, Ownership } from '../../../types.generated';
 import { ExpandedOwner } from '../shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { EditOwnersModal } from '../shared/containers/profile/sidebar/Ownership/EditOwnersModal';
 import { DisplayCount, GroupSectionTitle, GroupSectionHeader } from '../shared/SidebarStyledComponents';
-import { useTranslation } from 'react-i18next';
+
 const TITLE = 'Owners';
 
 const SectionWrapper = styled.div``;

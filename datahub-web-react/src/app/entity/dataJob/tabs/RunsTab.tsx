@@ -3,6 +3,7 @@ import { Pagination, Table, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import { useGetDataJobRunsQuery } from '../../../../graphql/dataJob.generated';
 import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '../../../../types.generated';
 import {
@@ -15,7 +16,6 @@ import { ANTD_GRAY } from '../../shared/constants';
 import { useEntityData } from '../../shared/EntityContext';
 import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { scrollToTop } from '../../../shared/searchUtils';
-import { useTranslation } from 'react-i18next';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;

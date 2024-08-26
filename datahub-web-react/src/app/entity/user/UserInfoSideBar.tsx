@@ -1,6 +1,7 @@
 import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { EntityRelationship, DataHubRole } from '../../../types.generated';
 import UserEditProfileModal from './UserEditProfileModal';
@@ -22,7 +23,7 @@ import EntityGroups from '../shared/EntityGroups';
 import { mapRoleIcon } from '../../identity/user/UserUtils';
 import { useUserContext } from '../../context/useUserContext';
 import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
-import { useTranslation } from 'react-i18next';
+
 const { Paragraph } = Typography;
 
 type SideBarData = {

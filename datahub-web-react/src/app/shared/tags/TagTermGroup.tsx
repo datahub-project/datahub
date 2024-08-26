@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { PlusOutlined } from '@ant-design/icons';
 import Highlight from 'react-highlighter';
 
+import { useTranslation } from 'react-i18next';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -11,7 +12,6 @@ import { DomainLink } from './DomainLink';
 import EditTagTermsModal from './AddTagsTermsModal';
 import StyledTerm from './term/StyledTerm';
 import Tag from './tag/Tag';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../utils/translation/translation';
 
 type Props = {

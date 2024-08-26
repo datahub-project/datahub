@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Button, Empty, List, Select, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { useEntityData } from '../../EntityContext';
@@ -13,7 +14,6 @@ import { AddIncidentModal } from './components/AddIncidentModal';
 import { combineEntityDataWithSiblings } from '../../siblingUtils';
 import { IncidentsLoadingSection } from './components/IncidentsLoadingSection';
 import { ANTD_GRAY } from '../../constants';
-import { useTranslation } from 'react-i18next';
 
 const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[3]};

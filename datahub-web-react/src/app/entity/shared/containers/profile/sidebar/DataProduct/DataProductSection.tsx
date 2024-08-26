@@ -2,13 +2,13 @@ import { EditOutlined } from '@ant-design/icons';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { SidebarHeader } from '../SidebarHeader';
 import { useEntityData } from '../../../../EntityContext';
 import SetDataProductModal from './SetDataProductModal';
 import { DataProductLink } from '../../../../../../shared/tags/DataProductLink';
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
 import { DataProduct } from '../../../../../../../types.generated';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
 
 const EmptyText = styled(Typography.Paragraph)`

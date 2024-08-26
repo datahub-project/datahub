@@ -1,10 +1,11 @@
 import { message, Modal } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { SetDomainModal } from '../../../../containers/profile/sidebar/Domain/SetDomainModal';
 import ActionDropdown from './ActionDropdown';
 import { handleBatchError } from '../../../../utils';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     urns: Array<string>;
     disabled: boolean;

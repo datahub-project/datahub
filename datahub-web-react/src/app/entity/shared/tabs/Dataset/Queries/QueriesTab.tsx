@@ -1,6 +1,7 @@
 import styled from 'styled-components';
 import React, { useState } from 'react';
 import { debounce } from 'lodash';
+import { useTranslation } from 'react-i18next';
 import { useListQueriesQuery } from '../../../../../../graphql/query.generated';
 import { GetDatasetQuery, useGetRecentQueriesQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../EntityContext';
@@ -18,7 +19,6 @@ import {
 import { filterQueries } from './utils/filterQueries';
 import QueriesTabToolbar from './QueriesTabToolbar';
 import QueriesListSection from './QueriesListSection';
-import { useTranslation } from 'react-i18next';
 
 const Content = styled.div`
     padding: 24px;

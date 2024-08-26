@@ -4,6 +4,8 @@ import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import UserListItem from './UserListItem';
 import { Message } from '../../shared/Message';
 import { useListUsersQuery } from '../../../graphql/user.generated';
@@ -24,8 +26,7 @@ import {
 import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from './cacheUtils';
 import { useUserContext } from '../../context/useUserContext';
-import { t } from 'i18next';
-import { useTranslation } from 'react-i18next';
+
 const UserContainer = styled.div`
     display: flex;
     flex-direction: column;

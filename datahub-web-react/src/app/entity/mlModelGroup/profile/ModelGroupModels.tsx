@@ -1,11 +1,12 @@
 import { List, Space, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { GetMlModelGroupQuery } from '../../../../graphql/mlModelGroup.generated';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import { useBaseEntity } from '../../shared/EntityContext';
-import { useTranslation } from 'react-i18next';
+
 export default function MLGroupModels() {
     const { t } = useTranslation();
     const baseEntity = useBaseEntity<GetMlModelGroupQuery>();

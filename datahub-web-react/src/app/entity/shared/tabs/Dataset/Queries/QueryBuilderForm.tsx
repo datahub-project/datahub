@@ -2,10 +2,10 @@ import React from 'react';
 import Editor from '@monaco-editor/react';
 import styled from 'styled-components';
 import { Form, Input, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../../../constants';
 import { QueryBuilderState } from './types';
 import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
-import { useTranslation } from 'react-i18next';
 
 const EditorWrapper = styled.div`
     border: 1px solid ${ANTD_GRAY[5]};

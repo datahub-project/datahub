@@ -1,11 +1,12 @@
 import { Button, Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../../../../types.generated';
 import ClickOutside from '../../../../../shared/ClickOutside';
 import { EntityAndType } from '../../../types';
 import { SearchSelect } from './SearchSelect';
-import { useTranslation } from 'react-i18next';
+
 const StyledModal = styled(Modal)`
     top: 30px;
 `;

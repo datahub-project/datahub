@@ -1,13 +1,14 @@
 import { List, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { GetMlFeatureTableQuery } from '../../../../graphql/mlFeatureTable.generated';
 import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import { useBaseEntity } from '../../shared/EntityContext';
 import { notEmpty } from '../../shared/utils';
-import { useTranslation } from 'react-i18next';
+
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;

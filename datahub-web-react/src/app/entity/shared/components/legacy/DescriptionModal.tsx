@@ -1,9 +1,10 @@
 import { Typography, Modal, Button, Form } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../constants';
-import { useTranslation } from 'react-i18next';
+
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
     font-weight: bold;

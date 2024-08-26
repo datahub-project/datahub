@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Domain, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -15,7 +16,6 @@ import DataProductsTab from './DataProductsTab/DataProductsTab';
 import { EntityProfileTab } from '../shared/constants';
 import DomainIcon from '../../domain/DomainIcon';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { useTranslation } from 'react-i18next';
 /**
  * Definition of the DataHub Domain entity.
  */

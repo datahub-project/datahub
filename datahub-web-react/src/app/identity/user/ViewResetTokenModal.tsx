@@ -2,10 +2,11 @@ import { RedoOutlined } from '@ant-design/icons';
 import { Button, message, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { PageRoutes } from '../../../conf/Global';
 import { useCreateNativeUserResetTokenMutation } from '../../../graphql/user.generated';
 import analytics, { EventType } from '../../analytics';
-import { useTranslation } from 'react-i18next';
+
 const ModalSection = styled.div`
     display: flex;
     flex-direction: column;
@@ -95,7 +96,7 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                 <ModalSection>
                     <ModalSectionHeader strong>{t('authentification.shareResetLink')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        {t('authentification.shareResetLinkDescription_component', { username: username})}
+                        {t('authentification.shareResetLinkDescription_component', { username})}
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: inviteLink }}>
                         <pre>{inviteLink}</pre>

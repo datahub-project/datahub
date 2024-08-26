@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Pagination, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useListOwnershipTypesQuery } from '../../../graphql/ownership.generated';
 import { Message } from '../../shared/Message';
 import { OwnershipBuilderModal } from './OwnershipBuilderModal';
@@ -11,7 +12,7 @@ import { OwnershipTypeEntity } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { scrollToTop } from '../../shared/searchUtils';
-import { useTranslation } from 'react-i18next';
+
 const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;

@@ -1,12 +1,12 @@
 import React from 'react';
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../../../constants';
 import { useListGlobalViewsQuery, useListMyViewsQuery } from '../../../../../../graphql/view.generated';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../../../../view/utils';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { DataHubViewType } from '../../../../../../types.generated';
-import { useTranslation } from 'react-i18next';
 
 const MatchingViewsLabel = () => {
     const { t } = useTranslation();

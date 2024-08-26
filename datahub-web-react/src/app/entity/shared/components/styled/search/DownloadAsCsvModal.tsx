@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLocation } from 'react-router';
 import { Button, Input, Modal, Spin, notification } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { AndFilterInput } from '../../../../../../types.generated';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
@@ -9,7 +10,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData } from '../../../EntityContext';
 import analytics, { EventType } from '../../../../../analytics';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     filters: AndFilterInput[];

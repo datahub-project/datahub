@@ -2,6 +2,7 @@ import { message, Modal, Tag } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
 import { EntityType, Owner } from '../../../../../../types.generated';
 import { getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
@@ -9,7 +10,6 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData } from '../../../EntityContext';
 import OwnerContent from './OwnerContent';
-import { useTranslation } from 'react-i18next';
 
 const OwnerTag = styled(Tag)`
     padding: 2px;
@@ -80,8 +80,8 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const onClose = (e) => {
         e.preventDefault();
         Modal.confirm({
-            title: t('crud.doYouWantTo.removeTitleWithName', { name: name }),
-            content: t('crud.doYouWantTo.removeContentWithTheName', { name: name }),
+            title: t('crud.doYouWantTo.removeTitleWithName', { name }),
+            content: t('crud.doYouWantTo.removeContentWithTheName', { name }),
             onOk() {
                 onDelete();
             },

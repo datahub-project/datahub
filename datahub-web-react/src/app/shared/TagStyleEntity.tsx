@@ -7,6 +7,7 @@ import styled from 'styled-components';
 import { ChromePicker } from 'react-color';
 import ColorHash from 'color-hash';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useGetTagQuery } from '../../graphql/tag.generated';
 import { EntityType, FacetMetadata, Maybe, Scalars } from '../../types.generated';
 import { ExpandedOwner } from '../entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
@@ -23,8 +24,8 @@ import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown'
 import { ErrorSection } from './error/ErrorSection';
 import { generateOrFilters } from '../search/utils/generateOrFilters';
 import { ENTITY_FILTER_NAME, UnionType } from '../search/utils/constants';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../utils/translation/translation';
+
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
     return { data: data?.searchAcrossEntities, loading, error };

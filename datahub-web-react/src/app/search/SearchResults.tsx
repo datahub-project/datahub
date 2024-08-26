@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { Entity, FacetFilterInput, FacetMetadata, MatchedField, SearchSuggestion } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
@@ -30,7 +31,6 @@ import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
 import SearchResultsLoadingSection from './SearchResultsLoadingSection';
 import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
-import { useTranslation } from 'react-i18next';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;

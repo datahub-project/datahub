@@ -9,9 +9,9 @@ import {
 } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { HealthStatus, HealthStatusType, Health } from '../../../types.generated';
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../entity/shared/tabs/Incident/incidentUtils';
-import { useTranslation } from 'react-i18next';
 
 const HEALTH_INDICATOR_COLOR = '#d48806';
 

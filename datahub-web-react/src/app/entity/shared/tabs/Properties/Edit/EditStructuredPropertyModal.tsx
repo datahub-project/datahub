@@ -1,13 +1,14 @@
 import { Button, Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
 import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
 import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
 import { useEntityContext, useMutationUrn } from '../../../EntityContext';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import { useTranslation } from 'react-i18next';
+
 const Description = styled.div`
     font-size: 14px;
     margin-bottom: 16px;

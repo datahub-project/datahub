@@ -2,13 +2,14 @@ import React from 'react';
 import styled from 'styled-components';
 import { Popover, Tooltip } from 'antd';
 import { ClockCircleOutlined, EyeOutlined, TeamOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { countFormatter, needsFormatting } from '../../../../utils/formatter';
 import ExpandingStat from '../../dataset/shared/ExpandingStat';
-import { useTranslation } from 'react-i18next';
+
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
     @media (min-width: 1024px) {

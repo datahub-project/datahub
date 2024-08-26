@@ -1,6 +1,6 @@
 export function translateDisplayNames(t: any, displayName: string | null | undefined) {
     if (!displayName) return
-    let displayNameFormatted = displayName.trim().replaceAll(' ', '').replaceAll(/[^a-zA-Z\s]/g, '').toLowerCase();
+    const displayNameFormatted = displayName.trim().replaceAll(' ', '').replaceAll(/[^a-zA-Z\s]/g, '').toLowerCase();
 
     const FIELD_TO_DISPLAY_NAMES = {
         // common

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, message, Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import CreatePostForm from './CreatePostForm';
 import {
     CREATE_POST_BUTTON_ID,
@@ -14,7 +15,7 @@ import { MediaType, PostContentType, PostType } from '../../../types.generated';
 import { useCreatePostMutation, useUpdatePostMutation } from '../../../graphql/mutations.generated';
 import { PostEntry } from './PostsListColumns';
 import handleGraphQLError from '../../shared/handleGraphQLError';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     editData: PostEntry;
     onClose: () => void;

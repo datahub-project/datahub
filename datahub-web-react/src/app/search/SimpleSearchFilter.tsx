@@ -5,11 +5,11 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { SearchFilterLabel } from './SearchFilterLabel';
 import { TRUNCATED_FILTER_LENGTH } from './utils/constants';
 import { translateDisplayNames } from '../../utils/translation/translation';
-import { useTranslation } from 'react-i18next';
 
 const GRAPH_DEGREE_FILTER_FIELD = 'degree';
 

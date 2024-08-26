@@ -2,10 +2,11 @@ import { Button, Typography } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useRefetch, useRouteToTab } from '../../../../EntityContext';
 import { AddLinkModal } from '../../../../components/styled/AddLinkModal';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
+
 const EmptyContentWrapper = styled.div`
     margin-bottom: 5px;
     font-size: 14px;

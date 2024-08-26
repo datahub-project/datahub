@@ -1,8 +1,9 @@
 import React from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import TabToolbar from '../../../components/styled/TabToolbar';
 import { useTranslation } from 'react-i18next';
+import TabToolbar from '../../../components/styled/TabToolbar';
+
 type DescriptionPreviewToolbarProps = {
     onEdit: () => void;
 };

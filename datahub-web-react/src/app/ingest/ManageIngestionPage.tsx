@@ -1,6 +1,7 @@
 import { Tabs, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { IngestionSourceList } from './source/IngestionSourceList';
 import { useAppConfig } from '../useAppConfig';
 import { useUserContext } from '../context/useUserContext';
@@ -10,7 +11,7 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '../onboarding/config/IngestionOnboardingConfig';
-import { useTranslation } from 'react-i18next';
+
 const PageContainer = styled.div`
     padding-top: 20px;
 `;

@@ -2,10 +2,10 @@ import React from 'react';
 
 import { Card, Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 
 import { Highlight as HighlightType } from '../../../types.generated';
 import { formatNumber } from '../../shared/formatNumber';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../utils/translation/translation';
 
 type Props = {

@@ -4,6 +4,7 @@ import { useLocation } from 'react-router';
 import { Button, message, Pagination } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import * as QueryString from 'query-string';
+import { useTranslation } from 'react-i18next';
 import { useListMyViewsQuery } from '../../../graphql/view.generated';
 import { SearchBar } from '../../search/SearchBar';
 import TabToolbar from '../shared/components/styled/TabToolbar';
@@ -14,7 +15,7 @@ import { ViewsTable } from './ViewsTable';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from './utils';
 import { ViewBuilder } from './builder/ViewBuilder';
 import { ViewBuilderMode } from './builder/types';
-import { useTranslation } from 'react-i18next';
+
 const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;

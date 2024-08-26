@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { BookFilled, BookOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -18,7 +19,6 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { PageRoutes } from '../../../conf/Global';
-import { useTranslation } from 'react-i18next';
 /**
  * Definition of the DataHub Dataset entity.
  */

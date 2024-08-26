@@ -2,14 +2,15 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { TermRelationshipType } from '../../../../types.generated';
 import { Message } from '../../../shared/Message';
 import { EmptyTab } from '../../shared/components/styled/EmptyTab';
 import { ANTD_GRAY } from '../../shared/constants';
 import AddRelatedTermsModal from './AddRelatedTermsModal';
 import RelatedTerm from './RelatedTerm';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../../utils/translation/translation';
+
 export enum RelatedTermTypes {
     hasRelatedTerms = 'Contains',
     isRelatedTerms = "Inherits",

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import TextArea from 'antd/lib/input/TextArea';
+import { useTranslation } from 'react-i18next';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData } from '../../../EntityContext';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
@@ -9,7 +10,6 @@ import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 import { useUserContext } from '../../../../../context/useUserContext';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../../../../utils/translation/translation';
 
 type AddIncidentProps = {
@@ -135,7 +135,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                             >
                                 {incidentTypes.map((incidentType) => (
                                     <Select.Option key={incidentType.type} value={incidentType.type}>
-                                        <Typography.Text>{translateDisplayNames(t, 'incident' + incidentType.name)}</Typography.Text>
+                                        <Typography.Text>{translateDisplayNames(t, `incident${  incidentType.name}`)}</Typography.Text>
                                     </Select.Option>
                                 ))}
                             </Select>

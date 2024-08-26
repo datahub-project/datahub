@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { useAppConfig } from '../../useAppConfig';
@@ -38,7 +39,6 @@ import { getLastUpdatedMs } from './shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 
-import { useTranslation } from 'react-i18next';
 const SUBTYPES = {
     VIEW: 'view',
 };

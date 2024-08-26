@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { message, Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getDeleteEntityMutation } from '../../../shared/deleteUtils';
@@ -8,7 +9,6 @@ import { useGlossaryEntityData } from '../GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
 import { useHandleDeleteDomain } from './useHandleDeleteDomain';
 import { removeTermFromGlossaryNode } from '../../../glossary/cacheUtils';
-import { useTranslation } from 'react-i18next';
 
 /**
  * Performs the flow for deleting an entity of a given type.

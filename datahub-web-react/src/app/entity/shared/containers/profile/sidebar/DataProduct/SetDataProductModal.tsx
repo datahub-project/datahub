@@ -2,6 +2,7 @@ import Modal from 'antd/lib/modal/Modal';
 import { Button, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../../graphql/search.generated';
 import { DataProduct, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
@@ -11,7 +12,7 @@ import { tagRender } from '../tagRenderer';
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
 import { handleBatchError } from '../../../../utils';
 import { getModalDomContainer } from '../../../../../../../utils/focus';
-import { useTranslation } from 'react-i18next';
+
 const OptionWrapper = styled.div`
     padding: 2px 0;
 

@@ -1,13 +1,13 @@
 import { Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEntityData, useRouteToTab } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import DescriptionSection from './DescriptionSection';
 import LinksSection from './LinksSection';
 import SourceRefSection from './SourceRefSection';
 import EmptyContentSection from './EmptyContentSection';
-import { useTranslation } from 'react-i18next';
 
 interface Properties {
     hideLinksButton?: boolean;

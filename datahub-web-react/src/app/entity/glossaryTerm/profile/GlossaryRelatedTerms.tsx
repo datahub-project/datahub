@@ -1,10 +1,10 @@
 import { Menu } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useEntityData } from '../../shared/EntityContext';
 import GlossaryRelatedTermsResult, { RelatedTermTypes } from './GlossaryRelatedTermsResult';
 import { translateDisplayNames } from '../../../../utils/translation/translation';
-import { useTranslation } from 'react-i18next';
 
 const DetailWrapper = styled.div`
     display: inline-flex;

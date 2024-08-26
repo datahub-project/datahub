@@ -2,10 +2,10 @@ import React from 'react';
 import { Button, Image, Typography } from 'antd';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { Post } from '../../types.generated';
 
-import { useTranslation } from 'react-i18next';
 const CardContainer = styled(Button)`
     display: flex;
     flex-direction: row;

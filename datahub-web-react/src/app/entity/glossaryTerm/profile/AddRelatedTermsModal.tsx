@@ -1,6 +1,7 @@
 import { message, Button, Modal, Select, Tag } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useAddRelatedTermsMutation } from '../../../../graphql/glossaryTerm.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../graphql/search.generated';
 import { EntityType, SearchResult, TermRelationshipType } from '../../../../types.generated';
@@ -12,7 +13,6 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../shared/EntityContext';
 import ParentEntities from '../../../search/filters/ParentEntities';
 import { getParentEntities } from '../../../search/filters/utils';
-import { useTranslation } from 'react-i18next';
 
 const StyledSelect = styled(Select)`
     width: 480px;

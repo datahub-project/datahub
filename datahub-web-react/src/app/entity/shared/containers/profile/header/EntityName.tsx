@@ -1,12 +1,13 @@
 import { message, Typography } from 'antd';
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useUpdateNameMutation } from '../../../../../../graphql/mutations.generated';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../../../glossary/utils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
-import { useTranslation } from 'react-i18next';
+
 export const EntityTitle = styled(Typography.Title)`
     margin-right: 10px;
 

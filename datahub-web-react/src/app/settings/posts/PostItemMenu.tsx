@@ -1,10 +1,11 @@
 import React from 'react';
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, message, Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { MenuIcon } from '../../entity/shared/EntityDropdown/EntityDropdown';
 import { useDeletePostMutation } from '../../../graphql/post.generated';
 import handleGraphQLError from '../../shared/handleGraphQLError';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     urn: string;
     title: string;

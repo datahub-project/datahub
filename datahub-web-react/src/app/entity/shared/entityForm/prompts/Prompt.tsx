@@ -1,6 +1,7 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import {
     FormPrompt as PromptEntity,
     FormPromptType,
@@ -10,7 +11,7 @@ import {
 import StructuredPropertyPrompt from './StructuredPropertyPrompt/StructuredPropertyPrompt';
 import { useSubmitFormPromptMutation } from '../../../../../graphql/form.generated';
 import { useMutationUrn } from '../../EntityContext';
-import { useTranslation } from 'react-i18next';
+
 export const PromptWrapper = styled.div`
     background-color: white;
     border-radius: 8px;

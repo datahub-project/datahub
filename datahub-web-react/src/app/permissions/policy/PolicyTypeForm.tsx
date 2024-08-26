@@ -1,9 +1,10 @@
 import React from 'react';
 import { Form, Input, Select, Typography } from 'antd';
 import styled from 'styled-components';
-import { PolicyType } from '../../../types.generated';
 import { t } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import { PolicyType } from '../../../types.generated';
+
 type Props = {
     policyType: string;
     setPolicyType: (type: PolicyType) => void;

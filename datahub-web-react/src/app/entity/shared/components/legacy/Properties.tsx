@@ -1,8 +1,9 @@
 import { Space, Table, Typography } from 'antd';
 import React from 'react';
 import { ColumnsType } from 'antd/es/table';
-import { StringMapEntry } from '../../../../../types.generated';
 import { useTranslation } from 'react-i18next';
+import { StringMapEntry } from '../../../../../types.generated';
+
 export type Props = {
     properties: StringMapEntry[];
 };

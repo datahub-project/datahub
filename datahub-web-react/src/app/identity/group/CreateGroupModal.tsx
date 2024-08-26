@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useCreateGroupMutation } from '../../../graphql/group.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../../shared/textUtil';
@@ -8,7 +9,7 @@ import analytics, { EventType } from '../../analytics';
 import { CorpGroup, EntityType } from '../../../types.generated';
 import { Editor as MarkdownEditor } from '../../entity/shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     onClose: () => void;
     onCreate: (group: CorpGroup) => void;

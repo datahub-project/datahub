@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Button, Dropdown, Menu } from 'antd';
 import { FormOutlined, MoreOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { AndFilterInput } from '../../../../../../types.generated';
 import DownloadAsCsvButton from './DownloadAsCsvButton';
 import DownloadAsCsvModal from './DownloadAsCsvModal';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-import { useTranslation } from 'react-i18next';
+
 const MenuIcon = styled(MoreOutlined)`
     font-size: 20px;
     height: 20px;

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../../../../../types.generated';
 import EditTagTermsModal, { OperationType } from '../../../../../../shared/tags/AddTagsTermsModal';
 import ActionDropdown from './ActionDropdown';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     urns: Array<string>;
     disabled: boolean;

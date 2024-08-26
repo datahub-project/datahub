@@ -1,9 +1,9 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { EditableSchemaMetadata, GlobalTags, SchemaField } from '../../../../../../../../types.generated';
 import useTagsAndTermsRenderer from '../../utils/useTagsAndTermsRenderer';
 import { SectionHeader, StyledDivider } from './components';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-import { useTranslation } from 'react-i18next';
 
 interface Props {
     expandedField: SchemaField;

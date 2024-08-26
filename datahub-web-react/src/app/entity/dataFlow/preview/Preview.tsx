@@ -1,6 +1,7 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import {
     DataProduct,
     Deprecation,
@@ -16,7 +17,7 @@ import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
-import { useTranslation } from 'react-i18next';
+
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
 `;

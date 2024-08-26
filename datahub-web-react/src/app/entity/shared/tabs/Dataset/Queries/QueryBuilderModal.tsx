@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Button, message, Modal, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useCreateQueryMutation, useUpdateQueryMutation } from '../../../../../../graphql/query.generated';
 import { QueryLanguage } from '../../../../../../types.generated';
 import { QueryBuilderState } from './types';
 import ClickOutside from '../../../../../shared/ClickOutside';
 import QueryBuilderForm from './QueryBuilderForm';
 import analytics, { EventType } from '../../../../../analytics';
-import { useTranslation } from 'react-i18next';
 
 const StyledModal = styled(Modal)`
     top: 4vh;

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 
+import { useTranslation } from 'react-i18next';
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
 import { StringMapEntry } from '../../../../../../types.generated';
 import PropagationDetails from '../../../../shared/propagation/PropagationDetails';
@@ -15,7 +16,6 @@ import analytics, { EventType, EntityActionType } from '../../../../../analytics
 import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../../../shared/constants';
 
-import { useTranslation } from 'react-i18next';
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     display: none;

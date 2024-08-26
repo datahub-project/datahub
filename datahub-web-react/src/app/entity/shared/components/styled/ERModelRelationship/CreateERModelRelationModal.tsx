@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Form, Input, message, Modal, Table } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import arrow from '../../../../../../images/Arrow.svg';
 import './CreateERModelRelationModal.less';
 import { EntityType, ErModelRelationship, OwnerEntityType } from '../../../../../../types.generated';
@@ -20,7 +21,7 @@ import {
 } from './ERModelRelationUtils';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
 import { useAddOwnerMutation } from '../../../../../../graphql/mutations.generated';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     table1?: any;
     table1Schema?: any;

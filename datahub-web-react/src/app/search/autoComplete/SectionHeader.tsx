@@ -1,9 +1,9 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { useTranslation } from 'react-i18next';
 
 export const EntityTypeLabel = styled.div<{ showBorder?: boolean }>`
     font-size: 14px;

@@ -2,11 +2,11 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Empty, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../types.generated';
 import { useEntityData } from '../entity/shared/EntityContext';
 import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { useUserContext } from '../context/useUserContext';
-import { useTranslation } from 'react-i18next';
 
 const StyledEmpty = styled(Empty)`
     padding: 80px 40px;

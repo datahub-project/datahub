@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
 import { DataProduct, Domain, EntityType } from '../../../../types.generated';
 import TabToolbar from '../../shared/components/styled/TabToolbar';
@@ -16,7 +17,7 @@ import { useEntityData } from '../../shared/EntityContext';
 import { DOMAINS_FILTER_NAME } from '../../../search/utils/constants';
 import DataProductResult from './DataProductResult';
 import CreateDataProductModal from './CreateDataProductModal';
-import { useTranslation } from 'react-i18next';
+
 const DataProductsPaginationWrapper = styled(DomainsPaginationContainer)`
     justify-content: center;
 `;

@@ -2,14 +2,15 @@ import { Typography, Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { SetDomainModal } from './SetDomainModal';
 import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { DomainLink } from '../../../../../../shared/tags/DomainLink';
 import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
+
 const StyledButton = styled(Button)`
     display: block;
     margin-bottom: 8px;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
 import EmptyGlossarySection from '../../glossary/EmptyGlossarySection';
 import GlossaryEntitiesList from '../../glossary/GlossaryEntitiesList';
@@ -6,7 +7,6 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { sortGlossaryTerms } from '../glossaryTerm/utils';
 import { useEntityData } from '../shared/EntityContext';
 import { sortGlossaryNodes } from './utils';
-import { useTranslation } from 'react-i18next';
 
 function ChildrenTab() {
     const { t } = useTranslation();

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { RoutedTabs } from '../shared/RoutedTabs';
 import { ManagePolicies } from './policy/ManagePolicies';
 import { ManageRoles } from './roles/ManageRoles';
-import { useTranslation } from 'react-i18next';
 
 const PageContainer = styled.div`
     padding-top: 20px;

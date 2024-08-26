@@ -1,9 +1,10 @@
 import React from 'react';
 import { Empty } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { StyledTable } from '../shared/components/styled/StyledTable';
 import { ActionsColumn, DescriptionColumn, NameColumn, ViewTypeColumn } from './select/ViewsTableColumns';
 import { DataHubView } from '../../../types.generated';
-import { useTranslation } from 'react-i18next';
+
 type ViewsTableProps = {
     views: DataHubView[];
     onEditView: (urn) => void;

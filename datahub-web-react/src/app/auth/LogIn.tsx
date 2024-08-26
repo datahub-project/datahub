@@ -5,12 +5,12 @@ import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
 import styled, { useTheme } from 'styled-components/macro';
 import { Redirect, useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
 import analytics, { EventType } from '../analytics';
 import { useAppConfig } from '../useAppConfig';
-import { useTranslation } from 'react-i18next';
 
 type FormValues = {
     username: string;

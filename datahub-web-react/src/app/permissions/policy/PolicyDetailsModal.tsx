@@ -2,12 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { Maybe, Policy, PolicyState, PolicyType } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
 import { convertLegacyResourceFilter, getFieldValues, mapResourceTypeToDisplayName } from './policyUtils';
 import AvatarsGroup from '../AvatarsGroup';
-import { useTranslation } from 'react-i18next';
+
 type PrivilegeOptionType = {
     type?: string;
     name?: Maybe<string>;

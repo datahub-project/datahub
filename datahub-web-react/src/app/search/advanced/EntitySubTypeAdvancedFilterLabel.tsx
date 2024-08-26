@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FILTER_DELIMITER } from '../utils/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType, FacetFilterInput } from '../../../types.generated';
@@ -7,7 +8,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import AdvancedFilterCloseButton from './AdvancedFilterCloseButton';
 import { FilterContainer } from './styles';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { useTranslation } from 'react-i18next';
+
 const FilterFieldLabel = styled.span`
     font-weight: 600;
     margin-right: 4px;

@@ -3,13 +3,14 @@ import { Button, Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import { green, red } from '@ant-design/colors';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import LoadingSvg from '../../../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 import ConnectionCapabilityView from './ConnectionCapabilityView';
 import { CapabilityReport, SourceCapability, TestConnectionResult } from './types';
 import { SourceConfig } from '../../types';
 import useGetSourceLogoUrl from '../../useGetSourceLogoUrl';
-import { useTranslation } from 'react-i18next';
+
 const LoadingWrapper = styled.div`
     display: flex;
     justify-content: center;

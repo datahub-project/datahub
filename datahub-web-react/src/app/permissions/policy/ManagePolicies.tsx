@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import PolicyBuilderModal from './PolicyBuilderModal';
 import { AndFilterInput, Policy, PolicyState, FilterOperator } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
@@ -22,7 +23,7 @@ import analytics, { EventType } from '../../analytics';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '../../onboarding/config/PoliciesOnboardingConfig';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { usePolicy } from './usePolicy';
-import { useTranslation } from 'react-i18next';
+
 const SourceContainer = styled.div`
     overflow: auto;
     display: flex;

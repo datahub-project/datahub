@@ -1,9 +1,10 @@
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
 import { Affix, Row, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { DatasetProfile } from '../../../../../../types.generated';
 import DataProfileView from './SnapshotStatsView';
-import { useTranslation } from 'react-i18next';
+
 const HeaderRow = styled(Row)`
     padding-top: 24px;
     padding-bottom: 28px;

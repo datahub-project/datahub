@@ -2,13 +2,13 @@ import { Modal, Steps, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { isEqual } from 'lodash';
+import { useTranslation } from 'react-i18next';
 import { SourceBuilderState, StepProps } from './types';
 import { CreateScheduleStep } from './CreateScheduleStep';
 import { DefineRecipeStep } from './DefineRecipeStep';
 import { NameSourceStep } from './NameSourceStep';
 import { SelectTemplateStep } from './SelectTemplateStep';
 import sourcesJson from './sources.json';
-import { useTranslation } from 'react-i18next';
 
 const StyledModal = styled(Modal)`
     && .ant-modal-content {

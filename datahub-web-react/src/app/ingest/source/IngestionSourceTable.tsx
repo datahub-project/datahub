@@ -1,6 +1,7 @@
 import { Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from './utils';
@@ -13,7 +14,7 @@ import {
 } from './IngestionSourceTableColumns';
 import { IngestionSource } from '../../../types.generated';
 import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
-import { useTranslation } from 'react-i18next';
+
 const StyledSourceTable = styled(StyledTable)`
     .cliIngestion {
         td {

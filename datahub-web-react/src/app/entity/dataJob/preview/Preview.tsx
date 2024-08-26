@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
+import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import {
     DataProduct,
     Deprecation,
@@ -19,8 +21,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { t } from 'i18next';
-import { useTranslation } from 'react-i18next';
+
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
 `;

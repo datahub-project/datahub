@@ -15,6 +15,7 @@ export class RestrictedEntity implements Entity<Restricted> {
     }
 
     translationService: any;
+
     type: EntityType = EntityType.Restricted;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {

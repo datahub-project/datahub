@@ -2,12 +2,13 @@ import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { Divider, Dropdown, Menu } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
 import { EntityType, TermRelationshipType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import useRemoveRelatedTerms from './useRemoveRelatedTerms';
-import { useTranslation } from 'react-i18next';
+
 const ListItem = styled.div`
     margin: 0 20px;
 `;

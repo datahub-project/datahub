@@ -5,10 +5,11 @@ import { Divider, Typography } from 'antd';
 import { grey } from '@ant-design/colors';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import { Message } from '../../shared/Message';
 import { decodeUrn } from '../shared/utils';
 import { useGetExternalRoleQuery } from '../../../graphql/accessrole.generated';
-import { useTranslation } from 'react-i18next';
+
 const PageContainer = styled.div`
     padding: 32px 100px;
 `;

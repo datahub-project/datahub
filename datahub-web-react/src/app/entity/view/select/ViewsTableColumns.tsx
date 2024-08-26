@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Button, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { DataHubViewType } from '../../../../types.generated';
 import { ANTD_GRAY } from '../../shared/constants';
 import { ViewTypeLabel } from '../ViewTypeLabel';
@@ -8,7 +9,7 @@ import { ViewDropdownMenu } from '../menu/ViewDropdownMenu';
 import { UserDefaultViewIcon } from '../shared/UserDefaultViewIcon';
 import { GlobalDefaultViewIcon } from '../shared/GlobalDefaultViewIcon';
 import { useUserContext } from '../../../context/useUserContext';
-import { useTranslation } from 'react-i18next';
+
 const StyledDescription = styled.div`
     max-width: 300px;
 `;

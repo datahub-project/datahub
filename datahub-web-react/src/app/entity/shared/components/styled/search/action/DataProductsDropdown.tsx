@@ -1,10 +1,11 @@
 import { message, Modal } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ActionDropdown from './ActionDropdown';
 import { handleBatchError } from '../../../../utils';
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
 import SetDataProductModal from '../../../../containers/profile/sidebar/DataProduct/SetDataProductModal';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     urns: Array<string>;
     disabled: boolean;

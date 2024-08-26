@@ -29,6 +29,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
     }
 
     translationService: any;
+
     type: EntityType = EntityType.DataFlow;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -63,6 +64,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
     getEntityName = () => 'Pipeline';
 
     getCollectionName = ()  => this.translationService('common.pipeline');
+
     useEntityQuery = useGetDataFlowQuery;
 
     renderProfile = (urn: string) => (

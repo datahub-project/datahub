@@ -1,13 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { message, Modal, Button, Form, Select, Tag } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useAddGroupMembersMutation } from '../../../graphql/group.generated';
 import { CorpUser, Entity, EntityType } from '../../../types.generated';
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetRecommendations } from '../../shared/recommendation';
 import { OwnerLabel } from '../../shared/OwnerLabel';
-import { useTranslation } from 'react-i18next';
+
 type Props = {
     urn: string;
     visible: boolean;

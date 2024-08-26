@@ -1,13 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import { SearchBar } from '../search/SearchBar';
 import ClickOutside from '../shared/ClickOutside';
 import { useEntityRegistry } from '../useEntityRegistry';
 import DomainSearchResultItem from './DomainSearchResultItem';
-import { useTranslation } from 'react-i18next';
+
 const DomainSearchWrapper = styled.div`
     position: relative;
 `;

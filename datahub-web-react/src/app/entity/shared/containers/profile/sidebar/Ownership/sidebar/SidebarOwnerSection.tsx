@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Typography, Button } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 // import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
+import { useTranslation } from 'react-i18next';
 import { Owner, OwnershipType, OwnershipTypeEntity } from '../../../../../../../../types.generated';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
 import { SidebarHeader } from '../../SidebarHeader';
@@ -9,8 +10,8 @@ import { EditOwnersModal } from '../EditOwnersModal';
 import { ENTITY_PROFILE_OWNERS_ID } from '../../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { OwnershipTypeSection } from './OwnershipTypeSection';
 import { getOwnershipTypeName } from '../ownershipUtils';
-import { useTranslation } from 'react-i18next';
 import { translateDisplayNames } from '../../../../../../../../utils/translation/translation';
+
 interface Props {
     properties?: any;
     readOnly?: boolean;

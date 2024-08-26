@@ -1,5 +1,6 @@
 import * as React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
@@ -8,7 +9,7 @@ import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal
 import { UnionType } from './utils/constants';
 import { AdvancedSearchAddFilterSelect } from './AdvancedSearchAddFilterSelect';
 import useAdvancedSearchSelectFilters from './useAdvancedSearchSelectFilters';
-import { useTranslation } from 'react-i18next';
+
 const AnyAllSection = styled.div`
     padding: 6px;
     color: ${ANTD_GRAY[8]};

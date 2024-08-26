@@ -1,13 +1,13 @@
 import { Image, Row, Space, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { MlFeatureTable } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CompactContext from '../../../shared/CompactContext';
 import { AvatarsGroup } from '../../../shared/avatar';
 import MarkdownViewer from '../../shared/components/legacy/MarkdownViewer';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useTranslation } from 'react-i18next';
 
 const HeaderInfoItem = styled.div`
     display: inline-block;
