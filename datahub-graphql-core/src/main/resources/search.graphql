@@ -582,6 +582,18 @@ type SearchResults {
   suggestions: [SearchSuggestion!]
 }
 
+type ExtraProperty {
+  """
+  Name of the extra property
+  """
+  name: String!
+
+  """
+  Value of the extra property
+  """
+  value: String!
+}
+
 """
 An individual search result hit
 """
@@ -600,6 +612,11 @@ type SearchResult {
   Matched field hint
   """
   matchedFields: [MatchedField!]!
+
+  """
+  Additional properties about the search result. Used for rendering in the UI
+  """
+  extraProperties: [ExtraProperty!]
 }
 
 """
