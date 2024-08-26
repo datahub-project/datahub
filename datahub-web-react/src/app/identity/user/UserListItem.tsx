@@ -129,7 +129,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                                 <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
                             </Menu.Item>
                             <Menu.Item onClick={onDeleteEntity}>
-                                <DeleteOutlined /> &nbsp;Excluir
+                                <DeleteOutlined /> &nbsp;Delete
                             </Menu.Item>
                         </Menu>
                     }

@@ -54,7 +54,7 @@ type Props = {
     ) => void;
 };
 
-const SUGGESTED_DOMAIN_NAMES = ['Engenharia', 'Marketing', 'Vendas', 'Produtos'];
+const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
 
 const ID_FIELD_NAME = 'id';
 const NAME_FIELD_NAME = 'name';

@@ -38,7 +38,7 @@ const getTitleText = (mode, urn) => {
     if (mode === ViewBuilderMode.PREVIEW) {
         return 'Preview View';
     }
-    return urn !== undefined ? 'Edit View' : 'Criar nova vizualização';
+    return urn !== undefined ? 'Edit View' : 'Create new View';
 };
 
 export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
@@ -50,8 +50,8 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
 
     const confirmClose = () => {
         Modal.confirm({
-            title: 'Sair do editor de visualização',
-            content: `Tem certeza de que deseja sair do editor de visualização? Todas as alterações serão perdidas`,
+            title: 'Exit View Editor',
+            content: `Are you sure you want to exit View editor? All changes will be lost`,
             onOk() {
                 onCancel?.();
             },
@@ -86,7 +86,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                 <ViewBuilderForm urn={urn} mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
                 <SaveButtonContainer>
                     <CancelButton data-testid="view-builder-cancel" onClick={onCancel}>
-                        Cancelar
+                        Cancel
                     </CancelButton>
                     {mode === ViewBuilderMode.EDITOR && (
                         <Button
@@ -95,7 +95,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                             disabled={!canSave}
                             onClick={() => onSubmit(viewBuilderState)}
                         >
-                            Salvar
+                            Save
                         </Button>
                     )}
                 </SaveButtonContainer>

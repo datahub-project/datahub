@@ -229,7 +229,7 @@ export const ManageRoles = () => {
             {rolesLoading && !rolesData && (
                 <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
             )}
-            {rolesError && message.error('Falha ao carregar funções! Um erro inesperado ocorreu.')}
+            {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>
                     <div />

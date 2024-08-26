@@ -105,7 +105,7 @@ function BusinessGlossaryPage() {
                     <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
                 )}
                 {(termsError || nodesError) && (
-                    <Message type="error" content="Falha ao carregar o glossário! Um erro inesperado ocorreu." />
+                    <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
                 )}
                 <MainContentWrapper data-testid="glossary-entities-list">
                     <HeaderWrapper>

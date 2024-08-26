@@ -108,7 +108,7 @@ describe('getDisplayedFilterOptions', () => {
                     />
                 ),
                 style: { padding: 0 },
-                displayName: 'Gráficos',
+                displayName: 'Charts',
                 nestedOptions: [],
             },
         ];
