@@ -1,5 +1,5 @@
-import { CaretDownOutlined } from '@ant-design/icons';
-import { ANTD_GRAY_V2, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { DownOutlined } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -7,16 +7,25 @@ import styled from 'styled-components/macro';
 const StyledSelect = styled(Select)`
     min-width: 96px;
     &&& .ant-select-selector {
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 500;
         line-height: 24px;
-        color: ${ANTD_GRAY_V2[8]};
         border-radius: 8px;
         :hover {
-            border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
-            color: ${ANTD_GRAY_V2[8]};
+            border: 2px solid ${REDESIGN_COLORS.BORDER_5};
         }
+        box-shadow: none !important;
     }
+    &&& .ant-select-selection-placeholder {
+        color: ${REDESIGN_COLORS.TEXT_HEADING} !important;
+        font-size: 14px !important;
+    }
+`;
+const StyledSelectOption = styled(Select.Option)``;
+
+const StyledSelectOptionLabel = styled.span`
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    font-size: 14px;
 `;
 
 type Option = {
@@ -38,14 +47,14 @@ export function AcryAssertionTypeSelect({ options, selectedValue, onSelect, plac
             onChange={(value) => {
                 onSelect(value as string);
             }}
-            suffixIcon={<CaretDownOutlined />}
+            suffixIcon={<DownOutlined />}
             placeholder={placeholder}
             allowClear
         >
             {options.map(({ label, value }) => (
-                <Select.Option key={value} value={value}>
-                    {label}
-                </Select.Option>
+                <StyledSelectOption key={value} value={value}>
+                    <StyledSelectOptionLabel>{label}</StyledSelectOptionLabel>
+                </StyledSelectOption>
             ))}
         </StyledSelect>
     );

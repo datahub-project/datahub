@@ -52,9 +52,7 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
     };
 
     const menu = (
-        <Menu>
-            {Object.entries(filterOptions).map(([category, filters]) => renderSubMenu(category, filters))}
-        </Menu>
+        <Menu>{Object.entries(filterOptions).map(([category, filters]) => renderSubMenu(category, filters))}</Menu>
     );
 
     return (
