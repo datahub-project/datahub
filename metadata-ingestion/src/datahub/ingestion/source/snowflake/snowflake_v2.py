@@ -166,7 +166,7 @@ class SnowflakeV2Source(
                     # If we're ingestion schema metadata for tables/views, then we will populate
                     # schemas into the resolver as we go. We only need to do a bulk fetch
                     # if we're not ingesting schema metadata as part of ingestion.
-                    (
+                    not (
                         self.config.include_technical_schema
                         and self.config.include_tables
                         and self.config.include_views

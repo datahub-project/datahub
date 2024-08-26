@@ -404,6 +404,11 @@ class BigQueryV2Config(
         "enabled.",
     )
 
+    use_queries_v2: bool = Field(
+        default=False,
+        description="If enabled, uses the new queries extractor to extract queries from bigquery.",
+    )
+
     @property
     def have_table_data_read_permission(self) -> bool:
         return self.use_tables_list_query_v2 or self.is_profiling_enabled()
