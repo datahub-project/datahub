@@ -156,9 +156,11 @@ These privileges are only relevant to DataHub Cloud.
 |-----------------------------|--------------------|--------------------|--------|-----------------------------------------------------------------------------------------------------|
 | Manage Tests                | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Tests.                                                                      |
 | View Metadata Proposals     | :heavy_check_mark: | :heavy_check_mark: | :x:    | View the requests tab for viewing metadata proposals.                                               |
-| Create metadata constraints | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create metadata constraints.                                                                        |
+| Create metadata constraints[^1] | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create metadata constraints.                                                                        |
 | Manage Platform Settings    | :heavy_check_mark: | :x:                | :x:    | View and change platform-level settings, like integrations & notifications.                         |
 | Manage Monitors             | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
+
+[^1]: Deprecated feature
 
 ##### Metadata Privileges
 
@@ -177,6 +179,7 @@ These privileges are only relevant to DataHub Cloud.
 | Manage Documentation Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal update an asset's documentation                               |
 | Manage Group Notification Settings    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage notification settings for a group.                                       |
 | Manage Group Subscriptions            | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage subscriptions for a group.                                               |
+| Manage User Subscriptions             | :heavy_check_mark: | :x:                | :x:                | The ability to manage subscriptions for another user.                                          |
 | Manage Data Contract Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                           |
 | Share Entity                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another DataHub Cloud instance.                                    |
 

@@ -42,7 +42,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQuerySchemaApi,
     BigqueryTableSnapshot,
 )
-from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_DATETIME_FORMAT,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
     bigquery_audit_metadata_query_template_lineage,
@@ -225,12 +228,12 @@ class BigqueryLineageExtractor:
         self,
         config: BigQueryV2Config,
         report: BigQueryV2Report,
-        dataset_urn_builder: Callable[[BigQueryTableRef], str],
+        identifiers: BigQueryIdentifierBuilder,
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
     ):
         self.config = config
         self.report = report
-        self.dataset_urn_builder = dataset_urn_builder
+        self.identifiers = identifiers
         self.audit_log_api = BigQueryAuditLogApi(
             report.audit_log_api_perf,
             self.config.rate_limit,
@@ -427,7 +430,7 @@ class BigqueryLineageExtractor:
     def gen_lineage_workunits_for_table(
         self, lineage: Dict[str, Set[LineageEdge]], table_ref: BigQueryTableRef
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_urn = self.dataset_urn_builder(table_ref)
+        dataset_urn = self.identifiers.gen_dataset_urn_from_raw_ref(table_ref)
 
         lineage_info = self.get_lineage_for_table(
             bq_table=table_ref,
@@ -479,7 +482,9 @@ class BigqueryLineageExtractor:
         lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
 
         data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf, self.config.get_bigquery_client()
+            self.report.schema_api_perf,
+            self.config.get_bigquery_client(),
+            self.config.get_projects_client(),
         )
 
         # Filtering datasets
@@ -870,7 +875,9 @@ class BigqueryLineageExtractor:
         # even if the lineage is same but the order is different.
         for upstream in sorted(self.get_upstream_tables(bq_table, lineage_metadata)):
             upstream_table = BigQueryTableRef.from_string_name(upstream.table)
-            upstream_table_urn = self.dataset_urn_builder(upstream_table)
+            upstream_table_urn = self.identifiers.gen_dataset_urn_from_raw_ref(
+                upstream_table
+            )
 
             # Generate table-level lineage.
             upstream_table_class = UpstreamClass(

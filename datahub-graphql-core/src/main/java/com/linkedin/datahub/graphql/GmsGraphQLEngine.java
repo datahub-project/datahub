@@ -2728,9 +2728,11 @@ public class GmsGraphQLEngine {
                         corpUserType,
                         (env) -> {
                           final FormActorAssignment actors = env.getSource();
-                          return actors.getUsers().stream()
-                              .map(CorpUser::getUrn)
-                              .collect(Collectors.toList());
+                          return actors.getUsers() != null
+                              ? actors.getUsers().stream()
+                                  .map(CorpUser::getUrn)
+                                  .collect(Collectors.toList())
+                              : null;
                         }))
                 .dataFetcher(
                     "groups",
@@ -2738,9 +2740,11 @@ public class GmsGraphQLEngine {
                         corpGroupType,
                         (env) -> {
                           final FormActorAssignment actors = env.getSource();
-                          return actors.getGroups().stream()
-                              .map(CorpGroup::getUrn)
-                              .collect(Collectors.toList());
+                          return actors.getGroups() != null
+                              ? actors.getGroups().stream()
+                                  .map(CorpGroup::getUrn)
+                                  .collect(Collectors.toList())
+                              : null;
                         }))
                 .dataFetcher("isAssignedToMe", new IsFormAssignedToMeResolver(groupService)));
   }
