@@ -15,6 +15,8 @@ import tenacity
 import yaml
 from liquid import Template, Undefined
 from pydantic import Field, validator
+from requests.adapters import HTTPAdapter, Retry
+from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
 from sqllineage.runner import LineageRunner
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -126,6 +128,10 @@ class ModeAPIConfig(ConfigModel):
     )
     max_attempts: int = Field(
         default=5, description="Maximum number of attempts to retry before failing"
+    )
+    timeout: int = Field(
+        default=40,
+        description="Timout setting, how long to wait for the Mode rest api to send data before giving up",
     )
 
 
@@ -299,7 +305,15 @@ class ModeSource(StatefulIngestionSourceBase):
         self.report = ModeSourceReport()
         self.ctx = ctx
 
-        self.session = requests.session()
+        self.session = requests.Session()
+        # Handling retry and backoff
+        retries = 3
+        backoff_factor = 10
+        retry = Retry(total=retries, backoff_factor=backoff_factor)
+        adapter = HTTPAdapter(max_retries=retry)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
         self.session.auth = HTTPBasicAuth(
             self.config.token,
             self.config.password.get_secret_value(),
@@ -1469,16 +1483,21 @@ class ModeSource(StatefulIngestionSourceBase):
                 multiplier=self.config.api_options.retry_backoff_multiplier,
                 max=self.config.api_options.max_retry_interval,
             ),
-            retry=retry_if_exception_type(HTTPError429),
+            retry=retry_if_exception_type((HTTPError429, ConnectionError)),
             stop=stop_after_attempt(self.config.api_options.max_attempts),
         )
 
         @r.wraps
         def get_request():
             try:
-                response = self.session.get(url)
-                response.raise_for_status()
+                response = self.session.get(
+                    url, timeout=self.config.api_options.timeout
+                )
                 return response.json()
+            except ConnectionError as e:
+                # TODO Need to check why server is closes the connection before sending a complete response
+                logging.warning(f"RemoteDisconnected or ProtocolError: {str(e)}")
+                return {}
             except HTTPError as http_error:
                 error_response = http_error.response
                 if error_response.status_code == 429:
