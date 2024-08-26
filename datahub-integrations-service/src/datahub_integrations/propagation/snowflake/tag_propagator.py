@@ -128,7 +128,7 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
             if isinstance(directive, TagPropagationDirective)
             else directive.term
         )
-        logger.info(
+        logger.debug(
             f"Will {directive.operation.lower()} {tag_to_apply} on Snowflake {entity_to_apply}"
         )
 
@@ -146,7 +146,7 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
             self._stats.event_processing_stats = EventProcessingStats()
         self._stats.event_processing_stats.start(event)
         try:
-            logger.info(f"Snowflake Propagator: Received event {event}")
+            logger.debug(f"Snowflake Propagator: Received event {event}")
             if event.event_type == "EntityChangeEvent_v1":
                 assert isinstance(event.event, EntityChangeEvent)
                 assert self.ctx.graph is not None
