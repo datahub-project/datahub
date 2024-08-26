@@ -1433,6 +1433,7 @@
       "businessGlossaryIntroTitle": "Glossário de Negócios 📖"
     },
     "domains": {
+      "idDomain":"ID do domínio",
       "newDataProduct":"Novo Produto de Dados",
       "newTypePropriet":"Criar novo tipo de propriedade",
       "createNewDataProduct":"Criar novo produto de dados",
