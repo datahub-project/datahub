@@ -162,6 +162,8 @@ public class AssertionUtils {
         return info.getFieldAssertion().getEntity();
       case DATA_SCHEMA:
         return info.getSchemaAssertion().getEntity();
+      case CUSTOM:
+        return info.getCustomAssertion().getEntity();
       default:
         throw new RuntimeException(
             String.format("Unsupported Assertion Type %s provided", info.getType()));
@@ -196,7 +198,7 @@ public class AssertionUtils {
         }
         throw new RuntimeException("Schema Test Input is required for Schema Assertion");
       default:
-        throw new RuntimeException(
+        throw new InvalidAssertionTypeException(
             String.format("Unsupported Assertion Type %s provided", input.getType()));
     }
   }
