@@ -314,6 +314,12 @@ databricks = {
 
 mysql = sql_common | {"pymysql>=1.0.2"}
 
+sac = {
+    "requests",
+    "pyodata>=1.11.1",
+    "Authlib",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -480,6 +486,7 @@ plugins: Dict[str, Set[str]] = {
     "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
+    "sac": sac,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -620,6 +627,7 @@ base_dev_requirements = {
             "kafka-connect",
             "qlik-sense",
             "sigma",
+            "sac",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -735,6 +743,7 @@ entry_points = {
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
+        "sac = datahub.ingestion.source.sac.sac:SACSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
