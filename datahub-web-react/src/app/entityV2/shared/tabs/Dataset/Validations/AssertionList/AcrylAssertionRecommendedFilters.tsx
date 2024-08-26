@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 interface FilterItem {
     name: string;
