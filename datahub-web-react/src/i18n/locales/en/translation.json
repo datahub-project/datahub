@@ -1360,7 +1360,7 @@
     "thereWasAnUnexpectedErrorWhenTryingToTestYourConnection": "There was an unexpected error when trying to test your connection. Please try again.",
     "errorWhenVerifyingResponses":"Error when verifying responses on form",
     "thisCouldTakeAFewMinutes": "This could take a few minutes.",
-    "toCompleteTheLookerIntegrationTextWithLink_component": "To complete the Looker integration (including Looker views and lineage to the underlying warehouse tables), you must also use the.",
+    "toCompleteTheLookerIntegrationTextWithLink_component": "To complete the Looker integration (including Looker views and lineage to the underlying warehouse tables), you must also use the {{link}}",
     "ToGetCompleteLookerMetadataIntegrationText_component": "To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the DataHub lookml module.",
     "ui": "UI",
     "viewLogsThatWereCollectedDuringTheIngestionRun": "View logs that were collected during the ingestion run.",
@@ -1731,7 +1731,7 @@
   "search": {
     "searchHeader": "tables, topics, views, and more",
     "chooseAnOwnerType": "Choose an owner type",
-    "didYouMean_component": "Did you mean {{suggestText}}",
+    "didYouMean_component": "Did you mean",
     "exploreAll": "Explore all",
     "loadResultError": "Failed to load results",
     "modal": {

@@ -81,7 +81,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         e.preventDefault();
         Modal.confirm({
             title: t('crud.doYouWantTo.removeTitleWithName', { name }),
-            content: t('crud.doYouWantTo.removeContentWithTheName', { name }),
+            content: t('crud.doYouWantTo.removeContentWithTheName', { name: `${name} (${ownershipTypeName})` }),
             onOk() {
                 onDelete();
             },

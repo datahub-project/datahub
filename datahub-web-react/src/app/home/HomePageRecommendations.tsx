@@ -1,8 +1,7 @@
+import React from 'react';
+import styled from 'styled-components/macro';
 import { Divider, Empty, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components/macro';
-import { useGetEntityCountsQuery } from '../../graphql/app.generated';
-import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import {
     CorpUser,
     EntityType,
@@ -10,7 +9,13 @@ import {
     RecommendationRenderType,
     ScenarioType,
 } from '../../types.generated';
+import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
+import { RecommendationModule } from '../recommendations/RecommendationModule';
+import { BrowseEntityCard } from '../search/BrowseEntityCard';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { HomePagePosts } from './HomePagePosts';
 import {
     HOME_PAGE_DOMAINS_ID,
     HOME_PAGE_MOST_POPULAR_ID,

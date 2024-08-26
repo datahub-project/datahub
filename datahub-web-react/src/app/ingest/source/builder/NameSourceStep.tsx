@@ -1,7 +1,7 @@
 import { Button, Checkbox, Collapse, Form, Input, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
 import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
 
@@ -20,6 +20,7 @@ const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
 export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
+    const { t } = useTranslation();
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
             ...state,

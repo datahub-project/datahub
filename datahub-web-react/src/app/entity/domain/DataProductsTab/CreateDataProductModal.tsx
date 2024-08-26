@@ -1,6 +1,5 @@
 import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
-import { t } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import DataProductBuilderForm from './DataProductBuilderForm';
 import { DataProductBuilderState } from './types';

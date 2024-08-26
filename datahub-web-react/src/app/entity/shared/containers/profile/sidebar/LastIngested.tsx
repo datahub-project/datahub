@@ -5,7 +5,7 @@ import moment from 'moment-timezone';
 import React from 'react';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
+import { toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import { ANTD_GRAY } from '../../../constants';
 import { useEntityData } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';

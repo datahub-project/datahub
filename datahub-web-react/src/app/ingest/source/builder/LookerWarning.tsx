@@ -34,7 +34,7 @@ export const LookerWarning = ({ type }: Props) => {
             banner
             message={
                 <>
-                    {t('ingest.toCompleteTheLookerIntegrationTextWithLink_component')}
+                    {t('ingest.toCompleteTheLookerIntegrationTextWithLink_component', { link})}
                 </>
             }
         />

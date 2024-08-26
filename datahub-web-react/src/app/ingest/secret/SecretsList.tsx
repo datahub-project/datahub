@@ -5,7 +5,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
-import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import {
     useCreateSecretMutation,
     useDeleteSecretMutation,
@@ -40,6 +40,7 @@ const SourcePaginationContainer = styled.div`
 const DEFAULT_PAGE_SIZE = 25;
 
 export const SecretsList = () => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });

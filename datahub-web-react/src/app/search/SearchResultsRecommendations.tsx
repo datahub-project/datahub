@@ -1,3 +1,4 @@
+import React from 'react';
 import { Divider, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';

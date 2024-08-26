@@ -141,8 +141,8 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
 
     const onRemoveMember = (memberUrn: string) => {
         Modal.confirm({
-            title:t('crud.doYouWantTo.confirmRemovalWithName', {name}),
-            content: t('crud.doYouWantTo.removeContentWithTheName', {name}),
+            title:t('crud.doYouWantTo.confirmRemovalWithName', {name: t('common.groupMember')}),
+            content: t('crud.doYouWantTo.removeContentWithTheName', {name: t('common.group')}),
             onOk() {
                 removeGroupMember(memberUrn);
             },

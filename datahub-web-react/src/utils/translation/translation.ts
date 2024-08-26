@@ -1,5 +1,5 @@
-export function translateDisplayNames(t: any, displayName: string | null | undefined) {
-    if (!displayName) return
+export function translateDisplayNames(t: any, displayName: string | null | undefined): string {
+    if (!displayName) return '';
     const displayNameFormatted = displayName.trim().replaceAll(' ', '').replaceAll(/[^a-zA-Z\s]/g, '').toLowerCase();
 
     const FIELD_TO_DISPLAY_NAMES = {
@@ -202,7 +202,7 @@ export function translateDisplayNames(t: any, displayName: string | null | undef
 
     const entries = Object.entries(FIELD_TO_DISPLAY_NAMES);
     for (const [key, value] of entries) {
-        if (key == displayNameFormatted) {
+        if (key === displayNameFormatted) {
             return value;
         }
     }

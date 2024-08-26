@@ -1,7 +1,6 @@
 import React from 'react';
 import { Form, Input, Select, Typography } from 'antd';
 import styled from 'styled-components';
-import { t } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { PolicyType } from '../../../types.generated';
 
@@ -34,6 +33,7 @@ export default function PolicyTypeForm({
     policyDescription,
     setPolicyDescription,
 }: Props) {
+    const { t } = useTranslation();
     const updatePolicyName = (name: string) => {
         setPolicyName(name);
     };

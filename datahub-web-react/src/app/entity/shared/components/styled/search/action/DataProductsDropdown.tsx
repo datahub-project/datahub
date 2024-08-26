@@ -39,7 +39,7 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `${t('crud.error.searchError',{name})}: \n ${e.message || ''}`,
+                        content: `${t('crud.error.removeAssetsWithName',{name: t('common.dataProduct')})}: \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );

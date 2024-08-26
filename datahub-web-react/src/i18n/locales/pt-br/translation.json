@@ -1376,7 +1376,7 @@
     "theFollowingConnectorCapabilitiesAreSupportedWithYourCredentials": "As seguintes capacidades de conectores são suportadas com suas credenciais",
     "thereWasAnUnexpectedErrorWhenTryingToTestYourConnection": "Ocorreu um erro inesperado ao tentar testar sua conexão. Por favor, tente novamente.",
     "thisCouldTakeAFewMinutes": "Isso pode levar alguns minutos.",
-    "toCompleteTheLookerIntegrationTextWithLink_component": "Para completar a integração do Looker (incluindo visualizações do Looker e linhagem para as tabelas de warehouse subjacentes), você deve também usar o <link></link>.",
+    "toCompleteTheLookerIntegrationTextWithLink_component": "Para completar a integração do Looker (incluindo visualizações do Looker e linhagem para as tabelas de warehouse subjacentes), você deve também usar o {{link}}.",
     "ToGetCompleteLookerMetadataIntegrationText_component": "Para obter a integração completa de metadados do Looker (incluindo visualizações do Looker e linhagem para as tabelas de warehouse subjacentes), você deve também usar o módulo lookml do DataHub</aLink>.",
     "ui": "UI",
     "viewLogsThatWereCollectedDuringTheIngestionRun": "Ver logs que foram coletados durante a execução da ingestão.",
@@ -1748,7 +1748,7 @@
 
     "searchHeader": "tabelas, tópicos, views e mais",
     "chooseAnOwnerType": "Escolha um tipo de proprietário",
-    "didYouMean_component": "Você quis dizer {{suggestText}}",
+    "didYouMean_component": "Você quis dizer",
     "exploreAll": "Explorar tudo",
     "loadResultError": "Falha ao carregar resultados",
     "modal": {

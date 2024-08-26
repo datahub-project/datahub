@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
-import { useTranslation } from 'react-i18next';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { useAppConfig } from '../../useAppConfig';

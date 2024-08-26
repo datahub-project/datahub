@@ -1,7 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { t } from 'i18next';
+
 import { useTranslation } from 'react-i18next';
 import StripMarkdownText from '../../shared/components/styled/StripMarkdownText';
 import { SidebarHeader } from '../../shared/containers/profile/sidebar/SidebarHeader';

@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
-import { t } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
     DataProduct,

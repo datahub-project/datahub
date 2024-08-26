@@ -1,6 +1,5 @@
 import { FolderFilled, FolderOutlined } from '@ant-design/icons';
 import React from 'react';
-import { t } from 'i18next';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';

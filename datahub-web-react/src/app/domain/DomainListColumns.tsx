@@ -28,7 +28,6 @@ const DomainNameContainer = styled.div`
 `;
 
 export function DomainListMenuColumn(handleDelete: (urn: string) => void) {
-    const { t } = useTranslation();
     return (record: DomainEntry) => (
         <DomainItemMenu name={record.name} urn={record.urn} onDelete={() => handleDelete(record.urn)} />
     );

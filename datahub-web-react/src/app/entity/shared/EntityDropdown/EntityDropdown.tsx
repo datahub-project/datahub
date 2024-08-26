@@ -13,7 +13,7 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import { Redirect, useHistory } from 'react-router';
-import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../../types.generated';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
 import { UpdateDeprecationModal } from './UpdateDeprecationModal';
@@ -102,6 +102,7 @@ function EntityDropdown(props: Props) {
         options,
     } = props;
 
+    const { t } = useTranslation();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
     const [updateDeprecation] = useUpdateDeprecationMutation();

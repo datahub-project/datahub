@@ -1,32 +1,32 @@
-import { RightOutlined } from '@ant-design/icons';
-import { Button, Image, Row, Tag, Typography } from 'antd';
-import { debounce } from 'lodash';
-import { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
+import { Typography, Image, Row, Button, Tag } from 'antd';
+import { debounce } from 'lodash';
 import styled, { useTheme } from 'styled-components/macro';
-import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
+import { RightOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import { ManageAccount } from '../shared/ManageAccount';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
+import { SearchBar } from '../search/SearchBar';
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '../../graphql/search.generated';
-import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { EntityType, FacetFilterInput } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
-import { useUserContext } from '../context/useUserContext';
-import DemoButton from '../entity/shared/components/styled/DemoButton';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { HALF_SECOND_IN_MS } from '../entity/shared/tabs/Dataset/Queries/utils/constants';
-import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
-import { SearchBar } from '../search/SearchBar';
-import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils';
-import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
-import { ManageAccount } from '../shared/ManageAccount';
+import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
-import { useEntityRegistry } from '../useEntityRegistry';
+import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
+import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
+import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils';
+import { useUserContext } from '../context/useUserContext';
 import AcrylDemoBanner from './AcrylDemoBanner';
+import DemoButton from '../entity/shared/components/styled/DemoButton';
+import { HALF_SECOND_IN_MS } from '../entity/shared/tabs/Dataset/Queries/utils/constants';
 
 const Background = styled.div`
     width: 100%;

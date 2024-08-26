@@ -29,13 +29,14 @@ export default function SearchQuerySuggester({ suggestions }: Props) {
     if (suggestions.length === 0) return null;
     const suggestText = suggestions[0].text;
 
+
     function searchForSuggestion() {
         navigateToSearchUrl({ query: suggestText, history });
     }
 
     return (
         <TextWrapper>
-            {t('search.didYouMean_component',{suggestText})}
+            {t('search.didYouMean_component')} <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
         </TextWrapper>
     );
 }

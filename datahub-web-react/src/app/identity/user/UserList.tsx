@@ -4,7 +4,6 @@ import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
-import { t } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import UserListItem from './UserListItem';
 import { Message } from '../../shared/Message';

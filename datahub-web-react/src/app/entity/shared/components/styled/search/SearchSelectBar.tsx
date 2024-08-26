@@ -2,7 +2,6 @@ import React from 'react';
 import { Button, Checkbox, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { useTranslation } from 'react-i18next';
-import { count } from 'console';
 import { ANTD_GRAY } from '../../../constants';
 import { EntityAndType } from '../../../types';
 import { SearchSelectActions } from './SearchSelectActions';

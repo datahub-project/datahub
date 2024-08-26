@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useTranslation } from 'react-i18next';
 import { Domain, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -20,13 +19,9 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
  * Definition of the DataHub Domain entity.
  */
 export class DomainEntity implements Entity<Domain> {
-
-
-
     constructor(translationService: any) {
         this.translationService = translationService;
     }
-
 
     translationService: any;
 

@@ -44,7 +44,7 @@ export default function SearchFilterView({
     updateFilters,
 }: Props) {
     const { t } = useTranslation();
-    displayName = translateDisplayNames(t, displayName);
+    const translatedDisplayName = translateDisplayNames(t, displayName);
 
     return (
         <Dropdown
@@ -59,17 +59,17 @@ export default function SearchFilterView({
                     searchQuery={searchQuery}
                     updateSearchQuery={setSearchQuery}
                     isLoading={loading}
-                    searchPlaceholder={displayName}
+                    searchPlaceholder={translatedDisplayName}
                 />
             )}
         >
             <SearchFilterLabel
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
                 isActive={!!numActiveFilters}
-                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
+                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(translatedDisplayName)}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                {capitalizeFirstLetterOnly(displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                {capitalizeFirstLetterOnly(translatedDisplayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </SearchFilterLabel>
         </Dropdown>

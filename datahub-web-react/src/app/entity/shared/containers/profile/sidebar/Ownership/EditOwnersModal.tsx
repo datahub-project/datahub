@@ -399,7 +399,6 @@ export const EditOwnersModal = ({
                                     {ownershipTypes.map((ownershipType: OwnershipTypeEntity | undefined) => {
                                         const ownershipTypeUrn = ownershipType?.urn || '';
                                         const ownershipTypeName = ownershipType?.info?.name || ownershipType?.urn || '';
-                                        const ownershipTypeDescription = ownershipType?.info?.description || '';
                                         return (
                                             <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
                                                 <Typography.Text>{translateDisplayNames(t, `ownership${ownershipTypeName}name`)}</Typography.Text>

@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { BookFilled, BookOutlined } from '@ant-design/icons';
-import { useTranslation } from 'react-i18next';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -23,9 +22,6 @@ import { PageRoutes } from '../../../conf/Global';
  * Definition of the DataHub Dataset entity.
  */
 export class GlossaryTermEntity implements Entity<GlossaryTerm> {
-
-
-
     constructor(translationService: any) {
         this.translationService = translationService;
     }

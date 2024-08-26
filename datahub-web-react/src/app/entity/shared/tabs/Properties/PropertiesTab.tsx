@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import React, { useState } from 'react';
-import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import ExpandIcon from '../Dataset/Schema/components/ExpandIcon';
 import { StyledTable as Table } from '../../components/styled/StyledTable';
 import { useEntityData } from '../../EntityContext';
@@ -21,6 +21,7 @@ const StyledTable = styled(Table)`
 ` as typeof Table;
 
 export const PropertiesTab = () => {
+    const { t } = useTranslation();
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();

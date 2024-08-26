@@ -13,7 +13,6 @@ import {
 } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 
-import { t } from 'i18next';
 import { useEntityData } from '../../EntityContext';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { getEntityPath } from '../../containers/profile/utils';
@@ -135,7 +134,7 @@ export const LineageTab = ({
                             <Button type="text">
                                 <ManageLineageIcon />
                                 <Typography.Text>
-                                    <b>{t('common.edit')}</b>
+                                    <b>Edit</b>
                                 </Typography.Text>
                                 <StyledCaretDown />
                             </Button>
