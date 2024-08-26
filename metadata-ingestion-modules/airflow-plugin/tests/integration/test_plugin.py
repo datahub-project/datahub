@@ -110,7 +110,9 @@ def _wait_for_dag_finish(
 
 @contextlib.contextmanager
 def _run_airflow(
-    tmp_path: pathlib.Path, dags_folder: pathlib.Path, is_v1: bool
+    tmp_path: pathlib.Path,
+    dags_folder: pathlib.Path,
+    is_v1: bool,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -272,6 +274,7 @@ test_cases = [
     DagTestCase("basic_iolets"),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True),
+    DagTestCase("custom_operator_dag", v2_only=True),
 ]
 
 

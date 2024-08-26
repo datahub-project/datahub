@@ -46,7 +46,7 @@ Use [gradle wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.ht
 ./gradlew build
 ```
 
-Note that the above will also run run tests and a number of validations which makes the process considerably slower.
+Note that the above will also run tests and a number of validations which makes the process considerably slower.
 
 We suggest partially compiling DataHub according to your needs:
 
