@@ -3,6 +3,7 @@ import React from 'react';
 import styled, { useTheme } from 'styled-components/macro';
 import Link from 'antd/lib/typography/Link';
 import { ArrowRightOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { DEFAULT_APP_CONFIG } from '../../../../appConfigContext';
 import { useAppConfig } from '../../../useAppConfig';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -58,6 +59,7 @@ const EntityNameWrapper = styled.div`
 `;
 
 export default function EmbeddedHeader() {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const { entityData, entityType } = useEntityData();
     const appConfig = useAppConfig();
@@ -72,7 +74,7 @@ export default function EmbeddedHeader() {
     }
 
     const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT, ANTD_GRAY[8]);
-    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
+    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType, t);
     const entityName = entityRegistry.getDisplayName(entityType, entityData);
     const entityTypePathName = entityRegistry.getPathName(entityType);
     const logoUrl =

@@ -35,7 +35,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         document.addEventListener('keydown', handleKeyDown);
     }, []);
 
-    const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', reshow);
+    const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', reshow, t);
     const filteredSteps = steps.filter((step) => step.id && educationStepIdsAllowlist.has(step.id));
     const filteredStepIds: string[] = filteredSteps.map((step) => step?.id).filter((stepId) => !!stepId) as string[];
 

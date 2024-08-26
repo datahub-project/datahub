@@ -9,7 +9,6 @@ import {
 } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { useTranslation } from 'react-i18next';
 import { HealthStatus, HealthStatusType, Health } from '../../../types.generated';
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../entity/shared/tabs/Incident/incidentUtils';
 
@@ -76,9 +75,8 @@ export const getHealthSummaryIcon = (
     return undefined;
 };
 
-export const getHealthSummaryMessage = (healths: Health[]) => {
+export const getHealthSummaryMessage = (healths: Health[], t: any) => {
     const unhealthy = isUnhealthy(healths);
-    const { t } = useTranslation();
 
     return unhealthy ? t('incident.unhealthy') : t('incident.healthy');
 };

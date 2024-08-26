@@ -119,7 +119,7 @@ function LastIngested({ lastIngested }: Props) {
     const { t } = useTranslation();
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
+    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType, t);
     const lastIngestedColor = getLastIngestedColor(lastIngested);
     const platformName = getPlatformName(entityData);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;

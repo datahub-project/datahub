@@ -16,8 +16,8 @@ export function getDisplayedEntityType(
     entityData: GenericEntityProperties | null,
     entityRegistry: EntityRegistry,
     entityType: EntityType,
+    t: any
 ) {
-    const { t } = useTranslation();
     const typeName = entityData?.subTypes?.typeNames?.[0];
 
     return (
@@ -29,13 +29,14 @@ export function getDisplayedEntityType(
 }
 
 function PlatformContentContainer() {
+    const { t } = useTranslation();
     const { entityType, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const platformName = getPlatformName(entityData);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
     const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
-    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
+    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType, t);
     const instanceId = entityData?.dataPlatformInstance?.instanceId;
 
     const { contentRef, isContentTruncated } = useContentTruncation(entityData);

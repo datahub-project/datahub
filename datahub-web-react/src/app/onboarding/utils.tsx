@@ -1,7 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { useTranslation } from 'react-i18next';
 import { StepStateResult } from '../../types.generated';
 import { OnboardingConfig } from './OnboardingConfig';
 import { OnboardingStep } from './OnboardingStep';
@@ -66,8 +65,8 @@ export function getStepsToRender(
     stepIds: string[],
     userUrn: string,
     reshow: boolean,
+    t: any
 ): OnboardingStep[] {
-    const { t } = useTranslation();
     if (!educationSteps) return [];
     const filteredStepIds: string[] = reshow
         ? stepIds
