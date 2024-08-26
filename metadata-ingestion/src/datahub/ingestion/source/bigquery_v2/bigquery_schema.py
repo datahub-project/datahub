@@ -13,12 +13,14 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQuerySchemaApiPerfReport,
     BigQueryV2Report,
 )
+from datahub.ingestion.source.bigquery_v2.common import BigQueryFilter
 from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryQuery,
     BigqueryTableType,
@@ -167,7 +169,7 @@ class BigQuerySchemaApi:
 
         page_token = None
         projects: List[BigqueryProject] = []
-        with self.report.list_projects:
+        with self.report.list_projects_timer:
             while True:
                 try:
                     self.report.num_list_projects_api_requests += 1
@@ -205,7 +207,7 @@ class BigQuerySchemaApi:
         return projects
 
     def get_projects_with_labels(self, labels: List[str]) -> List[BigqueryProject]:
-        with self.report.list_projects_with_labels:
+        with self.report.list_projects_with_labels_timer:
             try:
                 projects = []
                 labels_query = " OR ".join([f"labels.{label}" for label in labels])
@@ -227,7 +229,7 @@ class BigQuerySchemaApi:
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
-        with self.report.list_datasets:
+        with self.report.list_datasets_timer:
             self.report.num_list_datasets_api_requests += 1
             datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
             return [
@@ -601,3 +603,76 @@ class BigQuerySchemaApi:
                 table=snapshot.base_table_name,
             ),
         )
+
+
+def query_project_list(
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> Iterable[BigqueryProject]:
+    try:
+        projects = schema_api.get_projects()
+
+        if not projects:  # Report failure on exception and if empty list is returned
+            report.failure(
+                title="Get projects didn't return any project. ",
+                message="Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+    except Exception as e:
+        report.failure(
+            title="Failed to get BigQuery Projects",
+            message="Maybe resourcemanager.projects.get permission is missing for the service account. "
+            "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            exc=e,
+        )
+        projects = []
+
+    for project in projects:
+        if filters.filter_config.project_id_pattern.allowed(project.id):
+            yield project
+        else:
+            logger.debug(
+                f"Ignoring project {project.id} as it's not allowed by project_id_pattern"
+            )
+
+
+def get_projects(
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> List[BigqueryProject]:
+    logger.info("Getting projects")
+    if filters.filter_config.project_ids:
+        return [
+            BigqueryProject(id=project_id, name=project_id)
+            for project_id in filters.filter_config.project_ids
+        ]
+    elif filters.filter_config.project_labels:
+        return list(query_project_list_from_labels(schema_api, report, filters))
+    else:
+        return list(query_project_list(schema_api, report, filters))
+
+
+def query_project_list_from_labels(
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> Iterable[BigqueryProject]:
+    projects = schema_api.get_projects_with_labels(filters.filter_config.project_labels)
+
+    if not projects:  # Report failure on exception and if empty list is returned
+        report.report_failure(
+            "metadata-extraction",
+            "Get projects didn't return any project with any of the specified label(s). "
+            "Maybe resourcemanager.projects.list permission is missing for the service account. "
+            "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+        )
+
+    for project in projects:
+        if filters.filter_config.project_id_pattern.allowed(project.id):
+            yield project
+        else:
+            logger.debug(
+                f"Ignoring project {project.id} as it's not allowed by project_id_pattern"
+            )

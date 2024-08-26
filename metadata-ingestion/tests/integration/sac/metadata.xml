@@ -1,0 +1,404 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<edmx:Edmx Version="1.0" xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx">
+    <edmx:DataServices xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" m:DataServiceVersion="2.0">
+        <Schema Namespace="sap.fpa.services.search.internal" xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" xmlns="http://schemas.microsoft.com/ado/2008/09/edm">
+            <EntityType Name="FilterRepositoriesType">
+                <Key>
+                    <PropertyRef Name="id" />
+                </Key>
+                <Property Name="id" Type="Edm.String" Nullable="false" MaxLength="256" />
+                <Property Name="type" Type="Edm.String" MaxLength="256" />
+                <Property Name="subType" Type="Edm.String" MaxLength="256" />
+                <Property Name="name" Type="Edm.String" MaxLength="255" />
+                <Property Name="description" Type="Edm.String" MaxLength="1024" />
+                <Property Name="createdBy" Type="Edm.String" MaxLength="127" />
+                <Property Name="createdTime" Type="Edm.DateTime" />
+                <Property Name="modifiedBy" Type="Edm.String" MaxLength="127" />
+                <Property Name="modifiedTime" Type="Edm.DateTime" />
+                <Property Name="isTemplate" Type="Edm.Int32" />
+                <Property Name="isSample" Type="Edm.Int32" />
+                <Property Name="isPublic" Type="Edm.Int32" />
+                <Property Name="openURL" Type="Edm.String" MaxLength="255" />
+                <Property Name="ancestorPath" Type="Edm.String" MaxLength="5000" />
+                <Property Name="lastIndexedTime" Type="Edm.DateTime" />
+                <Property Name="isMobile" Type="Edm.Int32" />
+                <Property Name="parentId" Type="Edm.String" MaxLength="256" />
+                <NavigationProperty Name="createdByUser" Relationship="sap.fpa.services.search.internal.RepositoryCreatedByType" FromRole="FilterRepositoriesPrincipal" ToRole="createdByDependent" />
+                <NavigationProperty Name="modifiedByUser" Relationship="sap.fpa.services.search.internal.RepositoryModifiedByType" FromRole="FilterRepositoriesPrincipal" ToRole="modifiedByDependent" />
+                <NavigationProperty Name="permissions" Relationship="sap.fpa.services.search.internal.RepositoryPermissionsType" FromRole="FilterRepositoriesPrincipal" ToRole="resourcePermissionsDependent" />
+            </EntityType>
+            <EntityType Name="RepositoriesType">
+                <Key>
+                    <PropertyRef Name="id" />
+                </Key>
+                <Property Name="name" Type="Edm.String" MaxLength="255" />
+                <Property Name="description" Type="Edm.String" MaxLength="1024" />
+                <Property Name="id" Type="Edm.String" Nullable="false" MaxLength="256" />
+                <Property Name="type" Type="Edm.String" MaxLength="256" />
+                <Property Name="subType" Type="Edm.String" MaxLength="256" />
+                <Property Name="createdTime" Type="Edm.DateTime" />
+                <Property Name="createdBy" Type="Edm.String" MaxLength="127" />
+                <Property Name="modifiedBy" Type="Edm.String" MaxLength="127" />
+                <Property Name="modifiedTime" Type="Edm.DateTime" />
+                <Property Name="isTemplate" Type="Edm.Int32" />
+                <Property Name="isSample" Type="Edm.Int32" />
+                <Property Name="isPublic" Type="Edm.Int32" />
+                <Property Name="isMobile" Type="Edm.Int32" />
+                <Property Name="openURL" Type="Edm.String" MaxLength="255" />
+                <Property Name="ancestorPath" Type="Edm.String" MaxLength="5000" />
+                <Property Name="lastIndexedTime" Type="Edm.DateTime" />
+                <Property Name="parentId" Type="Edm.String" MaxLength="256" />
+                <NavigationProperty Name="createdByUser" Relationship="sap.fpa.services.search.internal.FilterRepositoryCreatedByType" FromRole="RepositoriesPrincipal" ToRole="createdByDependent" />
+                <NavigationProperty Name="modifiedByUser" Relationship="sap.fpa.services.search.internal.FilterRepositoryModifiedByType" FromRole="RepositoriesPrincipal" ToRole="modifiedByDependent" />
+                <NavigationProperty Name="permissions" Relationship="sap.fpa.services.search.internal.FilterRepositoryPermissionsType" FromRole="RepositoriesPrincipal" ToRole="resourcePermissionsDependent" />
+            </EntityType>
+            <EntityType Name="FilterResourcesType">
+                <Key>
+                    <PropertyRef Name="resourceId" />
+                </Key>
+                <Property Name="resourceId" Type="Edm.String" Nullable="false" MaxLength="256" />
+                <Property Name="resourceType" Type="Edm.String" MaxLength="256" />
+                <Property Name="resourceSubtype" Type="Edm.String" MaxLength="256" />
+                <Property Name="storyId" Type="Edm.String" MaxLength="255" />
+                <Property Name="name" Type="Edm.String" MaxLength="255" />
+                <Property Name="description" Type="Edm.String" MaxLength="1024" />
+                <Property Name="createdBy" Type="Edm.String" MaxLength="127" />
+                <Property Name="createdTime" Type="Edm.DateTime" />
+                <Property Name="modifiedBy" Type="Edm.String" MaxLength="127" />
+                <Property Name="modifiedTime" Type="Edm.DateTime" />
+                <Property Name="isTemplate" Type="Edm.Int32" />
+                <Property Name="isSample" Type="Edm.Int32" />
+                <Property Name="isPublic" Type="Edm.Int32" />
+                <Property Name="openURL" Type="Edm.String" MaxLength="255" />
+                <Property Name="ancestorPath" Type="Edm.String" MaxLength="5000" />
+                <Property Name="lastIndexedTime" Type="Edm.DateTime" />
+                <Property Name="isMobile" Type="Edm.Int32" />
+                <NavigationProperty Name="resourceModels" Relationship="sap.fpa.services.search.internal.Resources_ModelsType" FromRole="FilterResourcesPrincipal" ToRole="ModelsDependent" />
+                <NavigationProperty Name="storyPages" Relationship="sap.fpa.services.search.internal.Resources_PagesType" FromRole="FilterResourcesPrincipal" ToRole="PagesDependent" />
+                <NavigationProperty Name="createdByUser" Relationship="sap.fpa.services.search.internal.Created_ByType" FromRole="FilterResourcesPrincipal" ToRole="createdByDependent" />
+                <NavigationProperty Name="modifiedByUser" Relationship="sap.fpa.services.search.internal.Modified_ByType" FromRole="FilterResourcesPrincipal" ToRole="modifiedByDependent" />
+                <NavigationProperty Name="resourcePermissions" Relationship="sap.fpa.services.search.internal.Resource_PermissionsType" FromRole="FilterResourcesPrincipal" ToRole="resourcePermissionsDependent" />
+                <NavigationProperty Name="resourceRemoteSystems" Relationship="sap.fpa.services.search.internal.Resource_Remote_SystemsType" FromRole="FilterResourcesPrincipal" ToRole="ModelsRemoteSystemsDependent" />
+                <NavigationProperty Name="resourceQueryValidationStatusInfos" Relationship="sap.fpa.services.search.internal.Resource_Query_Validation_StatusType" FromRole="FilterResourcesPrincipal" ToRole="resourceQueryValidationStatusInfosDependent" />
+                <NavigationProperty Name="isValid" Relationship="sap.fpa.services.search.internal.Resource_Is_ValidType" FromRole="FilterResourcesPrincipal" ToRole="isValidDependent" />
+            </EntityType>
+            <EntityType Name="ResourcesType">
+                <Key>
+                    <PropertyRef Name="resourceId" />
+                </Key>
+                <Property Name="name" Type="Edm.String" MaxLength="255" />
+                <Property Name="description" Type="Edm.String" MaxLength="1024" />
+                <Property Name="resourceId" Type="Edm.String" Nullable="false" MaxLength="256" />
+                <Property Name="resourceType" Type="Edm.String" MaxLength="256" />
+                <Property Name="resourceSubtype" Type="Edm.String" MaxLength="256" />
+                <Property Name="storyId" Type="Edm.String" MaxLength="255" />
+                <Property Name="createdTime" Type="Edm.DateTime" />
+                <Property Name="createdBy" Type="Edm.String" MaxLength="127" />
+                <Property Name="modifiedBy" Type="Edm.String" MaxLength="127" />
+                <Property Name="modifiedTime" Type="Edm.DateTime" />
+                <Property Name="isTemplate" Type="Edm.Int32" />
+                <Property Name="isSample" Type="Edm.Int32" />
+                <Property Name="isPublic" Type="Edm.Int32" />
+                <Property Name="isMobile" Type="Edm.Int32" />
+                <Property Name="openURL" Type="Edm.String" MaxLength="255" />
+                <Property Name="ancestorPath" Type="Edm.String" MaxLength="5000" />
+                <Property Name="lastIndexedTime" Type="Edm.DateTime" />
+                <NavigationProperty Name="resourceModels" Relationship="sap.fpa.services.search.internal.Filter_Resources_ModelsType" FromRole="ResourcesPrincipal" ToRole="ModelsDependent" />
+                <NavigationProperty Name="storyPages" Relationship="sap.fpa.services.search.internal.Filter_Resources_PagesType" FromRole="ResourcesPrincipal" ToRole="PagesDependent" />
+                <NavigationProperty Name="createdByUser" Relationship="sap.fpa.services.search.internal.Filter_Created_ByType" FromRole="ResourcesPrincipal" ToRole="createdByDependent" />
+                <NavigationProperty Name="modifiedByUser" Relationship="sap.fpa.services.search.internal.Filter_Modified_ByType" FromRole="ResourcesPrincipal" ToRole="modifiedByDependent" />
+                <NavigationProperty Name="resourcePermissions" Relationship="sap.fpa.services.search.internal.Filter_Resource_PermissionsType" FromRole="ResourcesPrincipal" ToRole="resourcePermissionsDependent" />
+                <NavigationProperty Name="resourceRemoteSystems" Relationship="sap.fpa.services.search.internal.Filter_Resource_Remote_SystemsType" FromRole="ResourcesPrincipal" ToRole="ModelsRemoteSystemsDependent" />
+                <NavigationProperty Name="resourceQueryValidationStatusInfos" Relationship="sap.fpa.services.search.internal.Filter_Resource_Query_Validation_StatusType" FromRole="ResourcesPrincipal" ToRole="resourceQueryValidationStatusInfosDependent" />
+                <NavigationProperty Name="isValid" Relationship="sap.fpa.services.search.internal.Filter_Resource_Is_ValidType" FromRole="ResourcesPrincipal" ToRole="isValidDependent" />
+            </EntityType>
+            <EntityType Name="ModelsType">
+                <Key>
+                    <PropertyRef Name="resourceId" />
+                    <PropertyRef Name="modelId" />
+                </Key>
+                <Property Name="resourceId" Type="Edm.String" Nullable="false" MaxLength="255" />
+                <Property Name="modelId" Type="Edm.String" Nullable="false" MaxLength="400" />
+                <Property Name="name" Type="Edm.String" MaxLength="1024" />
+                <Property Name="description" Type="Edm.String" MaxLength="1024" />
+                <Property Name="externalId" Type="Edm.String" MaxLength="400" />
+                <Property Name="isPlanning" Type="Edm.Int32" DefaultValue="0" />
+                <Property Name="connectionId" Type="Edm.String" MaxLength="100" />
+                <Property Name="connectionName" Type="Edm.String" MaxLength="1024" />
+                <Property Name="connectionType" Type="Edm.String" MaxLength="10" />
+                <Property Name="systemType" Type="Edm.String" MaxLength="10" />
+                <Property Name="protocol" Type="Edm.String" MaxLength="5" />
+                <Property Name="client" Type="Edm.String" MaxLength="3" />
+                <Property Name="language" Type="Edm.String" MaxLength="10" />
+                <Property Name="hcpAccount" Type="Edm.String" MaxLength="256" />
+                <Property Name="pathPrefix" Type="Edm.String" MaxLength="2048" />
+                <Property Name="host" Type="Edm.String" MaxLength="2048" />
+                <Property Name="port" Type="Edm.String" MaxLength="5" />
+                <Property Name="lastIndexedTime" Type="Edm.DateTime" />
+            </EntityType>
+            <EntityType Name="PagesType">
+                <Key>
+                    <PropertyRef Name="storyId" />
+                    <PropertyRef Name="sequenceNumber" />
+                </Key>
+                <Property Name="storyId" Type="Edm.String" Nullable="false" MaxLength="255" />
+                <Property Name="sequenceNumber" Type="Edm.Int32" Nullable="false" />
+                <Property Name="name" Type="Edm.String" MaxLength="1024" />
+                <Property Name="type" Type="Edm.String" MaxLength="15" />
+                <Property Name="lastIndexedTime" Type="Edm.DateTime" />
+            </EntityType>
+            <EntityType Name="ModelsRemoteSystemsType">
+                <Key>
+                    <PropertyRef Name="resourceId" />
+                </Key>
+                <Property Name="resourceId" Type="Edm.String" Nullable="false" MaxLength="255" />
+                <Property Name="systemType" Type="Edm.String" MaxLength="5000" />
+            </EntityType>
+            <EntityType Name="isValidType">
+                <Key>
+                    <PropertyRef Name="resourceId" />
+                </Key>
+                <Property Name="isValid" Type="Edm.Int32" />
+                <Property Name="resourceId" Type="Edm.String" Nullable="false" MaxLength="256" />
+            </EntityType>
+            <EntityType Name="createdByType">
+                <Key>
+                    <PropertyRef Name="userId" />
+                </Key>
+                <Property Name="userId" Type="Edm.String" Nullable="false" MaxLength="127" />
+                <Property Name="firstName" Type="Edm.String" MaxLength="5000" />
+                <Property Name="lastName" Type="Edm.String" MaxLength="5000" />
+                <Property Name="displayName" Type="Edm.String" MaxLength="5000" />
+                <Property Name="samlUsername" Type="Edm.String" MaxLength="256" />
+                <Property Name="lastIndexedTime" Type="Edm.DateTime" />
+            </EntityType>
+            <EntityType Name="modifiedByType">
+                <Key>
+                    <PropertyRef Name="userId" />
+                </Key>
+                <Property Name="userId" Type="Edm.String" Nullable="false" MaxLength="127" />
+                <Property Name="firstName" Type="Edm.String" MaxLength="5000" />
+                <Property Name="lastName" Type="Edm.String" MaxLength="5000" />
+                <Property Name="displayName" Type="Edm.String" MaxLength="5000" />
+                <Property Name="samlUsername" Type="Edm.String" MaxLength="256" />
+                <Property Name="lastIndexedTime" Type="Edm.DateTime" />
+            </EntityType>
+            <EntityType Name="resourcePermissionsType">
+                <Key>
+                    <PropertyRef Name="requestId" />
+                    <PropertyRef Name="resourceId" />
+                </Key>
+                <Property Name="requestId" Type="Edm.String" Nullable="false" MaxLength="37" />
+                <Property Name="resourceId" Type="Edm.String" Nullable="false" MaxLength="256" />
+                <Property Name="isChangeable" Type="Edm.Int32" DefaultValue="0" />
+                <Property Name="isDeletable" Type="Edm.Int32" DefaultValue="0" />
+                <Property Name="isShared" Type="Edm.Int32" DefaultValue="0" />
+                <Property Name="isSharedToAny" Type="Edm.Int32" DefaultValue="0" />
+                <Property Name="isShareable" Type="Edm.Int32" DefaultValue="0" />
+            </EntityType>
+            <EntityType Name="resourceQueryValidationStatusInfosType">
+                <Key>
+                    <PropertyRef Name="id" />
+                </Key>
+                <Property Name="id" Type="Edm.String" Nullable="false" MaxLength="37" />
+                <Property Name="resourceId" Type="Edm.String" MaxLength="256" />
+                <Property Name="code" Type="Edm.String" MaxLength="128" />
+                <Property Name="baseObject" Type="Edm.String" MaxLength="256" />
+                <Property Name="columnName" Type="Edm.String" MaxLength="256" />
+                <Property Name="objectDescription" Type="Edm.String" MaxLength="5000" />
+                <Property Name="objectType" Type="Edm.String" MaxLength="32" />
+                <Property Name="lastIndexedTime" Type="Edm.DateTime" />
+            </EntityType>
+            <Association Name="Resources_ModelsType">
+                <End Type="sap.fpa.services.search.internal.FilterResourcesType" Role="FilterResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.ModelsType" Role="ModelsDependent" Multiplicity="*" />
+            </Association>
+            <Association Name="Resources_PagesType">
+                <End Type="sap.fpa.services.search.internal.FilterResourcesType" Role="FilterResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.PagesType" Role="PagesDependent" Multiplicity="*" />
+            </Association>
+            <Association Name="Created_ByType">
+                <End Type="sap.fpa.services.search.internal.FilterResourcesType" Role="FilterResourcesPrincipal" Multiplicity="*" />
+                <End Type="sap.fpa.services.search.internal.createdByType" Role="createdByDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="Modified_ByType">
+                <End Type="sap.fpa.services.search.internal.FilterResourcesType" Role="FilterResourcesPrincipal" Multiplicity="*" />
+                <End Type="sap.fpa.services.search.internal.modifiedByType" Role="modifiedByDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="Resource_PermissionsType">
+                <End Type="sap.fpa.services.search.internal.FilterResourcesType" Role="FilterResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.resourcePermissionsType" Role="resourcePermissionsDependent" Multiplicity="*" />
+            </Association>
+            <Association Name="Resource_Remote_SystemsType">
+                <End Type="sap.fpa.services.search.internal.FilterResourcesType" Role="FilterResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.ModelsRemoteSystemsType" Role="ModelsRemoteSystemsDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="Resource_Query_Validation_StatusType">
+                <End Type="sap.fpa.services.search.internal.FilterResourcesType" Role="FilterResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.resourceQueryValidationStatusInfosType" Role="resourceQueryValidationStatusInfosDependent" Multiplicity="*" />
+            </Association>
+            <Association Name="Resource_Is_ValidType">
+                <End Type="sap.fpa.services.search.internal.FilterResourcesType" Role="FilterResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.isValidType" Role="isValidDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="Filter_Resources_ModelsType">
+                <End Type="sap.fpa.services.search.internal.ResourcesType" Role="ResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.ModelsType" Role="ModelsDependent" Multiplicity="*" />
+            </Association>
+            <Association Name="Filter_Resources_PagesType">
+                <End Type="sap.fpa.services.search.internal.ResourcesType" Role="ResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.PagesType" Role="PagesDependent" Multiplicity="*" />
+            </Association>
+            <Association Name="Filter_Created_ByType">
+                <End Type="sap.fpa.services.search.internal.ResourcesType" Role="ResourcesPrincipal" Multiplicity="*" />
+                <End Type="sap.fpa.services.search.internal.createdByType" Role="createdByDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="Filter_Modified_ByType">
+                <End Type="sap.fpa.services.search.internal.ResourcesType" Role="ResourcesPrincipal" Multiplicity="*" />
+                <End Type="sap.fpa.services.search.internal.modifiedByType" Role="modifiedByDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="Filter_Resource_PermissionsType">
+                <End Type="sap.fpa.services.search.internal.ResourcesType" Role="ResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.resourcePermissionsType" Role="resourcePermissionsDependent" Multiplicity="*" />
+            </Association>
+            <Association Name="Filter_Resource_Remote_SystemsType">
+                <End Type="sap.fpa.services.search.internal.ResourcesType" Role="ResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.ModelsRemoteSystemsType" Role="ModelsRemoteSystemsDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="Filter_Resource_Query_Validation_StatusType">
+                <End Type="sap.fpa.services.search.internal.ResourcesType" Role="ResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.resourceQueryValidationStatusInfosType" Role="resourceQueryValidationStatusInfosDependent" Multiplicity="*" />
+            </Association>
+            <Association Name="Filter_Resource_Is_ValidType">
+                <End Type="sap.fpa.services.search.internal.ResourcesType" Role="ResourcesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.isValidType" Role="isValidDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="RepositoryCreatedByType">
+                <End Type="sap.fpa.services.search.internal.FilterRepositoriesType" Role="FilterRepositoriesPrincipal" Multiplicity="*" />
+                <End Type="sap.fpa.services.search.internal.createdByType" Role="createdByDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="RepositoryModifiedByType">
+                <End Type="sap.fpa.services.search.internal.FilterRepositoriesType" Role="FilterRepositoriesPrincipal" Multiplicity="*" />
+                <End Type="sap.fpa.services.search.internal.modifiedByType" Role="modifiedByDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="RepositoryPermissionsType">
+                <End Type="sap.fpa.services.search.internal.FilterRepositoriesType" Role="FilterRepositoriesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.resourcePermissionsType" Role="resourcePermissionsDependent" Multiplicity="*" />
+            </Association>
+            <Association Name="FilterRepositoryCreatedByType">
+                <End Type="sap.fpa.services.search.internal.RepositoriesType" Role="RepositoriesPrincipal" Multiplicity="*" />
+                <End Type="sap.fpa.services.search.internal.createdByType" Role="createdByDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="FilterRepositoryModifiedByType">
+                <End Type="sap.fpa.services.search.internal.RepositoriesType" Role="RepositoriesPrincipal" Multiplicity="*" />
+                <End Type="sap.fpa.services.search.internal.modifiedByType" Role="modifiedByDependent" Multiplicity="1" />
+            </Association>
+            <Association Name="FilterRepositoryPermissionsType">
+                <End Type="sap.fpa.services.search.internal.RepositoriesType" Role="RepositoriesPrincipal" Multiplicity="1" />
+                <End Type="sap.fpa.services.search.internal.resourcePermissionsType" Role="resourcePermissionsDependent" Multiplicity="*" />
+            </Association>
+            <EntityContainer Name="SearchMetadata" m:IsDefaultEntityContainer="true">
+                <EntitySet Name="FilterRepositories" EntityType="sap.fpa.services.search.internal.FilterRepositoriesType" />
+                <EntitySet Name="Repositories" EntityType="sap.fpa.services.search.internal.RepositoriesType" />
+                <EntitySet Name="FilterResources" EntityType="sap.fpa.services.search.internal.FilterResourcesType" />
+                <EntitySet Name="Resources" EntityType="sap.fpa.services.search.internal.ResourcesType" />
+                <EntitySet Name="Models" EntityType="sap.fpa.services.search.internal.ModelsType" />
+                <EntitySet Name="Pages" EntityType="sap.fpa.services.search.internal.PagesType" />
+                <EntitySet Name="ModelsRemoteSystems" EntityType="sap.fpa.services.search.internal.ModelsRemoteSystemsType" />
+                <EntitySet Name="isValid" EntityType="sap.fpa.services.search.internal.isValidType" />
+                <EntitySet Name="createdBy" EntityType="sap.fpa.services.search.internal.createdByType" />
+                <EntitySet Name="modifiedBy" EntityType="sap.fpa.services.search.internal.modifiedByType" />
+                <EntitySet Name="resourcePermissions" EntityType="sap.fpa.services.search.internal.resourcePermissionsType" />
+                <EntitySet Name="resourceQueryValidationStatusInfos" EntityType="sap.fpa.services.search.internal.resourceQueryValidationStatusInfosType" />
+                <AssociationSet Name="Resources_Models" Association="sap.fpa.services.search.internal.Resources_ModelsType">
+                    <End Role="FilterResourcesPrincipal" EntitySet="FilterResources" />
+                    <End Role="ModelsDependent" EntitySet="Models" />
+                </AssociationSet>
+                <AssociationSet Name="Resources_Pages" Association="sap.fpa.services.search.internal.Resources_PagesType">
+                    <End Role="FilterResourcesPrincipal" EntitySet="FilterResources" />
+                    <End Role="PagesDependent" EntitySet="Pages" />
+                </AssociationSet>
+                <AssociationSet Name="Created_By" Association="sap.fpa.services.search.internal.Created_ByType">
+                    <End Role="FilterResourcesPrincipal" EntitySet="FilterResources" />
+                    <End Role="createdByDependent" EntitySet="createdBy" />
+                </AssociationSet>
+                <AssociationSet Name="Modified_By" Association="sap.fpa.services.search.internal.Modified_ByType">
+                    <End Role="FilterResourcesPrincipal" EntitySet="FilterResources" />
+                    <End Role="modifiedByDependent" EntitySet="modifiedBy" />
+                </AssociationSet>
+                <AssociationSet Name="Resource_Permissions" Association="sap.fpa.services.search.internal.Resource_PermissionsType">
+                    <End Role="FilterResourcesPrincipal" EntitySet="FilterResources" />
+                    <End Role="resourcePermissionsDependent" EntitySet="resourcePermissions" />
+                </AssociationSet>
+                <AssociationSet Name="Resource_Remote_Systems" Association="sap.fpa.services.search.internal.Resource_Remote_SystemsType">
+                    <End Role="FilterResourcesPrincipal" EntitySet="FilterResources" />
+                    <End Role="ModelsRemoteSystemsDependent" EntitySet="ModelsRemoteSystems" />
+                </AssociationSet>
+                <AssociationSet Name="Resource_Query_Validation_Status" Association="sap.fpa.services.search.internal.Resource_Query_Validation_StatusType">
+                    <End Role="FilterResourcesPrincipal" EntitySet="FilterResources" />
+                    <End Role="resourceQueryValidationStatusInfosDependent" EntitySet="resourceQueryValidationStatusInfos" />
+                </AssociationSet>
+                <AssociationSet Name="Resource_Is_Valid" Association="sap.fpa.services.search.internal.Resource_Is_ValidType">
+                    <End Role="FilterResourcesPrincipal" EntitySet="FilterResources" />
+                    <End Role="isValidDependent" EntitySet="isValid" />
+                </AssociationSet>
+                <AssociationSet Name="Filter_Resources_Models" Association="sap.fpa.services.search.internal.Filter_Resources_ModelsType">
+                    <End Role="ResourcesPrincipal" EntitySet="Resources" />
+                    <End Role="ModelsDependent" EntitySet="Models" />
+                </AssociationSet>
+                <AssociationSet Name="Filter_Resources_Pages" Association="sap.fpa.services.search.internal.Filter_Resources_PagesType">
+                    <End Role="ResourcesPrincipal" EntitySet="Resources" />
+                    <End Role="PagesDependent" EntitySet="Pages" />
+                </AssociationSet>
+                <AssociationSet Name="Filter_Created_By" Association="sap.fpa.services.search.internal.Filter_Created_ByType">
+                    <End Role="ResourcesPrincipal" EntitySet="Resources" />
+                    <End Role="createdByDependent" EntitySet="createdBy" />
+                </AssociationSet>
+                <AssociationSet Name="Filter_Modified_By" Association="sap.fpa.services.search.internal.Filter_Modified_ByType">
+                    <End Role="ResourcesPrincipal" EntitySet="Resources" />
+                    <End Role="modifiedByDependent" EntitySet="modifiedBy" />
+                </AssociationSet>
+                <AssociationSet Name="Filter_Resource_Permissions" Association="sap.fpa.services.search.internal.Filter_Resource_PermissionsType">
+                    <End Role="ResourcesPrincipal" EntitySet="Resources" />
+                    <End Role="resourcePermissionsDependent" EntitySet="resourcePermissions" />
+                </AssociationSet>
+                <AssociationSet Name="Filter_Resource_Remote_Systems" Association="sap.fpa.services.search.internal.Filter_Resource_Remote_SystemsType">
+                    <End Role="ResourcesPrincipal" EntitySet="Resources" />
+                    <End Role="ModelsRemoteSystemsDependent" EntitySet="ModelsRemoteSystems" />
+                </AssociationSet>
+                <AssociationSet Name="Filter_Resource_Query_Validation_Status" Association="sap.fpa.services.search.internal.Filter_Resource_Query_Validation_StatusType">
+                    <End Role="ResourcesPrincipal" EntitySet="Resources" />
+                    <End Role="resourceQueryValidationStatusInfosDependent" EntitySet="resourceQueryValidationStatusInfos" />
+                </AssociationSet>
+                <AssociationSet Name="Filter_Resource_Is_Valid" Association="sap.fpa.services.search.internal.Filter_Resource_Is_ValidType">
+                    <End Role="ResourcesPrincipal" EntitySet="Resources" />
+                    <End Role="isValidDependent" EntitySet="isValid" />
+                </AssociationSet>
+                <AssociationSet Name="RepositoryCreatedBy" Association="sap.fpa.services.search.internal.RepositoryCreatedByType">
+                    <End Role="FilterRepositoriesPrincipal" EntitySet="FilterRepositories" />
+                    <End Role="createdByDependent" EntitySet="createdBy" />
+                </AssociationSet>
+                <AssociationSet Name="RepositoryModifiedBy" Association="sap.fpa.services.search.internal.RepositoryModifiedByType">
+                    <End Role="FilterRepositoriesPrincipal" EntitySet="FilterRepositories" />
+                    <End Role="modifiedByDependent" EntitySet="modifiedBy" />
+                </AssociationSet>
+                <AssociationSet Name="RepositoryPermissions" Association="sap.fpa.services.search.internal.RepositoryPermissionsType">
+                    <End Role="FilterRepositoriesPrincipal" EntitySet="FilterRepositories" />
+                    <End Role="resourcePermissionsDependent" EntitySet="resourcePermissions" />
+                </AssociationSet>
+                <AssociationSet Name="FilterRepositoryCreatedBy" Association="sap.fpa.services.search.internal.FilterRepositoryCreatedByType">
+                    <End Role="RepositoriesPrincipal" EntitySet="Repositories" />
+                    <End Role="createdByDependent" EntitySet="createdBy" />
+                </AssociationSet>
+                <AssociationSet Name="FilterRepositoryModifiedBy" Association="sap.fpa.services.search.internal.FilterRepositoryModifiedByType">
+                    <End Role="RepositoriesPrincipal" EntitySet="Repositories" />
+                    <End Role="modifiedByDependent" EntitySet="modifiedBy" />
+                </AssociationSet>
+                <AssociationSet Name="FilterRepositoryPermissions" Association="sap.fpa.services.search.internal.FilterRepositoryPermissionsType">
+                    <End Role="RepositoriesPrincipal" EntitySet="Repositories" />
+                    <End Role="resourcePermissionsDependent" EntitySet="resourcePermissions" />
+                </AssociationSet>
+            </EntityContainer>
+        </Schema>
+    </edmx:DataServices>
+</edmx:Edmx>
