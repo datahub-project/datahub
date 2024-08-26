@@ -23,6 +23,7 @@ export const TableHeader = styled.thead({
     borderRadius: radius.lg,
     position: 'sticky',
     top: 0,
+    zIndex: 100,
 });
 
 export const TableHeaderCell = styled.th<{ width?: string }>(({ width }) => ({

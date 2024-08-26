@@ -7,6 +7,7 @@ export * from './components/Checkbox';
 export * from './components/Heading';
 export * from './components/Icon';
 export * from './components/Input';
+export * from './components/Pills';
 export * from './components/Select';
 export * from './components/Switch';
 export * from './components/Table';
