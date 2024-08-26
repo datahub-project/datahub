@@ -20,9 +20,8 @@ def _generate_queries_cached_file(tmp_path: Path, queries_json_path: Path) -> No
     # instead of using pre-existing sqlite file here as default serializer for FileBackedList
     # uses pickle which may not work well across python versions.
 
-    query_cache: FileBackedList[ObservedQuery] = FileBackedList(
-        ConnectionWrapper(tmp_path / "audit_log.sqlite")
-    )
+    shared_connection = ConnectionWrapper(tmp_path / "audit_log.sqlite")
+    query_cache: FileBackedList[ObservedQuery] = FileBackedList(shared_connection)
     with open(queries_json_path, "r") as f:
         queries = json.load(f)
         assert isinstance(queries, list)
@@ -30,12 +29,14 @@ def _generate_queries_cached_file(tmp_path: Path, queries_json_path: Path) -> No
             query["timestamp"] = datetime.fromisoformat(query["timestamp"])
             query_cache.append(ObservedQuery(**query))
 
-        query_cache.flush()
+        query_cache.close()
+        shared_connection.close()
 
 
 @freeze_time(FROZEN_TIME)
 @patch("google.cloud.bigquery.Client")
-def test_queries_ingestion(client, pytestconfig, monkeypatch, tmp_path):
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_queries_ingestion(project_client, client, pytestconfig, monkeypatch, tmp_path):
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
     mcp_golden_path = f"{test_resources_dir}/bigquery_queries_mcps_golden.json"
