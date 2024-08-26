@@ -13,7 +13,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::note
 
-The Remote Executor can now also be used for monitoring of ingestion sources.
+The Remote Executor is only available for DataHub Cloud. If you are looking to use Observability features in Acryl DataHub Cloud, remote executor must be enabled in your Acryl instance. Please contact Acryl support to enable Remote Executor in your instance.
 
 :::
 
@@ -22,12 +22,6 @@ DataHub Cloud comes packaged with an Acryl-managed executor, which is hosted ins
 To accommodate these cases, Acryl supports configuring a Remote Ingestion Executor which can be deployed inside of your environment – whether that is on-prem or in cloud. This setup allows you to continue leveraging the DataHub Cloud console to create, schedule, and run both ingestion and assertion monitors, all while retaining network and credential isolation.
 
 ## Deploying a Remote Executor
-
-:::note
-
-The Remote Ingestion Executor is only available for DataHub Cloud. Setting up a new executor requires coordination with an Acryl representative.
-
-:::
 
 The Remote Ingestion Executor can be deployed on several different platforms, including [Amazon ECS](#deploying-on-amazon-ecs), [Kubernetes](#deploying-on-kubernetes) (GKE, EKS or self-hosted) and others. It can also be deployed using several different methods, including [CloudFormation](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) or [Terraform](https://github.com/acryldata/datahub-terraform-modules/tree/main/remote-ingestion-executor) templates for ECS, or [Helm chart](https://github.com/acryldata/datahub-executor-helm) for Kubernetes. Please reach out to your Acryl representative for other alternatives.
 
