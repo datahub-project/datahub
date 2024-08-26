@@ -33,6 +33,7 @@ This is over and above updating-datahub.md file
 ### Other Notable Changes
 * Metadata test results should now not appear in entity pages for tests that have been soft deleted.
 * Incident related entity change events now include the type, title, description, stage & message of the incident
+* A new privilege has been introduced ("Manage User Subscriptions"), granted to admins, will allow DataHub operators to create & subscriptions for other users using GraphQL. In order to do so, add `userUrn` property to the input objects in the graphQL calls.
 
 ### Environment Variables
 

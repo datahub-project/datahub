@@ -157,6 +157,13 @@ public class AuthorizationUtils {
         orPrivilegeGroups);
   }
 
+  public static boolean canManageUserSubscriptions(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        PoliciesConfig.MANAGE_USER_SUBSCRIPTIONS_PRIVILEGE);
+  }
+
   public static boolean canManageGroupSubscriptions(
       @Nonnull String groupUrnStr, @Nonnull QueryContext context) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =

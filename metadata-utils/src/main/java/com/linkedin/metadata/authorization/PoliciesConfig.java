@@ -520,6 +520,12 @@ public class PoliciesConfig {
           "Manage Group Notification Settings",
           "The ability to manage notification settings for a group.");
 
+  public static final Privilege MANAGE_USER_SUBSCRIPTIONS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_USER_SUBSCRIPTIONS",
+          "Manage User Subscriptions",
+          "The ability to manage subscriptions for a user");
+
   public static final Privilege MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE =
       Privilege.of(
           "MANAGE_GROUP_SUBSCRIPTIONS",
