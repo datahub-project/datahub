@@ -22,8 +22,9 @@ interface AcrylAssertionListFiltersProps {
 
 const SearchFilterContainer = styled.div`
     display: flex;
-    align-items: baseline;
     padding: 0px 10px;
+    margin-bottom: 8px;
+    margin-top: 8px;
 `;
 
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
@@ -94,7 +95,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                     numRows={allAssertionCount}
                 />
                 {/* ************Render Group By Component ************************* */}
-                <div style={{ padding: '10px' }}>
+                <div style={{ marginLeft: 8 }}>
                     <AcryAssertionTypeSelect
                         options={assertionTypeFilters}
                         selectedValue={selectedGroupBy}

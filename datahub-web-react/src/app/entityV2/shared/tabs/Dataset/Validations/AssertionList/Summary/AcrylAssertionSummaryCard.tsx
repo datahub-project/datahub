@@ -22,15 +22,16 @@ const StyledCard = styled.div`
     border: 1px solid #e5e7ed;
     border-radius: 8px;
     cursor: pointer;
+    overflow: hidden;
     :hover {
-        box-shadow: 0 1px 2px -2px rgba(0, 0, 0, 0.16), 0 3px 6px 0 rgba(0, 0, 0, 0.12),
-            0 5px 12px 4px rgba(0, 0, 0, 0.09);
+        box-shadow: 0 1px 12px 0px rgba(0, 0, 0, 0.1);
     }
+    transition: box-shadow 0.3s ease;
 `;
 
 const StyledCardChartSection = styled.div`
     padding: 24px;
-    border-top: 1px dashed ${ANTD_GRAY[5]};
+    border-top: 1px solid ${ANTD_GRAY[3]};
     display: flex;
     flex-direction: column;
     gap: 24px;
@@ -45,11 +46,13 @@ const AssertionTypeDetailsContainer = styled.div`
 const AssertionIconWrapper = styled.div`
     display: flex;
     align-items: center;
-    span {
-        color: ${ANTD_GRAY[6]};
-        padding: 10px !important;
-        border-radius: 50%;
-        background: ${ANTD_GRAY[4]};
+    justify-content: center;
+    background-color: ${ANTD_GRAY[3]};
+    height: 36px;
+    width: 36px;
+    border-radius: 36px;
+    svg {
+        color: ${ANTD_GRAY[7]};
     }
 `;
 
@@ -60,7 +63,7 @@ const AssertionTitle = styled.span`
 
 const AssertionDetailsContainer = styled.div`
     display: flex;
-    gap: 16px;
+    gap: 12px;
     padding: 12px 24px;
 `;
 
@@ -83,8 +86,8 @@ const ViewAllWrapper = styled.div`
     font-size: 14px;
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-weight: 600;
+    gap: 8px;
+    font-weight: 700;
     cursor: pointer;
 `;
 
@@ -162,7 +165,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
                     />
                     <ViewAllWrapper>
                         <ViewAllText>View All</ViewAllText>
-                        <RightOutlined />
+                        <RightOutlined style={{ height: 12, width: 12 }} />
                     </ViewAllWrapper>
                 </ChartSectionContainer>
 

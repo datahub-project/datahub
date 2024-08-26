@@ -7,7 +7,7 @@ import { AssertionResultType, AssertionType } from '@src/types.generated';
 const StyledCardTitle = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
     color: ${({ color }) => color};
-    padding: 4px;
+    padding: 8px;
     font-weight: 700;
     padding-left: 24px;
     gap: 8px;
@@ -56,11 +56,11 @@ export const ASSERTION_STATUS_WITH_COLOR_MAP = {
 };
 
 export const ASSERTION_STYPE_AND_ICON_MAP: Record<AssertionType, JSX.Element> = {
-    [AssertionType.Freshness]: <Clock size={24} />,
-    [AssertionType.Volume]: <Database size={24} />,
-    [AssertionType.Field]: <Dresser size={24} />,
-    [AssertionType.DataSchema]: <GitFork size={24} />,
-    [AssertionType.Custom]: <Hammer size={24} />,
-    [AssertionType.Sql]: <Database size={24} />,
-    [AssertionType.Dataset]: <Database size={24} />,
+    [AssertionType.Freshness]: <Clock size={20} />,
+    [AssertionType.Volume]: <Database size={20} />,
+    [AssertionType.Field]: <Dresser size={20} />,
+    [AssertionType.DataSchema]: <GitFork size={20} />,
+    [AssertionType.Custom]: <Hammer size={20} />,
+    [AssertionType.Sql]: <Database size={20} />,
+    [AssertionType.Dataset]: <Database size={20} />,
 };

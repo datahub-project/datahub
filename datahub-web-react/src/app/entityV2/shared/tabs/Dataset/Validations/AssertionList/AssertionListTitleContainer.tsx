@@ -40,7 +40,7 @@ const CreateButton = styled(Button)`
     }
 `;
 const SubTitle = styled(Typography.Text)`
-    font-size: 11px;
+    font-size: 12px;
     color: #5f6685;
 `;
 export const AssertionListTitleContainer = ({
@@ -84,7 +84,7 @@ export const AssertionListTitleContainer = ({
                 <SubTitle>View and manage data quality checks for this table</SubTitle>
             </div>
             {assertionMonitorsEnabled && (
-                <TabToolbar>
+                <TabToolbar style={{ boxShadow: 'none' }}>
                     <Tooltip
                         showArrow={false}
                         title={(disableCreateAssertion && disableCreateAssertionMessage) || null}
