@@ -23,6 +23,7 @@ interface AcrylAssertionListFiltersProps {
 const SearchFilterContainer = styled.div`
     display: flex;
     align-items: baseline;
+    padding: 0px 10px;
 `;
 
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({

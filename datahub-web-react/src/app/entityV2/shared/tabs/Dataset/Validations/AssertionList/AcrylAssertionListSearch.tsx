@@ -6,13 +6,13 @@ import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { pluralize } from '@src/app/shared/textUtil';
 
 const StyledInput = styled(Input)`
-    max-width: 300px;
-    background: ${REDESIGN_COLORS.LIGHT_GREY};
+    width: auto;
+    background: ${REDESIGN_COLORS.WHITE};
     margin-top: 5px;
     font-size: 14px;
     font-weight: 500;
     line-height: 24px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${REDESIGN_COLORS.BODY_TEXT};
 `;
 
 const MatchLabelText = styled.span`
@@ -25,7 +25,6 @@ const MatchLabelText = styled.span`
 
 const SearchContainer = styled.div`
     max-width: 300px;
-    padding: 10px;
     --antd-wave-shadow-color: transparent;
     flex: auto;
     display: flex;
@@ -40,7 +39,7 @@ const SearchContainer = styled.div`
     }
 
     .ant-input-group-wrapper {
-        background-color: #ffffff00 !important;
+        background-color: #ffffff !important;
     }
 
     .ant-input-wrapper {
@@ -49,12 +48,16 @@ const SearchContainer = styled.div`
 
     .ant-input {
         border-radius: 0;
+        color: ${REDESIGN_COLORS.BODY_TEXT};
+    }
+    .ant-input::placeholder {
+        color: ${REDESIGN_COLORS.BODY_TEXT} !important;
+        opacity: 1;
     }
 
     .ant-input-affix-wrapper {
         border-radius: 8px;
-        border: 1px solid ${REDESIGN_COLORS.GREY};
-        padding: 3.6px 10px !important;
+        border: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
         transition: border-color 0.3s ease-in-out;
     }
 
@@ -64,12 +67,9 @@ const SearchContainer = styled.div`
         left: 2px;
     }
 
-    .ant-input-affix-wrapper:focus {
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-
+    .ant-input-affix-wrapper:focus,
     .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+        border: 2px solid ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 
     .ant-input-affix-wrapper::selection {
@@ -95,7 +95,7 @@ export const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> =
             <StyledInput
                 bordered={false}
                 defaultValue={searchText}
-                placeholder="Search"
+                placeholder="Search..."
                 onChange={debouncedSetFilterText}
                 allowClear
                 prefix={<SearchOutlined />}

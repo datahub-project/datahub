@@ -28,18 +28,21 @@ const FilterItemRow = styled.div<{ selected: boolean }>`
     align-items: center;
     gap: 4px;
     padding: 0 8px;
-    height: 24px;
-    font-size: 12px;
+    height: 30px;
+    font-size: 14px;
     border-radius: 20px;
     min-width: fit-content;
     cursor: pointer;
-    color: ${({ selected }) => (selected ? REDESIGN_COLORS.WHITE : 'black')};
-    background-color: ${({ selected }) => (selected ? REDESIGN_COLORS.BACKGROUND_PRIMARY_1 : ANTD_GRAY[3])};
+    color: ${({ selected }) => (selected ? REDESIGN_COLORS.WHITE : REDESIGN_COLORS.TEXT_HEADING)};
+    background-color: ${({ selected }) =>
+        selected ? REDESIGN_COLORS.BACKGROUND_PRIMARY_1 : REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
 
     &:hover {
         background-color: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_1};
         color: ${REDESIGN_COLORS.WHITE};
+        box-shadow: none;
     }
+    box-shadow: none;
 `;
 
 const FilterName = styled.span``;
