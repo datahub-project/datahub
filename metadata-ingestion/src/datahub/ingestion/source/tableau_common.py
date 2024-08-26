@@ -223,19 +223,19 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
-        upstreamFields {
-            name
-            datasource {
-                id
-            }
-        }
-        upstreamColumns {
-            name
-            table {
-                __typename
-                id
-            }
-        }
+        # upstreamFields {
+        #     name
+        #     datasource {
+        #         id
+        #     }
+        # }
+        # upstreamColumns {
+        #     name
+        #     table {
+        #         __typename
+        #         id
+        #     }
+        # }
         ... on ColumnField {
             dataCategory
             role
@@ -368,19 +368,19 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
-        upstreamFields {
-            name
-            datasource {
-                id
-            }
-        }
-        upstreamColumns {
-            name
-            table {
-                __typename
-                id
-            }
-        }
+        # upstreamFields {
+        #     name
+        #     datasource {
+        #         id
+        #     }
+        # }
+        # upstreamColumns {
+        #     name
+        #     table {
+        #         __typename
+        #         id
+        #     }
+        # }
         ... on ColumnField {
             dataCategory
             role
