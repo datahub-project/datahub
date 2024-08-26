@@ -72,7 +72,9 @@ Woohoo! Now, the DataHub Sensor is ready to emit metadata after every pipeline r
 
 There are a few ways to extract lineage, or relationships between tables, from Dagster. We recommend one or more of the following approaches to extract lineage automatically.
 
-### But First: Extracting Asset Identifiers
+### Extracting Lineage from SQL Queries
+
+#### But First: Extracting Asset Identifiers
 
 When naming Dagster Assets, we recommend the following structure:
 
@@ -115,8 +117,6 @@ def asset_keys_to_dataset_urn_converter(
         return None
 ```
 
-### Extracting Lineage from SQL Queries
-
 DataHub's Dagster integration can automatically detect dataset inputs and outputs for Software Defined Assets by analyzing the SQL queries it executes. To enable this feature, simply add the executed query to the Asset Metadata using the `Query` tag.
 
 Here's an example of a Software Defined Asset with an annotated Query:
@@ -146,9 +146,9 @@ Note: Proper asset naming is crucial, as the query parser determines the query l
 
 For a complete example job, refer to the [iris.py file](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/dagster-plugin/examples/iris.py) in the DataHub repository.
 
-### Enhanced SnowflakePandasIOManager
+### Extracting Lineage using SnowflakePandasIOManager
 
-The plugin offers an enhanced version of SnowflakePandasIOManager called `DataHubSnowflakePandasIOManager`. This version automatically captures Snowflake assets created by the IO manager and adds DataHub URN and links to the assets in Dagster.
+The plugin offers an extended version of base SnowflakePandasIOManager provided by Dagster called `DataHubSnowflakePandasIOManager`. This version automatically captures Snowflake assets created by the IO manager and adds DataHub URN and links to the assets in Dagster.
 
 To use it, simply replace `SnowflakePandasIOManager` with `DataHubSnowflakePandasIOManager`. The enhanced version accepts two additional parameters:
 
@@ -177,7 +177,7 @@ resources={
 
 ### Using Dagster Ins and Out
 
-We can provide inputs and outputs to both Assets and Ops explicitly using a dictionary of `Ins` and `Out` corresponding to the decorated function arguments. While providing inputs and outputs explicitly, we can provide metadata as well.
+We can provide inputs and outputs to both Assets and Ops explicitly using a dictionary of `Ins` and `Out` corresponding to the decorated function arguments. While providing inputs and outputs, we can provide additional metadata as well.
 
 To create dataset upstream and downstream dependency for the Assets and Ops, you can use an ins and out dictionary with metadata provided. For reference, look at the sample jobs created using assets [`assets_job.py`](../../metadata-ingestion-modules/dagster-plugin/examples/assets_job.py), or ops [`ops_job.py`](../../metadata-ingestion-modules/dagster-plugin/examples/ops_job.py).
 
