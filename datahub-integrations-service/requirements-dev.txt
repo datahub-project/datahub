@@ -20,7 +20,7 @@ acryl-datahub-classify==0.0.11
     # via
     #   -r requirements.txt
     #   acryl-datahub
-acryl-sqlglot==25.3.1.dev3
+acryl-sqlglot==25.8.2.dev9
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -36,6 +36,8 @@ altair==4.2.0
     # via
     #   -r requirements.txt
     #   great-expectations
+ansicolors==1.1.8
+    # via papermill
 anyio==3.7.1
     # via
     #   -r requirements.txt
@@ -159,6 +161,7 @@ click==8.1.7
     #   black
     #   click-default-group
     #   great-expectations
+    #   papermill
     #   typer
     #   uvicorn
 click-default-group==1.2.4
@@ -244,6 +247,7 @@ entrypoints==0.4
     #   acryl-datahub-actions
     #   altair
     #   jupyter-client
+    #   papermill
 exceptiongroup==1.2.1
     # via
     #   -r requirements.txt
@@ -406,6 +410,8 @@ jmespath==1.0.1
     #   -r requirements.txt
     #   boto3
     #   botocore
+json5==0.9.25
+    # via acryl-datahub-integrations (pyproject.toml)
 jsonpatch==1.33
     # via
     #   -r requirements.txt
@@ -547,6 +553,7 @@ nbclient==0.6.3
     # via
     #   -r requirements.txt
     #   nbconvert
+    #   papermill
 nbconvert==7.16.3
     # via
     #   -r requirements.txt
@@ -562,6 +569,7 @@ nbformat==5.10.4
     #   nbclient
     #   nbconvert
     #   notebook
+    #   papermill
 nest-asyncio==1.6.0
     # via
     #   -r requirements.txt
@@ -617,6 +625,8 @@ pandocfilters==1.5.1
     # via
     #   -r requirements.txt
     #   nbconvert
+papermill==2.6.0
+    # via acryl-datahub-integrations (pyproject.toml)
 parso==0.8.4
     # via
     #   -r requirements.txt
@@ -788,6 +798,7 @@ pyyaml==6.0.1
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   papermill
     #   uvicorn
 pyzmq==24.0.1
     # via
@@ -824,6 +835,7 @@ requests==2.31.0
     #   great-expectations
     #   mixpanel
     #   msal
+    #   papermill
     #   pygithub
     #   reactpy
     #   requests-file
@@ -945,7 +957,7 @@ sqlalchemy==1.4.52
     #   -r requirements.txt
     #   acryl-datahub
     #   snowflake-sqlalchemy
-sqlglotrs==0.2.7
+sqlglotrs==0.2.8
     # via
     #   -r requirements.txt
     #   acryl-sqlglot
@@ -985,6 +997,7 @@ tenacity==9.0.0
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+    #   papermill
 termcolor==2.4.0
     # via
     #   -r requirements.txt
@@ -1035,6 +1048,7 @@ tqdm==4.66.2
     # via
     #   -r requirements.txt
     #   great-expectations
+    #   papermill
     #   spacy
 traitlets==5.2.1.post0
     # via

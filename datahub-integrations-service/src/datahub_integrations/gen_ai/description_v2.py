@@ -510,7 +510,7 @@ def transform_table_info_for_llm(extracted_table_info):
 
 
 def generate_entity_descriptions_for_urn(
-    graph_client: DataHubGraph, urn: str, model_config: dict = {}
+    graph_client: DataHubGraph, urn: str
 ) -> Tuple[str, dict]:
     """
     This function also returns column_info for debugging purpose (To check the if metadata information is generated correctly) and can be removed
@@ -537,19 +537,19 @@ Generate the descriptions as follows:
    Create a few paragraphs of Markdown-formatted text that includes:
    a) A summary of the primary purpose and business importance of the table.
    b) If metadata is available, a summary of the upstream tables and transformations applied.
-   c) A summary of the downstream tables (consumers) and general use cases for the table. Only include information that can be substantiated by the provided metadata.
+   c) A summary of the downstream tables (consumers) and general use cases for the table. Only include information that can be substantiated by the provided table_info.
    d) Technical notes and usage tips, including the table type (fact or dimension) and grain if available.
-   e) A note on whether the table directly contains any PII data. Do not provide recommendations related to access control, monitoring, or governance.
+   e) A note on whether the table directly contains any PII data, like names, emails, and addresses. Do not provide recommendations related to access control, monitoring, or governance.
 
    Format any references to other entities as markdown links, using the entity URN as the link. For example: [table_name](urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table_name,PROD))
-   Use Markdown section as appropriate.
+   Use Markdown sections like H2 and H3 with appropriate section titles. The first line should be "# <table name>", followed by a blank line.
 
 2. Column Descriptions:
    For each column, create a concise description of one or two sentences. Prefer elliptical sentences that are direct and to the point. If available, include details about how the column was generated or calculated.
 
 When writing the descriptions:
 - Aim for a technical yet informative tone, suitable for a data catalog.
-- Avoid weak words like "suggests" or "could be". Only include information you are confident about based on the provided metadata.
+- Avoid weak phrases like "suggests", "could be", "likely", or "is considered". Only include information you are confident about based on the provided metadata.
 - Be concise and to the point.
 
 Provide your output in the following dictionary format:
@@ -568,7 +568,7 @@ Ensure that the dictionary is properly formatted and parsable. Use the column di
     # print(prompt)
     entity_descriptions = call_bedrock_llm(
         prompt,
-        max_tokens=model_config.get("max_tokens", 3000),
+        max_tokens=5000,
         model=DESCRIPTION_GENERATION_MODEL,
     )
     # except Exception as e:
