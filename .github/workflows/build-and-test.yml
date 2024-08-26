@@ -91,6 +91,8 @@ jobs:
             -x :metadata-ingestion-modules:airflow-plugin:check \
             -x :metadata-ingestion-modules:dagster-plugin:build \
             -x :metadata-ingestion-modules:dagster-plugin:check \
+            -x :metadata-ingestion-modules:gx-plugin:build \
+            -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
             --parallel

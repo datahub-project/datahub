@@ -125,7 +125,8 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             mockSystemMetadataService,
             searchDocumentTransformer,
-            mockEntityIndexBuilders);
+            mockEntityIndexBuilders,
+            "MD5");
 
     OperationContext systemOperationContext =
         TestOperationContexts.systemContextNoSearchAuthorization();
@@ -235,7 +236,8 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             mockSystemMetadataService,
             searchDocumentTransformer,
-            mockEntityIndexBuilders);
+            mockEntityIndexBuilders,
+            "MD5");
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
     updateIndicesHook.init(

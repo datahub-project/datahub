@@ -11,6 +11,7 @@ from datahub.ingestion.glossary.classification_mixin import ClassificationReport
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
+from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
@@ -30,8 +31,9 @@ class BigQuerySchemaApiPerfReport(Report):
     num_get_views_for_dataset_api_requests: int = 0
     num_get_snapshots_for_dataset_api_requests: int = 0
 
-    list_projects: PerfTimer = field(default_factory=PerfTimer)
-    list_datasets: PerfTimer = field(default_factory=PerfTimer)
+    list_projects_timer: PerfTimer = field(default_factory=PerfTimer)
+    list_projects_with_labels_timer: PerfTimer = field(default_factory=PerfTimer)
+    list_datasets_timer: PerfTimer = field(default_factory=PerfTimer)
 
     get_columns_for_dataset_sec: float = 0
     get_tables_for_dataset_sec: float = 0
@@ -168,6 +170,9 @@ class BigQueryV2Report(
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
+
+    # lineage/usage v2
+    sql_aggregator: Optional[SqlAggregatorReport] = None
 
     def set_ingestion_stage(self, project_id: str, stage: str) -> None:
         self.report_ingestion_stage_start(f"{project_id}: {stage}")
