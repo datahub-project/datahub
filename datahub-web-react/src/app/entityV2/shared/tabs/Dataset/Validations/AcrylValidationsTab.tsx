@@ -80,6 +80,7 @@ export const AcrylValidationsTab = () => {
             path: TabPaths.SUMMARY,
             disabled: false, // Always keep the assertions tab clickable in saas.
             content: <AcrylAssertionSummary />,
+            id: 'summary',
         },
         {
             title: (
@@ -90,6 +91,7 @@ export const AcrylValidationsTab = () => {
             path: TabPaths.ASSERTIONS,
             disabled: false, // Always keep the assertions tab clickable in saas.
             content: <AcrylAssertionList />,
+            id: 'assertions',
         },
     ];
 
@@ -112,6 +114,7 @@ export const AcrylValidationsTab = () => {
                     <b>Composed Of</b> sidebar section on the right.
                 </>
             ) : null,
+            id: 'data-contract',
         });
     }
 
@@ -124,6 +127,7 @@ export const AcrylValidationsTab = () => {
                             key={tab.path}
                             disabled={tab.disabled}
                             selected={selectedTab === tab.path}
+                            id={`acryl-validation-tab-${tab.id}-sub-tab`}
                             onClick={() => {
                                 if (!tab.disabled) {
                                     history.replace(

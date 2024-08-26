@@ -41,9 +41,10 @@ type Props = {
 };
 
 export function AcryAssertionTypeSelect({ options, selectedValue, onSelect, placeholder }: Props) {
+    const displayValue = selectedValue ? 'Group By(1)' : undefined;
     return (
         <StyledSelect
-            value={selectedValue || undefined}
+            value={displayValue}
             onChange={(value) => {
                 onSelect(value as string);
             }}
