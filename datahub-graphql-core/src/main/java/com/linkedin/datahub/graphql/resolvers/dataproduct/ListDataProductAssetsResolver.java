@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.buildFilterWithUrns;
+import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -156,7 +156,9 @@ public class ListDataProductAssetsResolver
                   filters,
                   input.getOrFilters(),
                   context.getOperationContext().getAspectRetriever());
-          final Filter finalFilter = buildFilterWithUrns(new HashSet<>(urnsToFilterOn), baseFilter);
+          final Filter finalFilter =
+              buildFilterWithUrns(
+                  context.getDataHubAppConfig(), new HashSet<>(urnsToFilterOn), baseFilter);
 
           final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();

@@ -1,13 +1,16 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.dataset.schema.SchemaFieldGlossaryTermChangeEvent;
 import com.linkedin.metadata.timeline.data.dataset.schema.SchemaFieldTagChangeEvent;
 import com.linkedin.metadata.timeline.data.entity.GlossaryTermChangeEvent;
 import com.linkedin.metadata.timeline.data.entity.TagChangeEvent;
 import com.linkedin.schema.SchemaField;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -93,6 +96,28 @@ public class ChangeEventGeneratorUtils {
                     .parentUrn(parentUrn)
                     .build())
         .collect(Collectors.toList());
+  }
+
+  public static <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(
+      @Nonnull EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
+      @Nonnull final Urn urn,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final Aspect<T> from,
+      @Nonnull final Aspect<T> to,
+      @Nonnull AuditStamp auditStamp) {
+    final List<EntityChangeEventGenerator<T>> entityChangeEventGenerators =
+        entityChangeEventGeneratorRegistry.getEntityChangeEventGenerators(aspectName).stream()
+            // Note: Assumes that correct types have been registered for the aspect.
+            .map(changeEventGenerator -> (EntityChangeEventGenerator<T>) changeEventGenerator)
+            .collect(Collectors.toList());
+    final List<ChangeEvent> allChangeEvents = new ArrayList<>();
+    for (EntityChangeEventGenerator<T> entityChangeEventGenerator : entityChangeEventGenerators) {
+      allChangeEvents.addAll(
+          entityChangeEventGenerator.getChangeEvents(
+              urn, entityName, aspectName, from, to, auditStamp));
+    }
+    return allChangeEvents;
   }
 
   private ChangeEventGeneratorUtils() {}

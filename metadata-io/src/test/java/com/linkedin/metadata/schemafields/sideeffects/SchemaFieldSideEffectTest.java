@@ -1,6 +1,8 @@
 package com.linkedin.metadata.schemafields.sideeffects;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATASET_KEY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ALIASES_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
@@ -13,6 +15,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
@@ -26,13 +29,17 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
-import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
+import com.linkedin.metadata.timeline.eventgenerator.EntityKeyChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.StatusChangeEventGenerator;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.schemafield.SchemaFieldAliases;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -139,17 +146,20 @@ public class SchemaFieldSideEffectTest {
                       .urn(
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
-                      .aspectName(SCHEMA_FIELD_KEY_ASPECT)
+                      .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
                       .changeType(changeType)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
                               .getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)
-                              .getAspectSpec(SCHEMA_FIELD_KEY_ASPECT))
+                              .getAspectSpec(SCHEMA_FIELD_ALIASES_ASPECT))
                       .recordTemplate(
-                          new SchemaFieldKey()
-                              .setFieldPath("user_id")
-                              .setParent(schemaMetadataChangeItem.getUrn()))
+                          new SchemaFieldAliases()
+                              .setAliases(
+                                  new UrnArray(
+                                      List.of(
+                                          UrnUtils.getUrn(
+                                              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)")))))
                       .auditStamp(schemaMetadataChangeItem.getAuditStamp())
                       .systemMetadata(schemaMetadataChangeItem.getSystemMetadata())
                       .build(mockAspectRetriever),
@@ -157,17 +167,20 @@ public class SchemaFieldSideEffectTest {
                       .urn(
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"))
-                      .aspectName(SCHEMA_FIELD_KEY_ASPECT)
+                      .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
                       .changeType(changeType)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
                               .getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)
-                              .getAspectSpec(SCHEMA_FIELD_KEY_ASPECT))
+                              .getAspectSpec(SCHEMA_FIELD_ALIASES_ASPECT))
                       .recordTemplate(
-                          new SchemaFieldKey()
-                              .setFieldPath("user_name")
-                              .setParent(schemaMetadataChangeItem.getUrn()))
+                          new SchemaFieldAliases()
+                              .setAliases(
+                                  new UrnArray(
+                                      List.of(
+                                          UrnUtils.getUrn(
+                                              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)")))))
                       .auditStamp(schemaMetadataChangeItem.getAuditStamp())
                       .systemMetadata(schemaMetadataChangeItem.getSystemMetadata())
                       .build(mockAspectRetriever)));
@@ -306,17 +319,14 @@ public class SchemaFieldSideEffectTest {
                       .urn(
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
-                      .aspectName(SCHEMA_FIELD_KEY_ASPECT)
+                      .aspectName(STATUS_ASPECT_NAME)
                       .changeType(changeType)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
                               .getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)
-                              .getAspectSpec(SCHEMA_FIELD_KEY_ASPECT))
-                      .recordTemplate(
-                          new SchemaFieldKey()
-                              .setFieldPath("user_id")
-                              .setParent(schemaMetadataChangeItem.getUrn()))
+                              .getAspectSpec(STATUS_ASPECT_NAME))
+                      .recordTemplate(status)
                       .auditStamp(schemaMetadataChangeItem.getAuditStamp())
                       .systemMetadata(schemaMetadataChangeItem.getSystemMetadata())
                       .build(mockAspectRetriever),
@@ -324,17 +334,14 @@ public class SchemaFieldSideEffectTest {
                       .urn(
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"))
-                      .aspectName(SCHEMA_FIELD_KEY_ASPECT)
+                      .aspectName(STATUS_ASPECT_NAME)
                       .changeType(changeType)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
                               .getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)
-                              .getAspectSpec(SCHEMA_FIELD_KEY_ASPECT))
-                      .recordTemplate(
-                          new SchemaFieldKey()
-                              .setFieldPath("user_name")
-                              .setParent(schemaMetadataChangeItem.getUrn()))
+                              .getAspectSpec(STATUS_ASPECT_NAME))
+                      .recordTemplate(status)
                       .auditStamp(schemaMetadataChangeItem.getAuditStamp())
                       .systemMetadata(schemaMetadataChangeItem.getSystemMetadata())
                       .build(mockAspectRetriever),
@@ -342,14 +349,20 @@ public class SchemaFieldSideEffectTest {
                       .urn(
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
-                      .aspectName(STATUS_ASPECT_NAME)
+                      .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
                       .changeType(changeType)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
                               .getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)
-                              .getAspectSpec(STATUS_ASPECT_NAME))
-                      .recordTemplate(status)
+                              .getAspectSpec(SCHEMA_FIELD_ALIASES_ASPECT))
+                      .recordTemplate(
+                          new SchemaFieldAliases()
+                              .setAliases(
+                                  new UrnArray(
+                                      List.of(
+                                          UrnUtils.getUrn(
+                                              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)")))))
                       .auditStamp(schemaMetadataChangeItem.getAuditStamp())
                       .systemMetadata(schemaMetadataChangeItem.getSystemMetadata())
                       .build(mockAspectRetriever),
@@ -357,14 +370,20 @@ public class SchemaFieldSideEffectTest {
                       .urn(
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"))
-                      .aspectName(STATUS_ASPECT_NAME)
+                      .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
                       .changeType(changeType)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
                               .getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)
-                              .getAspectSpec(STATUS_ASPECT_NAME))
-                      .recordTemplate(status)
+                              .getAspectSpec(SCHEMA_FIELD_ALIASES_ASPECT))
+                      .recordTemplate(
+                          new SchemaFieldAliases()
+                              .setAliases(
+                                  new UrnArray(
+                                      List.of(
+                                          UrnUtils.getUrn(
+                                              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)")))))
                       .auditStamp(schemaMetadataChangeItem.getAuditStamp())
                       .systemMetadata(schemaMetadataChangeItem.getSystemMetadata())
                       .build(mockAspectRetriever)));
@@ -490,6 +509,73 @@ public class SchemaFieldSideEffectTest {
     assertEquals(testOutput, expectedStatusDeletePerField);
   }
 
+  @Test
+  public void schemaMetadataRemovedFieldTest() {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    test.setEntityChangeEventGeneratorRegistry(buildEntityChangeEventGeneratorRegistry());
+
+    SchemaMetadata previousSchemaMetadata = getTestSchemaMetadata();
+    SchemaMetadata currentSchemaMetadata = getTestSchemaMetadataWithRemovedField();
+
+    List<MCPItem> testOutput;
+    for (ChangeType changeType : List.of(ChangeType.UPSERT)) {
+      // Run test
+      ChangeItemImpl schemaMetadataChangeItem =
+          ChangeItemImpl.builder()
+              .urn(TEST_URN)
+              .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+              .changeType(changeType)
+              .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+              .aspectSpec(
+                  TEST_REGISTRY
+                      .getEntitySpec(DATASET_ENTITY_NAME)
+                      .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+              .recordTemplate(currentSchemaMetadata)
+              .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+              .build(mockAspectRetriever);
+      testOutput =
+          test.postMCPSideEffect(
+                  List.of(
+                      MCLItemImpl.builder()
+                          .build(
+                              schemaMetadataChangeItem,
+                              // populate previous item with the now removed field
+                              previousSchemaMetadata,
+                              null,
+                              retrieverContext.getAspectRetriever())),
+                  retrieverContext)
+              .toList();
+
+      // Verify test
+      switch (changeType) {
+        default -> {
+          assertEquals(
+              testOutput.size(), 1, "Unexpected output items for changeType:" + changeType);
+
+          assertEquals(
+              testOutput,
+              List.of(
+                  ChangeItemImpl.builder()
+                      .urn(
+                          UrnUtils.getUrn(
+                              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"))
+                      .aspectName(STATUS_ASPECT_NAME)
+                      .changeType(changeType)
+                      .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
+                      .aspectSpec(
+                          TEST_REGISTRY
+                              .getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)
+                              .getAspectSpec(STATUS_ASPECT_NAME))
+                      .recordTemplate(new Status().setRemoved(true))
+                      .auditStamp(schemaMetadataChangeItem.getAuditStamp())
+                      .systemMetadata(schemaMetadataChangeItem.getSystemMetadata())
+                      .build(mockAspectRetriever)));
+        }
+      }
+    }
+  }
+
   private static SchemaMetadata getTestSchemaMetadata() {
     String rawSchemaMetadataString =
         "{\"foreignKeys\":[{\"name\":\"user id\",\"sourceFields\":[\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)\"],\"foreignFields\":[\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)\"],\"foreignDataset\":\"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)\"}],\"platformSchema\":{\"com.linkedin.schema.KafkaSchema\":{\"documentSchemaType\":\"AVRO\",\"documentSchema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"SampleHiveSchema\\\",\\\"namespace\\\":\\\"com.linkedin.dataset\\\",\\\"doc\\\":\\\"Sample Hive dataset\\\",\\\"fields\\\":[{\\\"name\\\":\\\"field_foo\\\",\\\"type\\\":[\\\"string\\\"]},{\\\"name\\\":\\\"field_bar\\\",\\\"type\\\":[\\\"boolean\\\"]}]}\"}},\"created\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":1674291843000},\"lastModified\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":1674291843000},\"fields\":[{\"nullable\":false,\"fieldPath\":\"user_id\",\"description\":\"Id of the user created\",\"isPartOfKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.BooleanType\":{}}},\"recursive\":false,\"nativeDataType\":\"varchar(100)\"},{\"nullable\":false,\"fieldPath\":\"user_name\",\"description\":\"Name of the user who signed up\",\"isPartOfKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.BooleanType\":{}}},\"recursive\":false,\"nativeDataType\":\"boolean\"}],\"schemaName\":\"SampleHiveSchema\",\"version\":0,\"hash\":\"\",\"platform\":\"urn:li:dataPlatform:hive\"}";
@@ -497,5 +583,25 @@ public class SchemaFieldSideEffectTest {
         ByteString.copyString(rawSchemaMetadataString, StandardCharsets.UTF_8);
     return GenericRecordUtils.deserializeAspect(
         rawSchemaMetadataBytes, "application/json", SchemaMetadata.class);
+  }
+
+  private static SchemaMetadata getTestSchemaMetadataWithRemovedField() {
+    String rawSchemaMetadataString =
+        "{\"foreignKeys\":[{\"name\":\"user id\",\"sourceFields\":[\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)\"],\"foreignFields\":[\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)\"],\"foreignDataset\":\"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)\"}],\"platformSchema\":{\"com.linkedin.schema.KafkaSchema\":{\"documentSchemaType\":\"AVRO\",\"documentSchema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"SampleHiveSchema\\\",\\\"namespace\\\":\\\"com.linkedin.dataset\\\",\\\"doc\\\":\\\"Sample Hive dataset\\\",\\\"fields\\\":[{\\\"name\\\":\\\"field_foo\\\",\\\"type\\\":[\\\"string\\\"]},{\\\"name\\\":\\\"field_bar\\\",\\\"type\\\":[\\\"boolean\\\"]}]}\"}},\"created\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":1674291843000},\"lastModified\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":1674291843000},\"fields\":[{\"nullable\":false,\"fieldPath\":\"user_id\",\"description\":\"Id of the user created\",\"isPartOfKey\":false,\"type\":{\"type\":{\"com.linkedin.schema.BooleanType\":{}}},\"recursive\":false,\"nativeDataType\":\"varchar(100)\"}],\"schemaName\":\"SampleHiveSchema\",\"version\":0,\"hash\":\"\",\"platform\":\"urn:li:dataPlatform:hive\"}";
+    ByteString rawSchemaMetadataBytes =
+        ByteString.copyString(rawSchemaMetadataString, StandardCharsets.UTF_8);
+    return GenericRecordUtils.deserializeAspect(
+        rawSchemaMetadataBytes, "application/json", SchemaMetadata.class);
+  }
+
+  private static EntityChangeEventGeneratorRegistry buildEntityChangeEventGeneratorRegistry() {
+    final EntityChangeEventGeneratorRegistry registry = new EntityChangeEventGeneratorRegistry();
+    registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
+
+    // Entity Lifecycle change event generators
+    registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
+    registry.register(STATUS_ASPECT_NAME, new StatusChangeEventGenerator());
+
+    return registry;
   }
 }

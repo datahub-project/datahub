@@ -31,6 +31,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
@@ -110,7 +111,7 @@ public class OwnershipTypesStep implements UpgradeStep {
 
       BootstrapStep.setUpgradeResult(systemOpContext, UPGRADE_ID_URN, entityService);
 
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

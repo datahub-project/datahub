@@ -777,11 +777,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     List<UpdateAspectResult> mclResults = emitMCL(opContext, ingestResults, emitMCL);
 
     processPostCommitMCLSideEffects(
-        opContext,
-        mclResults.stream()
-            .filter(result -> !result.isNoOp())
-            .map(UpdateAspectResult::toMCL)
-            .collect(Collectors.toList()));
+        opContext, mclResults.stream().map(UpdateAspectResult::toMCL).collect(Collectors.toList()));
 
     return mclResults;
   }

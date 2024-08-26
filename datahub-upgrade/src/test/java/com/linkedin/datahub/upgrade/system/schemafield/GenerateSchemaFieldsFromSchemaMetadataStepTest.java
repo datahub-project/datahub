@@ -12,6 +12,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import java.util.Optional;
@@ -90,7 +91,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
 
     UpgradeStepResult result = step.executable().apply(mockContext);
-    assertEquals(UpgradeStepResult.Result.SUCCEEDED, result.result());
+    assertEquals(DataHubUpgradeState.SUCCEEDED, result.result());
 
     verify(mockAspectDao).streamAspectBatches(argsCaptor.capture());
     assertEquals("schemaMetadata", argsCaptor.getValue().aspectName());

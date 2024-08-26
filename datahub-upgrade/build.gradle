@@ -126,7 +126,10 @@ task run(type: Exec) {
   environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
   environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
-  commandLine "java", "-jar", "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdate"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdate"
 }
 
 task runMetadataTests(type: Exec) {

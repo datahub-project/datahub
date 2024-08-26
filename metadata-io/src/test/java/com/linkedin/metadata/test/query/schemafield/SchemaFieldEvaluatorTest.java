@@ -187,8 +187,7 @@ public class SchemaFieldEvaluatorTest {
                 + STRUCTURED_PROPERTY_URN);
     assertTrue(evaluator.isEligible(DATASET_ENTITY_NAME, testQuery));
     Set<TestQuery> queries = new HashSet<>(Arrays.asList(testQuery));
-    Urn schemaFieldUrn =
-        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN.toString(), "path");
+    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "path");
 
     SchemaMetadata schemaMetadata = new SchemaMetadata();
     schemaMetadata.setHash("hash");
@@ -296,10 +295,8 @@ public class SchemaFieldEvaluatorTest {
                 + TestsSchemaFieldUtils.SHARED_PROPERTIES);
     assertTrue(evaluator.isEligible(DATASET_ENTITY_NAME, testQuery));
     Set<TestQuery> queries = new HashSet<>(Arrays.asList(testQuery));
-    Urn schemaFieldUrn =
-        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN.toString(), "path");
-    Urn schemaFieldUrn2 =
-        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN.toString(), "path2");
+    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "path");
+    Urn schemaFieldUrn2 = SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "path2");
 
     SchemaMetadata schemaMetadata = new SchemaMetadata();
     schemaMetadata.setHash("hash");

@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.entity.ebean.AspectStorageValidationUtil;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.util.function.Function;
 
@@ -31,22 +32,22 @@ public class UpgradeQualificationStep implements UpgradeStep {
     return (context) -> {
       if (context.parsedArgs().containsKey(NoCodeUpgrade.FORCE_UPGRADE_ARG_NAME)) {
         context.report().addLine("Forced upgrade detected. Proceeding with upgrade...");
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       }
 
       try {
         if (isQualified(_server, context)) {
           // Qualified.
           context.report().addLine("Found qualified upgrade candidate. Proceeding with upgrade...");
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         }
         // Unqualified (Table already exists)
         context.report().addLine("Failed to qualify upgrade candidate. Aborting the upgrade...");
         return new DefaultUpgradeStepResult(
-            id(), UpgradeStepResult.Result.SUCCEEDED, UpgradeStepResult.Action.ABORT);
+            id(), DataHubUpgradeState.SUCCEEDED, UpgradeStepResult.Action.ABORT);
       } catch (Exception e) {
         context.report().addLine("Failed to check if metadata_aspect_v2 table exists", e);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
   }

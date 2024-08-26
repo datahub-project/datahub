@@ -9,6 +9,7 @@ public class MetadataChangeProposalConfig {
 
   ThrottlesConfig throttle;
   MCPValidationConfig validation;
+  SideEffectsConfig sideEffects;
 
   @Data
   @Accessors(chain = true)
@@ -27,5 +28,17 @@ public class MetadataChangeProposalConfig {
     Integer initialIntervalMs;
     Integer multiplier;
     Integer maxIntervalMs;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class SideEffectsConfig {
+    SideEffectConfig schemaField;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class SideEffectConfig {
+    boolean enabled;
   }
 }

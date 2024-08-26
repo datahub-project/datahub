@@ -160,7 +160,7 @@ public class InferDocumentationResolverTest {
             AspectUtils.buildMetadataChangeProposal(
                 urn, Constants.DOCUMENTATION_ASPECT_NAME, documentation),
             AspectUtils.buildMetadataChangeProposal(
-                SchemaFieldUtils.generateSchemaFieldUrn(urn.toString(), field1Path),
+                SchemaFieldUtils.generateSchemaFieldUrn(urn, field1Path),
                 Constants.DOCUMENTATION_ASPECT_NAME,
                 schemaDoc));
     Mockito.verify(client, Mockito.times(1))

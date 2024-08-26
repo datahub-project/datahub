@@ -14,6 +14,7 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.HashMap;
@@ -196,7 +197,7 @@ public class RotateSecretsStep implements UpgradeStep {
           .addLine(
               String.format(
                   "Successfully rotated %s / %s total secrets!", totalRotated, result.getTotal()));
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

@@ -19,6 +19,7 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -82,7 +83,7 @@ public class RestoreAspectStep implements UpgradeStep {
             .report()
             .addLine(
                 "Missing required arguments. This upgrade requires URN, ASPECT_NAME, BACKUP_S3_BUCKET, BACKUP_S3_PATH");
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
 
       Optional<String> s3Region = context.parsedArgs().get(S3BackupReader.S3_REGION);
@@ -106,18 +107,18 @@ public class RestoreAspectStep implements UpgradeStep {
       for (Future<UpgradeStepResult> future : futureList) {
         try {
           UpgradeStepResult stepResult = future.get();
-          if (UpgradeStepResult.Result.FAILED.equals(stepResult.result())) {
+          if (DataHubUpgradeState.FAILED.equals(stepResult.result())) {
             return stepResult;
           }
         } catch (InterruptedException | ExecutionException e) {
           context.report().addLine("Interrupted during read, unable to finish execution.");
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         } finally {
           _fileReaderThreadPool.shutdown();
         }
       }
 
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 
@@ -140,7 +141,7 @@ public class RestoreAspectStep implements UpgradeStep {
                 String.format(
                     "Failed to bind Urn with value %s into Urn object: %s",
                     aspect.getKey().getUrn(), e));
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
 
       final String aspectName = aspect.getKey().getAspect();
@@ -159,7 +160,7 @@ public class RestoreAspectStep implements UpgradeStep {
               .addLine(
                   String.format(
                       "Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
         // 3. Create record from json aspect
@@ -179,7 +180,7 @@ public class RestoreAspectStep implements UpgradeStep {
                   String.format(
                       "Failed to find aspect spec with name %s associated with entity named %s: %s",
                       aspectName, entityName, e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
         // 5. Write the row back using the EntityService
@@ -205,7 +206,7 @@ public class RestoreAspectStep implements UpgradeStep {
             opContext, AspectsBatchImpl.builder().items(items).build(), emitMae, true);
       }
     }
-    return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+    return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
   }
 
   private AuditStamp toAuditStamp(final EbeanAspectV2 aspect) {

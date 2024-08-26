@@ -9,6 +9,11 @@ namespace com.linkedin.upgrade
 record DataHubUpgradeResult {
 
     /**
+     * Upgrade state  UpgradeResult.Result
+     */
+    state: optional DataHubUpgradeState = "SUCCEEDED"
+
+    /**
      * Timestamp when we started this DataHubUpgrade
      */
     timestampMs: long
