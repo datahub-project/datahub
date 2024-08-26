@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
-from google.cloud.bigquery import retry as bq_retry
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
+from google.cloud.bigquery import retry as bq_retry
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
