@@ -10,7 +10,7 @@ from Dagster.
 
 ## Supported Versions
 
-It was tested with Dagster 1.7.0+ but that doesn't mean it is not working on older version.
+This integration was verified using Dagster 1.7.0+. That does not necessary mean it will not be compatible will older versions. 
 
 ## Using DataHub's Dagster Sensor
 
