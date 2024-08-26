@@ -108,6 +108,10 @@ We welcome contributions from the community. Please refer to our [Contributing G
 
 Join our [Slack workspace](https://datahubproject.io/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
 
+## Security
+
+See [Security Stance](docs/SECURITY_STANCE.md) for information on DataHub's Security.
+
 ## Adoption
 
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
@@ -174,23 +178,6 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Emerging Architectures for Modern Data Infrastructure](https://future.com/emerging-architectures-for-modern-data-infrastructure-2020/)
 
 See the full list [here](docs/links.md).
-
-## Security Notes
-
-### Multi-Component
-
-The DataHub project uses a wide range of code which is responsible for build automation, documentation generation, and 
-include both service (i.e. GMS) and client (i.e. ingestion) components. When evaluating security vulnerabilities in
-upstream dependencies, it is important to consider which component and how it is used in the project. For example, an 
-upstream javascript library may include a Denial of Service (DoS) vulnerability however when used for generating 
-documentation it does not affect the running of DataHub itself and cannot be used to impact DataHub's service. Similarly, 
-python dependencies for ingestion are part of the DataHub client and are not exposed as a service.
-
-### Known False Positives
-
-DataHub's ingestion client does not include credentials in the code repository, python package, or Docker images.
-Upstream python dependencies may include files that look like credentials and are often misinterpreted as credentials
-by automated scanners.
 
 ## License
 
