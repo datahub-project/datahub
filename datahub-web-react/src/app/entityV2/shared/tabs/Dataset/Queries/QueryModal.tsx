@@ -171,6 +171,7 @@ export default function QueryModal({
                         collapseOnInsert={false}
                         showInsert={isAllowedToEdit}
                         onInsertDescription={updateDescription}
+                        surface="query-viewer-modal"
                     />
                 </InferDocsWrapper>
             )}

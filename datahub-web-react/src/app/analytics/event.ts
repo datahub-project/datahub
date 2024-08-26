@@ -130,6 +130,7 @@ export enum EventType {
     SearchLineageColumnsEvent,
     FilterLineageColumnsEvent,
     DrillDownLineageEvent,
+    InferDocsClickEvent,
 }
 
 /**
@@ -968,6 +969,19 @@ export interface DrillDownLineageEvent extends BaseEvent {
     dataType?: string;
 }
 
+export interface InferDocsClickEvent extends BaseEvent {
+    type: EventType.InferDocsClickEvent;
+    surface:
+        | 'schema-table'
+        | 'schema-profile'
+        | 'schema-docs-editor'
+        | 'entity-sidebar'
+        | 'entity-docs-tab'
+        | 'entity-docs-editor'
+        | 'query-viewer-modal'
+        | 'query-builder-form';
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1081,4 +1095,5 @@ export type Event =
     | ShowHideLineageColumnsEvent
     | SearchLineageColumnsEvent
     | FilterLineageColumnsEvent
-    | DrillDownLineageEvent;
+    | DrillDownLineageEvent
+    | InferDocsClickEvent;

@@ -165,6 +165,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                 </AddNewDescription>,
                                 shouldShowInferenceButton && (
                                     <InferDocsButton
+                                        surface="schema-profile"
                                         style={{ height: 32, width: 132, marginTop: 12 }}
                                         onClick={() => {
                                             setInferOnModalVisible(true);
