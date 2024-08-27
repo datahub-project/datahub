@@ -50,10 +50,8 @@ def test_snowflake_tag_pattern():
 
         source_report = pipeline.source.get_report()
         assert isinstance(source_report, SnowflakeV2Report)
-        assert cast(SnowflakeV2Report, source_report).tags_scanned == 5
-        assert cast(SnowflakeV2Report, source_report)._processed_tags == {
-            "TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1"
-        }
+        assert source_report.tags_scanned == 5
+        assert source_report._processed_tags == {"TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1"}
 
 
 def test_snowflake_tag_pattern_deny():
@@ -94,8 +92,8 @@ def test_snowflake_tag_pattern_deny():
 
         source_report = pipeline.source.get_report()
         assert isinstance(source_report, SnowflakeV2Report)
-        assert cast(SnowflakeV2Report, source_report).tags_scanned == 5
-        assert cast(SnowflakeV2Report, source_report)._processed_tags == {
+        assert source_report.tags_scanned == 5
+        assert source_report._processed_tags == {
             "OTHER_DB.OTHER_SCHEMA.my_other_tag:other",
             "TEST_DB.TEST_SCHEMA.my_tag_0:my_value_0",
             "TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1",
