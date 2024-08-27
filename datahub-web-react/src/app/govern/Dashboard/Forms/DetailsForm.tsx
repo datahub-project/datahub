@@ -1,5 +1,5 @@
 import { TextArea } from '@src/alchemy-components';
-import { FormType } from '@src/types.generated';
+import { FormState, FormType } from '@src/types.generated';
 import { Form, Input, Select } from 'antd';
 import React, { useContext } from 'react';
 import ManageFormContext from './ManageFormContext';
@@ -7,7 +7,7 @@ import { FieldLabel, FormFieldsContainer } from './styledComponents';
 import { useFormHandlers } from './useFormHandlers';
 
 const DetailsForm = () => {
-    const { form } = useContext(ManageFormContext);
+    const { form, formValues } = useContext(ManageFormContext);
 
     const { handleInputChange, handleSelectChange } = useFormHandlers();
 
@@ -47,6 +47,7 @@ const DetailsForm = () => {
                         placeholder="Select Form Type"
                         options={formTypes}
                         onChange={(value) => handleSelectChange('formType', value)}
+                        disabled={formValues.state !== FormState.Draft}
                     />
                 </Form.Item>
             </FormFieldsContainer>

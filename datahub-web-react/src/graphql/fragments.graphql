@@ -1729,6 +1729,13 @@ fragment formFields on Form {
                 }
             }
         }
+        status {
+            state
+            lastModified {
+                time
+                actor
+            }
+        }
     }
     ownership {
         ...ownershipFields

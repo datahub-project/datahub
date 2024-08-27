@@ -1,4 +1,4 @@
-import { CorpGroup, CorpUser, FormType } from '../../../../types.generated';
+import { CorpGroup, CorpUser, FormState, FormType } from '../../../../types.generated';
 
 export type FormMode = 'create' | 'edit';
 
@@ -25,6 +25,7 @@ export type FormFields = {
     formDescription?: string | undefined;
     questions: FormQuestion[];
     actors?: FormActors;
+    state?: FormState;
 };
 
 export const handleInputChange = (setFormValues) => (event) => {

@@ -2,7 +2,7 @@ import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { useGetFormQuery } from '../../../../graphql/form.generated';
-import { FormType } from '../../../../types.generated';
+import { FormState, FormType } from '../../../../types.generated';
 import { FormActors, FormFields, FormMode, FormQuestion } from './formUtils';
 import ManageFormContext from './ManageFormContext';
 
@@ -16,6 +16,7 @@ export const ManageFormContextProvider = ({ children }: { children: React.ReactN
             users: [],
             groups: [],
         },
+        state: FormState.Draft,
     };
     const [formValues, setFormValues] = useState(defaultValues);
     const [formMode, setFormMode] = useState<FormMode>('create');
@@ -46,24 +47,13 @@ export const ManageFormContextProvider = ({ children }: { children: React.ReactN
                 }),
             );
 
-            const actors = formData?.info.actors
-                ? Object.fromEntries(
-                      Object.entries(formData?.info.actors).filter(([key]) =>
-                          ['owners', 'users', 'groups'].includes(key),
-                      ),
-                  )
-                : undefined;
-
             const values: FormFields = {
                 formType: formData?.info.type as FormType,
                 formName: formData?.info.name as string,
                 formDescription: formData?.info.description as string | undefined,
                 questions: questions as FormQuestion[],
-                actors: {
-                    owners: (actors?.owners as boolean) || false,
-                    users: actors?.users,
-                    groups: actors?.groups,
-                } as FormActors,
+                actors: formData?.info.actors as FormActors,
+                state: formData?.info.status.state,
             };
             setFormValues(values);
             form?.setFieldsValue(values);
