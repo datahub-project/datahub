@@ -383,7 +383,7 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_test_connection_success():
-    with mock.patch("datahub.ingestion.source.tableau.Server"):
+    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
         report = test_connection_helpers.run_test_connection(
             TableauSource, config_source_default
         )
@@ -422,7 +422,40 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -454,7 +487,40 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -486,7 +552,40 @@ def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -519,7 +618,40 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -551,7 +683,40 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -582,7 +747,40 @@ def test_value_error_projects_and_project_pattern(
                 read_response(pytestconfig, "sheetsConnection_all.json"),
                 read_response(pytestconfig, "dashboardsConnection_all.json"),
                 read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+                read_response(
+                    pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+                ),
+                read_response(
+                    pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+                ),
+                read_response(
+                    pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+                ),
+                read_response(
+                    pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+                ),
+                read_response(
+                    pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+                ),
+                read_response(
+                    pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+                ),
+                read_response(
+                    pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+                ),
+                read_response(
+                    pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+                ),
+                read_response(
+                    pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+                ),
                 read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+                read_response(
+                    pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+                ),
+                read_response(
+                    pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+                ),
                 read_response(pytestconfig, "customSQLTablesConnection_all.json"),
                 read_response(pytestconfig, "databaseTablesConnection_all.json"),
             ],
@@ -641,7 +839,40 @@ def test_tableau_ingest_with_platform_instance(
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -756,7 +987,40 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -923,7 +1187,40 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -1041,7 +1338,40 @@ def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph)
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -1074,14 +1404,80 @@ def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_grap
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
             read_response(pytestconfig, "workbooksConnection_all.json"),
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -1113,7 +1509,40 @@ def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -1145,7 +1574,40 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],
@@ -1167,7 +1629,7 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
 
-        with mock.patch("datahub.ingestion.source.tableau.Server") as mock_sdk:
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_sdk:
             mock_sdk.return_value = mock_sdk_client(
                 side_effect_query_metadata_response=[
                     read_response(pytestconfig, "permission_mode_switched_error.json")
