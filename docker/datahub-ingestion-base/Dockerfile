@@ -54,6 +54,13 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV && \
     uv pip install --no-cache --upgrade pip setuptools wheel
 
+# Note: Normally uv will create hardlinks from the cache directory to the venv.
+# In our docker files, we normally use `RUN --mount=type=cache,... uv pip install ...`,
+# which means the cache directory is on a separate filesystem. uv will emit a warning:
+#   Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+#   If the cache and target directories are on different filesystems, hardlinking may not be supported.
+#   If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+
 ENTRYPOINT [ "/entrypoint.sh" ]
 
 FROM ${BASE_IMAGE} AS full-install

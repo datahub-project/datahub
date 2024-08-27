@@ -31,7 +31,7 @@ RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEAS
 FROM base AS slim-install
 
 RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
-    uv pip install -e ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
+    UV_LINK_MODE=copy uv pip install -e ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
 
 FROM base AS full-install-build
 
@@ -42,7 +42,7 @@ USER datahub
 COPY ./docker/datahub-ingestion/pyspark_jars.sh .
 
 RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
-    uv pip install -e ".[base,all]" "./airflow-plugin[plugin-v2]" && \
+    UV_LINK_MODE=copy uv pip install -e ".[base,all]" "./airflow-plugin[plugin-v2]" && \
     ./pyspark_jars.sh && \
     datahub --version
 

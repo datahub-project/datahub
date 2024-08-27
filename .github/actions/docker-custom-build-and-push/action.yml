@@ -31,7 +31,7 @@ inputs:
     description: "Main tag to use for the Docker image"
     required: true
   flavor:
-    description: 'Image flavor (e.g., slim, full)'
+    description: "Image flavor (e.g., slim, full)"
     required: false
   target:
     description: "Sets the target stage to build"
@@ -61,7 +61,7 @@ runs:
 
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       if: ${{ inputs.publish != 'true' }}
       with:
         context: ${{ inputs.context }}
@@ -74,8 +74,12 @@ runs:
         target: ${{ inputs.target }}
         load: true
         push: false
-        cache-from: type=registry,ref=${{ steps.docker_meta.outputs.tags }}
-        cache-to: type=inline
+        cache-from: |
+          type=gha
+          type=registry,ref=${{ steps.docker_meta.outputs.tags }}
+        cache-to: |
+          type=gha
+          type=inline
     - name: Single Tag
       if: ${{ inputs.publish != 'true' }}
       shell: bash
@@ -108,7 +112,7 @@ runs:
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}
     - name: Build and Push Multi-Platform image
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       if: ${{ inputs.publish == 'true' }}
       with:
         context: ${{ inputs.context }}
@@ -118,7 +122,11 @@ runs:
         tags: ${{ steps.docker_meta.outputs.tags }}
         target: ${{ inputs.target }}
         push: true
-        cache-from: type=registry,ref=${{ steps.docker_meta.outputs.tags }}
-        cache-to: type=inline
+        cache-from: |
+          type=gha
+          type=registry,ref=${{ steps.docker_meta.outputs.tags }}
+        cache-to: |
+          type=gha
+          type=inline
 
     # TODO add code for vuln scanning?
