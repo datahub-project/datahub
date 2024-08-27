@@ -748,7 +748,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> DatasetProperties:
         custom_properties = {}
 
-        if table.clustering_key:
+        if isinstance(table, SnowflakeTable) and table.clustering_key:
             custom_properties["CLUSTERING_KEY"] = table.clustering_key
 
         return DatasetProperties(
