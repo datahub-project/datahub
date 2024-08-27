@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { EntityType, LineageDirection } from '../../../types.generated';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import { FetchStatus, LineageDisplayContext, LineageEntity, LineageNodesContext } from '../common';
+import { FetchStatus, isGhostEntity, LineageDisplayContext, LineageEntity, LineageNodesContext } from '../common';
 import { LoadingWrapper } from '../LineageEntityNode/NodeContents';
 
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
@@ -29,7 +29,7 @@ const HomeNodeBubble = styled.div`
     top: -26px;
 `;
 
-const NodeWrapper = styled.div<{ selected: boolean; opacity: number }>`
+const NodeWrapper = styled.div<{ selected: boolean; opacity: number; isGhost: boolean }>`
     background-color: white;
     border: ${({ selected }) => (selected ? 2 : 1)}px solid;
     border-color: ${({ selected }) => (selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER)};
@@ -41,7 +41,11 @@ const NodeWrapper = styled.div<{ selected: boolean; opacity: number }>`
     justify-content: center;
     height: ${TRANSFORMATION_NODE_SIZE}px;
     width: ${TRANSFORMATION_NODE_SIZE}px;
-    cursor: pointer;
+    cursor: ${({ isGhost }) => (isGhost ? 'not-allowed' : 'pointer')};
+`;
+
+const IconWrapper = styled.div<{ isGhost: boolean }>`
+    opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
 `;
 
 const CustomHandle = styled(Handle)<{ position: Position; $onEdge: boolean }>`
@@ -70,6 +74,9 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const { rootUrn } = useContext(LineageNodesContext);
     const { cllHighlightedNodes, setHoveredNode } = useContext(LineageDisplayContext);
 
+    // TODO: Support ghost queries and schema fields, once they are supported in the backend
+    const isGhost = isGhostEntity(entity);
+
     const name = type === EntityType.SchemaField ? entity?.expandedName : entity?.name;
     const backupLogoUrl = useFetchQuery(urn); // TODO: Remove when query nodes not instantiated on column select
     const icon = entity?.icon || backupLogoUrl;
@@ -84,6 +91,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             selected={selected}
             onMouseEnter={() => setHoveredNode(urn)}
             onMouseLeave={() => setHoveredNode(null)}
+            isGhost={isGhost}
         >
             {urn === rootUrn && (
                 <HomeNodeBubble>
@@ -91,9 +99,11 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
                     Home
                 </HomeNodeBubble>
             )}
-            {icon && <CustomIcon src={icon} />}
-            {!icon && isQuery && <ConsoleSqlOutlined />}
-            {!icon && !isQuery && <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />}
+            <IconWrapper isGhost={isGhost}>
+                {icon && <CustomIcon src={icon} />}
+                {!icon && isQuery && <ConsoleSqlOutlined />}
+                {!icon && !isQuery && <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />}
+            </IconWrapper>
             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                 <LoadingWrapper className="nodrag" style={{ left: -30 }}>
                     <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />

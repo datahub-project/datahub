@@ -11,6 +11,7 @@ export const ControlPanel = styled.div`
     border: 1px solid ${ANTD_GRAY[5]};
     box-shadow: 0 4px 4px 0 ${REDESIGN_COLORS.BOX_SHADOW};
     padding: 16px;
+    gap: 2px;
 
     height: fit-content;
     max-width: 255px;

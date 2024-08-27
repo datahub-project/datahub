@@ -34,8 +34,15 @@ const PopoverWrapper = styled.div`
 const StyledSwitch = styled(Switch)``;
 
 export default function LineageSearchFilters() {
-    const { nodes, rootUrn, nodeVersion, hideTransformations, setHideTransformations } =
-        useContext(LineageNodesContext);
+    const {
+        nodes,
+        rootUrn,
+        nodeVersion,
+        hideTransformations,
+        setHideTransformations,
+        showGhostEntities,
+        setShowGhostEntities,
+    } = useContext(LineageNodesContext);
 
     const hasTransformations = useMemo(
         () => Array.from(nodes.values()).some((node) => node.urn !== rootUrn && isTransformational(node)),
@@ -67,6 +74,21 @@ export default function LineageSearchFilters() {
                         onChange={setHideTransformations}
                     />
                 </Tooltip>
+            </ToggleWrapper>
+            <ToggleWrapper>
+                <span>
+                    <ToggleLabel>
+                        Show Hidden Edges
+                        <StyledInfoPopover
+                            content={
+                                <PopoverWrapper>
+                                    Show assets that have been deleted or do not exist in DataHub
+                                </PopoverWrapper>
+                            }
+                        />
+                    </ToggleLabel>
+                </span>
+                <StyledSwitch size="small" checked={showGhostEntities} onChange={setShowGhostEntities} />
             </ToggleWrapper>
         </ControlPanel>
     );

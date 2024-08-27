@@ -56,7 +56,7 @@ const ControlsColumn = styled.div``;
 type PanelType = 'filters' | 'timeRange';
 
 const LineageControls: React.FC = () => {
-    const { rootUrn, hideTransformations } = useContext(LineageNodesContext);
+    const { rootUrn, hideTransformations, showGhostEntities } = useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
     const { isDefault: isLineageTimeUnchanged } = useGetLineageTimeParams();
     const { fitView } = useReactFlow();
@@ -103,7 +103,11 @@ const LineageControls: React.FC = () => {
                             visiblePanel === 'filters' ? setVisiblePanel(null) : setVisiblePanel('filters')
                         }
                     >
-                        <FilterOutlined style={{ color: hideTransformations ? REDESIGN_COLORS.BLUE : undefined }} />
+                        <FilterOutlined
+                            style={{
+                                color: hideTransformations || showGhostEntities ? REDESIGN_COLORS.BLUE : undefined,
+                            }}
+                        />
                         {showExpandedText ? 'Filter' : null}
                     </StyledPanelButton>
                     <StyledPanelButton

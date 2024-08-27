@@ -33,6 +33,7 @@ export default function LineageExplorer(props: Props) {
     const [dataVersion, setDataVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
+    const [showGhostEntities, setShowGhostEntities] = useState(false);
     const context = {
         rootUrn: urn,
         nodes,
@@ -46,6 +47,8 @@ export default function LineageExplorer(props: Props) {
         setDisplayVersion,
         hideTransformations,
         setHideTransformations,
+        showGhostEntities,
+        setShowGhostEntities,
     };
 
     const loaded = useInitializeNodes(context, urn, type);
@@ -71,7 +74,7 @@ export default function LineageExplorer(props: Props) {
  */
 function useInitializeNodes(context: NodeContext, urn: string, type: EntityType): boolean {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion } = context;
+    const { nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion, showGhostEntities } = context;
 
     useEffect(() => {
         nodes.clear();
@@ -82,6 +85,17 @@ function useInitializeNodes(context: NodeContext, urn: string, type: EntityType)
         setNodeVersion(0);
         setDisplayVersion([0, []]);
     }, [urn, type, startTimeMillis, endTimeMillis, nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion]);
+
+    useEffect(() => {
+        adjacencyList[LineageDirection.Upstream].clear();
+        adjacencyList[LineageDirection.Downstream].clear();
+        edges.clear();
+        nodes.forEach((node) => {
+            // eslint-disable-next-line no-param-reassign
+            node.entity = undefined;
+        });
+        setDisplayVersion([0, []]);
+    }, [nodes, adjacencyList, edges, showGhostEntities, setDisplayVersion]);
 
     const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Upstream);
     const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Downstream);

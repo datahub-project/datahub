@@ -34,6 +34,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class SiblingGraphServiceTest {
@@ -74,9 +75,6 @@ public class SiblingGraphServiceTest {
   @BeforeClass
   public void setup() {
     _mockEntityService = Mockito.mock(EntityService.class);
-    when(_mockEntityService.exists(
-            any(OperationContext.class), any(Collection.class), any(Boolean.class)))
-        .thenAnswer(args -> new HashSet<>(args.getArgument(1)));
     EntityRegistry entityRegistry =
         new ConfigEntityRegistry(
             Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
@@ -85,34 +83,16 @@ public class SiblingGraphServiceTest {
     _client = new SiblingGraphService(_mockEntityService, _graphService);
   }
 
+  @BeforeMethod
+  public void init() {
+    when(_mockEntityService.exists(
+            any(OperationContext.class), any(Collection.class), any(Boolean.class)))
+        .thenAnswer(args -> new HashSet<>(args.getArgument(1)));
+  }
+
   @Test
   public void testNoSiblingMetadata() {
-    EntityLineageResult mockResult = new EntityLineageResult();
-    LineageRelationshipArray relationships = new LineageRelationshipArray();
-    LineageRelationship relationship1 = new LineageRelationship();
-    relationship1.setDegree(0);
-    relationship1.setType(downstreamOf);
-    relationship1.setEntity(datasetOneUrn);
-
-    LineageRelationship relationship2 = new LineageRelationship();
-    relationship2.setDegree(0);
-    relationship2.setType(downstreamOf);
-    relationship2.setEntity(datasetTwoUrn);
-
-    LineageRelationship relationship3 = new LineageRelationship();
-    relationship3.setDegree(0);
-    relationship3.setType(downstreamOf);
-    relationship3.setEntity(datasetThreeUrn);
-
-    relationships.add(relationship1);
-    relationships.add(relationship2);
-    relationships.add(relationship3);
-
-    mockResult.setStart(0);
-    mockResult.setTotal(200);
-    mockResult.setCount(3);
-    mockResult.setFiltered(0);
-    mockResult.setRelationships(relationships);
+    EntityLineageResult mockResult = makeBasicMockResult();
 
     when(_graphService.getLineage(
             eq(datasetFourUrn),
@@ -138,34 +118,8 @@ public class SiblingGraphServiceTest {
 
   @Test
   public void testNoSiblingInResults() {
-    EntityLineageResult mockResult = new EntityLineageResult();
+    EntityLineageResult mockResult = makeBasicMockResult();
     EntityLineageResult siblingMockResult = new EntityLineageResult();
-
-    LineageRelationshipArray relationships = new LineageRelationshipArray();
-    LineageRelationship relationship1 = new LineageRelationship();
-    relationship1.setDegree(0);
-    relationship1.setType(downstreamOf);
-    relationship1.setEntity(datasetOneUrn);
-
-    LineageRelationship relationship2 = new LineageRelationship();
-    relationship2.setDegree(0);
-    relationship2.setType(downstreamOf);
-    relationship2.setEntity(datasetTwoUrn);
-
-    LineageRelationship relationship3 = new LineageRelationship();
-    relationship3.setDegree(0);
-    relationship3.setType(downstreamOf);
-    relationship3.setEntity(datasetThreeUrn);
-
-    relationships.add(relationship1);
-    relationships.add(relationship2);
-    relationships.add(relationship3);
-
-    mockResult.setStart(0);
-    mockResult.setTotal(200);
-    mockResult.setCount(3);
-    mockResult.setFiltered(0);
-    mockResult.setRelationships(relationships);
 
     when(_graphService.getLineage(
             eq(datasetFourUrn),
@@ -230,33 +184,8 @@ public class SiblingGraphServiceTest {
 
   @Test
   public void testSiblingInResult() throws Exception {
-    EntityLineageResult mockResult = new EntityLineageResult();
+    EntityLineageResult mockResult = makeBasicMockResult();
     EntityLineageResult siblingMockResult = new EntityLineageResult();
-
-    LineageRelationshipArray relationships = new LineageRelationshipArray();
-    LineageRelationship relationship1 = new LineageRelationship();
-    relationship1.setDegree(0);
-    relationship1.setType(downstreamOf);
-    relationship1.setEntity(datasetOneUrn);
-
-    LineageRelationship relationship2 = new LineageRelationship();
-    relationship2.setDegree(0);
-    relationship2.setType(downstreamOf);
-    relationship2.setEntity(datasetTwoUrn);
-
-    LineageRelationship relationship3 = new LineageRelationship();
-    relationship3.setDegree(0);
-    relationship3.setType(downstreamOf);
-    relationship3.setEntity(datasetThreeUrn);
-
-    relationships.add(relationship1);
-    relationships.add(relationship2);
-    relationships.add(relationship3);
-
-    mockResult.setStart(0);
-    mockResult.setTotal(3);
-    mockResult.setCount(3);
-    mockResult.setRelationships(relationships);
 
     siblingMockResult.setStart(0);
     siblingMockResult.setTotal(0);
@@ -316,7 +245,9 @@ public class SiblingGraphServiceTest {
     expectedResult.setTotal(3);
     expectedResult.setCount(2);
     expectedResult.setFiltered(1);
-    expectedResult.setRelationships(new LineageRelationshipArray(relationship1, relationship2));
+    expectedResult.setRelationships(
+        new LineageRelationshipArray(
+            makeBasicRelationship(datasetOneUrn), makeBasicRelationship(datasetTwoUrn)));
 
     EntityLineageResult upstreamLineage =
         service.getLineage(opContext, datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1);
@@ -336,25 +267,9 @@ public class SiblingGraphServiceTest {
     LineageRelationshipArray siblingRelationships = new LineageRelationshipArray();
     LineageRelationshipArray expectedRelationships = new LineageRelationshipArray();
 
-    LineageRelationship relationship1 = new LineageRelationship();
-    relationship1.setDegree(0);
-    relationship1.setType(downstreamOf);
-    relationship1.setEntity(datasetOneUrn);
-
-    LineageRelationship relationship2 = new LineageRelationship();
-    relationship2.setDegree(0);
-    relationship2.setType(downstreamOf);
-    relationship2.setEntity(datasetTwoUrn);
-
-    LineageRelationship relationship3 = new LineageRelationship();
-    relationship3.setDegree(0);
-    relationship3.setType(downstreamOf);
-    relationship3.setEntity(datasetThreeUrn);
-
-    LineageRelationship relationship4 = new LineageRelationship();
-    relationship4.setDegree(0);
-    relationship4.setType(downstreamOf);
-    relationship4.setEntity(datasetFiveUrn);
+    LineageRelationship relationship1 = makeBasicRelationship(datasetOneUrn);
+    LineageRelationship relationship2 = makeBasicRelationship(datasetTwoUrn);
+    LineageRelationship relationship4 = makeBasicRelationship(datasetFiveUrn);
 
     relationships.add(relationship1);
 
@@ -450,25 +365,9 @@ public class SiblingGraphServiceTest {
     LineageRelationshipArray siblingRelationships = new LineageRelationshipArray();
     LineageRelationshipArray expectedRelationships = new LineageRelationshipArray();
 
-    LineageRelationship relationship1 = new LineageRelationship();
-    relationship1.setDegree(0);
-    relationship1.setType(downstreamOf);
-    relationship1.setEntity(datasetOneUrn);
-
-    LineageRelationship relationship2 = new LineageRelationship();
-    relationship2.setDegree(0);
-    relationship2.setType(downstreamOf);
-    relationship2.setEntity(datasetTwoUrn);
-
-    LineageRelationship relationship3 = new LineageRelationship();
-    relationship3.setDegree(0);
-    relationship3.setType(downstreamOf);
-    relationship3.setEntity(datasetThreeUrn);
-
-    LineageRelationship relationship5 = new LineageRelationship();
-    relationship5.setDegree(0);
-    relationship5.setType(downstreamOf);
-    relationship5.setEntity(datasetFiveUrn);
+    LineageRelationship relationship1 = makeBasicRelationship(datasetOneUrn);
+    LineageRelationship relationship2 = makeBasicRelationship(datasetTwoUrn);
+    LineageRelationship relationship5 = makeBasicRelationship(datasetFiveUrn);
 
     relationships.add(relationship1);
 
@@ -608,11 +507,7 @@ public class SiblingGraphServiceTest {
     LineageRelationshipArray relationships = new LineageRelationshipArray();
     LineageRelationshipArray expectedRelationships = new LineageRelationshipArray();
 
-    LineageRelationship relationship = new LineageRelationship();
-    relationship.setDegree(0);
-    relationship.setType(downstreamOf);
-    relationship.setEntity(datasetFourUrn);
-
+    LineageRelationship relationship = makeBasicRelationship(datasetFourUrn);
     relationships.add(relationship);
 
     expectedRelationships.add(relationship);
@@ -723,25 +618,10 @@ public class SiblingGraphServiceTest {
     LineageRelationshipArray siblingRelationships = new LineageRelationshipArray();
     LineageRelationshipArray expectedRelationships = new LineageRelationshipArray();
 
-    LineageRelationship relationship1 = new LineageRelationship();
-    relationship1.setDegree(0);
-    relationship1.setType(downstreamOf);
-    relationship1.setEntity(datasetOneUrn);
-
-    LineageRelationship relationship2 = new LineageRelationship();
-    relationship2.setDegree(0);
-    relationship2.setType(downstreamOf);
-    relationship2.setEntity(datasetTwoUrn);
-
-    LineageRelationship relationship3 = new LineageRelationship();
-    relationship3.setDegree(0);
-    relationship3.setType(downstreamOf);
-    relationship3.setEntity(datasetThreeUrn);
-
-    LineageRelationship relationship5 = new LineageRelationship();
-    relationship5.setDegree(0);
-    relationship5.setType(downstreamOf);
-    relationship5.setEntity(datasetFiveUrn);
+    LineageRelationship relationship1 = makeBasicRelationship(datasetOneUrn);
+    LineageRelationship relationship2 = makeBasicRelationship(datasetTwoUrn);
+    LineageRelationship relationship3 = makeBasicRelationship(datasetThreeUrn);
+    LineageRelationship relationship5 = makeBasicRelationship(datasetFiveUrn);
 
     relationships.add(relationship1);
     // relationship between entity and its sibling
@@ -1007,7 +887,7 @@ public class SiblingGraphServiceTest {
     // Tests for separateSiblings = true: primary sibling
     EntityLineageResult primaryDownstreamSeparated =
         service.getLineage(
-            opContext, primarySiblingUrn, LineageDirection.DOWNSTREAM, 0, 100, 1, true, Set.of());
+            opContext, primarySiblingUrn, LineageDirection.DOWNSTREAM, 0, 100, 1, true, false);
 
     LineageRelationshipArray expectedRelationships = new LineageRelationshipArray();
     expectedRelationships.add(relationship);
@@ -1023,7 +903,7 @@ public class SiblingGraphServiceTest {
 
     EntityLineageResult primaryUpstreamSeparated =
         service.getLineage(
-            opContext, primarySiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1, true, Set.of());
+            opContext, primarySiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1, true, false);
     EntityLineageResult expectedResultPrimaryUpstreamSeparated = new EntityLineageResult();
     expectedResultPrimaryUpstreamSeparated.setCount(2);
     expectedResultPrimaryUpstreamSeparated.setStart(0);
@@ -1036,7 +916,7 @@ public class SiblingGraphServiceTest {
     // Test for separateSiblings = true, secondary sibling
     EntityLineageResult secondarySiblingSeparated =
         service.getLineage(
-            opContext, alternateSiblingUrn, LineageDirection.DOWNSTREAM, 0, 100, 1, true, Set.of());
+            opContext, alternateSiblingUrn, LineageDirection.DOWNSTREAM, 0, 100, 1, true, false);
 
     EntityLineageResult expectedResultSecondarySeparated = new EntityLineageResult();
     expectedResultSecondarySeparated.setCount(numDownstreams);
@@ -1049,7 +929,7 @@ public class SiblingGraphServiceTest {
 
     EntityLineageResult secondaryUpstreamSeparated =
         service.getLineage(
-            opContext, alternateSiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1, true, Set.of());
+            opContext, alternateSiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1, true, false);
     EntityLineageResult expectedResultSecondaryUpstreamSeparated = new EntityLineageResult();
     expectedResultSecondaryUpstreamSeparated.setCount(3);
     expectedResultSecondaryUpstreamSeparated.setStart(0);
@@ -1061,15 +941,7 @@ public class SiblingGraphServiceTest {
 
     // Test for separateSiblings = false, primary sibling
     EntityLineageResult primarySiblingNonSeparated =
-        service.getLineage(
-            opContext,
-            primarySiblingUrn,
-            LineageDirection.DOWNSTREAM,
-            0,
-            100,
-            1,
-            false,
-            new HashSet<>());
+        service.getLineage(opContext, primarySiblingUrn, LineageDirection.DOWNSTREAM, 0, 100, 1);
     EntityLineageResult expectedResultPrimaryNonSeparated = new EntityLineageResult();
     expectedResultPrimaryNonSeparated.setCount(numDownstreams);
     expectedResultPrimaryNonSeparated.setStart(0);
@@ -1079,15 +951,7 @@ public class SiblingGraphServiceTest {
     assertEquals(primarySiblingNonSeparated, expectedResultPrimaryNonSeparated);
 
     EntityLineageResult primarySiblingNonSeparatedUpstream =
-        service.getLineage(
-            opContext,
-            primarySiblingUrn,
-            LineageDirection.UPSTREAM,
-            0,
-            100,
-            1,
-            false,
-            new HashSet<>());
+        service.getLineage(opContext, primarySiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1);
     EntityLineageResult expectedResultPrimaryUpstreamNonSeparated = new EntityLineageResult();
     expectedResultPrimaryUpstreamNonSeparated.setCount(2);
     expectedResultPrimaryUpstreamNonSeparated.setStart(0);
@@ -1098,28 +962,82 @@ public class SiblingGraphServiceTest {
 
     // Test for separateSiblings = false, secondary sibling
     EntityLineageResult secondarySiblingNonSeparated =
-        service.getLineage(
-            opContext,
-            alternateSiblingUrn,
-            LineageDirection.DOWNSTREAM,
-            0,
-            100,
-            1,
-            false,
-            new HashSet<>());
+        service.getLineage(opContext, alternateSiblingUrn, LineageDirection.DOWNSTREAM, 0, 100, 1);
     assertEquals(secondarySiblingNonSeparated, expectedResultPrimaryNonSeparated);
 
     EntityLineageResult secondarySiblingNonSeparatedUpstream =
-        service.getLineage(
-            opContext,
-            alternateSiblingUrn,
-            LineageDirection.UPSTREAM,
-            0,
-            100,
-            1,
-            false,
-            new HashSet<>());
+        service.getLineage(opContext, alternateSiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1);
     assertEquals(secondarySiblingNonSeparatedUpstream, expectedResultPrimaryUpstreamNonSeparated);
+  }
+
+  @Test
+  public void testExcludeGhostEntities() {
+    when(_mockEntityService.exists(any(OperationContext.class), any(Collection.class), eq(false)))
+        .thenAnswer(args -> Set.of(datasetOneUrn));
+
+    EntityLineageResult mockGraphResult = makeBasicMockResult();
+
+    when(_graphService.getLineage(
+            eq(datasetFourUrn),
+            eq(LineageDirection.UPSTREAM),
+            eq(0),
+            eq(100),
+            eq(1),
+            any(LineageFlags.class)))
+        .thenReturn(mockGraphResult);
+
+    when(_mockEntityService.getLatestAspect(
+            any(OperationContext.class), eq(datasetFourUrn), eq(SIBLINGS_ASPECT_NAME)))
+        .thenReturn(null);
+
+    SiblingGraphService service = _client;
+
+    EntityLineageResult upstreamLineage =
+        service.getLineage(opContext, datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1);
+
+    EntityLineageResult mockResult = new EntityLineageResult();
+    mockResult.setStart(0);
+    mockResult.setTotal(3);
+    mockResult.setCount(3);
+    mockResult.setFiltered(2);
+    LineageRelationshipArray relationshipsResult = new LineageRelationshipArray();
+    relationshipsResult.add(makeBasicRelationship(datasetOneUrn));
+    mockResult.setRelationships(relationshipsResult);
+
+    // assert sibling graph service filters out entities that do not exist
+    assertEquals(upstreamLineage, mockResult);
+  }
+
+  @Test
+  public void testIncludeGhostEntities() {
+    when(_mockEntityService.exists(
+            any(OperationContext.class), any(Collection.class), any(Boolean.class)))
+        .thenAnswer(args -> Set.of(datasetOneUrn));
+
+    EntityLineageResult mockResult = makeBasicMockResult();
+
+    when(_graphService.getLineage(
+            eq(datasetFourUrn),
+            eq(LineageDirection.UPSTREAM),
+            eq(0),
+            eq(100),
+            eq(1),
+            any(LineageFlags.class)))
+        .thenReturn(mockResult);
+
+    when(_mockEntityService.getLatestAspect(
+            any(OperationContext.class), eq(datasetFourUrn), eq(SIBLINGS_ASPECT_NAME)))
+        .thenReturn(null);
+
+    SiblingGraphService service = _client;
+
+    EntityLineageResult upstreamLineage =
+        service.getLineage(
+            opContext, datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, false, true);
+
+    // assert sibling graph service is a pass through when there are no siblings and
+    // includeGhostEntities
+    assertEquals(upstreamLineage, mockResult);
   }
 
   static Urn createFromString(@Nonnull String rawUrn) {
@@ -1128,5 +1046,30 @@ public class SiblingGraphServiceTest {
     } catch (URISyntaxException e) {
       return null;
     }
+  }
+
+  static LineageRelationship makeBasicRelationship(Urn urn) {
+    LineageRelationship relationship = new LineageRelationship();
+    relationship.setDegree(0);
+    relationship.setType(downstreamOf);
+    relationship.setEntity(urn);
+    return relationship;
+  }
+
+  static EntityLineageResult makeBasicMockResult() {
+    LineageRelationshipArray relationships = new LineageRelationshipArray();
+    LineageRelationship relationship1 = makeBasicRelationship(datasetOneUrn);
+    LineageRelationship relationship2 = makeBasicRelationship(datasetTwoUrn);
+    LineageRelationship relationship3 = makeBasicRelationship(datasetThreeUrn);
+    relationships.addAll(List.of(relationship1, relationship2, relationship3));
+
+    EntityLineageResult mockResult = new EntityLineageResult();
+    mockResult.setStart(0);
+    mockResult.setTotal(3);
+    mockResult.setCount(3);
+    mockResult.setFiltered(0);
+    mockResult.setRelationships(relationships);
+
+    return mockResult;
   }
 }

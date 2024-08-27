@@ -14,13 +14,14 @@ import { LineageDisplayColumn } from './useDisplayedColumns';
 import { LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { onClickPreventSelect, TRANSITION_DURATION_MS } from '../common';
 
-const MainColumnsWrapper = styled.div`
+const MainColumnsWrapper = styled.div<{ isGhost: boolean }>`
     align-items: center;
     display: flex;
     flex-direction: column;
     font: 12px 'Roboto Mono', monospace;
     width: 100%;
     padding: 8px 11px;
+    opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
 `;
 
 const SearchBarWrapper = styled.div`
@@ -63,6 +64,7 @@ const HorizontalDivider = styled.hr<{ margin: number }>`
 
 interface Props {
     entity: FetchedEntity;
+    isGhost: boolean;
     showAllColumns: boolean;
     paginatedColumns: LineageDisplayColumn[];
     highlightedColumns: LineageDisplayColumn[];
@@ -104,6 +106,7 @@ export default function DelayedColumns(props: Props) {
 function Columns(props: Props) {
     const {
         entity,
+        isGhost,
         showAllColumns,
         paginatedColumns,
         highlightedColumns,
@@ -155,7 +158,7 @@ function Columns(props: Props) {
     );
 
     return (
-        <MainColumnsWrapper>
+        <MainColumnsWrapper isGhost={isGhost}>
             {showAllColumns && (
                 <SearchBarWrapper>
                     <ColumnSearch searchText={filterText} setSearchText={setFilterText} />
