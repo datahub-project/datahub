@@ -1,4 +1,3 @@
-from typing import cast
 from unittest import mock
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
