@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { AssertionResultType} from '@src/types.generated';
+import { AssertionResultType } from '@src/types.generated';
 
 const StyledCardTitle = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};

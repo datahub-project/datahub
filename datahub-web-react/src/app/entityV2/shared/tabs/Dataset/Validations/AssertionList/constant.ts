@@ -15,5 +15,3 @@ export const ASSERTION_GROUP_BY_FILTER_OPTIONS = [
     { label: 'Type', value: 'type' },
     { label: 'Status', value: 'status' },
 ];
-
-
