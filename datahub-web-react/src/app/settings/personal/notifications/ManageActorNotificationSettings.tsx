@@ -33,12 +33,13 @@ type Props = {
     isPersonal: boolean;
     groupUrn?: string;
     groupName?: string;
+    canManageNotifications: boolean;
 };
 
 /**
  * Component used for managing actor notification settings.
  */
-export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupName }: Props) => {
+export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupName, canManageNotifications }: Props) => {
     const { config } = useAppConfig();
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const { emailSettings, slackSettings, updateSinkSettings, sinkTypes } = useActorSinkSettings({
@@ -50,11 +51,13 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
     );
 
     // Slack is enabled if global settings have been configured AND the actor has it enabled.
-    const isSlackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+    const isSlackSinkSupported =
+        canManageNotifications && globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
     const isSlackSinkEnabled = isSlackSinkSupported && !!sinkTypes?.includes(SLACK_SINK.type);
 
     // Email is enabled if the actor has it enabled - there are no global settings.
-    const isEmailSinkSupported = globallyEnabledSinks.some((sink) => sink.id === EMAIL_SINK.id);
+    const isEmailSinkSupported =
+        canManageNotifications && globallyEnabledSinks.some((sink) => sink.id === EMAIL_SINK.id);
     const isEmailSinkEnabled = isEmailSinkSupported && !!sinkTypes?.includes(EMAIL_SINK.type);
 
     const handleUpdateSlackSinkSettings = (newSlackSettings?: SlackNotificationSettingsInput) => {
