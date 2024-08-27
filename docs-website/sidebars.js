@@ -948,6 +948,7 @@ module.exports = {
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
+    // "docs/SECURITY_STANCE"
     // ],
   ],
 };
