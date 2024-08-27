@@ -168,7 +168,10 @@ export const CreateERModelRelationModal = ({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `${t('crud.error.failedToCreateErModelRelationship')} ${e.message || ''}`, duration: 3 });
+                message.error({
+                    content: `${t('crud.error.failedToCreateErModelRelationship')} ${e.message || ''}`,
+                    duration: 3,
+                });
             });
     };
     const originalERModelRelationName = editERModelRelation?.properties?.name;

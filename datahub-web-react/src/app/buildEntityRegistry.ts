@@ -51,7 +51,7 @@ export default function buildEntityRegistry(t: any) {
     registry.register(new ERModelRelationshipEntity());
     registry.register(new BusinessAttributeEntity());
     registry.register(new SchemaFieldPropertiesEntity());
-    registry.register(new ERModelRelationshipEntity())
+    registry.register(new ERModelRelationshipEntity());
     registry.register(new RestrictedEntity(t));
     return registry;
 }

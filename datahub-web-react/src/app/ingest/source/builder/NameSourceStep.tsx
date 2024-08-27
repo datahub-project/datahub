@@ -180,14 +180,16 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     />
                 </Form.Item>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">{t('common.advanced')}</Typography.Text>} key="1">
+                    <Collapse.Panel
+                        header={<Typography.Text type="secondary">{t('common.advanced')}</Typography.Text>}
+                        key="1"
+                    >
                         <Form.Item label={<Typography.Text strong>{t('ingest.executorId')}</Typography.Text>}>
                             <Typography.Paragraph>
                                 {t('ingest.provideTheExecutorIDToRouteRequestToText')}
-
                             </Typography.Paragraph>
                             <Input
-                                placeholder={t("common.default")}
+                                placeholder={t('common.default')}
                                 value={state.config?.executorId || ''}
                                 onChange={(event) => setExecutorId(event.target.value)}
                                 onBlur={(event) => handleBlur(event, setExecutorId)}
@@ -207,17 +209,19 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>{t('common.debugMode')}</Typography.Text>}>
-                            <Typography.Paragraph>
-                                {t('ingest.advancedTurnOnDebugMode')}
-                            </Typography.Paragraph>
+                            <Typography.Paragraph>{t('ingest.advancedTurnOnDebugMode')}</Typography.Paragraph>
                             <Checkbox
                                 checked={state.config?.debugMode || false}
                                 onChange={(event) => setDebugMode(event.target.checked)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>{t('ingest.common.extraEnviromentVariables')}</Typography.Text>}>
+                        <Form.Item
+                            label={
+                                <Typography.Text strong>{t('ingest.common.extraEnviromentVariables')}</Typography.Text>
+                            }
+                        >
                             <Typography.Paragraph>
-                            {t('ingest.common.advancedExtraEnvironmentVariableIngestion')}
+                                {t('ingest.common.advancedExtraEnvironmentVariableIngestion')}
                             </Typography.Paragraph>
                             <Input
                                 data-testid="extra-args-input"
@@ -227,7 +231,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 onBlur={(event) => handleBlur(event, setExtraEnvs)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>{t('ingest.common.extraDatahubPlugins')}</Typography.Text>}>
+                        <Form.Item
+                            label={<Typography.Text strong>{t('ingest.common.extraDatahubPlugins')}</Typography.Text>}
+                        >
                             <Typography.Paragraph>
                                 {t('ingest.common.advancedSetExtraPluginsDatahub')}
                             </Typography.Paragraph>
@@ -239,9 +245,11 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 onBlur={(event) => handleBlur(event, setExtraDataHubPlugins)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>{t('ingest.common.extraPipLibraries')}</Typography.Text>}>
+                        <Form.Item
+                            label={<Typography.Text strong>{t('ingest.common.extraPipLibraries')}</Typography.Text>}
+                        >
                             <Typography.Paragraph>
-                            {t('ingest.common.advancedExtraPipLibrariesIngestion')}
+                                {t('ingest.common.advancedExtraPipLibrariesIngestion')}
                             </Typography.Paragraph>
                             <Input
                                 data-testid="extra-pip-reqs-input"

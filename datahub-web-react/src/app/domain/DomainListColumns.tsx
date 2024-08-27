@@ -44,7 +44,9 @@ export function DomainNameColumn(logoIcon: JSX.Element) {
                     <Typography.Text>{record.name}</Typography.Text>
                 </DomainNameContainer>
                 <Tooltip title={t('domain.nbrOfEntityInDomain', { value: record.entities })}>
-                    <Tag>{record.entities} {t('common.entities')} </Tag>
+                    <Tag>
+                        {record.entities} {t('common.entities')}{' '}
+                    </Tag>
                 </Tooltip>
             </Link>
         </span>

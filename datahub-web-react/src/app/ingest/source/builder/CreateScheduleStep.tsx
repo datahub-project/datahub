@@ -146,7 +146,8 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                     tooltip={t('ingest.runAScheduleToolTip')}
                     label={
                         <Typography.Text strong>
-                            {t('ingest.runOnSchedule')} <Typography.Text type="secondary">{t('common.recommended')}</Typography.Text>
+                            {t('ingest.runOnSchedule')}{' '}
+                            <Typography.Text type="secondary">{t('common.recommended')}</Typography.Text>
                         </Typography.Text>
                     }
                 >

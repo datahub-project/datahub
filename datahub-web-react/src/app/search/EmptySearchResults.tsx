@@ -66,22 +66,21 @@ export default function EmptySearchResults({ suggestions }: Props) {
 
     return (
         <NoDataContainer>
-            <Section>{t('search.noResultsFoundFor')} &quot;{query}&quot;</Section>
+            <Section>
+                {t('search.noResultsFoundFor')} &quot;{query}&quot;
+            </Section>
             {refineSearchText && (
                 <>
                     {t('common.try')} <SuggestedText onClick={clearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
                     {suggestText && (
                         <>
-                            {t('search.orSearchingFor_component')} <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
+                            {t('search.orSearchingFor_component')}{' '}
+                            <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
                         </>
                     )}
                 </>
             )}
-            {!refineSearchText && suggestText && (
-                <>
-                    {t('search.didYouMean_component',{suggestText})}
-                </>
-            )}
+            {!refineSearchText && suggestText && <>{t('search.didYouMean_component', { suggestText })}</>}
             {!refineSearchText && !suggestText && (
                 <Button onClick={onClickExploreAll}>
                     <RocketOutlined /> {t('search.exploreAll')}

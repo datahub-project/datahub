@@ -104,7 +104,10 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `${t('crud.error.failedToCreateDomain')}: \n ${e.message || ''}`, duration: 3 });
+                message.error({
+                    content: `${t('crud.error.failedToCreateDomain')}: \n ${e.message || ''}`,
+                    duration: 3,
+                });
             });
         onClose();
     };
@@ -122,7 +125,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                    {t('common.cancel')}
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         id="createDomainButton"
@@ -144,7 +147,13 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 }}
             >
                 {isNestedDomainsEnabled && (
-                    <FormItemWithMargin label={<FormItemLabel>{t('common.parent')} {t('common.optional')}</FormItemLabel>}>
+                    <FormItemWithMargin
+                        label={
+                            <FormItemLabel>
+                                {t('common.parent')} {t('common.optional')}
+                            </FormItemLabel>
+                        }
+                    >
                         <DomainParentSelect
                             selectedParentUrn={selectedParentUrn}
                             setSelectedParentUrn={setSelectedParentUrn}
@@ -164,7 +173,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         ]}
                         hasFeedback
                     >
-                        <Input data-testid="create-domain-name" placeholder= {t('placeholder.domainName')} />
+                        <Input data-testid="create-domain-name" placeholder={t('placeholder.domainName')} />
                     </FormItemNoMargin>
                     <SuggestedNamesGroup>
                         {SUGGESTED_DOMAIN_NAMES.map((name) => {
@@ -203,7 +212,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     <Collapse.Panel header={<AdvancedLabel>{t('common.advancedOptions')}</AdvancedLabel>} key="1">
                         <FormItemWithMargin
                             label={<Typography.Text strong>{t('onBoarding.domains.idDomain')}</Typography.Text>}
-                            help= {t('group.groupIdDescription')}
+                            help={t('group.groupIdDescription')}
                         >
                             <FormItemNoMargin
                                 name={ID_FIELD_NAME}

@@ -418,7 +418,8 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         ))}
                         {ownersEmpty && (
                             <Typography.Paragraph type="secondary">
-                                {translateDisplayNames(t, 'emptyTitleOwner')}. {translateDisplayNames(t, 'emptyDescriptionOwner')}
+                                {translateDisplayNames(t, 'emptyTitleOwner')}.{' '}
+                                {translateDisplayNames(t, 'emptyDescriptionOwner')}
                             </Typography.Paragraph>
                         )}
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>

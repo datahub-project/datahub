@@ -39,7 +39,9 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
     const onConfirmDelete = () => {
         Modal.confirm({
             title: `${t('crud.deleteWithName', { name })}`,
-            content: `${t('crud.doYouWantTo.deleteContentWithThisName', { name: entityRegistry.getEntityName(EntityType.Domain) })}?`,
+            content: `${t('crud.doYouWantTo.deleteContentWithThisName', {
+                name: entityRegistry.getEntityName(EntityType.Domain),
+            })}?`,
             onOk() {
                 deleteDomain();
             },

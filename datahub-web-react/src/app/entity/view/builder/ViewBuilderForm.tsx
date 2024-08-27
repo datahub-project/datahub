@@ -106,10 +106,11 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                         </Select>
                     </Form.Item>
                 </StyledFormItem>
-                <StyledFormItem label={<Typography.Text strong>{t('common.filter')}</Typography.Text>} style={{ marginBottom: 8 }}>
-                    <Typography.Paragraph>
-                        {t('filter.view.filterDescription')}
-                    </Typography.Paragraph>
+                <StyledFormItem
+                    label={<Typography.Text strong>{t('common.filter')}</Typography.Text>}
+                    style={{ marginBottom: 8 }}
+                >
+                    <Typography.Paragraph>{t('filter.view.filterDescription')}</Typography.Paragraph>
                 </StyledFormItem>
             </Form>
             <ViewDefinitionBuilder mode={mode} state={state} updateState={updateState} />

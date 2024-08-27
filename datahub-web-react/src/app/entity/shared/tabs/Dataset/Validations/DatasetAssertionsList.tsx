@@ -105,7 +105,10 @@ export const DatasetAssertionsList = ({
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `${t('crud.error.failedToRemoveAssertion')} \n ${e.message || ''}`, duration: 3 });
+                message.error({
+                    content: `${t('crud.error.failedToRemoveAssertion')} \n ${e.message || ''}`,
+                    duration: 3,
+                });
             }
         }
         onDelete?.(urn);

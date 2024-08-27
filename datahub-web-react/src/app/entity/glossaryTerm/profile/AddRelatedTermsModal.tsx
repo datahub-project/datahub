@@ -61,7 +61,7 @@ function AddRelatedTermsModal(props: Props) {
                 message.loading({ content: t('crud.adding'), duration: 2 });
                 setTimeout(() => {
                     message.success({
-                        content: t('crud.success.addWithName', { name: t('common.relatedTerms')}),
+                        content: t('crud.success.addWithName', { name: t('common.relatedTerms') }),
                         duration: 2,
                     });
                     refetch();
@@ -168,7 +168,7 @@ function AddRelatedTermsModal(props: Props) {
 
     return (
         <Modal
-            title={t('crud.addWithName', { name: t('common.relatedTerms')})}
+            title={t('crud.addWithName', { name: t('common.relatedTerms') })}
             visible
             onCancel={onClose}
             footer={

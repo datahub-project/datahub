@@ -57,8 +57,8 @@ export default function DataProductSection({ readOnly }: Props) {
 
     const onRemoveDataProduct = () => {
         Modal.confirm({
-            title:  t('crud.doYouWantTo.confirmRemovalWithName', { name: t('common.dataProduct')}),
-            content:  t('crud.doYouWantTo.removeContentWithTheName', { name: t('common.dataProduct')}),
+            title: t('crud.doYouWantTo.confirmRemovalWithName', { name: t('common.dataProduct') }),
+            content: t('crud.doYouWantTo.removeContentWithTheName', { name: t('common.dataProduct') }),
             onOk() {
                 removeDataProduct();
             },
@@ -87,7 +87,8 @@ export default function DataProductSection({ readOnly }: Props) {
             {!dataProduct && (
                 <>
                     <EmptyText type="secondary">
-                        {translateDisplayNames(t, 'emptyTitleDataProduct')}. {translateDisplayNames(t, 'emptyDescriptionDataProduct')}
+                        {translateDisplayNames(t, 'emptyTitleDataProduct')}.{' '}
+                        {translateDisplayNames(t, 'emptyDescriptionDataProduct')}
                     </EmptyText>
                     {!readOnly && (
                         <Button type="default" onClick={() => setIsModalVisible(true)}>

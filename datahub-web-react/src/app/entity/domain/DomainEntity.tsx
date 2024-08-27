@@ -47,12 +47,6 @@ export class DomainEntity implements Entity<Domain> {
             );
         }
 
-
-
-
-
-
-
         return (
             <DomainIcon
                 style={{
@@ -106,7 +100,7 @@ export class DomainEntity implements Entity<Domain> {
                     component: DataProductsTab,
                 },
                 {
-                    name:  this.translationService('common.properties'),
+                    name: this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
             ]}

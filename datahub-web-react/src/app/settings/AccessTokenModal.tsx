@@ -4,7 +4,6 @@ import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
-
 const ModalSection = styled.div`
     display: flex;
     flex-direction: column;

@@ -137,7 +137,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 onClose?.();
             },
             onCancel() {},
-            okText:  t('common.yes'),
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });

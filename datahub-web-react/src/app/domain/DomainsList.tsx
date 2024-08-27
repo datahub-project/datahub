@@ -134,7 +134,7 @@ export const DomainsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content= {t('common.loadingDomains')} />}
+            {!data && loading && <Message type="loading" content={t('common.loadingDomains')} />}
             {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.domains') })} />}
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>
@@ -165,7 +165,9 @@ export const DomainsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     pagination={false}
-                    locale={{ emptyText: <Empty description={t('domain.noDomain')} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                    locale={{
+                        emptyText: <Empty description={t('domain.noDomain')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    }}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>

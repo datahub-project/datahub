@@ -324,7 +324,7 @@ export const AccessTokens = () => {
                 <TokensHeaderContainer>
                     <TokensTitle level={2}>{t('token.manageAccessToken')}</TokensTitle>
                     <Typography.Paragraph type="secondary">
-                    {t('token.manageAccessTokenForUseWithAPI')}
+                        {t('token.manageAccessTokenForUseWithAPI')}
                     </Typography.Paragraph>
                 </TokensHeaderContainer>
             </TokensContainer>
@@ -336,14 +336,13 @@ export const AccessTokens = () => {
                         <span>
                             <StyledInfoCircleOutlined />
                             {t('token.basedAuthIsDisabled')}
-
                         </span>
                     }
                 />
             )}
             <Typography.Title level={5}>{t('token.personalAccessToken')}</Typography.Title>
             <PersonTokenDescriptionText type="secondary">
-            {t('token.personalAccessTokenDescription')}
+                {t('token.personalAccessTokenDescription')}
             </PersonTokenDescriptionText>
             <TabToolbar>
                 <div>
@@ -354,7 +353,6 @@ export const AccessTokens = () => {
                         disabled={!canGeneratePersonalAccessTokens}
                     >
                         <PlusOutlined /> {t('token.generateNewToken')}
-
                     </Button>
                 </div>
                 <SelectContainer>
@@ -393,7 +391,7 @@ export const AccessTokens = () => {
                                 {t('common.all')}
                             </Select.Option>
                             <Select.Option value={StatusType.EXPIRED} key="EXPIRED">
-                                {t("common.expired")}
+                                {t('common.expired')}
                             </Select.Option>
                         </StyledSelect>
                     )}

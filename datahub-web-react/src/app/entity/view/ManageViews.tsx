@@ -39,9 +39,7 @@ export const ManageViews = () => {
         <PageContainer>
             <PageHeaderContainer>
                 <PageTitle level={3}>{t('entity.manageView')}</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    {t('filter.view.manageViewDescription')}
-                </Typography.Paragraph>
+                <Typography.Paragraph type="secondary">{t('filter.view.manageViewDescription')}</Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>
                 <ViewsList />

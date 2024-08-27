@@ -233,7 +233,7 @@ function EntityDropdown(props: Props) {
                                 <Tooltip
                                     title={
                                         shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
-                                            ? t('entity.cantDeleteWithSubDomainEntityWithName', {name:"name"})
+                                            ? t('entity.cantDeleteWithSubDomainEntityWithName', { name: 'name' })
                                             : undefined
                                     }
                                 >

@@ -61,7 +61,7 @@ export const SearchSelectBar = ({
         if (selectedEntityCount > 0) {
             Modal.confirm({
                 title: t('search.modal.exitSelectionTitle'),
-                content: t('search.modal.exitSelectionContent_interval', {count: selectedEntityCount }),
+                content: t('search.modal.exitSelectionContent_interval', { count: selectedEntityCount }),
                 onOk() {
                     onCancel?.();
                 },

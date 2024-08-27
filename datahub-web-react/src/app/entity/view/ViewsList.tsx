@@ -106,11 +106,12 @@ export const ViewsList = () => {
             {error && message.error({ content: t('crud.error.failedToLoadViews'), duration: 3 })}
             <TabToolbar>
                 <Button type="text" onClick={onClickCreateView}>
-                    <PlusOutlined />{t('ingest.createNewView')}
+                    <PlusOutlined />
+                    {t('ingest.createNewView')}
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText= {t('placeholder.searchViews')}
+                    placeholderText={t('placeholder.searchViews')}
                     suggestions={[]}
                     style={searchBarStyle}
                     inputStyle={searchBarInputStyle}

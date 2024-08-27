@@ -71,7 +71,10 @@ export default function TermContent({
                     })
                         .then(({ errors }) => {
                             if (!errors) {
-                                message.success({ content: t('crud.success.removeWithNameReverse', { name: termName }), duration: 2 });
+                                message.success({
+                                    content: t('crud.success.removeWithNameReverse', { name: termName }),
+                                    duration: 2,
+                                });
                             }
                         })
                         .then(refetch)

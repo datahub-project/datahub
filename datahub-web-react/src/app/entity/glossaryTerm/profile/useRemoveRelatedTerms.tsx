@@ -35,7 +35,7 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
                 setTimeout(() => {
                     refetch();
                     message.success({
-                        content: t('crud.success.removeWithName', { name: t('common.glossaryTerms')}),
+                        content: t('crud.success.removeWithName', { name: t('common.glossaryTerms') }),
                         duration: 2,
                     });
                 }, 2000);
@@ -45,7 +45,7 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
     function onRemove() {
         Modal.confirm({
             title: `${t('common.remove')} ${displayName}`,
-            content: t('crud.doYouWantTo.removeContentWithTheName', { name: entityRegistry.getEntityName(entityType)}),
+            content: t('crud.doYouWantTo.removeContentWithTheName', { name: entityRegistry.getEntityName(entityType) }),
             onOk() {
                 handleRemoveRelatedTerms();
             },

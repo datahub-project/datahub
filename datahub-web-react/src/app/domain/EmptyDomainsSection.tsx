@@ -61,7 +61,7 @@ function EmptyDomainsSection(props: Props) {
                 }
             >
                 <StyledButton onClick={() => setIsCreatingDomain(true)}>
-                    <PlusOutlined /> {t('crud.createWithName', { name: t('common.domain')})}
+                    <PlusOutlined /> {t('crud.createWithName', { name: t('common.domain') })}
                 </StyledButton>
             </StyledEmpty>
         </EmptyDomainContainer>

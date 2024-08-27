@@ -162,7 +162,9 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
             content={
                 hasDetails ? (
                     <>
-                        {deprecation?.note !== '' && <DeprecatedTitle>{t('deprecation.deprecationNote')}</DeprecatedTitle>}
+                        {deprecation?.note !== '' && (
+                            <DeprecatedTitle>{t('deprecation.deprecationNote')}</DeprecatedTitle>
+                        )}
                         {isDividerNeeded && <ThinDivider />}
                         <DescriptionContainer>
                             {expanded || !overLimit ? (
@@ -177,7 +179,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
                                                             setExpanded(false);
                                                         }}
                                                     >
-                                                       {t('common.readLess')}
+                                                        {t('common.readLess')}
                                                     </ReadLessText>
                                                 )}
                                             </ExpandedActions>

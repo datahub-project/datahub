@@ -68,9 +68,13 @@ export const DashboardStatsSummary = ({
             <Popover
                 content={
                     <>
-                        {createdMs && <div>{t('reporting.createdOnWithDate')} {toLocalDateTimeString(createdMs)}.</div>}
+                        {createdMs && (
+                            <div>
+                                {t('reporting.createdOnWithDate')} {toLocalDateTimeString(createdMs)}.
+                            </div>
+                        )}
                         <div>
-                        {t('common.changed')} {toLocalDateTimeString(lastUpdatedMs)}.{' '}
+                            {t('common.changed')} {toLocalDateTimeString(lastUpdatedMs)}.{' '}
                             <Tooltip title={t('chart.lastChangedTimeInSource')}>
                                 <HelpIcon />
                             </Tooltip>

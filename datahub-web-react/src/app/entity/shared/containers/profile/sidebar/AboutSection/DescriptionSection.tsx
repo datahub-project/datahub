@@ -77,7 +77,9 @@ export default function DescriptionSection({ description, baDescription, isExpan
                     <>
                         <MarkdownViewer source={description} ignoreLimit />
                         {isOverLimit && (
-                            <Typography.Link onClick={() => setIsExpanded(false)}>{t('common.readLessDescription')}</Typography.Link>
+                            <Typography.Link onClick={() => setIsExpanded(false)}>
+                                {t('common.readLessDescription')}
+                            </Typography.Link>
                         )}
                     </>
                 )}
@@ -100,7 +102,9 @@ export default function DescriptionSection({ description, baDescription, isExpan
                     <>
                         <MarkdownViewer source={baDescription || ''} ignoreLimit />
                         {isBaOverLimit && (
-                            <Typography.Link onClick={() => setIsBaExpanded(false)}>{t('common.readLessDescription')}</Typography.Link>
+                            <Typography.Link onClick={() => setIsBaExpanded(false)}>
+                                {t('common.readLessDescription')}
+                            </Typography.Link>
                         )}
                     </>
                 )}
@@ -109,7 +113,9 @@ export default function DescriptionSection({ description, baDescription, isExpan
                         limit={limit || ABBREVIATED_LIMIT}
                         readMore={
                             shouldShowReadMore ? (
-                                <Typography.Link onClick={readBAMore}>{t('common.readMoreDescription')}</Typography.Link>
+                                <Typography.Link onClick={readBAMore}>
+                                    {t('common.readMoreDescription')}
+                                </Typography.Link>
                             ) : undefined
                         }
                         shouldWrap

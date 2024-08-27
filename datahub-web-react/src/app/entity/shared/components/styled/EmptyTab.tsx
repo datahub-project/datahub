@@ -34,8 +34,10 @@ export const EmptyTab = ({ tab, children }: Props) => {
         <StyledEmpty
             description={
                 <EmptyDescription>
-                    <Typography.Title level={4}>{translateDisplayNames(t, `empty${  tab  }title`)}</Typography.Title>
-                    <Typography.Text type="secondary">{translateDisplayNames(t, `empty${  tab  }description`)}</Typography.Text>
+                    <Typography.Title level={4}>{translateDisplayNames(t, `empty${tab}title`)}</Typography.Title>
+                    <Typography.Text type="secondary">
+                        {translateDisplayNames(t, `empty${tab}description`)}
+                    </Typography.Text>
                 </EmptyDescription>
             }
         >

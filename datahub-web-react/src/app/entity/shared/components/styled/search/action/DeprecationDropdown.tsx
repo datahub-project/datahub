@@ -59,7 +59,7 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                         title: t('deprecation.markAsUnDeprecated'),
                         onClick: () => {
                             Modal.confirm({
-                                title:t('deprecation.markAssetsAsUnDeprecatedModalTitle'),
+                                title: t('deprecation.markAssetsAsUnDeprecatedModalTitle'),
                                 content: t('deprecation.markAssetsAsUnDeprecatedModalContent'),
                                 onOk() {
                                     batchUndeprecate();

@@ -99,7 +99,9 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
     const entityCount = entityData?.entityCount;
 
     const entityName = entityData?.name;
-    const subtypeEntity = entityData?.subTypes?.typeNames?.[0] ? translateDisplayNames(t, entityData?.subTypes?.typeNames?.[0]) : entityData?.subTypes?.typeNames?.[0];
+    const subtypeEntity = entityData?.subTypes?.typeNames?.[0]
+        ? translateDisplayNames(t, entityData?.subTypes?.typeNames?.[0])
+        : entityData?.subTypes?.typeNames?.[0];
     const subType = capitalizeFirstLetterOnly(subtypeEntity) || undefined;
 
     const isEditableDatasetNameEnabled = useIsEditableDatasetNameEnabled();

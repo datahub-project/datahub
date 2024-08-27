@@ -68,7 +68,8 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                 })}
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">
-                        {translateDisplayNames(t, 'emptyTitleOwner')}. {translateDisplayNames(t, 'emptyDescriptionOwner')}
+                        {translateDisplayNames(t, 'emptyTitleOwner')}.{' '}
+                        {translateDisplayNames(t, 'emptyDescriptionOwner')}
                     </Typography.Paragraph>
                 )}
                 {!readOnly && (

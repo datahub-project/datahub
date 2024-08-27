@@ -6,21 +6,19 @@ import * as ptBRTranslation from './locales/pt-br/translation.json';
 
 const resources = {
     en: {
-        translation: enTranslation.default
+        translation: enTranslation.default,
     },
     pt_br: {
-        translation: ptBRTranslation.default
+        translation: ptBRTranslation.default,
     },
 };
 
-i18n
-    .use(initReactI18next)
-    .init({
-        fallbackLng: 'pt_br',
-        interpolation: {
-            escapeValue: false,
-        },
-        resources
-    });
+i18n.use(initReactI18next).init({
+    fallbackLng: 'pt_br',
+    interpolation: {
+        escapeValue: false,
+    },
+    resources,
+});
 
 export default i18n;

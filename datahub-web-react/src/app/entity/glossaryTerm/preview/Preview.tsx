@@ -44,7 +44,9 @@ export const Preview = ({
             parentEntities={parentNodes?.nodes}
             domain={domain}
             entityTitleSuffix={
-                <UrlButton href={getRelatedEntitiesUrl(entityRegistry, urn)}>{t('filter.view.viewRekatedEntities')}</UrlButton>
+                <UrlButton href={getRelatedEntitiesUrl(entityRegistry, urn)}>
+                    {t('filter.view.viewRekatedEntities')}
+                </UrlButton>
             }
         />
     );

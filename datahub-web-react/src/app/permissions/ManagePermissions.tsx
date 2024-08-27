@@ -81,7 +81,7 @@ export const ManagePermissions = () => {
             <PageHeaderContainer>
                 <PageTitle level={3}>{t('permissions.managePermissions')}</PageTitle>
                 <Typography.Paragraph type="secondary">
-                {t('permissions.managePermissionsDescription')}
+                    {t('permissions.managePermissionsDescription')}
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <Content>

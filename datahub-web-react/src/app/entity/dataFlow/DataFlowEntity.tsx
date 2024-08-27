@@ -63,7 +63,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getEntityName = () => 'Pipeline';
 
-    getCollectionName = ()  => this.translationService('common.pipeline');
+    getCollectionName = () => this.translationService('common.pipeline');
 
     useEntityQuery = useGetDataFlowQuery;
 

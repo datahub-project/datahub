@@ -22,7 +22,7 @@ type Props = {
 };
 
 export const SidebarHeader = ({ title, actions, children }: Props) => {
-    const { t } = useTranslation()
+    const { t } = useTranslation();
 
     return (
         <HeaderContainer>

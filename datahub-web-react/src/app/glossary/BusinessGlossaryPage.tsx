@@ -14,7 +14,6 @@ import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
 
-
 import {
     BUSINESS_GLOSSARY_INTRO_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_ID,
@@ -90,7 +89,6 @@ function BusinessGlossaryPage() {
     const user = useUserContext();
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
 
-
     return (
         <>
             <OnboardingTour
@@ -112,7 +110,7 @@ function BusinessGlossaryPage() {
                         <TitleContainer>
                             <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />
                             <Typography.Title style={{ margin: '0' }} level={3}>
-                            {t('common.businessGlossary')}
+                                {t('common.businessGlossary')}
                             </Typography.Title>
                         </TitleContainer>
                         <div>
@@ -140,7 +138,7 @@ function BusinessGlossaryPage() {
                     {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
                         <EmptyGlossarySection
                             title={t('glossary.emptyGlossary')}
-                            description= {t('glossary.emptyGlossaryDescription')}
+                            description={t('glossary.emptyGlossaryDescription')}
                             refetchForTerms={refetchForTerms}
                             refetchForNodes={refetchForNodes}
                         />

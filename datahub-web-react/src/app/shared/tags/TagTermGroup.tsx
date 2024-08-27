@@ -187,7 +187,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <PlusOutlined />
-                    <span>{t('crud.addWithName', { name: 'Tags'})}</span>
+                    <span>{t('crud.addWithName', { name: 'Tags' })}</span>
                 </NoElementButton>
             )}
             {canAddTerm && !readOnly && (

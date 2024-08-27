@@ -213,11 +213,11 @@ export const SearchResults = ({
                             <LeftControlsContainer>
                                 {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
                                 <Typography.Text>
-                                    {t('search.showing')} {' '}
+                                    {t('search.showing')}{' '}
                                     <b>
                                         {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                                     </b>{' '}
-                                    {t('common.of')} {' '}
+                                    {t('common.of')}{' '}
                                     <b>
                                         {totalResults >= 10000
                                             ? `${formatNumberWithoutAbbreviation(10000)}+`

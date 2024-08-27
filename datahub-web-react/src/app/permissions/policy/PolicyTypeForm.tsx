@@ -40,7 +40,11 @@ export default function PolicyTypeForm({
 
     return (
         <TypeForm layout="vertical">
-            <Form.Item name="policyName" labelAlign="right" label={<Typography.Text strong>{t('common.name')}</Typography.Text>}>
+            <Form.Item
+                name="policyName"
+                labelAlign="right"
+                label={<Typography.Text strong>{t('common.name')}</Typography.Text>}
+            >
                 <Typography.Paragraph>{t('permissions.nameForNewPolicy')}</Typography.Paragraph>
                 <Input
                     placeholder={t('placeholder.yourPolicyNamePlaceholder')}
@@ -60,11 +64,11 @@ export default function PolicyTypeForm({
                         {t('common.platform')}
                     </Select.Option>
                     <Select.Option data-testid={t('common.metadata')} value={PolicyType.Metadata}>
-                    {t('common.metadata')}
+                        {t('common.metadata')}
                     </Select.Option>
                 </Select>
                 <TypeDescriptionParagraph type="secondary">
-                {t('permissions.typeOfPolicyDescriptionPlatform_component')}
+                    {t('permissions.typeOfPolicyDescriptionPlatform_component')}
                     <br />
                     <br />
                     {t('permissions.typeOfPolicyDescriptionMetadata_component')}
@@ -75,7 +79,7 @@ export default function PolicyTypeForm({
                 labelAlign="right"
                 label={<Typography.Text strong>{t('common.description')}</Typography.Text>}
             >
-                <Typography.Paragraph>  {t('permissions.newPolicyDescription')}</Typography.Paragraph>
+                <Typography.Paragraph> {t('permissions.newPolicyDescription')}</Typography.Paragraph>
                 <Input
                     placeholder={t('placeholder.newPolicyDescriptionPlaceHolder')}
                     data-testid="policy-description"

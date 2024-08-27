@@ -211,7 +211,9 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getExpandedNameForDataJob = (entity: DataJob): string => {
         const name = this.displayName(entity);
-        const flowName = entity?.dataFlow ? new DataFlowEntity().displayName(entity?.dataFlow) : undefined;
+        const flowName = entity?.dataFlow
+            ? new DataFlowEntity(this.translationService).displayName(entity?.dataFlow)
+            : undefined;
 
         // if we have no name, just return blank. this should not happen, so dont try & construct a name
         if (!name) {

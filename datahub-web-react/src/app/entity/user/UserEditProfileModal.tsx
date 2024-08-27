@@ -104,7 +104,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         {t('common.cancel')}
                     </Button>
                     <Button id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
-                    {t('common.saveChanges')}
+                        {t('common.saveChanges')}
                     </Button>
                 </>
             }

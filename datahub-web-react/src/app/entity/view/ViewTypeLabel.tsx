@@ -38,7 +38,7 @@ export const ViewTypeLabel = ({ type, color }: Props) => {
             </>
         ) : (
             <>
-               <b>Public</b> - visible to everyone.
+                <b>Public</b> - visible to everyone.
             </>
         );
     const Icon = type === DataHubViewType.Global ? StyledGlobalOutlined : StyledLockOutlined;

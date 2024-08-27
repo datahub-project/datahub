@@ -114,11 +114,11 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                     component: Sources,
                 },
                 {
-                    name:this.translationService('common.properties'),
+                    name: this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
                 {
-                    name:this.translationService('common.documentation'),
+                    name: this.translationService('common.documentation'),
                     component: DocumentationTab,
                 },
             ]}

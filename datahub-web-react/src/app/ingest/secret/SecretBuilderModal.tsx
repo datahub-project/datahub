@@ -103,9 +103,7 @@ export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit
                 }
             >
                 <Form.Item label={<Typography.Text strong>{t('common.name')}</Typography.Text>}>
-                    <Typography.Paragraph>
-                         {t('ingest.secretNameDescription')}
-                    </Typography.Paragraph>
+                    <Typography.Paragraph>{t('ingest.secretNameDescription')}</Typography.Paragraph>
                     <Form.Item
                         data-testid="secret-modal-name-input"
                         name={NAME_FIELD_NAME}
@@ -124,13 +122,14 @@ export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit
                         ]}
                         hasFeedback
                     >
-                        <Input placeholder={t('ingest.secretNameInputPlaceholder')} disabled={editSecret !== undefined} />
+                        <Input
+                            placeholder={t('ingest.secretNameInputPlaceholder')}
+                            disabled={editSecret !== undefined}
+                        />
                     </Form.Item>
                 </Form.Item>
                 <Form.Item label={<Typography.Text strong>{t('common.value')}</Typography.Text>}>
-                    <Typography.Paragraph>
-                    {t('ingest.secretValueDescription')}
-                    </Typography.Paragraph>
+                    <Typography.Paragraph>{t('ingest.secretValueDescription')}</Typography.Paragraph>
                     <Form.Item
                         data-testid="secret-modal-value-input"
                         name={VALUE_FIELD_NAME}
@@ -148,9 +147,7 @@ export const SecretBuilderModal = ({ initialState, editSecret, visible, onSubmit
                     </Form.Item>
                 </Form.Item>
                 <Form.Item label={<Typography.Text strong>{t('common.description')}</Typography.Text>}>
-                    <Typography.Paragraph>
-                    {t('ingest.secretDescriptionDescription')}
-                    </Typography.Paragraph>
+                    <Typography.Paragraph>{t('ingest.secretDescriptionDescription')}</Typography.Paragraph>
                     <Form.Item
                         data-testid="secret-modal-description-input"
                         name={DESCRIPTION_FIELD_NAME}

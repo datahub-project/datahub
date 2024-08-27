@@ -350,7 +350,7 @@ export const ManagePolicies = () => {
             {policiesLoading && !policiesData && (
                 <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
             )}
-            {policiesError && <Message type="error" content={ t('permissions.failedToLoadPolicies')} />}
+            {policiesError && <Message type="error" content={t('permissions.failedToLoadPolicies')} />}
             {updateError && message.error('Failed to update policies. An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>

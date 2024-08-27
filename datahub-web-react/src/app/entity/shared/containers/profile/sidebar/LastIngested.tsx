@@ -135,9 +135,14 @@ function LastIngested({ lastIngested }: Props) {
                             {t('reporting.lastSynchronized')}
                         </Title>
                         <RelativeDescription>
-                            {t('reporting.lastSynchronizedWithNameAndTime_component', { name: displayedEntityType.toLocaleLowerCase(), time: toRelativeTimeString(lastIngested) })}
+                            {t('reporting.lastSynchronizedWithNameAndTime_component', {
+                                name: displayedEntityType.toLocaleLowerCase(),
+                                time: toRelativeTimeString(lastIngested),
+                            })}
                         </RelativeDescription>
-                        <SubText>{t('reporting.synchronizedOnWithTime', { time: toRelativeTimeString(lastIngested) })}</SubText>
+                        <SubText>
+                            {t('reporting.synchronizedOnWithTime', { time: toRelativeTimeString(lastIngested) })}
+                        </SubText>
                     </PopoverContentWrapper>
                 }
             >

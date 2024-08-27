@@ -52,7 +52,6 @@ const AVATAR_STYLE = { marginTop: '14px' };
  * UserInfoSideBar- Sidebar section for users profiles.
  */
 export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
-
     const { t } = useTranslation();
     const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, dataHubRoles, urn } =
         sideBarData;
@@ -159,7 +158,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                     </AboutSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
-                    {t('common.groups')}
+                        {t('common.groups')}
                         <EntityGroups
                             readMore={groupSectionExpanded}
                             setReadMore={() => setGroupSectionExpanded(!groupSectionExpanded)}

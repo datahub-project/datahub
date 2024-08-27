@@ -103,7 +103,9 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                     onClose();
                     notification.success({
                         message: `Success`,
-                        description: t('crud.success.successfullyCreateWithName', { name: t('settings.ownershipType') }),
+                        description: t('crud.success.successfullyCreateWithName', {
+                            name: t('settings.ownershipType'),
+                        }),
                         placement: 'bottomLeft',
                         duration: 3,
                     });
@@ -152,7 +154,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                     message.destroy();
                     if (e instanceof Error) {
                         message.error({
-                            content:t('crud.error.failedToUpdateOwnership'),
+                            content: t('crud.error.failedToUpdateOwnership'),
                             duration: 3,
                         });
                     }

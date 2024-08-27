@@ -39,7 +39,8 @@ export default function DownloadAsCsvModal({
     const location = useLocation();
 
     const [saveAsTitle, setSaveAsTitle] = useState(
-        entitySearchIsEmbeddedWithin ? `${entitySearchIsEmbeddedWithin.name}_resultados.csv` : 'resultados.csv');
+        entitySearchIsEmbeddedWithin ? `${entitySearchIsEmbeddedWithin.name}_resultados.csv` : 'resultados.csv',
+    );
     const entityRegistry = useEntityRegistry();
     const openNotification = () => {
         notification.info({
@@ -123,7 +124,7 @@ export default function DownloadAsCsvModal({
         <Modal
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
-            title= {t('share.downloadAs')}
+            title={t('share.downloadAs')}
             visible={showDownloadAsCsvModal}
             footer={
                 <>

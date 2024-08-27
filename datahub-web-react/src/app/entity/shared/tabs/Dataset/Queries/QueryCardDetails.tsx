@@ -127,7 +127,9 @@ export default function QueryCardDetails({
             </Description>
             <Date>
                 {(createdAtMs && (
-                    <Typography.Text type="secondary">{t('reporting.createdOnWithDate', { date: toLocalDateString(createdAtMs)})}</Typography.Text>
+                    <Typography.Text type="secondary">
+                        {t('reporting.createdOnWithDate', { date: toLocalDateString(createdAtMs) })}
+                    </Typography.Text>
                 )) ||
                     undefined}
             </Date>

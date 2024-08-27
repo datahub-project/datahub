@@ -61,7 +61,6 @@ export const ErrorSection = (): JSX.Element => {
     const themeConfig = useTheme();
     const { t } = useTranslation();
 
-
     return (
         <Section>
             <div>
@@ -76,9 +75,7 @@ export const ErrorSection = (): JSX.Element => {
                     </DetailParagraph>
                 </MessageSection>
                 <div>
-                    <DetailParagraph type="secondary">
-                        {t('error.errorSection.needSupport_component')}
-                    </DetailParagraph>
+                    <DetailParagraph type="secondary">{t('error.errorSection.needSupport_component')}</DetailParagraph>
                     <ResourceList>
                         {resources.map((resource) => (
                             <ResourceListItem key={resource.path}>

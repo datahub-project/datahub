@@ -37,7 +37,9 @@ export default function EmptyContentSection({ hideLinksButton, readOnly }: Props
                     {translateDisplayNames(t, 'emptyTitleDocs')}. {translateDisplayNames(t, 'emptyDescriptionDocs')}
                 </EmptyContentMessage>
                 {!readOnly && (
-                    <Button onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}>
+                    <Button
+                        onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}
+                    >
                         <EditOutlined /> {t('common.addDocumentation')}
                     </Button>
                 )}

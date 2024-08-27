@@ -44,8 +44,6 @@ interface Props {
 }
 
 export const AdvancedSearchFilters = ({
-    
-
     unionType = UnionType.AND,
     facets,
     selectedFilters,

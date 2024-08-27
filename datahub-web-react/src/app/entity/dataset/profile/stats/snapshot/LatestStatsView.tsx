@@ -26,7 +26,10 @@ export default function LatestStatsView({ profile, toggleView }: Props) {
                     <div>
                         <Typography.Title level={2}>{t('reporting.latestStats')}</Typography.Title>
                         <Typography.Text style={{ color: 'gray' }}>
-                        {t('reporting.reportedOnAtWithDateTime', { date: reportedAtDate.toLocaleDateString(), time: reportedAtDate.toLocaleTimeString() })}
+                            {t('reporting.reportedOnAtWithDateTime', {
+                                date: reportedAtDate.toLocaleDateString(),
+                                time: reportedAtDate.toLocaleTimeString(),
+                            })}
                         </Typography.Text>
                     </div>
                     {toggleView}

@@ -57,7 +57,7 @@ const StyledDownOutlined = styled(DownOutlined)`
 `;
 
 export const SimpleSearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDisplayFilters }: Props) => {
-    const { t } = useTranslation()
+    const { t } = useTranslation();
     const [areFiltersVisible, setAreFiltersVisible] = useState(defaultDisplayFilters);
     const [expanded, setExpanded] = useState(false);
 

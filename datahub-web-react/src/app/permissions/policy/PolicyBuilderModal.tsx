@@ -169,7 +169,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="PolicyBuilderModal">
             <Modal
                 wrapClassName="PolicyBuilderModal"
-                title={isEditing ? t('permissions.editAPolicy'): t('permissions.createNewPolicy')}
+                title={isEditing ? t('permissions.editAPolicy') : t('permissions.createNewPolicy')}
                 visible={visible}
                 onCancel={onClose}
                 closable
@@ -184,7 +184,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                 <div className="steps-content">{activeStep.content}</div>
                 <StepsContainer>
                     <PrevButtonContainer>
-                        {activeStepIndex > 0 && <Button onClick={() => prev()}>{t("common.previous")}</Button>}
+                        {activeStepIndex > 0 && <Button onClick={() => prev()}>{t('common.previous')}</Button>}
                     </PrevButtonContainer>
                     <NextButtonContainer>
                         {activeStepIndex < policySteps.length - 1 && activeStep.complete && (

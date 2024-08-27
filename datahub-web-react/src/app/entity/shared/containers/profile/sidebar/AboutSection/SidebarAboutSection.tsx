@@ -39,7 +39,9 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                     hasContent &&
                     !readOnly && (
                         <Button
-                            onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}
+                            onClick={() =>
+                                routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })
+                            }
                             type="text"
                             shape="circle"
                         >

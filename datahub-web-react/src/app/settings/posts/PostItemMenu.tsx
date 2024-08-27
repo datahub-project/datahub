@@ -14,7 +14,6 @@ type Props = {
 };
 
 export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
-
     const { t } = useTranslation();
     const [deletePostMutation] = useDeletePostMutation();
 
@@ -41,7 +40,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
 
     const onConfirmDelete = () => {
         Modal.confirm({
-            title: t('crud.deletePost', {title}),
+            title: t('crud.deletePost', { title }),
             content: t('post.removePostDescription'),
             onOk() {
                 deletePost();

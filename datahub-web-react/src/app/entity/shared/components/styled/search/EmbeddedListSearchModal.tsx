@@ -76,7 +76,7 @@ export const EmbeddedListSearchModal = ({
             title={title}
             visible
             onCancel={onClose}
-            footer={<Button onClick={onClose}>{t("common.close")}</Button>}
+            footer={<Button onClick={onClose}>{t('common.close')}</Button>}
         >
             <SearchContainer>
                 <EmbeddedListSearch

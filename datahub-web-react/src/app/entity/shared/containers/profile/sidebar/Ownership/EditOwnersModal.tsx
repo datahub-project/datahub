@@ -287,14 +287,16 @@ export const EditOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: t('crud.success.removeWithName', { name: t('common.owners')}), duration: 2 });
+            message.success({ content: t('crud.success.removeWithName', { name: t('common.owners') }), duration: 2 });
             emitAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `${t('crud.error.removeWithName', { name: t('common.owners')})}: \n ${e.message || ''}`,
+                        content: `${t('crud.error.removeWithName', { name: t('common.owners') })}: \n ${
+                            e.message || ''
+                        }`,
                         duration: 3,
                     }),
                 );
@@ -338,7 +340,10 @@ export const EditOwnersModal = ({
 
     return (
         <Modal
-            title={title || `${operationType === OperationType.ADD ? t('common.add') : t('common.remove')} ${t('common.owners')}`}
+            title={
+                title ||
+                `${operationType === OperationType.ADD ? t('common.add') : t('common.remove')} ${t('common.owners')}`
+            }
             visible
             onCancel={onModalClose}
             keyboard
@@ -355,7 +360,11 @@ export const EditOwnersModal = ({
             getContainer={getModalDomContainer}
         >
             <Form layout="vertical" colon={false}>
-                <Form.Item key="owners" name="owners" label={<Typography.Text strong>{t('common.owner')}</Typography.Text>}>
+                <Form.Item
+                    key="owners"
+                    name="owners"
+                    label={<Typography.Text strong>{t('common.owner')}</Typography.Text>}
+                >
                     <Typography.Paragraph>{t('search.userOrGroupLabel')}</Typography.Paragraph>
                     <Form.Item name="owner">
                         <SelectInput
@@ -401,12 +410,17 @@ export const EditOwnersModal = ({
                                         const ownershipTypeName = ownershipType?.info?.name || ownershipType?.urn || '';
                                         return (
                                             <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
-                                                <Typography.Text>{translateDisplayNames(t, `ownership${ownershipTypeName}name`)}</Typography.Text>
+                                                <Typography.Text>
+                                                    {translateDisplayNames(t, `ownership${ownershipTypeName}name`)}
+                                                </Typography.Text>
                                                 <Typography.Paragraph
                                                     style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}
                                                     type="secondary"
                                                 >
-                                                    {translateDisplayNames(t, `ownership${ownershipTypeName}description`)}
+                                                    {translateDisplayNames(
+                                                        t,
+                                                        `ownership${ownershipTypeName}description`,
+                                                    )}
                                                 </Typography.Paragraph>
                                             </Select.Option>
                                         );

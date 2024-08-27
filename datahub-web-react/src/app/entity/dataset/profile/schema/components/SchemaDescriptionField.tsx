@@ -153,7 +153,7 @@ export default function DescriptionField({
     };
 
     const onUpdateModal = async (desc: string | null) => {
-        message.loading({ content: t('crud.updating')});
+        message.loading({ content: t('crud.updating') });
         try {
             await onUpdate(desc || '');
             message.destroy();
@@ -161,7 +161,8 @@ export default function DescriptionField({
             sendAnalytics();
         } catch (e: unknown) {
             message.destroy();
-            if (e instanceof Error) message.error({ content: `${t('crud.error.updateFailed')} \n ${e.message || ''}`, duration: 2 });
+            if (e instanceof Error)
+                message.error({ content: `${t('crud.error.updateFailed')} \n ${e.message || ''}`, duration: 2 });
         }
         onCloseModal();
     };
@@ -188,7 +189,7 @@ export default function DescriptionField({
                                         handleExpanded(false);
                                     }}
                                 >
-                                   {t('common.readLessDescription')}
+                                    {t('common.readLessDescription')}
                                 </ReadLessText>
                             )}
                             {EditButton}

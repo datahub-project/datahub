@@ -1,5 +1,6 @@
 import { Button } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import EditStructuredPropertyModal from './EditStructuredPropertyModal';
 import { StructuredPropertyEntity } from '../../../../../../types.generated';
 
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function EditColumn({ structuredProperty, associatedUrn, values, refetch }: Props) {
+    const { t } = useTranslation();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
     if (!structuredProperty || structuredProperty?.definition.immutable) {

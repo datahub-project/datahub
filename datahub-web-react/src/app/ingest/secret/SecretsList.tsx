@@ -212,7 +212,11 @@ export const SecretsList = () => {
             dataIndex: 'description',
             key: 'description',
             render: (description: any) => {
-                return <>{description || <Typography.Text type="secondary">{t('common.noDescription')}</Typography.Text>}</>;
+                return (
+                    <>
+                        {description || <Typography.Text type="secondary">{t('common.noDescription')}</Typography.Text>}
+                    </>
+                );
             },
         },
         {
@@ -279,7 +283,9 @@ export const SecretsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description={t('ingest.noSecretsFound')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: (
+                            <Empty description={t('ingest.noSecretsFound')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                        ),
                     }}
                     pagination={false}
                 />

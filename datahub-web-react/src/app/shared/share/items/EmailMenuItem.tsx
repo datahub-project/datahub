@@ -32,7 +32,7 @@ export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemPro
     const [isClicked, setIsClicked] = useState(false);
     const linkText = window.location.href;
     const { t } = useTranslation();
-    const typeTranslated = t(`common.${  type.toLowerCase()}`)
+    const typeTranslated = t(`common.${type.toLowerCase()}`);
 
     const link = qs.stringifyUrl({
         url: 'mailto:',

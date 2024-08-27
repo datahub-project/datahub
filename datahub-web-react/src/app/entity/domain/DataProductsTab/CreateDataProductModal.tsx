@@ -69,8 +69,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                    {t('common.cancel')}
-
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={createDataProduct} disabled={!builderState.name}>
                         {t('common.create')}

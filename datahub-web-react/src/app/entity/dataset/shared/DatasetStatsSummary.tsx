@@ -57,7 +57,8 @@ export const DatasetStatsSummary = ({
                 render={(isExpanded) => (
                     <StatText color={displayedColor}>
                         <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
-                        <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b> {t('common.rows')}
+                        <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b>{' '}
+                        {t('common.rows')}
                         {!!columnCount && (
                             <>
                                 ,{' '}
@@ -96,8 +97,7 @@ export const DatasetStatsSummary = ({
             <Popover
                 content={
                     <PopoverContent>
-                        {t('dataset.lastUpdatedDataOn')}{' '}
-                        <strong>{toLocalDateTimeString(lastUpdatedMs)}</strong>
+                        {t('dataset.lastUpdatedDataOn')} <strong>{toLocalDateTimeString(lastUpdatedMs)}</strong>
                     </PopoverContent>
                 }
             >

@@ -163,7 +163,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name:this.translationService('common.properties'),
+                    name: this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
                 {

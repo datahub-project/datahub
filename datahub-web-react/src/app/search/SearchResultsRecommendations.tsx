@@ -63,7 +63,9 @@ export const SearchResultsRecommendations = ({ userUrn, query, filters }: Props)
                     {recommendationModules &&
                         recommendationModules.map((module) => (
                             <RecommendationContainer>
-                                <RecommendationTitle level={5}>{translateDisplayNames(t, module.title)}</RecommendationTitle>
+                                <RecommendationTitle level={5}>
+                                    {translateDisplayNames(t, module.title)}
+                                </RecommendationTitle>
                                 <ThinDivider />
                                 <RecommendationModule
                                     module={module as RecommendationModuleType}

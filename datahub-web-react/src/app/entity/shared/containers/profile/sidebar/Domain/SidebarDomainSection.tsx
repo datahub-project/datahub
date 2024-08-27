@@ -93,7 +93,8 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                         <>
                             {!domain && (
                                 <Typography.Paragraph type="secondary">
-                                    {translateDisplayNames(t, 'emptyTitleDomain')}. {translateDisplayNames(t, 'emptyDescriptionDomain')}
+                                    {translateDisplayNames(t, 'emptyTitleDomain')}.{' '}
+                                    {translateDisplayNames(t, 'emptyDescriptionDomain')}
                                 </Typography.Paragraph>
                             )}
                             {!readOnly && (

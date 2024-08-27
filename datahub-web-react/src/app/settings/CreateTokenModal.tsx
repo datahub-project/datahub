@@ -114,13 +114,13 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
     return (
         <>
             <Modal
-                title={t("settings.createNewToken")}
+                title={t('settings.createNewToken')}
                 visible={visible}
                 onCancel={onModalClose}
                 footer={
                     <>
                         <Button onClick={onModalClose} type="text" data-testid="cancel-create-access-token-button">
-                            {t("common.cancel")}
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             id="createTokenButton"
@@ -155,11 +155,16 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                             ]}
                             hasFeedback
                         >
-                            <Input placeholder={t('settings.aNameForYourToken')} data-testid="create-access-token-name" />
+                            <Input
+                                placeholder={t('settings.aNameForYourToken')}
+                                data-testid="create-access-token-name"
+                            />
                         </Form.Item>
                     </Form.Item>
                     <Form.Item label={<Typography.Text strong>{t('common.description')}</Typography.Text>}>
-                        <Typography.Paragraph>{t('settings.anOptionalDescriptionForYourNewToken')}</Typography.Paragraph>
+                        <Typography.Paragraph>
+                            {t('settings.anOptionalDescriptionForYourNewToken')}
+                        </Typography.Paragraph>
                         <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                             <Input
                                 placeholder={t('settings.aDescriptionForYourToken')}

@@ -171,7 +171,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `${t("crud.error.failedToAddRecurseDomain")}: \n ${e.message || ''}`,
+                        content: `${t('crud.error.failedToAddRecurseDomain')}: \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );

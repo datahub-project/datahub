@@ -59,7 +59,7 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
                         onClick: () => {
                             Modal.confirm({
                                 title: t('entity.unsetDomainTitle'),
-                                content: t('entity.unsetDomainContent'), 
+                                content: t('entity.unsetDomainContent'),
                                 onOk() {
                                     batchUnsetDomains();
                                 },

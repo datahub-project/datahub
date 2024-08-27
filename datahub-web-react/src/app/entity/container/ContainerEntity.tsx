@@ -88,7 +88,7 @@ export class ContainerEntity implements Entity<Container> {
                     component: DocumentationTab,
                 },
                 {
-                    name:this.translationService('common.properties'),
+                    name: this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
             ]}

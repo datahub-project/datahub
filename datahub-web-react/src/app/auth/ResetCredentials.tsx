@@ -120,9 +120,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                                 ({ getFieldValue }) => ({
                                     validator() {
                                         if (getFieldValue('password').length < 8) {
-                                            return Promise.reject(
-                                                new Error(t('form.passwordIsFewerThan8Characters')),
-                                            );
+                                            return Promise.reject(new Error(t('form.passwordIsFewerThan8Characters')));
                                         }
                                         return Promise.resolve();
                                     },
@@ -136,7 +134,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                         </StyledFormItem>
                         <StyledFormItem
                             rules={[
-                                { required: true, message: t('form.pleaseConfirmYourPassword')},
+                                { required: true, message: t('form.pleaseConfirmYourPassword') },
                                 ({ getFieldValue }) => ({
                                     validator() {
                                         if (getFieldValue('confirmPassword') !== getFieldValue('password')) {

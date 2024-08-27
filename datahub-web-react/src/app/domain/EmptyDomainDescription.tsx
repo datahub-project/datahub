@@ -14,18 +14,10 @@ function EmptyDomainDescription() {
     const { t } = useTranslation();
     return (
         <>
-            <StyledParagraph type="secondary">
-                {t('domain.domainDescriptionWelcome')}
-            </StyledParagraph>
-            <StyledParagraph type="secondary">
-                {t('domain.domainDescriptionCreateDomains')}
-            </StyledParagraph>
-            <StyledParagraph type="secondary">
-                {t('domain.domainDescriptionBuildProducts')}
-            </StyledParagraph>
-            <StyledParagraph type="secondary">
-                {t('domain.domainDescriptionCallToAction')}
-            </StyledParagraph>
+            <StyledParagraph type="secondary">{t('domain.domainDescriptionWelcome')}</StyledParagraph>
+            <StyledParagraph type="secondary">{t('domain.domainDescriptionCreateDomains')}</StyledParagraph>
+            <StyledParagraph type="secondary">{t('domain.domainDescriptionBuildProducts')}</StyledParagraph>
+            <StyledParagraph type="secondary">{t('domain.domainDescriptionCallToAction')}</StyledParagraph>
         </>
     );
 }

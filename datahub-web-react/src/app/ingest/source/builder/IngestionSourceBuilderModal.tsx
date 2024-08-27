@@ -72,7 +72,9 @@ type Props = {
 export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
     const { t } = useTranslation();
     const isEditing = initialState !== undefined;
-    const titleText = isEditing ? t('crud.editWithName', { name: t('ingestion.ingestionSource')}) : t('onBoarding.ingestion.newIngestionSource');
+    const titleText = isEditing
+        ? t('crud.editWithName', { name: t('ingestion.ingestionSource') })
+        : t('onBoarding.ingestion.newIngestionSource');
     const initialStep = isEditing
         ? IngestionSourceBuilderStep.DEFINE_RECIPE
         : IngestionSourceBuilderStep.SELECT_TEMPLATE;

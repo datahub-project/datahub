@@ -99,7 +99,8 @@ export default function DataProductsTab() {
         <>
             <TabToolbar>
                 <Button type="text" onClick={() => setIsCreateModalVisible(true)}>
-                    <PlusOutlined />{t('onBoarding.domains.newDataProduct')}
+                    <PlusOutlined />
+                    {t('onBoarding.domains.newDataProduct')}
                 </Button>
                 <SearchBar
                     initialQuery={query || ''}

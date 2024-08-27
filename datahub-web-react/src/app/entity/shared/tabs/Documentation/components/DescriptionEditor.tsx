@@ -107,7 +107,10 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `${t('shared.failedToUpdateDescription')}\n ${e.message || ''}`, duration: 2 });
+                message.error({
+                    content: `${t('shared.failedToUpdateDescription')}\n ${e.message || ''}`,
+                    duration: 2,
+                });
             }
         }
         refetch?.();

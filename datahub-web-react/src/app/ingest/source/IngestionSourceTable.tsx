@@ -46,7 +46,6 @@ function IngestionSourceTable({
 }: Props) {
     const { t } = useTranslation();
 
-
     const tableColumns = [
         {
             title: t('common.type'),
@@ -56,7 +55,7 @@ function IngestionSourceTable({
             sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
         },
         {
-            title:t('common.name'),
+            title: t('common.name'),
             dataIndex: 'name',
             key: 'name',
             render: (name: string) => name || '',

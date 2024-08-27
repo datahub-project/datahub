@@ -204,13 +204,16 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         setGroupTitle(name);
         await updateName({ variables: { input: { name, urn } } })
             .then(() => {
-                message.success({ content: t('crud.success.updatedWithNameReverse',{name}), duration: 2 });
+                message.success({ content: t('crud.success.updatedWithNameReverse', { name }), duration: 2 });
                 refetch();
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `${t('crud.error.updateWithName',{name})} \n ${e.message || ''}`, duration: 3 });
+                    message.error({
+                        content: `${t('crud.error.updateWithName', { name })} \n ${e.message || ''}`,
+                        duration: 3,
+                    });
                 }
             });
     };
@@ -265,9 +268,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                         </Col>
                         <Col>
                             {isExternalGroup && (
-                                <Tooltip
-                                    title={`${'entity.membershipThisGroupCannotEddit'} ${externalGroupType}.`}
-                                >
+                                <Tooltip title={`${'entity.membershipThisGroupCannotEddit'} ${externalGroupType}.`}>
                                     <LockOutlined />
                                 </Tooltip>
                             )}

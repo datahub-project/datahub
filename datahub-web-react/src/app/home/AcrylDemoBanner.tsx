@@ -47,7 +47,6 @@ export default function AcrylDemoBanner() {
                 <Title>{t('home.scheduleDemo')}</Title>
                 <TextContent>
                     {t('home.scheduleDemoDescription_component')}
-
                     <StyledLink
                         href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup"
                         target="_blank"

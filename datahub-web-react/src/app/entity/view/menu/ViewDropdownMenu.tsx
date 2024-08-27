@@ -149,7 +149,7 @@ export const ViewDropdownMenu = ({
             .catch((_) => {
                 message.destroy();
                 message.error({
-                    content:  t('crud.error.failedToMakeDefaultViewOrganization'),
+                    content: t('crud.error.failedToMakeDefaultViewOrganization'),
                     duration: 3,
                 });
             });
@@ -199,7 +199,7 @@ export const ViewDropdownMenu = ({
                             selectedViewUrn: undefined,
                         });
                     }
-                    message.success({ content:t('common.previewRemoved'), duration: 2 });
+                    message.success({ content: t('common.previewRemoved'), duration: 2 });
                 }
             })
             .catch(() => {

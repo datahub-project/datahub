@@ -34,7 +34,7 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage:t('crud.error.failedToDeleteQuery'),
+                    defaultMessage: t('crud.error.failedToDeleteQuery'),
                     permissionMessage: t('crud.error.unauthorizedToDeleteQuery'),
                 });
             });
@@ -42,7 +42,7 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
 
     const confirmDeleteQuery = () => {
         Modal.confirm({
-            title: t('crud.deleteWithName', { name: t('common.query')}),
+            title: t('crud.deleteWithName', { name: t('common.query') }),
             content: t('query.confirmRemoval'),
             onOk() {
                 deleteQuery();

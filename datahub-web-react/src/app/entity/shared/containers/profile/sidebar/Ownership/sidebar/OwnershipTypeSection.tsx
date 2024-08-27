@@ -42,7 +42,9 @@ export const OwnershipTypeSection = ({ ownershipType, owners, readOnly }: Props)
     const ownershipTypeName = getOwnershipTypeName(ownershipType);
     return (
         <OwnershipTypeContainer>
-            <OwnershipTypeNameText>{translateDisplayNames(t, `ownership${ownershipTypeName}name`)}</OwnershipTypeNameText>
+            <OwnershipTypeNameText>
+                {translateDisplayNames(t, `ownership${ownershipTypeName}name`)}
+            </OwnershipTypeNameText>
             <OwnersContainer>
                 {owners.map((owner) => (
                     <ExpandedOwner

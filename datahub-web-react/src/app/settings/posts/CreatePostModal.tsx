@@ -149,7 +149,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
         onClose();
     };
 
-    const titleText = editData ?t('post.editPost') : t('post.createNewPost');
+    const titleText = editData ? t('post.editPost') : t('post.createNewPost');
 
     return (
         <Modal

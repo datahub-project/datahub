@@ -64,7 +64,6 @@ const MemberCountContainer = styled.span`
 `;
 
 export const Preview = ({
-
     urn,
     name,
     description,
@@ -93,7 +92,9 @@ export const Preview = ({
                         <Link to={url}>
                             <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
                             <MemberCountContainer>
-                                <Tag>{membersCount} {t('common.members')}</Tag>
+                                <Tag>
+                                    {membersCount} {t('common.members')}
+                                </Tag>
                             </MemberCountContainer>
                         </Link>
                     </TitleContainer>

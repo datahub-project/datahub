@@ -148,7 +148,6 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                     setInviteToken(data?.createInviteToken?.inviteToken || '');
                     // message.success('Generated new invite link');
                     message.success(t('authentification.generatedNewInviteLink'));
-
                 }
             })
             .catch((e) => {
@@ -195,28 +194,28 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                     <CopyText>
                         <pre>{inviteLink}</pre>
                     </CopyText>
-                    <Tooltip title={t("authentification.copyInviteLink")}>
+                    <Tooltip title={t('authentification.copyInviteLink')}>
                         <CopyButton
                             onClick={() => {
                                 navigator.clipboard.writeText(inviteLink);
-                                message.success(t("authentification.copiedInviteLinkToClipboard"));
+                                message.success(t('authentification.copiedInviteLinkToClipboard'));
                             }}
                         >
                             {t('common.copy')}
                         </CopyButton>
                     </Tooltip>
-                    <Tooltip title={t("authentification.shareInviteLink")}>
+                    <Tooltip title={t('authentification.shareInviteLink')}>
                         <RefreshButton
                             onClick={() => {
                                 createInviteToken(selectedRole?.urn);
                             }}
                         >
-                            {t("common.refresh")}
+                            {t('common.refresh')}
                         </RefreshButton>
                     </Tooltip>
                 </InviteLinkDiv>
                 <ModalSectionFooter type="secondary">
-                {t('authentification.copyInviteLinkDescription')}
+                    {t('authentification.copyInviteLinkDescription')}
                 </ModalSectionFooter>
             </ModalSection>
         </Modal>

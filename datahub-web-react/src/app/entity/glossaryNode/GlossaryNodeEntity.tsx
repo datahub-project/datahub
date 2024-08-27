@@ -68,18 +68,18 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 hideBrowseBar
                 tabs={[
                     {
-                        name: t('common.contents'),
+                        name: this.translationService('common.contents'),
                         component: ChildrenTab,
                     },
                     {
-                        name: t('common.documentation'),
+                        name: this.translationService('common.documentation'),
                         component: DocumentationTab,
                         properties: {
                             hideLinksButton: true,
                         },
                     },
                     {
-                        name: t('common.properties'),
+                        name: this.translationService('common.properties'),
                         component: PropertiesTab,
                     },
                 ]}

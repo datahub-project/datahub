@@ -81,9 +81,9 @@ export const ManageIdentities = () => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>{t("permissions.policyBuilderSteps.assignUserAndGroups")}</PageTitle>
+                <PageTitle level={3}>{t('permissions.policyBuilderSteps.assignUserAndGroups')}</PageTitle>
                 <Typography.Paragraph type="secondary">
-               {t('settings.manageIdentitiesDescription')}
+                    {t('settings.manageIdentitiesDescription')}
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <Content>

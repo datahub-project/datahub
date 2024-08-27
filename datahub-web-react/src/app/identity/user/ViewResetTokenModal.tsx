@@ -96,7 +96,7 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                 <ModalSection>
                     <ModalSectionHeader strong>{t('authentification.shareResetLink')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        {t('authentification.shareResetLinkDescription_component', { username})}
+                        {t('authentification.shareResetLinkDescription_component', { username })}
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: inviteLink }}>
                         <pre>{inviteLink}</pre>

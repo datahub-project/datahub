@@ -66,7 +66,7 @@ function useDeleteEntity(
                         }
                         if (!hideMessage) {
                             message.success({
-                                content: `${t('crud.deleteWithName', { name: entityRegistry.getEntityName(type)})}!`,
+                                content: `${t('crud.deleteWithName', { name: entityRegistry.getEntityName(type) })}!`,
                                 duration: 2,
                             });
                         }
@@ -85,7 +85,9 @@ function useDeleteEntity(
             title: `${t('crud.delete')} ${
                 (entityData && entityRegistry.getDisplayName(type, entityData)) || entityRegistry.getEntityName(type)
             }`,
-            content:  `${t('crud.doYouWantTo.removeContentWithThisName', { name: entityRegistry.getEntityName(type)})}?`,
+            content: `${t('crud.doYouWantTo.removeContentWithThisName', {
+                name: entityRegistry.getEntityName(type),
+            })}?`,
             onOk() {
                 handleDeleteEntity();
             },

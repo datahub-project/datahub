@@ -14,7 +14,6 @@ import { PageRoutes } from '../../conf/Global';
 import useGetInviteTokenFromUrlParams from './useGetInviteTokenFromUrlParams';
 import { useAcceptRoleMutation } from '../../graphql/mutations.generated';
 
-
 type FormValues = {
     fullName: string;
     email: string;
@@ -163,7 +162,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                             <FormInput prefix={<UserOutlined />} data-testid="email" />
                         </StyledFormItem>
                         <StyledFormItem
-                            rules={[{ required: true, message:  t('form.fillInYourName') }]}
+                            rules={[{ required: true, message: t('form.fillInYourName') }]}
                             name="fullName"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
                             label={<label style={{ color: 'white' }}>{t('common.fullName')}</label>}
@@ -172,13 +171,11 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                         </StyledFormItem>
                         <StyledFormItem
                             rules={[
-                                { required: true, message: t('form.fillInYourPassword')},
+                                { required: true, message: t('form.fillInYourPassword') },
                                 ({ getFieldValue }) => ({
                                     validator() {
                                         if (getFieldValue('password').length < 8) {
-                                            return Promise.reject(
-                                                new Error(t('form.passwordIsFewerThan8Characters')),
-                                            );
+                                            return Promise.reject(new Error(t('form.passwordIsFewerThan8Characters')));
                                         }
                                         return Promise.resolve();
                                     },
@@ -218,7 +215,9 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                                 <Select.Option value="Data Analyst">{t('placeholder.dataAnalyst')}</Select.Option>
                                 <Select.Option value="Data Engineer">{t('placeholder.dataEngineer')}</Select.Option>
                                 <Select.Option value="Data Scientist">{t('placeholder.dataScientist')}</Select.Option>
-                                <Select.Option value="Software Engineer">{t('placeholder.softwareEngineer')}</Select.Option>
+                                <Select.Option value="Software Engineer">
+                                    {t('placeholder.softwareEngineer')}
+                                </Select.Option>
                                 <Select.Option value="Manager">{t('placeholder.manager')}</Select.Option>
                                 <Select.Option value="Product Manager">{t('placeholder.productManager')}</Select.Option>
                                 <Select.Option value="Other">{t('placeholder.otherPosition')}</Select.Option>

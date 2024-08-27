@@ -66,7 +66,9 @@ export const Preferences = () => {
                 <TokensContainer>
                     <TokensHeaderContainer>
                         <TokensTitle level={2}>{t('common.appearance')}</TokensTitle>
-                        <Typography.Paragraph type="secondary">{t('settings.manageYourAppearanceSettings')}</Typography.Paragraph>
+                        <Typography.Paragraph type="secondary">
+                            {t('settings.manageYourAppearanceSettings')}
+                        </Typography.Paragraph>
                     </TokensHeaderContainer>
                 </TokensContainer>
                 <Divider />
@@ -75,9 +77,7 @@ export const Preferences = () => {
                         <span>
                             <SettingText>{t('settings.showSimplifiedHomepage')}</SettingText>
                             <div>
-                                <DescriptionText>
-                                {t('settings.showSimplifiedHomepageDescription')}
-                                </DescriptionText>
+                                <DescriptionText>{t('settings.showSimplifiedHomepageDescription')}</DescriptionText>
                             </div>
                         </span>
                         <Switch

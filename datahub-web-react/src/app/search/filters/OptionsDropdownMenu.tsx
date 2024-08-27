@@ -70,7 +70,6 @@ export default function OptionsDropdownMenu({
 
     useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
 
-
     return (
         <DropdownMenu data-testid="filter-dropdown" style={style}>
             <ScrollableContent>

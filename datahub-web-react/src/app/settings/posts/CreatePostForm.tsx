@@ -73,23 +73,22 @@ export default function CreatePostForm({ setCreateButtonEnabled, form, contentTy
             {postType === PostContentType.Link && (
                 <>
                     <TopFormItem label={<Typography.Text strong>{t('post.linkUrl')}</Typography.Text>}>
-                        <Typography.Paragraph>
-                        {t('post.linkUrlDescription')}
-                        </Typography.Paragraph>
+                        <Typography.Paragraph>{t('post.linkUrlDescription')}</Typography.Paragraph>
                         <SubFormItem name={LINK_FIELD_NAME} rules={[{ type: 'url', warningOnly: true }]} hasFeedback>
                             <Input data-testid="create-post-link" placeholder={t('post.linkUrlPlaceholder')} />
                         </SubFormItem>
                     </TopFormItem>
                     <SubFormItem label={<Typography.Text strong>{t('post.imageUrl')}</Typography.Text>}>
-                        <Typography.Paragraph>
-                        {t('post.imageUrlDescription')}
-                        </Typography.Paragraph>
+                        <Typography.Paragraph>{t('post.imageUrlDescription')}</Typography.Paragraph>
                         <SubFormItem
                             name={LOCATION_FIELD_NAME}
                             rules={[{ type: 'url', warningOnly: true }]}
                             hasFeedback
                         >
-                            <Input data-testid="create-post-media-location" placeholder={t('post.imageUrlPlaceholder')} />
+                            <Input
+                                data-testid="create-post-media-location"
+                                placeholder={t('post.imageUrlPlaceholder')}
+                            />
                         </SubFormItem>
                     </SubFormItem>
                 </>

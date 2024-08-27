@@ -37,7 +37,7 @@ export default function CopyUrnMenuItem({ urn, key, type }: CopyUrnMenuItemProps
                 setIsClicked(true);
             }}
         >
-            <Tooltip title={t('copy.copyUrnForThis', { type})}>
+            <Tooltip title={t('copy.copyUrnForThis', { type })}>
                 {isClicked ? <CheckOutlined /> : <CopyOutlined />}
                 <TextSpan>
                     <b>{t('copy.copyURN')}</b>

@@ -77,7 +77,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
 
     return (
         <Modal
-            title= {t('user.editProfile')}
+            title={t('user.editProfile')}
             visible={visible}
             onCancel={onClose}
             footer={

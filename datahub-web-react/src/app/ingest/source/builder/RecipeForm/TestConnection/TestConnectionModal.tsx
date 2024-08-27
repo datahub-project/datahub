@@ -105,7 +105,7 @@ function TestConnectionModal({
         <Modal
             visible
             onCancel={hideModal}
-            footer={<Button onClick={hideModal}>{t("common.done")}</Button>}
+            footer={<Button onClick={hideModal}>{t('common.done')}</Button>}
             title={
                 <ModalHeader style={{ margin: 0 }}>
                     <SourceIcon alt="source logo" src={logoUrl} />

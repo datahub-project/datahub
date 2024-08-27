@@ -74,10 +74,10 @@ function MoveGlossaryEntityModal(props: Props) {
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                    {t('common.cancel')}
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={moveGlossaryEntity} data-testid="glossary-entity-modal-move-button">
-                    {t('common.move')}
+                        {t('common.move')}
                     </Button>
                 </>
             }

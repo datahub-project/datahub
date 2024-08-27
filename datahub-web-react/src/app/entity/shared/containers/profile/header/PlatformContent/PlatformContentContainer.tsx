@@ -16,7 +16,7 @@ export function getDisplayedEntityType(
     entityData: GenericEntityProperties | null,
     entityRegistry: EntityRegistry,
     entityType: EntityType,
-    t: any
+    t: any,
 ) {
     const typeName = entityData?.subTypes?.typeNames?.[0];
 

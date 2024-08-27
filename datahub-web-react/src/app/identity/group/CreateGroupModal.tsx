@@ -68,7 +68,12 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 })
                 .catch((e) => {
                     message.destroy();
-                    message.error({ content: `${t('crud.error.createWithName', { name: t('common.group') })}!: \n ${e.message || ''}`, duration: 3 });
+                    message.error({
+                        content: `${t('crud.error.createWithName', { name: t('common.group') })}!: \n ${
+                            e.message || ''
+                        }`,
+                        duration: 3,
+                    });
                 })
                 .finally(() => {
                     setStagedName('');
@@ -99,7 +104,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         {t('common.cancel')}
                     </Button>
                     <Button id="createGroupButton" onClick={onCreateGroup} disabled={createButtonEnabled}>
-                    {t('common.create')}
+                        {t('common.create')}
                     </Button>
                 </>
             }
@@ -146,7 +151,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Group Id</Typography.Text>}>
                             <Typography.Paragraph>
-                            By default, a random UUID will be generated to uniquely identify this group. If
+                                By default, a random UUID will be generated to uniquely identify this group. If
                                 you&apos;d like to provide a custom id instead to more easily keep track of this group,
                                 you may provide it here. Be careful, you cannot easily change the group id after
                                 creation.

@@ -32,11 +32,7 @@ export const LookerWarning = ({ type }: Props) => {
             style={{ marginBottom: '10px' }}
             type="warning"
             banner
-            message={
-                <>
-                    {t('ingest.toCompleteTheLookerIntegrationTextWithLink_component', { link})}
-                </>
-            }
+            message={<>{t('ingest.toCompleteTheLookerIntegrationTextWithLink_component', { link })}</>}
         />
     );
 };

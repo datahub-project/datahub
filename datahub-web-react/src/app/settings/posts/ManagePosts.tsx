@@ -36,9 +36,7 @@ export default function ManagePosts() {
         <PageContainer>
             <PageHeaderContainer>
                 <PageTitle level={3}>{t('settings.homePagePosts')}</PageTitle>
-                <Typography.Paragraph type="secondary">
-                {t('settings.homePagePostsDescription')}
-                </Typography.Paragraph>
+                <Typography.Paragraph type="secondary">{t('settings.homePagePostsDescription')}</Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>
                 <PostList />

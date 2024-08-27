@@ -19,7 +19,6 @@ import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEd
 import { useUserContext } from '../../context/useUserContext';
 import DomainIcon from '../../domain/DomainIcon';
 
-
 const LinkWrapper = styled.span`
     margin-right: 0px;
 `;

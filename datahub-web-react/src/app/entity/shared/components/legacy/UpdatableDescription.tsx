@@ -51,7 +51,8 @@ export default function UpdatableDescription({
             message.success({ content: t('crud.success.update'), duration: 2 });
         } catch (e: unknown) {
             message.destroy();
-            if (e instanceof Error) message.error({ content: `${t('crud.error.updateFailed')}\n ${e.message || ''}`, duration: 2 });
+            if (e instanceof Error)
+                message.error({ content: `${t('crud.error.updateFailed')}\n ${e.message || ''}`, duration: 2 });
         }
         setShowAddDescModal(false);
     };

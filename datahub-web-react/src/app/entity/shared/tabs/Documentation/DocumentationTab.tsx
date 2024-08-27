@@ -64,7 +64,9 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             <Button
                                 data-testid="edit-documentation-button"
                                 type="text"
-                                onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}
+                                onClick={() =>
+                                    routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })
+                                }
                             >
                                 <EditOutlined /> {t('common.edit')}
                             </Button>
@@ -89,7 +91,9 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             <Editor content={description} readOnly />
                         ) : (
                             <DocumentationContainer>
-                                <Typography.Text type="secondary">{t('entity.noDocumentationAddedYet')}</Typography.Text>
+                                <Typography.Text type="secondary">
+                                    {t('entity.noDocumentationAddedYet')}
+                                </Typography.Text>
                             </DocumentationContainer>
                         )}
                         <Divider />
@@ -100,7 +104,9 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                 </>
             ) : (
                 <EmptyTab tab="documentation">
-                    <Button onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}>
+                    <Button
+                        onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}
+                    >
                         <EditOutlined /> {t('common.addDocumentation')}
                     </Button>
                     {!hideLinksButton && <AddLinkModal refetch={refetch} />}

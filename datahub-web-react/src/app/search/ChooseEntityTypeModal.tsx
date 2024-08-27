@@ -37,10 +37,10 @@ export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title
             footer={
                 <>
                     <Button onClick={onCloseModal} type="text">
-                    {t('common.cancel')}
+                        {t('common.cancel')}
                     </Button>
                     <Button disabled={stagedValues.length === 0} onClick={() => onOk?.(stagedValues)}>
-                    {t('common.done')}
+                        {t('common.done')}
                     </Button>
                 </>
             }

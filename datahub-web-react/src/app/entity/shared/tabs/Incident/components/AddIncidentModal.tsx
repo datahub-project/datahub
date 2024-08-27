@@ -84,7 +84,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                         actor: user?.urn,
                     },
                 };
-                message.success({ content:t('common.incidentAdded'), duration: 2 });
+                message.success({ content: t('common.incidentAdded'), duration: 2 });
                 analytics.event({
                     type: EventType.EntityActionEvent,
                     entityType,
@@ -135,7 +135,9 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                             >
                                 {incidentTypes.map((incidentType) => (
                                     <Select.Option key={incidentType.type} value={incidentType.type}>
-                                        <Typography.Text>{translateDisplayNames(t, `incident${  incidentType.name}`)}</Typography.Text>
+                                        <Typography.Text>
+                                            {translateDisplayNames(t, `incident${incidentType.name}`)}
+                                        </Typography.Text>
                                     </Select.Option>
                                 ))}
                             </Select>
@@ -148,7 +150,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                             rules={[
                                 {
                                     required: selectedIncidentType === IncidentType.Custom,
-                                    message: t('form.requiredWithName', { field: t('incident.customType')}),
+                                    message: t('form.requiredWithName', { field: t('incident.customType') }),
                                 },
                             ]}
                         >
@@ -161,7 +163,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                         rules={[
                             {
                                 required: true,
-                                message: t('form.requiredWithName', { field: t('common.title')}),
+                                message: t('form.requiredWithName', { field: t('common.title') }),
                             },
                         ]}
                     >
@@ -173,7 +175,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                         rules={[
                             {
                                 required: true,
-                                message: t('form.requiredWithName', { field: t('common.description')}),
+                                message: t('form.requiredWithName', { field: t('common.description') }),
                             },
                         ]}
                     >

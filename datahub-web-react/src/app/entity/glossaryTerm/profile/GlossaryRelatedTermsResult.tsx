@@ -13,7 +13,7 @@ import { translateDisplayNames } from '../../../../utils/translation/translation
 
 export enum RelatedTermTypes {
     hasRelatedTerms = 'Contains',
-    isRelatedTerms = "Inherits",
+    isRelatedTerms = 'Inherits',
     containedBy = 'Contained by',
     isAChildren = 'Inherited by',
 }

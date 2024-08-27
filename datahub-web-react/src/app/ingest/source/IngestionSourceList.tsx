@@ -358,7 +358,6 @@ export const IngestionSourceList = () => {
     };
 
     const onDelete = (urn: string) => {
-
         Modal.confirm({
             title: `Confirm Ingestion Source Removal`,
             content: `Are you sure you want to remove this ingestion source? Removing will terminate any scheduled ingestion runs.`,
@@ -382,9 +381,7 @@ export const IngestionSourceList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
-            {error && (
-                <Message type="error" content={t('ingest.failedToLoadIngestionSourcesAnErrorOccurred')} />
-            )}
+            {error && <Message type="error" content={t('ingest.failedToLoadIngestionSourcesAnErrorOccurred')} />}
             <SourceContainer>
                 <TabToolbar>
                     <div>
@@ -412,7 +409,7 @@ export const IngestionSourceList = () => {
 
                         <SearchBar
                             initialQuery={query || ''}
-                            placeholderText= {t('ingest.searchSources')}
+                            placeholderText={t('ingest.searchSources')}
                             suggestions={[]}
                             style={{
                                 maxWidth: 220,

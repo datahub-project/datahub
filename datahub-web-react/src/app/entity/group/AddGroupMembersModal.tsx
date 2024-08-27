@@ -135,7 +135,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
 
     return (
         <Modal
-            title= {t('common.addgroupMembers')}
+            title={t('common.addgroupMembers')}
             visible={visible}
             onCancel={onModalClose}
             footer={
@@ -157,7 +157,7 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
                         defaultOpen
                         mode="multiple"
                         ref={inputEl}
-                        placeholder= {t('onBoarding.search.searchOwners')}
+                        placeholder={t('onBoarding.search.searchOwners')}
                         showSearch
                         filterOption={false}
                         defaultActiveFirstOption={false}

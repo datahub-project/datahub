@@ -11,7 +11,6 @@ import { useBatchSetDataProductMutation } from '../../../../graphql/dataProduct.
 import { useEntityContext } from '../EntityContext';
 
 export enum EntityActionItem {
-    
     /**
      * Batch add a Glossary Term to a set of assets
      */
@@ -60,7 +59,7 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchAddGlossaryTermModalVisible(false);
-                    message.loading({ content:  t('crud.updating'), duration: 3 });
+                    message.loading({ content: t('crud.updating'), duration: 3 });
                     setTimeout(() => {
                         message.success({
                             content: t('crud.success.addedGlossaryTermEntities'),
@@ -132,7 +131,7 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDataProductModalVisible(false);
-                    message.loading({ content:  t('crud.updating'), duration: 3 });
+                    message.loading({ content: t('crud.updating'), duration: 3 });
                     setTimeout(() => {
                         message.success({
                             content: t('entity.addedAssetsDataProduct'),
@@ -147,7 +146,7 @@ function EntityActions(props: Props) {
                 message.destroy();
                 message.error(
                     handleBatchError(entityUrns, e, {
-                        content:t('crud.error.failedToAssetsDataHubUnknown'),
+                        content: t('crud.error.failedToAssetsDataHubUnknown'),
                         duration: 3,
                     }),
                 );
@@ -175,7 +174,7 @@ function EntityActions(props: Props) {
             </div>
             {isBatchAddGlossaryTermModalVisible && (
                 <SearchSelectModal
-                    titleText = {t('crud.addGlossaryTermsAssets')}
+                    titleText={t('crud.addGlossaryTermsAssets')}
                     continueText={t('common.add')}
                     onContinue={batchAddGlossaryTerms}
                     onCancel={() => setIsBatchAddGlossaryTermModalVisible(false)}

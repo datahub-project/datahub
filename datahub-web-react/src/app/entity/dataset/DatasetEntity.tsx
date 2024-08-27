@@ -46,7 +46,6 @@ const SUBTYPES = {
  * Definition of the DataHub Dataset entity.
  */
 export class DatasetEntity implements Entity<Dataset> {
-
     constructor(translationService: any) {
         this.translationService = translationService;
     }
@@ -54,8 +53,6 @@ export class DatasetEntity implements Entity<Dataset> {
     translationService: any;
 
     type: EntityType = EntityType.Dataset;
-
-
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
@@ -154,7 +151,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => false,
                         enabled: (_, _2) => false,
-                    }
+                    },
                 },
                 {
                     name: this.translationService('common.properties'),

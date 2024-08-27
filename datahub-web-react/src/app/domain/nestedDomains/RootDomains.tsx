@@ -30,7 +30,7 @@ export default function RootDomains({ setIsCreatingDomain }: Props) {
             {!loading && (!data || !data?.listDomains?.domains?.length) && (
                 <EmptyDomainsSection
                     icon={<ReadOutlined />}
-                    title= {t('common.organizeYourData')}
+                    title={t('common.organizeYourData')}
                     description={<EmptyDomainDescription />}
                     setIsCreatingDomain={setIsCreatingDomain}
                 />

@@ -64,7 +64,7 @@ function CreateGlossaryEntityModal(props: Props) {
 
             if (properties?.name) {
                 setStagedName(properties.name);
-                form.setFieldValue(t("common.name"), properties.name);
+                form.setFieldValue(t('common.name'), properties.name);
             }
 
             if (properties?.description) {
@@ -167,7 +167,9 @@ function CreateGlossaryEntityModal(props: Props) {
                         rules={[
                             {
                                 required: true,
-                                message: t('form.enterANameWithName', { name: entityRegistry.getEntityName(entityType)}),
+                                message: t('form.enterANameWithName', {
+                                    name: entityRegistry.getEntityName(entityType),
+                                }),
                             },
                             { whitespace: true },
                             { min: 1, max: 100 },
@@ -212,7 +214,10 @@ function CreateGlossaryEntityModal(props: Props) {
                     )}
                 </StyledItem>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">{t('common.advanced')}</Typography.Text>} key="1">
+                    <Collapse.Panel
+                        header={<Typography.Text type="secondary">{t('common.advanced')}</Typography.Text>}
+                        key="1"
+                    >
                         <Form.Item
                             label={
                                 <Typography.Text strong>
@@ -220,9 +225,7 @@ function CreateGlossaryEntityModal(props: Props) {
                                 </Typography.Text>
                             }
                         >
-                            <Typography.Paragraph>
-                                {t('entity.glossaryEntityUuidDescription')}
-                            </Typography.Paragraph>
+                            <Typography.Paragraph>{t('entity.glossaryEntityUuidDescription')}</Typography.Paragraph>
                             <Form.Item
                                 name="id"
                                 rules={[
@@ -237,7 +240,7 @@ function CreateGlossaryEntityModal(props: Props) {
                                 ]}
                             >
                                 <Input
-                                    placeholder= {t("common.classification")}
+                                    placeholder={t('common.classification')}
                                     onChange={(event) => setStagedId(event.target.value)}
                                 />
                             </Form.Item>

@@ -65,7 +65,7 @@ export function getStepsToRender(
     stepIds: string[],
     userUrn: string,
     reshow: boolean,
-    t: any
+    t: any,
 ): OnboardingStep[] {
     if (!educationSteps) return [];
     const filteredStepIds: string[] = reshow
@@ -83,7 +83,11 @@ export function getStepsToRender(
             content: (
                 <div>
                     <StepTitle level={5}>{translateDisplayNames(t, step?.title?.toString())}</StepTitle>
-                    <div dangerouslySetInnerHTML={{ __html: translateDisplayNames(t, `${step?.title?.toString()  }description`) }} />
+                    <div
+                        dangerouslySetInnerHTML={{
+                            __html: translateDisplayNames(t, `${step?.title?.toString()}description`),
+                        }}
+                    />
                 </div>
             ),
         }));

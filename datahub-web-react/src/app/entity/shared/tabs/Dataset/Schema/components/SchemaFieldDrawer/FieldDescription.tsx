@@ -68,7 +68,8 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
 
     const onFailMutation = (e) => {
         message.destroy();
-        if (e instanceof Error) message.error({ content: `${t('assertion.failed')} \n ${e.message || ''}`, duration: 2 });
+        if (e instanceof Error)
+            message.error({ content: `${t('assertion.failed')} \n ${e.message || ''}`, duration: 2 });
     };
 
     const generateMutationVariables = (updatedDescription: string) => ({
