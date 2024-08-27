@@ -748,38 +748,49 @@ def test_value_error_projects_and_project_pattern(
                 read_response(pytestconfig, "dashboardsConnection_all.json"),
                 read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
                 read_response(
-                    pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+                    pytestconfig,
+                    "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json",
                 ),
                 read_response(
-                    pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+                    pytestconfig,
+                    "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json",
                 ),
                 read_response(
-                    pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+                    pytestconfig,
+                    "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json",
                 ),
                 read_response(
-                    pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+                    pytestconfig,
+                    "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json",
                 ),
                 read_response(
-                    pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+                    pytestconfig,
+                    "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json",
                 ),
                 read_response(
-                    pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+                    pytestconfig,
+                    "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json",
                 ),
                 read_response(
-                    pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+                    pytestconfig,
+                    "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json",
                 ),
                 read_response(
-                    pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+                    pytestconfig,
+                    "embeddedDatasourcesFieldUpstream_26675da44a38_all.json",
                 ),
                 read_response(
-                    pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+                    pytestconfig,
+                    "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json",
                 ),
                 read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
                 read_response(
-                    pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+                    pytestconfig,
+                    "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json",
                 ),
                 read_response(
-                    pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+                    pytestconfig,
+                    "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json",
                 ),
                 read_response(pytestconfig, "customSQLTablesConnection_all.json"),
                 read_response(pytestconfig, "databaseTablesConnection_all.json"),

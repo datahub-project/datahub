@@ -1015,10 +1015,7 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
                     )
                 ]
             }
-            for start in range(
-                0,
-                len(ids),
-            )
+            for start in range(0, len(ids), page_size)
         ]
 
     return filter_pages
