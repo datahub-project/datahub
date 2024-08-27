@@ -9,7 +9,7 @@ import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
-import { AcrylAssertionSummary } from './AssertionList/Summary/AcrylAssertionSummary';
+import { AcrylAssertionSummaryTab } from './AssertionList/Summary/AcrylAssertionSummaryTab';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -79,7 +79,7 @@ export const AcrylValidationsTab = () => {
             ),
             path: TabPaths.SUMMARY,
             disabled: false, // Always keep the assertions tab clickable in saas.
-            content: <AcrylAssertionSummary />,
+            content: <AcrylAssertionSummaryTab />,
             id: 'summary',
         },
         {

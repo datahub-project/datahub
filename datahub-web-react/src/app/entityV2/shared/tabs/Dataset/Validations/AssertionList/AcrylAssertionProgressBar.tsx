@@ -14,7 +14,7 @@ interface Props {
 // Styled Components
 const StyledProgressContainer = styled.div`
     display: flex;
-    height: 8px;
+    height: 4px;
     width: 100%;
     border-radius: 20px,
     overflow: hidden;

@@ -21,7 +21,7 @@ const AcrylAssertionSummaryContainer = styled.div`
     column-gap: 24px;
 `;
 
-export const AcrylAssertionSummary = () => {
+export const AcrylAssertionSummaryTab = () => {
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();

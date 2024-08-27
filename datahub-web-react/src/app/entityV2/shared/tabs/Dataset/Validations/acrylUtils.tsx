@@ -34,46 +34,11 @@ import {
     MonitorDetailsFragment,
 } from '../../../../../../graphql/monitor.generated';
 import { GenericEntityProperties } from '../../../../../entity/shared/types';
+import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
 export const WARNING_COLOR_HEX = '#FA8C16';
-
-const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 14px;
-    }
-`;
-
-const StyledTableOutlined = styled(TableOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
-
-const StyledProjectOutlined = styled(ProjectOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
-
-const StyledConsoleSqlOutlined = styled(ConsoleSqlOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
 
 const StyledApiOutlined = styled(ApiOutlined)`
     && {
@@ -111,20 +76,23 @@ const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
     }
 `;
 
-const StyledCodeOutlined = styled(CodeOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
+const getStyledIconComponent = (type: AssertionType) => {
+    const Component = () => ASSERTION_TYPE_TO_ICON_MAP[type];
+    return styled(Component)`
+        && {
+            margin: 0px;
+            padding: 0px;
+            margin-right: 8px;
+            font-size: 18px;
+        }
+    `;
+};
 
 export const ASSERTION_INFO = [
     {
         name: 'Freshness',
         description: 'Define & monitor your expectations about when this dataset should be updated',
-        icon: <StyledClockCircleOutlined />,
+        icon: getStyledIconComponent(AssertionType.Freshness),
         type: AssertionType.Freshness,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -133,7 +101,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Volume',
         description: 'Define & monitor your expectations about the size of this dataset',
-        icon: <StyledTableOutlined />,
+        icon: getStyledIconComponent(AssertionType.Volume),
         type: AssertionType.Volume,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -142,7 +110,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Column',
         description: 'Define & monitor your expectations about the values in a column',
-        icon: <StyledProjectOutlined />,
+        icon: getStyledIconComponent(AssertionType.Field),
         type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -152,7 +120,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Schema',
         description: "Define & monitor your expectations about the table's columns and their types",
-        icon: <StyledCodeOutlined />,
+        icon: getStyledIconComponent(AssertionType.DataSchema),
         type: AssertionType.DataSchema,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -161,7 +129,7 @@ export const ASSERTION_INFO = [
     {
         name: 'SQL',
         description: 'Define & monitor your expectations using custom SQL rules',
-        icon: <StyledConsoleSqlOutlined />,
+        icon: getStyledIconComponent(AssertionType.Sql),
         type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -171,7 +139,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Other',
         description: 'Other assertions that are defined and maintained outside of DataHub.',
-        icon: <StyledApiOutlined />,
+        icon: getStyledIconComponent(AssertionType.Dataset),
         type: AssertionType.Dataset,
         entityTypes: [EntityType.Dataset],
         enabled: false,
@@ -374,7 +342,6 @@ export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, mayb
         return undefined;
     }
 };
-
 export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
     return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
         ...type,

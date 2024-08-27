@@ -66,3 +66,22 @@ export type AssertionTable = {
     groupBy: AssertionGroupBy;
     filterOptions?: any;
 };
+
+export type AssertionFilterOptions = {
+    filterGroupOptions: {
+        type: AssertionType[];
+        status: AssertionResultType[];
+        column: string[];
+        tags: string[];
+    };
+    recommendedFilters: AssertionRecommendedFilter[];
+};
+
+export type AssertionRecommendedFilter = {
+    name: string;
+    category: 'status' | 'type' | 'others';
+    count: number;
+    displayName: string;
+};
+
+export type AssertionWithDescription = AssertionWithMonitorDetails & { description: string };

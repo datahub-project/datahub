@@ -7,14 +7,14 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { AssertionGroup } from '../../acrylTypes';
-import { ASSERTION_STATUS_WITH_COLOR_MAP } from '../AcrylAssertionListConstants';
+import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '../AcrylAssertionListConstants';
 
 const StyledSummaryLabel = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
     color: ${({ color }) => color};
     font-weight: bold;
-    padding: 4px 6px;
-    border-radius: 4px;
+    padding: 4px 12px;
+    border-radius: 16px;
 `;
 
 const SummaryContainer = styled.div`
@@ -48,7 +48,7 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({
     return (
         <SummarySection>
             {visibleStatus.map((key) => {
-                const status = ASSERTION_STATUS_WITH_COLOR_MAP[key];
+                const status = ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[key];
                 const url = `${entityRegistry.getEntityUrl(
                     EntityType.Dataset,
                     entityData.urn,
