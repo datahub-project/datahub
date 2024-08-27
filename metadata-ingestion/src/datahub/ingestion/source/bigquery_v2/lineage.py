@@ -24,6 +24,7 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     AuditLogEntry,
@@ -64,6 +65,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 from datahub.utilities import memory_footprint
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -237,6 +239,7 @@ class BigqueryLineageExtractor:
         self.config = config
         self.report = report
         self.schema_resolver = schema_resolver
+
         self.identifiers = identifiers
         self.audit_log_api = BigQueryAuditLogApi(
             report.audit_log_api_perf,
@@ -251,6 +254,21 @@ class BigqueryLineageExtractor:
         ) = self.get_time_window()
 
         self.datasets_skip_audit_log_lineage: Set[str] = set()
+
+        self.aggregator = SqlParsingAggregator(
+            platform=self.identifiers.platform,
+            platform_instance=self.identifiers.identifier_config.platform_instance,
+            env=self.identifiers.identifier_config.env,
+            schema_resolver=self.schema_resolver,
+            eager_graph_load=False,
+            generate_lineage=True,
+            generate_queries=True,
+            generate_usage_statistics=False,
+            generate_query_usage_statistics=False,
+            generate_operations=False,
+            format_queries=True,
+        )
+        self.report.sql_aggregator = self.aggregator.report
 
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
@@ -287,25 +305,32 @@ class BigqueryLineageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         dataset_lineage: Dict[str, Set[LineageEdge]] = {}
         for project in projects:
+            if self.config.lineage_parse_view_ddl:
+                for view in view_refs_by_project[project]:
+                    self.datasets_skip_audit_log_lineage.add(view)
+                    self.aggregator.add_view_definition(
+                        view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
+                            BigQueryTableRef.from_string_name(view)
+                        ),
+                        view_definition=view_definitions[view],
+                        default_db=project,
+                    )
+
+            # TODO: Ideally snapshot lineage also uses sql aggregator, however, there is no
+            # api in aggregator to add lineage with CLL without query
             self.populate_snapshot_lineage(
                 dataset_lineage,
                 snapshot_refs_by_project[project],
                 snapshots_by_ref,
             )
 
-            if self.config.lineage_parse_view_ddl:
-                self.populate_view_lineage_with_sql_parsing(
-                    dataset_lineage,
-                    view_refs_by_project[project],
-                    view_definitions,
-                    project,
-                )
-
-            self.datasets_skip_audit_log_lineage.update(dataset_lineage.keys())
             for lineage_key in dataset_lineage.keys():
+                table_ref = BigQueryTableRef.from_string_name(lineage_key)
+                self.datasets_skip_audit_log_lineage.add(lineage_key)
                 yield from self.gen_lineage_workunits_for_table(
-                    dataset_lineage, BigQueryTableRef.from_string_name(lineage_key)
+                    dataset_lineage, table_ref
                 )
+        yield from auto_workunit(self.aggregator.gen_metadata())
 
     def get_lineage_workunits(
         self,
@@ -387,46 +412,6 @@ class BigqueryLineageExtractor:
 
             yield from self.gen_lineage_workunits_for_table(
                 lineage, BigQueryTableRef.from_string_name(lineage_key)
-            )
-
-    def populate_view_lineage_with_sql_parsing(
-        self,
-        view_lineage: Dict[str, Set[LineageEdge]],
-        view_refs: Set[str],
-        view_definitions: FileBackedDict[str],
-        default_project: str,
-    ) -> None:
-        for view in view_refs:
-            view_definition = view_definitions[view]
-            raw_view_lineage = sqlglot_lineage(
-                view_definition,
-                schema_resolver=self.schema_resolver,
-                default_db=default_project,
-            )
-            if raw_view_lineage.debug_info.table_error:
-                logger.debug(
-                    f"Failed to parse lineage for view {view}: {raw_view_lineage.debug_info.table_error}"
-                )
-                self.report.num_view_definitions_failed_parsing += 1
-                self.report.view_definitions_parsing_failures.append(
-                    f"Table-level sql parsing error for view {view}: {raw_view_lineage.debug_info.table_error}"
-                )
-                continue
-            elif raw_view_lineage.debug_info.column_error:
-                self.report.num_view_definitions_failed_column_parsing += 1
-                self.report.view_definitions_parsing_failures.append(
-                    f"Column-level sql parsing error for view {view}: {raw_view_lineage.debug_info.column_error}"
-                )
-            else:
-                self.report.num_view_definitions_parsed += 1
-
-            ts = datetime.now(timezone.utc)
-            view_lineage[view] = set(
-                make_lineage_edges_from_parsing_result(
-                    raw_view_lineage,
-                    audit_stamp=ts,
-                    lineage_type=DatasetLineageTypeClass.VIEW,
-                )
             )
 
     def populate_snapshot_lineage(

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Collection, Dict, Iterable, List, Optional, TypedDict
 
 from google.cloud.bigquery import Client
-from pydantic import Field
+from pydantic import Field, PositiveInt
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import (
@@ -96,6 +96,10 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         description="regex patterns for user emails to filter in usage.",
     )
 
+    top_n_queries: PositiveInt = Field(
+        default=10, description="Number of top queries to save to each table."
+    )
+
     include_lineage: bool = True
     include_queries: bool = True
     include_usage_statistics: bool = True
@@ -160,6 +164,7 @@ class BigQueryQueriesExtractor:
                 start_time=self.config.window.start_time,
                 end_time=self.config.window.end_time,
                 user_email_pattern=self.config.user_email_pattern,
+                top_n_queries=self.config.top_n_queries,
             ),
             generate_operations=self.config.include_operations,
             is_temp_table=self.is_temp_table,

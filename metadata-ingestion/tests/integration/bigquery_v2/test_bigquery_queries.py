@@ -6,7 +6,6 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
-from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 from tests.test_helpers import mce_helpers
@@ -58,14 +57,11 @@ def test_queries_ingestion(project_client, client, pytestconfig, monkeypatch, tm
             "config": {
                 "project_ids": ["gcp-staging", "gcp-staging-2"],
                 "local_temp_path": tmp_path,
+                "top_n_queries": 20,
             },
         },
         "sink": {"type": "file", "config": {"filename": mcp_output_path}},
     }
-
-    # This is hacky to pick all queries instead of any 10.
-    # Should be easy to remove once top_n_queries is supported in queries config
-    monkeypatch.setattr(BaseUsageConfig.__fields__["top_n_queries"], "default", 20)
 
     pipeline = run_and_get_pipeline(pipeline_config_dict)
     pipeline.pretty_print_summary()

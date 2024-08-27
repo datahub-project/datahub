@@ -155,10 +155,8 @@ class BigQueryV2Report(
 
     snapshots_scanned: int = 0
 
-    num_view_definitions_parsed: int = 0
-    num_view_definitions_failed_parsing: int = 0
-    num_view_definitions_failed_column_parsing: int = 0
-    view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
+    # view lineage
+    sql_aggregator: Optional[SqlAggregatorReport] = None
 
     read_reasons_stat: Counter[str] = field(default_factory=collections.Counter)
     operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
@@ -182,9 +180,6 @@ class BigQueryV2Report(
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
-
-    # lineage/usage v2
-    sql_aggregator: Optional[SqlAggregatorReport] = None
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
 
