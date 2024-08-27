@@ -8,6 +8,8 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.DeleteSubscriptionInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.service.SubscriptionService;
@@ -40,20 +42,25 @@ public class DeleteSubscriptionResolver implements DataFetcher<CompletableFuture
             final Urn actorUrn = subscriptionInfo.getActorUrn();
             if (actorUrn.getEntityType().equals(CORP_GROUP_ENTITY_NAME)
                 && !canManageGroupSubscriptions(actorUrn.toString(), context)) {
-              throw new RuntimeException(
-                  String.format("Unauthorized to delete subscription for group %s", actorUrn));
+              throw new DataHubGraphQLException(
+                  String.format("Unauthorized to delete subscription for group %s", actorUrn),
+                  DataHubGraphQLErrorCode.UNAUTHORIZED);
             }
             if (actorUrn.getEntityType().equals(CORP_USER_ENTITY_NAME)
-                && !actorUrn.toString().equals(context.getActorUrn())) {
-              throw new RuntimeException(
+                && !actorUrn.toString().equals(context.getActorUrn())
+                && !canManageUserSubscriptions(context)) {
+              throw new DataHubGraphQLException(
                   String.format(
-                      "Unauthorized to delete personal subscription for actor user is not logged in as. User: %s, Subscription actor: %S",
-                      context.getActorUrn(), actorUrn));
+                      "Unauthorized to delete subscription for user %s, missing MANAGE_USER_SUBSCRIPTIONS privilege",
+                      actorUrn),
+                  DataHubGraphQLErrorCode.UNAUTHORIZED);
             }
 
             _entityClient.deleteEntity(context.getOperationContext(), subscriptionUrn);
 
             return true;
+          } catch (DataHubGraphQLException e) { // Allow DataHub Exceptions to propagate up
+            throw e;
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete subscription", e);
           }

@@ -106,6 +106,7 @@ export default function QueryBuilderForm({ state, updateState }: Props) {
                         updateDescription(description);
                         setEditorKey(editorKey + 1); // Force the description editor to refresh
                     }}
+                    surface="query-builder-form"
                 />
             )}
         </Form>

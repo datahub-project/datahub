@@ -923,6 +923,13 @@ fragment searchResultsWithoutSchemaField on Entity {
             name
             description
             type
+            status {
+                state
+                lastModified {
+                    time
+                    actor
+                }
+            }
         }
     }
 

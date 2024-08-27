@@ -4,8 +4,12 @@ from abc import abstractmethod
 from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple
 
+import datahub.metadata.schema_classes as models
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.graph.client import SearchFilterRule
 from datahub.metadata.schema_classes import MetadataAttributionClass
+from datahub.utilities.urns.urn import Urn
+from datahub_actions.api.action_graph import AcrylDataHubGraph
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
@@ -118,3 +122,37 @@ class ComposablePropagator:
         :return: A list of PropagationDirective objects
         """
         pass
+
+
+def get_unique_siblings(graph: AcrylDataHubGraph, entity_urn: str) -> list[str]:
+    """
+    Get unique siblings for the entity urn
+    """
+
+    if entity_urn.startswith("urn:li:schemaField"):
+        parent_urn = Urn.create_from_string(entity_urn).get_entity_id()[0]
+        entity_field_path = Urn.create_from_string(entity_urn).get_entity_id()[1]
+        # Does my parent have siblings?
+        siblings: Optional[models.SiblingsClass] = graph.graph.get_aspect(
+            parent_urn,
+            models.SiblingsClass,
+        )
+        if siblings and siblings.siblings:
+            other_siblings = [x for x in siblings.siblings if x != parent_urn]
+            if len(other_siblings) == 1:
+                target_sibling = other_siblings[0]
+                # now we need to find the schema field in this sibling that
+                # matches us
+                if target_sibling.startswith("urn:li:dataset"):
+                    schema_fields = graph.graph.get_aspect(
+                        target_sibling, models.SchemaMetadataClass
+                    )
+                    if schema_fields:
+                        for schema_field in schema_fields.fields:
+                            if schema_field.fieldPath == entity_field_path:
+                                # we found the sibling field
+                                schema_field_urn = make_schema_field_urn(
+                                    target_sibling, schema_field.fieldPath
+                                )
+                                return [schema_field_urn]
+    return []

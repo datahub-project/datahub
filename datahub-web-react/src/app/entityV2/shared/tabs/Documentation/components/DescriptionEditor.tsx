@@ -258,6 +258,7 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
                                     handleEditorChange(updatedDescription + desc);
                                     setEditorKey((v) => v + 1);
                                 }}
+                                surface="entity-docs-editor"
                             />
                         </InferDocsPanelWrapper>
                     )}

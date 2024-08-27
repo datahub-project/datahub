@@ -1,16 +1,25 @@
-import React from 'react';
-
 import { Select } from 'antd';
-
-import { mergeRowAndHeaderData, getEntityInfo } from './utils';
-
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router';
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
 import { StyledSelect } from './components';
+import { getEntityInfo, mergeRowAndHeaderData } from './utils';
 
 export const ByFormSelector = () => {
     const {
         byForm: { forms, hasForms, selectedForm, setSelectedForm },
     } = useFormAnalyticsContext();
+    const location = useLocation();
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const newForm = params.get('filter');
+        if (newForm) {
+            setSelectedForm(newForm);
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.search]);
 
     // If theres no forms, return null
     if (!hasForms)

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import logging
 import time
 from typing import Dict, Iterable, List, Optional, Set, TypeVar
@@ -52,6 +51,7 @@ from datahub_integrations.propagation.propagation_utils import (
     PropagationDirective,
     SelectedAsset,
     get_attribution_and_context_from_directive,
+    get_unique_siblings,
 )
 
 T = TypeVar("T")
@@ -118,6 +118,33 @@ class TermPropagationConfig(AutomationActionConfig):
 
 
 class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator):
+    """
+    Known Limitations & Risks:
+
+        - Asset-level propagation is ONLY supported for Dataset Entities. This causes known issues across Data Job nodes.
+        - Deletion / Cleanup of Propagated Glossary Terms when one is removed on upstream is not yet supported.
+        - Glossary Term Relationship Lookup (IsA inheritance checks) happens on the fly and is not very performant.
+        - [Important!] This action contains read-modify-write patterns on aspects. This MUST be migrated to PATCH soon, as this
+          can cause conflicting overwrites on the same URN. This is relevant because we are writing the DOWNSTREAM aspect
+          so Kafka partitioning does not help us here.
+        - Bootstrap & rollback can both be very expensive operations (with conflicting write) and can potentially overload the system. There is no max number of entities limited for either operation.
+        - By default, we fetch ALL glossary terms every 1 minute. This means glossary changes may take up to 1 minute to reflect. Control this via
+          "term_resolution_caching_ttl_sec"
+
+    Opportunities to Extend:
+
+        - Support configuration of propagation mechanisms: Lineage, Siblings, Children (Containers)
+        - Support for more entity types - Containers, Dashboards, Charts, Data Jobs, ML Models
+        - Support filtering the "source" entities for propagation
+            - By Platform: Only propagate from Snowflake
+            - By Asset Type or Sub Type: Only propagate from Views, etc.
+            - By Container: Only propagate in the "prod" DB
+            - By Domain: Only propagate for the Marketing Domain
+            - By Tag: Only propagate for a specific tag
+
+            This will require richer hydration support, but can lead to a vastly more usable experience.
+    """
+
     def __init__(self, config: TermPropagationConfig, ctx: PipelineContext):
         super().__init__(config=config, ctx=ctx)
         self.config: TermPropagationConfig = config
@@ -133,14 +160,17 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
                 else:
                     resolved_term = self.term_resolver.get_glossary_term_urn(t)
                     if not resolved_term:
-                        raise Exception(f"Failed to resolve term by name {t}")
+                        logger.error(
+                            f"Failed to resolve term by name {t}. Skipping propagation of this entity!"
+                        )
                     resolved_terms.append(resolved_term)
             self.config.target_terms = resolved_terms
-            logger.info(
-                f"[Config] Will propagate terms that inherit from terms {self.config.target_terms}"
-            )
 
         if self.config.term_groups:
+            logger.info(self.config)
+            logger.info(
+                f"[Config] Will propagate all terms in groups {self.config.term_groups}"
+            )
             resolved_nodes = []
             for node in self.config.term_groups:
                 if node.startswith("urn:li:glossaryNode"):
@@ -148,15 +178,17 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
                 else:
                     resolved_node = self.term_resolver.get_glossary_node_urn(node)
                     if not resolved_node:
-                        raise Exception(f"Failed to resolve node by name {node}")
+                        logger.error(
+                            f"Failed to resolve node by name {node}. Skipping propagation of this entity!"
+                        )
                     resolved_nodes.append(resolved_node)
             self.config.term_groups = resolved_nodes
-            logger.info(
-                f"[Config] Will propagate all terms in groups {self.config.term_groups}"
-            )
+
+        # Set Up Cached Terms
         self.cached_terms = self._get_all_terms()
         self.cached_terms_ts_sec = int(time.time())
-        logger.info(f"Resolved terms : {self.all_terms}")
+
+        logger.info(f"Will propagate all resolved terms: {self.all_terms}")
         self.event_processing_stats = EventProcessingStats()
 
     def name(self) -> str:
@@ -167,46 +199,6 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
         action_config = TermPropagationConfig.parse_obj(config_dict or {})
         logger.info(f"Term Propagation Config action configured with {action_config}")
         return cls(action_config, ctx)
-
-    def _get_target_terms_expanded(self) -> Iterable[str]:
-        expanded_terms = set()
-        if self.config.target_terms:
-            for term in self.config.target_terms:
-                expanded_terms.add(term)
-                from datahub.ingestion.graph.client import DataHubGraph
-
-                inherited_terms = self.ctx.graph.graph.get_related_entities(
-                    term, ["IsA"], DataHubGraph.RelationshipDirection.INCOMING
-                )
-                if inherited_terms:
-                    for inherited_term in inherited_terms:
-                        expanded_terms.add(inherited_term.urn)
-        return expanded_terms
-
-    def _get_term_groups_expanded_to_terms(self) -> Iterable[str]:
-        """
-        Get all terms in the term groups.
-        Will recurse down term group hierarchy to get all terms.
-        """
-
-        def __get_terms_in_group(group: str) -> Set[str]:
-            terms = self.ctx.graph.get_relationships(
-                entity_urn=group, direction="INCOMING", relationship_types=["IsPartOf"]
-            )
-            expanded_terms = set()
-            if terms:
-                for term in terms:
-                    if term.startswith("urn:li:glossaryTerm"):
-                        expanded_terms.add(term)
-                    elif term.startswith("urn:li:glossaryNode"):
-                        expanded_terms.update(__get_terms_in_group(term))
-            return expanded_terms
-
-        expanded_terms = set()
-        if self.config.term_groups:
-            for term_group in self.config.term_groups:
-                expanded_terms.update(__get_terms_in_group(term_group))
-        return expanded_terms
 
     def process_one_asset(
         self, asset: SelectedAsset, operation: str
@@ -271,12 +263,9 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
                         origin=field_urn,
                     )
                     yield term_propagation_directive
+        # Currently only support Datasets and Schema Fields
         elif target_entity_type in [
             "dataset",
-            "chart",
-            "dashboard",
-            "dataJob",
-            "dataFlow",
         ]:
             glossaryTerms = self.ctx.graph.graph.get_aspect(
                 asset_urn, GlossaryTermsClass
@@ -299,18 +288,6 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
                     yield term_propagation_directive
         else:
             logger.error(f"Unsupported target entity type {target_entity_type}")
-
-    def _get_all_terms(self) -> List[str]:
-        all_terms: List[str] = []
-        if self.config.target_terms:
-            all_terms.extend(self._get_target_terms_expanded())
-
-        if self.config.term_groups:
-            logger.info("Will propagate terms from term groups")
-            all_terms.extend(self._get_term_groups_expanded_to_terms())
-
-        logger.info(f"Will propagate terms {all_terms}")
-        return list(set(all_terms))
 
     @property
     def all_terms(self) -> List[str]:
@@ -400,19 +377,20 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
     def should_propagate(
         self, event: EventEnvelope
     ) -> Optional[TermPropagationDirective]:
-        logger.info(f"Term Propagator: Received event {event}")
+        logger.debug(f"Term Propagator: Received event {event}")
         if event.event_type == "EntityChangeEvent_v1":
             assert isinstance(event.event, EntityChangeEvent)
-            logger.info(f"Received event {event}")
+            logger.debug(f"Received event {event}")
             assert self.ctx.graph is not None
             semantic_event = event.event
             if (
                 semantic_event.category == "GLOSSARY_TERM"
+                and semantic_event.operation == "ADD"
                 and self.config is not None
                 and self.config.enabled
             ):
                 assert semantic_event.modifier
-                logger.info(
+                logger.debug(
                     f"Checking for {semantic_event.modifier} in {self.all_terms}"
                 )
                 for target_term in self.all_terms or [semantic_event.modifier]:
@@ -446,28 +424,185 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
                         )
         return None
 
-    def add_terms_to_dataset_fields(
-        self,
-        graph: AcrylDataHubGraph,
-        dataset_urn: str,
-        field_terms: dict[str, List[str]],
-        context: dict,
-    ) -> None:
-        # Create a MetadataPatchProposal object
-        dataset = DatasetPatchBuilder(urn=dataset_urn)
-        for field_path, terms in field_terms.items():
-            field_builder = dataset.for_field(field_path=field_path)
-            for term in terms:
-                field_builder.add_term(
-                    GlossaryTermAssociationClass(
-                        term, context=json.dumps(context) if context else None
-                    )
-                )
-        for mcp in dataset.build():
-            logger.info(f"{mcp}")
-            graph.emit(mcp)
+    def act(self, event: EventEnvelope) -> None:
+        """This method responds to changes to glossary terms and propagates them
+        to downstream entities"""
+        if not self._stats.event_processing_stats:
+            self._stats.event_processing_stats = EventProcessingStats()
+        self._stats.event_processing_stats.start(event)
+        success = False
+        try:
+            term_propagation_directive = self.should_propagate(event)
+            if term_propagation_directive:
+                logger.info(f"Term propagation directive: {term_propagation_directive}")
+                self.process_directive(term_propagation_directive)
+            success = True
+        finally:
+            self._stats.event_processing_stats.end(event, success=success)
 
-    def modify_terms_on_chart_fields_slow(
+    def process_directive(
+        self, term_propagation_directive: TermPropagationDirective
+    ) -> None:
+
+        if not term_propagation_directive or not term_propagation_directive.propagate:
+            logger.debug("Skipping propagation. No term propagation directive provided")
+            return
+
+        assert self.ctx.graph
+        attribution, context_string = get_attribution_and_context_from_directive(
+            self.action_urn, term_propagation_directive
+        )
+
+        downstreams = self.ctx.graph.get_downstreams(
+            entity_urn=term_propagation_directive.entity
+        )
+
+        siblings = get_unique_siblings(
+            self.ctx.graph, term_propagation_directive.entity
+        )
+
+        logger.debug(
+            f"Downstreams: {downstreams}, Siblings: {siblings} for {term_propagation_directive.entity}"
+        )
+
+        entity_urn = term_propagation_directive.entity
+
+        # Case 1: Propagate for Schema Fields
+        if entity_urn.startswith("urn:li:schemaField"):
+            downstream_fields = [
+                x for x in downstreams if x.startswith("urn:li:schemaField")
+            ]
+            sibling_fields = [x for x in siblings if x.startswith("urn:li:schemaField")]
+            self._handle_schema_field_propagation(
+                term_propagation_directive,
+                downstream_fields,
+                sibling_fields,
+                attribution,
+                context_string,
+            )
+        # Case 2: Propagate for Datasets
+        elif entity_urn.startswith("urn:li:dataset"):
+            downstream_datasets = [
+                x for x in downstreams if x.startswith("urn:li:dataset")
+            ]
+            sibling_datasets = [x for x in siblings if x.startswith("urn:li:dataset")]
+            self._handle_dataset_propagation(
+                term_propagation_directive,
+                downstream_datasets,
+                sibling_datasets,
+                attribution,
+                context_string,
+            )
+        else:
+            logger.warning(
+                f"Skipping term propagationg for unsupported entity urn: {entity_urn}"
+            )
+
+    def _handle_schema_field_propagation(
+        self,
+        term_propagation_directive: TermPropagationDirective,
+        downstream_fields: List[str],
+        sibling_fields: List[str],
+        attribution: MetadataAttributionClass,
+        context_string: str,
+    ) -> None:
+
+        # Case 1: Apply to Downstreams
+        for field in downstream_fields:
+            self._add_term_to_field(
+                field, term_propagation_directive, attribution, context_string
+            )
+
+        # Case 2: Apply to Siblings
+        for sibling in sibling_fields:
+            self._add_term_to_field(
+                sibling, term_propagation_directive, attribution, context_string
+            )
+
+    def _handle_dataset_propagation(
+        self,
+        term_propagation_directive: TermPropagationDirective,
+        downstream_datasets: List[str],
+        sibling_datasets: List[str],
+        attribution: MetadataAttributionClass,
+        context_string: str,
+    ) -> None:
+        for dataset in downstream_datasets:
+            self._add_term_to_dataset(
+                dataset, term_propagation_directive, attribution, context_string
+            )
+
+        for sibling in sibling_datasets:
+            self._add_term_to_dataset(
+                sibling, term_propagation_directive, attribution, context_string
+            )
+
+    def _add_term_to_field(
+        self,
+        field: str,
+        term_propagation_directive: TermPropagationDirective,
+        attribution: MetadataAttributionClass,
+        context_string: str,
+    ) -> None:
+        schema_field_urn = Urn.create_from_string(field)
+        dataset_urn = schema_field_urn.get_entity_id()[0]
+        field_path = schema_field_urn.get_entity_id()[1]
+
+        logger.debug(
+            f"Will {term_propagation_directive.operation} term {term_propagation_directive.term} for {field_path} on {dataset_urn}"
+        )
+
+        # Case 1: Modify Dataset Fields
+        if dataset_urn.startswith("urn:li:dataset"):
+            self._add_term_to_dataset_field_slow(
+                self.ctx.graph,
+                term_propagation_directive.operation,
+                dataset_urn,
+                field_terms={field_path: [term_propagation_directive.term]},
+                attribution=attribution,
+                context=context_string,
+            )
+        # Case 2: Modify Chart Fields
+        elif dataset_urn.startswith("urn:li:chart"):
+            self._add_term_to_chart_field_slow(
+                self.ctx.graph,
+                term_propagation_directive.operation,
+                dataset_urn,
+                field_terms={field_path: [term_propagation_directive.term]},
+                attribution=attribution,
+                context=context_string,
+            )
+        else:
+            logger.warning(
+                f"Skipping propagating to unsupported URN type for field propagation: {dataset_urn}"
+            )
+
+    def _add_term_to_dataset(
+        self,
+        dataset: str,
+        term_propagation_directive: TermPropagationDirective,
+        attribution: MetadataAttributionClass,
+        context: str,
+    ) -> None:
+
+        logger.info(
+            f"Will {term_propagation_directive.operation} term {term_propagation_directive.term} to {dataset}"
+        )
+
+        patch_builder = DatasetPatchBuilder(urn=dataset)
+
+        patch_builder.add_term(
+            GlossaryTermAssociationClass(
+                term_propagation_directive.term,
+                attribution=attribution,
+                context=context if context else None,
+            )
+        )
+
+        for mcp in patch_builder.build():
+            self.ctx.graph.graph.emit(mcp)
+
+    def _add_term_to_chart_field_slow(
         self,
         graph: AcrylDataHubGraph,
         operation: str,
@@ -552,7 +687,7 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
                 )
             )
 
-    def modify_terms_on_dataset_fields_slow(
+    def _add_term_to_dataset_field_slow(
         self,
         graph: AcrylDataHubGraph,
         operation: str,
@@ -693,88 +828,55 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
                 )
             )
 
-    def act(self, event: EventEnvelope) -> None:
-        """This method responds to changes to glossary terms and propagates them
-        to downstream entities"""
-        if not self._stats.event_processing_stats:
-            self._stats.event_processing_stats = EventProcessingStats()
-        self._stats.event_processing_stats.start(event)
-        success = False
-        try:
-            logger.info(f"Received event {event}")
-            term_propagation_directive = self.should_propagate(event)
-            logger.info(f"Term propagation directive: {term_propagation_directive}")
-            if term_propagation_directive:
-                self.process_directive(term_propagation_directive)
-            success = True
-        finally:
-            self._stats.event_processing_stats.end(event, success=success)
+    def _get_target_terms_expanded(self) -> Iterable[str]:
+        expanded_terms = set()
+        if self.config.target_terms:
+            for term in self.config.target_terms:
+                expanded_terms.add(term)
+                from datahub.ingestion.graph.client import DataHubGraph
 
-    def process_directive(
-        self, term_propagation_directive: TermPropagationDirective
-    ) -> None:
-        if (
-            term_propagation_directive is not None
-            and term_propagation_directive.propagate is True
-        ):
-            assert self.ctx.graph
-            (attribution, context_string) = get_attribution_and_context_from_directive(
-                self.action_urn,
-                term_propagation_directive,
-            )
-            # find downstream lineage
-            downstreams = self.ctx.graph.get_downstreams(
-                entity_urn=term_propagation_directive.entity
-            )
-            logger.info(
-                f"Downstreams: {downstreams} for {term_propagation_directive.entity}"
-            )
-            entity_urn = term_propagation_directive.entity
-            if entity_urn.startswith("urn:li:schemaField"):
-                downstream_fields = [
-                    x for x in downstreams if x.startswith("urn:li:schemaField")
-                ]
-                for field in downstream_fields:
+                inherited_terms = self.ctx.graph.graph.get_related_entities(
+                    term, ["IsA"], DataHubGraph.RelationshipDirection.INCOMING
+                )
+                if inherited_terms:
+                    for inherited_term in inherited_terms:
+                        expanded_terms.add(inherited_term.urn)
+        return expanded_terms
 
-                    schema_field_urn = Urn.create_from_string(field)
-                    dataset_urn = schema_field_urn.get_entity_id()[0]
-                    field_path = schema_field_urn.get_entity_id()[1]
-                    logger.info(
-                        f"Will {term_propagation_directive.operation} term {term_propagation_directive.term} for {field_path} on {dataset_urn}"
-                    )
-                    if dataset_urn.startswith("urn:li:dataset"):
-                        self.modify_terms_on_dataset_fields_slow(
-                            self.ctx.graph,
-                            term_propagation_directive.operation,
-                            dataset_urn,
-                            field_terms={field_path: [term_propagation_directive.term]},
-                            attribution=attribution,
-                            context=context_string,
-                        )
-                    elif dataset_urn.startswith("urn:li:chart"):
-                        self.modify_terms_on_chart_fields_slow(
-                            self.ctx.graph,
-                            term_propagation_directive.operation,
-                            dataset_urn,
-                            field_terms={field_path: [term_propagation_directive.term]},
-                            attribution=attribution,
-                            context=context_string,
-                        )
-            elif entity_urn.startswith("urn:li:dataset"):
-                downstream_datasets = [
-                    x for x in downstreams if x.startswith("urn:li:dataset")
-                ]
-                for dataset in downstream_datasets:
-                    self.ctx.graph.add_terms_to_dataset(
-                        dataset,
-                        [term_propagation_directive.term],
-                        context=term_propagation_directive,
-                    )
-                    logger.info(
-                        f"Will {term_propagation_directive.operation} term {term_propagation_directive.term} to {dataset}"
-                    )
-        else:
-            print("No term propagation directive")
+    def _get_term_groups_expanded_to_terms(self) -> Iterable[str]:
+        """
+        Get all terms in the term groups.
+        Will recurse down term group hierarchy to get all terms.
+        """
+
+        def __get_terms_in_group(group: str) -> Set[str]:
+            terms = self.ctx.graph.get_relationships(
+                entity_urn=group, direction="INCOMING", relationship_types=["IsPartOf"]
+            )
+            expanded_terms = set()
+            if terms:
+                for term in terms:
+                    if term.startswith("urn:li:glossaryTerm"):
+                        expanded_terms.add(term)
+                    elif term.startswith("urn:li:glossaryNode"):
+                        expanded_terms.update(__get_terms_in_group(term))
+            return expanded_terms
+
+        expanded_terms = set()
+        if self.config.term_groups:
+            for term_group in self.config.term_groups:
+                expanded_terms.update(__get_terms_in_group(term_group))
+        return expanded_terms
+
+    def _get_all_terms(self) -> List[str]:
+        all_terms: List[str] = []
+        if self.config.target_terms:
+            all_terms.extend(self._get_target_terms_expanded())
+
+        if self.config.term_groups:
+            all_terms.extend(self._get_term_groups_expanded_to_terms())
+
+        return list(set(all_terms))
 
     def close(self) -> None:
         return super().close()

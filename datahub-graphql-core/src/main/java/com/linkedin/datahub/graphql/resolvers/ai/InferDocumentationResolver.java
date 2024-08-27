@@ -85,8 +85,7 @@ public class InferDocumentationResolver
           .getColumnDescriptions()
           .forEach(
               (key, value) -> {
-                final Urn schemaUrn =
-                    SchemaFieldUtils.generateSchemaFieldUrn(entityUrn.toString(), key);
+                final Urn schemaUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, key);
                 metadataChangeProposals.add(
                     getInferredDocumentationMCPForEntity(operationContext, schemaUrn, value));
               });

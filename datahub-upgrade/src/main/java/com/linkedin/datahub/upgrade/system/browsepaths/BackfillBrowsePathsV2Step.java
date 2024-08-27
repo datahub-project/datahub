@@ -30,6 +30,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Set;
 import java.util.function.Function;
@@ -98,7 +99,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
       BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
 
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

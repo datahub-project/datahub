@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 import static org.mockito.Mockito.mock;
 import static org.testng.AssertJUnit.assertEquals;
 
@@ -13,6 +14,8 @@ import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -102,7 +105,18 @@ public class ResolverUtilsTest {
         new ConjunctiveCriterionArray(
             ImmutableList.of(new ConjunctiveCriterion().setAnd(andCriterionArray))));
 
-    Filter finalFilter = buildFilterWithUrns(urns, filter);
+    DataHubAppConfiguration appConfig = new DataHubAppConfiguration();
+    appConfig.setMetadataChangeProposal(new MetadataChangeProposalConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .getSideEffects()
+        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+    appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(true);
+
+    Filter finalFilter = buildFilterWithUrns(appConfig, urns, filter);
 
     Criterion urnsCriterion =
         new Criterion()

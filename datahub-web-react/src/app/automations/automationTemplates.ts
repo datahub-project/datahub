@@ -136,7 +136,7 @@ export const automationTemplates: AutomationTemplate[] = [
         platform: 'acryl',
         type: AutomationTypes.ACTION,
         name: 'Glossary Term Propagation',
-        description: 'Propagate Glossary Terms to downstream assets and columns automatically',
+        description: 'Propagate Glossary Terms to downstream assets and columns automatically (datasets only)',
         logo: AcrylLogo,
         fields: [
             {

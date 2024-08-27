@@ -89,3 +89,7 @@ mutation updateForm($input: UpdateFormInput!) {
         ...formFields
     }
 }
+
+mutation deleteForm($input: DeleteFormInput!) {
+    deleteForm(input: $input)
+}

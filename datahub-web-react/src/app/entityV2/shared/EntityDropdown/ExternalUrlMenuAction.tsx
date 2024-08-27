@@ -11,6 +11,10 @@ import StyledExternalLink from '../links/StyledExternalLink';
 const GITHUB_LINK = 'github.com';
 const GITHUB = 'GitHub';
 
+const Container = styled.div`
+    margin: 0px 8px;
+`;
+
 export const PlatformIcon = styled.img<{ size?: number }>`
     max-height: ${(props) => (props.size ? props.size : 14)}px;
     width: auto;
@@ -43,15 +47,17 @@ export default function ExternalUrlMenuAction() {
 
     return (
         <Tooltip title={`View in ${displayedName}`}>
-            <StyledExternalLink url={externalUrl}>
-                <LaunchIcon
-                    style={{
-                        fontSize: '16px',
-                    }}
-                    onClick={sendAnalytics}
-                />
-                View in {displayedName}
-            </StyledExternalLink>
+            <Container>
+                <StyledExternalLink url={externalUrl}>
+                    <LaunchIcon
+                        style={{
+                            fontSize: '16px',
+                        }}
+                        onClick={sendAnalytics}
+                    />
+                    View in {displayedName}
+                </StyledExternalLink>
+            </Container>
         </Tooltip>
     );
 }

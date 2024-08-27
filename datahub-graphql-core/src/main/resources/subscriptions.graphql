@@ -133,6 +133,11 @@ input CreateSubscriptionInput {
     (Optional) Group urn. Only used for group subscriptions.
     """
     groupUrn: String
+
+    """
+    (Optional) User urn to subscribe as. Must be an admin with 'Manage User Subscriptions' privilege
+    """
+    userUrn: String
 }
 
 input UpdateSubscriptionInput {

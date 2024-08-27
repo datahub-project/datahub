@@ -60,6 +60,9 @@ dev = [
 	"faker",
 	"anyio",
 	"freezegun",
+	# Iteration
+	"papermill",
+	"json5",
 ]
 
 [project.entry-points."datahub_actions.source.plugins"]

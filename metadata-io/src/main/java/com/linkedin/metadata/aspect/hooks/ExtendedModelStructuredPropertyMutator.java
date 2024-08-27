@@ -463,6 +463,6 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
   }
 
   private static Urn getSchemaFieldUrn(MCPItem item, String schemaFieldPath) {
-    return SchemaFieldUtils.generateSchemaFieldUrn(item.getUrn().toString(), schemaFieldPath);
+    return SchemaFieldUtils.generateSchemaFieldUrn(item.getUrn(), schemaFieldPath);
   }
 }

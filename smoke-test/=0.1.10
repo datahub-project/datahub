@@ -1,4 +1,0 @@
-Requirement already satisfied: pip in ./venv/lib/python3.10/site-packages (24.2)
-Requirement already satisfied: uv in ./venv/lib/python3.10/site-packages (0.2.35)
-Requirement already satisfied: wheel in ./venv/lib/python3.10/site-packages (0.44.0)
-Requirement already satisfied: setuptools in ./venv/lib/python3.10/site-packages (72.1.0)

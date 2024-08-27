@@ -16,7 +16,7 @@ import CustomThemeProvider from './CustomThemeProvider';
 import { useCustomTheme } from './customThemeContext';
 
 /*
-    Construct Apollo Client
+	Construct Apollo Client
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 

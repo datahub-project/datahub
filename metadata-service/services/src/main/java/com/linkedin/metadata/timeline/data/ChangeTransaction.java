@@ -1,8 +1,8 @@
 package com.linkedin.metadata.timeline.data;
 
-import com.github.fge.jsonpatch.JsonPatch;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.json.JsonPatch;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;

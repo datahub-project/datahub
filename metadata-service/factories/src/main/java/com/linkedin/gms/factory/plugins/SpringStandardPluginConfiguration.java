@@ -1,12 +1,19 @@
 package com.linkedin.gms.factory.plugins;
 
+import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
+
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.config.structuredProperties.extensions.ExtendedModelValidationConfiguration;
+import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
+import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,5 +64,39 @@ public class SpringStandardPluginConfiguration {
             .getExtensions()
             .resolve(new YAMLMapper());
     return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.schemaField.enabled",
+      havingValue = "true")
+  public MCPSideEffect schemaFieldSideEffect() {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(SchemaFieldSideEffect.class.getName())
+            .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATASET_ENTITY_NAME)
+                        .aspectName(Constants.STATUS_ASPECT_NAME)
+                        .build(),
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATASET_ENTITY_NAME)
+                        .aspectName(Constants.SCHEMA_METADATA_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    // prevent recursive dependency from using primary bean
+    final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
+        new EntityChangeEventGeneratorRegistry();
+    entityChangeEventGeneratorRegistry.register(
+        SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
+
+    log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
+    return new SchemaFieldSideEffect()
+        .setConfig(config)
+        .setEntityChangeEventGeneratorRegistry(entityChangeEventGeneratorRegistry);
   }
 }

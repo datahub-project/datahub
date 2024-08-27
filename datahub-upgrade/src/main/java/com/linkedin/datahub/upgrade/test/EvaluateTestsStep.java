@@ -21,6 +21,7 @@ import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
 import com.linkedin.timeseries.PartitionSpec;
 import com.linkedin.timeseries.PartitionType;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Instant;
@@ -178,12 +179,12 @@ public class EvaluateTestsStep implements UpgradeStep {
         }
         context.report().addLine("Finished evaluating tests for all entities");
         reportTestRunResults(resultAggregator.getTestResultSummaries().values());
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Exception e) {
         log.error(
             "Failed to complete test evaluation! Caught an exception while running the test. This may mean that the test run was incomplete.",
             e);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
   }

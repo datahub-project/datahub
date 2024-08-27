@@ -26,7 +26,7 @@ import { useSchemaRefetch } from '../../SchemaContext';
 import { StyledDivider } from './components';
 import { sanitizeRichText } from '../../../../Documentation/components/editor/utils';
 import { getFieldDescriptionDetails } from '../../utils/getFieldDescriptionDetails';
-import PropagationDetails from '../../../../../../../sharedV2/propagation/PropagationDetails';
+import DocumentationPropagationDetails from '../../../../../../../sharedV2/propagation/DocumentationPropagationDetails';
 
 const AddNewDescription = styled.div`
     margin: 0px;
@@ -165,6 +165,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                 </AddNewDescription>,
                                 shouldShowInferenceButton && (
                                     <InferDocsButton
+                                        surface="schema-profile"
                                         style={{ height: 32, width: 132, marginTop: 12 }}
                                         onClick={() => {
                                             setInferOnModalVisible(true);
@@ -174,7 +175,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                 ),
                             ]}
                         <DescriptionWrapper>
-                            {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
+                            {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
                             {isInferred && <InferenceDetailsIndicator />}
                             {!!displayedDescription && (
                                 <DescriptionSection description={displayedDescription} isExpandable />

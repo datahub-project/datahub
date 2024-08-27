@@ -101,7 +101,7 @@ public class UpsertCustomAssertionResolver implements DataFetcher<CompletableFut
 
     if (input.getFieldPath() != null) {
       customAssertionInfo.setField(
-          SchemaFieldUtils.generateSchemaFieldUrn(entityUrn.toString(), input.getFieldPath()));
+          SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, input.getFieldPath()));
     }
     return customAssertionInfo;
   }

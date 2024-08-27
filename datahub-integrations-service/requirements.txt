@@ -11,7 +11,7 @@ acryl-datahub-actions==0.0.18
     # via acryl-datahub-integrations
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
-acryl-sqlglot==25.3.1.dev3
+acryl-sqlglot==25.8.2.dev9
     # via acryl-datahub
 aiohttp==3.9.5
     # via acryl-datahub
@@ -604,7 +604,7 @@ sqlalchemy==1.4.52
     # via
     #   acryl-datahub
     #   snowflake-sqlalchemy
-sqlglotrs==0.2.7
+sqlglotrs==0.2.8
     # via acryl-sqlglot
 sqlparse==0.5.0
     # via acryl-datahub

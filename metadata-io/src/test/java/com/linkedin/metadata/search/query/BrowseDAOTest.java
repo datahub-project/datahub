@@ -45,7 +45,11 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     mockClient = mock(RestHighLevelClient.class);
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            new IndexConventionImpl("es_browse_dao_test", "MD5"));
+            new IndexConventionImpl(
+                IndexConventionImpl.IndexConventionConfig.builder()
+                    .prefix("es_browse_dao_test")
+                    .hashIdAlgo("MD5")
+                    .build()));
     browseDAO = new ESBrowseDAO(mockClient, searchConfiguration, customSearchConfiguration);
   }
 

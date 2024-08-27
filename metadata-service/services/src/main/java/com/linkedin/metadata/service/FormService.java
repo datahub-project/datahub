@@ -677,7 +677,7 @@ public class FormService extends BaseService {
       @Nonnull final String fieldPath,
       @Nullable final Urn actorUrn)
       throws Exception {
-    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn.toString(), fieldPath);
+    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, fieldPath);
     ingestStructuredProperties(opContext, schemaFieldUrn, structuredPropertyUrn, values, actorUrn);
   }
 
