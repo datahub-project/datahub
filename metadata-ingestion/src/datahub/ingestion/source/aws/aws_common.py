@@ -262,7 +262,6 @@ class AwsConnectionConfig(ConfigModel):
         return session
 
     def _should_refresh_credentials(self) -> bool:
-        return True
         if self._credentials_expiration is None:
             return True
         remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
