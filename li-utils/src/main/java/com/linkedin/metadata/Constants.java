@@ -142,6 +142,7 @@ public class Constants {
   public static final String NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME = "nativeGroupMembership";
   public static final String CORP_USER_EDITABLE_INFO_ASPECT_NAME = "corpUserEditableInfo";
   public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
+  public static final String SLACK_USER_INFO = "slackUserInfo";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
   public static final String CORP_USER_CREDENTIALS_ASPECT_NAME = "corpUserCredentials";
   public static final String ROLE_MEMBERSHIP_ASPECT_NAME = "roleMembership";

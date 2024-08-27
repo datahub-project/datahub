@@ -122,7 +122,7 @@ public class SlackMemberResolutionUtils {
     return null;
   }
 
-  public boolean upsertCorpUserEditableInfoWithSlackMemberDetails(
+  public boolean upsertCorpUserAspectsWithSlackMemberDetails(
       @Nonnull OperationContext operationContext,
       @Nonnull Urn userUrn,
       @Nonnull PlatformResourceInfo info,
@@ -143,6 +143,10 @@ public class SlackMemberResolutionUtils {
     final SlackUserInfo member =
         GenericRecordUtils.deserializeAspect(
             info.getValue().getBlob(), "application/json", SlackUserInfo.class);
+    entityClient.ingestProposal(
+        operationContext,
+        AspectUtils.buildMetadataChangeProposal(userUrn, SLACK_USER_INFO, member),
+        true);
 
     final CorpUserEditableInfo currentInfo =
         editableInfo != null ? editableInfo : new CorpUserEditableInfo();

@@ -63,7 +63,7 @@ public class SlackMemberResolutionHookTest {
                 Mockito.any(OperationContext.class), Mockito.eq(TEST_USER_EMAIL)))
         .thenReturn(createMockPlatformResourceInfo());
     Mockito.when(
-            memberResolutionUtils.upsertCorpUserEditableInfoWithSlackMemberDetails(
+            memberResolutionUtils.upsertCorpUserAspectsWithSlackMemberDetails(
                 Mockito.any(OperationContext.class),
                 Mockito.eq(TEST_USER_URN),
                 Mockito.eq(createMockPlatformResourceInfo()),
@@ -77,7 +77,7 @@ public class SlackMemberResolutionHookTest {
     Mockito.verify(memberResolutionUtils, Mockito.times(1))
         .fetchCorpUserEditableInfo(Mockito.any(OperationContext.class), Mockito.eq(TEST_USER_URN));
     Mockito.verify(memberResolutionUtils, Mockito.times(1))
-        .upsertCorpUserEditableInfoWithSlackMemberDetails(
+        .upsertCorpUserAspectsWithSlackMemberDetails(
             Mockito.any(OperationContext.class),
             Mockito.eq(TEST_USER_URN),
             Mockito.eq(createMockPlatformResourceInfo()),
@@ -104,7 +104,7 @@ public class SlackMemberResolutionHookTest {
         .findSlackMemberWithEmailOrMemberID(
             Mockito.any(OperationContext.class), Mockito.anyString());
     Mockito.verify(memberResolutionUtils, Mockito.times(0))
-        .upsertCorpUserEditableInfoWithSlackMemberDetails(
+        .upsertCorpUserAspectsWithSlackMemberDetails(
             Mockito.any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
   }
 
