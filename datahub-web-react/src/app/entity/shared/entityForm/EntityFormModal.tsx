@@ -8,6 +8,7 @@ import EntityForm from './EntityForm';
 import FormPageHeader from './FormHeader/FormPageHeader';
 import EntityFormContextProvider from './EntityFormContextProvider';
 import { useUserContext } from '../../../context/useUserContext';
+import { FormView } from './EntityFormContext';
 
 const StyledModal = styled(Modal)`
     &&& .ant-modal-content {
@@ -48,9 +49,10 @@ interface Props {
     selectedFormUrn: string | null;
     isFormVisible: boolean;
     hideFormModal: () => void;
+    defaultFormView?: FormView;
 }
 
-export default function EntityFormModal({ selectedFormUrn, isFormVisible, hideFormModal }: Props) {
+export default function EntityFormModal({ selectedFormUrn, isFormVisible, hideFormModal, defaultFormView }: Props) {
     const { refetchUnfinishedTaskCount } = useUserContext();
 
     // Refetch unfinished tasks when closing modal
@@ -69,7 +71,7 @@ export default function EntityFormModal({ selectedFormUrn, isFormVisible, hideFo
             style={{ top: 0, height: '100vh', minWidth: '100vw' }}
             destroyOnClose
         >
-            <EntityFormContextProvider formUrn={selectedFormUrn || ''}>
+            <EntityFormContextProvider formUrn={selectedFormUrn || ''} defaultFormView={defaultFormView}>
                 <FormPageHeader />
                 <EntityFormWrapper>
                     <EntityForm formUrn={selectedFormUrn || ''} closeModal={handleClose} />

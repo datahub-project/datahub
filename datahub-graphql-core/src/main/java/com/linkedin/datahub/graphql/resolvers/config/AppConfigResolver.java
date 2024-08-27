@@ -240,6 +240,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
             .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
+            .setShowBulkFormByDefault(_featureFlags.isShowBulkFormByDefault())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
