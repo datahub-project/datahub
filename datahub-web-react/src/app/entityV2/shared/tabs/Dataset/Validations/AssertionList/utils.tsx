@@ -58,6 +58,7 @@ import {
     AssertionListTableRow,
     AssertionFilterOptions,
     AssertionRecommendedFilter,
+    AssertionWithDescription,
 } from './types';
 import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
 
@@ -608,62 +609,13 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
     return filterOptions;
 };
 
-/** Return return filter assertion as per selected type status and other things
- * it returns transformated into
- * 1. group of assertions as per type , status
- * 2. Transform data into {@link AssertionListTableRow }  data
- * 2. Filter out assertions as per the search text
- * 3. filter out assertions as per the selected type and status
- */
-export const getFilteredTransformedAssertionData = (
-    assertions: AssertionWithMonitorDetails[],
-    filter: AssertionListFilter,
-): AssertionTable => {
+// Assign Filtered Assertions to group
+const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescription[]): AssertionTable => {
     const assertionRawData: AssertionTable = {
         assertions: [],
         groupBy: { type: [], status: [] },
         filterOptions: {},
     };
-
-    // Add descriptions to assertions
-    const assertionsWithDescription = assertions.map((assertion) => {
-        const monitor = assertion.monitor?.relationships?.[0]?.entity;
-        const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
-        return {
-            ...assertion,
-            description,
-        };
-    });
-
-    // Fuse.js setup for search functionality
-    const fuse = new Fuse(assertionsWithDescription, {
-        keys: ['description'],
-        threshold: 0.4,
-    });
-
-    // Apply search filter if searchText is provided
-    let filteredAssertions = assertionsWithDescription;
-    const { searchText, type, status, others } = filter.filterCriteria;
-
-    if (searchText) {
-        filteredAssertions = fuse.search(searchText).map((result) => result.item);
-    }
-
-    // Apply type, status, and other filters
-    filteredAssertions = filteredAssertions.filter((assertion: AssertionWithMonitorDetails) => {
-        const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
-
-        const matchesType = type.length === 0 || type.includes(assertion.info?.type as AssertionType);
-        const matchesStatus = status.length === 0 || status.includes(resultType);
-        const matchesOthers =
-            others.length === 0 ||
-            others.includes(assertion.info?.source?.type as AssertionSourceType) ||
-            (others.includes(AssertionSourceType.External) && isExternalAssertion(assertion));
-
-        return matchesType && matchesStatus && matchesOthers;
-    });
-
-    // Transform filtered assertions
     assertionRawData.assertions = mapAssertionData(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = assertionsByType;
@@ -676,5 +628,68 @@ export const getFilteredTransformedAssertionData = (
     });
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
     assertionRawData.filterOptions = extractFilterOptionListFromAssertions(filteredAssertions);
+    return assertionRawData;
+};
+
+const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
+    const { type, status, others } = filter.filterCriteria;
+
+    // Apply type, status, and other filters
+    return assertions.filter((assertion: AssertionWithMonitorDetails) => {
+        const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
+
+        const matchesType = type.length === 0 || type.includes(assertion.info?.type as AssertionType);
+        const matchesStatus = status.length === 0 || status.includes(resultType);
+        const matchesOthers =
+            others.length === 0 ||
+            others.includes(assertion.info?.source?.type as AssertionSourceType) ||
+            (others.includes(AssertionSourceType.External) && isExternalAssertion(assertion));
+
+        return matchesType && matchesStatus && matchesOthers;
+    });
+};
+
+// Fuse.js setup for search functionality
+const fuse = new Fuse<AssertionWithDescription>([], {
+    keys: ['description'],
+    threshold: 0.4,
+});
+
+/** Return return filter assertion as per selected type status and other things
+ * it returns transformated into
+ * 1. group of assertions as per type , status
+ * 2. Transform data into {@link AssertionListTableRow }  data
+ * 2. Filter out assertions as per the search text
+ * 3. filter out assertions as per the selected type and status
+ */
+export const getFilteredTransformedAssertionData = (
+    assertions: AssertionWithMonitorDetails[],
+    filter: AssertionListFilter,
+): AssertionTable => {
+    // Add descriptions to assertions
+    const assertionsWithDescription = assertions.map((assertion) => {
+        const monitor = assertion.monitor?.relationships?.[0]?.entity;
+        const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
+        return {
+            ...assertion,
+            description,
+        };
+    });
+
+    // Apply search filter if searchText is provided
+    let filteredAssertions = assertionsWithDescription;
+    const { searchText, type, status, others } = filter.filterCriteria;
+
+    if (searchText) {
+        fuse.setCollection(assertionsWithDescription || []);
+        const result = fuse.search(searchText);
+        filteredAssertions = result.map((result) => result.item as AssertionWithDescription);
+    }
+
+    // Apply type, status, and other filters
+    filteredAssertions = getFilteredAssertions(filteredAssertions, filter);
+
+    // Transform filtered assertions
+    const assertionRawData = assignFilteredAssertionToGroup(filteredAssertions);
     return assertionRawData;
 };

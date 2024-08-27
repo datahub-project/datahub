@@ -83,3 +83,5 @@ export type AssertionRecommendedFilter = {
     count: number;
     displayName: string;
 };
+
+export type AssertionWithDescription = AssertionWithMonitorDetails & { description: string };
