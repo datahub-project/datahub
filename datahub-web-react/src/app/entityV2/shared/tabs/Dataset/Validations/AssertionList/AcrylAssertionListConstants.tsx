@@ -1,8 +1,7 @@
 import React from 'react';
-import { Clock, Database, GitFork, Hammer, Dresser } from '@phosphor-icons/react';
 import styled from 'styled-components';
 import { CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { AssertionResultType, AssertionType } from '@src/types.generated';
+import { AssertionResultType} from '@src/types.generated';
 
 const StyledCardTitle = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
@@ -16,7 +15,7 @@ const StyledCardTitle = styled.div<{ background: string; color: string }>`
     font-size: 12px;
 `;
 
-export const ASSERTION_STATUS_WITH_COLOR_MAP = {
+export const ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS = {
     passing: {
         color: '#548239',
         backgroundColor: '#F1F8EE',
@@ -53,14 +52,4 @@ export const ASSERTION_STATUS_WITH_COLOR_MAP = {
             </StyledCardTitle>
         ),
     },
-};
-
-export const ASSERTION_STYPE_AND_ICON_MAP: Record<AssertionType, JSX.Element> = {
-    [AssertionType.Freshness]: <Clock size={20} />,
-    [AssertionType.Volume]: <Database size={20} />,
-    [AssertionType.Field]: <Dresser size={20} />,
-    [AssertionType.DataSchema]: <GitFork size={20} />,
-    [AssertionType.Custom]: <Hammer size={20} />,
-    [AssertionType.Sql]: <Database size={20} />,
-    [AssertionType.Dataset]: <Database size={20} />,
 };

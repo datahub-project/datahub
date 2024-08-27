@@ -34,6 +34,7 @@ import {
     MonitorDetailsFragment,
 } from '../../../../../../graphql/monitor.generated';
 import { GenericEntityProperties } from '../../../types';
+import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
@@ -124,7 +125,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Freshness',
         description: 'Define & monitor your expectations about when this dataset should be updated',
-        icon: <StyledClockCircleOutlined />,
+        icon: ASSERTION_TYPE_TO_ICON_MAP[AssertionType.Freshness],
         type: AssertionType.Freshness,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -133,7 +134,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Volume',
         description: 'Define & monitor your expectations about the size of this dataset',
-        icon: <StyledTableOutlined />,
+        icon: ASSERTION_TYPE_TO_ICON_MAP[AssertionType.Volume],
         type: AssertionType.Volume,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -142,7 +143,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Column',
         description: 'Define & monitor your expectations about the values in a column',
-        icon: <StyledProjectOutlined />,
+        icon: ASSERTION_TYPE_TO_ICON_MAP[AssertionType.Field],
         type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -152,7 +153,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Schema',
         description: "Define & monitor your expectations about the table's columns and their types",
-        icon: <StyledCodeOutlined />,
+        icon: ASSERTION_TYPE_TO_ICON_MAP[AssertionType.DataSchema],
         type: AssertionType.DataSchema,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -161,7 +162,7 @@ export const ASSERTION_INFO = [
     {
         name: 'SQL',
         description: 'Define & monitor your expectations using custom SQL rules',
-        icon: <StyledConsoleSqlOutlined />,
+        icon: ASSERTION_TYPE_TO_ICON_MAP[AssertionType.Sql],
         type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -171,7 +172,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Other',
         description: 'Other assertions that are defined and maintained outside of DataHub.',
-        icon: <StyledApiOutlined />,
+        icon: ASSERTION_TYPE_TO_ICON_MAP[AssertionType.Dataset],
         type: AssertionType.Dataset,
         entityTypes: [EntityType.Dataset],
         enabled: false,

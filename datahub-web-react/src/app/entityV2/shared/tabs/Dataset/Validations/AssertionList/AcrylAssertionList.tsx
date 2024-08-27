@@ -16,19 +16,7 @@ import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
 import { AcrylAssertionListTable } from './AcrylAssertionListTable';
 import { useSetFilterFromURLParams } from './hooks';
-
-const DEFAULT_FILTERS = {
-    sortBy: '',
-    groupBy: '',
-    filterCriteria: {
-        searchText: '',
-        status: [],
-        type: [],
-        tags: [],
-        columns: [],
-        others: [],
-    },
-};
+import { DEFAULT_FILTERS } from './constant';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab

@@ -39,7 +39,7 @@ type Option = {
 
 type Props = {
     options: Option[];
-    selectedValue: string;
+    selectedValue: string | undefined;
     onSelect: (value: string) => void;
     placeholder: string;
 };

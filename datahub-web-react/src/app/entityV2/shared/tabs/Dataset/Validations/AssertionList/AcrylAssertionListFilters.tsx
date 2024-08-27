@@ -4,6 +4,7 @@ import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFil
 import { AcrylAssertionListSearch } from './AcrylAssertionListSearch';
 import { AcryAssertionTypeSelect } from './AcryAssertionTypeSelect';
 import { AssertionListFilter, AssertionTable } from './types';
+import { ASSERTION_GROUP_BY_FILTER_OPTIONS, DEFAULT_FILTERS } from './constant';
 
 interface FilterItem {
     name: string;
@@ -35,7 +36,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     filteredAssertions,
 }) => {
     const [appliedFilters, setAppliedFilters] = useState<FilterItem[]>([]);
-    const [selectedGroupBy, setSelectedGroupBy] = useState<string>(filter.groupBy || '');
+    const [selectedGroupBy, setSelectedGroupBy] = useState<string | undefined>(filter.groupBy || undefined);
 
     const handleSearchTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const searchText = event.target.value;
@@ -49,11 +50,6 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         setSelectedGroupBy(value);
         setFilters((prev) => ({ ...prev, groupBy: value }));
     };
-
-    const assertionTypeFilters = [
-        { label: 'Type', value: 'type' },
-        { label: 'Status', value: 'status' },
-    ];
 
     const handleFilterChange = (updatedFilters: FilterItem[]) => {
         /** Set Recommended Filters when there is value in type,status or others if not then set it as empty to clear the filter */
@@ -73,9 +69,13 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         setAppliedFilters(updatedFilters);
     };
 
+    /**
+     * This hook is for setting applied filter when we are getting it from selected Filter state
+     */
     useEffect(() => {
-        const { status = [], type = [], others = [] } = filter.filterCriteria || {};
+        const { status, type, others } = filter.filterCriteria || DEFAULT_FILTERS.filterCriteria;
         const recommendedFilters = filterOptions?.recommendedFilters || [];
+        // just set recommended filters for status, type & Others as of right now
         const appliedRecommendedFilters = recommendedFilters.filter(
             (item) => status.includes(item.name) || type.includes(item.name) || others.includes(item.name),
         );
@@ -97,7 +97,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 {/* ************Render Group By Component ************************* */}
                 <div style={{ marginLeft: 8 }}>
                     <AcryAssertionTypeSelect
-                        options={assertionTypeFilters}
+                        options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
                         selectedValue={selectedGroupBy}
                         onSelect={handleAssertionTypeChange}
                         placeholder="Group By"

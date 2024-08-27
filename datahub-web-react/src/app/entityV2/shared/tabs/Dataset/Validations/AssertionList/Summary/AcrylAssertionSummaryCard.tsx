@@ -9,8 +9,9 @@ import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { AssertionGroup } from '../../acrylTypes';
 import { getAssertionGroupName } from '../../acrylUtils';
 import { AcrylAssertionProgressBar, AssertionProgressSummary } from '../AcrylAssertionProgressBar';
-import { ASSERTION_STATUS_WITH_COLOR_MAP, ASSERTION_STYPE_AND_ICON_MAP } from '../AcrylAssertionListConstants';
+import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '../AcrylAssertionListConstants';
 import { AcrylAssertionSummarySection } from './AcrylAssertionSummarySection';
+import { ASSERTION_TYPE_TO_ICON_MAP } from '../../shared/constant';
 
 const StyledCard = styled.div`
     display: flex;
@@ -103,7 +104,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
     const entityData = useEntityData();
     const { search } = useLocation();
     const name = getAssertionGroupName(group.name);
-    const icon = ASSERTION_STYPE_AND_ICON_MAP[group.type];
+    const icon = ASSERTION_TYPE_TO_ICON_MAP[group.type];
 
     const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
 
@@ -129,7 +130,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
 
     const getHeaderTitle = () => {
         const status = ['failing', 'passing', 'erroring'].find((key) => group.summary[key]);
-        return status ? ASSERTION_STATUS_WITH_COLOR_MAP[status].headerComponent : null;
+        return status ? ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[status].headerComponent : null;
     };
 
     const handleCardClick = (type: AssertionType, event: React.MouseEvent) => {

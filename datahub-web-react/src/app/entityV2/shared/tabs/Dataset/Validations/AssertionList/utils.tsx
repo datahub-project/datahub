@@ -51,7 +51,14 @@ import { getFormattedParameterValue } from '../assertionUtils';
 import { AssertionWithMonitorDetails, createAssertionGroups, getAssertionGroupName } from '../acrylUtils';
 import { isExternalAssertion } from '../assertion/profile/shared/isExternalAssertion';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
-import { AssertionStatusGroup, AssertionTable, AssertionListFilter, AssertionListTableRow } from './types';
+import {
+    AssertionStatusGroup,
+    AssertionTable,
+    AssertionListFilter,
+    AssertionListTableRow,
+    AssertionFilterOptions,
+    AssertionRecommendedFilter,
+} from './types';
 import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
 
 /**
@@ -510,16 +517,39 @@ export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]
     return assertionRawData;
 };
 
-/** Create filter option list as per the assertion data present */
+// Build the Filter Options as per the type & status
+const buildFilterOptions = (key: string, value: Record<string, number>, filterOptions: AssertionFilterOptions) => {
+    Object.entries(value).forEach(([name, count]) => {
+        const displayName = key === 'type' ? getAssertionGroupName(name) : STATUS_GROUP_NAME_MAP[name] || name;
+        const filterItem = { name, category: key, count, displayName } as AssertionRecommendedFilter;
+
+        filterOptions.recommendedFilters.push(filterItem);
+        filterOptions.filterGroupOptions[key].push(filterItem);
+    });
+};
+
+/** Create filter option list as per the assertion data present 
+ * for example
+ * status :[
+ * 
+  {
+    name: "SUCCESS",
+    category: 'status',
+    count:10,
+    displayName: "Passing"
+  }
+ * ]
+ * 
+ * 
+*/
 const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorDetails[]) => {
-    const filterOptions: any = {
+    const filterOptions: AssertionFilterOptions = {
         filterGroupOptions: {
             type: [],
             status: [],
             column: [],
             tags: [],
         },
-        groupByOptions: ['Type', 'Status'],
         recommendedFilters: [],
     };
 
@@ -563,18 +593,8 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         }
     });
 
-    const buildFilterOptions = (key: string, value: Record<string, number>) => {
-        Object.entries(value).forEach(([name, count]) => {
-            const displayName = key === 'type' ? getAssertionGroupName(name) : STATUS_GROUP_NAME_MAP[name] || name;
-            const filterItem = { name, category: key, count, displayName };
-
-            filterOptions.recommendedFilters.push(filterItem);
-            filterOptions.filterGroupOptions[key].push(filterItem);
-        });
-    };
-
-    buildFilterOptions('type', filterGroupCounts.type);
-    buildFilterOptions('status', filterGroupCounts.status);
+    buildFilterOptions('type', filterGroupCounts.type, filterOptions);
+    buildFilterOptions('status', filterGroupCounts.status, filterOptions);
 
     Object.entries(others).forEach(([name, count]) => {
         filterOptions.recommendedFilters.push({
@@ -588,7 +608,13 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
     return filterOptions;
 };
 
-/** Return filtered and transformed assertions */
+/** Return return filter assertion as per selected type status and other things
+ * it returns transformated into
+ * 1. group of assertions as per type , status
+ * 2. Transform data into {@link AssertionListTableRow }  data
+ * 2. Filter out assertions as per the search text
+ * 3. filter out assertions as per the selected type and status
+ */
 export const getFilteredTransformedAssertionData = (
     assertions: AssertionWithMonitorDetails[],
     filter: AssertionListFilter,
