@@ -678,12 +678,12 @@ export const getFilteredTransformedAssertionData = (
 
     // Apply search filter if searchText is provided
     let filteredAssertions = assertionsWithDescription;
-    const { searchText, type, status, others } = filter.filterCriteria;
+    const { searchText } = filter.filterCriteria;
 
     if (searchText) {
         fuse.setCollection(assertionsWithDescription || []);
         const result = fuse.search(searchText);
-        filteredAssertions = result.map((result) => result.item as AssertionWithDescription);
+        filteredAssertions = result.map((match) => match.item as AssertionWithDescription);
     }
 
     // Apply type, status, and other filters

@@ -3,17 +3,8 @@ import styled from 'styled-components';
 import * as moment from 'moment-timezone';
 import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
-import {
-    ClockCircleOutlined,
-    TableOutlined,
-    ProjectOutlined,
-    ConsoleSqlOutlined,
-    CheckOutlined,
-    CloseOutlined,
-    ApiOutlined,
-    CodeOutlined,
-    ExclamationCircleOutlined,
-} from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, ApiOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import {
     Assertion,
     AssertionResultType,
@@ -34,7 +25,6 @@ import {
     MonitorDetailsFragment,
 } from '../../../../../../graphql/monitor.generated';
 import { GenericEntityProperties } from '../../../../../entity/shared/types';
-import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
