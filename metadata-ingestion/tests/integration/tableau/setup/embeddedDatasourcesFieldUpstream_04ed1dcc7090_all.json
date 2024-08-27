@@ -1,0 +1,97 @@
+{
+    "data": {
+        "fieldsConnection": {
+            "nodes":  [
+                {
+                    "id": "08feb4a3-ecd2-8e6e-d3d0-fb27970b4898",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "payment_date",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "22b0b4c3-6b85-713d-a161-5a87fdd78f40"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "85ce12c3-12b1-fbfc-659f-a0670b193bab",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "amount",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "22b0b4c3-6b85-713d-a161-5a87fdd78f40"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "afb789df-a7d6-0fd8-1c20-4d7725636f32",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ba250011-4873-54ad-5b64-c689996216f2",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "first_name",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "22b0b4c3-6b85-713d-a161-5a87fdd78f40"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "c04914c4-0a78-1bd1-acb7-ebf0d704c609",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "customer_id",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "22b0b4c3-6b85-713d-a161-5a87fdd78f40"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "c68badd9-86d7-c554-d287-9f21d1ac113b",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "rental_id",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "22b0b4c3-6b85-713d-a161-5a87fdd78f40"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "eb9b61e1-5209-4586-7af0-b69cd0df25c9",
+                    "upstreamFields": [],
+                    "upstreamColumns": [
+                        {
+                            "name": "last_name",
+                            "table": {
+                                "__typename": "CustomSQLTable",
+                                "id": "10c6297d-0dbd-44f1-b1ba-458bea446513"
+                            }
+                        }
+                    ]
+                }
+
+                    ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 8
+        }
+    }
+}

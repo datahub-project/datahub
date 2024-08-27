@@ -69,7 +69,6 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source import tableau_constant as c
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
@@ -83,7 +82,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.tableau_common import (
+from datahub.ingestion.source.tableau import tableau_constant as c
+from datahub.ingestion.source.tableau.tableau_common import (
     FIELD_TYPE_MAPPING,
     MetadataQueryException,
     TableauLineageOverrides,
@@ -93,6 +93,7 @@ from datahub.ingestion.source.tableau_common import (
     dashboard_graphql_query,
     database_servers_graphql_query,
     database_tables_graphql_query,
+    datasource_upstream_fields_graphql_query,
     embedded_datasource_graphql_query,
     get_filter_pages,
     get_overridden_info,
@@ -978,14 +979,14 @@ class TableauSiteSource:
         connection_type: str,
         query_filter: str,
         current_cursor: Optional[str],  # initial value is None
-        count: int = 0,
+        fetch_size: int = 0,
         retry_on_auth_error: bool = True,
         retries_remaining: Optional[int] = None,
     ) -> Tuple[dict, Optional[str], int]:
         retries_remaining = retries_remaining or self.config.max_retries
 
         logger.debug(
-            f"Query {connection_type} to get {count} objects with offset {current_cursor}"
+            f"Query {connection_type} to get {fetch_size} objects with offset {current_cursor}"
             f" and filter {query_filter}"
         )
         try:
@@ -994,14 +995,11 @@ class TableauSiteSource:
                 server=self.server,
                 main_query=query,
                 connection_name=connection_type,
-                first=count,
+                first=fetch_size,
                 after=current_cursor,
                 qry_filter=query_filter,
             )
 
-            # query_data = query_metadata(
-            #     self.server, query, connection_type, count, offset, query_filter
-            # )
         except REAUTHENTICATE_ERRORS:
             if not retry_on_auth_error:
                 raise
@@ -1014,7 +1012,7 @@ class TableauSiteSource:
                 query=query,
                 connection_type=connection_type,
                 query_filter=query_filter,
-                count=count,
+                fetch_size=fetch_size,
                 current_cursor=current_cursor,
                 retry_on_auth_error=False,
                 retries_remaining=retries_remaining,
@@ -1032,7 +1030,7 @@ class TableauSiteSource:
                 query=query,
                 connection_type=connection_type,
                 query_filter=query_filter,
-                count=count,
+                fetch_size=fetch_size,
                 current_cursor=current_cursor,
                 retry_on_auth_error=False,
                 retries_remaining=retries_remaining,
@@ -1117,7 +1115,7 @@ class TableauSiteSource:
                         query=query,
                         connection_type=connection_type,
                         query_filter=query_filter,
-                        count=count,
+                        fetch_size=fetch_size,
                         current_cursor=current_cursor,
                         retry_on_auth_error=False,
                         retries_remaining=retries_remaining,
@@ -1152,15 +1150,8 @@ class TableauSiteSource:
 
         for filter_page in filter_pages:
             has_next_page = 1
-            # offset = 0
             current_cursor: Optional[str] = None
             while has_next_page:
-                # count = (
-                #     page_size
-                #     if offset + page_size < total_count
-                #     else total_count - offset
-                # )
-
                 filter_: str = make_filter(filter_page)
 
                 (
@@ -1171,7 +1162,7 @@ class TableauSiteSource:
                     query=query,
                     connection_type=connection_type,
                     query_filter=filter_,
-                    count=self.config.fetch_size,
+                    fetch_size=self.config.fetch_size,
                     current_cursor=current_cursor,
                 )
 
@@ -2329,6 +2320,41 @@ class TableauSiteSource:
 
         return container_key
 
+    def update_datasource_for_field_upstream(
+        self,
+        datasource: dict,
+        field_upstream_query: str,
+    ) -> dict:
+        # Collect field ids to fetch field upstreams
+        field_ids: List[str] = []
+        for field in datasource.get(c.FIELDS, []):
+            if field.get(c.ID):
+                field_ids.append(field.get(c.ID))
+
+        # Fetch field upstreams and arrange them in map
+        field_vs_upstream: Dict[str, dict] = {}
+        for field_upstream in self.get_connection_objects(
+            field_upstream_query,
+            c.FIELDS_CONNECTION,
+            {c.ID_WITH_IN: field_ids},
+        ):
+            if field_upstream.get(c.ID):
+                field_id = field_upstream[c.ID]
+                # delete the field id, we don't need it for further processing
+                del field_upstream[c.ID]
+                field_vs_upstream[field_id] = field_upstream
+
+        # update datasource's field for its upstream
+        for field_dict in datasource.get(c.FIELDS, []):
+            field_upstream_dict: Optional[dict] = field_vs_upstream.get(
+                field_dict.get(c.ID)
+            )
+            if field_upstream_dict:
+                # Add upstream fields to field
+                field_dict.update(field_upstream_dict)
+
+        return datasource
+
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = {c.ID_WITH_IN: self.datasource_ids_being_used}
 
@@ -2337,6 +2363,11 @@ class TableauSiteSource:
             c.PUBLISHED_DATA_SOURCES_CONNECTION,
             datasource_filter,
         ):
+            datasource = self.update_datasource_for_field_upstream(
+                datasource=datasource,
+                field_upstream_query=datasource_upstream_fields_graphql_query,
+            )
+
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
@@ -2978,6 +3009,10 @@ class TableauSiteSource:
             c.EMBEDDED_DATA_SOURCES_CONNECTION,
             datasource_filter,
         ):
+            datasource = self.update_datasource_for_field_upstream(
+                datasource=datasource,
+                field_upstream_query=datasource_upstream_fields_graphql_query,
+            )
             yield from self.emit_datasource(
                 datasource,
                 datasource.get(c.WORKBOOK),

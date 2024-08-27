@@ -26,7 +26,7 @@ from datahub.ingestion.source.tableau import (
     TableauSource,
     TableauSourceReport,
 )
-from datahub.ingestion.source.tableau_common import (
+from datahub.ingestion.source.tableau.tableau_common import (
     TableauLineageOverrides,
     TableauUpstreamReference,
 )
@@ -285,7 +285,7 @@ def tableau_ingest_common(
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
 
-        with mock.patch("datahub.ingestion.source.tableau.Server") as mock_sdk:
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_sdk:
             mock_sdk.return_value = mock_sdk_client(
                 side_effect_query_metadata_response=side_effect_query_metadata_response,
                 datasources_side_effect=datasources_side_effect,
@@ -331,12 +331,45 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [
+        [  # sequence of json file matters. They are arranged as per graphql api call
             read_response(pytestconfig, "workbooksConnection_all.json"),
             read_response(pytestconfig, "sheetsConnection_all.json"),
             read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_26675da44a38_all.json"
+            ),
+            read_response(
+                pytestconfig, "embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"
+            ),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"
+            ),
+            read_response(
+                pytestconfig, "publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"
+            ),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
             read_response(pytestconfig, "databaseTablesConnection_all.json"),
         ],

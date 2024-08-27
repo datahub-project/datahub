@@ -10,7 +10,7 @@ from tableauserverclient import Server
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.source import tableau_constant as c
+from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,
@@ -333,6 +333,26 @@ custom_sql_graphql_query = """
         id
         connectionType
       }
+}
+"""
+
+
+datasource_upstream_fields_graphql_query = """
+{
+    id
+    upstreamFields {
+        name
+        datasource {
+            id
+        }
+    }
+    upstreamColumns {
+        name
+        table {
+            __typename
+            id
+        }
+    }
 }
 """
 
@@ -974,7 +994,7 @@ def query_metadata(
 
 def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
     filter_pages = [query_filter]
-    # If this is primary id filter so we can use divide this query list into
+    # If this is primary id filter, so we can use divide this query list into
     # multiple requests each with smaller filter list (of order page_size).
     # It is observed in the past that if list of primary ids grow beyond
     # a few ten thousands then tableau server responds with empty response
