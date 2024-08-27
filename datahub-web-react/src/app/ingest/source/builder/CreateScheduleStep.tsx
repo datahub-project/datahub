@@ -113,7 +113,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
             text: undefined,
             error: false,
         };
-    }, [scheduleCronInterval]);
+    }, [scheduleCronInterval, t]);
 
     const onClickNext = () => {
         if (scheduleEnabled) {

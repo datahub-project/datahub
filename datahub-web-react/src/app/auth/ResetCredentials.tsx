@@ -90,7 +90,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext, resetToken],
+        [refreshContext, resetToken, t],
     );
 
     if (isLoggedIn && !loading) {

@@ -211,7 +211,7 @@ export const SearchBar = ({
         const tail = showQuickFilters ? [exploreAllOption] : [];
 
         return [...moduleOptions, ...tail];
-    }, [data?.listRecommendations?.modules, onClickExploreAll, showQuickFilters]);
+    }, [data?.listRecommendations?.modules, onClickExploreAll, showQuickFilters, t]);
 
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 

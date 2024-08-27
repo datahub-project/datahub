@@ -71,7 +71,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 setDocumentation(properties.description);
             }
         }
-    }, [props.isCloning, entityData.entityData, form]);
+    }, [props.isCloning, entityData.entityData, form, t]);
 
     function createGlossaryEntity() {
         const mutation =

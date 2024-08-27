@@ -101,7 +101,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext],
+        [refreshContext, t],
     );
 
     if (isLoggedIn) {

@@ -135,7 +135,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext, inviteToken],
+        [refreshContext, inviteToken, t],
     );
 
     useEffect(() => {

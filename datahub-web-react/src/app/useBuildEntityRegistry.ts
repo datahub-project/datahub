@@ -7,5 +7,5 @@ export default function useBuildEntityRegistry() {
 
     return useMemo(() => {
         return buildEntityRegistry(t);
-    }, []);
+    }, [t]);
 }

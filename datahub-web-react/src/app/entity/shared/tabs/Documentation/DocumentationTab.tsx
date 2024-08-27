@@ -49,7 +49,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                 tabParams: { editing: true, modal: !!showModal },
             });
         }
-    }, [urn, routeToTab, showModal, localStorageDictionary]);
+    }, [urn, routeToTab, showModal, localStorageDictionary, t]);
 
     return isEditing && !showModal ? (
         <>
