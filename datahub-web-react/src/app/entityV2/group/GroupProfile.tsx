@@ -83,6 +83,8 @@ const defaultTabDisplayConfig = {
 
 /**
  * Responsible for reading & writing groups.
+ *
+ * TODO: Add use of apollo cache to improve fetching performance.
  */
 export default function GroupProfile({ urn }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -130,7 +132,7 @@ export default function GroupProfile({ urn }: Props) {
                         pageSize={MEMBER_PAGE_SIZE}
                         isExternalGroup={isExternalGroup}
                         onChangeMembers={() => {
-                            setTimeout(() => refetch(), 2000);
+                            setTimeout(() => refetch(), 3000);
                         }}
                     />
                 ),

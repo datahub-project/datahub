@@ -242,22 +242,8 @@ export const SearchBar = ({
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
             })) || [];
 
-        const exploreAllOption = {
-            value: 'explore-all-unique-key',
-            type: '',
-            label: (
-                <Button type="link" onClick={onClickExploreAll}>
-                    Explore all →
-                </Button>
-            ),
-            style: { marginLeft: 'auto', cursor: 'auto' },
-            disabled: true,
-        };
-
-        const tail = showQuickFilters ? [exploreAllOption] : [];
-
-        return [...moduleOptions, ...tail];
-    }, [data?.listRecommendations?.modules, onClickExploreAll, showQuickFilters]);
+        return moduleOptions;
+    }, [data?.listRecommendations?.modules]);
 
     const autoCompleteQueryOptions = useMemo(() => {
         if (effectiveQuery === '' || !showViewAllResults) return [];
@@ -314,9 +300,22 @@ export const SearchBar = ({
     }, [quickFilters, showQuickFilters, quickFilterAutoCompleteOption]);
 
     const options = useMemo(() => {
-        const tail = autoCompleteEntityOptions.length ? autoCompleteEntityOptions : emptyQueryOptions;
-        return [...autoCompleteQueryOptions, ...quickFilterOption, ...tail];
-    }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions, quickFilterOption]);
+        const content = autoCompleteEntityOptions.length ? autoCompleteEntityOptions : emptyQueryOptions;
+
+        const exploreAllOption = {
+            value: 'explore-all-unique-key',
+            type: '',
+            label: (
+                <Button type="link" onClick={onClickExploreAll}>
+                    Explore all →
+                </Button>
+            ),
+            style: { marginLeft: 'auto', cursor: 'auto' },
+            disabled: true,
+        };
+
+        return [...autoCompleteQueryOptions, ...quickFilterOption, ...content, exploreAllOption];
+    }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions, quickFilterOption, onClickExploreAll]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);
 

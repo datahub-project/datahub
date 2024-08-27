@@ -77,6 +77,12 @@ const NoGroupMembers = styled(Empty)`
     padding: 40px;
 `;
 
+const StyledMoreOutlined = styled(MoreOutlined)`
+    :hover {
+        cursor: pointer;
+    }
+`;
+
 type Props = {
     urn: string;
     pageSize: number;
@@ -131,10 +137,6 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
 
     const onAddMembers = () => {
         onChangeMembers?.();
-        setTimeout(() => {
-            // Reload the page.
-            refetch();
-        }, 3000);
     };
 
     const onRemoveMember = (memberUrn: string) => {
@@ -216,7 +218,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                                 <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>
                                     <MemberEditIcon>
                                         <Dropdown menu={{ items: getItems(item.urn) }}>
-                                            <MoreOutlined />
+                                            <StyledMoreOutlined />
                                         </Dropdown>
                                     </MemberEditIcon>
                                 </MemberColumn>

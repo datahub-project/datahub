@@ -11,7 +11,7 @@ const MemberTag = styled(Tag)`
     padding-right: 6px;
     margin-bottom: 8px;
     display: inline-flex;
-    align-items: center;
+    width: auto;
 `;
 
 type Props = {
@@ -29,11 +29,7 @@ export const GroupMemberLink = ({ user, entityRegistry }: Props) => {
                     photoUrl={user.editableProperties?.pictureLink || undefined}
                     useDefaultAvatar={false}
                 />
-                {name.length > 15 ? (
-                    <Tooltip title={name}>{`${name.substring(0, 15)}..`}</Tooltip>
-                ) : (
-                    <span>{name}</span>
-                )}
+                {name.length > 15 ? <Tooltip title={name}>{`${name.substring(0, 15)}..`}</Tooltip> : name}
             </Link>
         </MemberTag>
     );
