@@ -11,6 +11,11 @@ if [ -n "${CUSTOM_USER_PROPS_FILE}" ]; then
   cat "${CUSTOM_USER_PROPS_FILE}" >> /datahub-frontend/conf/tmp.props
 fi
 
+PROMETHEUS_AGENT=""
+if [[ ${ENABLE_PROMETHEUS:-false} == true ]]; then
+  PROMETHEUS_AGENT="-javaagent:jmx_prometheus_javaagent.jar=4318:/datahub-frontend/client-prometheus-config.yaml"
+fi
+
 OTEL_AGENT=""
 if [[ ${ENABLE_OTEL:-false} == true ]]; then
   OTEL_AGENT="-javaagent:/opentelemetry-javaagent.jar"
