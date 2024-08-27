@@ -131,7 +131,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         self.report = SnowflakeQueriesExtractorReport()
         self.filters = filters
         self.identifiers = identifiers
-        self.discovered_tables = discovered_tables
+        self.discovered_tables = set(discovered_tables) if discovered_tables else None
 
         self._structured_report = structured_report
 
@@ -175,10 +175,24 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         return path
 
     def is_temp_table(self, name: str) -> bool:
-        return any(
+        if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
-        )
+        ):
+            return True
+
+        # This is also a temp table if
+        #   1. this name would be allowed by the dataset patterns, and
+        #   2. we have a list of discovered tables, and
+        #   3. it's not in the discovered tables list
+        if (
+            self.filters.is_dataset_pattern_allowed(name, SnowflakeObjectDomain.TABLE)
+            and self.discovered_tables
+            and name not in self.discovered_tables
+        ):
+            return True
+
+        return False
 
     def is_allowed_table(self, name: str) -> bool:
         if self.discovered_tables and name not in self.discovered_tables:
@@ -219,7 +233,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                     queries.append(entry)
 
         with self.report.audit_log_load_timer:
-            for query in queries:
+            for i, query in enumerate(queries):
+                if i % 1000 == 0:
+                    logger.info(f"Added {i} query log entries to SQL aggregator")
                 self.aggregator.add(query)
 
         yield from auto_workunit(self.aggregator.gen_metadata())
@@ -275,8 +291,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
             resp = self.connection.query(query_log_query)
 
             for i, row in enumerate(resp):
-                if i % 1000 == 0:
-                    logger.info(f"Processed {i} query log rows")
+                if i > 0 and i % 1000 == 0:
+                    logger.info(f"Processed {i} query log rows so far")
 
                 assert isinstance(row, dict)
                 try:
