@@ -75,10 +75,10 @@ runs:
         load: true
         push: false
         cache-from: |
-          type=gha
+          type=gha,scope=${{ inputs.file }}-${{ inputs.flavor }}
           type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: |
-          type=gha
+          type=gha,scope=${{ inputs.file }}-${{ inputs.flavor }}
           type=inline
     - name: Single Tag
       if: ${{ inputs.publish != 'true' }}
@@ -123,10 +123,10 @@ runs:
         target: ${{ inputs.target }}
         push: true
         cache-from: |
-          type=gha
+          type=gha,scope=${{ inputs.file }}-${{ inputs.flavor }}
           type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: |
-          type=gha
+          type=gha,scope=${{ inputs.file }}-${{ inputs.flavor }}
           type=inline
 
     # TODO add code for vuln scanning?
