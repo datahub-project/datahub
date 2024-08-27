@@ -1,0 +1,13 @@
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: true
+include:
+  - CODE_OF_CONDUCT.md
+  - CONTRIBUTING.md
+  - README.md
+
+theme: jekyll-theme-cayman
+title: DataHub
+description: A Generalized Metadata Search & Discovery Tool

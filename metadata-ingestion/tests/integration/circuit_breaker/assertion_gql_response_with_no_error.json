@@ -1,0 +1,198 @@
+{
+    "dataset": {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+      "operations": [],
+      "incidents": {
+        "incidents": []
+      },
+      "assertions": {
+        "total": 4,
+        "assertions": [
+          {
+            "__typename": "Assertion",
+            "runEvents": {
+              "total": 2,
+              "failed": 0,
+              "succeeded": 2,
+              "runEvents": [
+                {
+                  "__typename": "AssertionRunEvent",
+                  "timestampMillis": 1640692800000,
+                  "partitionSpec": {
+                    "type": "PARTITION",
+                    "partition": "{\"category\": \"catA\"}",
+                    "timePartition": null
+                  },
+                  "result": {
+                    "type": "SUCCESS",
+                    "rowCount": null,
+                    "missingCount": null,
+                    "unexpectedCount": null,
+                    "actualAggValue": null,
+                    "externalUrl": null
+                  },
+                  "assertionUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3"
+                },
+                {
+                  "__typename": "AssertionRunEvent",
+                  "timestampMillis": 1640692800000,
+                  "partitionSpec": {
+                    "type": "PARTITION",
+                    "partition": "{\"category\": \"catB\"}",
+                    "timePartition": null
+                  },
+                  "result": {
+                    "type": "SUCCESS",
+                    "rowCount": null,
+                    "missingCount": null,
+                    "unexpectedCount": null,
+                    "actualAggValue": null,
+                    "externalUrl": null
+                  },
+                  "assertionUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3"
+                }
+              ]
+            }
+          },
+          {
+            "__typename": "Assertion",
+            "runEvents": {
+              "total": 2,
+              "failed": 0,
+              "succeeded": 2,
+              "runEvents": [
+                {
+                  "__typename": "AssertionRunEvent",
+                  "timestampMillis": 1640692800000,
+                  "partitionSpec": {
+                    "type": "PARTITION",
+                    "partition": "{\"category\": \"catA\"}",
+                    "timePartition": null
+                  },
+                  "result": {
+                    "type": "SUCCESS",
+                    "rowCount": 3,
+                    "missingCount": null,
+                    "unexpectedCount": 0,
+                    "actualAggValue": null,
+                    "externalUrl": null
+                  },
+                  "assertionUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec"
+                },
+                {
+                  "__typename": "AssertionRunEvent",
+                  "timestampMillis": 1640692800000,
+                  "partitionSpec": {
+                    "type": "PARTITION",
+                    "partition": "{\"category\": \"catB\"}",
+                    "timePartition": null
+                  },
+                  "result": {
+                    "type": "SUCCESS",
+                    "rowCount": 2,
+                    "missingCount": null,
+                    "unexpectedCount": 0,
+                    "actualAggValue": null,
+                    "externalUrl": null
+                  },
+                  "assertionUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec"
+                }
+              ]
+            }
+          },
+          {
+            "__typename": "Assertion",
+            "runEvents": {
+              "total": 2,
+              "failed": 0,
+              "succeeded": 2,
+              "runEvents": [
+                {
+                  "__typename": "AssertionRunEvent",
+                  "timestampMillis": 1640692800000,
+                  "partitionSpec": {
+                    "type": "PARTITION",
+                    "partition": "{\"category\": \"catA\"}",
+                    "timePartition": null
+                  },
+                  "result": {
+                    "type": "SUCCESS",
+                    "rowCount": null,
+                    "missingCount": null,
+                    "unexpectedCount": null,
+                    "actualAggValue": 1,
+                    "externalUrl": null
+                  },
+                  "assertionUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035"
+                },
+                {
+                  "__typename": "AssertionRunEvent",
+                  "timestampMillis": 1640692800000,
+                  "partitionSpec": {
+                    "type": "PARTITION",
+                    "partition": "{\"category\": \"catB\"}",
+                    "timePartition": null
+                  },
+                  "result": {
+                    "type": "SUCCESS",
+                    "rowCount": null,
+                    "missingCount": null,
+                    "unexpectedCount": null,
+                    "actualAggValue": 3,
+                    "externalUrl": null
+                  },
+                  "assertionUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035"
+                }
+              ]
+            }
+          },
+          {
+            "__typename": "Assertion",
+            "runEvents": {
+              "total": 2,
+              "failed": 0,
+              "succeeded": 2,
+              "runEvents": [
+                {
+                  "__typename": "AssertionRunEvent",
+                  "timestampMillis": 1640692800000,
+                  "partitionSpec": {
+                    "type": "PARTITION",
+                    "partition": "{\"category\": \"catA\"}",
+                    "timePartition": null
+                  },
+                  "result": {
+                    "type": "SUCCESS",
+                    "rowCount": null,
+                    "missingCount": null,
+                    "unexpectedCount": null,
+                    "actualAggValue": 3,
+                    "externalUrl": null
+                  },
+                  "assertionUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74"
+                },
+                {
+                  "__typename": "AssertionRunEvent",
+                  "timestampMillis": 1640692800000,
+                  "partitionSpec": {
+                    "type": "PARTITION",
+                    "partition": "{\"category\": \"catB\"}",
+                    "timePartition": null
+                  },
+                  "result": {
+                    "type": "SUCCESS",
+                    "rowCount": null,
+                    "missingCount": null,
+                    "unexpectedCount": null,
+                    "actualAggValue": 2,
+                    "externalUrl": null
+                  },
+                  "assertionUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+}

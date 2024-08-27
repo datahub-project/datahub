@@ -1,0 +1,19 @@
+namespace com.linkedin.notebook
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Query cell in a Notebook, which will present content in query format
+ */
+record QueryCell includes CommonCellAttributes {
+
+  /**
+   * Raw query to explain some specific logic in a Notebook
+   */
+  rawQuery: string
+
+  /**
+   * Captures information about who last executed this query cell and when
+   */
+  lastExecuted: optional AuditStamp
+}

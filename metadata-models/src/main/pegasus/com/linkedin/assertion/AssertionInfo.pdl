@@ -1,0 +1,116 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about an assertion
+ */
+@Aspect = {
+  "name": "assertionInfo"
+}
+record AssertionInfo includes CustomProperties, ExternalReference {
+    /**
+    * Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc.
+    */
+    @Searchable = { }
+    type: enum AssertionType {
+      /**
+       * A single-dataset assertion.
+       * When this is the value, the datasetAssertion field will be populated.
+       */
+      DATASET
+
+      /**
+       * A freshness assertion, or an assertion which indicates when a particular operation should occur
+       * to an asset.
+       */
+      FRESHNESS
+
+      /**
+       * A volume assertion, or an assertion which indicates how much data should be available for a
+       * particular asset.
+       */
+      VOLUME
+
+      /**
+       * A raw SQL-statement based assertion
+       */
+      SQL
+
+      /**
+       * A structured assertion targeting a specific column or field of the Dataset.
+       */
+      FIELD
+
+      /**
+       * A schema or structural assertion.
+       *
+       * Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word).
+       */
+      DATA_SCHEMA
+
+      /**
+       * A custom assertion. 
+       * When this is the value, the customAssertion field will be populated.
+       * Use this assertion type when the exact type of assertion is not modeled in DataHub or
+       * as a starting point when integrating third-party data quality tools.
+       */
+      CUSTOM
+    }
+
+    /**
+    * A Dataset Assertion definition. This field is populated when the type is DATASET.
+    */
+    datasetAssertion: optional DatasetAssertionInfo
+
+    /**
+    * An Freshness Assertion definition. This field is populated when the type is FRESHNESS.
+    */
+    freshnessAssertion: optional FreshnessAssertionInfo
+
+    /**
+    * An Volume Assertion definition. This field is populated when the type is VOLUME.
+    */
+    volumeAssertion: optional VolumeAssertionInfo
+
+    /**
+    * A SQL Assertion definition. This field is populated when the type is SQL.
+    */
+    sqlAssertion: optional SqlAssertionInfo
+
+    /**
+    * A Field Assertion definition. This field is populated when the type is FIELD.
+    */
+    fieldAssertion: optional FieldAssertionInfo
+
+    /**
+    * An schema Assertion definition. This field is populated when the type is DATA_SCHEMA
+    */
+    schemaAssertion: optional SchemaAssertionInfo
+
+    /**
+    * A Custom Assertion definition. This field is populated when type is CUSTOM.
+    */
+    customAssertion: optional CustomAssertionInfo
+
+    /**
+    * The source or origin of the Assertion definition.
+    *
+    * If the source type of the Assertion is EXTERNAL, it is expected to have a corresponding dataPlatformInstance aspect detailing
+    * the platform where it was ingested from.
+    */
+    source: optional AssertionSource
+
+    /**
+      * The time at which the assertion was last updated and the actor who updated it.
+      * This field is only present for Native assertions updated after this field was introduced.
+      */
+    lastUpdated: optional AuditStamp
+
+    /**
+    * An optional human-readable description of the assertion
+    */
+    description: optional string
+}

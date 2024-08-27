@@ -1,0 +1,5 @@
+namespace com.datahub.test.invalid
+
+record MissingAspectAnnotation {
+  textField: optional string
+}

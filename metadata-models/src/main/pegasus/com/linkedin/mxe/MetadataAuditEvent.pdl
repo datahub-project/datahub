@@ -1,0 +1,37 @@
+namespace com.linkedin.mxe
+
+import com.linkedin.avro2pegasus.events.KafkaAuditHeader
+import com.linkedin.metadata.snapshot.Snapshot
+
+/**
+ * Kafka event for capturing update made to an entity's metadata.
+ */
+record MetadataAuditEvent {
+
+  /**
+   * Kafka audit header. See go/kafkaauditheader for more info.
+   */
+  auditHeader: optional KafkaAuditHeader
+
+  /**
+   * Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot.
+   */
+  oldSnapshot: optional Snapshot
+
+  /**
+   * Metadata around how the old snapshot was produced.
+   */
+  oldSystemMetadata: optional SystemMetadata
+
+  /**
+   * Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot.
+   */
+  newSnapshot: Snapshot
+
+  /**
+   * Metadata around how the new snapshot was produced.
+   */
+  newSystemMetadata: optional SystemMetadata
+
+  operation: optional MetadataAuditOperation
+}

@@ -1,0 +1,25 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Intended Use for the ML Model
+ */
+@Aspect = {
+ "name": "intendedUse"
+}
+record IntendedUse {
+
+  /**
+   * Primary Use cases for the MLModel.
+   */
+  primaryUses: optional array[string]
+
+  /**
+   * Primary Intended Users - For example, was the MLModel developed for entertainment purposes, for hobbyists, or enterprise solutions?
+   */
+  primaryUsers: optional array[IntendedUserType]
+
+  /**
+   * Highlight technology that the MLModel might easily be confused with, or related contexts that users could try to apply the MLModel to.
+   */
+  outOfScopeUses: optional array[string]
+}

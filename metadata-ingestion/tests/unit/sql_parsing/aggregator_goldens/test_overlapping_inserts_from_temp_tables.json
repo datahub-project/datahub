@@ -1,0 +1,274 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.customer,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_returns,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_survey,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_returns,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.customer,PROD),customer_email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_email)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD),return_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_returns,PROD),return_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_survey,PROD),return_reason)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_reason)"
+                    ],
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE TABLE #stage_online_returns AS\nSELECT\n  online_ret.customer_id,\n  customer.customer_email,\n  online_ret.return_date,\n  online_survey.return_reason\nFROM online_returns AS online_ret\nLEFT JOIN customer\n  ON online_ret.customer_id = customer.customer_id\nLEFT JOIN online_survey\n  ON online_ret.customer_id = online_survey.customer_id\n  AND online_ret.return_id = online_survey.event_id;\n\nINSERT INTO all_returns (\n  customer_id,\n  customer_email,\n  return_date,\n  return_reason\n)\nSELECT\n  customer_id,\n  customer_email,\n  return_date,\n  return_reason\nFROM #stage_online_returns",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1707182625000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.customer,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.online_survey,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_email)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_reason)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_ad747ecae933492280d24dfa7f3a4ae3a3c67457e145803d05f7d8bd7efa7d17",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:redshift"
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE TABLE #stage_in_person_returns AS\nSELECT\n  ipr.customer_id,\n  customer.customer_email,\n  ipr.return_date\nFROM in_person_returns AS ipr\nLEFT JOIN customer\n  ON in_person_returns.customer_id = customer.customer_id;\n\nINSERT INTO all_returns (\n  customer_id,\n  customer_email,\n  return_date\n)\nSELECT\n  customer_id,\n  customer_email,\n  return_date\nFROM #stage_in_person_returns",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1707182625000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.customer,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.in_person_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),customer_email)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.all_returns,PROD),return_date)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_638945c382e30206a8f8a57894d375e5f6f2a3562fe68480badf37e38e836d75",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:redshift"
+        }
+    }
+}
+]

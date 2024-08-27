@@ -1,0 +1,17 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema text of a key-value store schema.
+ */
+record KeyValueSchema {
+
+  /**
+   * The raw schema for the key in the key-value store.
+   */
+  keySchema: string
+
+  /**
+   * The raw schema for the value in the key-value store.
+   */
+  valueSchema: string
+}

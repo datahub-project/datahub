@@ -1,0 +1,34 @@
+apply plugin: 'java'
+
+dependencies {
+  implementation project(':metadata-events:mxe-avro')
+  implementation project(':metadata-events:mxe-registration')
+  implementation project(':metadata-events:mxe-utils-avro')
+  implementation project(':entity-registry')
+  implementation project(':metadata-io')
+
+  implementation externalDependency.kafkaClients
+  implementation externalDependency.springBeans
+  implementation externalDependency.springContext
+  implementation externalDependency.opentelemetryAnnotations
+
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+
+  annotationProcessor externalDependency.lombok
+
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
+
+  constraints {
+    implementation(externalDependency.log4jCore) {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.log4jApi) {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.snappy) {
+      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
+  }
+}

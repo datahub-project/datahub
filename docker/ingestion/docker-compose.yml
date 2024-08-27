@@ -1,0 +1,18 @@
+---
+version: '3.5'
+services:
+  ingestion:
+    build:
+      context: ../../
+      dockerfile: docker/datahub-ingestion/Dockerfile
+    image: acryldata/datahub-ingestion:${DATAHUB_VERSION:-head}
+    hostname: ingestion
+    command: "ingest -c /sample_recipe.yml"
+    volumes: 
+      # Most of the config is embedded inside the sample recipe file.
+      - ./sample_recipe.yml:/sample_recipe.yml:ro
+      - ../../metadata-ingestion/examples/mce_files/bootstrap_mce.json:/bootstrap_mce.json:ro
+
+networks:
+  default:
+    name: datahub_network

@@ -1,0 +1,10 @@
+[
+  {
+    "urn": "urn:li:dataType:datahub.test",
+    "info": {
+      "qualifiedName":"datahub.test",
+      "displayName": "Test Name",
+      "description": "Test Description"
+    }
+  }
+]

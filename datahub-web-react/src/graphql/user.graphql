@@ -1,0 +1,208 @@
+query getUser($urn: String!, $groupsCount: Int!) {
+    corpUser(urn: $urn) {
+        urn
+        type
+        username
+        isNativeUser
+        exists
+        info {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+            departmentName
+        }
+        editableProperties {
+            slack
+            phone
+            pictureLink
+            aboutMe
+            teams
+            skills
+            displayName
+            title
+            email
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+        groups: relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: OUTGOING
+                start: 0
+                count: $groupsCount
+            }
+        ) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on CorpGroup {
+                        urn
+                        type
+                        name
+                        info {
+                            displayName
+                            description
+                            email
+                        }
+                        relationships(
+                            input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING }
+                        ) {
+                            start
+                            count
+                            total
+                        }
+                    }
+                }
+            }
+        }
+        roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0, count: $groupsCount }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on DataHubRole {
+                        urn
+                        type
+                        name
+                        relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING }) {
+                            start
+                            count
+                            total
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
+    corpUser(urn: $urn) {
+        relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: OUTGOING
+                start: $start
+                count: $count
+            }
+        ) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on CorpGroup {
+                        urn
+                        type
+                        name
+                        info {
+                            displayName
+                            description
+                            email
+                        }
+                    }
+                    relationships(input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING }) {
+                        start
+                        count
+                        total
+                    }
+                }
+            }
+        }
+    }
+}
+
+query listUsers($input: ListUsersInput!) {
+    listUsers(input: $input) {
+        start
+        count
+        total
+        users {
+            urn
+            username
+            isNativeUser
+            info {
+                active
+                displayName
+                title
+                firstName
+                lastName
+                fullName
+                email
+            }
+            editableProperties {
+                displayName
+                pictureLink
+                teams
+                title
+                skills
+            }
+            status
+            roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
+                start
+                count
+                total
+                relationships {
+                    entity {
+                        ... on DataHubRole {
+                            urn
+                            type
+                            name
+                            relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING }) {
+                                start
+                                count
+                                total
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+mutation removeUser($urn: String!) {
+    removeUser(urn: $urn)
+}
+
+mutation updateUserStatus($urn: String!, $status: CorpUserStatus!) {
+    updateUserStatus(urn: $urn, status: $status)
+}
+
+mutation updateCorpUserProperties($urn: String!, $input: CorpUserUpdateInput!) {
+    updateCorpUserProperties(urn: $urn, input: $input) {
+        urn
+    }
+}
+
+mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
+    createNativeUserResetToken(input: $input) {
+        resetToken
+    }
+}
+
+mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) {
+    updateCorpUserViewsSettings(input: $input)
+}

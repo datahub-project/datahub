@@ -1,0 +1,76 @@
+version: 1
+source: DataHub
+owners:
+  users:
+    - mjames
+url: "https://github.com/datahub-project/datahub/"
+nodes:
+  - name: Classification
+    description: A set of terms related to Data Classification
+    knowledge_links:
+      - label: Wiki link for classification
+        url: "https://en.wikipedia.org/wiki/Classification"
+    custom_properties:
+      is_confidential: true
+    terms:
+      - name: Sensitive
+        description: Sensitive Data
+        custom_properties:
+          is_confidential: false
+        knowledge_links:
+          - label: Google Link
+            url: "https://www.google.com"
+      - name: Confidential
+        description: Confidential Data
+        custom_properties:
+          is_confidential: true
+      - name: Highly Confidential
+        description: Highly Confidential Data
+        custom_properties:
+          is_confidential: true
+        domain: urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba
+
+  - name: Personal Information
+    description: All terms related to personal information
+    owners:
+      users:
+        - mjames
+    terms:
+      - name: Email
+        description: An individual's email address
+        inherits:
+          - Classification.Confidential
+        owners:
+          groups:
+            - Trust and Safety
+      - name: Address
+        description: A physical address
+      - name: Gender
+        description: The gender identity of the individual
+        inherits:
+          - Classification.Sensitive
+  - name: Clients And Accounts
+    description: Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities
+    owners:
+      groups:
+        - finance
+    terms:
+      - name: Account
+        description: Container for records associated with a business arrangement for regular transactions and services
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+        inherits:
+          - Classification.Highly Confidential
+        contains:
+          - Clients And Accounts.Balance
+      - name: Balance
+        description: Amount of money available or owed
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance"
+  - name: KPIs
+    description: Common Business KPIs
+    terms:
+      - name: CSAT %
+        description: Customer Satisfaction Score

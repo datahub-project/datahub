@@ -1,0 +1,9 @@
+-e ../../metadata-ingestion[datahub-rest,sql-parser]
+beautifulsoup4==4.11.2
+Sphinx==6.1.3
+sphinx-click==4.4.0
+sphinx_autodoc_typehints==1.22
+pydata-sphinx-theme==0.13.1
+
+# Because of https://github.com/pydata/pydata-sphinx-theme/issues/108
+accessible-pygments

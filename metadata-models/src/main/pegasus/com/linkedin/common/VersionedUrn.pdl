@@ -1,0 +1,18 @@
+namespace com.linkedin.common
+
+/**
+ * An urn combined with a versionStamp, versionStamp can be empty indicating latest for all aspects. Represents a state in time
+ * of an entity
+ */
+record VersionedUrn {
+
+  /**
+  * Urn indicating which entity this represents
+  */
+  urn: Urn
+
+  /**
+  * String indicating the stamped version of aspects present at a point in time
+  */
+  versionStamp: optional string
+}

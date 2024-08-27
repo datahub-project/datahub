@@ -1,0 +1,80 @@
+# https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-function-score-query.html
+
+# First match
+queryConfigurations:
+  # `*` or empty, select all queries
+  - queryRegex: '[*]|'
+    simpleQuery: false
+    prefixMatchQuery: false
+    exactMatchQuery: false
+    functionScore:
+      functions:
+        - filter:
+            match_all: { }
+          weight: 1
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+      score_mode: avg
+      boost_mode: multiply
+
+  # default catch all
+  - queryRegex: .*
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+    # {{query_string}} is the search query string
+    # https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-bool-query.html
+    boolQuery:
+      must:
+        - term:
+            name: '{{query_string}}'
+    functionScore:
+      functions:
+        - filter:
+            match_all: {}
+          weight: 1
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+        - filter:
+            term:
+              deprecated:
+                value: false
+          weight: 1.5
+      score_mode: avg
+      boost_mode: multiply
+
+autocompleteConfigurations:
+  - queryRegex: .*
+    defaultQuery: true
+    boolQuery:
+      must:
+        - term:
+            removed: 'false'
+    functionScore:
+      functions:
+        - filter:
+            match_all: {}
+          weight: 1
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+        - filter:
+            term:
+              deprecated:
+                value: false
+          weight: 1.5
+      score_mode: avg
+      boost_mode: multiply

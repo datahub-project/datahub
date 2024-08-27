@@ -1,0 +1,51 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * Set of flags to control search behavior
+ */
+record SearchFlags {
+  /**
+   * Whether to skip cache
+   */
+  skipCache: boolean = false
+
+  /**
+   * The maximum number of values in a facet aggregation
+   */
+  maxAggValues: int = 20
+
+  /**
+   * Structured or unstructured fulltext query
+   */
+  fulltext:optional boolean
+
+  /**
+   * Whether to skip highlighting
+   */
+  skipHighlighting:optional boolean = false
+
+  /**
+   * Whether to skip aggregates/facets
+   */
+  skipAggregates:optional boolean = false
+
+  /**
+   * Whether to request for search suggestions on the _entityName virtualized field
+   */
+  getSuggestions:optional boolean = false
+
+  /**
+  * Instructions for grouping results before returning
+  */
+  groupingSpec: optional GroupingSpec
+
+  /**
+   * include soft deleted entities in results
+   */
+   includeSoftDeleted:optional boolean = false
+
+  /**
+   * include restricted entities in results (default is to filter)
+   */
+   includeRestricted:optional boolean = false
+}

@@ -1,0 +1,516 @@
+{
+  "name" : "entities",
+  "namespace" : "com.linkedin.entity",
+  "path" : "/entities",
+  "schema" : "com.linkedin.entity.Entity",
+  "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.EntityResource",
+  "resourceClass" : "com.linkedin.metadata.resources.entity.EntityResource",
+  "collection" : {
+    "identifier" : {
+      "name" : "entitiesId",
+      "type" : "string"
+    },
+    "supports" : [ "batch_get", "get" ],
+    "methods" : [ {
+      "method" : "get",
+      "javaMethodName" : "get",
+      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      } ]
+    }, {
+      "method" : "batch_get",
+      "javaMethodName" : "batchGet",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      } ]
+    } ],
+    "actions" : [ {
+      "name" : "applyRetention",
+      "javaMethodName" : "applyRetention",
+      "parameters" : [ {
+        "name" : "start",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "count",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "attemptWithVersion",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "aspectName",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "urn",
+        "type" : "string",
+        "optional" : true
+      } ],
+      "returns" : "string"
+    }, {
+      "name" : "autocomplete",
+      "javaMethodName" : "autocomplete",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "query",
+        "type" : "string"
+      }, {
+        "name" : "field",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "limit",
+        "type" : "int"
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+    }, {
+      "name" : "batchGetTotalEntityCount",
+      "javaMethodName" : "batchGetTotalEntityCount",
+      "parameters" : [ {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      } ],
+      "returns" : "{ \"type\" : \"map\", \"values\" : \"long\" }"
+    }, {
+      "name" : "batchIngest",
+      "javaMethodName" : "batchIngest",
+      "parameters" : [ {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.entity.Entity\" }"
+      }, {
+        "name" : "systemMetadata",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.mxe.SystemMetadata\" }",
+        "optional" : true
+      } ]
+    }, {
+      "name" : "browse",
+      "javaMethodName" : "browse",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "path",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "limit",
+        "type" : "int"
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.browse.BrowseResult"
+    }, {
+      "name" : "delete",
+      "javaMethodName" : "deleteEntity",
+      "doc" : "Deletes all data related to an individual urn(entity).\nService Returns: - a DeleteEntityResponse object.",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string",
+        "doc" : "- the urn of the entity."
+      }, {
+        "name" : "aspectName",
+        "type" : "string",
+        "optional" : true,
+        "doc" : "- the optional aspect name if only want to delete the aspect (applicable only\n     for timeseries aspects)."
+      }, {
+        "name" : "startTimeMillis",
+        "type" : "long",
+        "optional" : true,
+        "doc" : "- the optional start time (applicable only for timeseries aspects)."
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long",
+        "optional" : true,
+        "doc" : "- the optional end time (applicable only for the timeseries aspects)."
+      } ],
+      "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
+    }, {
+      "name" : "deleteAll",
+      "javaMethodName" : "deleteEntities",
+      "parameters" : [ {
+        "name" : "registryId",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "dryRun",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.run.RollbackResponse"
+    }, {
+      "name" : "deleteReferences",
+      "javaMethodName" : "deleteReferencesTo",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "dryRun",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.run.DeleteReferencesResponse"
+    }, {
+      "name" : "exists",
+      "javaMethodName" : "exists",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "includeSoftDelete",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "boolean"
+    }, {
+      "name" : "filter",
+      "javaMethodName" : "filter",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter"
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.search.SearchResult"
+    }, {
+      "name" : "getBrowsePaths",
+      "javaMethodName" : "getBrowsePaths",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "com.linkedin.common.Urn"
+      } ],
+      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    }, {
+      "name" : "getTotalEntityCount",
+      "javaMethodName" : "getTotalEntityCount",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      } ],
+      "returns" : "long"
+    }, {
+      "name" : "ingest",
+      "javaMethodName" : "ingest",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "com.linkedin.entity.Entity"
+      }, {
+        "name" : "systemMetadata",
+        "type" : "com.linkedin.mxe.SystemMetadata",
+        "optional" : true
+      } ]
+    }, {
+      "name" : "list",
+      "javaMethodName" : "list",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.ListResult"
+    }, {
+      "name" : "listUrns",
+      "javaMethodName" : "listUrns",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.ListUrnsResult"
+    }, {
+      "name" : "scrollAcrossEntities",
+      "javaMethodName" : "scrollAcrossEntities",
+      "parameters" : [ {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "input",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
+        "name" : "scrollId",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "keepAlive",
+        "type" : "string"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.search.ScrollResult"
+    }, {
+      "name" : "scrollAcrossLineage",
+      "javaMethodName" : "scrollAcrossLineage",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "direction",
+        "type" : "string"
+      }, {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "input",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "maxHops",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
+        "name" : "scrollId",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "keepAlive",
+        "type" : "string"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      }, {
+        "name" : "startTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.search.LineageScrollResult"
+    }, {
+      "name" : "search",
+      "javaMethodName" : "search",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "input",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      }, {
+        "annotations" : {
+          "deprecated" : { }
+        },
+        "name" : "fulltext",
+        "type" : "boolean",
+        "optional" : true
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.search.SearchResult"
+    }, {
+      "name" : "searchAcrossEntities",
+      "javaMethodName" : "searchAcrossEntities",
+      "parameters" : [ {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "input",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.search.SearchResult"
+    }, {
+      "name" : "searchAcrossLineage",
+      "javaMethodName" : "searchAcrossLineage",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "direction",
+        "type" : "string"
+      }, {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "input",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "maxHops",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "sortCriteria",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      }, {
+        "name" : "startTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.search.LineageSearchResult"
+    }, {
+      "name" : "setWritable",
+      "javaMethodName" : "setWriteable",
+      "parameters" : [ {
+        "name" : "value",
+        "type" : "boolean",
+        "default" : "true"
+      } ]
+    } ],
+    "entity" : {
+      "path" : "/entities/{entitiesId}"
+    }
+  }
+}

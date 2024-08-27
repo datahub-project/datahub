@@ -1,0 +1,27 @@
+source:
+  type: trino
+  config:
+    # Coordinates
+    host_port: localhost:5300
+    database: dbname
+
+    # Credentials
+    username: foo
+    password: password
+
+    # If you need to connect to Trino over http and not https, uncomment this section.
+    # options:
+    #   connect_args:
+    #     http_scheme: http
+    
+    # Optional -- A mapping of trino catalog to its connector details like connector database, env and platform instance.
+    # This configuration is used to ingest lineage of datasets to connectors. Use catalog name as key.
+    # catalog_to_connector_details:
+    #   catalog_name:
+    #     connector_database: db_name
+    #     connector_platform: connector_platform_name
+    #     platform_instance: cloud_instance
+    #     env: DEV    
+
+sink:
+  # sink configs

@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Dashboard
+ */
+@Aspect = {
+  "name": "dashboardKey"
+}
+record DashboardKey {
+  /**
+  * The name of the dashboard tool such as looker, redash etc.
+  */
+  @Searchable = {
+    "fieldName": "tool",
+    "fieldType": "TEXT_PARTIAL",
+    "boostScore": 4.0
+  }
+  dashboardTool: string
+
+  /**
+  * Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'
+  */
+  dashboardId: string
+}

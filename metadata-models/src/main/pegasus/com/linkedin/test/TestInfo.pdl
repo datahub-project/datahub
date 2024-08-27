@@ -1,0 +1,53 @@
+namespace com.linkedin.test
+
+/**
+ * Information about a DataHub Test
+ */
+@Aspect = {
+  "name": "testInfo"
+}
+record TestInfo {
+    /**
+    * The name of the test
+    */
+    @Searchable = {
+      "fieldType": "TEXT_PARTIAL"
+    }
+    name: string
+
+    /**
+    * Category of the test
+    */
+    @Searchable = {
+      "fieldType": "KEYWORD"
+    }
+    category: string
+
+    /**
+     * Description of the test
+     */
+     @Searchable = {
+       "fieldType": "TEXT"
+     }
+    description: optional string
+
+    /**
+    * Configuration for the Test
+    */
+    definition: record TestDefinition {
+      /**
+       * The Test Definition Type
+       */
+       type: enum TestDefinitionType {
+        /**
+         * JSON / YAML test def
+         */
+         JSON
+       }
+
+      /**
+       * JSON format configuration for the test
+       */
+       json: optional string
+    }
+}

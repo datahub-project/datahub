@@ -1,0 +1,9 @@
+# https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-synonym-tokenfilter.html#_solr_synonyms
+cac, customer acquisition cost => cac, customer, acquisition, cost
+stg, staging
+dev, development
+prod, production
+glue, athena
+s3, s_3
+data platform, dataplatform
+bigquery, big query => bigquery, big, query

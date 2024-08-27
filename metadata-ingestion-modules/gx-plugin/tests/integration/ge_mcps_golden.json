@@ -1,0 +1,1929 @@
+[
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD),score)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "8",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "0",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_values_to_be_between",
+                "nativeParameters": {
+                    "column": "score",
+                    "max_value": "8",
+                    "min_value": "0"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catA\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "c8f12129f2e57412eee5fb8656154d05",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_SCHEMA",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD),id)"
+                ],
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "expect_column_to_exist",
+                "nativeParameters": {
+                    "column": "id"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catA\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "c8f12129f2e57412eee5fb8656154d05",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD),id)"
+                ],
+                "aggregation": "MIN",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_min_to_be_between",
+                "nativeParameters": {
+                    "column": "id",
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catA\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "c8f12129f2e57412eee5fb8656154d05",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 1,
+                "nativeResults": {
+                    "observed_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "expect_table_row_count_to_be_between",
+                "nativeParameters": {
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catA\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "c8f12129f2e57412eee5fb8656154d05",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 3,
+                "nativeResults": {
+                    "observed_value": "3"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD),name)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "expect_column_values_to_not_be_null",
+                "nativeParameters": {
+                    "column": "name"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catA\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "c8f12129f2e57412eee5fb8656154d05",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "rowCount": 3,
+                "unexpectedCount": 0,
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD),score)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "8",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "0",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_values_to_be_between",
+                "nativeParameters": {
+                    "column": "score",
+                    "max_value": "8",
+                    "min_value": "0"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catB\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "aaee0c1f4ae6bba9bcb50c5f20277d0a",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_SCHEMA",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD),id)"
+                ],
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "expect_column_to_exist",
+                "nativeParameters": {
+                    "column": "id"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catB\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:3d1699164901675df774ab34fd16f4f3",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "aaee0c1f4ae6bba9bcb50c5f20277d0a",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD),id)"
+                ],
+                "aggregation": "MIN",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_min_to_be_between",
+                "nativeParameters": {
+                    "column": "id",
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catB\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:16d6f586b2febda7f2b53faec6bb9035",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "aaee0c1f4ae6bba9bcb50c5f20277d0a",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 3,
+                "nativeResults": {
+                    "observed_value": "3"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "expect_table_row_count_to_be_between",
+                "nativeParameters": {
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catB\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:4cf76385ccf614cc6cbb9daa551c3c74",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "aaee0c1f4ae6bba9bcb50c5f20277d0a",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 2,
+                "nativeResults": {
+                    "observed_value": "2"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD),name)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "expect_column_values_to_not_be_null",
+                "nativeParameters": {
+                    "column": "name"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "PARTITION",
+                "partition": "{\"category\": \"catB\"}"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:9729dfafea4bb2c2f114bc80e513a7ec",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo1,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "data__foo1__asset",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "aaee0c1f4ae6bba9bcb50c5f20277d0a",
+                "limit": 10
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "rowCount": 2,
+                "unexpectedCount": 0,
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2e3e33eaa148f19f6a6e37ba0c6fdb2f",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_SCHEMA",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD),id)"
+                ],
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "expect_column_to_exist",
+                "nativeParameters": {
+                    "column": "id"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2e3e33eaa148f19f6a6e37ba0c6fdb2f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2e3e33eaa148f19f6a6e37ba0c6fdb2f",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:2e3e33eaa148f19f6a6e37ba0c6fdb2f",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "foo2",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "010ef8c1cd417910b971f4468f024ec5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ab05b249c82cb5cdeb19743462125fae",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD),id)"
+                ],
+                "aggregation": "MIN",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_min_to_be_between",
+                "nativeParameters": {
+                    "column": "id",
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ab05b249c82cb5cdeb19743462125fae",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ab05b249c82cb5cdeb19743462125fae",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:ab05b249c82cb5cdeb19743462125fae",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "foo2",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "010ef8c1cd417910b971f4468f024ec5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 1,
+                "nativeResults": {
+                    "observed_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e650fdf72c472afccfda2eb6e2e0152e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "expect_table_row_count_to_be_between",
+                "nativeParameters": {
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e650fdf72c472afccfda2eb6e2e0152e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e650fdf72c472afccfda2eb6e2e0152e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:e650fdf72c472afccfda2eb6e2e0152e",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "foo2",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "010ef8c1cd417910b971f4468f024ec5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 5,
+                "nativeResults": {
+                    "observed_value": "5"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0d2562733ca1096b6a89287e37b87e9e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD),score)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "8",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "0",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_values_to_be_between",
+                "nativeParameters": {
+                    "column": "score",
+                    "max_value": "8",
+                    "min_value": "0"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0d2562733ca1096b6a89287e37b87e9e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0d2562733ca1096b6a89287e37b87e9e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:0d2562733ca1096b6a89287e37b87e9e",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "foo2",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "010ef8c1cd417910b971f4468f024ec5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "rowCount": 5,
+                "missingCount": 0,
+                "unexpectedCount": 2,
+                "nativeResults": {
+                    "partial_unexpected_list": "[\"10\", \"9\"]",
+                    "partial_unexpected_counts": "[{\"value\": \"9\", \"count\": 1}, {\"value\": \"10\", \"count\": 1}]"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a54a953afa6403d7b6dffbf02ff3de4",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD),name)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "expect_column_values_to_not_be_null",
+                "nativeParameters": {
+                    "column": "name"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a54a953afa6403d7b6dffbf02ff3de4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a54a953afa6403d7b6dffbf02ff3de4",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:6a54a953afa6403d7b6dffbf02ff3de4",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "foo2",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "010ef8c1cd417910b971f4468f024ec5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "rowCount": 5,
+                "unexpectedCount": 0,
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fe1fad936d3dcb98a501525c66682253",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD),score)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "8",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "0",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_values_to_be_between",
+                "nativeParameters": {
+                    "column": "score",
+                    "max_value": "8",
+                    "min_value": "0"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fe1fad936d3dcb98a501525c66682253",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fe1fad936d3dcb98a501525c66682253",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:fe1fad936d3dcb98a501525c66682253",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "FOO3",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "297f599e52ae5029ad9fab6214412ab8"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b23c851ecc41bb74edc39b7b8cce570b",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+                "scope": "DATASET_SCHEMA",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD),id)"
+                ],
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "expect_column_to_exist",
+                "nativeParameters": {
+                    "column": "id"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b23c851ecc41bb74edc39b7b8cce570b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b23c851ecc41bb74edc39b7b8cce570b",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:b23c851ecc41bb74edc39b7b8cce570b",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "FOO3",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "297f599e52ae5029ad9fab6214412ab8"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:38caf10bb6fb6ef52a6b0f5827bcd3aa",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD),id)"
+                ],
+                "aggregation": "MIN",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_min_to_be_between",
+                "nativeParameters": {
+                    "column": "id",
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:38caf10bb6fb6ef52a6b0f5827bcd3aa",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:38caf10bb6fb6ef52a6b0f5827bcd3aa",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:38caf10bb6fb6ef52a6b0f5827bcd3aa",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "FOO3",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "297f599e52ae5029ad9fab6214412ab8"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 1,
+                "nativeResults": {
+                    "observed_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fa39b9ea8bf83bb6af5635d878e1f07d",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "expect_table_row_count_to_be_between",
+                "nativeParameters": {
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fa39b9ea8bf83bb6af5635d878e1f07d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fa39b9ea8bf83bb6af5635d878e1f07d",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:fa39b9ea8bf83bb6af5635d878e1f07d",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "FOO3",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "297f599e52ae5029ad9fab6214412ab8"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 1,
+                "nativeResults": {
+                    "observed_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:f8e511d9e9d65987b56f0f1495a3bd00",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD),name)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "expect_column_values_to_not_be_null",
+                "nativeParameters": {
+                    "column": "name"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:f8e511d9e9d65987b56f0f1495a3bd00",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:f8e511d9e9d65987b56f0f1495a3bd00",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:f8e511d9e9d65987b56f0f1495a3bd00",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo3,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "FOO3",
+                    "datasource_name": "my_postgresql_datasource"
+                },
+                "nativeBatchId": "297f599e52ae5029ad9fab6214412ab8"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "rowCount": 1,
+                "unexpectedCount": 0,
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2e3e33eaa148f19f6a6e37ba0c6fdb2f",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_SCHEMA",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD),id)"
+                ],
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "expect_column_to_exist",
+                "nativeParameters": {
+                    "column": "id"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2e3e33eaa148f19f6a6e37ba0c6fdb2f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2e3e33eaa148f19f6a6e37ba0c6fdb2f",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "QUERY",
+                "partition": "Query_5c069023db2845910198ff14ab86ac27"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:2e3e33eaa148f19f6a6e37ba0c6fdb2f",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "custom_data_asset",
+                    "datasource_name": "runtime_postgres_datasource"
+                },
+                "nativeBatchId": "60f7ffb6e021abc8c6333d9040f97140",
+                "query": "select * from foo2 where score>5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {}
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ab05b249c82cb5cdeb19743462125fae",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD),id)"
+                ],
+                "aggregation": "MIN",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_min_to_be_between",
+                "nativeParameters": {
+                    "column": "id",
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ab05b249c82cb5cdeb19743462125fae",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ab05b249c82cb5cdeb19743462125fae",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "QUERY",
+                "partition": "Query_5c069023db2845910198ff14ab86ac27"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:ab05b249c82cb5cdeb19743462125fae",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "custom_data_asset",
+                    "datasource_name": "runtime_postgres_datasource"
+                },
+                "nativeBatchId": "60f7ffb6e021abc8c6333d9040f97140",
+                "query": "select * from foo2 where score>5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 1,
+                "nativeResults": {
+                    "observed_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e650fdf72c472afccfda2eb6e2e0152e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "1",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "expect_table_row_count_to_be_between",
+                "nativeParameters": {
+                    "max_value": "5",
+                    "min_value": "1"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e650fdf72c472afccfda2eb6e2e0152e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e650fdf72c472afccfda2eb6e2e0152e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "QUERY",
+                "partition": "Query_5c069023db2845910198ff14ab86ac27"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:e650fdf72c472afccfda2eb6e2e0152e",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "custom_data_asset",
+                    "datasource_name": "runtime_postgres_datasource"
+                },
+                "nativeBatchId": "60f7ffb6e021abc8c6333d9040f97140",
+                "query": "select * from foo2 where score>5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "actualAggValue": 5,
+                "nativeResults": {
+                    "observed_value": "5"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0d2562733ca1096b6a89287e37b87e9e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD),score)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "8",
+                        "type": "UNKNOWN"
+                    },
+                    "minValue": {
+                        "value": "0",
+                        "type": "UNKNOWN"
+                    }
+                },
+                "nativeType": "expect_column_values_to_be_between",
+                "nativeParameters": {
+                    "column": "score",
+                    "max_value": "8",
+                    "min_value": "0"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0d2562733ca1096b6a89287e37b87e9e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0d2562733ca1096b6a89287e37b87e9e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "QUERY",
+                "partition": "Query_5c069023db2845910198ff14ab86ac27"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:0d2562733ca1096b6a89287e37b87e9e",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "custom_data_asset",
+                    "datasource_name": "runtime_postgres_datasource"
+                },
+                "nativeBatchId": "60f7ffb6e021abc8c6333d9040f97140",
+                "query": "select * from foo2 where score>5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "rowCount": 5,
+                "missingCount": 0,
+                "unexpectedCount": 2,
+                "nativeResults": {
+                    "partial_unexpected_list": "[\"10\", \"9\"]",
+                    "partial_unexpected_counts": "[{\"value\": \"9\", \"count\": 1}, {\"value\": \"10\", \"count\": 1}]"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a54a953afa6403d7b6dffbf02ff3de4",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "expectation_suite_name": "test_suite"
+            },
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+                "scope": "DATASET_COLUMN",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD),name)"
+                ],
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "expect_column_values_to_not_be_null",
+                "nativeParameters": {
+                    "column": "name"
+                }
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a54a953afa6403d7b6dffbf02ff3de4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:great-expectations"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a54a953afa6403d7b6dffbf02ff3de4",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1640692800000,
+            "partitionSpec": {
+                "type": "QUERY",
+                "partition": "Query_5c069023db2845910198ff14ab86ac27"
+            },
+            "runId": "2021-12-28T12:00:00Z",
+            "assertionUrn": "urn:li:assertion:6a54a953afa6403d7b6dffbf02ff3de4",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.foo2,PROD)",
+            "batchSpec": {
+                "customProperties": {
+                    "data_asset_name": "custom_data_asset",
+                    "datasource_name": "runtime_postgres_datasource"
+                },
+                "nativeBatchId": "60f7ffb6e021abc8c6333d9040f97140",
+                "query": "select * from foo2 where score>5"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "rowCount": 5,
+                "unexpectedCount": 0,
+                "nativeResults": {}
+            }
+        }
+    }
+}
+]

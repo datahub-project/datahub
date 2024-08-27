@@ -1,0 +1,25 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset? Are there additional recommendations for model use?
+ */
+@Aspect = {
+  "name": "mlModelCaveatsAndRecommendations"
+}
+record CaveatsAndRecommendations {
+
+  /**
+   * This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset?
+   */
+  caveats: optional CaveatDetails
+
+  /**
+   * Recommendations on where this MLModel should be used.
+   */
+  recommendations: optional string
+
+  /**
+   * Ideal characteristics of an evaluation dataset for this MLModel
+   */
+  idealDatasetCharacteristics: optional array[string]
+}

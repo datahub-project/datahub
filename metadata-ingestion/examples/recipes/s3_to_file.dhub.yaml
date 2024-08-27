@@ -1,0 +1,18 @@
+---
+# see https://datahubproject.io/docs/generated/ingestion/sources/s3_data_lake for complete documentation
+source:
+  type: "s3"
+  config:
+    platform: s3
+    path_spec: 
+      include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
+    aws_config:
+      aws_access_key_id: accessKey
+      aws_secret_access_key: secretKey
+      aws_region: us-east-2
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/file for complete documentation
+sink:
+  type: "file"
+  config:
+    filename: "./s3_data_lake_mces.json"

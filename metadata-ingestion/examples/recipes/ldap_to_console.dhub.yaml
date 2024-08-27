@@ -1,0 +1,12 @@
+# see https://datahubproject.io/docs/generated/ingestion/sources/ldap for complete documentation
+source:
+  type: "ldap"
+  config:
+    ldap_server: ldap://localhost
+    ldap_user: "cn=admin,dc=example,dc=org"
+    ldap_password: "admin"
+    base_dn: "dc=example,dc=org"
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
+sink:
+  type: "console"

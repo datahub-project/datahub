@@ -1,0 +1,106 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "2ef01d0ff1cb2f129dbe746a3dc1a1c4403f1203fb9bd1bfaf8aa8cafdd2ac32",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,catalog_returns,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,catalog_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,customer_demographics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,household_demographics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,inventory,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,item,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,promotion,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,warehouse,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "i_item_desc",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "w_warehouse_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "d_week_seq",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)",
+                    "column": "d_week_seq"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "no_promo",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,promotion,PROD)",
+                    "column": "p_promo_sk"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "promo",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,promotion,PROD)",
+                    "column": "p_promo_sk"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "total_cnt",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": []
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO query72 SELECT i_item_desc, w_warehouse_name, d1.d_week_seq, SUM(CASE WHEN promotion.p_promo_sk IS NULL THEN ? ELSE ? END) AS no_promo, SUM(CASE WHEN NOT promotion.p_promo_sk IS NULL THEN ? ELSE ? END) AS promo, COUNT(*) AS total_cnt FROM catalog_sales JOIN inventory ON (cs_item_sk = inv_item_sk) JOIN warehouse ON (w_warehouse_sk = inv_warehouse_sk) JOIN item ON (i_item_sk = cs_item_sk) JOIN customer_demographics ON (cs_bill_cdemo_sk = cd_demo_sk) JOIN household_demographics ON (cs_bill_hdemo_sk = hd_demo_sk) JOIN date_dim AS d1 ON (cs_sold_date_sk = d1.d_date_sk) JOIN date_dim AS d2 ON (inv_date_sk = d2.d_date_sk) JOIN date_dim AS d3 ON (cs_ship_date_sk = d3.d_date_sk) LEFT OUTER JOIN promotion ON (cs_promo_sk = p_promo_sk) LEFT OUTER JOIN catalog_returns ON (cr_item_sk = cs_item_sk AND cr_order_number = cs_order_number) WHERE d1.d_week_seq = d2.d_week_seq AND inv_quantity_on_hand < cs_quantity AND hd_buy_potential = ? AND cd_marital_status = ? GROUP BY i_item_desc, w_warehouse_name, d1.d_week_seq ORDER BY total_cnt DESC, i_item_desc, w_warehouse_name, d_week_seq LIMIT ?"
+    }
+}

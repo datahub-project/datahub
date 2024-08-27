@@ -1,0 +1,23 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset? Are there additional recommendations for model use?
+ */
+record CaveatDetails {
+
+  /**
+   * Did the results suggest any further testing?
+   */
+  needsFurtherTesting: optional boolean
+
+  /**
+   * Caveat Description
+   * For ex: Given gender classes are binary (male/not male), which we include as male/female. Further work needed to evaluate across a spectrum of genders.
+   */
+  caveatDescription: optional string
+
+  /**
+   * Relevant groups that were not represented in the evaluation dataset?
+   */
+  groupsNotRepresented: optional array[string]
+}

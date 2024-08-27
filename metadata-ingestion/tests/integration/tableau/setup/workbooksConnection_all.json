@@ -1,0 +1,245 @@
+{
+    "data": {
+        "workbooksConnection": {
+            "nodes": [
+                {
+                    "id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
+                    "name": "Email Performance by Campaign",
+                    "luid": "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b",
+                    "projectName": "default",
+                    "owner": {
+                        "username": "jawadqu@gmail.com"
+                    },
+                    "description": "Description for Email Performance by Campaign",
+                    "uri": "sites/4989/workbooks/15995",
+                    "createdAt": "2021-12-22T19:10:34Z",
+                    "updatedAt": "2021-12-22T19:10:34Z",
+                    "sheets": [
+                        {
+                            "id": "222d1406-de0e-cd8d-0b94-9b45a0007e59"
+                        },
+                        {
+                            "id": "38130558-4194-2e2a-3046-c0d887829cb4"
+                        },
+                        {
+                            "id": "692a2da4-2a82-32c1-f713-63b8e4325d86"
+                        },
+                        {
+                            "id": "f4317efd-c3e6-6ace-8fe6-e71b590bbbcc"
+                        }
+                    ],
+                    "dashboards": [
+                        {
+                            "id": "8f7dd564-36b6-593f-3c6f-687ad06cd40b"
+                        }
+                    ],
+                    "embeddedDatasources": [
+                        {
+                            "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3"
+                        }
+                    ]
+                },
+                {
+                    "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
+                    "name": "Dvdrental Workbook",
+                    "luid": "b2c84ac6-1e37-4ca0-bf9b-62339be046fc",
+                    "projectName": "default",
+                    "owner": {
+                        "username": "jawadqu@gmail.com"
+                    },
+                    "description": "",
+                    "uri": "sites/4989/workbooks/15619",
+                    "createdAt": "2021-12-17T20:28:31Z",
+                    "updatedAt": "2022-01-18T16:14:34Z",
+                    "tags": [
+                        {
+                            "name": "TagSheet3"
+                        }
+                    ],
+                    "sheets": [
+                        {
+                            "id": "8a6a269a-d6de-fae4-5050-513255b40ffc"
+                        },
+                        {
+                            "id": "c57a5574-db47-46df-677f-0b708dab14db"
+                        },
+                        {
+                            "id": "e604255e-0573-3951-6db7-05bee48116c1"
+                        }
+                    ],
+                    "dashboards": [
+                        {
+                            "id": "20e44c22-1ccd-301a-220c-7b6837d09a52"
+                        },
+                        {
+                            "id": "39b7a1de-6276-cfc7-9b59-1d22f3bbb06b"
+                        }
+                    ],
+                    "embeddedDatasources": [
+                        {
+                            "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090"
+                        },
+                        {
+                            "id": "618c87db-5959-338b-bcc7-6f5f4cc0b6c6"
+                        },
+                        {
+                            "id": "d00f4ba6-707e-4684-20af-69eb47587cc2"
+                        }
+                    ],
+                    "upstreamDatasources": [
+                        {
+                            "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae",
+                            "name": "Superstore Datasource",
+                            "downstreamSheets": [
+                                {
+                                    "id": "e604255e-0573-3951-6db7-05bee48116c1",
+                                    "name": "Sheet 3"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
+                    "name": "Executive Dashboard",
+                    "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506",
+                    "projectName": "default",
+                    "owner": {
+                        "username": "jawadqu@gmail.com"
+                    },
+                    "description": "",
+                    "uri": "sites/4989/workbooks/15605",
+                    "createdAt": "2021-12-17T19:14:10Z",
+                    "updatedAt": "2021-12-17T19:15:02Z",
+                    "sheets": [
+                        {
+                            "id": "20fc5eb7-81eb-aa18-8c39-af501c62d085"
+                        },
+                        {
+                            "id": "2b5351c1-535d-4a4a-1339-c51ddd6abf8a"
+                        },
+                        {
+                            "id": "2b73b9dd-4ec7-75ca-f2e9-fa1984ca8b72"
+                        },
+                        {
+                            "id": "373c6466-bb0c-b319-8752-632456349261"
+                        },
+                        {
+                            "id": "53b8dc2f-8ada-51f7-7422-fe82e9b803cc"
+                        },
+                        {
+                            "id": "58af9ecf-b839-da50-65e1-2e1fa20e3362"
+                        },
+                        {
+                            "id": "618b3e76-75c1-cb31-0c61-3f4890b72c31"
+                        },
+                        {
+                            "id": "721c3c41-7a2b-16a8-3281-6f948a44be96"
+                        },
+                        {
+                            "id": "7ef184c1-5a41-5ec8-723e-ae44c20aa335"
+                        },
+                        {
+                            "id": "7fbc77ba-0ab6-3727-0db3-d8402a804da5"
+                        },
+                        {
+                            "id": "8385ea9a-0749-754f-7ad9-824433de2120"
+                        },
+                        {
+                            "id": "b207c2f2-b675-32e3-2663-17bb836a018b"
+                        },
+                        {
+                            "id": "b679da5e-7d03-f01e-b2ea-01fb3c1926dc"
+                        },
+                        {
+                            "id": "c14973c2-e1c3-563a-a9c1-8a408396d22a"
+                        },
+                        {
+                            "id": "e70a540d-55ed-b9cc-5a3c-01ebe81a1274"
+                        },
+                        {
+                            "id": "f76d3570-23b8-f74b-d85c-cc5484c2079c"
+                        }
+                    ],
+                    "dashboards": [
+                        {
+                            "id": "5dcaaf46-e6fb-2548-e763-272a7ab2c9b1"
+                        }
+                    ],
+                    "embeddedDatasources": [
+                        {
+                            "id": "06c3e060-8133-4b58-9b53-a0fced25e056"
+                        },
+                        {
+                            "id": "3ade7817-ae27-259e-8e48-1570e7f932f6"
+                        },
+                        {
+                            "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                        }
+                    ]
+                },
+                {
+                    "id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c",
+                    "name": "Workbook published ds",
+                    "luid": "a059a443-7634-4abf-9e46-d147b99168be",
+                    "projectName": "default",
+                    "owner": {  
+                        "username": "jawadqu@gmail.com"
+                    },
+                    "description": "",
+                    "uri": "sites/4989/workbooks/17904",
+                    "createdAt": "2022-01-12T01:44:27Z",
+                    "updatedAt": "2022-01-20T05:54:53Z",
+                    "sheets": [
+                        {
+                            "id": "130496dc-29ca-8a89-e32b-d73c4d8b65ff"
+                        }
+                    ],
+                    "dashboards": [],
+                    "embeddedDatasources": [
+                        {
+                            "id": "d8d4c0ea-3162-fa11-31e6-26675da44a38"
+                        }
+                    ],
+                    "upstreamDatasources": [
+                        {
+                            "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                            "name": "test publish datasource",
+                            "downstreamSheets": [
+                                {
+                                    "id": "130496dc-29ca-8a89-e32b-d73c4d8b65ff",
+                                    "name": "published sheet ds"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "ee012e36-d916-4c21-94ab-f0d66736af4e",
+                    "name": "Deny Pattern WorkBook",
+                    "luid": "b45eabfe-dc3d-4331-9324-cc1b14b0549b",
+                    "projectName": "DenyProject",
+                    "owner": {
+                        "username": "jawadqu@gmail.com"
+                    },
+                    "description": "",
+                    "uri": "sites/4989/workbooks/17904",
+                    "createdAt": "2022-01-12T01:44:27Z",
+                    "updatedAt": "2022-01-20T05:54:53Z",
+                    "sheets": [
+                    ],
+                    "dashboards": [],
+                    "embeddedDatasources": [
+                    ],
+                    "upstreamDatasources": [
+                    ]
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 4
+        }
+    }
+}

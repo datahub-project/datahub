@@ -1,0 +1,96 @@
+namespace com.linkedin.assertion
+
+/**
+ * A boolean operator that is applied on the input to an assertion, after an aggregation function has been applied.
+ */
+enum AssertionStdOperator {
+  /**
+  * Value being asserted is between min_value and max_value.  Requires 'minValue' & 'maxValue' parameters.
+  */
+  BETWEEN
+
+  /**
+  * Value being asserted is less than a max value. Requires 'value' parameter.
+  */
+  LESS_THAN
+
+  /**
+  * Value being asserted is less than or equal to some value. Requires 'value' parameter.
+  */
+  LESS_THAN_OR_EQUAL_TO
+
+  /**
+  * Value being asserted is greater than some value. Requires 'value' parameter.
+  */
+  GREATER_THAN
+
+  /**
+  * Value being asserted is greater than or equal to some value. Requires 'value' parameter.
+  */
+  GREATER_THAN_OR_EQUAL_TO
+
+  /**
+  * Value being asserted is equal to value. Requires 'value' parameter.
+  */
+  EQUAL_TO
+
+  /**
+  * Value being asserted is not equal to value. Requires 'value' parameter.
+  */
+  NOT_EQUAL_TO
+
+  /**
+  * Value being asserted is null. Requires no parameters.
+  */
+  NULL
+
+  /**
+  * Value being asserted is not null. Requires no parameters.
+  */
+  NOT_NULL
+
+  /**
+  * Value being asserted contains value. Requires 'value' parameter.
+  */
+  CONTAIN
+
+  /**
+  * Value being asserted ends with value. Requires 'value' parameter.
+  */
+  END_WITH
+
+  /**
+  * Value being asserted starts with value. Requires 'value' parameter.
+  */
+  START_WITH
+
+  /**
+  * Value being asserted matches the regex value. Requires 'value' parameter.
+  */
+  REGEX_MATCH
+
+  /**
+  * Value being asserted is one of the array values. Requires 'value' parameter.
+  */
+  IN
+
+  /**
+  * Value being asserted is not in one of the array values. Requires 'value' parameter.
+  */
+  NOT_IN
+
+  /**
+  * Value being asserted is true. Requires no parameters.
+  */
+  IS_TRUE
+
+  /**
+  * Value being asserted is false. Requires no parameters.
+  */
+  IS_FALSE
+
+  /**
+  * Other
+  */
+  _NATIVE_
+}

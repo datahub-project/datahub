@@ -1,0 +1,9 @@
+namespace com.linkedin.timeseries
+
+/**
+ * Defines a grouping bucket type.
+ */
+enum GroupingBucketType {
+  DATE_GROUPING_BUCKET
+  STRING_GROUPING_BUCKET
+}

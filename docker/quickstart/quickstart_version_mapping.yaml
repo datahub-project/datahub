@@ -1,0 +1,51 @@
+# This file is used by the CLI to map quickstart version "labels" to docker tags and git refs.
+# It can also be used to override the defaults if master is broken, and to
+# map broken releases to fixed ones.
+#
+# If --version is specified during CLI run:
+# - If the version exists in this file, the details will be used.
+# - The handling of `stable` is special. See below.
+# - Otherwise, we'll assume that it represents a docker-compose git ref and docker tag.
+#   e.g. `--version v0.x.y` will use the v0.x.y tag for all images and the compose file from the v0.x.y git tag.
+# - If no version is specified the "default" key will be used.
+#
+# This file can also be used to map broken releases to fixed ones.
+#   key is the broken release
+#   .composefile_git_ref: the git ref of the compose file to use
+#   .docker_tag: the docker tag to use
+#
+# In case `--version stable` is specified AND the stable key is not defined here,
+# the latest released version will be used (by querying the github api)
+# As such, the mapping for stable is not required, but can be used to override the latest release.
+quickstart_version_map:
+  # The "default" key is mandatory and is used if no version is specified.
+  # In case of a broken release or broken master branch, specify a working version here.
+  default:
+    composefile_git_ref: master
+    docker_tag: head
+    mysql_tag: "8.2"
+  # default:  # Use this to pin default to a specific version.
+  #   composefile_git_ref: fd1bd51541a132017a648f4a2f037eec8f70ba26 # v0.10.0 + quickstart compose file fixes
+  #   docker_tag: v0.10.0
+
+  head:
+    composefile_git_ref: master
+    docker_tag: head
+    mysql_tag: "8.2"
+
+  # v0.13.0 we upgraded MySQL image for EOL
+  v0.13.0:
+    composefile_git_ref: master
+    docker_tag: v0.13.0
+    mysql_tag: "8.2"
+
+  # v0.9.6 images contain security vulnerabilities
+  v0.9.6:
+    composefile_git_ref: v0.9.6.1
+    docker_tag: v0.9.6.1
+    mysql_tag: "5.7"
+
+  # If stable is not defined the latest released version will be used.
+  # stable:
+  #   composefile_git_ref: master
+  #   docker_tag: head

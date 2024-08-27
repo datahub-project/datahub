@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.CorpGroupUrn
+import com.linkedin.metadata.aspect.CorpGroupAspect
+
+/**
+ * A metadata snapshot for a specific CorpGroup entity.
+ */
+@Entity = {
+  "name": "corpGroup",
+  "keyAspect": "corpGroupKey"
+}
+record CorpGroupSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: CorpGroupUrn
+
+  /**
+   * The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[CorpGroupAspect]
+}

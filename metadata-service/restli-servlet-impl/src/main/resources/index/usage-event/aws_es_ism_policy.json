@@ -1,0 +1,43 @@
+{
+  "policy": {
+    "policy_id": "PREFIXdatahub_usage_event_policy",
+    "description": "Datahub Usage Event Policy",
+    "default_state": "Rollover",
+    "schema_version": 4,
+    "states": [
+      {
+        "name": "Rollover",
+        "actions": [
+          {
+            "rollover": {
+              "min_size": "5gb"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "state_name": "ReadOnly",
+            "conditions": {
+              "min_index_age": "7d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "ReadOnly",
+        "actions": [
+          {
+            "read_only": {}
+          }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": {
+      "index_patterns": [
+        "PREFIXdatahub_usage_event-*"
+      ],
+      "priority": 100
+    }
+  }
+}

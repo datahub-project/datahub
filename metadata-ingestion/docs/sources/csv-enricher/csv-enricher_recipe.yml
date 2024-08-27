@@ -1,0 +1,8 @@
+source:
+  type: csv-enricher 
+  config:
+    # relative path to your csv file to ingest
+    filename: ./path/to/your/file.csv
+
+# Default sink is datahub-rest and doesn't need to be configured
+# See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options

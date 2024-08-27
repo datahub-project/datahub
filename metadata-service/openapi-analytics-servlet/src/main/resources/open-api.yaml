@@ -1,0 +1,31 @@
+openapi: "3.0.0"
+info:
+  title: Analytics API
+  description: This is a service for DataHub Analytics.
+  version: v2
+
+paths:
+  /datahub_usage_events/_search:
+    post:
+      summary: Raw datahub_usage_event data. (Experimental)
+      operationId: "raw"
+      tags:
+        - "DataHub Usage"
+      requestBody:
+        content:
+          application/json:
+            schema:      # Request body contents
+              type: string
+            example: >-
+              {
+                "query": {
+                  "match_all": {}
+                }
+              }
+      responses:
+        '200':
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                type: string

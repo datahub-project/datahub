@@ -1,0 +1,11 @@
+namespace com.datahub.test.invalid
+
+@Aspect = {
+  "name": "invalidAspect"
+}
+record MissingRelationshipName {
+  @Relationship = {
+    "entityTypes": []
+  }
+  foreignKey: string
+}

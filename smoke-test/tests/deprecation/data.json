@@ -1,0 +1,24 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": null,
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]

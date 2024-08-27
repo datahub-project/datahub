@@ -1,0 +1,1105 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "clustered": "True",
+                "version": "1.22.0"
+            },
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=80820b2f-017d-1000-85cf-05f56cde9185&componentIds=",
+            "name": "Cluster Flow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schedulingPeriod": "0 sec",
+                "schedulingStrategy": "TIMER_DRIVEN",
+                "executionNode": "ALL",
+                "concurrentlySchedulableTaskCount": "1",
+                "properties": "{\"Object Key\": \"tropical_data/${filename}\", \"Bucket\": \"${s3.destbucket}\", \"Content Type\": null, \"Content Disposition\": null, \"Cache Control\": null, \"Access Key\": null, \"Secret Key\": null, \"Credentials File\": null, \"AWS Credentials Provider service\": \"69fc8d86-2f01-3f07-910f-2b14edc81779\", \"s3-object-tags-prefix\": null, \"s3-object-remove-tags-prefix\": \"false\", \"Storage Class\": \"Standard\", \"Region\": \"us-east-1\", \"Communications Timeout\": \"30 secs\", \"Expiration Time Rule\": null, \"FullControl User List\": \"${s3.permissions.full.users}\", \"Read Permission User List\": \"${s3.permissions.read.users}\", \"Write Permission User List\": \"${s3.permissions.write.users}\", \"Read ACL User List\": \"${s3.permissions.readacl.users}\", \"Write ACL User List\": \"${s3.permissions.writeacl.users}\", \"Owner\": \"${s3.owner}\", \"canned-acl\": \"${s3.permissions.cannedacl}\", \"SSL Context Service\": null, \"Endpoint Override URL\": null, \"Signer Override\": \"Default Signature\", \"custom-signer-class-name\": null, \"custom-signer-module-location\": null, \"Multipart Threshold\": \"5 GB\", \"Multipart Part Size\": \"5 GB\", \"Multipart Upload AgeOff Interval\": \"60 min\", \"Multipart Upload Max Age Threshold\": \"7 days\", \"s3-temporary-directory-multipart\": \"${java.io.tmpdir}\", \"server-side-encryption\": \"None\", \"encryption-service\": null, \"use-chunked-encoding\": \"true\", \"use-path-style-access\": \"false\", \"proxy-configuration-service\": null, \"Proxy Host\": null, \"Proxy Host Port\": null, \"proxy-user-name\": null, \"proxy-user-password\": null}",
+                "last_event_time": "None"
+            },
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=1c61a8d9-3462-387f-8145-09e6e7785e5c&componentIds=fed5914b-937b-37dd-89c0-b34ffbae9cf4",
+            "name": "PutS3Object",
+            "description": "",
+            "type": {
+                "string": "NIFI_PROCESSOR"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:nifi,default.s3_data,PROD)"
+            ],
+            "outputDatasets": [],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_S3_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "s3_uri": "s3://enriched-topical-chat"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schedulingPeriod": "0 sec",
+                "schedulingStrategy": "TIMER_DRIVEN",
+                "executionNode": "ALL",
+                "concurrentlySchedulableTaskCount": "1",
+                "properties": "{\"Bucket\": \"enriched-topical-chat\", \"Object Key\": \"${filename}\", \"Region\": \"us-west-2\", \"Access Key\": null, \"Secret Key\": null, \"Credentials File\": null, \"AWS Credentials Provider service\": null, \"Communications Timeout\": \"30 secs\", \"Version\": null, \"SSL Context Service\": null, \"Endpoint Override URL\": null, \"Signer Override\": \"Default Signature\", \"custom-signer-class-name\": null, \"custom-signer-module-location\": null, \"encryption-service\": null, \"proxy-configuration-service\": null, \"Proxy Host\": null, \"Proxy Host Port\": null, \"proxy-user-name\": null, \"proxy-user-password\": null, \"requester-pays\": \"false\", \"range-start\": null, \"range-length\": null}",
+                "last_event_time": "2023-07-05 16:10:36.941000+00:00"
+            },
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=1c61a8d9-3462-387f-8145-09e6e7785e5c&componentIds=c5f6fc66-ffbb-3f60-9564-f2466ae32493",
+            "name": "FetchS3Object",
+            "description": "",
+            "type": {
+                "string": "NIFI_PROCESSOR"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)"
+            ],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "s3_uri": "s3://enriched-topical-chat"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schedulingPeriod": "0 sec",
+                "schedulingStrategy": "TIMER_DRIVEN",
+                "executionNode": "PRIMARY",
+                "concurrentlySchedulableTaskCount": "1",
+                "properties": "{\"listing-strategy\": \"timestamps\", \"et-state-cache\": null, \"et-initial-listing-target\": \"all\", \"et-time-window\": \"3 hours\", \"Bucket\": \"enriched-topical-chat\", \"Region\": \"us-west-2\", \"Access Key\": null, \"Secret Key\": null, \"record-writer\": null, \"min-age\": \"0 sec\", \"max-age\": null, \"Listing Batch Size\": \"100\", \"write-s3-object-tags\": \"false\", \"write-s3-user-metadata\": \"false\", \"Credentials File\": null, \"AWS Credentials Provider service\": null, \"Communications Timeout\": \"30 secs\", \"SSL Context Service\": null, \"Endpoint Override URL\": null, \"Signer Override\": \"Default Signature\", \"custom-signer-class-name\": null, \"custom-signer-module-location\": null, \"proxy-configuration-service\": null, \"Proxy Host\": null, \"Proxy Host Port\": null, \"proxy-user-name\": null, \"proxy-user-password\": null, \"delimiter\": null, \"prefix\": null, \"use-versions\": \"false\", \"list-type\": \"1\", \"requester-pays\": \"false\"}",
+                "last_event_time": "2023-07-05 16:10:34.569000+00:00"
+            },
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=1c61a8d9-3462-387f-8145-09e6e7785e5c&componentIds=8a218b6e-e6a0-36b6-bc4b-79d202a80167",
+            "name": "ListS3",
+            "description": "",
+            "type": {
+                "string": "NIFI_PROCESSOR"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)"
+            ],
+            "outputDatasets": [],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),71bc17ed-a3bc-339a-a100-ebad434717d4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=1c61a8d9-3462-387f-8145-09e6e7785e5c&componentIds=8efa023d-017d-1000-0000-0000479b764f",
+            "name": "s3_data",
+            "description": "",
+            "type": {
+                "string": "NIFI_REMOTE_INPUT_PORT"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_S3_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),71bc17ed-a3bc-339a-a100-ebad434717d4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:nifi,default.s3_data,PROD)"
+            ],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schedulingPeriod": "0 sec",
+                "schedulingStrategy": "TIMER_DRIVEN",
+                "executionNode": "ALL",
+                "concurrentlySchedulableTaskCount": "1",
+                "properties": "{\"Object Key\": \"sftp_data/${filename}\", \"Bucket\": \"${s3.destbucket}\", \"Content Type\": null, \"Content Disposition\": null, \"Cache Control\": null, \"Access Key\": null, \"Secret Key\": null, \"Credentials File\": null, \"AWS Credentials Provider service\": \"c8c73d64-ebdd-1bee-0000-000020079e12\", \"s3-object-tags-prefix\": null, \"s3-object-remove-tags-prefix\": \"false\", \"Storage Class\": \"Standard\", \"Region\": \"us-east-1\", \"Communications Timeout\": \"30 secs\", \"Expiration Time Rule\": null, \"FullControl User List\": \"${s3.permissions.full.users}\", \"Read Permission User List\": \"${s3.permissions.read.users}\", \"Write Permission User List\": \"${s3.permissions.write.users}\", \"Read ACL User List\": \"${s3.permissions.readacl.users}\", \"Write ACL User List\": \"${s3.permissions.writeacl.users}\", \"Owner\": \"${s3.owner}\", \"canned-acl\": \"${s3.permissions.cannedacl}\", \"SSL Context Service\": null, \"Endpoint Override URL\": null, \"Signer Override\": \"Default Signature\", \"custom-signer-class-name\": null, \"custom-signer-module-location\": null, \"Multipart Threshold\": \"5 GB\", \"Multipart Part Size\": \"5 GB\", \"Multipart Upload AgeOff Interval\": \"60 min\", \"Multipart Upload Max Age Threshold\": \"7 days\", \"s3-temporary-directory-multipart\": \"${java.io.tmpdir}\", \"server-side-encryption\": \"None\", \"encryption-service\": null, \"use-chunked-encoding\": \"true\", \"use-path-style-access\": \"false\", \"proxy-configuration-service\": null, \"Proxy Host\": null, \"Proxy Host Port\": null, \"proxy-user-name\": null, \"proxy-user-password\": null}",
+                "last_event_time": "None"
+            },
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=8eb4f034-017d-1000-ffff-ffffccebd06c&componentIds=c8c73d4c-ebdd-1bee-9b46-629672cd11a0",
+            "name": "PutS3Object",
+            "description": "",
+            "type": {
+                "string": "NIFI_PROCESSOR"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "uri": "sftp://sftp_public_host/temperature"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_S3_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "uri": "sftp://sftp_public_host"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),71bc17ed-a3bc-339a-a100-ebad434717d4)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_S3_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_SFTP_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schedulingPeriod": "0 sec",
+                "schedulingStrategy": "TIMER_DRIVEN",
+                "executionNode": "PRIMARY",
+                "concurrentlySchedulableTaskCount": "1",
+                "properties": "{\"listing-strategy\": \"timestamps\", \"Hostname\": \"${sftp.host}\", \"Port\": \"22\", \"Username\": \"${sftp.username}\", \"Password\": \"********\", \"Private Key Path\": null, \"Private Key Passphrase\": null, \"Remote Path\": \".\", \"record-writer\": null, \"Distributed Cache Service\": null, \"Search Recursively\": \"true\", \"follow-symlink\": \"false\", \"File Filter Regex\": null, \"Path Filter Regex\": null, \"Ignore Dotted Files\": \"true\", \"Strict Host Key Checking\": \"false\", \"Host Key File\": null, \"Connection Timeout\": \"30 sec\", \"Data Timeout\": \"30 sec\", \"Send Keep Alive On Timeout\": \"true\", \"target-system-timestamp-precision\": \"auto-detect\", \"Use Compression\": \"false\", \"proxy-configuration-service\": null, \"Proxy Type\": \"DIRECT\", \"Proxy Host\": null, \"Proxy Port\": null, \"Http Proxy Username\": null, \"Http Proxy Password\": null, \"et-state-cache\": null, \"et-time-window\": \"3 hours\", \"et-initial-listing-target\": \"all\", \"Minimum File Age\": \"0 sec\", \"Maximum File Age\": null, \"Minimum File Size\": \"0 B\", \"Maximum File Size\": null, \"Ciphers Allowed\": null, \"Key Algorithms Allowed\": null, \"Key Exchange Algorithms Allowed\": null, \"Message Authentication Codes Allowed\": null}",
+                "last_event_time": "2023-07-05 16:10:34.541000+00:00"
+            },
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=8eb4f034-017d-1000-ffff-ffffccebd06c&componentIds=8eb5263d-017d-1000-ffff-ffff911b23aa",
+            "name": "ListSFTP",
+            "description": "",
+            "type": {
+                "string": "NIFI_PROCESSOR"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)"
+            ],
+            "outputDatasets": [],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "uri": "sftp://sftp_public_host/temperature"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_SFTP_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "uri": "sftp://sftp_public_host"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb55aeb-017d-1000-ffff-fffff475768d)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schedulingPeriod": "0 sec",
+                "schedulingStrategy": "TIMER_DRIVEN",
+                "executionNode": "ALL",
+                "concurrentlySchedulableTaskCount": "1",
+                "properties": "{\"Hostname\": \"${sftp.host}\", \"Port\": \"22\", \"Username\": \"${sftp.username}\", \"Password\": \"********\", \"Private Key Path\": null, \"Private Key Passphrase\": null, \"Remote File\": \"${path}/${filename}\", \"Completion Strategy\": \"None\", \"Move Destination Directory\": null, \"Create Directory\": \"false\", \"Disable Directory Listing\": \"false\", \"Connection Timeout\": \"30 sec\", \"Data Timeout\": \"30 sec\", \"Send Keep Alive On Timeout\": \"true\", \"Host Key File\": null, \"Strict Host Key Checking\": \"false\", \"Use Compression\": \"false\", \"proxy-configuration-service\": null, \"Proxy Type\": \"DIRECT\", \"Proxy Host\": null, \"Proxy Port\": null, \"Http Proxy Username\": null, \"Http Proxy Password\": null, \"fetchfiletransfer-notfound-loglevel\": \"ERROR\", \"Ciphers Allowed\": null, \"Key Algorithms Allowed\": null, \"Key Exchange Algorithms Allowed\": null, \"Message Authentication Codes Allowed\": null}",
+                "last_event_time": "2023-07-05 16:10:35.274000+00:00"
+            },
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=8eb4f034-017d-1000-ffff-ffffccebd06c&componentIds=8eb55aeb-017d-1000-ffff-fffff475768d",
+            "name": "FetchSFTP",
+            "description": "",
+            "type": {
+                "string": "NIFI_PROCESSOR"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb55aeb-017d-1000-ffff-fffff475768d)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_SFTP_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb55aeb-017d-1000-ffff-fffff475768d)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:nifi,default.sftp_files_out,PROD)"
+            ],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=8eb4f034-017d-1000-ffff-ffffccebd06c&componentIds=8eb70d94-017d-1000-ffff-ffffc94c12ce",
+            "name": "sftp_files_out",
+            "description": "",
+            "type": {
+                "string": "NIFI_REMOTE_OUTPUT_PORT"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:nifi,default.sftp_files_out,PROD)"
+            ],
+            "outputDatasets": [],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:nifi,default.s3_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:nifi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:nifi,default.s3_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=1c61a8d9-3462-387f-8145-09e6e7785e5c&componentIds=8ef96dcf-017d-1000-ffff-ffff8f7528f0",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:nifi,default.sftp_files_out,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:nifi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+                    "urn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)"
+                },
+                {
+                    "id": "Cluster_Site_SFTP_to_S3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:nifi,default.sftp_files_out,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "externalUrl": "http://localhost:9080/nifi/?processGroupId=8eb4f034-017d-1000-ffff-ffffccebd06c&componentIds=8eb66675-017d-1000-ffff-ffffa56e2758",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb5263d-017d-1000-ffff-ffff911b23aa)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8a218b6e-e6a0-36b6-bc4b-79d202a80167)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),71bc17ed-a3bc-339a-a100-ebad434717d4)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c5f6fc66-ffbb-3f60-9564-f2466ae32493)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),c8c73d4c-ebdd-1bee-9b46-629672cd11a0)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),8eb55aeb-017d-1000-ffff-fffff475768d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),fed5914b-937b-37dd-89c0-b34ffbae9cf4)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:nifi,default.s3_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,sftp_public_host.temperature,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:nifi,default.sftp_files_out,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-cluster",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

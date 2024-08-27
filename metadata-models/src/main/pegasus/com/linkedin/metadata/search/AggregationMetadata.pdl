@@ -1,0 +1,28 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.Urn
+
+record AggregationMetadata {
+    /**
+     * The name of the aggregation, e.g, platform, origin
+     */
+    name: string
+
+    /**
+     * Name of the filter to be displayed in the UI
+     */
+    displayName: optional string
+
+    /**
+     * List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc
+     */
+    aggregations: map[string, long]
+
+    filterValues: array[record FilterValue {
+      value: string
+      entity: optional Urn
+      facetCount: long
+      // indicates that the FilterValue is part of the search request
+      filtered: optional boolean
+    }]
+}

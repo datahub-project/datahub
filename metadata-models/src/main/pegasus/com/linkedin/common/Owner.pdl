@@ -1,0 +1,46 @@
+namespace com.linkedin.common
+
+/**
+ * Ownership information
+ */
+record Owner {
+
+  /**
+   * Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name
+   * (Caveat: only corpuser is currently supported in the frontend.)
+   */
+  @Relationship = {
+    "name": "OwnedBy",
+    "entityTypes": [ "corpuser", "corpGroup" ]
+  }
+  @Searchable = {
+    "fieldName": "owners",
+    "fieldType": "URN",
+    "addToFilters": true,
+    "hasValuesFieldName": "hasOwners",
+    "queryByDefault": false,
+    "filterNameOverride": "Owned By"
+  }
+  owner: Urn
+
+  /**
+   * The type of the ownership
+   */
+  @deprecated
+  type: OwnershipType
+
+  /**
+   * The type of the ownership
+   * Urn of type O
+   */
+  @Relationship = {
+    "name": "ownershipType",
+    "entityTypes": [ "ownershipType" ]
+  }
+  typeUrn: optional Urn
+
+  /**
+   * Source information for the ownership
+   */
+  source: optional OwnershipSource
+}

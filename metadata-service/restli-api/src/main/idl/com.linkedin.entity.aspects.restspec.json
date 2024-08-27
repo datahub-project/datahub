@@ -1,0 +1,144 @@
+{
+  "name" : "aspects",
+  "namespace" : "com.linkedin.entity",
+  "path" : "/aspects",
+  "schema" : "com.linkedin.metadata.aspect.VersionedAspect",
+  "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.AspectResource",
+  "resourceClass" : "com.linkedin.metadata.resources.entity.AspectResource",
+  "collection" : {
+    "identifier" : {
+      "name" : "aspectsId",
+      "type" : "string"
+    },
+    "supports" : [ "get" ],
+    "methods" : [ {
+      "method" : "get",
+      "javaMethodName" : "get",
+      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.\n TODO: Get rid of this and migrate to getAspect.",
+      "parameters" : [ {
+        "name" : "aspect",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "version",
+        "type" : "long",
+        "optional" : true
+      } ]
+    } ],
+    "actions" : [ {
+      "name" : "getCount",
+      "javaMethodName" : "getCount",
+      "parameters" : [ {
+        "name" : "aspect",
+        "type" : "string"
+      }, {
+        "name" : "urnLike",
+        "type" : "string",
+        "optional" : true
+      } ],
+      "returns" : "int"
+    }, {
+      "name" : "getTimeseriesAspectValues",
+      "javaMethodName" : "getTimeseriesAspectValues",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "aspect",
+        "type" : "string"
+      }, {
+        "name" : "startTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "limit",
+        "type" : "int",
+        "default" : "10000"
+      }, {
+        "name" : "latestValue",
+        "type" : "boolean",
+        "default" : "false"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.aspect.GetTimeseriesAspectValuesResponse"
+    }, {
+      "name" : "ingestProposal",
+      "javaMethodName" : "ingestProposal",
+      "parameters" : [ {
+        "name" : "proposal",
+        "type" : "com.linkedin.mxe.MetadataChangeProposal"
+      }, {
+        "name" : "async",
+        "type" : "string",
+        "default" : "unset"
+      } ],
+      "returns" : "string"
+    }, {
+      "name" : "ingestProposalBatch",
+      "javaMethodName" : "ingestProposalBatch",
+      "parameters" : [ {
+        "name" : "proposals",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.mxe.MetadataChangeProposal\" }"
+      }, {
+        "name" : "async",
+        "type" : "string",
+        "default" : "unset"
+      } ],
+      "returns" : "string"
+    }, {
+      "name" : "restoreIndices",
+      "javaMethodName" : "restoreIndices",
+      "parameters" : [ {
+        "name" : "aspect",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "urn",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "urnLike",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "batchSize",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "limit",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "gePitEpochMs",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "lePitEpochMs",
+        "type" : "long",
+        "optional" : true
+      } ],
+      "returns" : "string"
+    } ],
+    "entity" : {
+      "path" : "/aspects/{aspectsId}"
+    }
+  }
+}

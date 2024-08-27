@@ -1,0 +1,7 @@
+namespace com.linkedin.usage
+
+/** Records field-level usage counts for a given resource */
+record FieldUsageCounts {
+    fieldName: string
+    count: int
+}

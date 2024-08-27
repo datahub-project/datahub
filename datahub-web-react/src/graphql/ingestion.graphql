@@ -1,0 +1,181 @@
+query listIngestionSources($input: ListIngestionSourcesInput!) {
+    listIngestionSources(input: $input) {
+        start
+        count
+        total
+        ingestionSources {
+            urn
+            name
+            type
+            config {
+                recipe
+                version
+                executorId
+                debugMode
+                extraArgs {
+                    key
+                    value
+                }
+            }
+            schedule {
+                interval
+                timezone
+            }
+            platform {
+                urn
+            }
+            executions(start: 0, count: 1) {
+                start
+                count
+                total
+                executionRequests {
+                    urn
+                    id
+                    input {
+                        requestedAt
+                        actorUrn
+                    }
+                    result {
+                        status
+                        startTimeMs
+                        durationMs
+                        structuredReport {
+                            type
+                            serializedValue
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
+    ingestionSource(urn: $urn) {
+        urn
+        name
+        type
+        config {
+            recipe
+            version
+            executorId
+            debugMode
+            extraArgs {
+                key
+                value
+            }
+        }
+        schedule {
+            interval
+            timezone
+        }
+        platform {
+            urn
+        }
+        executions(start: $runStart, count: $runCount) {
+            start
+            count
+            total
+            executionRequests {
+                urn
+                id
+                input {
+                    requestedAt
+                    actorUrn
+                    source {
+                        type
+                    }
+                }
+                result {
+                    status
+                    startTimeMs
+                    durationMs
+                    structuredReport {
+                        type
+                        serializedValue
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getIngestionExecutionRequest($urn: String!) {
+    executionRequest(urn: $urn) {
+        urn
+        id
+        input {
+            source {
+                type
+            }
+            actorUrn
+            arguments {
+                key
+                value
+            }
+        }
+        result {
+            status
+            startTimeMs
+            durationMs
+            report
+            structuredReport {
+                type
+                serializedValue
+            }
+        }
+    }
+}
+
+mutation createIngestionSource($input: UpdateIngestionSourceInput!) {
+    createIngestionSource(input: $input)
+}
+
+mutation updateIngestionSource($urn: String!, $input: UpdateIngestionSourceInput!) {
+    updateIngestionSource(urn: $urn, input: $input)
+}
+
+mutation deleteIngestionSource($urn: String!) {
+    deleteIngestionSource(urn: $urn)
+}
+
+query listSecrets($input: ListSecretsInput!) {
+    listSecrets(input: $input) {
+        start
+        count
+        total
+        secrets {
+            urn
+            name
+            description
+        }
+    }
+}
+
+mutation createSecret($input: CreateSecretInput!) {
+    createSecret(input: $input)
+}
+
+mutation updateSecret($input: UpdateSecretInput!) {
+    updateSecret(input: $input)
+}
+
+mutation deleteSecret($urn: String!) {
+    deleteSecret(urn: $urn)
+}
+
+mutation createIngestionExecutionRequest($input: CreateIngestionExecutionRequestInput!) {
+    createIngestionExecutionRequest(input: $input)
+}
+
+mutation cancelIngestionExecutionRequest($input: CancelIngestionExecutionRequestInput!) {
+    cancelIngestionExecutionRequest(input: $input)
+}
+
+mutation createTestConnectionRequest($input: CreateTestConnectionRequestInput!) {
+    createTestConnectionRequest(input: $input)
+}
+
+mutation rollbackIngestion($input: RollbackIngestionInput!) {
+    rollbackIngestion(input: $input)
+}

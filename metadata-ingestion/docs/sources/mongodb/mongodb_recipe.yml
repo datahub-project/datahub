@@ -1,0 +1,18 @@
+source:
+  type: "mongodb"
+  config:
+    # Coordinates
+    connect_uri: "mongodb://localhost"
+
+    # Credentials
+    username: admin
+    password: password
+    authMechanism: "DEFAULT"
+
+    # Options
+    enableSchemaInference: True
+    useRandomSampling: True
+    maxSchemaSize: 300
+
+sink:
+  # sink configs

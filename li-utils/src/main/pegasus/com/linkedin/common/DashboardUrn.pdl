@@ -1,0 +1,30 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized dashboard identifier
+ */
+@java.class = "com.linkedin.common.urn.DashboardUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "dashboard",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "Dashboard",
+  "doc" : "Standardized dashboard identifier",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "dashboardTool",
+    "doc" : "The name of the dashboard tool such as looker, redash etc.",
+    "type" : "string",
+    "maxLength" : 20
+  },
+  {
+    "name" : "dashboardId",
+    "doc" : "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'",
+    "type" : "string",
+    "maxLength" : 200
+  }],
+  "maxLength" : 240
+}
+typeref DashboardUrn = string

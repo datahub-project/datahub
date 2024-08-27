@@ -1,0 +1,22 @@
+namespace com.linkedin.common
+
+/**
+ * Downstream lineage information about a dataset including the source reporting the lineage
+ */
+record EntityRelationship {
+
+  /**
+   * Audit stamp containing who reported the lineage and when
+   */
+  created: optional AuditStamp
+
+  /**
+   * The downstream dataset the lineage points to
+   */
+  entity: Urn
+
+  /**
+   * The type of the relationship
+   */
+  type: string
+}

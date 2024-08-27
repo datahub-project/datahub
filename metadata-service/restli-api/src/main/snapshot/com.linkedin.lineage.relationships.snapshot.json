@@ -1,0 +1,268 @@
+{
+  "models" : [ {
+    "type" : "record",
+    "name" : "AuditStamp",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+    "fields" : [ {
+      "name" : "time",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Time",
+        "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
+        "ref" : "long"
+      },
+      "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+    }, {
+      "name" : "actor",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Urn",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.urn.Urn"
+        }
+      },
+      "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+    }, {
+      "name" : "impersonator",
+      "type" : "Urn",
+      "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+      "optional" : true
+    }, {
+      "name" : "message",
+      "type" : "string",
+      "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "EntityRelationship",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Downstream lineage information about a dataset including the source reporting the lineage",
+    "fields" : [ {
+      "name" : "created",
+      "type" : "AuditStamp",
+      "doc" : "Audit stamp containing who reported the lineage and when",
+      "optional" : true
+    }, {
+      "name" : "entity",
+      "type" : "Urn",
+      "doc" : "The downstream dataset the lineage points to"
+    }, {
+      "name" : "type",
+      "type" : "string",
+      "doc" : "The type of the relationship"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "EntityRelationships",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Downstream lineage of a dataset",
+    "fields" : [ {
+      "name" : "relationships",
+      "type" : {
+        "type" : "array",
+        "items" : "EntityRelationship"
+      },
+      "doc" : "List of related entities"
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "doc" : "The start of the result set"
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "doc" : "The start of the result set"
+    }, {
+      "name" : "total",
+      "type" : "int",
+      "doc" : "Total number of edges found."
+    } ]
+  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
+    "type" : "record",
+    "name" : "EntityLineageResult",
+    "namespace" : "com.linkedin.metadata.graph",
+    "doc" : "A list of lineage information associated with a source Entity",
+    "fields" : [ {
+      "name" : "start",
+      "type" : "int",
+      "doc" : "Start offset of the result set"
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "doc" : "Number of results in the returned result set"
+    }, {
+      "name" : "total",
+      "type" : "int",
+      "doc" : "Total number of results in the result set"
+    }, {
+      "name" : "filtered",
+      "type" : "int",
+      "doc" : "The number of results that were filtered out of the page (soft-deleted or non-existent)",
+      "default" : 0,
+      "optional" : true
+    }, {
+      "name" : "relationships",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "LineageRelationship",
+          "doc" : "Metadata about a lineage relationship between two entities",
+          "fields" : [ {
+            "name" : "type",
+            "type" : "string",
+            "doc" : "The type of the relationship"
+          }, {
+            "name" : "entity",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Entity that is related via lineage"
+          }, {
+            "name" : "paths",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.Urn"
+              }
+            },
+            "doc" : "Optional list of entities between the source and destination node.\nThere can be multiple paths from the source to the destination.",
+            "default" : [ ]
+          }, {
+            "name" : "path",
+            "type" : {
+              "type" : "array",
+              "items" : "com.linkedin.common.Urn"
+            },
+            "doc" : "Optional list of entities between the source and destination node",
+            "default" : [ ],
+            "deprecated" : true
+          }, {
+            "name" : "degree",
+            "type" : "int",
+            "doc" : "Degree of relationship (number of hops to get to entity)\nDeprecated by degrees. degree field is populated by min(degrees) for backward compatibility.",
+            "default" : 1,
+            "deprecated" : true
+          }, {
+            "name" : "createdOn",
+            "type" : "long",
+            "doc" : "Timestamp for when this lineage relationship was created. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "createdActor",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Urn of the actor that created this lineage relationship. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "updatedOn",
+            "type" : "long",
+            "doc" : "Timestamp for when this lineage relationship was last updated. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "updatedActor",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Urn of the actor that last updated this lineage relationship. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "isManual",
+            "type" : "boolean",
+            "doc" : "Whether this lineage edge is a manual edge.",
+            "optional" : true
+          }, {
+            "name" : "degrees",
+            "type" : {
+              "type" : "array",
+              "items" : "int"
+            },
+            "doc" : "The different depths at which this entity is discovered in the lineage graph.\nMarked as optional to maintain backward compatibility, but is filled out by implementations. \nReplaces the deprecated field \"degree\".\n",
+            "optional" : true
+          }, {
+            "name" : "explored",
+            "type" : "boolean",
+            "doc" : "Marks this relationship as explored during the graph walk",
+            "optional" : true
+          }, {
+            "name" : "truncatedChildren",
+            "type" : "boolean",
+            "doc" : "Indicates this destination node has additional unexplored child relationships",
+            "optional" : true
+          }, {
+            "name" : "ignoredAsHop",
+            "type" : "boolean",
+            "doc" : "Whether this relationship was ignored as a hop while performing the graph walk",
+            "optional" : true
+          } ]
+        }
+      },
+      "doc" : "Relationships in the result set"
+    } ]
+  }, "com.linkedin.metadata.graph.LineageRelationship" ],
+  "schema" : {
+    "name" : "relationships",
+    "namespace" : "com.linkedin.lineage",
+    "path" : "/relationships",
+    "schema" : "com.linkedin.common.EntityRelationships",
+    "doc" : "Rest.li entry point: /relationships?type={entityType}&direction={direction}&types={types}\n\ngenerated from: com.linkedin.metadata.resources.lineage.Relationships",
+    "resourceClass" : "com.linkedin.metadata.resources.lineage.Relationships",
+    "simple" : {
+      "supports" : [ "delete", "get" ],
+      "methods" : [ {
+        "method" : "get",
+        "javaMethodName" : "get",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "types",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+        }, {
+          "name" : "direction",
+          "type" : "string"
+        }, {
+          "name" : "start",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "count",
+          "type" : "int",
+          "optional" : true
+        } ]
+      }, {
+        "method" : "delete",
+        "javaMethodName" : "delete",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        } ]
+      } ],
+      "actions" : [ {
+        "name" : "getLineage",
+        "javaMethodName" : "getLineage",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "direction",
+          "type" : "string"
+        }, {
+          "name" : "start",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "count",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "maxHops",
+          "type" : "int",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.graph.EntityLineageResult"
+      } ],
+      "entity" : {
+        "path" : "/relationships"
+      }
+    }
+  }
+}

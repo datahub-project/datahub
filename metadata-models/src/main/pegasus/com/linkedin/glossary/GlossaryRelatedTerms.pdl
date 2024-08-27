@@ -1,0 +1,86 @@
+namespace com.linkedin.glossary
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.GlossaryTermUrn
+
+/**
+ * Has A / Is A lineage information about a glossary Term reporting the lineage
+ */
+ @Aspect = {
+  "name": "glossaryRelatedTerms"
+}
+record GlossaryRelatedTerms {
+
+  /**
+   * The relationship Is A with glossary term
+   */
+  @Relationship = {
+    "/*": {
+      "name": "IsA",
+      "entityTypes": [ "glossaryTerm" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "isRelatedTerms",
+      "fieldType": "URN",
+      "boostScore": 2.0
+    }
+  }
+  isRelatedTerms: optional array[GlossaryTermUrn]
+
+  /**
+   * The relationship Has A with glossary term
+   */
+  @Relationship = {
+    "/*": {
+      "name": "HasA",
+      "entityTypes": [ "glossaryTerm" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "hasRelatedTerms",
+      "fieldType": "URN",
+      "boostScore": 2.0
+    }
+  }
+  hasRelatedTerms: optional array[GlossaryTermUrn]
+
+  /**
+   * The relationship Has Value with glossary term.
+   * These are fixed value a term has. For example a ColorEnum where RED, GREEN and YELLOW are fixed values.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "HasValue",
+      "entityTypes": [ "glossaryTerm" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "values",
+      "fieldType": "URN",
+    }
+  }
+  values: optional array[GlossaryTermUrn]
+
+
+  /**
+   * The relationship isRelatedTo with glossary term
+   */
+  @Relationship = {
+    "/*": {
+      "name": "IsRelatedTo",
+      "entityTypes": [ "glossaryTerm" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "relatedTerms",
+      "fieldType": "URN",
+    }
+  }
+  relatedTerms: optional array[GlossaryTermUrn]
+
+}

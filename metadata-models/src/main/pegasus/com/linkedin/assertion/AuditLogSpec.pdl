@@ -1,0 +1,18 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.schema.SchemaFieldDataType
+
+/**
+* Information about the Audit Log operation to use in evaluating an assertion.
+**/
+record AuditLogSpec {
+  /**
+  * The list of operation types that should be monitored. If not provided, a default set will be used.
+  */
+  operationTypes: optional array [string]
+
+  /**
+  * Optional: The user name associated with the operation.
+  */
+  userName: optional string
+}

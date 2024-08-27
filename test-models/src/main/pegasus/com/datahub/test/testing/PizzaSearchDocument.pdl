@@ -1,0 +1,36 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit testing, a pretend search document over pizzas.
+ */
+record PizzaSearchDocument {
+  /**
+   * Urn of the entity.
+   */
+  urn: PizzaUrn
+
+  /**
+   * Size of the pizza.
+   */
+  size: optional PizzaSize
+
+  /**
+   * Toppings on the pizza.
+   */
+  toppings: optional array[string]
+
+  /**
+   * The shop that made this pizza.
+   */
+  madeBy: optional string
+
+  /**
+   * The path parts to browse for this pizza.
+   */
+  testBrowsePaths: optional array[string]
+
+  /**
+   * Whether this pizza still exists.
+   */
+  removed: optional boolean
+}

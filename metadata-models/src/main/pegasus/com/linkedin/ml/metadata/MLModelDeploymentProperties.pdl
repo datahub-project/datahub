@@ -1,0 +1,39 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.Time
+import com.linkedin.common.VersionTag
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * Properties associated with an ML Model Deployment
+ */
+@Aspect = {
+  "name": "mlModelDeploymentProperties"
+}
+record MLModelDeploymentProperties includes CustomProperties, ExternalReference {
+
+  /**
+   * Documentation of the MLModelDeployment
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Date when the MLModelDeployment was developed
+   */
+  createdAt: optional Time
+
+  /**
+   * Version of the MLModelDeployment
+   */
+  version: optional VersionTag
+    
+  /**
+   * Status of the deployment
+   */
+  status: optional DeploymentStatus
+}

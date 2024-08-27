@@ -1,0 +1,5 @@
+id: mycompany-dq-model
+entities:
+  - name: dataset
+    aspects:
+      - dataQualityRules

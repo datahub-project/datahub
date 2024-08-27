@@ -1,0 +1,20 @@
+namespace com.datahub.test
+
+/**
+ * Features to be used for search ranking
+ */
+@Aspect = {
+  "name": "searchFeatures"
+}
+record SearchFeatures {
+  /**
+   * Whether the entity has been removed (soft-deleted).
+   */
+  @SearchScore = {
+    "modifier": "LOG"
+  }
+  feature1: optional long
+
+  @SearchScore = {}
+  feature2: optional int
+}

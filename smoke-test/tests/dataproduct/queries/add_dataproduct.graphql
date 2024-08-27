@@ -1,0 +1,9 @@
+mutation($domainUrn: String!, $name: String!, $description: String) {
+  createDataProduct(input: { properties: { name: $name, description:$description }, domainUrn:$domainUrn}) {
+    urn
+    type
+    properties {
+      name
+    }
+  }
+}

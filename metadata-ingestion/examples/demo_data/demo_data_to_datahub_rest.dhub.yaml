@@ -1,0 +1,8 @@
+source:
+  type: "demo-data"
+  config: {}
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'

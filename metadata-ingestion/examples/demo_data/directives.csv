@@ -1,0 +1,104 @@
+table,drop,owners,depends_on
+bigquery-public-data.covid19_aha.hospital_beds,,American Heart Association,
+bigquery-public-data.covid19_aha.staffing,,American Heart Association,
+bigquery-public-data.covid19_ecdc.covid_19_geographic_distribution_worldwide,,European Centre for Disease Prevention and Control,
+bigquery-public-data.covid19_ecdc_eu.covid_19_geographic_distribution_worldwide,x,European Centre for Disease Prevention and Control,
+bigquery-public-data.covid19_geotab_mobility_impact.airport_traffic,,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact.city_congestion,,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact.commercial_traffic,,Geotab,bigquery-public-data.covid19_geotab_mobility_impact.commercial_traffic_by_industry
+bigquery-public-data.covid19_geotab_mobility_impact.commercial_traffic_by_industry,,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact.fuel_station_daily_fillups,,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact.fuel_station_weekly_fillups,,Geotab,bigquery-public-data.covid19_geotab_mobility_impact.fuel_station_daily_fillups
+bigquery-public-data.covid19_geotab_mobility_impact.lookup_region,,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact.port_traffic,,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact.us_border_volumes,,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.airport_traffic,x,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.city_congestion,x,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.commercial_traffic,x,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.commercial_traffic_by_industry,x,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.fuel_station_daily_fillups,x,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.fuel_station_weekly_fillups,x,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.lookup_region,x,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.port_traffic,x,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.us_border_volumes,x,Geotab,
+bigquery-public-data.covid19_geotab_mobility_impact_eu.us_border_wait_times,x,Geotab,
+bigquery-public-data.covid19_google_mobility.mobility_report,,Google,
+bigquery-public-data.covid19_google_mobility_eu.mobility_report,x,Google,
+bigquery-public-data.covid19_govt_response.oxford_policy_tracker,,Oxford,
+bigquery-public-data.covid19_italy.data_by_province,,Italian National Institute of Health,
+bigquery-public-data.covid19_italy.data_by_region,,Italian National Institute of Health,bigquery-public-data.covid19_italy.data_by_province
+bigquery-public-data.covid19_italy.national_trends,,Italian National Institute of Health,bigquery-public-data.covid19_italy.data_by_region
+bigquery-public-data.covid19_italy_eu.data_by_province,x,,
+bigquery-public-data.covid19_italy_eu.data_by_region,x,,
+bigquery-public-data.covid19_italy_eu.national_trends,x,,
+bigquery-public-data.covid19_jhu_csse.confirmed_cases,x,,
+bigquery-public-data.covid19_jhu_csse.deaths,x,,
+bigquery-public-data.covid19_jhu_csse.recovered_cases,x,,
+bigquery-public-data.covid19_jhu_csse.summary,x,,
+bigquery-public-data.covid19_jhu_csse_eu.confirmed_cases,x,,
+bigquery-public-data.covid19_jhu_csse_eu.deaths,x,,
+bigquery-public-data.covid19_jhu_csse_eu.recovered_cases,x,,
+bigquery-public-data.covid19_jhu_csse_eu.summary,x,,
+bigquery-public-data.covid19_nyt.excess_deaths,,New York Times,
+bigquery-public-data.covid19_nyt.mask_use_by_county,,New York Times,
+bigquery-public-data.covid19_nyt.us_counties,,New York Times,
+bigquery-public-data.covid19_nyt.us_states,,New York Times,bigquery-public-data.covid19_nyt.us_counties
+bigquery-public-data.covid19_open_data.covid19_open_data,,Google,
+bigquery-public-data.covid19_open_data_eu.covid19_open_data,x,,
+bigquery-public-data.covid19_public_forecasts.county_14d,,"Harvard Global Health Institute, Google",
+bigquery-public-data.covid19_public_forecasts.county_14d_historical,,"Harvard Global Health Institute, Google",bigquery-public-data.covid19_public_forecasts.county_14d
+bigquery-public-data.covid19_public_forecasts.county_14d_historical_,x,"Harvard Global Health Institute, Google",
+bigquery-public-data.covid19_public_forecasts.county_28d,,"Harvard Global Health Institute, Google",bigquery-public-data.covid19_public_forecasts.county_14d
+bigquery-public-data.covid19_public_forecasts.county_28d_historical,,"Harvard Global Health Institute, Google",bigquery-public-data.covid19_public_forecasts.county_28d
+bigquery-public-data.covid19_public_forecasts.county_28d_historical_,x,"Harvard Global Health Institute, Google",
+bigquery-public-data.covid19_public_forecasts.japan_prefecture_28d,,"Harvard Global Health Institute, Google",
+bigquery-public-data.covid19_public_forecasts.japan_prefecture_28d_historical,,"Harvard Global Health Institute, Google",bigquery-public-data.covid19_public_forecasts.japan_prefecture_28d
+bigquery-public-data.covid19_public_forecasts.japan_prefecture_28d_historical_,x,"Harvard Global Health Institute, Google",
+bigquery-public-data.covid19_public_forecasts.state_14d,,"Harvard Global Health Institute, Google",bigquery-public-data.covid19_public_forecasts.county_14d
+bigquery-public-data.covid19_public_forecasts.state_14d_historical,,"Harvard Global Health Institute, Google",bigquery-public-data.covid19_public_forecasts.state_14d
+bigquery-public-data.covid19_public_forecasts.state_14d_historical_,x,"Harvard Global Health Institute, Google",
+bigquery-public-data.covid19_public_forecasts.state_28d,,"Harvard Global Health Institute, Google","bigquery-public-data.covid19_public_forecasts.state_14d, bigquery-public-data.covid19_public_forecasts.county_28d"
+bigquery-public-data.covid19_public_forecasts.state_28d_historical,,"Harvard Global Health Institute, Google",bigquery-public-data.covid19_public_forecasts.state_28d
+bigquery-public-data.covid19_public_forecasts.state_28d_historical_,x,"Harvard Global Health Institute, Google",
+bigquery-public-data.covid19_public_forecasts_asia_ne1.county_14d,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.county_14d_historical,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.county_14d_historical_,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.county_28d,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.county_28d_historical,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.county_28d_historical_,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.japan_prefecture_28d,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.japan_prefecture_28d_historical,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.japan_prefecture_28d_historical_,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.state_14d,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.state_14d_historical,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.state_14d_historical_,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.state_28d,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.state_28d_historical,x,,
+bigquery-public-data.covid19_public_forecasts_asia_ne1.state_28d_historical_,x,,
+bigquery-public-data.covid19_rxrx19.rxrx19a_embeddings,x,,
+bigquery-public-data.covid19_rxrx19.rxrx19a_metadata,x,,
+bigquery-public-data.covid19_rxrx19.rxrx19b_embeddings,x,,
+bigquery-public-data.covid19_rxrx19.rxrx19b_metadata,x,,
+bigquery-public-data.covid19_symptom_search.symptom_search_country_daily,,Google,"bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_1_daily, bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_2_daily"
+bigquery-public-data.covid19_symptom_search.symptom_search_country_weekly,,Google,"bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_1_weekly, bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_2_weekly"
+bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_1_daily,,Google,
+bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_1_weekly,,Google,bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_1_daily
+bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_2_daily,,Google,
+bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_2_weekly,,Google,bigquery-public-data.covid19_symptom_search.symptom_search_sub_region_2_daily
+bigquery-public-data.covid19_usafacts.confirmed_cases,,USAFacts,
+bigquery-public-data.covid19_usafacts.deaths,,USAFacts,
+bigquery-public-data.covid19_usafacts.summary,,USAFacts,"bigquery-public-data.covid19_usafacts.confirmed_cases, bigquery-public-data.covid19_usafacts.deaths"
+bigquery-public-data.covid19_weathersource_com.county_day_forecast,,Weather Source,bigquery-public-data.covid19_weathersource_com.county_day_history
+bigquery-public-data.covid19_weathersource_com.county_day_history,,Weather Source,bigquery-public-data.covid19_weathersource_com.postal_code_day_history
+bigquery-public-data.covid19_weathersource_com.postal_code_day_forecast,,Weather Source,bigquery-public-data.covid19_weathersource_com.postal_code_day_history
+bigquery-public-data.covid19_weathersource_com.postal_code_day_history,,Weather Source,
+bigquery-public-data.covid19_tracking.city_level_cases_and_deaths,x,,
+bigquery-public-data.covid19_tracking.covid_racial_data_tracker,x,,
+bigquery-public-data.covid19_tracking.national_testing_and_outcomes,x,,
+bigquery-public-data.covid19_tracking.state_facility_level_long_term_care,x,,
+bigquery-public-data.covid19_tracking.state_level_aggregate_long_term_care,x,,
+bigquery-public-data.covid19_tracking.state_level_cumulative_long_term_care,x,,
+bigquery-public-data.covid19_tracking.state_level_current_outbreak_long_term_care,x,,
+bigquery-public-data.covid19_tracking.state_screenshots,x,,
+bigquery-public-data.covid19_tracking.state_testing_and_outcomes,x,,

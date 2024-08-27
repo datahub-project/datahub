@@ -1,0 +1,1 @@
+from datahub_airflow_plugin import get_provider_info

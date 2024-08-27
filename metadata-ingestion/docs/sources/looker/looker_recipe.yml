@@ -1,0 +1,11 @@
+source:
+  type: "looker"
+  config:
+    # Coordinates
+    base_url: "https://<company>.cloud.looker.com"
+
+    # Credentials
+    client_id: ${LOOKER_CLIENT_ID}
+    client_secret: ${LOOKER_CLIENT_SECRET}
+
+# sink configs

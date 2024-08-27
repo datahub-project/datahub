@@ -1,0 +1,44 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "a82cc26433c370a26b8aeecc2d8a1b672eab44349e00ec6f3da837c633e39b1c",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "COL1",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)",
+                    "column": "COL1"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "COL3",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)",
+                    "column": "COL3"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "WITH cte1 AS (SELECT col1, col2 FROM table1 WHERE col1 = ?), cte2 AS (SELECT col3, col4 FROM table2 WHERE col2 = ?) SELECT cte1.col1, cte2.col3 FROM cte1 JOIN cte2 ON cte1.col2 = cte2.col4"
+    }
+}

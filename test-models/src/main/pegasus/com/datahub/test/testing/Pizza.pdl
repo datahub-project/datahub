@@ -1,0 +1,27 @@
+namespace com.datahub.test.testing
+
+
+/**
+ * Test entity that represnts a Pizza.
+ */
+record Pizza {
+  /**
+   * Urn of the entity.
+   */
+  urn: PizzaUrn
+
+  /**
+   * Size of the pizza.
+   */
+  size: optional PizzaSize
+
+  /**
+   * Toppings on the pizza.
+   */
+  toppings: optional array[string]
+
+  /**
+   * The shop that made this pizza.
+   */
+  madeBy: optional string
+}

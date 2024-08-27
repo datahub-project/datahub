@@ -1,0 +1,22 @@
+source:
+  type: "elasticsearch"
+  config:
+    host: 'localhost:9200'
+    username: ""
+    password: ""
+    use_ssl: False
+    verify_certs: False
+    ca_certs: "./path/ca.cert"
+    client_cert: "./path/client.cert"
+    client_key: "./path/client.key"
+    ssl_assert_hostname: False
+    ssl_assert_fingerprint: "./path/cert.fingerprint"
+    ingest_index_templates: False
+    # index_template_pattern:
+    #   allow:
+    #     - "^.+"
+    
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

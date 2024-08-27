@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.run
+
+import com.linkedin.common.Urn
+
+/**
+ * Metadata about how an aspect is related to some urn
+ */
+record RelatedAspect {
+
+  /**
+   *  Urn of the entity that is referenced by the aspect.
+   */
+  entity: Urn
+
+  /*
+   * The name of aspect containing the relationship.
+   */
+  aspect: string
+
+  /*
+   * The name of the relationship that the aspect has.
+   */
+  relationship: string
+}

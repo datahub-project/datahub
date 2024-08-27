@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHub ingestion source
+ */
+@Aspect = {
+  "name": "dataHubIngestionSourceKey"
+}
+record DataHubIngestionSourceKey {
+  /**
+   * A unique id for the Ingestion Source, either generated or provided
+   */
+  id: string
+}

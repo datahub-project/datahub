@@ -1,0 +1,169 @@
+{
+  "_links": {
+    "self": {
+      "href": "/api/acryltest/collections"
+    }
+  },
+  "_embedded": {
+    "spaces": [{
+      "token": "157933cc1168",
+      "id": 1920033,
+      "space_type": "private",
+      "name": "Personal",
+      "description": null,
+      "state": "active",
+      "restricted": false,
+      "free_default": false,
+      "viewable?": true,
+      "default_access_level": "view",
+      "_links": {
+        "self": {
+          "href": "/api/acryltest/collections/157933cc1168"
+        },
+        "detail": {
+          "href": "/api/acryltest/collections/157933cc1168/detail"
+        },
+        "web": {
+          "href": "/acryltest/spaces/157933cc1168"
+        },
+        "reports": {
+          "href": "/api/acryltest/collections/157933cc1168/reports"
+        },
+        "creator": {
+          "href": "/api/modeuser"
+        },
+        "search_space_permissions": {
+          "href": "/api/acryltest/collections/157933cc1168/permissions/search"
+        }
+      },
+      "_forms": {
+        "create": {
+          "method": "post",
+          "action": "/api/acryltest/collections",
+          "input": {
+            "space": {
+              "space_type": {
+                "type": "select",
+                "options": ["private", "community", "custom"],
+                "value": "custom"
+              },
+              "name": {
+                "type": "text"
+              },
+              "description": {
+                "type": "text"
+              },
+              "default_access_level": {
+                "type": "select",
+                "options": ["view", "edit", "none"],
+                "value": "none"
+              }
+            }
+          }
+        },
+        "edit": {
+          "method": "patch",
+          "action": "/api/acryltest/collections/157933cc1168",
+          "input": {
+            "space": {
+              "default_access_level": {
+                "type": "select",
+                "options": ["view", "edit", "restricted"],
+                "value": "view"
+              }
+            }
+          }
+        }
+      }
+    }, {
+      "token": "75737b70402e",
+      "id": 1919717,
+      "space_type": "custom",
+      "name": "AcrylTest",
+      "description": null,
+      "state": "active",
+      "restricted": false,
+      "free_default": true,
+      "viewable?": true,
+      "default_access_level": "edit",
+      "_links": {
+        "self": {
+          "href": "/api/acryltest/collections/75737b70402e"
+        },
+        "detail": {
+          "href": "/api/acryltest/collections/75737b70402e/detail"
+        },
+        "space_report_pins": {
+          "href": "/api/acryltest/collections/75737b70402e/report_pins"
+        },
+        "web": {
+          "href": "/acryltest/spaces/75737b70402e"
+        },
+        "reports": {
+          "href": "/api/acryltest/collections/75737b70402e/reports"
+        },
+        "creator": {
+          "href": "/api/glyons"
+        },
+        "space_memberships": {
+          "href": "/api/acryltest/collections/75737b70402e/memberships"
+        },
+        "preview_space_memberships": {
+          "href": "/api/acryltest/collections/75737b70402e/memberships/preview"
+        },
+        "search_space_permissions": {
+          "href": "/api/acryltest/collections/75737b70402e/permissions/search"
+        }
+      },
+      "_forms": {
+        "create": {
+          "method": "post",
+          "action": "/api/acryltest/collections",
+          "input": {
+            "space": {
+              "space_type": {
+                "type": "select",
+                "options": ["private", "community", "custom"],
+                "value": "custom"
+              },
+              "name": {
+                "type": "text"
+              },
+              "description": {
+                "type": "text"
+              },
+              "default_access_level": {
+                "type": "select",
+                "options": ["view", "edit", "none"],
+                "value": "none"
+              }
+            }
+          }
+        },
+        "edit": {
+          "method": "patch",
+          "action": "/api/acryltest/collections/75737b70402e",
+          "input": {
+            "space": {
+              "name": {
+                "type": "text"
+              },
+              "description": {
+                "type": "text"
+              },
+              "default_access_level": {
+                "type": "select",
+                "options": ["view", "edit", "restricted"],
+                "value": "edit"
+              }
+            }
+          }
+        },
+        "destroy": {
+          "method": "delete",
+          "action": "/api/acryltest/collections/75737b70402e"
+        }
+      }
+    }]
+  }
+}

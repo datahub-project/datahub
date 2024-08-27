@@ -1,0 +1,13 @@
+version: "2"
+services:
+  testmysql:
+    image: mysql:8
+    # image: mariadb:10.5.8 # Uncomment to run on m1
+    container_name: "testmysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+    ports:
+      - 53307:3306
+    volumes:
+      - ./setup:/setup
+      - ./setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql

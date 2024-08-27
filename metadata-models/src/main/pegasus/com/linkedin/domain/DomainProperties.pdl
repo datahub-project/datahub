@@ -1,0 +1,55 @@
+namespace com.linkedin.domain
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.Urn
+
+/**
+ * Information about a Domain
+ */
+@Aspect = {
+  "name": "domainProperties"
+}
+record DomainProperties includes CustomProperties {
+
+  /**
+   * Display name of the Domain
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+
+  /**
+   * Description of the Domain
+   */
+  description: optional string
+
+  /**
+   * Created Audit stamp
+   */
+   @Searchable = {
+     "/time": {
+      "fieldName": "createdTime",
+      "fieldType": "DATETIME"
+     }
+   }
+   created: optional AuditStamp
+
+  /**
+   * Optional: Parent of the domain
+   */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "domain" ],
+  }
+  @Searchable = {
+    "fieldName": "parentDomain",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasParentDomain"
+  }
+  parentDomain: optional Urn
+}

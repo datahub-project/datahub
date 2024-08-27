@@ -1,0 +1,30 @@
+[
+    {
+      "usr" : "test-name",
+      "query" : "select * from testcatalog.testschema.testtable limit 100",
+      "catalog" : null,
+      "schema" : null,
+      "query_type" : "SELECT",
+      "accessed_metadata" : "[{\"catalogName\":\"testcatalog\",\"schema\":\"testschema\",\"table\":\"testtable\",\"columns\":[\"column1\",\"column2\"],\"physicalInputBytes\":1673886,\"physicalInputRows\":4754,\"connectorInfo\":{\"partitionIds\":[\"abc\"]}}]"
+    },
+  {
+    "usr" : "test-name@acryl.io",
+    "query" : "select * from testcatalog.testschema.testtable limit 100",
+    "catalog" : null,
+    "schema" : null,
+    "query_type" : "SELECT",
+    "accessed_metadata" : "[{\"catalogName\":\"testcatalog\",\"schema\":\"testschema\",\"table\":\"testtable\",\"columns\":[\"column1\",\"column2\"],\"physicalInputBytes\":1673886,\"physicalInputRows\":4754}]",
+    "create_time" : "2021-10-14 09:40:53.108000 UTC",
+    "end_time" : "2021-10-14 09:40:55.214000 UTC"
+  },
+  {
+    "usr" : "test-name",
+    "query" : "select * from testcatalog.testschema.testtable limit 100",
+    "catalog" : null,
+    "schema" : null,
+    "query_type" : "SELECT",
+    "accessed_metadata": null,
+    "create_time" : "2021-10-14 09:40:53.108000 UTC",
+    "end_time" : "2021-10-14 09:40:55.214000 UTC"
+  }
+]

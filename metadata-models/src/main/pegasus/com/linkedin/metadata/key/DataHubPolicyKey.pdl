@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHub Policy
+ */
+@Aspect = {
+  "name": "dataHubPolicyKey"
+}
+record DataHubPolicyKey {
+  /**
+   * A unique id for the DataHub access policy record. Generated on the server side at policy creation time.
+   */
+  id: string
+}

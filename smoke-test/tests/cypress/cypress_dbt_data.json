@@ -1,0 +1,4255 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b5e95fce839e7d78151ed7e0a7420d84",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "value": "{\"customProperties\": {\"platform\": \"bigquery\", \"instance\": \"PROD\", \"project_id\": \"cypress_project\"}, \"name\": \"cypress_project\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162350940,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b5e95fce839e7d78151ed7e0a7420d84",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:bigquery\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162350941,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b5e95fce839e7d78151ed7e0a7420d84",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"Project\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162350942,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "value": "{\"customProperties\": {\"platform\": \"bigquery\", \"instance\": \"PROD\", \"project_id\": \"cypress_project\", \"dataset_id\": \"jaffle_shop\"}, \"name\": \"jaffle_shop\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162353361,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:bigquery\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162353362,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"Dataset\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162353363,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:b5e95fce839e7d78151ed7e0a7420d84\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162353364,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162353970,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {},
+              "externalUrl": null,
+              "name": "customers",
+              "qualifiedName": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_project.jaffle_shop.customers",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "customer_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "first_name",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "last_name",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "first_order",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "most_recent_order",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "number_of_orders",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "customer_lifetime_value",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Float()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162353971,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"table\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162353980,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162354204,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {},
+              "externalUrl": null,
+              "name": "customers_source",
+              "qualifiedName": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_project.jaffle_shop.customers_source",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "source_name",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "siour",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162354206,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"table\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162354211,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162354420,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {},
+              "externalUrl": null,
+              "name": "orders",
+              "qualifiedName": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_project.jaffle_shop.orders",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "order_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "customer_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_date",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "status",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "credit_card_amount",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Float()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "coupon_amount",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Float()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "bank_transfer_amount",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Float()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "gift_card_amount",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Float()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "amount",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Float()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162354421,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"table\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162354427,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162354667,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {},
+              "externalUrl": null,
+              "name": "raw_customers",
+              "qualifiedName": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_project.jaffle_shop.raw_customers",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "first_name",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "last_name",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162354668,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"table\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162354671,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162354871,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {},
+              "externalUrl": null,
+              "name": "raw_orders",
+              "qualifiedName": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_project.jaffle_shop.raw_orders",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "user_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_date",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "status",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162354873,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"table\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162354879,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162355105,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_payments,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {},
+              "externalUrl": null,
+              "name": "raw_payments",
+              "qualifiedName": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_project.jaffle_shop.raw_payments",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "payment_method",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "amount",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162355107,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"table\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162355113,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162355777,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "view_definition": "with source as (\n    select * from `cypress_project`.`jaffle_shop`.`raw_customers`\n\n),\n\nrenamed as (\n\n    select\n        id as customer_id,\n        first_name,\n        last_name\n\n    from source\n\n)\n\nselect * from renamed",
+                "is_view": "True"
+              },
+              "externalUrl": null,
+              "name": "stg_customers",
+              "qualifiedName": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_project.jaffle_shop.stg_customers",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "customer_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "first_name",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "last_name",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162355778,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_customers,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162355783,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"view\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162355784,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+      "value": "{\"materialized\": false, \"viewLogic\": \"with source as (\\n    select * from `cypress_project`.`jaffle_shop`.`raw_customers`\\n\\n),\\n\\nrenamed as (\\n\\n    select\\n        id as customer_id,\\n        first_name,\\n        last_name\\n\\n    from source\\n\\n)\\n\\nselect * from renamed\", \"viewLanguage\": \"SQL\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162355785,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162356113,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "view_definition": "with source as (\n    select * from `cypress_project`.`jaffle_shop`.`raw_orders`\n\n),\n\nrenamed as (\n\n    select\n        id as order_id,\n        user_id as customer_id,\n        order_date,\n        status\n\n    from source\n\n)\n\nselect * from renamed",
+                "is_view": "True"
+              },
+              "externalUrl": null,
+              "name": "stg_orders",
+              "qualifiedName": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_project.jaffle_shop.stg_orders",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "order_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "customer_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_date",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "status",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162356115,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162356123,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"view\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162356124,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+      "value": "{\"materialized\": false, \"viewLogic\": \"with source as (\\n    select * from `cypress_project`.`jaffle_shop`.`raw_orders`\\n\\n),\\n\\nrenamed as (\\n\\n    select\\n        id as order_id,\\n        user_id as customer_id,\\n        order_date,\\n        status\\n\\n    from source\\n\\n)\\n\\nselect * from renamed\", \"viewLanguage\": \"SQL\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162356125,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "value": "{\"container\": \"urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162356440,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "view_definition": "with source as (\n    select * from `cypress_project`.`jaffle_shop`.`raw_payments`\n\n),\n\nrenamed as (\n\n    select\n        id as payment_id,\n        order_id,\n        payment_method,\n\n        --`amount` is currently stored in cents, so we convert it to dollars\n        amount / 100 as amount\n\n    from source\n\n)\n\nselect * from renamed",
+                "is_view": "True"
+              },
+              "externalUrl": null,
+              "name": "stg_payments",
+              "qualifiedName": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "cypress_project.jaffle_shop.stg_payments",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "payment_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_id",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Integer()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "payment_method",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "String()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "amount",
+                  "jsonPath": null,
+                  "nullable": true,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "Float()",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162356441,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_payments,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162356445,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"view\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162356446,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+      "value": "{\"materialized\": false, \"viewLogic\": \"with source as (\\n    select * from `cypress_project`.`jaffle_shop`.`raw_payments`\\n\\n),\\n\\nrenamed as (\\n\\n    select\\n        id as payment_id,\\n        order_id,\\n        payment_method,\\n\\n        --`amount` is currently stored in cents, so we convert it to dollars\\n        amount / 100 as amount\\n\\n    from source\\n\\n)\\n\\nselect * from renamed\", \"viewLanguage\": \"SQL\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162356446,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1655162357476, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 100, \"columnCount\": 7, \"fieldProfiles\": [{\"fieldPath\": \"customer_id\", \"uniqueCount\": 100, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"61\", \"74\", \"48\", \"75\", \"87\", \"14\", \"37\", \"55\", \"49\", \"78\", \"77\", \"10\", \"15\", \"60\", \"24\", \"45\", \"62\", \"98\", \"5\", \"97\"]}, {\"fieldPath\": \"first_name\", \"uniqueCount\": 79, \"uniqueProportion\": 0.79, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Timothy\", \"Harry\", \"Lillian\", \"Andrea\", \"Phillip\", \"Steve\", \"Shirley\", \"Nicholas\", \"Judy\", \"Harry\", \"Anne\", \"Henry\", \"Teresa\", \"Norma\", \"David\", \"Scott\", \"Elizabeth\", \"Nicole\", \"Katherine\", \"Shirley\"]}, {\"fieldPath\": \"last_name\", \"uniqueCount\": 19, \"uniqueProportion\": 0.19, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"R.\", \"A.\", \"C.\", \"H.\", \"B.\", \"F.\", \"J.\", \"R.\", \"N.\", \"H.\", \"W.\", \"W.\", \"H.\", \"W.\", \"G.\", \"B.\", \"P.\", \"M.\", \"R.\", \"D.\"]}, {\"fieldPath\": \"first_order\", \"uniqueCount\": 46, \"uniqueProportion\": 0.7419354838709677, \"nullCount\": 38, \"nullProportion\": 0.38, \"min\": \"2018-01-01\", \"max\": \"2018-04-07\", \"sampleValues\": [\"2018-03-01\", \"2018-03-23\", \"2018-02-26\", \"2018-01-17\", \"2018-02-04\", \"2018-03-23\", \"2018-03-16\", \"2018-03-03\", \"2018-01-24\", \"2018-02-19\", \"2018-01-18\", \"2018-04-07\", \"2018-02-02\", \"2018-04-07\", \"2018-02-13\", \"2018-01-23\", \"2018-02-06\", \"2018-01-09\", \"2018-02-16\", \"2018-02-17\"]}, {\"fieldPath\": \"most_recent_order\", \"uniqueCount\": 52, \"uniqueProportion\": 0.8387096774193549, \"nullCount\": 38, \"nullProportion\": 0.38, \"min\": \"2018-01-09\", \"max\": \"2018-04-09\", \"sampleValues\": [\"2018-03-01\", \"2018-03-23\", \"2018-02-26\", \"2018-01-17\", \"2018-02-04\", \"2018-03-23\", \"2018-03-16\", \"2018-03-03\", \"2018-01-24\", \"2018-02-19\", \"2018-01-18\", \"2018-04-07\", \"2018-02-02\", \"2018-04-07\", \"2018-02-13\", \"2018-01-23\", \"2018-02-06\", \"2018-01-09\", \"2018-02-16\", \"2018-02-17\"]}, {\"fieldPath\": \"number_of_orders\", \"uniqueCount\": 4, \"uniqueProportion\": 0.06451612903225806, \"nullCount\": 38, \"nullProportion\": 0.38, \"min\": \"1\", \"max\": \"5\", \"mean\": \"1.5967741935483863\", \"median\": \"1.0\", \"stdev\": \"0.7779687173818426\", \"sampleValues\": [\"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\"]}, {\"fieldPath\": \"customer_lifetime_value\", \"uniqueCount\": 35, \"uniqueProportion\": 0.5645161290322581, \"nullCount\": 38, \"nullProportion\": 0.38, \"min\": \"1.0\", \"max\": \"99.0\", \"mean\": \"26.967741935483883\", \"median\": \"26.5\", \"sampleValues\": [\"2.0\", \"2.0\", \"3.0\", \"3.0\", \"3.0\", \"3.0\", \"3.0\", \"4.0\", \"8.0\", \"8.0\", \"10.0\", \"10.0\", \"12.0\", \"14.0\", \"14.0\", \"15.0\", \"15.0\", \"16.0\", \"17.0\", \"18.0\"]}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162378272,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1655162357619, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 0, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"source_name\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"siour\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162378286,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1655162357642, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 99, \"columnCount\": 9, \"fieldProfiles\": [{\"fieldPath\": \"order_id\", \"uniqueCount\": 99, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"86\", \"4\", \"9\", \"44\", \"24\", \"3\", \"62\", \"95\", \"81\", \"65\", \"94\", \"42\", \"19\", \"23\", \"58\", \"59\", \"76\", \"43\", \"93\", \"15\"]}, {\"fieldPath\": \"customer_id\", \"uniqueCount\": 62, \"uniqueProportion\": 0.6262626262626263, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"99\", \"mean\": \"48.25252525252523\", \"median\": \"50\", \"stdev\": \"27.781341350472964\", \"sampleValues\": [\"68\", \"50\", \"53\", \"66\", \"3\", \"94\", \"57\", \"27\", \"76\", \"26\", \"63\", \"92\", \"54\", \"22\", \"22\", \"30\", \"25\", \"31\", \"66\", \"25\"]}, {\"fieldPath\": \"order_date\", \"uniqueCount\": 69, \"uniqueProportion\": 0.696969696969697, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2018-01-01\", \"max\": \"2018-04-09\", \"sampleValues\": [\"2018-03-26\", \"2018-01-05\", \"2018-01-12\", \"2018-02-17\", \"2018-01-27\", \"2018-01-04\", \"2018-03-05\", \"2018-04-04\", \"2018-03-23\", \"2018-03-08\", \"2018-04-03\", \"2018-02-16\", \"2018-01-22\", \"2018-01-26\", \"2018-03-01\", \"2018-03-02\", \"2018-03-20\", \"2018-02-17\", \"2018-04-03\", \"2018-01-17\"]}, {\"fieldPath\": \"status\", \"uniqueCount\": 5, \"uniqueProportion\": 0.050505050505050504, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"placed\", \"completed\", \"completed\", \"completed\", \"completed\", \"completed\", \"completed\", \"placed\", \"shipped\", \"completed\", \"placed\", \"completed\", \"completed\", \"return_pending\", \"completed\", \"completed\", \"completed\", \"completed\", \"placed\", \"completed\"]}, {\"fieldPath\": \"credit_card_amount\", \"uniqueCount\": 25, \"uniqueProportion\": 0.25252525252525254, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0.0\", \"max\": \"30.0\", \"mean\": \"8.797979797979806\", \"median\": \"0.0\", \"sampleValues\": [\"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\"]}, {\"fieldPath\": \"coupon_amount\", \"uniqueCount\": 12, \"uniqueProportion\": 0.12121212121212122, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0.0\", \"max\": \"26.0\", \"mean\": \"1.8686868686868698\", \"median\": \"0.0\", \"sampleValues\": [\"23.0\", \"25.0\", \"0.0\", \"0.0\", \"26.0\", \"1.0\", \"0.0\", \"24.0\", \"2.0\", \"0.0\", \"7.0\", \"17.0\", \"0.0\", \"0.0\", \"18.0\", \"0.0\", \"2.0\", \"0.0\", \"0.0\", \"22.0\"]}, {\"fieldPath\": \"bank_transfer_amount\", \"uniqueCount\": 19, \"uniqueProportion\": 0.1919191919191919, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0.0\", \"max\": \"26.0\", \"mean\": \"4.151515151515151\", \"median\": \"0.0\", \"sampleValues\": [\"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\"]}, {\"fieldPath\": \"gift_card_amount\", \"uniqueCount\": 11, \"uniqueProportion\": 0.1111111111111111, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0.0\", \"max\": \"30.0\", \"mean\": \"2.07070707070707\", \"median\": \"0.0\", \"sampleValues\": [\"0.0\", \"0.0\", \"23.0\", \"11.0\", \"0.0\", \"0.0\", \"14.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"0.0\", \"6.0\", \"23.0\", \"6.0\", \"28.0\", \"0.0\", \"18.0\", \"26.0\", \"0.0\"]}, {\"fieldPath\": \"amount\", \"uniqueCount\": 32, \"uniqueProportion\": 0.32323232323232326, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0.0\", \"max\": \"58.0\", \"mean\": \"16.888888888888882\", \"median\": \"17.0\", \"sampleValues\": [\"23.0\", \"25.0\", \"23.0\", \"11.0\", \"26.0\", \"1.0\", \"14.0\", \"24.0\", \"2.0\", \"0.0\", \"7.0\", \"17.0\", \"6.0\", \"23.0\", \"24.0\", \"28.0\", \"2.0\", \"18.0\", \"26.0\", \"22.0\"]}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162388123,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1655162357386, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 100, \"columnCount\": 3, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 100, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"20\", \"23\", \"40\", \"59\", \"74\", \"96\", \"27\", \"45\", \"53\", \"73\", \"87\", \"4\", \"41\", \"46\", \"48\", \"64\", \"71\", \"86\", \"12\", \"82\"]}, {\"fieldPath\": \"first_name\", \"uniqueCount\": 79, \"uniqueProportion\": 0.79, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Anna\", \"Mildred\", \"Maria\", \"Adam\", \"Harry\", \"Jacqueline\", \"Benjamin\", \"Scott\", \"Anne\", \"Alan\", \"Phillip\", \"Jimmy\", \"Gloria\", \"Norma\", \"Lillian\", \"David\", \"Gerald\", \"Jason\", \"Amy\", \"Arthur\"]}, {\"fieldPath\": \"last_name\", \"uniqueCount\": 19, \"uniqueProportion\": 0.19, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"A.\", \"A.\", \"A.\", \"A.\", \"A.\", \"A.\", \"B.\", \"B.\", \"B.\", \"B.\", \"B.\", \"C.\", \"C.\", \"C.\", \"C.\", \"C.\", \"C.\", \"C.\", \"D.\", \"D.\"]}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162388138,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1655162357622, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 99, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 99, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"84\", \"86\", \"87\", \"89\", \"91\", \"92\", \"93\", \"94\", \"95\", \"96\", \"97\", \"98\", \"99\", \"71\", \"72\", \"74\", \"77\", \"78\", \"79\", \"80\"]}, {\"fieldPath\": \"user_id\", \"uniqueCount\": 62, \"uniqueProportion\": 0.6262626262626263, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"99\", \"mean\": \"48.252525252525245\", \"median\": \"50\", \"stdev\": \"27.781341350472957\", \"sampleValues\": [\"70\", \"68\", \"46\", \"21\", \"47\", \"84\", \"66\", \"63\", \"27\", \"90\", \"89\", \"41\", \"85\", \"42\", \"30\", \"9\", \"35\", \"90\", \"52\", \"11\"]}, {\"fieldPath\": \"order_date\", \"uniqueCount\": 69, \"uniqueProportion\": 0.696969696969697, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2018-01-01\", \"max\": \"2018-04-09\", \"sampleValues\": [\"2018-03-26\", \"2018-03-26\", \"2018-03-27\", \"2018-03-28\", \"2018-03-31\", \"2018-04-02\", \"2018-04-03\", \"2018-04-03\", \"2018-04-04\", \"2018-04-06\", \"2018-04-07\", \"2018-04-07\", \"2018-04-09\", \"2018-03-12\", \"2018-03-14\", \"2018-03-17\", \"2018-03-21\", \"2018-03-23\", \"2018-03-23\", \"2018-03-23\"]}, {\"fieldPath\": \"status\", \"uniqueCount\": 5, \"uniqueProportion\": 0.050505050505050504, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"placed\", \"placed\", \"placed\", \"placed\", \"placed\", \"placed\", \"placed\", \"placed\", \"placed\", \"placed\", \"placed\", \"placed\", \"placed\", \"shipped\", \"shipped\", \"shipped\", \"shipped\", \"shipped\", \"shipped\", \"shipped\"]}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162388145,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1655162357609, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 113, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 113, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"66\", \"27\", \"30\", \"109\", \"3\", \"17\", \"47\", \"108\", \"4\", \"86\", \"93\", \"106\", \"98\", \"48\", \"107\", \"92\", \"49\", \"22\", \"67\", \"71\"]}, {\"fieldPath\": \"order_id\", \"uniqueCount\": 99, \"uniqueProportion\": 0.8761061946902655, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"99\", \"mean\": \"50.03539823008851\", \"median\": \"51\", \"stdev\": \"28.54317819535489\", \"sampleValues\": [\"58\", \"24\", \"25\", \"95\", \"3\", \"15\", \"42\", \"94\", \"4\", \"76\", \"81\", \"92\", \"86\", \"43\", \"93\", \"80\", \"44\", \"19\", \"58\", \"62\"]}, {\"fieldPath\": \"payment_method\", \"uniqueCount\": 4, \"uniqueProportion\": 0.035398230088495575, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"coupon\", \"coupon\", \"coupon\", \"coupon\", \"coupon\", \"coupon\", \"coupon\", \"coupon\", \"coupon\", \"coupon\", \"coupon\", \"coupon\", \"coupon\", \"gift_card\", \"gift_card\", \"gift_card\", \"gift_card\", \"gift_card\", \"gift_card\", \"gift_card\"]}, {\"fieldPath\": \"amount\", \"uniqueCount\": 30, \"uniqueProportion\": 0.26548672566371684, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0\", \"max\": \"3000\", \"mean\": \"1479.6460176991145\", \"median\": \"1500\", \"stdev\": \"919.836873351873\", \"sampleValues\": [\"1800\", \"2600\", \"1600\", \"2400\", \"100\", \"2200\", \"1700\", \"700\", \"2500\", \"200\", \"200\", \"200\", \"2300\", \"1800\", \"2600\", \"300\", \"1100\", \"600\", \"600\", \"1400\"]}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162388150,
+      "runId": "bigquery-2022_06_13-16_18_59",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"table\", \"view\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322398,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "model",
+                "materialization": "table",
+                "dbt_file_path": "models/orders.sql",
+                "catalog_type": "table",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "orders",
+              "qualifiedName": null,
+              "description": "This table has basic information about orders, as well as some derived facts based on payments",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "model.jaffle_shop.orders",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "order_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "This is a unique identifier for an order",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "customer_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Foreign key to the customers table",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_date",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Date (UTC) that the order was placed",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "status",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Orders can be one of the following statuses:\n\n| status         | description                                                                                                            |\n|----------------|------------------------------------------------------------------------------------------------------------------------|\n| placed         | The order has been placed but has not yet left the warehouse                                                           |\n| shipped        | The order has ben shipped to the customer and is currently in transit                                                  |\n| completed      | The order has been received by the customer                                                                            |\n| return_pending | The customer has indicated that they would like to return the order, but it has not yet been received at the warehouse |\n| returned       | The order has been returned by the customer and received at the warehouse                                              |",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "credit_card_amount",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Amount of the order (AUD) paid for by credit card",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "FLOAT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "coupon_amount",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Amount of the order (AUD) paid for by coupon",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "FLOAT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "bank_transfer_amount",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Amount of the order (AUD) paid for by bank transfer",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "FLOAT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "gift_card_amount",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Amount of the order (AUD) paid for by gift card",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "FLOAT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "amount",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Total amount (AUD) of the order",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "FLOAT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+                  "type": "TRANSFORMED"
+                },
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+              "materialized": true,
+              "viewLogic": "{% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card'] %}\n\nwith orders as (\n\n    select * from {{ ref('stg_orders') }}\n\n),\n\npayments as (\n\n    select * from {{ ref('stg_payments') }}\n\n),\n\norder_payments as (\n\n    select\n        order_id,\n\n        {% for payment_method in payment_methods -%}\n        sum(case when payment_method = '{{ payment_method }}' then amount else 0 end) as {{ payment_method }}_amount,\n        {% endfor -%}\n\n        sum(amount) as total_amount\n\n    from payments\n\n    group by 1\n\n),\n\nfinal as (\n\n    select\n        orders.order_id,\n        orders.customer_id,\n        orders.order_date,\n        orders.status,\n\n        {% for payment_method in payment_methods -%}\n\n        order_payments.{{ payment_method }}_amount,\n\n        {% endfor -%}\n\n        order_payments.total_amount as amount\n\n    from orders\n\n    left join order_payments using (order_id)\n\n)\n\nselect * from final",
+              "viewLanguage": "SQL"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322399,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"view\", \"view\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322404,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "model",
+                "materialization": "view",
+                "dbt_file_path": "models/staging/stg_customers.sql",
+                "catalog_type": "view",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "stg_customers",
+              "qualifiedName": null,
+              "description": "",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "model.jaffle_shop.stg_customers",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "customer_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "first_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "last_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_customers,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+              "materialized": false,
+              "viewLogic": "with source as (\n\n    {#-\n    Normally we would select from the table here, but we are using seeds to load\n    our data in this project\n    #}\n    select * from {{ ref('raw_customers') }}\n\n),\n\nrenamed as (\n\n    select\n        id as customer_id,\n        first_name,\n        last_name\n\n    from source\n\n)\n\nselect * from renamed",
+              "viewLanguage": "SQL"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322405,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"view\", \"view\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322409,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_payments,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "model",
+                "materialization": "view",
+                "dbt_file_path": "models/staging/stg_payments.sql",
+                "catalog_type": "view",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "stg_payments",
+              "qualifiedName": null,
+              "description": "",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "model.jaffle_shop.stg_payments",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "payment_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "payment_method",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "amount",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "FLOAT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_payments,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+              "materialized": false,
+              "viewLogic": "with source as (\n    \n    {#-\n    Normally we would select from the table here, but we are using seeds to load\n    our data in this project\n    #}\n    select * from {{ ref('raw_payments') }}\n\n),\n\nrenamed as (\n\n    select\n        id as payment_id,\n        order_id,\n        payment_method,\n\n        --`amount` is currently stored in cents, so we convert it to dollars\n        amount / 100 as amount\n\n    from source\n\n)\n\nselect * from renamed",
+              "viewLanguage": "SQL"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322410,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"view\", \"view\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322414,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "model",
+                "materialization": "view",
+                "dbt_file_path": "models/staging/stg_orders.sql",
+                "catalog_type": "view",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "stg_orders",
+              "qualifiedName": null,
+              "description": "",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "model.jaffle_shop.stg_orders",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "order_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "customer_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_date",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "status",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+              "materialized": false,
+              "viewLogic": "with source as (\n\n    {#-\n    Normally we would select from the table here, but we are using seeds to load\n    our data in this project\n    #}\n    select * from {{ ref('raw_orders') }}\n\n),\n\nrenamed as (\n\n    select\n        id as order_id,\n        user_id as customer_id,\n        order_date,\n        status\n\n    from source\n\n)\n\nselect * from renamed",
+              "viewLanguage": "SQL"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322415,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.transformers_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"ephemeral\", \"view\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322419,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.transformers_customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "model",
+                "materialization": "ephemeral",
+                "dbt_file_path": "models/transformers/transformers_customers.sql",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "transformers_customers",
+              "qualifiedName": null,
+              "description": "",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "model.jaffle_shop.transformers_customers",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_customers,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+              "materialized": false,
+              "viewLogic": "with source as (\n\n    {#-\n    Normally we would select from the table here, but we are using seeds to load\n    our data in this project\n    #}\n    select * from {{ ref('raw_customers') }}\n\n),\n\nrenamed as (\n\n    select\n        id as customer_id,\n        first_name,\n        last_name\n\n    from source\n\n)\n\nselect * from renamed",
+              "viewLanguage": "SQL"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322420,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"seed\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322423,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "seed",
+                "materialization": "seed",
+                "dbt_file_path": "data/raw_customers.csv",
+                "catalog_type": "table",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "raw_customers",
+              "qualifiedName": null,
+              "description": "",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "seed.jaffle_shop.raw_customers",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "first_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "last_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322423,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"seed\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322427,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "seed",
+                "materialization": "seed",
+                "dbt_file_path": "data/raw_orders.csv",
+                "catalog_type": "table",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "raw_orders",
+              "qualifiedName": null,
+              "description": "",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "seed.jaffle_shop.raw_orders",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "user_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_date",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "status",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322427,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_payments,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"seed\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322431,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_payments,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "seed",
+                "materialization": "seed",
+                "dbt_file_path": "data/raw_payments.csv",
+                "catalog_type": "table",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "raw_payments",
+              "qualifiedName": null,
+              "description": "",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "seed.jaffle_shop.raw_payments",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "order_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "payment_method",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "amount",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322432,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"table\", \"view\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322509,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "model",
+                "materialization": "table",
+                "dbt_file_path": "models/customers.sql",
+                "catalog_type": "table",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "customers",
+              "qualifiedName": null,
+              "description": "This table has basic information about a customer, as well as some derived facts based on a customer's orders",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "model.jaffle_shop.customers",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "customer_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "This is a unique identifier for a customer",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "first_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Customer's first name. PII.",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "last_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Customer's last name. PII.",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "first_order",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Date (UTC) of a customer's first order",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "most_recent_order",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Date (UTC) of a customer's most recent order",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "DATE",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "number_of_orders",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": "Count of the number of orders a customer has placed",
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                },
+                {
+                  "fieldPath": "customer_lifetime_value",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": null,
+                  "created": null,
+                  "lastModified": null,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "FLOAT64",
+                  "recursive": false,
+                  "globalTags": null,
+                  "glossaryTerms": null,
+                  "isPartOfKey": false,
+                  "isPartitioningKey": null,
+                  "jsonProps": null
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
+                  "type": "TRANSFORMED"
+                },
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_customers,PROD)",
+                  "type": "TRANSFORMED"
+                },
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.transformers_customers,PROD)",
+                  "type": "TRANSFORMED"
+                },
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+                  "type": "TRANSFORMED"
+                },
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+              "materialized": true,
+              "viewLogic": "with customers as (\n\n    select * from {{ ref('stg_customers') }}\n\n),\n\nephemeral_customers as (\n\n    select * from {{ ref('transformers_customers') }}\n\n),\n\norders as (\n\n    select * from {{ ref('stg_orders') }}\n\n),\n\npayments as (\n\n    select * from {{ ref('stg_payments') }}\n\n),\n\nsource_customers as (\n\n    select * from {{ source('jaffle_shop', 'customers_source') }}\n\n),\n\ncustomer_orders as (\n\n        select\n        customer_id,\n\n        min(order_date) as first_order,\n        max(order_date) as most_recent_order,\n        count(order_id) as number_of_orders\n    from orders\n\n    group by 1\n\n),\n\ncustomer_payments as (\n\n    select\n        orders.customer_id,\n        sum(amount) as total_amount\n\n    from payments\n\n    left join orders using (order_id)\n\n    group by 1\n\n),\n\nfinal as (\n\n    select\n        customers.customer_id,\n        customers.first_name,\n        customers.last_name,\n        customer_orders.first_order,\n        customer_orders.most_recent_order,\n        customer_orders.number_of_orders,\n        customer_payments.total_amount as customer_lifetime_value\n\n    from customers\n\n    left join customer_orders using (customer_id)\n\n    left join customer_payments using (customer_id)\n\n)\n\nselect * from final",
+              "viewLanguage": "SQL"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322510,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers_source,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": "{\"typeNames\": [\"source\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1655162322523,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers_source,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "node_type": "source",
+                "dbt_file_path": "models/schema.yml",
+                "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v4.json",
+                "manifest_version": "1.0.4",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "1.0.4"
+              },
+              "externalUrl": null,
+              "name": "customers_source",
+              "qualifiedName": null,
+              "description": "",
+              "uri": null,
+              "tags": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "source.jaffle_shop.jaffle_shop.customers_source",
+              "platform": "urn:li:dataPlatform:dbt",
+              "version": 0,
+              "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                  "tableSchema": ""
+                }
+              },
+              "fields": [],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322524,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.orders,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322527,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_customers,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322528,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_payments,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322529,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_orders,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322530,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_customers,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322531,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322532,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_payments,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_payments,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322533,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+      "lastObserved": 1655162322536,
+      "runId": "dbt-2022_06_13-16_18_42",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  }
+]

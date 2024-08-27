@@ -1,0 +1,32 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.DataJobKey
+import com.linkedin.datajob.DataJobInfo
+import com.linkedin.datajob.DataJobInputOutput
+import com.linkedin.datajob.EditableDataJobProperties
+import com.linkedin.common.Ownership
+import com.linkedin.common.Status
+import com.linkedin.common.GlobalTags
+import com.linkedin.common.BrowsePaths
+import com.linkedin.common.BrowsePathsV2
+import com.linkedin.common.DataPlatformInstance
+import com.linkedin.common.GlossaryTerms
+import com.linkedin.common.InstitutionalMemory
+
+/**
+ * A union of all supported metadata aspects for a Data job
+ */
+typeref DataJobAspect = union[
+  DataJobKey,
+  DataJobInfo,
+  DataJobInputOutput,
+  EditableDataJobProperties,
+  Ownership,
+  Status,
+  GlobalTags,
+  BrowsePaths,
+  GlossaryTerms,
+  InstitutionalMemory,
+  DataPlatformInstance,
+  BrowsePathsV2
+]

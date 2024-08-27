@@ -1,0 +1,38 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.Urn
+
+/**
+ * The model for each entity returned by the search query
+ */
+record SearchEntity {
+  /**
+   * Urn of the entity being returned
+   */
+  entity: Urn
+
+  /**
+   * Matched field name and values
+   */
+  matchedFields: array[record MatchedField {
+    /**
+     * Matched field name
+     */
+    name: string
+
+    /**
+     * Matched field value
+     */
+    value: string
+  }] = []
+
+  features: optional map[string, double]
+
+  score: optional double
+
+  /**
+   * A list of the the restricted aspects on the entity.
+   * If the key aspect is present, assume ALL aspects should be restricted including the entity's Urn.
+   */
+  restrictedAspects: optional array[string]
+}

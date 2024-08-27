@@ -1,0 +1,591 @@
+fragment lineageNodeProperties on EntityWithRelationships {
+    urn
+    type
+    ... on DataJob {
+        urn
+        type
+        dataFlow {
+            ...nonRecursiveDataFlowFields
+        }
+        jobId
+        ownership {
+            ...ownershipFields
+        }
+        properties {
+            name
+            description
+            externalUrl
+            customProperties {
+                key
+                value
+            }
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
+        }
+        editableProperties {
+            description
+        }
+        status {
+            removed
+        }
+        inputOutput {
+            fineGrainedLineages {
+                upstreams {
+                    urn
+                    path
+                }
+                downstreams {
+                    urn
+                    path
+                }
+                query
+                transformOperation
+            }
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on DataFlow {
+        orchestrator
+        flowId
+        cluster
+        properties {
+            name
+            description
+            project
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        status {
+            removed
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on Dashboard {
+        urn
+        type
+        tool
+        dashboardId
+        properties {
+            name
+            description
+            externalUrl
+            lastRefreshed
+            created {
+                time
+            }
+            lastModified {
+                time
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        parentContainers {
+            ...parentContainersFields
+        }
+        status {
+            removed
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        editableProperties {
+            description
+        }
+        status {
+            removed
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on Chart {
+        tool
+        chartId
+        properties {
+            name
+            description
+        }
+        editableProperties {
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        ...entityDataProduct
+        status {
+            removed
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on Dataset {
+        name
+        properties {
+            name
+            description
+            qualifiedName
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+        fineGrainedLineages {
+            upstreams {
+                urn
+                path
+            }
+            downstreams {
+                urn
+                path
+            }
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on MLModelGroup {
+        urn
+        type
+        name
+        description
+        origin
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        status {
+            removed
+        }
+    }
+    ... on MLModel {
+        urn
+        type
+        name
+        description
+        origin
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        status {
+            removed
+        }
+    }
+    ... on MLFeatureTable {
+        ...nonRecursiveMLFeatureTable
+    }
+    ... on MLFeature {
+        ...nonRecursiveMLFeature
+    }
+    ... on MLPrimaryKey {
+        ...nonRecursiveMLPrimaryKey
+    }
+    ... on ERModelRelationship {
+        urn
+        type
+        id
+        properties {
+            ...ermodelrelationPropertiesFields
+        }
+        editableProperties {
+            ...ermodelrelationEditablePropertiesFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on Restricted {
+        urn
+        type
+    }
+}
+
+fragment lineageFields on EntityWithRelationships {
+    ...lineageNodeProperties
+    ...canEditLineageFragment
+    ... on Dataset {
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    exists
+                }
+                ...lineageNodeProperties
+            }
+        }
+    }
+    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }) {
+        ...leafLineageResults
+    }
+    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }) {
+        ...leafLineageResults
+    }
+}
+
+fragment lineageRelationshipFields on LineageRelationship {
+    type
+    createdOn
+    createdActor {
+        urn
+        type
+        ... on CorpUser {
+            username
+            info {
+                displayName
+            }
+            properties {
+                displayName
+            }
+            editableProperties {
+                displayName
+            }
+        }
+    }
+    updatedOn
+    updatedActor {
+        urn
+        type
+        ... on CorpUser {
+            username
+            info {
+                displayName
+            }
+            properties {
+                displayName
+            }
+            editableProperties {
+                displayName
+            }
+        }
+    }
+    isManual
+}
+
+fragment fullLineageResults on EntityLineageResult {
+    start
+    count
+    total
+    filtered
+    relationships {
+        ...lineageRelationshipFields
+        entity {
+            ...lineageFields
+            ... on Dataset {
+                schemaMetadata(version: 0) @include(if: $showColumns) {
+                    ...schemaMetadataFields
+                }
+            }
+            ... on Chart {
+                inputFields @include(if: $showColumns) {
+                    ...inputFieldsFields
+                }
+            }
+        }
+    }
+}
+
+fragment leafLineageResults on EntityLineageResult {
+    start
+    count
+    total
+    filtered
+    relationships {
+        ...lineageRelationshipFields
+        entity {
+            urn
+            type
+        }
+    }
+}
+
+fragment partialLineageResults on EntityLineageResult {
+    start
+    count
+    total
+    filtered
+}
+
+fragment entityLineage on Entity {
+    urn
+    type
+    ...lineageNodeProperties
+    ...canEditLineageFragment
+    ... on Dataset {
+        schemaMetadata(version: 0) @include(if: $showColumns) {
+            ...schemaMetadataFields
+        }
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    exists
+                }
+                ...lineageNodeProperties
+            }
+        }
+    }
+    ... on Chart {
+        inputFields @include(if: $showColumns) {
+            ...inputFieldsFields
+        }
+    }
+    ... on EntityWithRelationships {
+        upstream: lineage(
+            input: {
+                direction: UPSTREAM
+                start: 0
+                count: 100
+                separateSiblings: $separateSiblings
+                startTimeMillis: $startTimeMillis
+                endTimeMillis: $endTimeMillis
+            }
+        ) @skip(if: $excludeUpstream) {
+            ...fullLineageResults
+        }
+        downstream: lineage(
+            input: {
+                direction: DOWNSTREAM
+                start: 0
+                count: 100
+                separateSiblings: $separateSiblings
+                startTimeMillis: $startTimeMillis
+                endTimeMillis: $endTimeMillis
+            }
+        ) @skip(if: $excludeDownstream) {
+            ...fullLineageResults
+        }
+    }
+}
+
+query getEntityLineage(
+    $urn: String!
+    $separateSiblings: Boolean
+    $showColumns: Boolean!
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $excludeUpstream: Boolean = false
+    $excludeDownstream: Boolean = false
+) {
+    entity(urn: $urn) {
+        ...entityLineage
+    }
+}
+
+query getBulkEntityLineage(
+    $urns: [String!]!
+    $separateSiblings: Boolean
+    $showColumns: Boolean!
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $excludeUpstream: Boolean = false
+    $excludeDownstream: Boolean = false
+) {
+    entities(urns: $urns) {
+        ...entityLineage
+    }
+}
+
+fragment canEditLineageFragment on EntityWithRelationships {
+    ... on Dataset {
+        privileges {
+            canEditLineage
+        }
+    }
+    ... on Chart {
+        privileges {
+            canEditLineage
+        }
+    }
+    ... on Dashboard {
+        privileges {
+            canEditLineage
+        }
+    }
+    ... on DataJob {
+        privileges {
+            canEditLineage
+        }
+    }
+}
+
+query getLineageCounts(
+    $urn: String!
+    $separateSiblings: Boolean
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $excludeUpstream: Boolean = false
+    $excludeDownstream: Boolean = false
+) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on EntityWithRelationships {
+            upstream: lineage(
+                input: {
+                    direction: UPSTREAM
+                    start: 0
+                    count: 100
+                    separateSiblings: $separateSiblings
+                    startTimeMillis: $startTimeMillis
+                    endTimeMillis: $endTimeMillis
+                }
+            ) @skip(if: $excludeUpstream) {
+                filtered
+                total
+            }
+            downstream: lineage(
+                input: {
+                    direction: DOWNSTREAM
+                    start: 0
+                    count: 100
+                    separateSiblings: $separateSiblings
+                    startTimeMillis: $startTimeMillis
+                    endTimeMillis: $endTimeMillis
+                }
+            ) @skip(if: $excludeDownstream) {
+                filtered
+                total
+            }
+        }
+    }
+}
+
+query getSearchAcrossLineageCounts(
+    $urn: String!
+    $excludeUpstream: Boolean = false
+    $excludeDownstream: Boolean = false
+) {
+    upstreams: searchAcrossLineage(
+        input: {
+            urn: $urn
+            query: "*"
+            start: 0
+            count: 10000
+            filters: [{ field: "degree", value: "1", values: ["1"] }]
+            direction: UPSTREAM
+        }
+    ) @skip(if: $excludeUpstream) {
+        start
+        count
+        total
+        facets {
+            ...facetFields
+        }
+    }
+    downstreams: searchAcrossLineage(
+        input: {
+            urn: $urn
+            query: "*"
+            start: 0
+            count: 10000
+            filters: [{ field: "degree", value: "1", values: ["1"] }]
+            direction: DOWNSTREAM
+        }
+    ) @skip(if: $excludeDownstream) {
+        start
+        count
+        total
+        facets {
+            ...facetFields
+        }
+    }
+}

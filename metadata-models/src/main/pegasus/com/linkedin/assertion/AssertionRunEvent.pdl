@@ -1,0 +1,82 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.timeseries.PartitionSpec
+import com.linkedin.timeseries.TimeWindowSize
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
+
+/**
+ * An event representing the current status of evaluating an assertion on a batch.
+ * AssertionRunEvent should be used for reporting the status of a run as an assertion evaluation progresses.
+ */
+@Aspect = {
+  "name": "assertionRunEvent",
+  "type": "timeseries",
+}
+record AssertionRunEvent {
+
+  /**
+   * The event timestamp field as epoch at UTC in milli seconds.
+   */
+  @Searchable = {
+    "fieldName": "lastCompletedTime",
+    "fieldType": "DATETIME"
+  }
+  timestampMillis: long
+
+  /**
+  *  Native (platform-specific) identifier for this run
+  */
+  runId: string
+
+  /*
+  * Urn of entity on which the assertion is applicable
+  */
+  @TimeseriesField = {}
+  asserteeUrn: Urn
+
+  /**
+  * The status of the assertion run as per this timeseries event.
+  */
+  @TimeseriesField = {}
+  status: AssertionRunStatus
+
+  /**
+  * Results of assertion, present if the status is COMPLETE
+  */
+  result: optional AssertionResult
+
+  /**
+   * Runtime parameters of evaluation
+   */
+  runtimeContext: optional map[string, string]
+
+  /**
+  * Specification of the batch which this run is evaluating
+  */
+  batchSpec: optional BatchSpec
+
+  /*
+  * Urn of assertion which is evaluated
+  */
+  @TimeseriesField = {}
+  assertionUrn: Urn
+
+  /**
+   * Granularity of the event if applicable
+   */
+  eventGranularity: optional TimeWindowSize
+
+  /**
+   * The optional partition specification.
+   */
+  partitionSpec: optional PartitionSpec = {
+    "type":"FULL_TABLE",
+    "partition":"FULL_TABLE_SNAPSHOT"
+  }
+
+  /**
+   * The optional messageId, if provided serves as a custom user-defined unique identifier for an aspect value.
+   */
+  messageId: optional string
+}

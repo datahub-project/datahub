@@ -1,0 +1,16 @@
+namespace com.linkedin.timeseries
+
+/**
+ * Provides the aggregation specification on a member/field.
+ */
+record AggregationSpec {
+  /**
+   * Name of the member/field.
+   */
+  fieldPath: string
+
+  /**
+   * Aggregation type for the metric.
+   */
+  aggregationType: AggregationType
+}

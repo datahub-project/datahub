@@ -1,0 +1,14 @@
+namespace com.datahub.test.testing.singleaspectentity
+
+import com.datahub.test.testing.AspectBar
+
+/**
+ * For unit tests
+ */
+record EntityValue includes AspectBar {
+
+  /**
+   * Id of the entity value.
+   */
+  id: long
+}

@@ -1,0 +1,38 @@
+source:
+  type: "lookml"
+  config:
+    # GitHub Coordinates: Used to check out the repo locally and add github links on the dataset's entity page.
+    github_info:
+      repo: org/repo-name
+      deploy_key_file: ${LOOKER_DEPLOY_KEY_FILE} # file containing the private ssh key for a deploy key for the looker git repo
+
+    # Coordinates
+    # base_folder: /path/to/model/files ## Optional if you are not able to provide a GitHub deploy key
+
+    # Options
+    api:
+      # Coordinates for your looker instance
+      base_url: "https://YOUR_INSTANCE.cloud.looker.com"
+
+      # Credentials for your Looker connection (https://docs.looker.com/reference/api-and-integration/api-auth)
+      client_id: ${LOOKER_CLIENT_ID}
+      client_secret: ${LOOKER_CLIENT_SECRET}
+
+    # Alternative to API section above if you want a purely file-based ingestion with no api calls to Looker or if you want to provide platform_instance ids for your connections
+    # project_name: PROJECT_NAME # See (https://docs.looker.com/data-modeling/getting-started/how-project-works) to understand what is your project name
+    # connection_to_platform_map:
+    #   connection_name_1:
+    #     platform: snowflake # bigquery, hive, etc
+    #     default_db: DEFAULT_DATABASE. # the default database configured for this connection
+    #     default_schema: DEFAULT_SCHEMA # the default schema configured for this connection
+    #     platform_instance: snow_warehouse # optional
+    #     platform_env: PROD  # optional
+    #   connection_name_2:
+    #     platform: bigquery # snowflake, hive, etc
+    #     default_db: DEFAULT_DATABASE. # the default database configured for this connection
+    #     default_schema: DEFAULT_SCHEMA # the default schema configured for this connection
+    #     platform_instance: bq_warehouse # optional
+    #     platform_env: DEV  # optional
+# Default sink is datahub-rest and doesn't need to be configured
+# See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options
+

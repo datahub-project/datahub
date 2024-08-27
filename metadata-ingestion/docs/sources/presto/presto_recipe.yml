@@ -1,0 +1,13 @@
+source:
+  type: presto
+  config:
+    # Coordinates
+    host_port: localhost:5300
+    database: dbname
+
+    # Credentials
+    username: foo
+    password: password
+
+sink:
+  # sink configs

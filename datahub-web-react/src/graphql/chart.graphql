@@ -1,0 +1,129 @@
+query getChart($urn: String!) {
+    chart(urn: $urn) {
+        urn
+        type
+        exists
+        lastIngested
+        tool
+        chartId
+        platform {
+            ...platformFields
+        }
+        properties {
+            name
+            description
+            externalUrl
+            type
+            access
+            lastRefreshed
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+            customProperties {
+                key
+                value
+            }
+        }
+        query {
+            rawQuery
+            type
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        editableProperties {
+            description
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        embed {
+            ...embedFields
+        }
+        inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
+            ...fullRelationshipResults
+        }
+        dashboards: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
+            ...fullRelationshipResults
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        status {
+            removed
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
+        inputFields {
+            ...inputFieldsFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        subTypes {
+            typeNames
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        health {
+            ...entityHealth
+        }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
+        }
+        forms {
+            ...formsFields
+        }
+    }
+}
+
+mutation updateChart($urn: String!, $input: ChartUpdateInput!) {
+    updateChart(urn: $urn, input: $input) {
+        urn
+    }
+}

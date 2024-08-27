@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a External AccessManagement
+ */
+@Aspect = {
+  "name": "roleKey"
+}
+record RoleKey {
+  /**
+  * A unique id for the access management IAM.
+  */
+  id: string
+}

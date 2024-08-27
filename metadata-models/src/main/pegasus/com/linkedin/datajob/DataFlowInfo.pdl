@@ -1,0 +1,78 @@
+namespace com.linkedin.datajob
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
+import com.linkedin.common.TimeStamp
+import com.linkedin.common.FabricType
+
+/**
+ * Information about a Data processing flow
+ */
+@Aspect = {
+  "name": "dataFlowInfo"
+}
+record DataFlowInfo includes CustomProperties, ExternalReference {
+
+  /**
+   * Flow name
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+
+  /**
+   * Flow description
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Optional project/namespace associated with the flow
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": false
+  }
+  project: optional string
+
+  /**
+   * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  created: optional TimeStamp
+
+  /**
+   * A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional TimeStamp
+
+  /**
+   * Environment for this flow
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Environment",
+    "queryByDefault": false
+  }
+  env: optional FabricType
+}

@@ -1,0 +1,201 @@
+{
+  "description": null,
+  "archived": false,
+  "collection_position": null,
+  "table_id": null,
+  "result_metadata": [{
+    "name": "customer_id",
+    "display_name": "customer_id",
+    "base_type": "type/Integer",
+    "effective_type": "type/Integer",
+    "field_ref": ["field", "customer_id", {
+      "base-type": "type/Integer"
+    }],
+    "semantic_type": null,
+    "fingerprint": {
+      "global": {
+        "distinct-count": 517,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Number": {
+          "min": 1.0,
+          "q1": 127.95550051624855,
+          "q3": 457.48181481488376,
+          "max": 599.0,
+          "sd": 183.35453319901166,
+          "avg": 293.316
+        }
+      }
+    }
+  }, {
+    "name": "first_name",
+    "display_name": "first_name",
+    "base_type": "type/Text",
+    "effective_type": "type/Text",
+    "field_ref": ["field", "first_name", {
+      "base-type": "type/Text"
+    }],
+    "semantic_type": "type/Name",
+    "fingerprint": {
+      "global": {
+        "distinct-count": 509,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Text": {
+          "percent-json": 0.0,
+          "percent-url": 0.0,
+          "percent-email": 0.0,
+          "percent-state": 0.0035,
+          "average-length": 5.629
+        }
+      }
+    }
+  }, {
+    "name": "last_name",
+    "display_name": "last_name",
+    "base_type": "type/Text",
+    "effective_type": "type/Text",
+    "field_ref": ["field", "last_name", {
+      "base-type": "type/Text"
+    }],
+    "semantic_type": "type/Name",
+    "fingerprint": {
+      "global": {
+        "distinct-count": 517,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Text": {
+          "percent-json": 0.0,
+          "percent-url": 0.0,
+          "percent-email": 0.0,
+          "percent-state": 0.0015,
+          "average-length": 6.126
+        }
+      }
+    }
+  }, {
+    "name": "amount",
+    "display_name": "amount",
+    "base_type": "type/Decimal",
+    "effective_type": "type/Decimal",
+    "field_ref": ["field", "amount", {
+      "base-type": "type/Decimal"
+    }],
+    "semantic_type": null,
+    "fingerprint": {
+      "global": {
+        "distinct-count": 11,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Number": {
+          "min": 0.99,
+          "q1": 2.399411317392306,
+          "q3": 5.52734176879965,
+          "max": 10.99,
+          "sd": 2.352151368009511,
+          "avg": 4.1405
+        }
+      }
+    }
+  }, {
+    "name": "payment_date",
+    "display_name": "payment_date",
+    "base_type": "type/DateTime",
+    "effective_type": "type/DateTime",
+    "field_ref": ["field", "payment_date", {
+      "base-type": "type/DateTime"
+    }],
+    "semantic_type": null,
+    "fingerprint": {
+      "global": {
+        "distinct-count": 1998,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/DateTime": {
+          "earliest": "2007-02-14T21:21:59.996577Z",
+          "latest": "2007-02-21T19:27:46.996577Z"
+        }
+      }
+    }
+  }, {
+    "name": "rental_id",
+    "display_name": "rental_id",
+    "base_type": "type/Integer",
+    "effective_type": "type/Integer",
+    "field_ref": ["field", "rental_id", {
+      "base-type": "type/Integer"
+    }],
+    "semantic_type": null,
+    "fingerprint": {
+      "global": {
+        "distinct-count": 2000,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Number": {
+          "min": 1158.0,
+          "q1": 1731.7967120913397,
+          "q3": 2871.359273326854,
+          "max": 4591.0,
+          "sd": 660.7468728104022,
+          "avg": 2303.4565
+        }
+      }
+    }
+  }],
+  "creator": {
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_login": "2021-12-13T22:25:45.761",
+    "is_qbnewb": true,
+    "is_superuser": true,
+    "id": 1,
+    "last_name": "LastName",
+    "date_joined": "2021-12-13T07:34:21.806",
+    "common_name": "FirstName LastName"
+  },
+  "can_write": true,
+  "database_id": 1,
+  "enable_embedding": false,
+  "collection_id": null,
+  "query_type": "native",
+  "name": "Customer Payment",
+  "last_query_start": "2021-12-13T17:48:39.802905Z",
+  "dashboard_count": 1,
+  "average_query_time": 662,
+  "creator_id": 1,
+  "moderation_reviews": [],
+  "updated_at": "2021-12-13T17:48:40.478",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "dataset_query": {
+    "type": "native",
+    "native": {
+      "query": "SELECT\n\tcustomer.customer_id,\n\tfirst_name,\n\tlast_name,\n\tamount,\n\tpayment_date,\n\trental_id\nFROM\n\tcustomer\nINNER JOIN payment \n    ON payment.customer_id = customer.customer_id\nORDER BY payment_date",
+      "template-tags": {}
+    },
+    "database": 2
+  },
+  "id": 1,
+  "display": "table",
+  "last-edit-info": {
+    "id": 1,
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_name": "LastName",
+    "timestamp": "2021-12-13T17:46:32.792"
+  },
+  "visualization_settings": {
+    "table.pivot_column": "amount",
+    "table.cell_column": "customer_id"
+  },
+  "collection": null,
+  "created_at": "2021-12-13T17:46:32.77",
+  "public_uuid": null
+}

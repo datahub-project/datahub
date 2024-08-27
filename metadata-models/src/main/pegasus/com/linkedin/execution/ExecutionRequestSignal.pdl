@@ -1,0 +1,26 @@
+namespace com.linkedin.execution
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * An signal sent to a running execution request
+ */
+@Aspect = {
+  "name": "dataHubExecutionRequestSignal"
+}
+record ExecutionRequestSignal {
+  /**
+  * The signal to issue, e.g. KILL
+  */
+  signal: string
+
+  /**
+  * Advanced: specify a specific executor to route the request to. If none is provided, a "default" executor is used.
+  */
+  executorId: optional string
+
+  /**
+  * Audit Stamp
+  */
+  createdAt: AuditStamp
+}

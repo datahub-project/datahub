@@ -1,0 +1,43 @@
+namespace com.linkedin.execution
+
+/**
+ * The result of an execution request
+ */
+@Aspect = {
+  "name": "dataHubExecutionRequestResult"
+}
+record ExecutionRequestResult {
+  /**
+  * The status of the execution request
+  */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "fieldName": "executionResultStatus"
+  }
+  status: string
+
+  /**
+  * The pretty-printed execution report.
+  */
+  report: optional string
+
+  /**
+  * A structured report if available.
+  */
+  structuredReport: optional StructuredExecutionReport
+
+  /**
+  * Time at which the request was created
+  */
+  @Searchable = {
+    "fieldName": "startTimeMs",
+    "fieldType": "COUNT",
+    "queryByDefault": false
+  }
+  startTimeMs: optional long
+
+ /**
+  * Duration in milliseconds
+  */
+  durationMs: optional long
+}

@@ -1,0 +1,22 @@
+namespace com.linkedin.notebook
+
+import com.linkedin.common.ChangeAuditStamps
+
+/**
+ * Stores editable changes made to properties. This separates changes made from
+ * ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines
+ * Note: This is IN BETA version
+ */
+@Aspect = {
+  "name": "editableNotebookProperties"
+}
+record EditableNotebookProperties includes ChangeAuditStamps {
+  /**
+   * Edited documentation of the Notebook
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "fieldName": "editedDescription",
+  }
+  description: optional string
+}

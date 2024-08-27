@@ -1,0 +1,12 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+record EntityKey {
+
+  /**
+   * For unit tests
+   */
+  id: long
+}

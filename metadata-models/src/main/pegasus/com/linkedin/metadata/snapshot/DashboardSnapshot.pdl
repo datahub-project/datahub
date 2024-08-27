@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.DashboardUrn
+import com.linkedin.metadata.aspect.DashboardAspect
+
+/**
+ * A metadata snapshot for a specific Dashboard entity.
+ */
+@Entity = {
+  "name": "dashboard",
+  "keyAspect": "dashboardKey"
+}
+record DashboardSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: DashboardUrn
+
+  /**
+   * The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[DashboardAspect]
+}

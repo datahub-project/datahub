@@ -1,0 +1,104 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.CorpuserUrn
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.EmailAddress
+
+/**
+ * Linkedin corp user information
+ */
+@Aspect = {
+  "name": "corpUserInfo"
+}
+@Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
+record CorpUserInfo includes CustomProperties {
+
+  /**
+   * Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "weightsPerFieldValue": { "true": 2.0 }
+  }
+  active: boolean
+
+  /**
+   * displayName of this user ,  e.g.  Hang Zhang(DataHQ)
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  displayName: optional string
+
+  /**
+   * email address of this user
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": true
+  }
+  email: optional EmailAddress
+
+  /**
+   * title of this user
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": true
+  }
+  title: optional string
+
+  /**
+   * direct manager of this user
+   */
+  @Relationship = {
+    "name": "ReportsTo",
+    "entityTypes": [ "corpuser" ]
+  }
+  @Searchable = {
+    "fieldName": "managerLdap",
+    "fieldType": "URN",
+    "queryByDefault": true
+  }
+  managerUrn: optional CorpuserUrn
+
+  /**
+   * department id this user belong to
+   */
+  departmentId: optional long
+
+  /**
+   * department name this user belong to
+   */
+  departmentName: optional string
+
+  /**
+   * first name of this user
+   */
+  firstName: optional string
+
+  /**
+   * last name of this user
+   */
+  lastName: optional string
+
+  /**
+   * Common name of this user, format is firstName + lastName (split by a whitespace)
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  fullName: optional string
+
+  /**
+   * two uppercase letters country code. e.g.  US
+   */
+  countryCode: optional string
+}

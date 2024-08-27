@@ -1,0 +1,79 @@
+plugins {
+    id 'java'
+    id "com.google.protobuf" version "0.8.18"
+}
+
+repositories {
+    if (project.hasProperty('apacheMavenRepositoryUrl')) {
+        maven { url project.getProperty('apacheMavenRepositoryUrl') }
+    } else {
+        mavenCentral()
+    }
+    mavenLocal()
+}
+
+ext {
+    protobuf_version = '3.19.3'
+    datahub_protobuf_version = '0.8.45-SNAPSHOT'
+}
+
+configurations {
+    datahub
+}
+
+dependencies {
+    // compilation
+    implementation "com.google.protobuf:protobuf-java:$protobuf_version"
+    datahub "io.acryl:datahub-protobuf:$datahub_protobuf_version"
+}
+
+sourceSets {
+    main {
+        proto {
+            srcDir 'schema'
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:$protobuf_version"
+    }
+    generateProtoTasks {
+        all().each { task ->
+            // If true, will generate a descriptor_set.desc file under
+            // $generatedFilesBaseDir/$sourceSet. Default is false.
+            // See --descriptor_set_out in protoc documentation about what it is.
+            task.generateDescriptorSet = true
+
+            // Allows to override the default for the descriptor set location
+            task.descriptorSetOptions.path =
+                    "${projectDir}/build/descriptors/${task.sourceSet.name}.dsc"
+
+            // If true, the descriptor set will contain line number information
+            // and comments. Default is false.
+            task.descriptorSetOptions.includeSourceInfo = true
+
+            // If true, the descriptor set will contain all transitive imports and
+            // is therefore self-contained. Default is false.
+            task.descriptorSetOptions.includeImports = true
+        }
+    }
+}
+
+task publishSchema(dependsOn: build) {
+    description "Publishes protobuf schema in the `main` sourceSet to DataHub"
+
+    fileTree("schema").matching {
+        exclude "protobuf/meta/**"
+    }.each {f ->
+        doLast {
+            javaexec {
+                executable = javaLauncher.get().getExecutablePath().getAsFile().getAbsolutePath()
+                classpath = configurations.datahub
+                main = "datahub.protobuf.Proto2DataHub"
+                args = ["--descriptor", "${projectDir}/build/descriptors/main.dsc", "--file", file(f).getAbsoluteFile()]
+            }
+        }
+    }
+}

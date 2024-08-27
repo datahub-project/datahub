@@ -1,0 +1,30 @@
+namespace com.linkedin.common
+
+/**
+ * The specific instance of the data platform that this entity belongs to
+ */
+@Aspect = {
+  "name": "dataPlatformInstance"
+}
+record DataPlatformInstance {
+  /**
+   * Data Platform
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true,
+    "filterNameOverride": "Platform"
+  }
+  platform: Urn
+
+  /**
+   * Instance of the data platform (e.g. db instance)
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true,
+    "filterNameOverride": "Platform Instance"
+    "fieldName": "platformInstance"
+  }
+  instance: optional Urn
+}

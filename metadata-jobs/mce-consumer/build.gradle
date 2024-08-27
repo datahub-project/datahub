@@ -1,0 +1,56 @@
+plugins {
+    id 'java-library'
+    id 'pegasus'
+}
+
+
+configurations {
+    avro
+}
+
+dependencies {
+    avro project(path: ':metadata-models', configuration: 'avroSchema')
+
+    implementation project(':li-utils')
+    implementation(project(':metadata-service:factories')) {
+        exclude group: 'org.neo4j.test'
+    }
+    implementation project(':metadata-utils')
+    implementation project(':metadata-events:mxe-schemas')
+    implementation project(':metadata-events:mxe-avro')
+    implementation project(':metadata-events:mxe-registration')
+    implementation project(':metadata-events:mxe-utils-avro')
+    implementation project(':metadata-io')
+    implementation project(':metadata-service:restli-client-api')
+    implementation project(':metadata-dao-impl:kafka-producer')
+    implementation spec.product.pegasus.restliClient
+    implementation spec.product.pegasus.restliCommon
+    implementation externalDependency.elasticSearchRest
+    implementation externalDependency.protobuf
+
+    implementation externalDependency.springKafka
+
+    implementation externalDependency.slf4jApi
+    compileOnly externalDependency.lombok
+
+    annotationProcessor externalDependency.lombok
+
+    implementation externalDependency.awsMskIamAuth
+}
+
+task avroSchemaSources(type: Copy) {
+    dependsOn configurations.avro
+
+    from { // use of closure defers evaluation until execution time
+        configurations.avro.collect { zipTree(it) }
+    }
+    into("src/main/resources/")
+    include("avro/com/linkedin/mxe/")
+}
+
+compileJava.dependsOn avroSchemaSources
+processResources.dependsOn avroSchemaSources
+
+clean {
+    project.delete("src/main/resources/avro")
+}

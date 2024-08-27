@@ -1,0 +1,58 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+            "urn": "urn:li:corpGroup:HR Department",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "admins": [],
+                        "members": [],
+                        "groups": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:HR Department",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:Finance Department",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
+    }
+}
+]

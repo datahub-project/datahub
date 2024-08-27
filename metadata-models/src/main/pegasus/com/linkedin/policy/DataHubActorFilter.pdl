@@ -1,0 +1,73 @@
+namespace com.linkedin.policy
+
+import com.linkedin.common.Urn
+import com.linkedin.ownership.OwnershipTypeInfo
+
+/**
+ * Information used to filter DataHub actors.
+ */
+record DataHubActorFilter {
+
+  /**
+   * A specific set of users to apply the policy to (disjunctive)
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+    }
+  }
+  users: optional array[Urn]
+
+  /**
+   * A specific set of groups to apply the policy to (disjunctive)
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+    }
+  }
+  groups: optional array[Urn]
+
+  /**
+   * Whether the filter should return true for owners of a particular resource.
+   * Only applies to policies of type 'Metadata', which have a resource associated with them.
+   */
+  resourceOwners: boolean = false
+
+  /**
+   * Define type of ownership for the policy
+  */
+  resourceOwnersTypes: optional array[Urn]
+
+  /**
+   * Whether the filter should apply to all users.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  allUsers: boolean = false
+
+  /**
+   * Whether the filter should apply to all groups.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  allGroups: boolean = false
+
+  /**
+   * A specific set of roles to apply the policy to (disjunctive).
+   */
+  @Relationship = {
+    "/*": {
+      "name": "IsAssociatedWithRole",
+      "entityTypes": [ "dataHubRole" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+    }
+  }
+  roles: optional array[Urn]
+}

@@ -1,0 +1,166 @@
+[
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:SCHEMA\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType":"UPSERT",
+    "aspectName":"containerProperties",
+    "aspect":{
+      "value":"{\"name\": \"datahub_db\", \"description\": \"The DataHub db\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType":"UPSERT",
+    "aspectName":"subTypes",
+    "aspect":{
+      "value":"{\"typeNames\": [ \"Database\" ] }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType":"UPSERT",
+    "aspectName":"dataPlatformInstance",
+    "aspect":{
+      "value":"{\"platform\": \"urn:li:dataPlatform:mysql\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"containerProperties",
+    "aspect":{
+      "value":"{\"name\": \"datahub_schema\", \"description\": \"The DataHub schema\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"editableContainerProperties",
+    "aspect":{
+      "value":"{\"description\": \"custom description\"}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"subTypes",
+    "aspect":{
+      "value":"{\"typeNames\": [ \"Schema\" ] }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"dataPlatformInstance",
+    "aspect":{
+      "value":"{\"platform\": \"urn:li:dataPlatform:mysql\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"container",
+    "entityUrn": "urn:li:container:SCHEMA",
+    "changeType":"UPSERT",
+    "aspectName":"container",
+    "aspect":{
+      "value":"{\"container\": \"urn:li:container:DATABASE\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"tag",
+    "entityUrn": "urn:li:tag:Test",
+    "changeType":"UPSERT",
+    "aspectName":"tagProperties",
+    "aspect":{
+      "value":"{\"name\": \"Test\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Term",
+    "changeType":"UPSERT",
+    "aspectName":"glossaryTermInfo",
+    "aspect":{
+      "value":"{\"definition\": \"Term\", \"termSource\": \"source\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+        "urn": "urn:li:corpuser:jdoe",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+              "active": true,
+              "displayName": {
+                "string": "John Doe"
+              },
+              "email": "jdoe@linkedin.com",
+              "title": {
+                "string": "Software Engineer"
+              },
+              "managerUrn": null,
+              "departmentId": null,
+              "departmentName": null,
+              "firstName": null,
+              "lastName": null,
+              "fullName": {
+                "string": "John Doe"
+              },
+              "countryCode": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]

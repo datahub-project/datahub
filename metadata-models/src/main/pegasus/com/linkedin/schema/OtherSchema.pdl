@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema holder for undefined schema types.
+ */
+record OtherSchema {
+
+  /**
+   * The native schema in the dataset's platform.
+   */
+  rawSchema: string
+}

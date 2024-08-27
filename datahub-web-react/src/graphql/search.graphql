@@ -1,0 +1,1095 @@
+fragment autoCompleteFields on Entity {
+    urn
+    type
+    ... on Dataset {
+        exists
+        name
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        properties {
+            name
+            qualifiedName
+            lastModified {
+                time
+                actor
+            }
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    exists
+                    platform {
+                        ...platformFields
+                    }
+                    parentContainers {
+                        ...parentContainersFields
+                    }
+                    name
+                    properties {
+                        name
+                        description
+                        qualifiedName
+                        externalUrl
+                        lastModified {
+                            time
+                            actor
+                        }
+                    }
+                }
+            }
+        }
+        ...datasetStatsFields
+        access {
+            ...getAccess
+        }
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
+        }
+    }
+    ... on CorpUser {
+        username
+        properties {
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+        }
+        editableProperties {
+            displayName
+        }
+    }
+    ... on CorpGroup {
+        name
+        info {
+            displayName
+        }
+    }
+    ... on Dashboard {
+        properties {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
+    }
+    ... on Chart {
+        chartId
+        properties {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
+    }
+    ... on DataFlow {
+        orchestrator
+        properties {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on DataJob {
+        dataFlow {
+            orchestrator
+            platform {
+                ...platformFields
+            }
+            dataPlatformInstance {
+                ...dataPlatformInstanceFields
+            }
+        }
+        jobId
+        properties {
+            name
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on GlossaryTerm {
+        name
+        hierarchicalName
+        properties {
+            name
+        }
+        parentNodes {
+            ...parentNodesFields
+        }
+    }
+    ... on GlossaryNode {
+        properties {
+            name
+        }
+    }
+    ... on Domain {
+        properties {
+            name
+        }
+        parentDomains {
+            ...parentDomainsFields
+        }
+    }
+    ... on DataProduct {
+        properties {
+            name
+        }
+    }
+    ... on Container {
+        properties {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        subTypes {
+            typeNames
+        }
+    }
+    ... on Tag {
+        name
+        properties {
+            name
+            colorHex
+        }
+    }
+    ... on MLFeatureTable {
+        name
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLFeature {
+        name
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLPrimaryKey {
+        name
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLModel {
+        name
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLModelGroup {
+        name
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+    ... on BusinessAttribute {
+        properties {
+            name
+            description
+        }
+    }
+}
+
+query getAutoCompleteResults($input: AutoCompleteInput!) {
+    autoComplete(input: $input) {
+        query
+        suggestions
+        entities {
+            ...autoCompleteFields
+        }
+    }
+}
+
+query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
+    autoCompleteForMultiple(input: $input) {
+        query
+        suggestions {
+            type
+            suggestions
+            entities {
+                ...autoCompleteFields
+            }
+        }
+    }
+}
+
+fragment getAccess on Access {
+    roles {
+        role {
+            ...getRolesName
+        }
+    }
+}
+
+fragment getRolesName on Role {
+    urn
+    type
+    id
+    properties {
+        name
+        description
+        type
+    }
+}
+
+fragment datasetStatsFields on Dataset {
+    lastProfile: datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        sizeInBytes
+        timestampMillis
+    }
+    lastOperation: operations(limit: 1) {
+        lastUpdatedTimestamp
+        timestampMillis
+    }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
+}
+
+fragment nonSiblingsDatasetSearchFields on Dataset {
+    exists
+    name
+    origin
+    uri
+    platform {
+        ...platformFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    editableProperties {
+        name
+        description
+    }
+    access {
+        ...getAccess
+    }
+    platformNativeType
+    properties {
+        name
+        description
+        qualifiedName
+        customProperties {
+            key
+            value
+        }
+        externalUrl
+        lastModified {
+            time
+            actor
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    domain {
+        ...entityDomain
+    }
+    ...entityDataProduct
+    parentContainers {
+        ...parentContainersFields
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    health {
+        ...entityHealth
+    }
+    ...datasetStatsFields
+}
+
+fragment searchResultsWithoutSchemaField on Entity {
+    urn
+    type
+    ... on Dataset {
+        ...nonSiblingsDatasetSearchFields
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    ...nonSiblingsDatasetSearchFields
+                }
+            }
+        }
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
+        }
+    }
+    ... on CorpUser {
+        username
+        properties {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+        info {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+        editableProperties {
+            displayName
+            title
+            pictureLink
+        }
+    }
+    ... on CorpGroup {
+        name
+        info {
+            displayName
+            description
+        }
+        memberCount: relationships(
+            input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
+        ) {
+            total
+        }
+    }
+    ... on Dashboard {
+        dashboardId
+        properties {
+            name
+            description
+            externalUrl
+            access
+            lastModified {
+                time
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on Chart {
+        chartId
+        properties {
+            name
+            description
+            externalUrl
+            type
+            access
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on DataFlow {
+        flowId
+        cluster
+        properties {
+            name
+            description
+            project
+            externalUrl
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
+            total
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on DataJob {
+        dataFlow {
+            ...nonRecursiveDataFlowFields
+        }
+        jobId
+        ownership {
+            ...ownershipFields
+        }
+        properties {
+            name
+            description
+            externalUrl
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
+        }
+        lastRun: runs(start: 0, count: 1) {
+            count
+            start
+            total
+            runs {
+                urn
+                type
+                created {
+                    time
+                    actor
+                }
+            }
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on GlossaryTerm {
+        name
+        hierarchicalName
+        properties {
+            name
+            description
+            termSource
+            sourceRef
+            sourceUrl
+            rawSchema
+            customProperties {
+                key
+                value
+            }
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        parentNodes {
+            ...parentNodesFields
+        }
+        domain {
+            ...entityDomain
+        }
+    }
+    ... on GlossaryNode {
+        ...glossaryNode
+        parentNodes {
+            ...parentNodesFields
+        }
+    }
+    ... on Domain {
+        properties {
+            name
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ...domainEntitiesFields
+    }
+    ... on Container {
+        properties {
+            name
+            description
+            externalUrl
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        editableProperties {
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        subTypes {
+            typeNames
+        }
+        entities(input: {}) {
+            total
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on MLFeatureTable {
+        name
+        description
+        featureTableProperties {
+            description
+            mlFeatures {
+                urn
+            }
+            mlPrimaryKeys {
+                urn
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLFeature {
+        ...nonRecursiveMLFeature
+    }
+    ... on MLPrimaryKey {
+        ...nonRecursiveMLPrimaryKey
+    }
+    ... on MLModel {
+        name
+        description
+        origin
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLModelGroup {
+        name
+        origin
+        description
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on Tag {
+        name
+        properties {
+            name
+            colorHex
+        }
+        description
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+    ... on DataProduct {
+        ...dataProductSearchFields
+    }
+    ... on ERModelRelationship {
+        urn
+        type
+        id
+        properties {
+            ...ermodelrelationPropertiesFields
+        }
+        editableProperties {
+            ...ermodelrelationEditablePropertiesFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on BusinessAttribute {
+        ...businessAttributeFields
+    }
+}
+
+fragment searchResultFields on Entity {
+    ...searchResultsWithoutSchemaField
+    ... on SchemaFieldEntity {
+        ...entityField
+    }
+}
+
+fragment facetFields on FacetMetadata {
+    field
+    displayName
+    aggregations {
+        value
+        count
+        entity {
+            urn
+            type
+            ... on Tag {
+                name
+                properties {
+                    name
+                    colorHex
+                }
+            }
+            ... on GlossaryTerm {
+                name
+                properties {
+                    name
+                }
+                parentNodes {
+                    ...parentNodesFields
+                }
+            }
+            ... on DataPlatform {
+                ...platformFields
+            }
+            ... on DataPlatformInstance {
+                ...dataPlatformInstanceFields
+            }
+            ... on Domain {
+                properties {
+                    name
+                }
+                parentDomains {
+                    ...parentDomainsFields
+                }
+            }
+            ... on Container {
+                platform {
+                    ...platformFields
+                }
+                properties {
+                    name
+                }
+            }
+            ... on CorpUser {
+                username
+                properties {
+                    displayName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+            ... on CorpGroup {
+                name
+                properties {
+                    displayName
+                }
+            }
+            ... on DataProduct {
+                properties {
+                    name
+                }
+            }
+        }
+    }
+}
+
+fragment searchResults on SearchResults {
+    start
+    count
+    total
+    searchResults {
+        entity {
+            ...searchResultFields
+        }
+        matchedFields {
+            name
+            value
+            entity {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+        insights {
+            text
+            icon
+        }
+    }
+    facets {
+        ...facetFields
+    }
+    suggestions {
+        text
+        frequency
+        score
+    }
+}
+
+fragment entityField on SchemaFieldEntity {
+    urn
+    type
+    parent {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+        }
+    }
+    fieldPath
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
+}
+
+fragment schemaFieldEntityFields on SchemaFieldEntity {
+    urn
+    type
+    fieldPath
+    parent {
+        ...searchResultsWithoutSchemaField
+    }
+}
+
+fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
+    start
+    count
+    total
+    searchResults {
+        entity {
+            ...searchResultFields
+            ... on Dataset {
+                assertions(start: 0, count: 1000) @include(if: $includeAssertions) {
+                    assertions {
+                        runEvents(status: COMPLETE, limit: 1) {
+                            total
+                            failed
+                            succeeded
+                        }
+                    }
+                }
+            }
+        }
+        matchedFields {
+            name
+            value
+        }
+        insights {
+            text
+            icon
+        }
+        paths {
+            path {
+                ...searchResultsWithoutSchemaField
+                ... on SchemaFieldEntity {
+                    ...schemaFieldEntityFields
+                }
+            }
+        }
+        degree
+    }
+    facets {
+        ...facetFields
+    }
+}
+
+query getSearchResults($input: SearchInput!) {
+    search(input: $input) {
+        ...searchResults
+    }
+}
+
+query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        ...searchResults
+    }
+}
+
+query searchAcrossLineage($input: SearchAcrossLineageInput!, $includeAssertions: Boolean = false) {
+    searchAcrossLineage(input: $input) {
+        ...searchAcrossRelationshipResults
+    }
+}
+
+query getEntityMentionNode($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...searchResultFields
+    }
+}
+
+query getEntityDisplayName($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+}
+
+query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
+    aggregateAcrossEntities(input: $input) {
+        facets {
+            ...facetFields
+        }
+    }
+}
+
+query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
+    listDataProductAssets(urn: $urn, input: $input) {
+        ...searchResults
+    }
+}

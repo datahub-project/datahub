@@ -1,0 +1,15 @@
+namespace com.linkedin.notebook
+
+/**
+ * Content in a Notebook
+ * Note: This is IN BETA version
+ */
+@Aspect = {
+  "name": "notebookContent"
+}
+record NotebookContent {
+  /**
+   * The content of a Notebook which is composed by a list of NotebookCell
+   */
+  cells: array[NotebookCell] = []
+}

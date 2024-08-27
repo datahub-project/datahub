@@ -1,0 +1,62 @@
+source:
+  type: clickhouse
+  config:
+    # Coordinates
+    host_port: localhost:9000
+
+    # Credentials
+    username: user
+    password: pass
+
+    # Options
+    platform_instance: DatabaseNameToBeIngested
+
+    include_views: True # whether to include views, defaults to True
+    include_tables: True # whether to include views, defaults to True
+
+sink:
+  # sink configs
+
+#---------------------------------------------------------------------------
+# For the HTTP interface:
+#---------------------------------------------------------------------------
+source:
+  type: clickhouse
+  config:
+    host_port: localhost:8443
+    uri_opts:
+      protocol: https
+
+#---------------------------------------------------------------------------
+# For the Native interface:
+#---------------------------------------------------------------------------
+
+source:
+  type: clickhouse
+  config:
+    host_port: localhost:9440
+    scheme: clickhouse+native
+    uri_opts:
+      secure: True
+
+#------------------------------------------------------------------------
+# Example: using ingestion with configured SSL-TLS and uri_opts
+# See https://clickhouse.com/docs/en/guides/sre/configuring-ssl
+# ------------------------------------------------------------------------
+source:
+  type: clickhouse
+  config:
+    # Url form, prefered
+    sqlalchemy_uri: 'clickhouse+native://user:pass@localhost:9000/db?&ca_certs=ca.crt'
+
+    # Non url form
+    username: user
+    password: pass
+
+    host_port: localhost:9000
+
+    uri_opts:
+      secure: True
+      ca_certs: "ca.crt"
+      certfile: "clickhouse.crt"
+      keyfile: "clickhouse.key"

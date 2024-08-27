@@ -1,0 +1,349 @@
+fragment entityPreview on Entity {
+    urn
+    type
+    ... on Dataset {
+        name
+        origin
+        uri
+        platform {
+            ...platformFields
+        }
+        editableProperties {
+            name
+            description
+        }
+        platformNativeType
+        properties {
+            name
+            description
+            customProperties {
+                key
+                value
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        subTypes {
+            typeNames
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on CorpUser {
+        username
+        info {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+        }
+        editableProperties {
+            displayName
+            title
+            pictureLink
+        }
+    }
+    ... on CorpGroup {
+        name
+        info {
+            displayName
+            description
+        }
+        memberCount: relationships(
+            input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
+        ) {
+            total
+        }
+    }
+    ... on Dashboard {
+        urn
+        type
+        tool
+        dashboardId
+        properties {
+            name
+            description
+            externalUrl
+            access
+            lastModified {
+                time
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on Chart {
+        urn
+        type
+        tool
+        chartId
+        properties {
+            name
+            description
+            externalUrl
+            type
+            access
+            lastModified {
+                time
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on DataFlow {
+        urn
+        type
+        orchestrator
+        flowId
+        cluster
+        properties {
+            name
+            description
+            project
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on DataJob {
+        urn
+        type
+        dataFlow {
+            ...nonRecursiveDataFlowFields
+        }
+        jobId
+        ownership {
+            ...ownershipFields
+        }
+        properties {
+            name
+            description
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+    }
+    ... on GlossaryTerm {
+        name
+        hierarchicalName
+        properties {
+            name
+            description
+            termSource
+            sourceRef
+            sourceUrl
+            rawSchema
+            customProperties {
+                key
+                value
+            }
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on GlossaryNode {
+        properties {
+            name
+            description
+        }
+    }
+    ... on MLFeatureTable {
+        urn
+        type
+        name
+        description
+        featureTableProperties {
+            description
+            mlFeatures {
+                urn
+            }
+            mlPrimaryKeys {
+                urn
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLModel {
+        name
+        description
+        origin
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLFeature {
+        name
+        description
+        ownership {
+            ...ownershipFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLModelGroup {
+        name
+        origin
+        description
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on Tag {
+        name
+        description
+        properties {
+            name
+            description
+            colorHex
+        }
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+    ... on Domain {
+        urn
+        properties {
+            name
+            description
+        }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ...domainEntitiesFields
+    }
+    ... on Container {
+        ...entityContainer
+    }
+}

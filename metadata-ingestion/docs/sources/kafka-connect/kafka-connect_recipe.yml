@@ -1,0 +1,18 @@
+source:
+  type: "kafka-connect"
+  config:
+    # Coordinates
+    connect_uri: "http://localhost:8083"
+
+    # Credentials
+    username: admin
+    password: password
+
+    # Optional
+    # Platform instance mapping to use when constructing URNs.
+    # Use if single instance of platform is referred across connectors.
+    platform_instance_map:
+      mysql: mysql_platform_instance
+
+sink:
+  # sink configs

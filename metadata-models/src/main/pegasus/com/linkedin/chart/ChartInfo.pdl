@@ -1,0 +1,103 @@
+namespace com.linkedin.chart
+
+import com.linkedin.common.AccessLevel
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.Time
+import com.linkedin.common.Url
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Edge
+
+/**
+ * Information about a chart
+ */
+@Aspect = {
+  "name": "chartInfo"
+}
+record ChartInfo includes CustomProperties, ExternalReference {
+
+  /**
+   * Title of the chart
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  title: string
+
+  /**
+   * Detailed description about the chart
+   */
+  @Searchable = {}
+  description: string
+
+  /**
+   * Captures information about who created/last modified/deleted this chart and when
+   */
+  lastModified: ChangeAuditStamps
+
+  /**
+   * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  chartUrl: optional Url
+
+  /**
+   * Data sources for the chart
+   * Deprecated! Use inputEdges instead.
+   */
+  @Relationship = {
+    "/*/string": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
+    }
+  }
+  @deprecated
+  inputs: optional array[ChartDataSourceType]
+
+  /**
+   * Data sources for the chart
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true,
+      "createdOn": "inputEdges/*/created/time"
+      "createdActor": "inputEdges/*/created/actor"
+      "updatedOn": "inputEdges/*/lastModified/time"
+      "updatedActor": "inputEdges/*/lastModified/actor"
+      "properties": "inputEdges/*/properties"
+    }
+  }
+  inputEdges: optional array[Edge]
+
+  /**
+   * Type of the chart
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Chart Type"
+  }
+  type: optional ChartType
+
+  /**
+   * Access level for the chart
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Access Level"
+  }
+  access: optional AccessLevel
+
+  /**
+   * The time when this chart last refreshed
+   */
+  lastRefreshed: optional Time
+}

@@ -1,0 +1,9 @@
+# https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-stemmer-override-tokenfilter.html
+customers, customer => customer
+staging => staging
+production => production
+urn:li:dataplatform:hive => urn:li:dataplatform:hive
+hive => hive
+bigquery => bigquery
+big query => big query
+query => query

@@ -1,0 +1,14 @@
+namespace com.linkedin.dataproduct
+
+/**
+ * Key for a Query
+ */
+@Aspect = {
+  "name": "dataProductKey"
+}
+record DataProductKey {
+  /**
+  * A unique id for the Data Product.
+  */
+  id: string
+}

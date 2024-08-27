@@ -1,0 +1,46 @@
+---
+run_id: kafka-connect-run
+
+# see https://datahubproject.io/docs/generated/ingestion/sources/kafka-connect for complete documentation
+source:
+  type: "kafka-connect"
+  config:
+    connect_uri: "http://localhost:28083"    
+    connector_patterns:
+      deny:
+        - source_mongodb_connector
+        - confluent_s3_sink_connector
+        - bigquery-sink-connector
+    provided_configs:
+      - provider: env
+        path_key: MYSQL_PORT
+        value: 3306
+      - provider: env
+        path_key: MYSQL_DB
+        value: librarydb
+      - provider: env
+        path_key: MYSQL_CONNECTION_URL
+        value: jdbc:mysql://test_mysql:3306/librarydb
+      - provider: env
+        path_key: POSTGRES_CONNECTION_URL
+        value: jdbc:postgresql://test_postgres:5432/postgres
+      - provider: env
+        path_key: S3_ENDPOINT_URL
+        value: http://s3mock:9090
+    convert_lineage_urns_to_lowercase: true
+    platform_instance_map:   # optional
+      mysql: mysql1      # optional
+    connect_to_platform_map: # optional
+      postgres_source:     # optional - Connector name
+        postgres: postgres1  # optional - Platform to instance map
+        kafka: kafka1
+    generic_connectors:   # optional - Generic connector lineage info
+      - connector_name: generic-connector
+        source_dataset: generic-dataset
+        source_platform: generic-platform
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: file
+  config:
+    filename: "./kafka_connect_mces.json"

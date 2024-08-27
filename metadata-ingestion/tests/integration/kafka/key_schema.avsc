@@ -1,0 +1,16 @@
+{
+  "namespace": "io.codebrews.createuserrequest",
+  "type": "record",
+  "name": "UserKey",
+  "doc": "Key schema for kafka topic",
+  "fields": [
+    {
+      "name": "id",
+      "type": "long"
+    },
+    {
+      "name": "namespace",
+      "type": "string"
+    }
+  ]
+}

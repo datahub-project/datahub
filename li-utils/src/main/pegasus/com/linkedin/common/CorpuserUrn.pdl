@@ -1,0 +1,24 @@
+namespace com.linkedin.common
+
+/**
+ * Corporate user's AD/LDAP login
+ */
+@java.class = "com.linkedin.common.urn.CorpuserUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:security",
+  "entityType" : "corpuser",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "Corpuser",
+  "doc" : "Corporate user's AD/LDAP login",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "username",
+    "doc" : "The name of the AD/LDAP user.",
+    "type" : "string",
+    "maxLength" : 20
+  } ],
+  "maxLength" : 36
+}
+typeref CorpuserUrn = string

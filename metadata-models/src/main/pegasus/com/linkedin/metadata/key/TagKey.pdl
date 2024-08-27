@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Tag
+ */
+@Aspect = {
+  "name": "tagKey"
+}
+record TagKey {
+  /**
+  * The tag name, which serves as a unique id
+  */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldName": "id"
+  }
+  name: string
+}

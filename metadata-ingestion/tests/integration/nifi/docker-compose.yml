@@ -1,0 +1,127 @@
+services:
+  nifi1:
+    image: apache/nifi:1.22.0
+    container_name: nifi1
+    hostname: nifi1
+    environment:      
+      #AUTH: tls
+      NIFI_REMOTE_INPUT_HOST: nifi1            
+      NIFI_SENSITIVE_PROPS_KEY: admin@datahub
+      #SINGLE_USER_CREDENTIALS_USERNAME: admin
+      #SINGLE_USER_CREDENTIALS_PASSWORD: admin@datahub
+      #KEYSTORE_PATH: /opt/certs/server_keystore.jks 
+      #KEYSTORE_TYPE: JKS 
+      #KEYSTORE_PASSWORD: datahub 
+      #TRUSTSTORE_PATH: /opt/certs/server_truststore.jks 
+      #TRUSTSTORE_PASSWORD: datahub
+      #TRUSTSTORE_TYPE: JKS
+      #INITIAL_ADMIN_IDENTITY: 'CN=DatahubUser, C=US'
+      NIFI_WEB_HTTP_PORT: 9443
+    volumes:
+      - ./setup/conf:/opt/nifi/tmp:ro
+      #- ./setup/ssl_files:/opt/certs 
+    entrypoint: 
+      - bash
+      - -c
+      - |
+        echo "Copying Flow"
+        #
+        cp /opt/nifi/tmp/flow.xml.gz /opt/nifi/nifi-current/conf/flow.xml.gz
+        #
+        echo "Starting Nifi"
+        #
+        /opt/nifi/scripts/start.sh &
+        #
+        sleep infinity     
+    ports:
+      - 9443:9443  
+
+
+  nifi_zookeeper:
+    hostname: nifi_zookeeper
+    container_name: nifi_zookeeper
+    image: 'bitnami/zookeeper:latest'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+      - ZOO_PORT_NUMBER=52181
+    ports:
+      - "52181"
+
+  nifi01:
+    image: apache/nifi:1.22.0
+    container_name: nifi01
+    hostname: nifi01
+    depends_on:
+      - nifi_zookeeper
+    ports:
+      - 9080:9080
+    volumes:
+      - ./setup/conf_clustered:/opt/nifi/tmp:ro
+    entrypoint: 
+      - bash
+      - -c
+      - |
+        echo "Copying Flow"
+        #
+        cp /opt/nifi/tmp/flow.xml.gz /opt/nifi/nifi-current/conf/flow.xml.gz
+        #
+        echo "Starting Nifi"
+        #
+        /opt/nifi/scripts/start.sh &
+        #
+        sleep infinity 
+    environment:
+      - NIFI_WEB_HTTP_PORT=9080
+      - NIFI_CLUSTER_IS_NODE=true
+      - NIFI_CLUSTER_NODE_PROTOCOL_PORT=7080
+      - NIFI_ZK_CONNECT_STRING=nifi_zookeeper:52181
+      - NIFI_ELECTION_MAX_WAIT=1 min
+      - NIFI_SENSITIVE_PROPS_KEY=admin@datahub
+
+
+  nifi02:
+    image: apache/nifi:1.22.0
+    container_name: nifi02 
+    hostname: nifi02 
+    depends_on:
+      - nifi_zookeeper
+    ports:
+      - 9081:9081
+    volumes:
+      - ./setup/conf/awscreds.properties:/opt/nifi/nifi-current/conf/awscreds.properties
+    environment:
+      - NIFI_WEB_HTTP_PORT=9081
+      - NIFI_CLUSTER_IS_NODE=true
+      - NIFI_CLUSTER_NODE_PROTOCOL_PORT=7080
+      - NIFI_ZK_CONNECT_STRING=nifi_zookeeper:52181
+      - NIFI_ELECTION_MAX_WAIT=1 min
+      - NIFI_SENSITIVE_PROPS_KEY=admin@datahub
+
+  nifi03:
+      image: apache/nifi:1.22.0
+      container_name: nifi03
+      hostname: nifi03    
+      depends_on:
+        - nifi_zookeeper
+      ports:
+        - 9082:9082
+      volumes:
+        - ./setup/conf/awscreds.properties:/opt/nifi/nifi-current/conf/awscreds.properties      
+      environment:
+        - NIFI_WEB_HTTP_PORT=9082
+        - NIFI_CLUSTER_IS_NODE=true
+        - NIFI_CLUSTER_NODE_PROTOCOL_PORT=7080
+        - NIFI_ZK_CONNECT_STRING=nifi_zookeeper:52181
+        - NIFI_ELECTION_MAX_WAIT=1 min
+        - NIFI_SENSITIVE_PROPS_KEY=admin@datahub
+
+  sftp_public_host:
+    image: atmoz/sftp
+    platform: linux/amd64
+    container_name: sftp_public_host
+    hostname: sftp_public_host
+    volumes:
+      - ./setup/sftp_files:/home/foo
+    ports:
+        - "2222:22"
+    command: "foo:pass:::"

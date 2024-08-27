@@ -1,0 +1,18 @@
+namespace com.linkedin.common
+
+/**
+ * The lifecycle status metadata of an entity, e.g. dataset, metric, feature, etc.
+ * This aspect is used to represent soft deletes conventionally.
+ */
+@Aspect = {
+  "name": "status"
+}
+record Status {
+  /**
+   * Whether the entity has been removed (soft-deleted).
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  removed: boolean = false
+}

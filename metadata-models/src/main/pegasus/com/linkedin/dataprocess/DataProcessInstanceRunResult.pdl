@@ -1,0 +1,31 @@
+namespace com.linkedin.dataprocess
+record DataProcessInstanceRunResult
+{
+
+    /**
+    *  The final result, e.g. SUCCESS, FAILURE, SKIPPED, or UP_FOR_RETRY.
+    */
+    type: enum RunResultType {
+    /**
+    *  The Run Succeeded
+    */
+    SUCCESS,
+    /**
+    *  The Run Failed
+    */
+    FAILURE,
+    /**
+    *  The Run Skipped
+    */
+    SKIPPED,
+    /**
+    *  The Run Failed and will Retry
+    */
+    UP_FOR_RETRY
+    },
+
+    /**
+    * It identifies the system where the native result comes from like Airflow, Azkaban, etc..
+    */
+    nativeResultType: string,
+}

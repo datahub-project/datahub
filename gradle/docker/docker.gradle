@@ -1,0 +1,43 @@
+
+ext.getDockerImages = {
+    docker_registry, docker_repo, docker_tag ->
+        def stdOut = new ByteArrayOutputStream()
+        exec {
+            commandLine "docker", "images", "-q", "${docker_registry}/${docker_repo}:${docker_tag}"
+            standardOutput = stdOut
+        }
+        return stdOut.toString().trim().split("\\R").findAll {!it.empty}.unique() as List
+}
+
+ext.getDockerContainers = {
+    docker_registry, docker_repo, docker_tag ->
+        def stdOut = new ByteArrayOutputStream()
+        exec {
+            commandLine "docker", "container", "ls", "-q", "--filter", "ancestor=${docker_registry}/${docker_repo}:${docker_tag}"
+            standardOutput = stdOut
+        }
+        return stdOut.toString().trim().split("\\R").findAll {!it.empty}.unique() as List
+}
+
+ext.cleanLocalDockerImages = {
+    String docker_registry, String docker_repo, String docker_tag ->
+        println("Docker image string: ${docker_registry}/${docker_repo}:${docker_tag}")
+        def containers = getDockerContainers(docker_registry, docker_repo, docker_tag)
+        if(!containers.isEmpty()) {
+            println "Stopping containers: $containers"
+            exec {
+                commandLine = ["docker", "container", "stop"] + containers
+            }
+            exec {
+                commandLine = ["docker", "container", "rm"] + containers
+            }
+        }
+        def images = getDockerImages(docker_registry, docker_repo, docker_tag)
+        if(!images.isEmpty()) {
+            println "Removing images: $images"
+            exec {
+                ignoreExitValue true // may not work if used by downstream image
+                commandLine = ["docker", "rmi", "-f"] + images
+            }
+        }
+}

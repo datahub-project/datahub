@@ -1,0 +1,87 @@
+namespace com.linkedin.datajob
+
+import com.linkedin.datajob.azkaban.AzkabanJobType
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.DataFlowUrn
+import com.linkedin.common.TimeStamp
+import com.linkedin.common.FabricType
+
+/**
+ * Information about a Data processing job
+ */
+@Aspect = {
+  "name": "dataJobInfo"
+}
+record DataJobInfo includes CustomProperties, ExternalReference {
+
+  /**
+   * Job name
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+
+  /**
+   * Job description
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Datajob type
+   * **NOTE**: AzkabanJobType is deprecated. Please use strings instead.
+   */
+  type: union[AzkabanJobType, string]
+
+  /**
+   * DataFlow urn that this job is part of
+   */
+  flowUrn: optional DataFlowUrn
+
+  /**
+   * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  created: optional TimeStamp
+
+  /**
+   * A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional TimeStamp
+
+  /**
+   * Status of the job - Deprecated for Data Process Instance model.
+   */
+  @deprecated = "Use Data Process Instance model, instead"
+  status: optional JobStatus
+
+  /**
+   * Environment for this job
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Environment",
+    "queryByDefault": false
+  }
+  env: optional FabricType
+}

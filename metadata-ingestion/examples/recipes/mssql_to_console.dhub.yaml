@@ -1,0 +1,18 @@
+---
+# see https://datahubproject.io/docs/generated/ingestion/sources/mssql for complete documentation
+source:
+  type: mssql
+  config:
+    username: sa
+    password: test!Password
+    database: DemoData
+#   table_pattern:
+#        allow:
+#            - "schema1.table1"
+#            - "schema1.table2"
+#        deny:
+#            - "^.*\.sys_.*" # deny all tables that start with sys_
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
+sink:
+  type: console

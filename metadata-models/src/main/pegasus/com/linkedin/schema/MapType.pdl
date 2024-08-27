@@ -1,0 +1,17 @@
+namespace com.linkedin.schema
+
+/**
+ * Map field type.
+ */
+record MapType {
+
+  /**
+   * Key type in a map
+   */
+  keyType: optional string
+
+  /**
+   * Type of the value in a map
+   */
+  valueType: optional string
+}

@@ -1,0 +1,25 @@
+pipeline_name: my_salesforce_pipeline
+source:
+  type: "salesforce"
+  config:
+    instance_url: "https://mydomain.my.salesforce.com/"
+    username: user@company
+    password: password_for_user
+    security_token: security_token_for_user
+    platform_instance: mydomain-dev-ed
+    domain:
+      sales:
+        allow:
+          - "Opportunity$"
+          - "Lead$"
+
+    object_pattern:
+      allow:
+        - "Account$"
+        - "Opportunity$"
+        - "Lead$"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

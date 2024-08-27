@@ -1,0 +1,28 @@
+plugins {
+  id 'java'
+}
+
+jar {
+  archiveFileName = "sample-plugins.jar"
+}
+dependencies {
+  implementation project(path: ':metadata-auth:auth-api')
+  implementation externalDependency.lombok
+  implementation externalDependency.logbackClassic;
+  implementation 'com.google.code.findbugs:jsr305:3.0.2'
+
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+
+  annotationProcessor externalDependency.lombok
+}
+
+task copyJar(type: Copy) {
+  from jar // here it automatically reads jar file produced from jar task
+  into '../resources/sample-plugins/'
+}
+
+clean {
+  delete 'buildDir', '../resources/sample-plugins'
+}
+build.dependsOn copyJar

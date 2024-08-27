@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema holder for presto data definition language that describes a presto view.
+ */
+record PrestoDDL {
+
+  /**
+   * The raw schema in the dataset's platform. This includes the DDL and the columns extracted from DDL.
+   */
+  rawSchema: string
+}

@@ -1,0 +1,22 @@
+namespace com.linkedin.metadata.recommendation
+
+/**
+ * Context that defines the page requesting recommendations
+ * i.e. for search pages, the query/filters. for entity pages, the entity urn and tab
+ */
+record RecommendationRequestContext {
+  /**
+   * Scenario in which the recommendations will be displayed
+   */
+  scenario: ScenarioType
+
+  /**
+   * Additional context for defining the search page requesting recommendations
+   */
+  searchRequestContext: optional SearchRequestContext
+
+  /**
+   * Additional context for defining the entity page requesting recommendations
+   */
+  entityRequestContext: optional EntityRequestContext
+}

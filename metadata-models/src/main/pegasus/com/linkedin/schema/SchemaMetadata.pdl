@@ -1,0 +1,67 @@
+namespace com.linkedin.schema
+
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.DatasetUrn
+import com.linkedin.dataset.SchemaFieldPath
+import com.linkedin.mxe.SystemMetadata
+
+/**
+ * SchemaMetadata to describe metadata related to store schema
+ */
+@Aspect = {
+  "name": "schemaMetadata"
+}
+record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
+
+  /**
+   * Dataset this schema metadata is associated with.
+   */
+  dataset: optional DatasetUrn
+
+  /**
+   * The cluster this schema metadata resides from
+   */
+  cluster: optional string
+
+  /**
+   * the SHA1 hash of the schema content
+   */
+  hash: string
+
+  /**
+   * The native schema in the dataset's platform.
+   */
+  platformSchema: union[
+    EspressoSchema,
+    OracleDDL,
+    MySqlDDL,
+    PrestoDDL,
+    KafkaSchema,
+    BinaryJsonSchema,
+    OrcSchema,
+    Schemaless,
+    KeyValueSchema,
+    OtherSchema
+  ]
+
+  /**
+   * Client provided a list of fields from document schema.
+   */
+  fields: array[SchemaField]
+
+  /**
+   * Client provided list of fields that define primary keys to access record. Field order defines hierarchical espresso keys. Empty lists indicates absence of primary key access patter. Value is a SchemaField@fieldPath.
+   */
+  primaryKeys: optional array[SchemaFieldPath]
+
+  /**
+   * Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.
+   */
+  @deprecated = "Use foreignKeys instead."
+  foreignKeysSpecs: optional map[string, ForeignKeySpec]
+
+  /**
+   * List of foreign key constraints for the schema
+   */
+  foreignKeys: optional array[ForeignKeyConstraint]
+}

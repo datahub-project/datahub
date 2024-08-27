@@ -1,0 +1,101 @@
+{
+    "schemaName": "db1.nested_struct_test",
+    "platform": "urn:li:dataPlatform:hive",
+    "version": 0,
+    "created": {
+      "time": 0,
+      "actor": "urn:li:corpuser:unknown",
+      "impersonator": "urn:li:corpuser:jdoe"
+    },
+    "lastModified": {
+      "time": 0,
+      "actor": "urn:li:corpuser:unknown",
+      "impersonator": "urn:li:corpuser:jdoe"
+    },
+    "hash": "",
+    "platformSchema": {
+      "com.linkedin.schema.MySqlDDL": {
+        "tableSchema": ""
+      }
+    },
+    "fields": [
+      {
+        "fieldPath": "property_id",
+        "type": {
+          "type": {
+            "com.linkedin.schema.NumberType": {}
+          }
+        },
+        "nativeDataType": "int",
+        "recursive": false,
+        "isPartOfKey": false
+      },
+      {
+        "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
+        "nullable": true,
+        "type": {
+          "type": {
+            "com.linkedin.schema.RecordType": {}
+          }
+        },
+        "nativeDataType": "struct<type:string,provider:struct<name:varchar(50),id:tinyint>>",
+        "recursive": false,
+        "isPartOfKey": false,
+        "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:struct<name:varchar(50),id:tinyint>>\"}"
+      },
+      {
+        "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
+        "nullable": true,
+        "type": {
+          "type": {
+            "com.linkedin.schema.StringType": {}
+          }
+        },
+        "nativeDataType": "string",
+        "recursive": false,
+        "isPartOfKey": false,
+        "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+      },
+      {
+        "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
+        "nullable": true,
+        "type": {
+          "type": {
+            "com.linkedin.schema.RecordType": {}
+          }
+        },
+        "nativeDataType": "struct<name:varchar(50),id:tinyint>",
+        "recursive": false,
+        "isPartOfKey": false,
+        "jsonProps": "{\"native_data_type\": \"struct<name:varchar(50),id:tinyint>\"}"
+      },
+      {
+        "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
+        "description": "Service provider name",
+        "nullable": true,
+        "type": {
+          "type": {
+            "com.linkedin.schema.StringType": {}
+          }
+        },
+        "nativeDataType": "varchar(50)",
+        "recursive": false,
+        "isPartOfKey": false,
+        "jsonProps": "{\"native_data_type\": \"varchar(50)\", \"_nullable\": true}"
+      },
+      {
+        "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
+        "nullable": true,
+        "description": "Service provider id",
+        "type": {
+          "type": {
+            "com.linkedin.schema.NumberType": {}
+          }
+        },
+        "nativeDataType": "tinyint",
+        "recursive": false,
+        "isPartOfKey": false,
+        "jsonProps": "{\"native_data_type\": \"tinyint\", \"_nullable\": true}"
+      }
+    ]
+  }

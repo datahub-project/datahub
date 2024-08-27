@@ -1,0 +1,46 @@
+syntax = "proto3";
+package protobuf.clickstream;
+
+import "protobuf/meta/meta.proto";
+import "google/protobuf/timestamp.proto";
+
+/**
+  Clickstream impressions
+**/
+message Impression {
+  option deprecated = true;
+  option(meta.lifecycle.deprecation_note) = "Impression events are deprecated.";
+  option(meta.lifecycle.deprecation_time) = 1649693315;
+
+  option(meta.message.type) = EVENT;
+  option(meta.kafka.topics) = "clickstream_impressions";
+
+  option(meta.props.prop1) = "prop1 value";
+  option(meta.props.prop2) = true;
+  option(meta.props.prop3) = EVENT;
+
+  option(meta.props.prop4) = "value1";
+  option(meta.props.prop4) = "value2";
+  option(meta.props.prop6) = EVENT;
+  option(meta.props.prop6) = IMPRESSION;
+
+  option(meta.tags.tag_str) = "value1";
+  option(meta.tags.tag_bool) = true;
+  // option(meta.tags.tag_enum) = EVENT;
+  option(meta.tags.tag_list) = "a, b, c";
+
+  option(meta.security.classification_enum) = HighlyConfidential;
+  option(meta.security.classification)      = "Classification.Sensitive";
+
+  google.protobuf.Timestamp timestamp = 1; // event timestamp
+  string details = 2
+  [(meta.fieldTags.tag_str) = "value1",
+   (meta.fieldTags.tag_bool) = true,
+   (meta.fieldTags.tag_enum) = EVENT,
+   (meta.fieldTags.tag_list) = "a, b, c",
+   (meta.securityField.classification_enum) = HighlyConfidential,
+   (meta.securityField.classification) = "Classification.Sensitive"
+  ]; // event details
+
+  string deprecated_field = 3 [deprecated = true];
+}

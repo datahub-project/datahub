@@ -1,0 +1,15 @@
+namespace com.linkedin.common
+
+/**
+  * Enum to define where an entity originated from.
+  */
+enum OriginType {
+  /**
+   * The entity is native to DataHub.
+   */
+  NATIVE
+  /**
+   * The entity is external to DataHub.
+   */
+  EXTERNAL
+}

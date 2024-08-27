@@ -1,0 +1,30 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized dataset field information identifier.
+ */
+@java.class = "com.linkedin.common.urn.DatasetFieldUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "datasetField",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "DatasetField",
+  "doc" : "Standardized dataset field information identifier",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "com.linkedin.common.urn.DatasetUrn",
+    "name" : "dataset",
+    "doc" : "Dataset that this dataset field belongs to."
+  }, {
+    "name" : "fieldPath",
+    "doc" : "Dataset field path",
+    "type" : "string",
+    "maxLength" : 500
+  } ],
+  "maxLength" : 807
+}
+
+@deprecated = "use SchemaFieldPath and represent as generic Urn instead"
+typeref DatasetFieldUrn = string

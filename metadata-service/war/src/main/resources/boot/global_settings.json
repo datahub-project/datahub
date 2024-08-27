@@ -1,0 +1,8 @@
+{
+  "views": {
+  },
+  "docPropagation": {
+    "enabled": true,
+    "columnPropagationEnabled": true
+  }
+}

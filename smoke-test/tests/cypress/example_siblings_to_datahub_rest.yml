@@ -1,0 +1,11 @@
+# see https://datahubproject.io/docs/generated/ingestion/sources/file for complete documentation
+source:
+  type: "file"
+  config:
+    filename: "./cypress_dbt_data.json"
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

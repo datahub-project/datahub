@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.GlossaryTermUrn
+import com.linkedin.metadata.aspect.GlossaryTermAspect
+
+/**
+ * A metadata snapshot for a specific GlossaryTerm entity.
+ */
+@Entity = {
+  "name": "glossaryTerm",
+  "keyAspect": "glossaryTermKey"
+}
+record GlossaryTermSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: GlossaryTermUrn
+
+  /**
+   * The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[GlossaryTermAspect]
+}

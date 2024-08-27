@@ -1,0 +1,44 @@
+query getBrowseResultsV2($input: BrowseV2Input!) {
+    browseV2(input: $input) {
+        groups {
+            name
+            count
+            hasSubGroups
+            entity {
+                urn
+                type
+                ... on Container {
+                    properties {
+                        name
+                    }
+                }
+                ... on DataFlow {
+                    properties {
+                        name
+                    }
+                }
+                ... on DataPlatformInstance {
+                    platform {
+                        name
+                        properties {
+                            displayName
+                        }
+                    }
+                    instanceId
+                }
+                ... on Dataset {
+                    properties {
+                        name
+                    }
+                }
+            }
+        }
+        start
+        count
+        total
+        metadata {
+            path
+            totalNumEntities
+        }
+    }
+}

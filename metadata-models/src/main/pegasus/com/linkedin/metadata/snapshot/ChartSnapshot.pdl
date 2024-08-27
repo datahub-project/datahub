@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.ChartUrn
+import com.linkedin.metadata.aspect.ChartAspect
+
+/**
+ * A metadata snapshot for a specific Chart entity.
+ */
+@Entity = {
+  "name": "chart",
+  "keyAspect": "chartKey"
+}
+record ChartSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: ChartUrn
+
+  /**
+   * The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[ChartAspect]
+}

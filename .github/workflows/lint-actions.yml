@@ -1,0 +1,21 @@
+name: Lint actions
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+
+    branches:
+      - "**"
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: acryldata/sane-checkout-action@v3
+      - uses: reviewdog/action-actionlint@v1
+        with:
+          reporter: github-pr-review
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+      issues: write

@@ -1,0 +1,20 @@
+source:
+  type: vertica
+  config:
+    # Coordinates
+    host_port: localhost:5433
+    database: DATABASE_NAME
+
+    # Credentials
+    username: "${VERTICA_USER}"
+    password: "${VERTICA_PASSWORD}"
+    
+    include_tables: true
+    include_views: true
+    include_projections: true
+    include_models: true
+    include_view_lineage: true
+    include_projection_lineage: true
+
+sink:
+  # sink configs

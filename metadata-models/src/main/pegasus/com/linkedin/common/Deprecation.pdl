@@ -1,0 +1,34 @@
+namespace com.linkedin.common
+
+/**
+ * Deprecation status of an entity
+ */
+@Aspect = {
+  "name": "deprecation"
+}
+record Deprecation {
+
+  /**
+   * Whether the entity is deprecated.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "weightsPerFieldValue": { "true": 0.5 }
+  }
+  deprecated: boolean
+
+  /**
+   * The time user plan to decommission this entity.
+   */
+  decommissionTime: optional Time
+
+  /**
+   * Additional information about the entity deprecation plan, such as the wiki, doc, RB.
+   */
+  note: string
+
+  /**
+   * The user URN which will be credited for modifying this deprecation content.
+   */
+  actor: Urn
+}

@@ -1,0 +1,130 @@
+namespace com.linkedin.dashboard
+
+import com.linkedin.common.AccessLevel
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.ChartUrn
+import com.linkedin.common.Time
+import com.linkedin.common.Url
+import com.linkedin.common.Urn
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Edge
+
+/**
+ * Information about a dashboard
+ */
+@Aspect = {
+  "name": "dashboardInfo"
+}
+record DashboardInfo includes CustomProperties, ExternalReference {
+
+  /**
+   * Title of the dashboard
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  title: string
+
+  /**
+   * Detailed description about the dashboard
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: string
+
+  /**
+   * Charts in a dashboard
+   * Deprecated! Use chartEdges instead.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Contains",
+      "entityTypes": [ "chart" ],
+      "isLineage": true
+    }
+  }
+  @deprecated
+  charts: array[ChartUrn] = [ ]
+
+  /**
+   * Charts in a dashboard
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Contains",
+      "entityTypes": [ "chart" ],
+      "isLineage": true,
+      "createdOn": "chartEdges/*/created/time"
+      "createdActor": "chartEdges/*/created/actor"
+      "updatedOn": "chartEdges/*/lastModified/time"
+      "updatedActor": "chartEdges/*/lastModified/actor"
+      "properties": "chartEdges/*/properties"
+    }
+  }
+  chartEdges: optional array[Edge]
+
+  /**
+   * Datasets consumed by a dashboard
+   * Deprecated! Use datasetEdges instead.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
+    }
+  }
+  @deprecated
+  datasets: array[Urn] = [ ]
+
+  /**
+   * Datasets consumed by a dashboard
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true,
+      "createdOn": "datasetEdges/*/created/time"
+      "createdActor": "datasetEdges/*/created/actor"
+      "updatedOn": "datasetEdges/*/lastModified/time"
+      "updatedActor": "datasetEdges/*/lastModified/actor"
+      "properties": "datasetEdges/*/properties"
+    }
+  }
+  datasetEdges: optional array[Edge]
+
+  /**
+   * Captures information about who created/last modified/deleted this dashboard and when
+   */
+  lastModified: ChangeAuditStamps
+
+  /**
+   * URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  dashboardUrl: optional Url
+
+  /**
+   * Access level for the dashboard
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Access Level"
+  }
+  access: optional AccessLevel
+
+  /**
+   * The time when this dashboard last refreshed
+   */
+  lastRefreshed: optional Time
+}

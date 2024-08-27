@@ -1,0 +1,8 @@
+{
+  "urn": "urn:li:corpuser:datahub",
+  "info": {
+    "active": true,
+    "displayName": "DataHub",
+    "title": "DataHub Root User"
+  }
+}

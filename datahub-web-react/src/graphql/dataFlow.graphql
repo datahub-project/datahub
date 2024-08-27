@@ -1,0 +1,138 @@
+fragment dataFlowFields on DataFlow {
+    urn
+    type
+    exists
+    lastIngested
+    orchestrator
+    flowId
+    cluster
+    platform {
+        ...platformFields
+    }
+    properties {
+        name
+        description
+        project
+        externalUrl
+        customProperties {
+            key
+            value
+        }
+    }
+    privileges {
+        ...entityPrivileges
+    }
+    editableProperties {
+        description
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    ...entityDataProduct
+    status {
+        removed
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
+    }
+    health {
+        ...entityHealth
+    }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
+    }
+}
+
+query getDataFlow($urn: String!) {
+    dataFlow(urn: $urn) {
+        ...dataFlowFields
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+            ...partialLineageResults
+        }
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+            ...partialLineageResults
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+    }
+}
+
+query getDataFlowChildJobs($urn: String!, $start: Int, $count: Int) {
+    dataFlow(urn: $urn) {
+        ...dataFlowFields
+        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: $start, count: $count }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on DataJob {
+                        urn
+                        type
+                        jobId
+                        dataFlow {
+                            urn
+                            type
+                            orchestrator
+                            platform {
+                                ...platformFields
+                            }
+                        }
+                        ownership {
+                            ...ownershipFields
+                        }
+                        properties {
+                            name
+                            description
+                        }
+                        editableProperties {
+                            description
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        glossaryTerms {
+                            ...glossaryTerms
+                        }
+                        deprecation {
+                            ...deprecationFields
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+mutation updateDataFlow($urn: String!, $input: DataFlowUpdateInput!) {
+    updateDataFlow(urn: $urn, input: $input) {
+        urn
+    }
+}

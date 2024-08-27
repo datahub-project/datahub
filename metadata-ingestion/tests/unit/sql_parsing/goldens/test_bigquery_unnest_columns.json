@@ -1,0 +1,62 @@
+{
+    "query_type": "SELECT",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table2,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "day"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table1,PROD)",
+                    "column": "reporting_day"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "product"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table1,PROD)",
+                    "column": "by_product.product_code"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table2,PROD)",
+                    "column": "other_field"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "other_field"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table2,PROD)",
+                    "column": "other_field"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "daily_active_users"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table1,PROD)",
+                    "column": "by_product.product_code_dau"
+                }
+            ]
+        }
+    ]
+}

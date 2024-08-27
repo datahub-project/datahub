@@ -1,0 +1,16 @@
+name: 'Ensure codegen is updated'
+description: 'Will check the local filesystem against git, and abort if there are uncommitted changes.'
+
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        if output=$(git status --porcelain) && [ ! -z "$output" ]; then
+          # See https://unix.stackexchange.com/a/155077/378179.
+          echo 'There are uncommitted changes:'
+          echo $output
+          exit 1
+        else
+          echo 'All good!'
+        fi

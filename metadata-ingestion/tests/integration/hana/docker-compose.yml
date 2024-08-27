@@ -1,0 +1,27 @@
+# Attention Hana pull requires that you are logged into Docker Hub prior to pulling the images (requirement by SAP as image provider)
+version: '3.4'
+services:
+  testhana:
+    image: "saplabs/hanaexpress:latest"
+    container_name: "testhana"
+    restart: "unless-stopped"
+    ports:
+      - 39041:39041
+    volumes:
+      - ./post_start:/hana/hooks/post_start/
+      - ./setup:/hana/mounts/setup/
+    environment: 
+      - SCHEMA_NAME=HOTEL
+      - DUMP_FILE=setup.sql
+      - SCHEMA_PWD=Localdev1
+    command:
+      - --agree-to-sap-license
+      - --dont-check-system
+      - --dont-check-mount-points
+      - --master-password
+      - HXEHana1 
+volumes:
+  setup:
+    driver: local
+  post_start:
+    driver: local

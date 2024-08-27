@@ -1,0 +1,5 @@
+services:
+  mysql:
+    image: mariadb:10.5.8
+  neo4j:
+    image: neo4j/neo4j-arm64-experimental:4.0.6-arm64

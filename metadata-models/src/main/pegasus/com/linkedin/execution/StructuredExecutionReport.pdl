@@ -1,0 +1,25 @@
+namespace com.linkedin.execution
+
+/**
+ * A flexible carrier for structured results of an execution request.
+ * The goal is to allow for free flow of structured responses from execution tasks to the orchestrator or observer.
+ * The full spectrum of different execution report types is not intended to be modeled by this object.
+ */
+
+record StructuredExecutionReport {
+
+  /**
+  * The type of the structured report. (e.g. INGESTION_REPORT, TEST_CONNECTION_REPORT, etc.)
+  */
+  type: string
+
+  /**
+  * The serialized value of the structured report
+  **/
+  serializedValue: string
+
+  /**
+  * The content-type of the serialized value (e.g. application/json, application/json;gzip etc.)
+  **/
+  contentType: string
+}

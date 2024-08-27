@@ -1,0 +1,40 @@
+query getDataJob($urn: String!) {
+    dataJob(urn: $urn) {
+        urn
+        type
+        ...dataJobFields
+        privileges {
+            ...entityPrivileges
+        }
+        runs(start: 0, count: 20) {
+            count
+            start
+            total
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+    }
+}
+
+mutation updateDataJob($urn: String!, $input: DataJobUpdateInput!) {
+    updateDataJob(urn: $urn, input: $input) {
+        urn
+    }
+}
+
+query getDataJobRuns($urn: String!, $start: Int!, $count: Int!) {
+    dataJob(urn: $urn) {
+        runs(start: $start, count: $count) {
+            ...runResults
+        }
+    }
+}

@@ -1,0 +1,25 @@
+{
+  "scripts": {
+    "format:fix": "prettier --write .",
+    "format": "prettier --check .",
+    "lint:fix": "yarn run format:fix && CI=false yarn run lint --fix",
+    "lint": "yarn run format && CI=false eslint ."
+  },
+  "name": "smoke-test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "cypress": "12.5.1",
+    "cypress-timestamps": "^1.2.0",
+    "dayjs": "^1.11.7"
+  },
+  "devDependencies": {
+    "eslint": "^7.32.0 || ^8.2.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-cypress": "^2.15.1",
+    "eslint-plugin-import": "^2.25.2",
+    "prettier": "^3.2.5"
+  }
+}

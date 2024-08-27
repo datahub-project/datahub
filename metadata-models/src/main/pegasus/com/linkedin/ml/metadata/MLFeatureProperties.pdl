@@ -1,0 +1,46 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.Urn
+import com.linkedin.common.MLFeatureDataType
+import com.linkedin.common.VersionTag
+
+/**
+ * Properties associated with a MLFeature
+ */
+@Aspect = {
+  "name": "mlFeatureProperties"
+}
+record MLFeatureProperties includes CustomProperties {
+
+  /**
+   * Documentation of the MLFeature
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Data Type of the MLFeature
+   */
+  dataType: optional MLFeatureDataType
+
+  /**
+  * Version of the MLFeature
+  */
+  version: optional VersionTag
+
+  /**
+  * Source of the MLFeature
+  */
+  @Relationship = {
+    "/*": {
+      "name": "DerivedFrom",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
+    }
+  }
+  sources: optional array[Urn]
+}

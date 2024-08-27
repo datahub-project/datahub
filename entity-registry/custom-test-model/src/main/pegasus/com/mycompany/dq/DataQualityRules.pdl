@@ -1,0 +1,14 @@
+namespace com.mycompany.dq
+
+@Aspect = {
+  "name": "testDataQualityRules",
+  "autoRender": true,
+  "renderSpec": {
+    "displayType": "tabular", // or properties, markdown, syntax
+    "key": "rules",
+    "displayName": "DQ Rules"
+  }
+}
+record DataQualityRules {
+  rules: array[DataQualityRule]
+}

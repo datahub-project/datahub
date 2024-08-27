@@ -1,0 +1,83 @@
+<configuration scan="true" scanPeriod="120 seconds">
+    <property name="LOG_DIR" value="${LOG_DIR:-/tmp/datahub/logs/datahub-upgrade}"/>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
+        <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
+            <excluded>scanned from multiple locations</excluded>
+            <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
+        </filter>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/upgrade.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>${LOG_DIR}/upgrade.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+            <!-- each archived file, size max 10MB -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 10GB, it will delete old archived file -->
+            <totalSizeCap>10GB</totalSizeCap>
+            <!-- 30 days to keep -->
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
+        <encoder>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
+            <excluded>scanned from multiple locations</excluded>
+            <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
+        </filter>
+    </appender>
+
+    <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/upgrade.debug.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>${LOG_DIR}/upgrade.debug.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+            <!-- each archived file, size max 10MB -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
+            <totalSizeCap>2GB</totalSizeCap>
+            <!-- 1 days to keep -->
+            <maxHistory>1</maxHistory>
+        </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Remove this to disable logging debug -->
+    <logger name="com.linkedin" level="DEBUG">
+        <appender-ref ref="DEBUG_FILE"/>
+    </logger>
+
+    <logger name="org.apache.kafka.clients" level="INFO">
+        <appender-ref ref="STDOUT" />
+    </logger>
+
+    <logger name="org.reflections.Reflections" level="ERROR">
+        <appender-ref ref="STDOUT" />
+    </logger>
+
+    <logger name="com.linkedin.metadata.models.registry.PatchEntityRegistry" level="INFO">
+        <appender-ref ref="STDOUT" />
+    </logger>
+
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>

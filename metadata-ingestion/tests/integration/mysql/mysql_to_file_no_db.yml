@@ -1,0 +1,53 @@
+run_id: mysql-test
+
+source:
+  type: mysql
+  config:
+    username: root
+    password: example
+    host_port: localhost:53307
+    schema_pattern:
+      allow:
+        - "^metagalaxy"
+        - "^northwind"
+        - "^datacharmer"
+        - "^test_cases"
+    profile_pattern:
+      allow:
+        - "^northwind"
+        - "^datacharmer"
+        - "^test_cases"
+    profiling:
+      enabled: True
+      include_field_null_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: true
+      include_field_distinct_value_frequencies: true
+      include_field_histogram: true
+      include_field_sample_values: true
+      field_sample_values_limit: 75
+    domain:
+      "urn:li:domain:sales":
+        allow:
+          - "^metagalaxy"
+    classification:
+      enabled: True
+      classifiers:
+        - type: datahub          
+          config:
+            minimum_values_threshold: 1
+            info_types_config:
+              Full_Name:
+                prediction_factors_and_weights:
+                  name: 0.5
+                  description: 0
+                  datatype: 0
+                  values: 0.5
+sink:
+  type: file
+  config:
+    filename: "./mysql_mces.json"

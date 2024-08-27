@@ -1,0 +1,80 @@
+import org.yaml.snakeyaml.Yaml
+
+buildscript {
+    repositories{
+        if (project.hasProperty('apacheMavenRepositoryUrl')) {
+            maven { url project.getProperty('apacheMavenRepositoryUrl') }
+        } else {
+            mavenCentral()
+        }
+    }
+    dependencies {
+        classpath("org.yaml:snakeyaml:1.33")
+    }
+}
+
+plugins {
+    id 'java'
+    id 'maven-publish'
+    id 'pegasus'
+}
+
+if (project.hasProperty('projVersion')) {
+  project.version = project.projVersion
+} else {
+  project.version = '0.0.0-dev'
+}
+
+dependencies {
+  implementation spec.product.pegasus.data
+
+  // Core DataHub dependencies
+  implementation project(path: ':metadata-integration:java:custom-plugin-lib', configuration: 'shadow')
+  // DataModel DataHub dependencies
+  dataModel project(path: ':metadata-integration:java:custom-plugin-lib', configuration: 'shadow')
+
+  // Required for Spring-enabled plugins only
+  implementation externalDependency.springBootAutoconfigure
+}
+def deployBaseDir = findProperty('pluginModelsDir') ?: file(project.gradle.gradleUserHomeDir.parent + "/.datahub/plugins/models")
+
+mainAvroSchemaJar.dependsOn generateAvroSchema
+
+pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
+
+
+task modelArtifact(type: Zip) {
+    dependsOn jar
+
+    from(layout.buildDirectory.dir("libs")) {
+        include "*.jar"
+        exclude "*-test-data-template-*.jar"
+        into "libs"
+    }
+    from(layout.projectDirectory.dir("registry")) {
+        include "*.yml", "*.yaml"
+    }
+    
+    destinationDirectory = layout.buildDirectory.dir("dist")
+}
+
+modelArtifact.dependsOn compileJava
+
+build.dependsOn modelArtifact
+
+task modelDeploy(type: Copy) {
+    def registryDir = layout.projectDirectory.dir("registry")
+    def cfg = new Yaml().load(new File("$registryDir/entity-registry.yaml").newInputStream())
+    def outputBaseName = cfg.id ? cfg.id : project.name
+    def zipFile = file("build/dist/${project.name}-${version}.zip")
+    logger.info("Zip file is $zipFile")
+    def outputDir = "$deployBaseDir/${outputBaseName}/$version"
+    from zipTree(zipFile)
+    into outputDir
+}
+
+modelDeploy.dependsOn modelArtifact
+
+publish.dependsOn modelDeploy
+
+

@@ -1,0 +1,12 @@
+namespace com.linkedin.usage
+
+import com.linkedin.common.Urn
+
+/** Records a single user's usage counts for a given resource */
+record UserUsageCounts {
+    user: optional Urn
+    count: int
+
+    /** If user_email is set, we attempt to resolve the user's urn upon ingest */
+    userEmail: optional string
+}

@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.aspect
+
+/**
+ * A tuple of a specific metadata aspect and its version.
+ */
+record AspectVersion {
+
+  /**
+   * The FQCN of the metadata aspect, e.g. com.linkedin.common.Ownership
+   */
+  aspect: string
+
+  /**
+   * The version of the metadata aspect
+   */
+  version: long
+}

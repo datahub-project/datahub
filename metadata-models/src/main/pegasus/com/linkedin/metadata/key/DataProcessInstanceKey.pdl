@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an Asset DataProcessInstance
+ */
+@Aspect = {
+  "name": "dataProcessInstanceKey"
+}
+record DataProcessInstanceKey {
+  /**
+  * A unique id for the DataProcessInstance . Should be separate from the name used for displaying a DataProcessInstance.
+  */
+  id: string
+}

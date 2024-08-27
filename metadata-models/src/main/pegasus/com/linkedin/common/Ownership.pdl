@@ -1,0 +1,34 @@
+namespace com.linkedin.common
+
+/**
+ * Ownership information of an entity.
+ */
+@Aspect = {
+  "name": "ownership"
+}
+record Ownership {
+
+  /**
+   * List of owners of the entity.
+   */
+  owners: array[Owner]
+
+  /**
+   * Ownership type to Owners map, populated via mutation hook.
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "MAP_ARRAY",
+      "queryByDefault": false
+    }
+  }
+  ownerTypes: optional map[string, array[Urn]] = {}
+
+  /**
+   * Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.
+   */
+  lastModified: AuditStamp = {
+    "time": 0,
+    "actor": "urn:li:corpuser:unknown"
+  }
+}

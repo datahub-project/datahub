@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * A common model for the result of any query. 
+ * Expected to be included into other top level query results.
+ */
+record AnyResult {
+
+  /**
+   * Freshness Stats to help a caller understand the freshness of the results
+   * Useful when the results are being retrieved from a cache, index or other eventually consistent storage
+   */
+  freshness: optional FreshnessStats
+  
+}

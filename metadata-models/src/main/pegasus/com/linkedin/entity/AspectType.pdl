@@ -1,0 +1,16 @@
+namespace com.linkedin.entity
+
+/**
+ * The type of a DataHub aspect
+ */
+enum AspectType {
+  /**
+   * Designates an aspect that has a monotonically increasing version number
+   */
+  VERSIONED
+
+  /**
+   * Designates an aspect that represents a point-in-time data point
+   */
+  TIMESERIES
+}

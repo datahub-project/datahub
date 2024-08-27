@@ -1,0 +1,21 @@
+namespace com.linkedin.query
+
+/**
+ * Information about the subjects of a particular Query, i.e. the assets
+ * being queried.
+ */
+@Aspect = {
+  "name": "querySubjects"
+}
+record QuerySubjects {
+  /**
+   * One or more subjects of the query.
+   *
+   * In single-asset queries (e.g. table select), this will contain the Table reference
+   * and optionally schema field references.
+   *
+   * In multi-asset queries (e.g. table joins), this may contain multiple Table references
+   * and optionally schema field references.
+   */
+  subjects: array[QuerySubject]
+}

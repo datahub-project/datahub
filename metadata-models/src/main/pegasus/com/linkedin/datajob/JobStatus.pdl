@@ -1,0 +1,47 @@
+namespace com.linkedin.datajob
+
+/**
+ * Job statuses
+ */
+enum JobStatus {
+
+  /**
+   * Jobs being initialized.
+   */
+  STARTING
+
+  /**
+   * Jobs currently running.
+   */
+  IN_PROGRESS
+  
+  /**
+   * Jobs being stopped.
+   */
+  STOPPING
+
+  /**
+   * Jobs that have stopped.
+   */
+  STOPPED
+
+  /**
+   * Jobs with successful completion.
+   */
+  COMPLETED
+
+  /**
+   * Jobs that have failed.
+   */
+  FAILED
+
+  /**
+   * Jobs with unknown status (either unmappable or unavailable)
+   */  
+  UNKNOWN
+
+  /**
+   * Jobs that have been skipped.
+   */
+  SKIPPED
+}

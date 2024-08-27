@@ -1,0 +1,16 @@
+namespace com.linkedin.timeseries
+
+/**
+ * Defines the size of a time window.
+ */
+record TimeWindowSize {
+  /**
+   * Interval unit such as minute/hour/day etc.
+   */
+  unit: CalendarInterval
+
+  /**
+   * How many units. Defaults to 1.
+   */
+  multiple: int = 1
+}

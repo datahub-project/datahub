@@ -1,0 +1,27 @@
+namespace com.linkedin.container
+
+import com.linkedin.common.Urn
+
+/**
+ * Link from an asset to its parent container
+ */
+@Aspect = {
+  "name": "container"
+}
+record Container {
+  /**
+   * The parent container of an asset
+   */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "container" ]
+  }
+  @Searchable = {
+    "fieldName": "container",
+    "fieldType": "URN",
+    "addToFilters": true,
+    "hasValuesFieldName": "hasContainer",
+    "filterNameOverride": "Container"
+  }
+  container: Urn
+}

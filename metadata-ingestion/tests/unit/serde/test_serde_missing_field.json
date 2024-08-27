@@ -1,0 +1,30 @@
+{
+  "auditHeader": null,
+  "proposedSnapshot": {
+    "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+      "urn": "urn:li:corpuser:harshal",
+      "aspects": [
+        {
+          "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+            "displayName": {
+              "string": "notice that the 'active' and 'email' fields are missing, but should be required"
+            },
+            "title": {
+              "string": "Engineer"
+            },
+            "managerUrn": null,
+            "departmentId": null,
+            "departmentName": null,
+            "firstName": null,
+            "lastName": null,
+            "fullName": {
+              "string": "Harshal Sheth"
+            },
+            "countryCode": null
+          }
+        }
+      ]
+    }
+  },
+  "proposedDelta": null
+}

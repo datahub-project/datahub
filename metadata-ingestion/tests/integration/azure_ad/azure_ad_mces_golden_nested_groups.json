@@ -1,0 +1,459 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+            "urn": "urn:li:corpGroup:nestedgroupDisplayName1",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "displayName": "nestedgroupDisplayName1",
+                        "email": null,
+                        "admins": [],
+                        "members": [],
+                        "groups": [],
+                        "description": "Placeholder group with members from nested groups.",
+                        "slack": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:nestedgroupDisplayName1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:nestedgroupDisplayName1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:foobar@acryl.io",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "Foo Bar",
+                        "email": "foobar@acryl.io",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "Foo",
+                        "lastName": "Bar",
+                        "fullName": "Foo Bar",
+                        "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:nestedgroupDisplayName1"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:foobar@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:foobar@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:johngreen@acryl.io",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "John Green",
+                        "email": "johngreen@acryl.io",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "John",
+                        "lastName": "Green",
+                        "fullName": "John Green",
+                        "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:nestedgroupDisplayName1"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:adamhall@acryl.io",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "Adam Hall",
+                        "email": "adamhall@acryl.io",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "Adam",
+                        "lastName": "Hall",
+                        "fullName": "Adam Hall",
+                        "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:nestedgroupDisplayName1"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:johngreen@acryl.io",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "John Green",
+                        "email": "johngreen@acryl.io",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "John",
+                        "lastName": "Green",
+                        "fullName": "John Green",
+                        "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:nestedgroupDisplayName1"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:adamhall@acryl.io",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "Adam Hall",
+                        "email": "adamhall@acryl.io",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "Adam",
+                        "lastName": "Hall",
+                        "fullName": "Adam Hall",
+                        "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:nestedgroupDisplayName1"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+}
+]

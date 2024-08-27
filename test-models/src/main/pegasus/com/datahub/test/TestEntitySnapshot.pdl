@@ -1,0 +1,23 @@
+namespace com.datahub.test
+
+import com.linkedin.common.Urn
+
+/**
+ * A metadata snapshot for a test entity.
+ */
+@Entity = {
+  "name": "testEntity",
+  "keyAspect": "testEntityKey"
+}
+record TestEntitySnapshot {
+
+  /**
+   * URN for the test entity
+   */
+  urn: Urn
+
+  /**
+   * The list of metadata aspects associated with the test entity.
+   */
+  aspects: array[TestEntityAspect]
+}

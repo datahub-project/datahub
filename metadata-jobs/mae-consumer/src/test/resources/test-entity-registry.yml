@@ -1,0 +1,39 @@
+entities:
+  - name: dataPlatform
+    category: core
+    keyAspect: dataPlatformKey
+    aspects:
+      - dataPlatformInfo
+  - name: dataHubIngestionSource
+    keyAspect: dataHubIngestionSourceKey
+    aspects:
+      - dataHubIngestionSourceInfo
+  - name: dataHubSecret
+    keyAspect: dataHubSecretKey
+    aspects:
+      - dataHubSecretValue
+  - name: dataHubExecutionRequest
+    keyAspect: dataHubExecutionRequestKey
+    aspects:
+      - dataHubExecutionRequestInput
+      - dataHubExecutionRequestSignal
+      - dataHubExecutionRequestResult
+  - name: dataset
+    keyAspect: datasetKey
+    aspects:
+      - upstreamLineage
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - domains
+  - name: incident
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
+      - status
+  - name: schemaField
+    category: core
+    keyAspect: schemaFieldKey
+    aspects: []
+events:
+  - name: entityChangeEvent

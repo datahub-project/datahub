@@ -1,0 +1,164 @@
+plugins {
+  id 'distribution'
+  id 'com.github.node-gradle.node'
+}
+
+node {
+
+  // If true, it will download node using above parameters.
+  // If false, it will try to use globally installed node.
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    download = false
+  } else {
+    download = true
+  }
+
+  // Version of node to use.
+  version = '21.2.0'
+
+  // Version of Yarn to use.
+  yarnVersion = '1.22.1'
+
+  // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
+  if (project.hasProperty('nodeDistBaseUrl')) {
+    distBaseUrl = project.getProperty('nodeDistBaseUrl')
+  } else {
+    distBaseUrl = 'https://nodejs.org/dist'
+  }
+
+  // Set the work directory for unpacking node
+  workDir = file("${project.projectDir}/.gradle/nodejs")
+
+  // Set the work directory for NPM
+  yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
+
+  // Set the work directory where node_modules should be located
+  nodeProjectDir = file("${project.projectDir}")
+
+}
+/*
+  Re-trigger build if any markdown files change anywhere in the project
+*/
+def projectMdFiles = project.fileTree("${project.projectDir}") {
+    include '**/*.md'
+    include '**/*.js'
+    include '**/*.ts'
+    exclude 'node_modules'
+    exclude '**/dist/**'
+}
+
+// Combine GraphQL schemas for documentation.
+task generateGraphQLSchema(type: Exec) {
+  workingDir "$projectDir/graphql"
+  commandLine './generateGraphQLSchema.sh'
+}
+
+task generateJsonSchema(type: Exec, dependsOn: [':metadata-ingestion:docGen']) {
+  workingDir "$projectDir/genJsonSchema"
+  commandLine './generateJsonSchema.sh'
+}
+
+/*
+  Wrappers around Yarn Tasks.
+ */
+task yarnInstall(type: YarnTask) {
+  logger.info('CI = "{}"', System.env.CI)
+  if (System.env.CI != null && System.env.CI == "true") {
+    args = ['install','--frozen-lockfile']
+  } else {
+    args = ['install']
+  }
+
+  // The node_modules directory can contain built artifacts, so
+  // it's not really safe to cache it.
+  outputs.cacheIf { false }
+
+  inputs.files(
+    file('yarn.lock'),
+    file('package.json'),
+  )
+  outputs.dir('node_modules')
+}
+
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
+    generateGraphQLSchema, generateJsonSchema,
+    ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
+    ':metadata-ingestion:buildWheel',
+    ':metadata-ingestion-modules:airflow-plugin:buildWheel',
+    ':metadata-ingestion-modules:dagster-plugin:buildWheel',
+    ':metadata-ingestion-modules:gx-plugin:buildWheel',
+    ]) {
+  inputs.files(projectMdFiles)
+  outputs.cacheIf { true }
+  args = ['run', 'generate']
+}
+
+task downloadHistoricalVersions(type: Exec) {
+    workingDir '.'
+    commandLine 'python3', 'download_historical_versions.py'
+}
+
+task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, downloadHistoricalVersions]) {
+  args = ['run', 'start']
+}
+task fastReload(type: YarnTask) {
+  args = ['run', 'generate-rsync']
+}
+
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  inputs.files(projectMdFiles)
+  args = ['run', 'lint-check']
+}
+
+task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
+  inputs.files(projectMdFiles)
+  args = ['run', 'lint-fix']
+}
+
+task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
+  args = ['run', 'serve']
+}
+
+
+task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate, downloadHistoricalVersions]) {
+  inputs.files(projectMdFiles)
+  inputs.file("package.json").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("src").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("static").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.file("yarn.lock").withPathSensitivity(PathSensitivity.RELATIVE)
+  outputs.dir("dist")
+  // tell gradle to apply the build cache
+  outputs.cacheIf { true }
+  // See https://stackoverflow.com/questions/53230823/fatal-error-ineffective-mark-compacts-near-heap-limit-allocation-failed-java
+  // and https://github.com/facebook/docusaurus/issues/8329.
+  // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader or esbuild minification.
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    environment = ['NODE_OPTIONS': '--max-old-space-size=10240']
+  } else {
+    environment = ['NODE_OPTIONS': '--max-old-space-size=10240 --openssl-legacy-provider']
+  }
+  args = ['run', 'build']
+
+}
+task yarnClear(type: YarnTask) {
+  args = ['run','clear']
+}
+clean {
+  delete 'node_modules'
+  delete 'dist'
+  delete 'tmp'
+  delete 'build'
+  delete 'just'
+  delete 'sphinx/venv'
+  delete 'sphinx/_build'
+  delete 'versioned_docs'
+  delete fileTree(dir: 'genDocs', exclude: '.gitignore')
+  delete fileTree(dir: 'docs', exclude: '.gitignore')
+  delete fileTree(dir: 'genStatic', exclude: '.gitignore')
+  delete 'graphql/combined.graphql'
+  yarnClear
+}
+
+build {
+    dependsOn yarnBuild
+}

@@ -1,0 +1,45 @@
+namespace com.linkedin.entity
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.mxe.SystemMetadata
+
+/**
+ * An aspect, along with the metadata about it.
+ * Currently, an aspect can be either of type 'timestamp' or 'versioned'.
+ **/
+record EnvelopedAspect {
+  /**
+   * The name of the aspect
+   **/
+  name: string
+
+  /**
+   * The type of the aspect, either timeseries or versioned
+   **/
+  type: AspectType
+
+  /**
+   * The version of the aspect, only populated if type is 'VERSIONED'
+   **/
+  version: optional long
+
+  /**
+   * The timestamp of the aspect, only populated if type is 'TIMESTAMP'
+   **/
+  timestamp: optional long
+
+  /**
+   * The raw value of the aspect
+   **/
+  value: Aspect
+
+  /**
+   * The audit stamp detailing who the aspect was created by and when
+   **/
+  created: AuditStamp
+
+  /**
+   * The system metadata for this aspect
+   **/
+  systemMetadata: optional SystemMetadata
+}

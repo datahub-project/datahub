@@ -1,0 +1,13 @@
+namespace com.linkedin.timeseries
+
+record TimeWindow {
+  /**
+   * Start time as epoch at UTC.
+   */
+  startTimeMillis: long
+
+  /**
+   * The length of the window.
+   */
+  length: TimeWindowSize
+}

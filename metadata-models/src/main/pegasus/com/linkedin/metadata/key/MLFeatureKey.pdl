@@ -1,0 +1,29 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an MLFeature
+ */
+@Aspect = {
+  "name": "mlFeatureKey"
+}
+record MLFeatureKey {
+
+  /**
+   * Namespace for the feature
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+  }
+  featureNamespace: string
+
+  /**
+   * Name of the feature
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 8.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+}

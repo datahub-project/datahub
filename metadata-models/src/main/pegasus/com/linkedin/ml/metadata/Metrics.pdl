@@ -1,0 +1,20 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Metrics to be featured for the MLModel.
+ */
+@Aspect = {
+  "name": "mlModelMetrics"
+}
+record Metrics {
+
+  /**
+   * Measures of MLModel performance
+   */
+  performanceMeasures: optional array[string]
+
+  /**
+   * Decision Thresholds used (if any)?
+   */
+  decisionThreshold: optional array[string]
+}

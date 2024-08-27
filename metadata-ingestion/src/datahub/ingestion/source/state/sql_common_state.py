@@ -1,0 +1,3 @@
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+
+BaseSQLAlchemyCheckpointState = GenericCheckpointState

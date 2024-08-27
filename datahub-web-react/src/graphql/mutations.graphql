@@ -1,0 +1,149 @@
+mutation removeTag($input: TagAssociationInput!) {
+    removeTag(input: $input)
+}
+
+mutation batchRemoveTags($input: BatchRemoveTagsInput!) {
+    batchRemoveTags(input: $input)
+}
+
+mutation addTag($input: TagAssociationInput!) {
+    addTag(input: $input)
+}
+
+mutation batchAddTags($input: BatchAddTagsInput!) {
+    batchAddTags(input: $input)
+}
+
+mutation removeTerm($input: TermAssociationInput!) {
+    removeTerm(input: $input)
+}
+
+mutation batchRemoveTerms($input: BatchRemoveTermsInput!) {
+    batchRemoveTerms(input: $input)
+}
+
+mutation addTerm($input: TermAssociationInput!) {
+    addTerm(input: $input)
+}
+
+mutation batchAddTerms($input: BatchAddTermsInput!) {
+    batchAddTerms(input: $input)
+}
+
+mutation addLink($input: AddLinkInput!) {
+    addLink(input: $input)
+}
+
+mutation removeLink($input: RemoveLinkInput!) {
+    removeLink(input: $input)
+}
+
+mutation addOwner($input: AddOwnerInput!) {
+    addOwner(input: $input)
+}
+
+mutation batchAddOwners($input: BatchAddOwnersInput!) {
+    batchAddOwners(input: $input)
+}
+
+mutation removeOwner($input: RemoveOwnerInput!) {
+    removeOwner(input: $input)
+}
+
+mutation batchRemoveOwners($input: BatchRemoveOwnersInput!) {
+    batchRemoveOwners(input: $input)
+}
+
+mutation updateDescription($input: DescriptionUpdateInput!) {
+    updateDescription(input: $input)
+}
+
+mutation setDomain($entityUrn: String!, $domainUrn: String!) {
+    setDomain(entityUrn: $entityUrn, domainUrn: $domainUrn)
+}
+
+mutation unsetDomain($entityUrn: String!) {
+    unsetDomain(entityUrn: $entityUrn)
+}
+
+mutation setTagColor($urn: String!, $colorHex: String!) {
+    setTagColor(urn: $urn, colorHex: $colorHex)
+}
+
+mutation updateDeprecation($input: UpdateDeprecationInput!) {
+    updateDeprecation(input: $input)
+}
+
+mutation addOwners($input: AddOwnersInput!) {
+    addOwners(input: $input)
+}
+
+mutation addTags($input: AddTagsInput!) {
+    addTags(input: $input)
+}
+
+mutation addTerms($input: AddTermsInput!) {
+    addTerms(input: $input)
+}
+
+mutation updateName($input: UpdateNameInput!) {
+    updateName(input: $input)
+}
+
+mutation batchSetDomain($input: BatchSetDomainInput!) {
+    batchSetDomain(input: $input)
+}
+
+mutation batchUpdateDeprecation($input: BatchUpdateDeprecationInput!) {
+    batchUpdateDeprecation(input: $input)
+}
+
+mutation batchUpdateSoftDeleted($input: BatchUpdateSoftDeletedInput!) {
+    batchUpdateSoftDeleted(input: $input)
+}
+
+mutation raiseIncident($input: RaiseIncidentInput!) {
+    raiseIncident(input: $input)
+}
+
+mutation updateIncidentStatus($urn: String!, $input: UpdateIncidentStatusInput!) {
+    updateIncidentStatus(urn: $urn, input: $input)
+}
+
+mutation batchAssignRole($input: BatchAssignRoleInput!) {
+    batchAssignRole(input: $input)
+}
+
+mutation createInviteToken($input: CreateInviteTokenInput!) {
+    createInviteToken(input: $input) {
+        inviteToken
+    }
+}
+
+mutation acceptRole($input: AcceptRoleInput!) {
+    acceptRole(input: $input)
+}
+
+mutation createPost($input: CreatePostInput!) {
+    createPost(input: $input)
+}
+
+mutation updatePost($input: UpdatePostInput!) {
+    updatePost(input: $input)
+}
+
+mutation updateLineage($input: UpdateLineageInput!) {
+    updateLineage(input: $input)
+}
+
+mutation updateEmbed($input: UpdateEmbedInput!) {
+    updateEmbed(input: $input)
+}
+
+mutation addBusinessAttribute($input: AddBusinessAttributeInput!) {
+    addBusinessAttribute(input: $input)
+}
+
+mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
+    removeBusinessAttribute(input: $input)
+}

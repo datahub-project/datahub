@@ -1,0 +1,30 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.DashboardKey
+import com.linkedin.dashboard.DashboardInfo
+import com.linkedin.dashboard.EditableDashboardProperties
+import com.linkedin.common.Ownership
+import com.linkedin.common.Status
+import com.linkedin.common.GlobalTags
+import com.linkedin.common.BrowsePaths
+import com.linkedin.common.BrowsePathsV2
+import com.linkedin.common.DataPlatformInstance
+import com.linkedin.common.GlossaryTerms
+import com.linkedin.common.InstitutionalMemory
+
+/**
+ * A union of all supported metadata aspects for a Dashboard
+ */
+typeref DashboardAspect = union[
+  DashboardKey,
+  DashboardInfo,
+  EditableDashboardProperties,
+  Ownership,
+  Status,
+  GlobalTags,
+  BrowsePaths,
+  GlossaryTerms,
+  InstitutionalMemory,
+  DataPlatformInstance,
+  BrowsePathsV2
+]

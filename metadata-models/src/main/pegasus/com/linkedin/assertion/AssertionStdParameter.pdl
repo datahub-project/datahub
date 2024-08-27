@@ -1,0 +1,41 @@
+namespace com.linkedin.assertion
+
+/**
+ * Single parameter for AssertionStdOperators.
+ */
+record AssertionStdParameter {
+  /**
+   * The parameter value
+   */
+  value: string
+
+  /**
+   * The type of the parameter
+   */
+  type: enum AssertionStdParameterType {
+    /**
+     * A string value
+     */
+    STRING
+
+    /**
+     * A numeric value
+     */
+    NUMBER
+
+    /**
+     * A list of values. When used, value should be formatted as a serialized JSON array.
+     */
+    LIST
+
+    /**
+     * A set of values. When used, value should be formatted as a serialized JSON array.
+     */
+    SET
+
+    /**
+     * A value of unknown type
+     */
+    UNKNOWN
+  }
+}

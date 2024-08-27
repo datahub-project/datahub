@@ -1,0 +1,33 @@
+{
+  "name" : "platform",
+  "namespace" : "com.linkedin.platform",
+  "path" : "/platform",
+  "schema" : "com.linkedin.entity.Entity",
+  "doc" : "DataHub Platform Actions\n\ngenerated from: com.linkedin.metadata.resources.platform.PlatformResource",
+  "resourceClass" : "com.linkedin.metadata.resources.platform.PlatformResource",
+  "collection" : {
+    "identifier" : {
+      "name" : "platformId",
+      "type" : "string"
+    },
+    "supports" : [ ],
+    "actions" : [ {
+      "name" : "producePlatformEvent",
+      "javaMethodName" : "producePlatformEvent",
+      "parameters" : [ {
+        "name" : "name",
+        "type" : "string"
+      }, {
+        "name" : "key",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "event",
+        "type" : "com.linkedin.mxe.PlatformEvent"
+      } ]
+    } ],
+    "entity" : {
+      "path" : "/platform/{platformId}"
+    }
+  }
+}

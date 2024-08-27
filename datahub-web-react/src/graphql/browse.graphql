@@ -1,0 +1,256 @@
+query getBrowsePaths($input: BrowsePathsInput!) {
+    browsePaths(input: $input) {
+        path
+    }
+}
+
+query getBrowseResults($input: BrowseInput!) {
+    browse(input: $input) {
+        entities {
+            urn
+            type
+            ... on Dataset {
+                name
+                origin
+                properties {
+                    name
+                    description
+                }
+                editableProperties {
+                    name
+                    description
+                }
+                platform {
+                    ...platformFields
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                subTypes {
+                    typeNames
+                }
+                domain {
+                    ...entityDomain
+                }
+                ...entityDataProduct
+            }
+            ... on Dashboard {
+                urn
+                type
+                tool
+                dashboardId
+                properties {
+                    name
+                    description
+                    externalUrl
+                    access
+                    lastModified {
+                        time
+                    }
+                }
+                editableProperties {
+                    description
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                platform {
+                    ...platformFields
+                }
+                domain {
+                    ...entityDomain
+                }
+                ...entityDataProduct
+                subTypes {
+                    typeNames
+                }
+            }
+            ... on GlossaryTerm {
+                ownership {
+                    ...ownershipFields
+                }
+                properties {
+                    name
+                    description
+                    definition
+                    termSource
+                    sourceRef
+                    sourceUrl
+                    customProperties {
+                        key
+                        value
+                    }
+                }
+            }
+            ... on Chart {
+                urn
+                type
+                tool
+                chartId
+                properties {
+                    name
+                    description
+                    externalUrl
+                    type
+                    access
+                    lastModified {
+                        time
+                    }
+                }
+                editableProperties {
+                    description
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                platform {
+                    ...platformFields
+                }
+                domain {
+                    ...entityDomain
+                }
+                subTypes {
+                    typeNames
+                }
+                ...entityDataProduct
+            }
+            ... on DataFlow {
+                urn
+                type
+                orchestrator
+                flowId
+                cluster
+                properties {
+                    name
+                    description
+                    project
+                }
+                editableProperties {
+                    description
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                platform {
+                    ...platformFields
+                }
+                domain {
+                    ...entityDomain
+                }
+                ...entityDataProduct
+            }
+            ... on DataJob {
+                urn
+                type
+                dataFlow {
+                    ...nonRecursiveDataFlowFields
+                }
+                jobId
+                ownership {
+                    ...ownershipFields
+                }
+                properties {
+                    name
+                    description
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                editableProperties {
+                    description
+                }
+                domain {
+                    ...entityDomain
+                }
+                subTypes {
+                    typeNames
+                }
+                ...entityDataProduct
+            }
+            ... on MLFeatureTable {
+                urn
+                type
+                name
+                description
+                featureTableProperties {
+                    description
+                    mlFeatures {
+                        urn
+                    }
+                    mlPrimaryKeys {
+                        urn
+                    }
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                platform {
+                    ...platformFields
+                }
+            }
+            ... on MLModel {
+                name
+                origin
+                description
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                platform {
+                    ...platformFields
+                }
+            }
+            ... on MLModelGroup {
+                name
+                origin
+                description
+                ownership {
+                    ...ownershipFields
+                }
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+        groups {
+            name
+            count
+        }
+        start
+        count
+        total
+        metadata {
+            path
+            totalNumEntities
+        }
+    }
+}

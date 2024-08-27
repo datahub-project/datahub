@@ -1,0 +1,22 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.CorpUserKey
+import com.linkedin.identity.CorpUserEditableInfo
+import com.linkedin.identity.CorpUserInfo
+import com.linkedin.identity.CorpUserStatus
+import com.linkedin.identity.GroupMembership
+import com.linkedin.common.GlobalTags
+import com.linkedin.common.Status
+
+/**
+ * A union of all supported metadata aspects for a CorpUser
+ */
+typeref CorpUserAspect = union[
+  CorpUserKey,
+  CorpUserInfo,
+  CorpUserEditableInfo,
+  CorpUserStatus,
+  GroupMembership,
+  GlobalTags,
+  Status
+]

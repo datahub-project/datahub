@@ -1,0 +1,52 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.DatasetUrn
+
+/**
+ * The inputs and outputs of this data process
+ */
+@Aspect = {
+  "name": "dataProcessInfo"
+}
+record DataProcessInfo {
+
+  /**
+   * the inputs of the data process
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "inputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputDatasets",
+      "queryByDefault": false
+    }
+  }
+  inputs: optional array[DatasetUrn]
+
+  /**
+   * the outputs of the data process
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "outputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputDatasets",
+      "queryByDefault": false
+    }
+  }
+  outputs: optional array[DatasetUrn]
+}

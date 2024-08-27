@@ -1,0 +1,11 @@
+namespace com.linkedin.common
+
+/**
+  * Enum defining the type of content a Media object holds.
+  */
+enum MediaType {
+  /**
+   * The Media holds an image.
+   */
+  IMAGE
+}

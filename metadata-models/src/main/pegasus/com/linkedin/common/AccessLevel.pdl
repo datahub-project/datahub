@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+/**
+ * The various access levels
+ */
+enum AccessLevel {
+
+  /**
+   * Publicly available access level
+   */
+  PUBLIC
+
+  /**
+   * Private availability to certain set of users
+   */
+  PRIVATE
+}

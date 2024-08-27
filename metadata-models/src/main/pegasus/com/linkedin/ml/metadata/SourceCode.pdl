@@ -1,0 +1,15 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Source Code
+ */
+@Aspect = {
+  "name": "sourceCode"
+}
+record SourceCode {
+
+    /**
+     * Source Code along with types
+     */
+    sourceCode: array[SourceCodeUrl]
+}

@@ -1,0 +1,102 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:bsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
+                        "active": true,
+                        "displayName": "Bart Simpson",
+                        "title": "Mr. Boss",
+                        "firstName": "Bart",
+                        "lastName": "Simpson",
+                        "fullName": "Bart Simpson"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:hsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
+                        "active": true,
+                        "displayName": "Homer Simpson",
+                        "email": "hsimpson",
+                        "title": "Mr. Everything",
+                        "managerUrn": "urn:li:corpuser:bsimpson",
+                        "departmentId": 1001,
+                        "departmentName": "1001",
+                        "firstName": "Homer",
+                        "lastName": "Simpson",
+                        "fullName": "Homer Simpson"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
+    }
+}
+]

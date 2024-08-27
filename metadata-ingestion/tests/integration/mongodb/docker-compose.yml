@@ -1,0 +1,14 @@
+version: "2"
+services:
+  testmongodb:
+    image: mongo
+    container_name: "testmongodb"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoadmin
+      MONGO_INITDB_ROOT_PASSWORD: examplepass
+      MONGO_INITDB_DATABASE: mngdb
+    ports:
+      - 57017:27017
+    volumes:
+      - ./setup/mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js:ro
+      - ./setup:/setup

@@ -1,0 +1,48 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.MLModelKey
+import com.linkedin.ml.metadata.CaveatsAndRecommendations
+import com.linkedin.ml.metadata.EthicalConsiderations
+import com.linkedin.ml.metadata.EvaluationData
+import com.linkedin.ml.metadata.IntendedUse
+import com.linkedin.ml.metadata.Metrics
+import com.linkedin.ml.metadata.MLModelFactorPrompts
+import com.linkedin.ml.metadata.MLModelProperties
+import com.linkedin.ml.metadata.QuantitativeAnalyses
+import com.linkedin.ml.metadata.TrainingData
+import com.linkedin.ml.metadata.SourceCode
+import com.linkedin.common.InstitutionalMemory
+import com.linkedin.common.Ownership
+import com.linkedin.common.Status
+import com.linkedin.common.Cost
+import com.linkedin.common.Deprecation
+import com.linkedin.common.BrowsePaths
+import com.linkedin.common.BrowsePathsV2
+import com.linkedin.common.GlobalTags
+import com.linkedin.common.DataPlatformInstance
+
+/**
+ * A union of all supported metadata aspects for a ML Model
+ */
+typeref MLModelAspect = union[
+  MLModelKey,
+  Ownership,
+  MLModelProperties,
+  IntendedUse,
+  MLModelFactorPrompts,
+  Metrics,
+  EvaluationData,
+  TrainingData,
+  QuantitativeAnalyses,
+  EthicalConsiderations,
+  CaveatsAndRecommendations,
+  InstitutionalMemory,
+  SourceCode,
+  Status,
+  Cost,
+  Deprecation,
+  BrowsePaths,
+  GlobalTags,
+  DataPlatformInstance,
+  BrowsePathsV2
+]

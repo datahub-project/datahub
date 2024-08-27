@@ -1,0 +1,22 @@
+namespace com.linkedin.dataset
+
+/**
+ * The various types of supported dataset lineage
+ */
+enum DatasetLineageType {
+
+  /**
+   * Direct copy without modification
+   */
+  COPY
+
+  /**
+   * Transformed data with modification (format or content change)
+   */
+  TRANSFORMED
+
+  /**
+   * Represents a view defined on the sources e.g. Hive view defined on underlying hive tables or a Hive table pointing to a HDFS dataset or DALI view defined on multiple sources
+   */
+  VIEW
+}

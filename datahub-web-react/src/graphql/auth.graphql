@@ -1,0 +1,34 @@
+query getAccessToken($input: GetAccessTokenInput!) {
+    getAccessToken(input: $input) {
+        accessToken
+    }
+}
+
+query listAccessTokens($input: ListAccessTokenInput!) {
+    listAccessTokens(input: $input) {
+        start
+        count
+        total
+        tokens {
+            urn
+            type
+            id
+            name
+            description
+            actorUrn
+            ownerUrn
+            createdAt
+            expiresAt
+        }
+    }
+}
+
+mutation createAccessToken($input: CreateAccessTokenInput!) {
+    createAccessToken(input: $input) {
+        accessToken
+    }
+}
+
+mutation revokeAccessToken($tokenId: String!) {
+    revokeAccessToken(tokenId: $tokenId)
+}

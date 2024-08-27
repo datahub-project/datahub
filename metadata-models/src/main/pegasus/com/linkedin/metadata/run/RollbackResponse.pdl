@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.run
+
+record RollbackResponse {
+    aspectRowSummaries: array[AspectRowSummary]
+    entitiesAffected: long
+    aspectsAffected: long
+    entitiesDeleted: optional long
+    aspectsReverted: optional long
+    unsafeEntitiesCount: optional long
+    unsafeEntities: array[UnsafeEntityInfo]
+}

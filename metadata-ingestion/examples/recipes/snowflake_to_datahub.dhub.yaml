@@ -1,0 +1,21 @@
+---
+# see https://datahubproject.io/docs/generated/ingestion/sources/snowflake/#config-details-1 for complete documentation
+source:
+  type: snowflake
+  config:
+    env: PROD
+    # Coordinates
+    account_id: account_name
+    warehouse: "COMPUTE_WH"
+
+    # Credentials
+    username: user
+    password: pass
+    role: "sysadmin"
+
+    # Options
+    top_n_queries: 10
+    email_domain: mycompany.com
+
+    classification:
+      enabled: True

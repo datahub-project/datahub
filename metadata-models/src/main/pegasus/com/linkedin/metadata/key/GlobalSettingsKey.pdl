@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for a Global Settings
+ */
+@Aspect = {
+  "name": "globalSettingsKey"
+}
+record GlobalSettingsKey {
+  /**
+   * Id for the settings. There should be only 1 global settings urn: urn:li:globalSettings:0
+   */
+  id: string
+}

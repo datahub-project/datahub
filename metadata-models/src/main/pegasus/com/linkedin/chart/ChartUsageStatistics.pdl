@@ -1,0 +1,33 @@
+namespace com.linkedin.chart
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Experimental (Subject to breaking change) -- Stats corresponding to chart's usage.
+ *
+ * If this aspect represents the latest snapshot of the statistics about a Chart, the eventGranularity field should be null.
+ * If this aspect represents a bucketed window of usage statistics (e.g. over a day), then the eventGranularity field should be set accordingly.
+ */
+@Aspect = {
+  "name": "chartUsageStatistics",
+  "type": "timeseries",
+}
+record ChartUsageStatistics includes TimeseriesAspectBase {
+  /**
+   * The total number of times chart has been viewed
+   */
+  @TimeseriesField = {}
+  viewsCount: optional int
+
+  /**
+   * Unique user count
+   */
+  @TimeseriesField = {}
+  uniqueUserCount: optional int
+
+  /**
+   * Users within this bucket, with frequency counts
+   */
+  @TimeseriesFieldCollection = {"key":"user"}
+  userCounts: optional array[ChartUserUsageCounts]
+}

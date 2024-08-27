@@ -1,0 +1,11 @@
+namespace com.linkedin.post
+
+/**
+  * Enum defining types of Posts.
+  */
+enum PostType {
+  /**
+   * The Post is an Home Page announcement.
+   */
+  HOME_PAGE_ANNOUNCEMENT
+}

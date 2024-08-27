@@ -1,0 +1,109 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "test description"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/test_key_1",
+                "value": "test_value_1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/test_key_2",
+                "value": "test_value_2"
+            }
+        ]
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/tags/urn:li:tag:test_tag",
+                "value": {
+                    "tag": "urn:li:tag:test_tag"
+                }
+            }
+        ]
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket~1my-folder~1my-file.txt,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/my-folder/my-file.txt,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD),bar)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket~1my-folder~1my-file.txt,PROD),foo)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "editableSchemaMetadata",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag1",
+                "value": {
+                    "tag": "urn:li:tag:tag1"
+                }
+            }
+        ]
+    }
+}
+]

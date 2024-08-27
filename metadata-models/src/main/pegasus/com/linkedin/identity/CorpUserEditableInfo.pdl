@@ -1,0 +1,94 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Url
+import com.linkedin.common.Urn
+
+/**
+ * Linkedin corp user information that can be edited from UI
+ */
+@Aspect = {
+  "name": "corpUserEditableInfo"
+}
+@Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
+record CorpUserEditableInfo {
+
+  /**
+   * About me section of the user
+   */
+  aboutMe: optional string
+
+  /**
+   * Teams that the user belongs to e.g. Metadata
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "TEXT"
+    }
+  }
+  teams: array[string] = [ ]
+
+  /**
+   * Skills that the user possesses e.g. Machine Learning
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "TEXT"
+    }
+  }
+  skills: array[string] = [ ]
+
+  /**
+   * A URL which points to a picture which user wants to set as a profile photo
+   */
+  pictureLink: Url = "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"
+
+  /**
+   * DataHub-native display name
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "queryByDefault": true,
+    "boostScore": 10.0
+  }
+  displayName: optional string
+
+  /**
+   * DataHub-native Title, e.g. 'Software Engineer'
+   */
+  title: optional string
+
+  /**
+   * The platforms that the user commonly works with
+   */
+  @Relationship = {
+    "/*": {
+        "name": "IsUserOf",
+        "entityTypes": ["dataPlatform"]
+    }
+  }
+  platforms: optional array[Urn]
+
+  /**
+   * The user's persona type, based on their role
+   */
+  @Relationship = {
+     "name": "IsPersona",
+     "entityTypes": ["dataHubPersona"]
+  }
+  persona: optional Urn
+
+  /**
+   * Slack handle for the user
+   */
+  slack: optional string
+
+  /**
+   * Phone number to contact the user
+   */
+  phone: optional string
+
+  /**
+   * Email address to contact the user
+   */
+  email: optional string
+}

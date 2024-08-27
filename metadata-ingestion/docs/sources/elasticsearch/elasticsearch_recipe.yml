@@ -1,0 +1,31 @@
+source:
+  type: "elasticsearch"
+  config:
+    # Coordinates
+    host: 'localhost:9200'
+
+    # Credentials
+    username: user # optional
+    password: pass # optional
+
+    # SSL support
+    use_ssl: False
+    verify_certs: False
+    ca_certs: "./path/ca.cert"
+    client_cert: "./path/client.cert"
+    client_key: "./path/client.key"
+    ssl_assert_hostname: False
+    ssl_assert_fingerprint: "./path/cert.fingerprint"
+
+    # Options
+    url_prefix: "" # optional url_prefix
+    env: "PROD"
+    index_pattern:
+      allow: [".*some_index_name_pattern*"]
+      deny: [".*skip_index_name_pattern*"]
+    ingest_index_templates: False
+    index_template_pattern:
+      allow: [".*some_index_template_name_pattern*"]
+
+sink:
+# sink configs

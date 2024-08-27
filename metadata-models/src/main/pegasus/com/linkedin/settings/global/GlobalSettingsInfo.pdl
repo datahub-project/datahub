@@ -1,0 +1,28 @@
+namespace com.linkedin.settings.global
+
+/**
+ * DataHub Global platform settings. Careful - these should not be modified by the outside world!
+ */
+@Aspect = {
+  "name": "globalSettingsInfo"
+}
+record GlobalSettingsInfo {
+
+  /**
+   * SSO integrations between DataHub and identity providers
+   */
+  sso: optional SsoSettings
+
+  /**
+   * Settings related to the Views Feature
+   */
+   views: optional GlobalViewsSettings
+
+  /**
+   * Settings related to the documentation propagation feature
+   */
+   docPropagation: optional DocPropagationFeatureSettings = {
+        "enabled": true
+        "columnPropagationEnabled": true
+   }
+}

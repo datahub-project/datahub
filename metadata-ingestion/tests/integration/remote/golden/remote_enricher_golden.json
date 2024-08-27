@@ -1,0 +1,233 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:Engineering"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "editableDatasetProperties",
+    "aspect": {
+        "json": {
+            "created": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:ingestion"
+            },
+            "lastModified": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:ingestion"
+            },
+            "description": "new description"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "editableSchemaMetadata",
+    "aspect": {
+        "json": {
+            "created": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:ingestion"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "editableSchemaFieldInfo": [
+                {
+                    "fieldPath": "field_foo",
+                    "description": "field_foo!",
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:AccountBalance"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1629795600000,
+                            "actor": "urn:li:corpuser:ingestion"
+                        }
+                    }
+                },
+                {
+                    "fieldPath": "field_bar",
+                    "description": "field_bar?",
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Legacy"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:AccountBalance",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "AccountBalance"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:CustomerAccount",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "CustomerAccount"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Legacy",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Legacy"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

@@ -1,0 +1,17 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+record EntityBaz {
+
+  /**
+   * For unit tests
+   */
+  urn: BazUrn
+
+  /**
+   * For unit tests
+   */
+  value: optional string
+}

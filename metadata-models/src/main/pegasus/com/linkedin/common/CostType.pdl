@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+ * Type of Cost Code
+ */
+enum CostType {
+
+  /**
+   * Org Cost Type to which the Cost of this entity should be attributed to
+   */
+  ORG_COST_TYPE
+}

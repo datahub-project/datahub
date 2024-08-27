@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema holder for MySql data definition language that describes an MySql table.
+ */
+record MySqlDDL {
+
+  /**
+   * The native schema in the dataset's platform. This is a human readable (json blob) table schema.
+   */
+  tableSchema: string
+}

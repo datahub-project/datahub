@@ -1,0 +1,11 @@
+namespace com.linkedin.timeseries
+
+/**
+ * Encapsulates the response of the getIndexSizes API
+ */
+record TimeseriesIndicesSizesResult{
+  /**
+   * Collection of index sizes for all indices in the result
+   */
+  indexSizes: array[TimeseriesIndexSizeResult]
+}

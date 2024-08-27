@@ -1,0 +1,50 @@
+namespace com.linkedin.aspect
+
+import com.linkedin.metadata.query.filter.Filter
+import com.linkedin.metadata.aspect.EnvelopedAspect
+
+/**
+ * The response structure of the getAspect API.
+ **/
+record GetTimeseriesAspectValuesResponse {
+
+  /**
+   * The input entity name
+   **/
+  entityName: string
+
+  /**
+   * The input aspect name
+   **/
+  aspectName: string
+
+  /**
+   * The input start time in milliseconds.
+   **/
+  startTimeMillis: optional long
+
+  /**
+   * The input end time in milliseconds.
+   **/
+  endTimeMillis: optional long
+
+  /**
+   * The limit on the number of values requested.
+   */
+  limit: optional long
+
+  /**
+   * The enveloped values returned by the getAspect API.
+   **/
+  values: array[EnvelopedAspect]
+
+  /**
+   * The optional flag to get the latest value of the aspect.
+   **/
+   getLatestValue: optional boolean
+
+  /**
+   * The optional filter value for filtering the aspects.
+   */
+   filter: optional Filter
+}

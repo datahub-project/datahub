@@ -1,0 +1,27 @@
+namespace com.linkedin.metadata.recommendation
+
+/**
+ * Type of the scenario requesting recommendation
+ */
+enum ScenarioType {
+
+  /**
+   * Recommendations to show on the users home page
+   */
+  HOME,
+
+  /**
+   * Recommendations to show on the search results page
+   */
+  SEARCH_RESULTS,
+
+  /**
+   * Recommendations to show on an Entity Profile page
+   */
+  ENTITY_PROFILE,
+
+  /**
+   * Recommendations to show on the search bar when clicked
+   */
+  SEARCH_BAR
+}

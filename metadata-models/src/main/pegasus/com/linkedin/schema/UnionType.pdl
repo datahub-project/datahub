@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Union field type.
+ */
+record UnionType {
+
+  /**
+   * List of types in union type.
+   */
+  nestedTypes: optional array[string]
+}

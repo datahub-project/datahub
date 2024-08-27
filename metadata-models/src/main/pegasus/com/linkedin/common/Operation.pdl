@@ -1,0 +1,61 @@
+namespace com.linkedin.common
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Operational info for an entity.
+ */
+ @Aspect = {
+    "name": "operation",
+    "type": "timeseries"
+ }
+record Operation includes TimeseriesAspectBase {
+
+  /**
+   * Actor who issued this operation.
+   */
+  @TimeseriesField = {}
+  actor: optional Urn
+
+  /**
+   * Operation type of change.
+   */
+  @TimeseriesField = {}
+  operationType: OperationType
+
+  /**
+   * A custom type of operation. Required if operationType is CUSTOM.
+   */
+  @TimeseriesField = {}
+  customOperationType: optional string
+
+  /**
+   * How many rows were affected by this operation.
+   */
+  @TimeseriesField = {}
+  numAffectedRows: optional long
+
+  /**
+   * Which other datasets were affected by this operation.
+   */
+  @TimeseriesFieldCollection = {"key":"datasetName"}
+  affectedDatasets: optional array[Urn]
+
+  /**
+   * Source Type
+   */
+   @TimeseriesField = {}
+   sourceType: optional OperationSourceType
+
+  /**
+   * Custom properties
+   */
+   customProperties: optional map[string, string]
+
+  /**
+   * The time at which the operation occurred. Would be better named 'operationTime'
+   */
+  @TimeseriesField = {}
+  @Searchable = { "fieldType": "DATETIME", "fieldName": "lastOperationTime" }
+  lastUpdatedTimestamp: long
+}

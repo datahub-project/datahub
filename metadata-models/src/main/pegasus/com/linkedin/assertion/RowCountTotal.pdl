@@ -1,0 +1,22 @@
+namespace com.linkedin.assertion
+
+/**
+* Attributes defining a ROW_COUNT_TOTAL volume assertion.
+*/
+record RowCountTotal {
+  /**
+  * The operator you'd like to apply.
+  *
+  * Note that only numeric operators are valid inputs:
+  * GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  * BETWEEN.
+  */
+  operator: AssertionStdOperator
+
+  /**
+  * The parameters you'd like to provide as input to the operator.
+  *
+  * Note that only numeric parameter types are valid inputs: NUMBER.
+  */
+  parameters: AssertionStdParameters
+}

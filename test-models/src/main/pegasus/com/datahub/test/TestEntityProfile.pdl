@@ -1,0 +1,37 @@
+namespace com.datahub.test
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Profile of test entity (timeseries aspect sample)
+ */
+@Aspect = {
+  "name": "testEntityProfile"
+  "type": "timeseries"
+}
+record TestEntityProfile includes TimeseriesAspectBase {
+  @TimeseriesField = {}
+  stat: long
+
+  @TimeseriesField  = {}
+  strStat: string
+
+  @TimeseriesField = {}
+  strArray: optional array[string]
+
+  @TimeseriesFieldCollection = {
+    "key":"key"
+  }
+  componentProfiles: array[TestEntityComponentProfile]
+
+  @TimeseriesField = {}
+  aComplexNestedRecord: record ComplexNestedRecord {
+      type: enum BatchType {
+            QUERY_BATCH,
+            PARTITION_BATCH,
+            FULL_TABLE,
+            _NATIVE_
+      }
+      partitions: array[map[string, string]]
+    }
+}

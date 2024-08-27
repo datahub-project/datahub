@@ -1,0 +1,17 @@
+run_id: mssql-test
+
+source:
+  type: mssql
+  config:
+    username: sa
+    password: test!Password
+    database: DemoData
+    host_port: localhost:21433
+    # use_odbc: True
+    # uri_args:
+    #   driver: "ODBC Driver 17 for SQL Server"
+
+sink:
+  type: file
+  config:
+    filename: "./mssql_mces.json"

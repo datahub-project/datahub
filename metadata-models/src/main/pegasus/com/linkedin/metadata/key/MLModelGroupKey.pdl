@@ -1,0 +1,37 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for an ML model group
+ */
+@Aspect = {
+  "name": "mlModelGroupKey"
+}
+record MLModelGroupKey {
+  /**
+  * Standardized platform urn for the model group
+  */
+  platform: Urn
+
+  /**
+  * Name of the MLModelGroup
+  */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+
+  /**
+  * Fabric type where model group belongs to or where it was generated
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": false
+  }
+  origin: FabricType
+}

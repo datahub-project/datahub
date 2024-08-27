@@ -1,0 +1,67 @@
+plugins {
+    id 'java-library'
+}
+
+apply plugin: 'pegasus'
+
+configurations {
+    avro
+}
+
+dependencies {
+    avro project(path: ':metadata-models', configuration: 'avroSchema')
+
+    implementation project(':li-utils')
+    implementation(project(':metadata-service:factories')) {
+        exclude group: 'org.neo4j.test'
+    }
+    implementation project(':metadata-service:auth-config')
+    implementation project(':metadata-service:restli-client-api')
+    implementation project(':metadata-io')
+    implementation project(':ingestion-scheduler')
+    implementation project(':metadata-utils')
+    implementation project(":entity-registry")
+    implementation project(':metadata-events:mxe-avro')
+    implementation project(':metadata-events:mxe-registration')
+    implementation project(':metadata-events:mxe-utils-avro')
+    implementation project(':datahub-graphql-core')
+
+    implementation externalDependency.elasticSearchRest
+    implementation externalDependency.kafkaAvroSerde
+    implementation externalDependency.protobuf
+    implementation externalDependency.neo4jJavaDriver
+
+    implementation externalDependency.springKafka
+    implementation externalDependency.annotationApi
+
+    implementation externalDependency.slf4jApi
+    compileOnly externalDependency.lombok
+
+    annotationProcessor externalDependency.lombok
+
+    runtimeOnly externalDependency.logbackClassic
+
+    testImplementation externalDependency.mockito
+    implementation externalDependency.awsMskIamAuth
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.springBootTest
+    testRuntimeOnly externalDependency.logbackClassic
+}
+
+task avroSchemaSources(type: Copy) {
+    dependsOn configurations.avro
+
+    from { // use of closure defers evaluation until execution time
+        configurations.avro.collect { zipTree(it) }
+    }
+    into("src/main/resources/")
+    include("avro/com/linkedin/mxe/")
+}
+
+compileJava.dependsOn avroSchemaSources
+processResources.dependsOn avroSchemaSources
+
+clean {
+    project.delete("src/main/resources/avro")
+}

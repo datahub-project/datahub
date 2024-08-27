@@ -1,0 +1,21 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation project(':metadata-auth:auth-api')
+  implementation project(':metadata-service:auth-impl')
+  implementation project(path: ':metadata-service:auth-config')
+  implementation project(path: ':metadata-service:factories')
+
+  implementation externalDependency.servletApi
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  implementation externalDependency.springWeb
+  implementation externalDependency.guice
+
+  annotationProcessor externalDependency.lombok
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.springBootTest
+}

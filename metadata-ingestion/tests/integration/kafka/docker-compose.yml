@@ -1,0 +1,37 @@
+---
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.2.2
+    env_file: zookeeper.env
+    hostname: test_zookeeper
+    container_name: test_zookeeper
+    ports:
+      - "52181"
+    volumes:
+      - test_zkdata:/var/lib/zookeeper/data
+      - test_zklogs:/var/lib/zookeeper/log
+
+  broker:
+    image: confluentinc/cp-kafka:7.2.2
+    env_file: broker.env
+    hostname: test_broker
+    container_name: test_broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.2.2
+    restart: unless-stopped
+    env_file: schema-registry.env
+    container_name: test_schema_registry
+    depends_on:
+      - zookeeper
+      - broker
+    ports:
+      - "28081:8081"
+
+volumes:
+  test_zkdata:
+  test_zklogs:

@@ -1,0 +1,53 @@
+id: mycompany-dq-model
+entities:
+  - name: dataset
+    aspects:
+      - customDataQualityRules
+      - customDataQualityRuleEvent
+  - name: container
+    aspects:
+      - customDataQualityRules
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.CustomDataQualityRulesValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+    - className: 'com.linkedin.metadata.aspect.plugins.spring.validation.CustomDataQualityRulesValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+      spring:
+        enabled: true
+        packageScan:
+          - com.linkedin.metadata.aspect.plugins.spring.validation
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMutator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+  mclSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCLSideEffect'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+  mcpSideEffects:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMCPSideEffect'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules

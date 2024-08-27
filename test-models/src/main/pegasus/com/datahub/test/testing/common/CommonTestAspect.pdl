@@ -1,0 +1,7 @@
+namespace com.datahub.test.testing.common
+
+/**
+ * For unit tests
+ */
+record CommonTestAspect {
+}

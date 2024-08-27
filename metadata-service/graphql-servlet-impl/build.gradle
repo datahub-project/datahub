@@ -1,0 +1,31 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation project(':datahub-graphql-core')
+  implementation project(':metadata-auth:auth-api')
+  implementation project(':metadata-service:auth-impl')
+  implementation project(':metadata-service:factories')
+
+  implementation externalDependency.servletApi
+  implementation externalDependency.springCore
+  implementation externalDependency.springWeb
+  implementation externalDependency.springWebMVC
+  implementation externalDependency.graphqlJava
+  implementation externalDependency.springBeans
+  implementation externalDependency.springContext
+  implementation externalDependency.guice
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+
+  implementation externalDependency.charle
+  implementation externalDependency.jetbrains
+  implementation externalDependency.opentelemetryApi
+}
+
+configurations.all{
+  exclude group: "com.charleskorn.kaml", module:"kaml"
+  exclude group: " org.jetbrains.kotlin", module:"kotlin-stdlib"
+}

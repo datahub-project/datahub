@@ -1,0 +1,50 @@
+namespace com.linkedin.execution
+
+import com.linkedin.common.Urn
+
+/**
+ * An request to execution some remote logic or action.
+ * TODO: Determine who is responsible for emitting execution request success or failure. Executor?
+ */
+@Aspect = {
+  "name": "dataHubExecutionRequestInput"
+}
+record ExecutionRequestInput {
+  /**
+  * The name of the task to execute, for example RUN_INGEST
+  */
+  task: string
+
+  /**
+  * Arguments provided to the task
+  */
+  args: map[string, string]
+
+  /**
+  * Advanced: specify a specific executor to route the request to. If none is provided, a "default" executor is used.
+  */
+  executorId: string
+
+  /**
+  * Source which created the execution request
+  */
+  source: ExecutionRequestSource
+
+  /**
+  * Time at which the execution request input was created
+  */
+  @Searchable = {
+    "fieldName": "requestTimeMs",
+    "fieldType": "COUNT",
+    "queryByDefault": false
+  }
+  requestedAt: long
+
+  /**
+   * Urn of the actor who created this execution request.
+   */
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  actorUrn: optional Urn
+}

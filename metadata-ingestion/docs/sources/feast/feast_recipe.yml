@@ -1,0 +1,10 @@
+source:
+  type: feast
+  config:
+    # Coordinates
+    path: "/path/to/repository/"
+    # Options
+    environment: "PROD"
+
+sink:
+  # sink configs

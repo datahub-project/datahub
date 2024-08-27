@@ -1,0 +1,19 @@
+namespace com.linkedin.common
+
+import com.linkedin.common.fieldtransformer.TransformationType
+import com.linkedin.common.fieldtransformer.UDFTransformer
+
+/**
+ * Base model representing field mappings
+ */
+record BaseFieldMapping {
+  /**
+   * Audit stamp containing who reported the field mapping and when
+   */
+  created: AuditStamp
+
+  /**
+   * Transfomration function between the fields involved
+   */
+  transformation: union [TransformationType, UDFTransformer]
+}

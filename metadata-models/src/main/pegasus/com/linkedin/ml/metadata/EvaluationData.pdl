@@ -1,0 +1,17 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.DatasetUrn
+
+/**
+ * All referenced datasets would ideally point to any set of documents that provide visibility into the source and composition of the dataset.
+ */
+@Aspect = {
+  "name": "mlModelEvaluationData"
+}
+record EvaluationData {
+
+    /**
+     * Details on the dataset(s) used for the quantitative analyses in the MLModel
+     */
+    evaluationData: array[BaseData]
+}

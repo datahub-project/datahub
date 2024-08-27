@@ -1,0 +1,73 @@
+namespace com.linkedin.view
+
+import com.linkedin.metadata.query.filter.Filter
+import com.linkedin.common.Urn
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about a DataHub View. -- TODO: Understand whether an entity type filter is required.
+ */
+@Aspect = {
+  "name": "dataHubViewInfo"
+}
+record DataHubViewInfo {
+  /**
+   * The name of the View
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  name: string
+
+  /**
+   * Description of the view
+   */
+  description: optional string
+
+  /**
+   * The type of View
+   */
+  @Searchable = {}
+  type: enum DataHubViewType {
+    /**
+     * A view private for a specific person.
+     */
+    PERSONAL
+
+    /**
+     * A global view, which all users can see and use.
+     */
+     GLOBAL
+  }
+
+  /**
+   * The view itself
+   */
+  definition: DataHubViewDefinition
+
+  /**
+   * Audit stamp capturing the time and actor who created the View.
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "createdAt"
+    },
+    "/actor": {
+      "fieldType": "URN",
+      "fieldName": "createdBy"
+    }
+  }
+  created: AuditStamp
+
+  /**
+   * Audit stamp capturing the time and actor who last modified the View.
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "lastModifiedAt"
+    }
+  }
+  lastModified: AuditStamp
+}

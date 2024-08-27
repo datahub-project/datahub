@@ -1,0 +1,20 @@
+namespace com.linkedin.upgrade
+
+/**
+ * Information collected when a DataHubUpgrade successfully finishes
+ */
+@Aspect = {
+   "name": "dataHubUpgradeResult"
+}
+record DataHubUpgradeResult {
+
+    /**
+     * Timestamp when we started this DataHubUpgrade
+     */
+    timestampMs: long
+
+    /**
+     * Result map to place helpful information about this upgrade job
+     */
+    result: optional map[string, string]
+}

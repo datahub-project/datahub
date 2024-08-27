@@ -1,0 +1,185 @@
+# TODO: Complete comments to all of these types.
+
+extend type Query {
+    """
+    Deprecated, use appConfig Query instead
+    Whether the analytics feature is enabled in the UI
+    """
+    isAnalyticsEnabled: Boolean! @deprecated
+
+    """
+    Retrieves a set of server driven Analytics Charts to render in the UI
+    """
+    getAnalyticsCharts: [AnalyticsChartGroup!]!
+
+    """
+    Retrieves a set of server driven Analytics Highlight Cards to render in the UI
+    """
+    getHighlights: [Highlight!]!
+
+    """
+    Retrieves a set of charts regarding the ingested metadata
+    """
+    getMetadataAnalyticsCharts(input: MetadataAnalyticsInput!): [AnalyticsChartGroup!]!
+}
+
+"""
+Input to fetch metadata analytics charts
+"""
+input MetadataAnalyticsInput {
+    """
+    Entity type to fetch analytics for (If empty, queries across all entities)
+    """
+    entityType: EntityType
+
+    """
+    Urn of the domain to fetch analytics for (If empty or GLOBAL, queries across all domains)
+    """
+    domain: String
+
+    """
+    Search query to filter down result (If empty, does not apply any search query)
+    """
+    query: String
+}
+
+
+"""
+For consumption by UI only
+"""
+union AnalyticsChart = TimeSeriesChart | BarChart | TableChart
+
+"""
+For consumption by UI only
+"""
+type AnalyticsChartGroup {
+    groupId: String!
+    title: String!
+    charts: [AnalyticsChart!]!
+}
+
+"""
+For consumption by UI only
+"""
+enum DateInterval {
+    SECOND
+    MINUTE
+    HOUR
+    DAY
+    WEEK
+    MONTH
+    YEAR
+}
+
+"""
+For consumption by UI only
+"""
+type DateRange {
+    start: String!
+    end: String!
+}
+
+"""
+For consumption by UI only
+"""
+type NumericDataPoint {
+    x: String!
+    y: Int!
+}
+
+"""
+For consumption by UI only
+"""
+type NamedLine {
+    name: String!
+    data: [NumericDataPoint!]!
+}
+
+"""
+For consumption by UI only
+"""
+type TimeSeriesChart {
+    title: String!
+    lines: [NamedLine!]!
+    dateRange: DateRange!
+    interval: DateInterval!
+}
+
+"""
+For consumption by UI only
+"""
+type BarSegment {
+    label: String!
+    value: Int!
+}
+
+"""
+For consumption by UI only
+"""
+type NamedBar {
+    name: String!
+    segments: [BarSegment!]!
+}
+
+"""
+For consumption by UI only
+"""
+type BarChart {
+    title: String!
+    bars: [NamedBar!]!
+}
+
+
+"""
+Parameters required to specify the page to land once clicked
+"""
+type LinkParams {
+    """
+    Context to define the search page
+    """
+    searchParams: SearchParams
+
+    """
+    Context to define the entity profile page
+    """
+    entityProfileParams: EntityProfileParams
+}
+
+"""
+For consumption by UI only
+"""
+type Cell {
+    value: String!
+    entity: Entity
+    linkParams: LinkParams
+}
+
+
+"""
+For consumption by UI only
+"""
+type Row {
+    # DEPRECATED All values are expected to be strings.
+    values: [String!]!
+
+    # More detailed information about each cell in the row
+    cells: [Cell!]
+}
+
+"""
+For consumption by UI only
+"""
+type TableChart {
+    title: String!
+    columns: [String!]!
+    rows: [Row!]!
+}
+
+"""
+For consumption by UI only
+"""
+type Highlight {
+    value: Int!
+    title: String!
+    body: String!
+}

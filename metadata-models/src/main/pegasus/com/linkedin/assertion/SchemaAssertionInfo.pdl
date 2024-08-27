@@ -1,0 +1,60 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+import com.linkedin.schema.SchemaMetadata
+
+/**
+* Attributes that are applicable to schema assertions
+**/
+record SchemaAssertionInfo {
+    /**
+    * The entity targeted by the assertion
+    */
+    @Searchable = {
+      "fieldType": "URN"
+    }
+    @Relationship = {
+      "name": "Asserts",
+      "entityTypes": [ "dataset", "dataJob" ]
+    }
+    entity: Urn
+
+    /**
+     * A definition of the expected structure for the asset
+     *
+     * Note that many of the fields of this model, especially those related to metadata (tags, terms)
+     * will go unused in this context.
+     */
+//    @Relationship = {
+//        "/foreignKeys/*/foreignFields/*": null,
+//        "/foreignKeys/*/foreignDataset": null,
+//        "/fields/*/globalTags/tags/*/tag": null,
+//        "/fields/*/glossaryTerms/terms/*/urn": null
+//    }
+//    @Searchable = {
+//        "/fields/*/fieldPath": null,
+//        "/fields/*/description": null,
+//        "/fields/*/label": null,
+//        "/fields/*/globalTags/tags/*/tag": null,
+//        "/fields/*/glossaryTerms/terms/*/urn": null
+//    }
+    schema: SchemaMetadata
+
+    /**
+     * The required compatibility level for the schema assertion to pass.
+     */
+    compatibility: optional enum SchemaAssertionCompatibility {
+        /**
+         * The actual schema must be exactly the same as the expected schema
+         */
+        EXACT_MATCH,
+        /**
+         * The actual schema must be a superset of the expected schema
+         */
+        SUPERSET,
+        /**
+         * The actual schema must be a subset of the expected schema
+         */
+        SUBSET
+    } = "EXACT_MATCH"
+}

@@ -1,0 +1,16 @@
+namespace com.linkedin.mxe
+
+/**
+ * Generic record structure for serializing an Aspect
+ **/
+record GenericAspect {
+  /**
+  * The value of the aspect, serialized as bytes.
+  */
+  value: bytes
+  /**
+   * The content type, which represents the fashion in which the aspect was serialized.
+   * The only type currently supported is application/json.
+   */
+  contentType: string
+}

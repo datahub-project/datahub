@@ -1,0 +1,22 @@
+source:
+  type: tableau
+  config:
+    # Coordinates
+    connect_uri: https://prod-ca-a.online.tableau.com
+    site: acryl
+    platform_instance: acryl_instance
+    project_pattern: ["^default$", "^Project 2$", "^/Project A/Nested Project B$"]
+
+    # Credentials
+    username: "${TABLEAU_USER}"
+    password: "${TABLEAU_PASSWORD}"
+
+    # Options
+    ingest_tags: True
+    ingest_owner: True
+    default_schema_map:
+      mydatabase: public
+      anotherdatabase: anotherschema
+
+sink:
+  # sink configs

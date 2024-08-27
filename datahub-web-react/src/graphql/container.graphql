@@ -1,0 +1,74 @@
+query getContainer($urn: String!) {
+    container(urn: $urn) {
+        urn
+        type
+        exists
+        lastIngested
+        platform {
+            ...platformFields
+        }
+        properties {
+            name
+            description
+            externalUrl
+            customProperties {
+                key
+                value
+            }
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        editableProperties {
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        subTypes {
+            typeNames
+        }
+        entities(input: { start: 0, count: 1 }) {
+            total
+        }
+        container {
+            ...entityContainer
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        status {
+            removed
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+    }
+}

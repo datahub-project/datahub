@@ -1,0 +1,98 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:hbevan",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
+                        "active": true,
+                        "displayName": "Hester Bevan",
+                        "firstName": "Hester",
+                        "lastName": "Bevan",
+                        "fullName": "Hester Bevan"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:HR Department",
+                            "urn:li:corpGroup:Finance Department"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:ehaas",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
+                        "active": true,
+                        "displayName": "Evalyn Haas",
+                        "firstName": "Evalyn",
+                        "lastName": "Haas",
+                        "fullName": "Evalyn Haas"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:HR Department",
+                            "urn:li:corpGroup:Finance Department"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:ehaas",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hbevan",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

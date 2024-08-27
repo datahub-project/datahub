@@ -1,0 +1,203 @@
+{
+  "models" : [ {
+    "type" : "record",
+    "name" : "AuditStamp",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+    "fields" : [ {
+      "name" : "time",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Time",
+        "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
+        "ref" : "long"
+      },
+      "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+    }, {
+      "name" : "actor",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Urn",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.urn.Urn"
+        }
+      },
+      "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+    }, {
+      "name" : "impersonator",
+      "type" : "Urn",
+      "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+      "optional" : true
+    }, {
+      "name" : "message",
+      "type" : "string",
+      "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
+      "optional" : true
+    } ]
+  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
+    "type" : "typeref",
+    "name" : "VersionedUrn",
+    "namespace" : "com.linkedin.common.versioned",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.urn.VersionedUrn",
+      "coercerClass" : "com.linkedin.util.VersionedUrnCoercer"
+    }
+  }, {
+    "type" : "record",
+    "name" : "Aspect",
+    "namespace" : "com.linkedin.entity",
+    "doc" : "Placeholder PDL record to store the aspect in the response. By using this place-holder, metadata-service can return\nany type of aspect without having to define a single union class",
+    "fields" : [ ]
+  }, {
+    "type" : "enum",
+    "name" : "AspectType",
+    "namespace" : "com.linkedin.entity",
+    "doc" : "The type of a DataHub aspect",
+    "symbols" : [ "VERSIONED", "TIMESERIES" ],
+    "symbolDocs" : {
+      "TIMESERIES" : "Designates an aspect that represents a point-in-time data point",
+      "VERSIONED" : "Designates an aspect that has a monotonically increasing version number"
+    }
+  }, {
+    "type" : "record",
+    "name" : "EntityResponse",
+    "namespace" : "com.linkedin.entity",
+    "doc" : "A DataHub 'entity', which is comprised of a set of latest aspects present for the aspect.\n",
+    "fields" : [ {
+      "name" : "entityName",
+      "type" : "string",
+      "doc" : "The entity name\n"
+    }, {
+      "name" : "urn",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "The entity urn\n"
+    }, {
+      "name" : "aspects",
+      "type" : {
+        "type" : "map",
+        "values" : {
+          "type" : "record",
+          "name" : "EnvelopedAspect",
+          "doc" : "An aspect, along with the metadata about it.\nCurrently, an aspect can be either of type 'timestamp' or 'versioned'.\n",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "The name of the aspect\n"
+          }, {
+            "name" : "type",
+            "type" : "AspectType",
+            "doc" : "The type of the aspect, either timeseries or versioned\n"
+          }, {
+            "name" : "version",
+            "type" : "long",
+            "doc" : "The version of the aspect, only populated if type is 'VERSIONED'\n",
+            "optional" : true
+          }, {
+            "name" : "timestamp",
+            "type" : "long",
+            "doc" : "The timestamp of the aspect, only populated if type is 'TIMESTAMP'\n",
+            "optional" : true
+          }, {
+            "name" : "value",
+            "type" : "Aspect",
+            "doc" : "The raw value of the aspect\n"
+          }, {
+            "name" : "created",
+            "type" : "com.linkedin.common.AuditStamp",
+            "doc" : "The audit stamp detailing who the aspect was created by and when\n"
+          }, {
+            "name" : "systemMetadata",
+            "type" : {
+              "type" : "record",
+              "name" : "SystemMetadata",
+              "namespace" : "com.linkedin.mxe",
+              "doc" : "Metadata associated with each metadata change that is processed by the system",
+              "fields" : [ {
+                "name" : "lastObserved",
+                "type" : "long",
+                "doc" : "The timestamp the metadata was observed at",
+                "default" : 0,
+                "optional" : true
+              }, {
+                "name" : "runId",
+                "type" : "string",
+                "doc" : "The original run id that produced the metadata. Populated in case of batch-ingestion.",
+                "default" : "no-run-id-provided",
+                "optional" : true
+              }, {
+                "name" : "lastRunId",
+                "type" : "string",
+                "doc" : "The last run id that produced the metadata. Populated in case of batch-ingestion.",
+                "default" : "no-run-id-provided",
+                "optional" : true
+              }, {
+                "name" : "pipelineName",
+                "type" : "string",
+                "doc" : "The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion.",
+                "optional" : true
+              }, {
+                "name" : "registryName",
+                "type" : "string",
+                "doc" : "The model registry name that was used to process this event",
+                "optional" : true
+              }, {
+                "name" : "registryVersion",
+                "type" : "string",
+                "doc" : "The model registry version that was used to process this event",
+                "optional" : true
+              }, {
+                "name" : "properties",
+                "type" : {
+                  "type" : "map",
+                  "values" : "string"
+                },
+                "doc" : "Additional properties",
+                "optional" : true
+              }, {
+                "name" : "version",
+                "type" : "string",
+                "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
+                "optional" : true
+              } ]
+            },
+            "doc" : "The system metadata for this aspect\n",
+            "optional" : true
+          } ]
+        }
+      },
+      "doc" : "A map of aspect name to aspect\n"
+    } ]
+  }, "com.linkedin.entity.EnvelopedAspect", "com.linkedin.mxe.SystemMetadata" ],
+  "schema" : {
+    "name" : "entitiesVersionedV2",
+    "namespace" : "com.linkedin.entity",
+    "path" : "/entitiesVersionedV2",
+    "schema" : "com.linkedin.entity.EntityResponse",
+    "doc" : "Single unified resource for fetching, updating, searching, & browsing versioned DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.EntityVersionedV2Resource",
+    "resourceClass" : "com.linkedin.metadata.resources.entity.EntityVersionedV2Resource",
+    "collection" : {
+      "identifier" : {
+        "name" : "entitiesVersionedV2Id",
+        "type" : "com.linkedin.common.versioned.VersionedUrn"
+      },
+      "supports" : [ "batch_get" ],
+      "methods" : [ {
+        "method" : "batch_get",
+        "javaMethodName" : "batchGetVersioned",
+        "parameters" : [ {
+          "name" : "entityType",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        } ]
+      } ],
+      "entity" : {
+        "path" : "/entitiesVersionedV2/{entitiesVersionedV2Id}"
+      }
+    }
+  }
+}

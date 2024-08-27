@@ -1,0 +1,57 @@
+fragment childGlossaryTerm on GlossaryTerm {
+    urn
+    type
+    name
+    hierarchicalName
+    properties {
+        name
+    }
+}
+
+query getGlossaryNode($urn: String!) {
+    glossaryNode(urn: $urn) {
+        urn
+        type
+        exists
+        properties {
+            name
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        parentNodes {
+            ...parentNodesFields
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
+            total
+            relationships {
+                direction
+                entity {
+                    type
+                    urn
+                    ... on GlossaryNode {
+                        ...glossaryNode
+                    }
+                    ... on GlossaryTerm {
+                        ...childGlossaryTerm
+                    }
+                }
+            }
+        }
+    }
+}

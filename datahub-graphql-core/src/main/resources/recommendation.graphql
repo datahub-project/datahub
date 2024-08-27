@@ -1,0 +1,262 @@
+extend type Query {
+  """
+  Fetch recommendations for a particular scenario
+  """
+  listRecommendations(input: ListRecommendationsInput!): ListRecommendationsResult
+}
+
+"""
+Input arguments for fetching UI recommendations
+"""
+input ListRecommendationsInput {
+  """
+  Urn of the actor requesting recommendations
+  """
+  userUrn: String!
+
+  """
+  Context provider by the caller requesting recommendations
+  """
+  requestContext: RecommendationRequestContext
+
+  """
+  Max number of modules to return
+  """
+  limit: Int
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+}
+
+"""
+Type of the scenario requesting recommendation
+"""
+enum ScenarioType {
+  """
+  Recommendations to show on the users home page
+  """
+  HOME,
+
+  """
+  Recommendations to show on the search results page
+  """
+  SEARCH_RESULTS,
+
+  """
+  Recommendations to show on an Entity Profile page
+  """
+  ENTITY_PROFILE,
+
+  """
+  Recommendations to show on the search bar when clicked
+  """
+  SEARCH_BAR
+}
+
+"""
+Context that defines the page requesting recommendations
+i.e. for search pages, the query/filters. for entity pages, the entity urn and tab
+"""
+input RecommendationRequestContext {
+  """
+  Scenario in which the recommendations will be displayed
+  """
+  scenario: ScenarioType!
+
+  """
+  Additional context for defining the search page requesting recommendations
+  """
+  searchRequestContext: SearchRequestContext
+
+  """
+  Additional context for defining the entity page requesting recommendations
+  """
+  entityRequestContext: EntityRequestContext
+}
+
+"""
+Context that defines a search page requesting recommendatinos
+"""
+input SearchRequestContext {
+  """
+  Search query
+  """
+  query: String!
+
+	"""
+	Faceted filters applied to search results
+	"""
+	filters: [FacetFilterInput!]
+}
+
+"""
+Context that defines an entity page requesting recommendations
+"""
+input EntityRequestContext {
+
+  """
+  Type of the enity being displayed
+  """
+  type: EntityType!
+
+  """
+  Urn of the entity being displayed
+  """
+  urn: String!
+}
+
+"""
+Results returned by the ListRecommendations query
+"""
+type ListRecommendationsResult {
+  """
+  List of modules to show
+  """
+  modules: [RecommendationModule!]!
+}
+
+type RecommendationModule {
+  """
+  Title of the module to display
+  """
+  title: String!
+
+  """
+  Unique id of the module being recommended
+  """
+  moduleId: String!
+
+  """
+  Type of rendering that defines how the module should be rendered
+  """
+  renderType: RecommendationRenderType!
+
+  """
+  List of content to display inside the module
+  """
+  content: [RecommendationContent!]!
+}
+
+"""
+Enum that defines how the modules should be rendered.
+There should be two frontend implementation of large and small modules per type.
+"""
+enum RecommendationRenderType {
+  """
+  Simple list of entities
+  """
+  ENTITY_NAME_LIST,
+
+  """
+  List of platforms
+  """
+  PLATFORM_SEARCH_LIST,
+
+  """
+  Tag search list
+  """
+  TAG_SEARCH_LIST,
+
+  """
+  A list of recommended search queries
+  """
+  SEARCH_QUERY_LIST
+
+  """
+  Glossary Term search list
+  """
+  GLOSSARY_TERM_SEARCH_LIST
+
+  """
+  Domain Search List
+  """
+  DOMAIN_SEARCH_LIST
+}
+
+"""
+Content to display within each recommendation module
+"""
+type RecommendationContent {
+  """
+  String representation of content
+  """
+  value: String!
+
+  """
+  Entity being recommended. Empty if the content being recommended is not an entity
+  """
+  entity: Entity
+
+  """
+  Additional context required to generate the the recommendation
+  """
+  params: RecommendationParams
+}
+
+"""
+Parameters required to render a recommendation of a given type
+"""
+type RecommendationParams {
+  """
+  Context to define the search recommendations
+  """
+  searchParams: SearchParams
+
+  """
+  Context to define the entity profile page
+  """
+  entityProfileParams: EntityProfileParams
+
+  """
+  Context about the recommendation
+  """
+  contentParams: ContentParams
+}
+
+"""
+Context to define the search recommendations
+"""
+type SearchParams {
+  """
+  Entity types to be searched. If this is not provided, all entities will be searched.
+  """
+  types: [EntityType!]
+
+  """
+  Search query
+  """
+  query: String!
+
+  """
+  Filters
+  """
+  filters: [FacetFilter!]
+}
+
+"""
+Context to define the entity profile page
+"""
+type EntityProfileParams {
+  """
+  Urn of the entity being shown
+  """
+  urn: String!
+
+  """
+  Type of the enity being displayed
+  """
+  type: EntityType!
+
+}
+
+"""
+Params about the recommended content
+"""
+type ContentParams {
+  """
+  Number of entities corresponding to the recommended content
+  """
+  count: Long
+}

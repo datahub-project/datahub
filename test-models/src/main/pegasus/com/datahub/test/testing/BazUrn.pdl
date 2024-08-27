@@ -1,0 +1,23 @@
+namespace com.datahub.test.testing
+
+/**
+ * Baz identifier.
+ */
+@java = {
+  "class" : "com.datahub.test.testing.urn.BazUrn",
+  "coercerClass" : "com.datahub.test.testing.urn.BazUrnCoercer"
+}
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "owningTeam" : "urn:li:internalTeam:metadata",
+  "entityType" : "entityBaz",
+  "namespace" : "li",
+  "name" : "Baz",
+  "doc" : "Baz identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "int",
+    "name" : "bazId",
+    "doc" : "GUID for baz"
+  } ]
+}
+typeref BazUrn = string

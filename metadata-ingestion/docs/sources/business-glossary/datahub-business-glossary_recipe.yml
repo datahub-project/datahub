@@ -1,0 +1,8 @@
+source:
+  type: datahub-business-glossary
+  config:
+    # Coordinates
+    file: /path/to/business_glossary_yaml
+    enable_auto_id: true # recommended to set to true so datahub will auto-generate guids from your term names
+
+# sink configs if needed

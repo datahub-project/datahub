@@ -1,0 +1,2 @@
+stuff:
+  password: ${SOME_PASSWORD

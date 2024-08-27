@@ -1,0 +1,54 @@
+namespace com.linkedin.glossary
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.GlossaryNodeUrn
+
+/**
+ * Properties associated with a GlossaryNode
+ */
+@Aspect = {
+   "name": "glossaryNodeInfo"
+}
+record GlossaryNodeInfo includes CustomProperties {
+
+  /**
+   * Definition of business node
+   */
+  @Searchable = {}
+  definition: string
+
+  /**
+   * Parent node of the glossary term
+   */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "glossaryNode" ],
+  }
+  @Searchable = {
+    "fieldName": "parentNode",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasParentNode"
+  }
+  parentNode: optional GlossaryNodeUrn
+
+    /**
+     * Display name of the node
+     */
+    @Searchable = {
+      "fieldName": "displayName",
+      "fieldType": "WORD_GRAM",
+      "enableAutocomplete": true,
+      "boostScore": 10.0,
+      "fieldNameAliases": [ "_entityName" ]
+    }
+    name: optional string
+
+    /**
+     * Optional id for the GlossaryNode
+     */
+    @Searchable = {
+      "fieldType": "TEXT_PARTIAL",
+    }
+    id: optional string
+
+}

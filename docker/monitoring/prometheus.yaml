@@ -1,0 +1,10 @@
+scrape_configs:
+  - job_name: 'jmx'
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+        - 'host.docker.internal:4318'
+        - 'datahub-gms:4318'
+        - 'datahub-mae-consumer:4318'
+        - 'datahub-mce-consumer:4318'
+        - 'datahub-frontend-react:4318'

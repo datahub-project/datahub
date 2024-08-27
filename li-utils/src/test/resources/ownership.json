@@ -1,0 +1,8 @@
+{
+  "owners": [
+    {
+      "owner": "urn:li:corpuser:foo",
+      "type": "DEVELOPER"
+    }
+  ]
+}

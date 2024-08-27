@@ -1,0 +1,392 @@
+[
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1650783600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 3000, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1550, \"uniqueProportion\": 0.5, \"nullCount\": 310, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1650870000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2900, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1500, \"uniqueProportion\": 0.5, \"nullCount\": 300, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1650956400000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2800, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1450, \"uniqueProportion\": 0.5, \"nullCount\": 290, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651042800000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2700, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1400, \"uniqueProportion\": 0.5, \"nullCount\": 280, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651129200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2600, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1350, \"uniqueProportion\": 0.5, \"nullCount\": 270, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651215600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2500, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1300, \"uniqueProportion\": 0.5, \"nullCount\": 260, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651302000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2400, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1250, \"uniqueProportion\": 0.5, \"nullCount\": 250, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651388400000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2300, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1200, \"uniqueProportion\": 0.5, \"nullCount\": 240, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651474800000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2200, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1150, \"uniqueProportion\": 0.5, \"nullCount\": 230, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651561200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2100, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1100, \"uniqueProportion\": 0.5, \"nullCount\": 220, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651647600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2000, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1050, \"uniqueProportion\": 0.5, \"nullCount\": 210, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651734000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1900, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 1000, \"uniqueProportion\": 0.5, \"nullCount\": 200, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651820400000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1800, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 950, \"uniqueProportion\": 0.5, \"nullCount\": 190, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651906800000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1700, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 900, \"uniqueProportion\": 0.5, \"nullCount\": 180, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1651993200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1600, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 850, \"uniqueProportion\": 0.5, \"nullCount\": 170, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652079600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1500, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 800, \"uniqueProportion\": 0.5, \"nullCount\": 160, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652166000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1400, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 750, \"uniqueProportion\": 0.5, \"nullCount\": 150, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652252400000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1300, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 700, \"uniqueProportion\": 0.5, \"nullCount\": 140, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652338800000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1200, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 650, \"uniqueProportion\": 0.5, \"nullCount\": 130, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652425200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1100, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 600, \"uniqueProportion\": 0.5, \"nullCount\": 120, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652511600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1000, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 550, \"uniqueProportion\": 0.5, \"nullCount\": 110, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652598000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 900, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 500, \"uniqueProportion\": 0.5, \"nullCount\": 100, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652684400000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 800, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 450, \"uniqueProportion\": 0.5, \"nullCount\": 90, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652770800000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 700, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 400, \"uniqueProportion\": 0.5, \"nullCount\": 80, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652857200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 600, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 350, \"uniqueProportion\": 0.5, \"nullCount\": 70, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1652943600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 500, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 300, \"uniqueProportion\": 0.5, \"nullCount\": 60, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1653030000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 400, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 250, \"uniqueProportion\": 0.5, \"nullCount\": 50, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1653116400000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 300, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 200, \"uniqueProportion\": 0.5, \"nullCount\": 40, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1653202800000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 200, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 150, \"uniqueProportion\": 0.5, \"nullCount\": 30, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test_rollback,rollback_test_dataset,TEST)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1653289200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 100, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"test_column\", \"uniqueCount\": 100, \"uniqueProportion\": 0.5, \"nullCount\": 20, \"nullProportion\": 0.1, \"min\": \"10\", \"max\": \"20\", \"mean\": \"15\", \"median\": \"12\", \"stdev\": \"3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": null
+}
+]

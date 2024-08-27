@@ -1,0 +1,215 @@
+plugins {
+  id("com.palantir.git-version") apply false
+  id 'java'
+  id 'com.github.johnrengelman.shadow'
+  id 'jacoco'
+  id 'signing'
+  id 'io.codearte.nexus-staging'
+  id 'maven-publish'
+}
+
+apply from: "../versioning.gradle"
+import org.apache.tools.ant.filters.ReplaceTokens
+
+
+jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
+
+dependencies {
+  implementation project(':entity-registry')
+  implementation project(':metadata-integration:java:datahub-event')
+  implementation(externalDependency.kafkaAvroSerializer) {
+    exclude group: "org.apache.avro"
+  }
+  implementation externalDependency.avro
+  implementation externalDependency.httpClient
+
+  constraints {
+    implementation('commons-collections:commons-collections:3.2.2') {
+      because 'Vulnerability Issue'
+    }
+  }
+
+  implementation externalDependency.awsS3
+  implementation externalDependency.jacksonDataBind
+  runtimeOnly externalDependency.jna
+
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  // VisibleForTesting
+  compileOnly externalDependency.guava
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockServer
+  testImplementation externalDependency.mockServerClient
+  testImplementation externalDependency.testContainers
+  testRuntimeOnly externalDependency.logbackClassic
+}
+
+task copyAvroSchemas {
+  dependsOn(':metadata-events:mxe-schemas:renameNamespace')
+  copy {
+    from file('../../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')
+    into file('./src/main/resources')
+  }
+}
+
+compileJava.dependsOn copyAvroSchemas
+
+jacocoTestReport {
+  dependsOn test // tests are required to run before generating the report
+}
+
+test {
+  // to avoid simultaneous executions of tests when complete build is run
+  mustRunAfter(":metadata-io:test")
+  useJUnit()
+  finalizedBy jacocoTestReport
+}
+
+task checkShadowJar(type: Exec) {
+  commandLine 'sh', '-c', 'scripts/check_jar.sh'
+}
+
+shadowJar {
+  zip64 = true
+  archiveClassifier = ''
+  // preventing java multi-release JAR leakage
+  // https://github.com/johnrengelman/shadow/issues/729
+  exclude('module-info.class', 'META-INF/versions/**',
+      '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
+  mergeServiceFiles()
+  // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
+  // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
+  relocate 'org.springframework', 'datahub.shaded.org.springframework'
+  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+  relocate 'org.yaml', 'datahub.shaded.org.yaml' // Required for shading snakeyaml
+  relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
+  relocate 'javassist', 'datahub.shaded.javassist'
+  relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
+  relocate 'org.antlr', 'datahub.shaded.org.antlr'
+  relocate 'antlr', 'datahub.shaded.antlr'
+  relocate 'com.google.common', 'datahub.shaded.com.google.common'
+  relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
+  relocate 'org.apache.maven', 'datahub.shaded.org.apache.maven'
+  relocate 'org.reflections', 'datahub.shaded.org.reflections'
+  relocate 'st4hidden', 'datahub.shaded.st4hidden'
+  relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
+  relocate 'org.abego.treelayout', 'datahub.shaded.treelayout'
+  relocate 'org.slf4j', 'datahub.shaded.slf4j'
+  relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
+  relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
+  relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
+  relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
+  // Below jars added for kafka emitter only
+  relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
+  relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
+  relocate 'org.xerial.snappy', 'datahub.shaded.org.xerial.snappy'
+  relocate 'org.apache.kafka', 'datahub.shaded.org.apache.kafka'
+  relocate 'org.apache.http', 'datahub.shaded.org.apache.http'
+  relocate 'software.amazon.awssdk', 'datahub.shaded.software.amazon.awssdk'
+  relocate 'io.confluent', 'datahub.shaded.io.confluent'
+  relocate 'org.apache.zookeeper', 'datahub.shaded.org.apache.zookeeper'
+  relocate 'org.apache.yetus', 'datahub.shaded.org.apache.yetus'
+  relocate 'jline', 'datahub.shaded.jline'
+  relocate 'org.apache.jute', 'datahub.shaded.org.apache.jute'
+  relocate 'org.I0Itec.zkclient', 'datahub.shaded.org.I0Itec.zkclient'
+  relocate 'net.jpountz', 'datahub.shaded.net.jpountz'
+  relocate 'com.github.luben', 'datahub.shaded.com.github.luben'
+  relocate 'common.message', 'datahub.shaded.common.message'
+  relocate 'org.glassfish', 'datahub.shaded.org.glassfish'
+  relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
+  relocate 'io.github.classgraph', 'datahub.shaded.io.github.classgraph'
+  relocate 'nonapi.io.github.classgraph', 'datahub.shaded.nonapi.io.github.classgraph'
+  relocate 'org.eclipse.parsson', 'datahub.shaded.parsson'
+  relocate 'jakarta.json', 'datahub.shaded.json'
+  relocate 'io.netty', 'datahub.shaded.io.netty'
+  relocate 'org.apache.hc', 'datahub.shaded.org.apache.hc'
+  relocate 'org.reactivestreams', 'datahub.shaded.org.reactivestreams'
+  relocate 'software.amazon.eventstream', 'datahub.shaded.software.amazon.eventstream'
+  finalizedBy checkShadowJar
+}
+
+checkShadowJar {
+  dependsOn shadowJar
+}
+
+assemble {
+  dependsOn shadowJar
+}
+compileTestJava.dependsOn shadowJar
+
+task sourcesJar(type: Jar) {
+  archiveClassifier = 'sources'
+  from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar) {
+  archiveClassifier = 'javadoc'
+  from javadoc
+}
+
+publishing {
+  publications {
+    shadow(MavenPublication) { publication ->
+      project.shadow.component(publication)
+      pom {
+        name = 'Datahub Client'
+        group = 'io.acryl'
+        artifactId = 'datahub-client'
+        description = 'DataHub Java client for metadata integration'
+        url = 'https://datahubproject.io'
+        artifacts = [shadowJar, javadocJar, sourcesJar]
+
+        scm {
+          connection = 'scm:git:git://github.com/datahub-project/datahub.git'
+          developerConnection = 'scm:git:ssh://github.com:datahub-project/datahub.git'
+          url = 'https://github.com/datahub-project/datahub.git'
+        }
+
+        licenses {
+          license {
+            name = 'The Apache License, Version 2.0'
+            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+          }
+        }
+
+        developers {
+          developer {
+            id = 'datahub'
+            name = 'Datahub'
+            email = 'datahub@acryl.io'
+          }
+        }
+      }
+    }
+  }
+
+  repositories {
+    maven {
+      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def ossrhUsername = System.getenv('RELEASE_USERNAME')
+      def ossrhPassword = System.getenv('RELEASE_PASSWORD')
+      credentials {
+        username ossrhUsername
+        password ossrhPassword
+      }
+      url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+    }
+  }
+}
+
+signing {
+  def signingKey = findProperty("signingKey")
+  def signingPassword = System.getenv("SIGNING_PASSWORD")
+  useInMemoryPgpKeys(signingKey, signingPassword)
+  sign publishing.publications.shadow
+}
+
+nexusStaging {
+  serverUrl = "https://s01.oss.sonatype.org/service/local/"
+  //required only for projects registered in Sonatype after 2021-02-24
+  username = System.getenv("NEXUS_USERNAME")
+  password = System.getenv("NEXUS_PASSWORD")
+}

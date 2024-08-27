@@ -1,0 +1,42 @@
+namespace com.linkedin.events.metadata
+
+/**
+ * Descriptor for a change action
+ */
+enum ChangeType {
+  /**
+   * insert if not exists. otherwise update
+   */
+  UPSERT
+
+  /**
+   * insert if not exists. otherwise fail
+   */
+  CREATE
+
+  /**
+   * NOT SUPPORTED YET
+   * update if exists. otherwise fail
+   */
+  UPDATE
+
+  /**
+   * delete action
+   */
+  DELETE
+
+  /**
+   * patch the changes instead of full replace
+   */
+  PATCH
+
+  /**
+   * Restate an aspect, eg. in a index refresh.
+   */
+  RESTATE
+
+  /**
+   * insert if entity not exists. otherwise fail
+   */
+  CREATE_ENTITY
+}

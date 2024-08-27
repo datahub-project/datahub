@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema text of binary JSON schema.
+ */
+record BinaryJsonSchema {
+
+  /**
+   * The native schema text for binary JSON file format.
+   */
+  schema: string
+}

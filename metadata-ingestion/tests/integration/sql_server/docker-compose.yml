@@ -1,0 +1,13 @@
+version: "3"
+services:
+  testsqlserver:
+    image: "mcr.microsoft.com/mssql/server:latest"
+    platform: linux/amd64
+    container_name: "testsqlserver"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "test!Password"
+    ports:
+      - 21433:1433
+    volumes:
+      - ./setup:/setup

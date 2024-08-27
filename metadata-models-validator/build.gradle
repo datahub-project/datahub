@@ -1,0 +1,17 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation project(":entity-registry")
+  implementation spec.product.pegasus.data
+  implementation spec.product.pegasus.generator
+
+  implementation externalDependency.commonsIo
+  implementation externalDependency.findbugsAnnotations
+  implementation externalDependency.guava
+
+  implementation externalDependency.slf4jApi
+  runtimeOnly externalDependency.logbackClassic
+  compileOnly externalDependency.lombok
+}

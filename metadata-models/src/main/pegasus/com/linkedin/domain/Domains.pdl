@@ -1,0 +1,31 @@
+namespace com.linkedin.domain
+
+import com.linkedin.common.Urn
+
+/**
+ * Links from an Asset to its Domains
+ */
+@Aspect = {
+  "name": "domains"
+}
+record Domains {
+  /**
+   * The Domains attached to an Asset
+   */
+  @Relationship = {
+    "/*": {
+      "name": "AssociatedWith",
+      "entityTypes": [ "domain" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "domains",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasDomain",
+      "addToFilters": true,
+      "filterNameOverride": "Domain"
+    }
+  }
+  domains: array[Urn]
+}

@@ -1,0 +1,62 @@
+namespace com.linkedin.common
+
+/**
+ * Fabric group type
+ */
+enum FabricType {
+
+  /**
+   * Designates development fabrics
+   */
+  DEV
+  
+  /**
+   * Designates testing fabrics
+   */
+  TEST
+  
+  /**
+   * Designates quality assurance fabrics
+   */
+  QA
+
+  /**
+   * Designates user acceptance testing fabrics
+   */
+  UAT
+
+  /**
+   * Designates early-integration fabrics
+   */
+  EI
+  
+  /**
+   * Designates pre-production fabrics
+   */
+  PRE
+  
+  /**
+   * Designates staging fabrics
+   */
+  STG
+
+  /**
+   * Designates non-production fabrics
+   */
+  NON_PROD
+  
+  /**
+   * Designates production fabrics
+   */
+  PROD
+
+  /**
+   * Designates corporation fabrics
+   */
+  CORP
+
+  /**
+   * Designates review fabrics
+   */
+  RVW
+}

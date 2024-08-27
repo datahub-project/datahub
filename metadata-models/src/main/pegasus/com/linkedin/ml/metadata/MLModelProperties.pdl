@@ -1,0 +1,132 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.Urn
+import com.linkedin.common.MLFeatureUrn
+import com.linkedin.common.Time
+import com.linkedin.common.VersionTag
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * Properties associated with a ML Model
+ */
+@Aspect = {
+  "name": "mlModelProperties"
+}
+record MLModelProperties includes CustomProperties, ExternalReference {
+
+  /**
+   * Documentation of the MLModel
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Date when the MLModel was developed
+   */
+  date: optional Time
+
+  /**
+   * Version of the MLModel
+   */
+  version: optional VersionTag
+
+  /**
+   * Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  type: optional string
+
+  /**
+   * Hyper Parameters of the MLModel
+   * 
+   * NOTE: these are deprecated in favor of hyperParams
+   */
+  hyperParameters: optional map[string, HyperParameterValueType]
+
+  /**
+   * Hyperparameters of the MLModel
+   */
+  hyperParams: optional array[MLHyperParam]
+
+  /**
+   * Metrics of the MLModel used in training
+   */
+  trainingMetrics: optional array[MLMetric]
+
+  /**
+   * Metrics of the MLModel used in production
+   */
+  onlineMetrics: optional array[MLMetric]
+
+  /**
+   * List of features used for MLModel training
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "mlFeature" ],
+      "isLineage": true
+    }
+  }
+  mlFeatures: optional array[MLFeatureUrn]
+
+  /**
+   * Tags for the MLModel
+   */
+  tags: array[string] = [ ]
+
+  /**
+   * Deployments for the MLModel
+   */
+  @Relationship = {
+    "/*": {
+      "name": "DeployedTo",
+      "entityTypes": [ "mlModelDeployment" ]
+    }
+  }
+  deployments: optional array[Urn]
+
+  /**
+   * List of jobs (if any) used to train the model
+   */
+  @Relationship = {
+    "/*": {
+      "name": "TrainedBy",
+      "entityTypes": [ "dataJob" ],
+      "isLineage": true
+    }
+  }
+  trainingJobs: optional array[Urn]
+
+  /**
+   * List of jobs (if any) that use the model
+   */
+  @Relationship = {
+    "/*": {
+      "name": "UsedBy",
+      "entityTypes": [ "dataJob" ],
+      "isLineage": true,
+      "isUpstream": false
+    }
+  }
+  downstreamJobs: optional array[Urn]
+
+  /**
+   * Groups the model belongs to
+   */
+  @Relationship = {
+    "/*": {
+      "name": "MemberOf",
+      "entityTypes": [ "mlModelGroup" ],
+      "isUpstream": false,
+      "isLineage": true
+    }
+  }
+  groups: optional array[Urn]
+}

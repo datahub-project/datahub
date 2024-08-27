@@ -1,0 +1,156 @@
+{
+  "username": "modeuser",
+  "name": "Jawad",
+  "id": 745240,
+  "token": "851572280993",
+  "email": "jqureshi@acryl.com",
+  "dataset_size_limit_mb": 10,
+  "query_run_size_limit_mb": 1000,
+  "email_verified": true,
+  "avatar": {
+    "initials": "JA",
+    "seed": "851572280993",
+    "color_class": "mode-avatar-color-8",
+    "type": "initials"
+  },
+  "user": true,
+  "data_source_count": 0,
+  "organizations_count": 1,
+  "created_at": "2021-11-29T19:32:33.401Z",
+  "_links": {
+    "self": {
+      "href": "/api/modeuser"
+    },
+    "web": {
+      "href": "/modeuser"
+    },
+    "web_settings": {
+      "href": "/settings"
+    },
+    "web_public_datasource_home": {
+      "href": "/home/modeuser/data_sources/0a671f65888c"
+    },
+    "web_spaces": {
+      "href": "/modeuser/spaces"
+    },
+    "web_groups": {
+      "href": "/organizations/modeuser/groups"
+    },
+    "web_new_organization": {
+      "href": "/organizations/new"
+    },
+    "data_sources": {
+      "href": "/api/modeuser/data_sources"
+    },
+    "data_source": {
+      "templated": true,
+      "href": "/api/modeuser/data_sources{/id}"
+    },
+    "home_web": {
+      "href": "/home/modeuser"
+    },
+    "home_starred_web": {
+      "href": "/home/modeuser/starred"
+    },
+    "home_explorations_web": {
+      "href": "/home/modeuser/explorations"
+    },
+    "home_search_web": {
+      "href": "/home/modeuser/search"
+    },
+    "new_invite_web": {
+      "href": "/modeuser/invites/new"
+    },
+    "new_upload_web": {
+      "href": "/modeuser/uploads/new"
+    },
+    "public_data_sources": {
+      "href": "/api/data_sources"
+    },
+    "organizations": {
+      "href": "/api/modeuser/organizations"
+    },
+    "preference": {
+      "href": "/api/modeuser/preferences"
+    },
+    "table": {
+      "templated": true,
+      "href": "/api/modeuser/tables{/id}"
+    },
+    "report": {
+      "templated": true,
+      "href": "/api/modeuser/reports{/id}"
+    },
+    "reports": {
+      "href": "/api/modeuser/reports"
+    },
+    "archived_reports": {
+      "href": "/api/modeuser/reports?filter=archived"
+    },
+    "public_reports": {
+      "href": "/api/modeuser/reports?filter=public"
+    },
+    "drafts_reports": {
+      "href": "/api/modeuser/reports?filter=drafts"
+    },
+    "starred_reports": {
+      "href": "/api/modeuser/reports?filter=starred"
+    },
+    "by_ids_reports": {
+      "templated": true,
+      "href": "/api/modeuser/reports?filter=by_ids&ids={ids}"
+    },
+    "viewed_reports": {
+      "href": "/api/modeuser/reports?filter=viewed"
+    },
+    "by_tokens_definitions": {
+      "templated": true,
+      "href": "/api/modeuser/definitions?filter=by_tokens&tokens={tokens}"
+    },
+    "bridges": {
+      "href": "/api/modeuser/bridges"
+    },
+    "access_tokens": {
+      "href": "/api/modeuser/access_tokens"
+    },
+    "new_report": {
+      "href": "/api/modeuser/reports/new"
+    },
+    "new_report_web": {
+      "href": "/editor/modeuser/reports/new"
+    },
+    "validate_table": {
+      "href": "/api/table/validate"
+    },
+    "report_views": {
+      "href": "/api/modeuser/report_views"
+    },
+    "spaces": {
+      "href": "/api/modeuser/collections"
+    },
+    "space": {
+      "templated": true,
+      "href": "/api/modeuser/collections{/id}"
+    },
+    "custom_spaces": {
+      "href": "/api/modeuser/collections?filter=custom"
+    },
+    "move_to_spaces": {
+      "href": "/api/modeuser/collections?filter=editable"
+    },
+    "definitions": {
+      "href": "/api/modeuser/definitions"
+    },
+    "definition": {
+      "templated": true,
+      "href": "/api/modeuser/definitions{/id}"
+    },
+    "all_color_palettes": {
+      "href": "/api/color_palettes/predefined"
+    },
+    "validate_definition_name": {
+      "templated": true,
+      "href": "/api/modeuser/definitions/validate{?definition[name]}"
+    }
+  }
+}

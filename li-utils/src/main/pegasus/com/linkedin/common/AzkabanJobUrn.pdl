@@ -1,0 +1,28 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized azkaban job identifier.
+ */
+@java.class = "com.linkedin.common.urn.AzkabanJobUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "azkabanJob",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "AzkabanJob",
+  "doc" : "Standardized azkaban job identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "com.linkedin.common.urn.AzkabanFlowUrn",
+    "name" : "flow",
+    "doc" : "Standardized azkaban flow urn representing the flow for the job"
+  }, {
+    "name" : "jobID",
+    "doc" : "Id or name of the azkaban job",
+    "type" : "string",
+    "maxLength" : 200
+  } ],
+  "maxLength" : 464
+}
+typeref AzkabanJobUrn = string

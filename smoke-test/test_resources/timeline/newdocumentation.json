@@ -1,0 +1,12 @@
+{
+  "elements": [
+    {
+      "url": "https://www.linkedin.com",
+      "description": "Sample doc",
+      "createStamp": {
+        "time": 1581407189000,
+        "actor": "urn:li:corpuser:jdoe"
+      }
+    }
+  ]
+}

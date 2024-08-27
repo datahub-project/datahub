@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema text for the data definition language that describes an Relational DBMS table.
+ */
+record DDL {
+
+  /**
+   * The native SQL DDL that describe an Relational DBMS table.
+   */
+  tableDDL: string
+}

@@ -1,0 +1,33 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * The model for browse result metadata
+ */
+record BrowseResultMetadata {
+
+  /**
+   * Path that is being browsed
+   */
+  path: string
+
+  /**
+   * A list of groups and total number of entities inside those groups under the queried path
+   */
+  groups: array[record BrowseResultGroup {
+
+    /**
+     * Name of the group
+     */
+    name: string
+
+    /**
+     * Number of entities that can be reached from this path
+     */
+    count: long
+  }] = [ ]
+
+  /**
+   * Total number of entities we can reach from path
+   */
+  totalNumEntities: long
+}

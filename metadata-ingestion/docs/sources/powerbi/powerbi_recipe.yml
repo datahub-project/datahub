@@ -1,0 +1,79 @@
+source:
+  type: "powerbi"
+  config:
+    # Your Power BI tenant identifier
+    tenant_id: a949d688-67c0-4bf1-a344-e939411c6c0a
+
+    # Azure AD Application identifier
+    client_id: foo
+    # Azure AD App client secret
+    client_secret: bar
+    
+    # Ingest elements of below PowerBi Workspace into Datahub
+    workspace_id_pattern:
+      allow:
+        - 4bd10256-e999-45dd-8e56-571c77153a5f
+      deny:
+
+    # Enable / Disable ingestion of ownership information for dashboards
+    extract_ownership: true
+    
+    # Enable/Disable extracting workspace information to DataHub containers
+    extract_workspaces_to_containers: true
+    
+    # Enable / Disable ingestion of endorsements.
+    # Please notice that this may overwrite any existing tags defined to ingested entities!
+    extract_endorsements_to_tags: false
+    
+    # Optional -- This mapping is optional and only required to configure platform-instance for upstream tables
+    # A mapping of PowerBI datasource's server i.e host[:port] to data platform instance.
+    # :port is optional and only needed if your datasource server is running on non-standard port.
+    # For Google BigQuery the datasource's server is google bigquery project name
+    server_to_platform_instance:
+        ap-south-1.snowflakecomputing.com:
+          platform_instance: operational_instance
+          env: DEV
+        oracle-server:1920:
+          platform_instance: high_performance_production_unit
+          env: PROD
+        big-query-sales-project:
+          platform_instance: sn-2
+          env: QA
+
+    # Need admin_api, only ingest workspace that are modified since...
+    modified_since: "2023-02-10T00:00:00.0000000Z"
+
+    ownership:
+        # create powerbi user as datahub corpuser, false will still extract ownership of workspace/ dashboards
+        create_corp_user: false
+        # use email to build user urn instead of powerbi user identifier
+        use_powerbi_email: true
+        # remove email suffix like @acryl.io
+        remove_email_suffix: true
+        # only ingest user with certain authority
+        owner_criteria: ["ReadWriteReshareExplore","Owner","Admin"]
+    # wrap powerbi tables (datahub dataset) under 1 powerbi dataset (datahub container)
+    extract_datasets_to_containers: true
+    # only ingest dataset that are endorsed, like "Certified"
+    filter_dataset_endorsements: 
+      allow:
+        - Certified
+      
+    # extract powerbi dashboards and tiles
+    extract_dashboards: false
+    # extract powerbi dataset table schema
+    extract_dataset_schema: true
+
+    # Enable PowerBI dataset profiling
+    profiling:
+      enabled: false
+    # Pattern to limit which resources to profile
+    # Matched resource format is following:
+    # workspace_name.dataset_name.table_name
+    profile_pattern:
+      deny:
+        - .*
+
+
+sink:
+  # sink configs

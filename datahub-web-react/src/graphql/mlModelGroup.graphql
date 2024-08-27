@@ -1,0 +1,41 @@
+query getMLModelGroup($urn: String!) {
+    mlModelGroup(urn: $urn) {
+        urn
+        type
+        ...nonRecursiveMLModelGroupFields
+        incoming: relationships(
+            input: {
+                types: ["DownstreamOf", "Consumes", "Produces", "TrainedBy", "MemberOf"]
+                direction: INCOMING
+                start: 0
+                count: 100
+            }
+        ) {
+            ...fullRelationshipResults
+        }
+        outgoing: relationships(
+            input: {
+                types: ["DownstreamOf", "Consumes", "Produces", "TrainedBy", "MemberOf"]
+                direction: OUTGOING
+                start: 0
+                count: 100
+            }
+        ) {
+            ...fullRelationshipResults
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+    }
+}

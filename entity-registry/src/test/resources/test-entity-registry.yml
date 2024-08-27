@@ -1,0 +1,16 @@
+id: test-registry
+entities:
+  - name: dataset
+    keyAspect: datasetKey
+    category: core
+    aspects:
+      - datasetProperties
+      - schemaMetadata
+      - status
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - chartInfo
+      - status
+events:
+  - name: testEvent

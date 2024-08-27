@@ -1,0 +1,105 @@
+query appConfig {
+    appConfig {
+        appVersion
+        policiesConfig {
+            enabled
+            platformPrivileges {
+                type
+                displayName
+                description
+            }
+            resourcePrivileges {
+                resourceType
+                resourceTypeDisplayName
+                entityType
+                privileges {
+                    type
+                    displayName
+                    description
+                }
+            }
+        }
+        analyticsConfig {
+            enabled
+        }
+        authConfig {
+            tokenAuthEnabled
+        }
+        identityManagementConfig {
+            enabled
+        }
+        lineageConfig {
+            supportsImpactAnalysis
+        }
+        managedIngestionConfig {
+            enabled
+        }
+        visualConfig {
+            logoUrl
+            faviconUrl
+            queriesTab {
+                queriesTabResultSize
+            }
+            entityProfiles {
+                domain {
+                    defaultTab
+                }
+            }
+            searchResult {
+                enableNameHighlight
+            }
+        }
+        telemetryConfig {
+            enableThirdPartyLogging
+        }
+        testsConfig {
+            enabled
+        }
+        viewsConfig {
+            enabled
+        }
+        featureFlags {
+            readOnlyModeEnabled
+            showSearchFiltersV2
+            showBrowseV2
+            showAcrylInfo
+            erModelRelationshipFeatureEnabled
+            showAccessManagement
+            nestedDomainsEnabled
+            platformBrowseV2
+            businessAttributeEntityEnabled
+            dataContractsEnabled
+            editableDatasetNameEnabled
+            showSeparateSiblings
+        }
+    }
+}
+
+query getEntityCounts($input: EntityCountInput) {
+    getEntityCounts(input: $input) {
+        counts {
+            entityType
+            count
+        }
+    }
+}
+
+query getGlobalViewsSettings {
+    globalViewsSettings {
+        defaultView
+    }
+}
+
+query getDocPropagationSettings {
+    docPropagationSettings {
+        docColumnPropagation
+    }
+}
+
+mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
+    updateGlobalViewsSettings(input: $input)
+}
+
+mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!) {
+    updateDocPropagationSettings(input: $input)
+}

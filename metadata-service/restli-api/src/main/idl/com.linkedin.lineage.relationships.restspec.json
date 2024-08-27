@@ -1,0 +1,67 @@
+{
+  "name" : "relationships",
+  "namespace" : "com.linkedin.lineage",
+  "path" : "/relationships",
+  "schema" : "com.linkedin.common.EntityRelationships",
+  "doc" : "Rest.li entry point: /relationships?type={entityType}&direction={direction}&types={types}\n\ngenerated from: com.linkedin.metadata.resources.lineage.Relationships",
+  "resourceClass" : "com.linkedin.metadata.resources.lineage.Relationships",
+  "simple" : {
+    "supports" : [ "delete", "get" ],
+    "methods" : [ {
+      "method" : "get",
+      "javaMethodName" : "get",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "types",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      }, {
+        "name" : "direction",
+        "type" : "string"
+      }, {
+        "name" : "start",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "count",
+        "type" : "int",
+        "optional" : true
+      } ]
+    }, {
+      "method" : "delete",
+      "javaMethodName" : "delete",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      } ]
+    } ],
+    "actions" : [ {
+      "name" : "getLineage",
+      "javaMethodName" : "getLineage",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "direction",
+        "type" : "string"
+      }, {
+        "name" : "start",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "count",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "maxHops",
+        "type" : "int",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.graph.EntityLineageResult"
+    } ],
+    "entity" : {
+      "path" : "/relationships"
+    }
+  }
+}

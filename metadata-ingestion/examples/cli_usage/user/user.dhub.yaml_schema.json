@@ -1,0 +1,90 @@
+{
+    "title": "CorpUserFile",
+    "anyOf": [
+        {
+            "$ref": "#/definitions/CorpUser"
+        },
+        {
+            "$ref": "#/definitions/CorpUserList"
+        }
+    ],
+    "definitions": {
+        "CorpUser": {
+            "title": "CorpUser",
+            "description": "This is a CorpUser class which represents a CorpUser\n\nArgs:\n    id (str): The id of the user\n    display_name (Optional[str]): The name of the user to display in the UI\n    email (Optional[str]): email address of this user\n    title (Optional[str]): title of this user\n    manager_urn (Optional[str]): direct manager of this user\n    department_id (Optional[int]): department id this user belongs to\n    department_name (Optional[str]): department name this user belongs to\n    first_name (Optional[str]): first name of this user\n    last_name (Optional[str]): last name of this user\n    full_name (Optional[str]): Common name of this user, format is firstName + lastName (split by a whitespace)\n    country_code (Optional[str]): two uppercase letters country code. e.g.  US\n    groups (List[str]): List of group ids the user belongs to\n    description (Optional[str]): A description string for the user\n    slack (Optional[str]): Slack handle for the user",
+            "type": "object",
+            "properties": {
+                "id": {
+                    "title": "Id",
+                    "type": "string"
+                },
+                "display_name": {
+                    "title": "Display Name",
+                    "type": "string"
+                },
+                "email": {
+                    "title": "Email",
+                    "type": "string"
+                },
+                "title": {
+                    "title": "Title",
+                    "type": "string"
+                },
+                "manager_urn": {
+                    "title": "Manager Urn",
+                    "type": "string"
+                },
+                "department_id": {
+                    "title": "Department Id",
+                    "type": "integer"
+                },
+                "department_name": {
+                    "title": "Department Name",
+                    "type": "string"
+                },
+                "first_name": {
+                    "title": "First Name",
+                    "type": "string"
+                },
+                "last_name": {
+                    "title": "Last Name",
+                    "type": "string"
+                },
+                "full_name": {
+                    "title": "Full Name",
+                    "type": "string"
+                },
+                "country_code": {
+                    "title": "Country Code",
+                    "type": "string"
+                },
+                "groups": {
+                    "title": "Groups",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "title": "Description",
+                    "type": "string"
+                },
+                "slack": {
+                    "title": "Slack",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id"
+            ],
+            "additionalProperties": false
+        },
+        "CorpUserList": {
+            "title": "CorpUserList",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/CorpUser"
+            }
+        }
+    }
+}

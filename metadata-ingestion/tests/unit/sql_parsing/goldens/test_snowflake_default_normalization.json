@@ -1,0 +1,132 @@
+{
+    "query_type": "CREATE_TABLE_AS_SELECT",
+    "query_type_props": {
+        "kind": "TABLE"
+    },
+    "query_fingerprint": "58a15c69c357905aec390867335699413678368f321bfde6f477c08a973ca3a9",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.active_customer_ltv,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.active_customer_ltv,PROD)",
+                "column": "user_fk",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
+                    "column": "USER_FK"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.active_customer_ltv,PROD)",
+                "column": "email",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(16777216)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
+                    "column": "EMAIL"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.active_customer_ltv,PROD)",
+                "column": "last_purchase_date",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                },
+                "native_column_type": "DATE"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
+                    "column": "LAST_PURCHASE_DATE"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.active_customer_ltv,PROD)",
+                "column": "lifetime_purchase_amount",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)",
+                    "column": "purchase_amount"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.active_customer_ltv,PROD)",
+                "column": "lifetime_purchase_count",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)",
+                    "column": "pk"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.active_customer_ltv,PROD)",
+                "column": "average_purchase_amount",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)",
+                    "column": "pk"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)",
+                    "column": "purchase_amount"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.4,
+        "generalized_statement": "CREATE TABLE active_customer_ltv AS (WITH active_customers AS (SELECT * FROM customer_last_purchase_date WHERE last_purchase_date >= CURRENT_DATE - INTERVAL '? DAYS'), purchases AS (SELECT * FROM ecommerce.purchases) SELECT active_customers.user_fk, active_customers.email, active_customers.last_purchase_date, SUM(purchases.purchase_amount) AS lifetime_purchase_amount, COUNT(DISTINCT (purchases.pk)) AS lifetime_purchase_count, SUM(purchases.purchase_amount) / COUNT(DISTINCT (purchases.pk)) AS average_purchase_amount FROM active_customers JOIN purchases ON active_customers.user_fk = purchases.user_fk GROUP BY ?, ?, ?)"
+    }
+}

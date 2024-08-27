@@ -1,0 +1,34 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized azkaban flow identifier.
+ */
+@java.class = "com.linkedin.common.urn.AzkabanFlowUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "azkabanFlow",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "AzkabanFlow",
+  "doc" : "Standardized azkaban flow identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "cluster",
+    "doc" : "Cluster on which the azkaban flow is deployed",
+    "type" : "string",
+    "maxLength" : 20
+  }, {
+    "name" : "project",
+    "doc" : "Azkaban project name which is unique per cluster",
+    "type" : "string",
+    "maxLength" : 100
+  }, {
+    "name" : "flowId",
+    "doc" : "Id or name of the azkaban flow",
+    "type" : "string",
+    "maxLength" : 100
+  } ],
+  "maxLength" : 243
+}
+typeref AzkabanFlowUrn = string

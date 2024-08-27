@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * Stats that describe the freshness of a dataset or query result.
+ * Useful to describe consistency and staleness of results when served
+ * out of a cache or other eventually consistent system.
+ */
+record FreshnessStats {
+
+  /*
+  * Set to true if the results are served from at least one cache.
+  * Set to false if no caches were consulted during this query.
+  * This is meant to be a shortcut. There might be a multitude
+  * of systems consulted during a single query. Use systemFreshness for 
+  * a full map of systems consulted and their timestamps.
+  */
+  cached: optional boolean
+
+  /*
+   * A map of systems consulted during this query and their freshness timestamps
+   */
+  systemFreshness: optional map[string, long]
+  
+}

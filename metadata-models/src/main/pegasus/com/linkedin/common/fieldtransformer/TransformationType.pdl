@@ -1,0 +1,16 @@
+namespace com.linkedin.common.fieldtransformer
+
+/**
+ * Type of the transformation involved in generating destination fields from source fields.
+ */
+enum TransformationType {
+  /**
+   * Field transformation expressed as unknown black box function.
+   */
+  BLACKBOX,
+
+  /**
+   * Field transformation expressed as Identity function.
+   */
+  IDENTITY
+}

@@ -1,0 +1,26 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema field data types
+ */
+record SchemaFieldDataType {
+
+  /**
+   * Data platform specific types
+   */
+  type: union[
+    BooleanType,
+    FixedType,
+    StringType,
+    BytesType,
+    NumberType,
+    DateType,
+    TimeType,
+    EnumType,
+    NullType,
+    MapType,
+    ArrayType,
+    UnionType,
+    RecordType
+  ]
+}

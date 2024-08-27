@@ -1,0 +1,32 @@
+---
+foo: bar
+bar: ${VAR1}
+nested:
+  hi: hello
+  vanilla_val_1: vanillaValue
+  vanilla_val_2: vanilla$Value
+  vanilla_val_3: vanilla${Value
+  vanilla_val_4: vani}lla${Value
+  vanilla_val_5: vanillaValue}
+  vanilla_val_6: vanilla$Value}
+  password: $VAR2
+  password_1: ${VAR3}
+  password_2: $VARNONEXISTENT
+  array:
+    - one
+    - two
+    - ${VAR4}
+    - three$array
+    -   - in_one
+        - in_two
+        - $VAR5
+        - test_url${VAR6}
+        - test_url${VAR7}/action
+    - inner_array:
+        - in_ar_one
+        - ${VAR8}
+        - test_url$vanillavar
+        - test_url${VAR9}vanillaVar${VAR10}
+        - \${VAR11}
+
+

@@ -1,0 +1,7 @@
+mutation submitFormPrompt($urn: String!, $input: SubmitFormPromptInput!) {
+    submitFormPrompt(urn: $urn, input: $input)
+}
+
+mutation verifyForm($input: VerifyFormInput!) {
+    verifyForm(input: $input)
+}

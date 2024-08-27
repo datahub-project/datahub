@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * The model for map metadata
+ */
+record MapMetadata {
+  /**
+   * Map for string keys to long values
+   */
+  longMap: map[string, long]
+}

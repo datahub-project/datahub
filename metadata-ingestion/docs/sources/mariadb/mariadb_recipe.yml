@@ -1,0 +1,20 @@
+source:
+  type: mariadb
+  config:
+    # Coordinates
+    host_port: localhost:3306
+    database: dbname
+
+    # Credentials
+    username: root
+    password: example
+
+    # If you need to use SSL with MariaDB:
+    # options:
+    #   connect_args:
+    #     ssl_ca: "path_to/server-ca.pem"
+    #     ssl_cert: "path_to/client-cert.pem"
+    #     ssl_key: "path_to/client-key.pem"
+
+
+# sink configs

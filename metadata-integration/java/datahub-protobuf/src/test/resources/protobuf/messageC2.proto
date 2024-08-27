@@ -1,0 +1,27 @@
+syntax = "proto3";
+package protobuf;
+
+/*
+   Test for one of nested array
+*/
+message MessageC1 {
+  MessageC2 messageList = 1;
+}
+
+/*
+   This contains nested type
+
+   Description for MessageC2
+*/
+message MessageC2 {
+  repeated MessageC3 list = 1;
+}
+
+message MessageC3 {
+  // one of field comment
+  oneof one_of_field {
+    string one_of_string = 1; // one of string comment
+    int32 one_of_int = 2; // one of int comment
+  }
+  string normal = 4;
+}

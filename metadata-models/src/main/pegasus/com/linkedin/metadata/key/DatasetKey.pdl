@@ -1,0 +1,44 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for a Dataset
+ */
+@Aspect = {
+  "name": "datasetKey"
+}
+record DatasetKey {
+  /**
+  * Data platform urn associated with the dataset
+  */
+  @Searchable = {
+    "fieldType": "URN",
+    "enableAutocomplete": true
+  }
+  platform: Urn
+
+  /**
+  * Unique guid for dataset
+  */
+  //This is no longer to be used for Dataset native name. Use name, qualifiedName from DatasetProperties instead.
+  @Searchable = {
+    "fieldName": "id"
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+  * Fabric type where dataset belongs to or where it was generated.
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "addToFilters": true,
+    "filterNameOverride": "Environment",
+    "queryByDefault": false
+  }
+  origin: FabricType
+}

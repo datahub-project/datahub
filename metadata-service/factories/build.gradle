@@ -1,0 +1,70 @@
+plugins {
+  id 'java-library'
+}
+
+dependencies {
+  api project(':metadata-io')
+  api project(':metadata-utils')
+  implementation project(':metadata-service:auth-impl')
+  api project(':metadata-service:auth-config')
+  api project(':metadata-service:plugin')
+  api project(':metadata-service:configuration')
+  implementation project(':metadata-service:restli-client')
+  implementation project(':datahub-graphql-core')
+  implementation project(':metadata-service:restli-servlet-impl')
+  implementation project(':metadata-dao-impl:kafka-producer')
+  implementation project(':ingestion-scheduler')
+  implementation project(':metadata-service:schema-registry-api')
+
+  implementation (externalDependency.awsGlueSchemaRegistrySerde) {
+    exclude group: 'org.json', module: 'json'
+  }
+  implementation externalDependency.elasticSearchRest
+  implementation externalDependency.httpClient
+  implementation externalDependency.gson
+  implementation (externalDependency.hazelcast) {
+    exclude group: 'org.json', module: 'json'
+  }
+  implementation externalDependency.hazelcastSpring
+  implementation externalDependency.kafkaClients
+  implementation externalDependency.kafkaAvroSerde
+  compileOnly externalDependency.lombok
+  implementation externalDependency.servletApi
+  api externalDependency.springBeans
+  implementation externalDependency.springBootAutoconfigure
+  implementation externalDependency.springBootStarterCache
+  api externalDependency.springContext
+  api externalDependency.springCore
+  api externalDependency.springKafka
+  api externalDependency.springWeb
+  implementation externalDependency.awsPostgresIamAuth
+  implementation externalDependency.awsRds
+  implementation(externalDependency.mixpanel) {
+    exclude group: 'org.json', module: 'json'
+  }
+
+  annotationProcessor externalDependency.lombok
+
+  implementation spec.product.pegasus.restliSpringBridge
+  implementation spec.product.pegasus.restliDocgen
+  implementation externalDependency.jline
+  implementation externalDependency.common
+
+  testImplementation externalDependency.springBootTest
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.hazelcastTest
+  testImplementation externalDependency.javatuples
+
+
+  constraints {
+    implementation(externalDependency.snappy) {
+      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
+  }
+}
+
+configurations.all{
+  exclude group: "commons-io", module:"commons-io"
+  exclude group: "jline", module:"jline"
+}

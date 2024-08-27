@@ -1,0 +1,20 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Prompts which affect the performance of the MLModel
+ */
+@Aspect = {
+  "name": "mlModelFactorPrompts"
+}
+record MLModelFactorPrompts {
+
+  /**
+   * What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?
+   */
+  relevantFactors: optional array[MLModelFactors]
+
+  /**
+   * Which factors are being reported, and why were these chosen?
+   */
+  evaluationFactors: optional array[MLModelFactors]
+}

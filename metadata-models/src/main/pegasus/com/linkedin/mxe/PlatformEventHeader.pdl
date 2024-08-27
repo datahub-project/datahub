@@ -1,0 +1,11 @@
+namespace com.linkedin.mxe
+
+/**
+ * A header included with each DataHub platform event.
+ */
+record PlatformEventHeader {
+  /**
+   * The event timestamp field as epoch at UTC in milli seconds.
+   */
+  timestampMillis: long
+}

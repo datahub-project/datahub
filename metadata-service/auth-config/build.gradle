@@ -1,0 +1,12 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation project(path: ':metadata-models')
+  implementation project(path: ':metadata-auth:auth-api')
+  implementation externalDependency.guava
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+}

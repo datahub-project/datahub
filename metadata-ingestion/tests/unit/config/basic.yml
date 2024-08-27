@@ -1,0 +1,11 @@
+---
+foo: bar
+nested:
+  hi: hello
+  array:
+    - one
+    - two
+  numbers:
+    4: "four"
+    6: "six"
+    "8": "eight"

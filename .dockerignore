@@ -1,0 +1,18 @@
+**/node_modules/
+*/build/
+*/*/build/
+**/venv/
+**/.tox/
+**/.mypy_cache/
+**/.pytest_cache/
+**/__pycache__/
+out
+**/*.class
+# Have to copy gradle/wrapper/gradle-wrapper.jar, can't exclude ALL jars
+**/build/**/*.jar
+# Content in .git is used to get the git version
+# Just ignore the heavy parts that are not used
+.git/logs
+.git/COMMIT_*
+.git/index
+.gradle

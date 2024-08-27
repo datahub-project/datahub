@@ -1,0 +1,22 @@
+.section {
+  padding: 5vh 0;
+}
+
+.withBackground {
+  background-color: var(--ifm-background-surface-color);
+}
+
+.sectionTitle {
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.promoSection {
+  background: #070707;
+  text-align: center;
+  h2,
+  p {
+    color: #fff;
+  }
+}

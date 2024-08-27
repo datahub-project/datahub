@@ -1,0 +1,47 @@
+{
+  "schemaName": "SampleHdfsSchema",
+  "platform": "urn:li:dataPlatform:hdfs",
+  "platformSchema": {
+    "com.linkedin.schema.Schemaless": {}
+  },
+  "version": 0,
+  "created": {
+    "time": 1621882982738,
+    "actor": "urn:li:corpuser:etl",
+    "impersonator": "urn:li:corpuser:jdoe"
+  },
+  "lastModified": {
+    "time": 1621882982738,
+    "actor": "urn:li:corpuser:etl",
+    "impersonator": "urn:li:corpuser:jdoe"
+  },
+  "hash": "",
+  "fields": [
+    {
+      "fieldPath": "county_fips_code",
+      "jsonPath": "null",
+      "nullable": true,
+      "description": "null",
+      "type": {
+        "type": {
+          "com.linkedin.schema.StringType": {}
+        }
+      },
+      "nativeDataType": "String()",
+      "recursive": false
+    },
+    {
+      "fieldPath": "county_name",
+      "jsonPath": "null",
+      "nullable": true,
+      "description": "null",
+      "type": {
+        "type": {
+          "com.linkedin.schema.StringType": {}
+        }
+      },
+      "nativeDataType": "String()",
+      "recursive": false
+    }
+  ]
+}

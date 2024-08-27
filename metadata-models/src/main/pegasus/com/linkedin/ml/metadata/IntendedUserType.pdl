@@ -1,0 +1,22 @@
+namespace com.linkedin.ml.metadata
+
+/*
+* Primary Intended User Types or User Categories
+*/
+enum IntendedUserType {
+
+    /*
+    * Developed for Enterprise Users
+    */
+    ENTERPRISE
+
+    /*
+    * Developed for Hobbyists
+    */
+    HOBBY
+
+    /*
+    * Developed for Entertainment Purposes
+    */
+    ENTERTAINMENT
+}

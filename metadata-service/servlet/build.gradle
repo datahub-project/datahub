@@ -1,0 +1,18 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation project(':metadata-io')
+  implementation project(':datahub-graphql-core')
+  implementation project(':entity-registry')
+  implementation project(':metadata-service:factories')
+
+  implementation externalDependency.httpClient
+  implementation externalDependency.servletApi
+  implementation externalDependency.gson
+  implementation externalDependency.jacksonDataBind
+  implementation externalDependency.springWebMVC
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+}

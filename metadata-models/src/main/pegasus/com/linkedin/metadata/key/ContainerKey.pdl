@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+* Key for an Asset Container
+*/
+@Aspect = {
+  "name": "containerKey"
+}
+record ContainerKey {
+	/**
+	* Unique guid for container
+	*/
+	guid: optional string
+}

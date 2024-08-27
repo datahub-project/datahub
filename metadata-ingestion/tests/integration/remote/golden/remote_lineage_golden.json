@@ -1,0 +1,90 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic3,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1629795600000,
+                        "actor": "urn:li:corpUser:ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,DEV)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1629795600000,
+                        "actor": "urn:li:corpUser:ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic1,DEV)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-3"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1629795600000,
+                        "actor": "urn:li:corpUser:ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.kafka.topic2,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-3"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-3"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,topic3,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-3"
+    }
+}
+]

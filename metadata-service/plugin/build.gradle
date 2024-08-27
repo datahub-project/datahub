@@ -1,0 +1,41 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+
+  implementation 'org.apache.commons:commons-lang3:3.12.0'
+  implementation project(path: ':metadata-auth:auth-api')
+  implementation project(':entity-registry')
+  implementation externalDependency.springContext
+  implementation externalDependency.guava
+  implementation externalDependency.jacksonDataBind
+  implementation externalDependency.jacksonDataFormatYaml
+  implementation externalDependency.jacksonJDK8
+  implementation externalDependency.jacksonDataPropertyFormat
+  implementation externalDependency.logbackClassic
+  implementation externalDependency.slf4jApi
+  
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
+}
+
+test {
+  // Build sample plugin to unit test IsolatedClassLoader
+  dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:build'
+  // Set system properties for permission management
+  systemProperty 'datahub.gms.home', file("$projectDir").absolutePath
+  systemProperty 'java.security.policy', file("../war/src/main/resources/security.policy").absolutePath
+  systemProperty 'datahub.project.root.dir', "$rootDir" // used in security.policy
+}
+
+clean {
+  dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:clean'
+}

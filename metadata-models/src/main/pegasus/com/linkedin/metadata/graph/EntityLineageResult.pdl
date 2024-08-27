@@ -1,0 +1,31 @@
+namespace com.linkedin.metadata.graph
+
+/**
+ * A list of lineage information associated with a source Entity
+ */
+record EntityLineageResult {
+  /**
+   * Start offset of the result set
+   */
+  start: int
+
+  /**
+   * Number of results in the returned result set
+   */
+  count: int
+
+  /**
+   * Total number of results in the result set
+   */
+  total: int
+
+  /**
+   * The number of results that were filtered out of the page (soft-deleted or non-existent)
+   */
+  filtered: optional int = 0
+
+  /**
+   * Relationships in the result set
+   */
+  relationships: array[LineageRelationship]
+}

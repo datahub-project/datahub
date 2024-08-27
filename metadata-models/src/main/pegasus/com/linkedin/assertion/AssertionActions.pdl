@@ -1,0 +1,18 @@
+namespace com.linkedin.assertion
+
+/**
+ * The Actions about an Assertion
+ */
+@Aspect = {
+  "name": "assertionActions"
+}
+record AssertionActions {
+    /**
+    * Actions to be executed on successful assertion run.
+    */
+    onSuccess: array[AssertionAction] = []
+    /**
+    * Actions to be executed on failed assertion run.
+    */
+    onFailure: array[AssertionAction] = []
+}

@@ -1,0 +1,19 @@
+---
+source:
+  type: bigquery
+  config:
+    project_id: "bigquery-public-data"
+    options:
+      credentials_path: "./bq_credentials.json"
+    table_pattern:
+      allow:
+      # Allow anything that starts with "covid19"
+      - "bigquery-public-data\\.covid19.*"
+      deny:
+      # Except for tables that end with an underscore.
+      - ".*_\$" # also escapes the variable expansion on $
+
+sink:
+  type: "file"
+  config:
+    filename: "./examples/demo_data/all_covid19_datasets.json"

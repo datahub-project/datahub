@@ -1,0 +1,14 @@
+namespace com.datahub.test
+
+/**
+ * Test Platform Event
+ */
+@Event = {
+  "name": "testEvent"
+}
+record TestPlatformEvent {
+  /**
+   * The test event id
+   */
+  id: string
+}

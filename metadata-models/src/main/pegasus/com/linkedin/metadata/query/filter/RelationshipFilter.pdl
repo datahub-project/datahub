@@ -1,0 +1,12 @@
+namespace com.linkedin.metadata.query.filter
+
+/**
+ * The relationship filter to apply in a graph query
+ */
+record RelationshipFilter includes Filter {
+
+  /**
+   * The relationship direction between two nodes in a graph query
+   */
+  direction: RelationshipDirection = "UNDIRECTED"
+}

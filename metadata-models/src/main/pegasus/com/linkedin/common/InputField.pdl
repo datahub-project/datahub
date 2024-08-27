@@ -1,0 +1,22 @@
+namespace com.linkedin.common
+
+import com.linkedin.schema.SchemaField
+
+/**
+ * Information about a field a chart or dashboard references
+ */
+record InputField {
+  /**
+   * Urn of the schema being referenced for lineage purposes
+   */
+  @Relationship = {
+    "name": "consumesField",
+    "entityTypes": [ "schemaField" ]
+  }
+  schemaFieldUrn: Urn
+
+  /**
+   * Copied version of the referenced schema field object for indexing purposes
+   */
+  schemaField: optional SchemaField
+}

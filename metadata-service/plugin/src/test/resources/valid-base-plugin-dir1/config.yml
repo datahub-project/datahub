@@ -1,0 +1,19 @@
+plugins:
+  - name: "apache-ranger-authorizer"
+    type: "authorizer"
+    enabled: "true"
+    params:
+      className: "com.datahub.ranger.Authorizer"
+      configs:
+        key1: "value1"
+        key2: "value2"
+        key3: "value3"
+  - name: "apache-ranger-authenticator"
+    type: "authenticator"
+    enabled: "true"
+    params:
+      className: "com.datahub.ranger.Authenticator"
+      configs:
+        key1: "value1"
+        key2: "value2"
+        key3: "value3"

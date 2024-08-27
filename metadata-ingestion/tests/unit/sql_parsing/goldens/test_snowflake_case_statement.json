@@ -1,0 +1,55 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "ce34f7c5875166da53d4ab9d32b1314564634797cabe477a74eeebc7a164c3cd",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "total_price_category",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "totalprice"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "total_price_success",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "FLOAT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "is_payment_successful"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "totalprice"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT CASE WHEN o.\"totalprice\" > ? THEN ? WHEN o.\"totalprice\" > ? THEN ? ELSE ? END AS total_price_category, CASE WHEN o.\"is_payment_successful\" THEN o.\"totalprice\" ELSE ? END AS total_price_success FROM snowflake_sample_data.tpch_sf1.orders AS o"
+    }
+}

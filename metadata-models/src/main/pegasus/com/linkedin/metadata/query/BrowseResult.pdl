@@ -1,0 +1,32 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * The model for the result of a browse query
+ */
+record BrowseResult {
+
+  /**
+   * A list of entities under the queried path
+   */
+  entities: array[BrowseResultEntity]
+
+  /**
+   * Metadata specific to the browse result of the queried path
+   */
+  metadata: BrowseResultMetadata
+
+  /**
+   * Offset of the first entity in the result
+   */
+  from: int
+
+  /**
+   * Size of each page in the result
+   */
+  pageSize: int
+
+  /**
+   * The total number of entities directly under queried path
+   */
+  numEntities: int
+}

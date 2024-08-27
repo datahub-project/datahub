@@ -1,0 +1,22 @@
+namespace com.linkedin.ml.metadata
+
+/*
+* Source Code Url Types
+*/
+enum SourceCodeUrlType {
+
+    /*
+    * MLModel Source Code
+    */
+    ML_MODEL_SOURCE_CODE
+
+    /*
+    * Training Pipeline Source Code
+    */
+    TRAINING_PIPELINE_SOURCE_CODE
+
+    /*
+    * Evaluation Pipeline Source Code
+    */
+    EVALUATION_PIPELINE_SOURCE_CODE
+}

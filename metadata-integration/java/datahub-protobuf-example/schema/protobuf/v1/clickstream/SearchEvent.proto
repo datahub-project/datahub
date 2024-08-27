@@ -1,0 +1,24 @@
+syntax = "proto3";
+package protobuf.clickstream;
+
+import "protobuf/meta/meta.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+
+/**
+  Search event
+**/
+message Search {
+  option(meta.message.type) = EVENT;
+
+  option(meta.kafka.topics) = "clickstream_searches";
+
+  option(meta.lifecycle.frequency) = REALTIME;
+  option(meta.lifecycle.ttl) = "180d";
+  option(meta.lifecycle.archived) = true;
+
+  google.protobuf.Timestamp timestamp = 1; // event timestamp
+  google.protobuf.StringValue search_term = 2; // search term
+  google.protobuf.Int64Value results = 3; // results displayed
+}

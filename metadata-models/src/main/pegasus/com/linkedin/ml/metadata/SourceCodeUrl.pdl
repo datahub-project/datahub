@@ -1,0 +1,19 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.Url
+
+/**
+ * Source Code Url Entity
+ */
+record SourceCodeUrl {
+
+    /**
+    * Source Code Url Types
+    */
+    type: SourceCodeUrlType
+
+    /**
+    * Source Code Url
+    */
+    sourceCodeUrl: Url
+}

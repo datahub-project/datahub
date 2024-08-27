@@ -1,0 +1,41 @@
+.featureCol {
+  display: flex;
+}
+
+.feature {
+  color: var(--ifm-text-color);
+  text-decoration: none !important;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  align-self: stretch;
+  &:hover {
+    border-color: var(--ifm-color-primary);
+  }
+  hr {
+    margin: 0;
+  }
+}
+
+.featureHeader {
+  text-align: center;
+  h2 {
+    margin-bottom: 1rem !important;
+    font-size: 1.25rem;
+  }
+}
+
+.featureImage {
+  background: var(--ifm-background-surface-color);
+  margin: 0 auto;
+  width: 4rem;
+  height: 4rem;
+  padding: 1rem;
+  border-radius: 100%;
+  margin-bottom: 0.5rem;
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+}

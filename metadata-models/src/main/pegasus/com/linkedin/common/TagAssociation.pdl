@@ -1,0 +1,36 @@
+namespace com.linkedin.common
+
+/**
+ * Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.
+ * propagation parameters.
+ */
+record TagAssociation {
+ /**
+  * Urn of the applied tag
+  */
+  tag: TagUrn
+
+  /**
+   * Additional context about the association
+   */
+  context: optional string
+
+  /**
+   * Information about who, why, and how this metadata was applied
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "tagAttributionDates",
+        "fieldType": "DATETIME"
+      },
+    "/actor": {
+        "fieldName": "tagAttributionActors",
+        "fieldType": "URN"
+      },
+    "/source": {
+        "fieldName": "tagAttributionSources",
+        "fieldType": "URN"
+      },
+  }
+  attribution: optional MetadataAttribution
+}

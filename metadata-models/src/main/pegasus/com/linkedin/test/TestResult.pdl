@@ -1,0 +1,39 @@
+namespace com.linkedin.test
+
+import com.linkedin.common.Urn
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about a Test Result
+ */
+record TestResult {
+    /**
+     * The urn of the test
+     */
+    test: Urn
+
+    /**
+    * The type of the result
+    */
+    type: enum TestResultType {
+      /**
+      *  The Test Succeeded
+      */
+      SUCCESS
+      /**
+      *  The Test Failed
+      */
+      FAILURE
+    }
+
+    /**
+    * The md5 of the test definition that was used to compute this result.
+    * See TestInfo.testDefinition.md5 for more information.
+    */
+    testDefinitionMd5: optional string
+
+    /**
+    * The audit stamp of when the result was computed, including the actor who computed it.
+    */
+    lastComputed: optional AuditStamp
+}

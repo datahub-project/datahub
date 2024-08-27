@@ -1,0 +1,20 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Quantitative analyses should be disaggregated, that is, broken down by the chosen factors. Quantitative analyses should provide the results of evaluating the MLModel according to the chosen metrics, providing confidence interval values when possible.
+ */
+@Aspect = {
+  "name": "mlModelQuantitativeAnalyses"
+}
+record QuantitativeAnalyses {
+
+  /**
+   * Link to a dashboard with results showing how the MLModel performed with respect to each factor
+   */
+  unitaryResults: optional ResultsType
+
+  /**
+   * Link to a dashboard with results showing how the MLModel performed with respect to the intersection of evaluated factors?
+   */
+  intersectionalResults: optional ResultsType
+}

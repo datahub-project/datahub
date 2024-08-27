@@ -1,0 +1,85 @@
+namespace com.linkedin.metadata.graph
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Metadata about a lineage relationship between two entities
+ */
+record LineageRelationship {
+  /**
+   * The type of the relationship
+   */
+  type: string
+
+  /**
+   * Entity that is related via lineage
+   */
+  entity: Urn
+
+  /**
+   * Optional list of entities between the source and destination node.
+   * There can be multiple paths from the source to the destination.
+   */
+  paths: array[array[Urn]] = []
+
+  /**
+   * Optional list of entities between the source and destination node
+   */
+  @deprecated
+  path: array[Urn] = []
+
+  /**
+   * Degree of relationship (number of hops to get to entity)
+   * Deprecated by degrees. degree field is populated by min(degrees) for backward compatibility.
+   */
+  @deprecated
+  degree: int = 1
+
+  /**
+   * Timestamp for when this lineage relationship was created. Could be null.
+   */
+  createdOn: optional long
+
+  /**
+   * Urn of the actor that created this lineage relationship. Could be null.
+   */
+  createdActor: optional Urn
+
+  /**
+   * Timestamp for when this lineage relationship was last updated. Could be null.
+   */
+  updatedOn: optional long
+
+  /**
+   * Urn of the actor that last updated this lineage relationship. Could be null.
+   */
+  updatedActor: optional Urn
+
+  /**
+   * Whether this lineage edge is a manual edge.
+   */
+  isManual: optional boolean
+
+  /**
+   * The different depths at which this entity is discovered in the lineage graph.
+   * Marked as optional to maintain backward compatibility, but is filled out by implementations. 
+   * Replaces the deprecated field "degree".
+   **/
+   degrees: optional array[int]
+
+   /**
+    * Marks this relationship as explored during the graph walk
+    */
+    explored: optional boolean
+
+    /**
+     * Indicates this destination node has additional unexplored child relationships
+     */
+    truncatedChildren: optional boolean
+
+   /**
+    * Whether this relationship was ignored as a hop while performing the graph walk
+    */
+    ignoredAsHop: optional boolean
+}

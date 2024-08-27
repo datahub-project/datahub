@@ -1,0 +1,42 @@
+syntax = "proto3";
+package extended_protobuf;
+
+import "extended_protobuf/meta/meta.proto";
+
+message Department {
+  int32 id = 1 [(meta.fld.is_primary_key) = true];
+  string name = 2;
+}
+
+/**
+  This is the description of the users table
+
+  The comment added after thought
+*/
+message Person {
+  option deprecated = true;
+  option (meta.msg.deprecation_note) = "Deprecated for this other message.";
+  option (meta.msg.deprecation_note) = "Drop in replacement.";
+  option (meta.msg.deprecation_time) = 1649689387;
+
+  option(meta.msg.data_steward) = "corpUser:datahub";
+
+  string name = 1 [(meta.fld.classification) = "Classification.HighlyConfidential"]; // person name
+
+  // unique identifier for a given person
+  int32 id = 2
+  [(meta.fld.is_primary_key) = true];
+
+  // official email address
+  string email = 3
+  [(meta.fld.classification_enum) = HighlyConfidential];
+
+  Department dept = 4; // department name of the person
+
+  string test_coverage = 5
+  [deprecated = true,
+   (meta.fld.product_type_bool) = true,
+   (meta.fld.product_type) = "my type",
+   (meta.fld.product_type_enum) = EVENT,
+   (meta.fld.tag_list) = "d, e, f"];
+}

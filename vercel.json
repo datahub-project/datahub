@@ -1,0 +1,9 @@
+{
+  "buildCommand": "./gradlew -PuseSystemNode=true :docs-website:build",
+  "github": {
+    "silent": true,
+    "autoJobCancelation": true
+  },
+  "installCommand": "./docs-website/vercel-setup.sh",
+  "outputDirectory": "docs-website/build"
+}

@@ -1,0 +1,15 @@
+{
+  "editableSchemaFieldInfo": [
+    {
+      "fieldPath": "fieldpath"
+    }
+  ],
+  "created": {
+    "time": 1581407189000,
+    "actor": "urn:li:corpuser:jdoe"
+  },
+  "lastModified": {
+    "time": 1581407189002,
+    "actor": "urn:li:corpuser:jdoe"
+  }
+}

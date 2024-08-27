@@ -1,0 +1,46 @@
+query listOwnershipTypes($input: ListOwnershipTypesInput!) {
+    listOwnershipTypes(input: $input) {
+        start
+        count
+        total
+        ownershipTypes {
+            ...ownershipTypeFields
+        }
+    }
+}
+
+mutation createOwnershipType($input: CreateOwnershipTypeInput!) {
+    createOwnershipType(input: $input) {
+        ...ownershipTypeFields
+    }
+}
+
+mutation updateOwnershipType($urn: String!, $input: UpdateOwnershipTypeInput!) {
+    updateOwnershipType(urn: $urn, input: $input) {
+        ...ownershipTypeFields
+    }
+}
+
+mutation deleteOwnershipType($urn: String!, $deleteReferences: Boolean) {
+    deleteOwnershipType(urn: $urn, deleteReferences: $deleteReferences)
+}
+
+fragment ownershipTypeFields on OwnershipTypeEntity {
+    urn
+    type
+    info {
+        name
+        description
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
+    }
+    status {
+        removed
+    }
+}

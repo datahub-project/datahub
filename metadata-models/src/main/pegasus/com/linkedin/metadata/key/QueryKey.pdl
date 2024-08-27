@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Query
+ */
+@Aspect = {
+  "name": "queryKey"
+}
+record QueryKey {
+  /**
+  * A unique id for the Query.
+  */
+  id: string
+}

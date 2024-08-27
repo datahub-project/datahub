@@ -1,0 +1,125 @@
+.pillTabs {
+  justify-content: center;
+}
+
+.marquee {
+  width: 100%;
+  overflow: hidden;
+  display: block;
+
+  > div {
+    width: max-content;
+    will-change: transform;
+    animation: marquee 200s linear infinite;
+    display: flex;
+    align-items: center;
+
+    &:hover {
+      animation-play-state: paused;
+    }
+
+    img {
+      margin: 4rem 2rem;
+    }
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-100%, 0);
+  }
+}
+
+.platformLogo {
+  width: 60px;
+  height: 50px;
+}
+
+.companyWrapper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+
+  html[data-theme="dark"] & {
+    filter: invert(1);
+    mix-blend-mode: exclusion;
+  }
+
+  :global {
+    .swiper-wrapper {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+      .swiper-slide {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+      }
+    }
+  }
+}
+
+.companyLogoContainer {
+  justify-content: center;
+  > div {
+    ul[role="tablist"] {
+      padding: 0 1rem;
+      overflow-x: auto;
+      max-width: calc(100vw - 1rem);
+      &::-webkit-scrollbar {
+        display: none;
+      }
+      li[role="tab"] {
+        color: var(--ifm-color-primary);
+        border-radius: 100em;
+        padding: 0.5em 1em;
+        margin: 0 0.25em;
+        border: none;
+        white-space: nowrap;
+        border: 1px solid transparent;
+        &[aria-selected="true"] {
+          color: var(--ifm-text-color);
+          border-color: var(--ifm-hr-border-color);
+        }
+      }
+    }
+  }
+}
+
+.companyLogoWithLink {
+  &:hover {
+    opacity: 1;
+    filter: grayscale(0%);
+  }
+}
+
+.companyLogo {
+  flex-shrink: 0;
+  width: 100%;
+  height: auto;
+  mix-blend-mode: luminosity;
+  opacity: 0.66;
+  filter: grayscale(100%);
+
+  &.default {
+    padding: 30px;
+  }
+  &.large {
+    padding: 5px;
+  }
+  &.medium {
+    padding: 15px;
+  }
+  &.small {
+    padding: 10px;
+  }
+}
+
+.swiper-pagination {
+  margin-top: 1rem;
+}

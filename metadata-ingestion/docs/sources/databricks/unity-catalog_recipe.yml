@@ -1,0 +1,49 @@
+source:
+  type: unity-catalog
+  config:
+    workspace_url: https://my-workspace.cloud.databricks.com
+    token: "<token>"
+    include_metastore: false
+    include_ownership: true
+    profiling:
+      method: "ge"
+      enabled: true
+      warehouse_id: "<warehouse_id>"
+      profile_table_level_only: false
+      max_wait_secs: 60
+      pattern:
+        deny:
+          - ".*\\.unwanted_schema"
+
+#    emit_siblings: true
+#    delta_lake_options:
+#      platform_instance_name: null
+#      env: 'PROD'
+
+#    profiling:
+#      method: "analyze"
+#      enabled: true
+#      warehouse_id: "<warehouse_id>"
+#      profile_table_level_only: true
+#      call_analyze: true
+
+#    catalogs: ["my_catalog"]
+#    schema_pattern:
+#      deny:
+#        - information_schema
+#    table_pattern:
+#      allow:
+#        - my_catalog.my_schema.my_table
+#     First you have to create domains on Datahub by following this guide -> https://datahubproject.io/docs/domains/#domains-setup-prerequisites-and-permissions
+#    domain:
+#      urn:li:domain:1111-222-333-444-555:
+#        allow:
+#          - main.*
+
+    stateful_ingestion:
+      enabled: true
+
+pipeline_name: acme-corp-unity
+
+
+# sink configs if needed

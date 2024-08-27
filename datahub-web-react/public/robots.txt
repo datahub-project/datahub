@@ -1,0 +1,6 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Disallow: /api
+Disallow: /gms
+Disallow: /search
+Disallow: /logOut

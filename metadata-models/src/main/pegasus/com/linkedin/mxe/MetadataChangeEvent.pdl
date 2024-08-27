@@ -1,0 +1,31 @@
+namespace com.linkedin.mxe
+
+import com.linkedin.avro2pegasus.events.KafkaAuditHeader
+import com.linkedin.metadata.delta.Delta
+import com.linkedin.metadata.snapshot.Snapshot
+
+/**
+ * Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.
+ */
+record MetadataChangeEvent {
+
+  /**
+   * Kafka audit header. See go/kafkaauditheader for more info.
+   */
+  auditHeader: optional KafkaAuditHeader
+
+  /**
+   * Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot.
+   */
+  proposedSnapshot: Snapshot
+
+  /**
+   * Delta of the proposed metadata partial update.
+   */
+  proposedDelta: optional Delta
+
+  /**
+   * Metadata around how the snapshot was ingested
+   */
+   systemMetadata: optional SystemMetadata
+}

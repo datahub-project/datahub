@@ -1,0 +1,30 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * The status of the user, e.g. provisioned, active, suspended, etc.
+ */
+@Aspect = {
+  "name": "corpUserStatus"
+}
+record CorpUserStatus {
+  /**
+   * Status of the user, e.g. PROVISIONED / ACTIVE / SUSPENDED
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  status: string
+
+  /**
+   * Audit stamp containing who last modified the status and when.
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "statusLastModifiedAt",
+        "fieldType": "COUNT"
+      }
+  }
+  lastModified: AuditStamp
+}

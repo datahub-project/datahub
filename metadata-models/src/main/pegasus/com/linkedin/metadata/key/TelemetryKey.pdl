@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for the telemetry client ID, only one should ever exist
+ */
+@Aspect = {
+  "name": "telemetryKey"
+}
+record TelemetryKey {
+  /**
+  * The telemetry entity name, which serves as a unique id
+  */
+  name: string
+}

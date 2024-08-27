@@ -1,0 +1,76 @@
+{
+  "_links": {
+    "self": {
+      "href": "/api/acryltest/reports/9d2da37fa91e/queries"
+    }
+  },
+  "_embedded": {
+    "queries": [{
+      "id": 10149707,
+      "token": "6e26a9f3d4e2",
+      "raw_query": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id where selected_id = {{ selected_id }} \n{% form %}\nselected_id:\n   type: text\n   default: my_id\n{% endform %}",
+      "created_at": "2021-12-10T20:55:24.361Z",
+      "updated_at": "2021-12-10T23:12:53.273Z",
+      "name": "Customer and staff",
+      "last_run_id": 1897576958,
+      "data_source_id": 34499,
+      "explorations_count": 0,
+      "_links": {
+        "self": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2"
+        },
+        "report": {
+          "href": "/api/acryltest/reports/9d2da37fa91e"
+        },
+        "report_runs": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/runs"
+        },
+        "charts": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts"
+        },
+        "new_chart": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts/new"
+        },
+        "new_query_table": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/tables/new"
+        },
+        "query_tables": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/tables"
+        },
+        "query_runs": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/runs"
+        },
+        "creator": {
+          "href": "/api/modeuser"
+        }
+      },
+      "_forms": {
+        "edit": {
+          "method": "patch",
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2",
+          "content_type": "application/json",
+          "input": {
+            "query": {
+              "raw_query": {
+                "type": "text",
+                "value": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id where selected_id = {{ selected_id }} \n{% form %}\nselected_id:\n   type: text\n   default: my_id\n{% endform %}"
+              },
+              "name": {
+                "type": "text",
+                "value": "Customer and staff"
+              },
+              "data_source_id": {
+                "type": "text",
+                "value": 34499
+              }
+            }
+          }
+        },
+        "destroy": {
+          "method": "delete",
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2"
+        }
+      }
+    }]
+  }
+}

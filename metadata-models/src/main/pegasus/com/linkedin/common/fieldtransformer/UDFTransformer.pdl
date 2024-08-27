@@ -1,0 +1,11 @@
+namespace com.linkedin.common.fieldtransformer
+
+/**
+ * Field transformation expressed in UDF
+ */
+record UDFTransformer {
+  /**
+   * A UDF mentioning how the source fields got transformed to destination field. This is the FQCN(Fully Qualified Class Name) of the udf.
+   */
+  udf: string
+}

@@ -1,0 +1,17 @@
+namespace com.datahub.test.testing
+
+/**
+ * For unit tests
+ */
+record EntityBar {
+
+  /**
+   * For unit tests
+   */
+  urn: BarUrn
+
+  /**
+   * For unit tests
+   */
+  value: optional string
+}

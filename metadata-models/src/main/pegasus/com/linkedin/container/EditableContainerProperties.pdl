@@ -1,0 +1,18 @@
+namespace com.linkedin.container
+
+/**
+ * Editable information about an Asset Container as defined on the DataHub Platform
+ */
+@Aspect = {
+  "name": "editableContainerProperties"
+}
+record EditableContainerProperties {
+  /**
+   * Description of the Asset Container as its received on the DataHub Platform
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "fieldName": "editedDescription",
+  }
+  description: optional string
+}

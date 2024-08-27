@@ -1,0 +1,21 @@
+version: "3.9"
+services:
+  vertica:
+    platform: linux/amd64
+    environment:
+      APP_DB_USER: "dbadmin"
+      APP_DB_PASSWORD: "abc123"
+    container_name: vertica-ce
+    image: vertica/vertica-ce:23.4.0-0
+    ports:
+      - "5433:5433"
+      - "5444:5444"
+    deploy:
+      mode: global
+    volumes:
+      - type: volume
+        source: vertica-data
+        target: /data
+
+volumes:
+  vertica-data:

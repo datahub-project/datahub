@@ -1,0 +1,63 @@
+plugins {
+    id 'com.palantir.docker'
+    id 'java' // required for versioning
+}
+
+apply from: "../../gradle/versioning/versioning.gradle"
+
+ext {
+    docker_repo = 'datahub-kafka-setup'
+    docker_dir = 'kafka-setup'
+}
+
+docker {
+    name "${docker_registry}/${docker_repo}:v${version}"
+    version "v${version}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
+    files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
+        include "docker/${docker_dir}/*"
+    }.exclude {
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
+    }
+    tag("Debug", "${docker_registry}/${docker_repo}:debug")
+
+    // platform('linux/arm64', 'linux/amd64')
+    buildx(true)
+    load(true)
+    push(false)
+
+    // Add build args if they are defined (needed for some CI or enterprise environments)
+    def dockerBuildArgs = [:]
+    if (project.hasProperty('alpineApkRepositoryUrl')) {
+        dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+    }
+    if (project.hasProperty('githubMirrorUrl')) {
+        dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
+    }
+    if (project.hasProperty('mavenCentralRepositoryUrl')) {
+        dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = project.getProperty('mavenCentralRepositoryUrl')
+    }
+    if (project.hasProperty('apacheDownloadUrl')) {
+        dockerBuildArgs.APACHE_DOWNLOAD_URL = project.getProperty('apacheDownloadUrl')
+    }
+
+    if (dockerBuildArgs.size() > 0) {
+        buildArgs(dockerBuildArgs)
+    }
+}
+tasks.getByName('docker').dependsOn('build')
+
+task mkdirBuildDocker {
+    doFirst {
+        mkdir "${project.buildDir}/docker"
+    }
+}
+dockerClean.finalizedBy(mkdirBuildDocker)
+
+task cleanLocalDockerImages {
+    doLast {
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
+    }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)

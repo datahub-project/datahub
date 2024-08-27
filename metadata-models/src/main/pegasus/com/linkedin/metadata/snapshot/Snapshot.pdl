@@ -1,0 +1,28 @@
+namespace com.linkedin.metadata.snapshot
+
+/**
+ * A union of all supported metadata snapshot types.
+ */
+typeref Snapshot = union[
+  ChartSnapshot,
+  CorpGroupSnapshot,
+  CorpUserSnapshot,
+  DashboardSnapshot,
+  DataFlowSnapshot,
+  DataJobSnapshot,
+  DatasetSnapshot,
+  DataProcessSnapshot,
+  DataPlatformSnapshot,
+  MLModelSnapshot,
+  MLPrimaryKeySnapshot,
+  MLFeatureSnapshot,
+  MLFeatureTableSnapshot,
+  MLModelDeploymentSnapshot,
+  MLModelGroupSnapshot,
+  TagSnapshot,
+  GlossaryTermSnapshot,
+  GlossaryNodeSnapshot,
+  DataHubPolicySnapshot,
+  SchemaFieldSnapshot,
+  DataHubRetentionSnapshot,
+]

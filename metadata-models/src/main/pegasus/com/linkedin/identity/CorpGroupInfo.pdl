@@ -1,0 +1,96 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.CorpGroupUrn
+import com.linkedin.common.CorpuserUrn
+import com.linkedin.common.EmailAddress
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about a Corp Group ingested from a third party source
+ */
+@Aspect = {
+  "name": "corpGroupInfo"
+}
+@Aspect.EntityUrns = [ "com.linkedin.common.CorpGroupUrn" ]
+record CorpGroupInfo {
+
+  /**
+   * The name of the group.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  displayName: optional string
+
+  /**
+   * email of this group
+   */
+  email: optional EmailAddress
+
+  /**
+   * owners of this group
+   * Deprecated! Replaced by Ownership aspect.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "OwnedBy",
+      "entityTypes": [ "corpuser" ]
+    }
+  }
+  @deprecated
+  admins: array[CorpuserUrn]
+
+  /**
+   * List of ldap urn in this group.
+   * Deprecated! Replaced by GroupMembership aspect.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "IsPartOf",
+      "entityTypes": [ "corpuser" ]
+    }
+  }
+  @deprecated
+  members: array[CorpuserUrn]
+
+  /**
+   * List of groups in this group.
+   * Deprecated! This field is unused.
+   */
+   @Relationship = {
+     "/*": {
+       "name": "IsPartOf",
+       "entityTypes": [ "corpGroup" ]
+     }
+   }
+  @deprecated
+  groups: array[CorpGroupUrn]
+
+  /**
+   * A description of the group.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  description: optional string
+
+  /**
+   * Slack channel for the group
+   */
+  slack: optional string
+
+  /**
+   * Created Audit stamp
+   */
+   @Searchable = {
+     "/time": {
+      "fieldName": "createdTime",
+      "fieldType": "DATETIME"
+     }
+   }
+   created: optional AuditStamp
+}

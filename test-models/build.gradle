@@ -1,0 +1,20 @@
+plugins {
+  id 'pegasus'
+  id 'java-library'
+}
+
+
+dependencies {
+  implementation spec.product.pegasus.data
+  implementation externalDependency.commonsIo
+  dataModel project(':metadata-models')
+  dataModel project(':li-utils')
+}
+
+idea {
+  module {
+    sourceDirs += file('src/main/javaPegasus')
+  }
+}
+
+sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/javaPegasus/')

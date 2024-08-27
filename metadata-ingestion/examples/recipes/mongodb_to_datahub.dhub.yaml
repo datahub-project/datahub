@@ -1,0 +1,22 @@
+# see https://datahubproject.io/docs/generated/ingestion/sources/mongodb for complete documentation
+source:
+  type: "mongodb"
+  config:
+    # For advanced configurations, see the MongoDB docs.
+    # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
+    connect_uri: "mongodb://localhost:57017"
+    username: mongoadmin
+    password: examplepass
+    env: "PROD" # Optional, default is "PROD"
+    authMechanism: "DEFAULT"
+    options: {}
+    database_pattern: {}
+    collection_pattern: {}
+    enableSchemaInference: True
+    schemaSamplingSize: 1000
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

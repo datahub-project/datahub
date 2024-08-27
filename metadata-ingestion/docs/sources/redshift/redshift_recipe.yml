@@ -1,0 +1,47 @@
+  type: redshift
+  config:
+    # Coordinates
+    host_port: example.something.us-west-2.redshift.amazonaws.com:5439
+    database: DemoDatabase
+
+    # Credentials
+    username: user
+    password: pass
+
+    # Options
+    options:
+      # driver_option: some-option
+
+    include_table_lineage: true
+    include_usage_statistics: true
+    # The following options are only used when include_usage_statistics is true
+    # it appends the domain after the resdhift username which is extracted from the Redshift audit history
+    # in the format username@email_domain
+    email_domain: mydomain.com
+
+    profiling:
+      enabled: true
+      # Only collect table level profiling information
+      profile_table_level_only: true
+
+  sink:
+  # sink configs
+
+#------------------------------------------------------------------------------
+# Extra options when running Redshift behind a proxy</summary>
+# This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
+# See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+#------------------------------------------------------------------------------
+
+source:
+  type: redshift
+  config:
+    host_port: my-proxy-hostname:5439
+
+    options:
+      connect_args:
+        # check all available options here: https://pypi.org/project/redshift-connector/
+        ssl_insecure: "false" # Specifies if IDP hosts server certificate will be verified
+
+sink:
+  # sink configs

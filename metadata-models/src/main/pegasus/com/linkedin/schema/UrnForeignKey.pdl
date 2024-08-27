@@ -1,0 +1,14 @@
+namespace com.linkedin.schema
+
+import com.linkedin.dataset.SchemaFieldPath
+
+/**
+ * If SchemaMetadata fields make any external references and references are of type com.linkedin.common.Urn or any children, this models can be used to mark it.
+ */
+record UrnForeignKey {
+
+  /**
+   * Field in hosting(current) SchemaMetadata.
+   */
+  currentFieldPath: SchemaFieldPath
+}

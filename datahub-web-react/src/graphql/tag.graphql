@@ -1,0 +1,38 @@
+query getTag($urn: String!) {
+    tag(urn: $urn) {
+        urn
+        type
+        name
+        description
+        properties {
+            name
+            description
+            colorHex
+        }
+        ownership {
+            ...ownershipFields
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+    }
+}
+
+mutation updateTag($urn: String!, $input: TagUpdateInput!) {
+    updateTag(urn: $urn, input: $input) {
+        urn
+        name
+        description
+        ownership {
+            ...ownershipFields
+        }
+    }
+}
+
+mutation deleteTag($urn: String!) {
+    deleteTag(urn: $urn)
+}
+
+mutation createTag($input: CreateTagInput!) {
+    createTag(input: $input)
+}

@@ -1,0 +1,84 @@
+namespace com.linkedin.query
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Information about a Query against one or more data assets (e.g. Tables or Views).
+ */
+@Aspect = {
+  "name": "queryProperties"
+}
+record QueryProperties {
+  /**
+   * The Query Statement.
+   */
+  statement: QueryStatement
+
+  /**
+   * The source of the Query
+   */
+  @Searchable = {}
+  source: enum QuerySource {
+    /**
+     * The query was entered manually by a user (via the UI).
+     */
+    MANUAL,
+    /**
+     * The query was discovered by a crawler.
+     */
+    SYSTEM
+  }
+
+  /**
+   * Optional display name to identify the query.
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: optional string
+
+  /**
+   * The Query description.
+   */
+  description: optional string
+
+  /**
+   * Audit stamp capturing the time and actor who created the Query.
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "createdAt"
+    },
+    "/actor": {
+      "fieldType": "URN",
+      "fieldName": "createdBy"
+    }
+  }
+  created: AuditStamp
+
+  /**
+   * Audit stamp capturing the time and actor who last modified the Query.
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "lastModifiedAt"
+    }
+    "/actor": {
+      "fieldType": "URN",
+      "fieldName": "lastModifiedBy"
+    }
+  }
+  lastModified: AuditStamp
+
+  /**
+   * The origin of the Query.
+   * This is the source of the Query (e.g. a View, Stored Procedure, dbt Model, etc.) that the Query was created from.
+   */
+   origin: optional Urn
+
+}

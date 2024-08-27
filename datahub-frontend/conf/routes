@@ -1,0 +1,53 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# Home page
+# serveAsset action requires a path string
+GET           /                                                               controllers.Application.index(path="index.html")
+
+GET           /admin                                                          controllers.Application.healthcheck()
+GET           /health                                                         controllers.Application.healthcheck()
+GET           /config                                                         controllers.Application.appConfig()
+
+# Routes used exclusively by the React application.
+
+# Authentication in React
+GET           /authenticate                                                   controllers.AuthenticationController.authenticate(request: Request)
+GET           /sso                                                            controllers.AuthenticationController.sso(request: Request)
+POST          /logIn                                                          controllers.AuthenticationController.logIn(request: Request)
+POST          /signUp                                                         controllers.AuthenticationController.signUp(request: Request)
+POST          /resetNativeUserCredentials                                     controllers.AuthenticationController.resetNativeUserCredentials(request: Request)
+GET           /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String, request: Request)
+POST          /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String, request: Request)
+GET           /logOut                                                         controllers.CentralLogoutController.executeLogout(request: Request)
+
+# Proxies API requests to the metadata service api
+GET           /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
+POST          /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
+DELETE        /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
+PUT           /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
+
+# Proxies API requests to the metadata service api
+GET           /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+POST          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+DELETE        /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+PUT           /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+HEAD          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+PATCH         /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+
+
+# Analytics route
+POST          /track                                                           controllers.TrackingController.track(request: Request)
+
+# Map static resources from the /public folder to the /assets URL path
+GET           /assets/icons/favicon.ico                                        controllers.RedirectController.favicon(request: Request)
+
+# Known React asset routes
+GET           /assets/*file                                                    controllers.Assets.at(path="/public/assets", file)
+GET           /node_modules/*file                                              controllers.Assets.at(path="/public/node_modules", file)
+GET           /manifest.json                                                   controllers.Assets.at(path="/public", file="manifest.json")
+GET           /robots.txt                                                      controllers.Assets.at(path="/public", file="robots.txt")
+
+# Wildcard route accepts any routes and delegates to serveAsset which in turn serves the React Bundle's index.html
+GET           /*path                                                           controllers.Application.index(path)

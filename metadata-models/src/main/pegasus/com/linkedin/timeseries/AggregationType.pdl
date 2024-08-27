@@ -1,0 +1,7 @@
+namespace com.linkedin.timeseries
+
+enum AggregationType {
+  LATEST
+  SUM
+  CARDINALITY
+}

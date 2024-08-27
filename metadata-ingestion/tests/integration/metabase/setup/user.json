@@ -1,0 +1,18 @@
+{
+  "email": "admin@metabase.com",
+  "ldap_auth": false,
+  "first_name": "FirstName",
+  "locale": null,
+  "last_login": "2021-12-13T18:51:32.999",
+  "is_active": true,
+  "is_qbnewb": true,
+  "updated_at": "2021-12-13T18:51:32.999",
+  "group_ids": [1, 2],
+  "is_superuser": true,
+  "login_attributes": null,
+  "id": 1,
+  "last_name": "LastName",
+  "date_joined": "2021-12-13T07:34:21.806",
+  "common_name": "FirstName LastName",
+  "google_auth": false
+}

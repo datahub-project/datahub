@@ -1,0 +1,80 @@
+.feedbackWrapper {
+  display: flex;
+}
+
+.feedbackWidget {
+  min-height: 64px;
+  margin: 15px auto;
+  padding: 10px 20px;
+  border: var(--ifm-hr-border-color) 1px solid;
+  border-radius: 32px;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.feedbackButtons {
+  strong {
+    margin-right: 4px;
+  }
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.feedbackForm {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 0.8rem;
+  button {
+    margin-left: auto;
+  }
+}
+
+.feedbackText {
+  font-family: var(--ifm-font-family-base);
+  width: 100%;
+  border: var(--ifm-hr-border-color) 1px solid;
+  border-radius: 0.4rem;
+  padding: 0.4rem;
+}
+
+.feedbackButton {
+  width: 2.25rem;
+  height: 2.25rem;
+  text-align: center;
+  font-size: 1.25rem;
+  padding: 0.3rem;
+  border-radius: 1000em;
+  border: None;
+  background: None;
+  margin-left: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  svg {
+    fill: var(--ifm-link-color);
+  }
+
+  &:hover,
+  &.active {
+    background: var(--ifm-link-color);
+    svg {
+      fill: var(--ifm-background-color);
+    }
+  }
+}
+
+.feedbackMessage {
+  display: flex;
+  align-items: center;
+  svg {
+    font-size: larger;
+    margin-right: 6px;
+    fill: var(--ifm-color-success);
+  }
+}

@@ -1,0 +1,38 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.Urn
+
+/**
+ * Dataset deprecation status
+ * Deprecated! This aspect is deprecated in favor of the more-general-purpose 'Deprecation' aspect.
+ */
+@Aspect = {
+  "name": "datasetDeprecation"
+}
+@Deprecated
+record DatasetDeprecation {
+
+  /**
+   * Whether the dataset is deprecated by owner.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "weightsPerFieldValue": { "true": 0.5 }
+  }
+  deprecated: boolean
+
+  /**
+   * The time user plan to decommission this dataset.
+   */
+  decommissionTime: optional long
+
+  /**
+   * Additional information about the dataset deprecation plan, such as the wiki, doc, RB.
+   */
+  note: string
+
+  /**
+   * The corpuser URN which will be credited for modifying this deprecation content.
+   */
+  actor: optional Urn
+}

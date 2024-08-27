@@ -1,0 +1,21 @@
+# Ingest data from S3
+source:
+  type: s3
+  config:
+    path_specs:
+      - include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
+
+    aws_config:
+      aws_access_key_id: *****
+      aws_secret_access_key: *****
+      aws_region: us-east-2
+    env: "PROD"
+    profiling:
+      enabled: false
+
+# Ingest data from local filesystem
+source:
+  type: s3
+  config:
+    path_specs:
+      - include: "/absolute/path/*.csv"

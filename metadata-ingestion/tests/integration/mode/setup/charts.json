@@ -1,0 +1,326 @@
+{
+  "_links": {
+    "self": {
+      "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts"
+    }
+  },
+  "_embedded": {
+    "charts": [{
+      "view": {},
+      "view_version": 2,
+      "view_vegas": {
+        "format": {
+          "xAxis": {
+            "rotate": null,
+            "dateFormat": "auto",
+            "numberRange": {
+              "min": null,
+              "max": null
+            },
+            "numberFormat": {
+              "format": null,
+              "precision": null
+            },
+            "title": null,
+            "titleEnabled": true
+          },
+          "yAxis": {
+            "numberRange": {
+              "min": null,
+              "max": null
+            },
+            "numberFormat": {
+              "format": null,
+              "precision": null
+            },
+            "title": null,
+            "titleEnabled": true,
+            "scaleType": "linear"
+          },
+          "y2Axis": {
+            "numberRange": {
+              "min": null,
+              "max": null
+            },
+            "numberFormat": {
+              "format": null,
+              "precision": null
+            },
+            "title": null,
+            "titleEnabled": true,
+            "scaleType": "linear"
+          },
+          "flatTable": {
+            "general": {
+              "sizingStyle": "sizeToFit",
+              "colorScheme": "default",
+              "density": "standard",
+              "colGridlines": true,
+              "rowGridlines": true,
+              "rowNumbers": false
+            },
+            "columns": [{
+              "id": "[payment_date]",
+              "colType": "TIMESTAMP"
+            }, {
+              "id": "[Staff First Name]",
+              "colType": "STRING"
+            }, {
+              "id": "[amount]",
+              "colType": "FLOAT"
+            }, {
+              "id": "[Staff Last Name]",
+              "colType": "STRING"
+            }]
+          },
+          "legend": {
+            "enabled": true,
+            "position": "auto",
+            "title": null,
+            "titleEnabled": true
+          },
+          "bigValue": {
+            "description": null,
+            "primaryTrendFormat": {
+              "label": null
+            }
+          },
+          "nullToZero": false,
+          "showValues": true,
+          "pieLabelsNotPercentages": false,
+          "drilldownEnabled": true,
+          "colors": {
+            "theme": "e7882faa26e7",
+            "custom": ["#37B067", " #6296BC", " #EDB40D", " #7FD7C1", " #9F8CAE", " #EB6672", " #376C72", " #EE9DCC", " #E3791A", " #9F765E"],
+            "map": {}
+          }
+        },
+        "fieldFormats": {
+          "[payment_date]": {
+            "paneFormat": {
+              "default": {
+                "colType": "TIMESTAMP",
+                "type": "date",
+                "horizontalAlignment": "right",
+                "dateFormat": "hour"
+              }
+            },
+            "axisFormat": {},
+            "headerFormat": {},
+            "legendFormat": {}
+          },
+          "[Staff First Name]": {
+            "paneFormat": {
+              "default": {
+                "colType": "STRING",
+                "type": "default",
+                "horizontalAlignment": "left"
+              }
+            },
+            "axisFormat": {},
+            "headerFormat": {},
+            "legendFormat": {}
+          },
+          "[amount]": {
+            "paneFormat": {
+              "default": {
+                "colType": "FLOAT",
+                "type": "number",
+                "horizontalAlignment": "right",
+                "separator": ""
+              }
+            },
+            "axisFormat": {},
+            "headerFormat": {},
+            "legendFormat": {}
+          },
+          "[Staff Last Name]": {
+            "paneFormat": {
+              "default": {
+                "colType": "STRING",
+                "type": "default",
+                "horizontalAlignment": "left"
+              }
+            },
+            "axisFormat": {},
+            "headerFormat": {},
+            "legendFormat": {}
+          }
+        },
+        "fieldColors": {},
+        "title": "Customer Staff Table",
+        "description": "",
+        "chartType": "table",
+        "encoding": {
+          "row": [],
+          "column": [],
+          "x": [],
+          "y": [],
+          "x2": [],
+          "y2": [],
+          "value": [],
+          "marks": {
+            "channel": "*",
+            "series": [],
+            "properties": {
+              "type": {
+                "value": "Text",
+                "automatic": true
+              },
+              "color": {
+                "values": []
+              },
+              "size": {
+                "values": []
+              },
+              "text": {
+                "values": [{
+                  "id": "ed18",
+                  "formula": "[payment_date]",
+                  "variable": {
+                    "type": "DISCRETE"
+                  }
+                }, {
+                  "id": "ccef",
+                  "formula": "[Staff First Name]",
+                  "variable": {
+                    "type": "DISCRETE"
+                  }
+                }, {
+                  "id": "d02b",
+                  "formula": "[Staff Last Name]",
+                  "variable": {
+                    "type": "DISCRETE"
+                  }
+                }, {
+                  "id": "8a39",
+                  "formula": "[amount]",
+                  "variable": {
+                    "type": "DISCRETE"
+                  }
+                }]
+              },
+              "label": {
+                "values": []
+              },
+              "detail": {
+                "values": []
+              },
+              "angle": {
+                "values": []
+              },
+              "tooltip": {
+                "values": []
+              }
+            }
+          },
+          "sorts": [],
+          "filter": [{
+            "id": "fa61",
+            "formula": "[amount]",
+            "variable": {
+              "type": "DISCRETE"
+            },
+            "selection": {
+              "selected": [0.99, 1.99, 2.99, 3.99, 4.99, 5.99, 6.99, 7.99],
+              "mode": "INCLUDE"
+            },
+            "filterType": "DISCRETE"
+          }],
+          "totals": {
+            "grand": {
+              "row": false,
+              "column": false
+            }
+          }
+        }
+      },
+      "token": "f622b9ee725b",
+      "created_at": "2021-12-10T21:01:23.088Z",
+      "updated_at": "2021-12-11T00:31:24.438Z",
+      "color_palette_token": "e7882faa26e7",
+      "switch_view_token": "396ffc362b4b",
+      "_links": {
+        "self": {
+          "href": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts/f622b9ee725b"
+        },
+        "color_palette": {
+          "href": "/api/acryltest/color_palettes/e7882faa26e7"
+        },
+        "report_viz_web": {
+          "href": "/acryltest/reports/9d2da37fa91e/viz/f622b9ee725b"
+        },
+        "preview": {
+          "templated": true,
+          "href": "/api/acryltest/reports/9d2da37fa91e/runs/{token}/charts/f622b9ee725b/preview"
+        },
+        "report_run_viz_web": {
+          "templated": true,
+          "href": "/acryltest/reports/9d2da37fa91e/runs/{token}/viz/f622b9ee725b"
+        },
+        "creator": {
+          "href": "/api/modeuser"
+        }
+      },
+      "_forms": {
+        "create": {
+          "method": "post",
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts",
+          "input": {
+            "chart": {
+              "view": {
+                "type": "text",
+                "value": "{}"
+              },
+              "view_vegas": {
+                "type": "text",
+                "value": "{}"
+              },
+              "view_version": {
+                "type": "select",
+                "options": ["1", "2"],
+                "value": 1
+              },
+              "token": {
+                "type": "text",
+                "value": ""
+              },
+              "color_palette_token": {
+                "type": "text"
+              }
+            }
+          }
+        },
+        "edit": {
+          "method": "patch",
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts/f622b9ee725b",
+          "input": {
+            "chart": {
+              "view": {
+                "type": "text",
+                "value": "{}"
+              },
+              "view_vegas": {
+                "type": "text",
+                "value": "{}"
+              },
+              "view_version": {
+                "type": "select",
+                "options": ["1", "2"],
+                "value": 1
+              },
+              "color_palette_token": {
+                "type": "text",
+                "value": "e7882faa26e7"
+              }
+            }
+          }
+        },
+        "destroy": {
+          "method": "delete",
+          "action": "/api/acryltest/reports/9d2da37fa91e/queries/6e26a9f3d4e2/charts/f622b9ee725b"
+        }
+      }
+    }]
+  }
+}

@@ -1,0 +1,32 @@
+run_id: postgres-test
+
+source:
+  type: postgres
+  config:
+    host_port: 'localhost:5432'
+    initial_database: 'postgrestest'
+    username: 'postgres'
+    password: 'example'
+    include_view_lineage: True
+    profiling:
+      enabled: true
+      profile_table_row_count_estimate_only: true
+      turn_off_expensive_profiling_metrics: true
+      include_field_null_count: true
+      include_field_distinct_count: true
+      include_field_min_value: false
+      include_field_max_value: false
+      include_field_mean_value: false
+      include_field_median_value: false
+      include_field_stddev_value: false
+      include_field_sample_values: false
+      partition_profiling_enabled: false
+      include_field_quantiles: false
+      include_field_distinct_value_frequencies: false
+      include_field_histogram: false
+      catch_exceptions: true
+    include_views: true
+sink:
+  type: file
+  config:
+    filename: "./postgres_all_db_mces.json"

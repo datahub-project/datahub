@@ -1,0 +1,37 @@
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
+
+dependencies {
+  dataModel project(path: ':li-utils', configuration: 'dataTemplate')
+}
+
+task copyMetadataModels(type: Copy) {
+  from("../../metadata-models/src/main/pegasus/")
+  into file("src/main/pegasus")
+}
+
+generateAvroSchema.dependsOn copyMetadataModels
+validateSchemaAnnotation.dependsOn copyMetadataModels
+mainTranslateSchemas.dependsOn copyMetadataModels
+generateDataTemplate.dependsOn copyMetadataModels
+mainCopySchemas.dependsOn copyMetadataModels
+pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
+
+task copyOriginalAvsc(type: Copy, dependsOn: generateAvroSchema) {
+  from("src/mainGeneratedAvroSchema/avro")
+  into file("src/renamed/avro")
+}
+
+task renameNamespace(type: Exec, dependsOn: copyOriginalAvsc) {
+  commandLine 'sh', './rename-namespace.sh'
+}
+
+build.dependsOn renameNamespace
+
+clean {
+  project.delete('src/main/pegasus')
+  project.delete('src/mainGeneratedAvroSchema/avro')
+  project.delete('src/renamed/avro')
+}

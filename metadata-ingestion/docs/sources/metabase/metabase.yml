@@ -1,0 +1,23 @@
+source:
+  type: metabase
+  config:
+    # Coordinates
+    connect_uri: http://localhost:3000
+
+    # Credentials
+    username: user
+    password: pass
+
+    # Options
+    default_schema: public
+    database_alias_map:
+      h2: sample-dataset.db
+    exclude_other_user_collections: true
+    # Optional mapping of platform types to instance ids
+    platform_instance_map: # optional
+      postgres: test_postgres    # optional
+    database_id_to_instance_map: # optional
+      "42": platform_instance_in_datahub # optional
+
+sink:
+  # sink configs

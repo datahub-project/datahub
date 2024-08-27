@@ -1,0 +1,499 @@
+[{
+  "description": null,
+  "archived": false,
+  "collection_position": null,
+  "table_id": null,
+  "result_metadata": [{
+    "name": "customer_id",
+    "display_name": "customer_id",
+    "base_type": "type/Integer",
+    "effective_type": "type/Integer",
+    "field_ref": ["field", "customer_id", {
+      "base-type": "type/Integer"
+    }],
+    "semantic_type": null,
+    "fingerprint": {
+      "global": {
+        "distinct-count": 517,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Number": {
+          "min": 1.0,
+          "q1": 127.95550051624855,
+          "q3": 457.48181481488376,
+          "max": 599.0,
+          "sd": 183.35453319901166,
+          "avg": 293.316
+        }
+      }
+    }
+  }, {
+    "name": "first_name",
+    "display_name": "first_name",
+    "base_type": "type/Text",
+    "effective_type": "type/Text",
+    "field_ref": ["field", "first_name", {
+      "base-type": "type/Text"
+    }],
+    "semantic_type": "type/Name",
+    "fingerprint": {
+      "global": {
+        "distinct-count": 509,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Text": {
+          "percent-json": 0.0,
+          "percent-url": 0.0,
+          "percent-email": 0.0,
+          "percent-state": 0.0035,
+          "average-length": 5.629
+        }
+      }
+    }
+  }, {
+    "name": "last_name",
+    "display_name": "last_name",
+    "base_type": "type/Text",
+    "effective_type": "type/Text",
+    "field_ref": ["field", "last_name", {
+      "base-type": "type/Text"
+    }],
+    "semantic_type": "type/Name",
+    "fingerprint": {
+      "global": {
+        "distinct-count": 517,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Text": {
+          "percent-json": 0.0,
+          "percent-url": 0.0,
+          "percent-email": 0.0,
+          "percent-state": 0.0015,
+          "average-length": 6.126
+        }
+      }
+    }
+  }, {
+    "name": "amount",
+    "display_name": "amount",
+    "base_type": "type/Decimal",
+    "effective_type": "type/Decimal",
+    "field_ref": ["field", "amount", {
+      "base-type": "type/Decimal"
+    }],
+    "semantic_type": null,
+    "fingerprint": {
+      "global": {
+        "distinct-count": 11,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Number": {
+          "min": 0.99,
+          "q1": 2.399411317392306,
+          "q3": 5.52734176879965,
+          "max": 10.99,
+          "sd": 2.352151368009511,
+          "avg": 4.1405
+        }
+      }
+    }
+  }, {
+    "name": "payment_date",
+    "display_name": "payment_date",
+    "base_type": "type/DateTime",
+    "effective_type": "type/DateTime",
+    "field_ref": ["field", "payment_date", {
+      "base-type": "type/DateTime"
+    }],
+    "semantic_type": null,
+    "fingerprint": {
+      "global": {
+        "distinct-count": 1998,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/DateTime": {
+          "earliest": "2007-02-14T21:21:59.996577Z",
+          "latest": "2007-02-21T19:27:46.996577Z"
+        }
+      }
+    }
+  }, {
+    "name": "rental_id",
+    "display_name": "rental_id",
+    "base_type": "type/Integer",
+    "effective_type": "type/Integer",
+    "field_ref": ["field", "rental_id", {
+      "base-type": "type/Integer"
+    }],
+    "semantic_type": null,
+    "fingerprint": {
+      "global": {
+        "distinct-count": 2000,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Number": {
+          "min": 1158.0,
+          "q1": 1731.7967120913397,
+          "q3": 2871.359273326854,
+          "max": 4591.0,
+          "sd": 660.7468728104022,
+          "avg": 2303.4565
+        }
+      }
+    }
+  }],
+  "creator": {
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_login": "2021-12-13T18:51:32.999",
+    "is_qbnewb": true,
+    "is_superuser": true,
+    "id": 1,
+    "last_name": "LastName",
+    "date_joined": "2021-12-13T07:34:21.806",
+    "common_name": "FirstName LastName"
+  },
+  "database_id": 2,
+  "enable_embedding": false,
+  "collection_id": null,
+  "query_type": "native",
+  "name": "Customer Payment",
+  "creator_id": 1,
+  "updated_at": "2021-12-13T17:48:40.478",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "dataset_query": {
+    "type": "native",
+    "native": {
+      "query": "SELECT\n\tcustomer.customer_id,\n\tfirst_name,\n\tlast_name,\n\tamount,\n\tpayment_date,\n\trental_id\nFROM\n\tcustomer\nINNER JOIN payment \n    ON payment.customer_id = customer.customer_id\nORDER BY payment_date",
+      "template-tags": {}
+    },
+    "database": 2
+  },
+  "id": 1,
+  "display": "table",
+  "last-edit-info": {
+    "id": 1,
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_name": "LastName",
+    "timestamp": "2021-12-13T17:46:32.792"
+  },
+  "visualization_settings": {
+    "table.pivot_column": "amount",
+    "table.cell_column": "customer_id"
+  },
+  "collection": null,
+  "favorite": false,
+  "created_at": "2021-12-13T17:46:32.77",
+  "public_uuid": null
+}, {
+  "description": null,
+  "archived": false,
+  "collection_position": null,
+  "table_id": 21,
+  "result_metadata": [{
+    "semantic_type": "type/Category",
+    "coercion_strategy": null,
+    "name": "rating",
+    "field_ref": ["field", 131, null],
+    "effective_type": "type/*",
+    "id": 131,
+    "display_name": "Rating",
+    "fingerprint": {
+      "global": {
+        "distinct-count": 5,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Text": {
+          "percent-json": 0.0,
+          "percent-url": 0.0,
+          "percent-email": 0.0,
+          "percent-state": 0.0,
+          "average-length": 2.926
+        }
+      }
+    },
+    "base_type": "type/PostgresEnum"
+  }, {
+    "name": "count",
+    "display_name": "Count",
+    "base_type": "type/BigInteger",
+    "effective_type": "type/BigInteger",
+    "semantic_type": "type/Quantity",
+    "field_ref": ["aggregation", 0],
+    "fingerprint": {
+      "global": {
+        "distinct-count": 5,
+        "nil%": 0.0
+      },
+      "type": {
+        "type/Number": {
+          "min": 178.0,
+          "q1": 190.0,
+          "q3": 213.25,
+          "max": 223.0,
+          "sd": 17.131841699011815,
+          "avg": 200.0
+        }
+      }
+    }
+  }],
+  "creator": {
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_login": "2021-12-13T18:51:32.999",
+    "is_qbnewb": true,
+    "is_superuser": true,
+    "id": 1,
+    "last_name": "LastName",
+    "date_joined": "2021-12-13T07:34:21.806",
+    "common_name": "FirstName LastName"
+  },
+  "database_id": 2,
+  "enable_embedding": false,
+  "collection_id": null,
+  "query_type": "query",
+  "name": "Films, Count, Grouped by Rating, Filtered by Release Year, Sorted by [Unknown Field] descending",
+  "creator_id": 1,
+  "updated_at": "2021-12-13T17:48:39.999",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "dataset_query": {
+    "query": {
+      "source-table": 21,
+      "breakout": [
+        ["field", 131, null]
+      ],
+      "aggregation": [
+        ["count"]
+      ],
+      "order-by": [
+        ["desc", ["aggregation", 0]]
+      ],
+      "filter": ["=", ["field", 136, null], 2006]
+    },
+    "database": 2,
+    "type": "query"
+  },
+  "id": 2,
+  "display": "row",
+  "last-edit-info": {
+    "id": 1,
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_name": "LastName",
+    "timestamp": "2021-12-13T17:48:37.11"
+  },
+  "visualization_settings": {
+    "graph.series_labels": ["number"],
+    "graph.dimensions": ["rating"],
+    "graph.colors": ["#509EE3"],
+    "graph.metrics": ["count"]
+  },
+  "collection": null,
+  "favorite": false,
+  "created_at": "2021-12-13T17:48:37.102",
+  "public_uuid": null
+}, {
+    "description": null,
+    "archived": false,
+    "collection_position": null,
+    "table_id": null,
+    "result_metadata": [
+        {
+            "name": "completed_at",
+            "display_name": "completed_at",
+            "base_type": "type/Date",
+            "special_type": null,
+            "field_ref": [
+                "field",
+                "completed_at",
+                {
+                    "base-type": "type/DateTimeWithTZ",
+                    "temporal-unit": "day"
+                }
+            ],
+            "unit": "day",
+            "fingerprint": {
+                "global": {
+                    "distinct-count": 1916,
+                    "nil%": 0.0385
+                }
+            }
+        },
+        {
+            "name": "count",
+            "display_name": "Distinct values of order_number",
+            "base_type": "type/BigInteger",
+            "special_type": "type/Quantity",
+            "field_ref": [
+                "aggregation",
+                0
+            ],
+            "fingerprint": {
+                "global": {
+                    "distinct-count": 8,
+                    "nil%": 0.0
+                },
+                "type": {
+                    "type/Number": {
+                        "min": 44098.0,
+                        "q1": 46911.0,
+                        "q3": 51276.0,
+                        "max": 52228.0,
+                        "sd": 2797.3306887357558,
+                        "avg": 48557.125
+                    }
+                }
+            }
+        },
+        {
+            "name": "sum",
+            "display_name": "Sum of nominal_total",
+            "base_type": "type/Float",
+            "special_type": null,
+            "field_ref": [
+                "aggregation",
+                1
+            ],
+            "fingerprint": {
+                "global": {
+                    "distinct-count": 8,
+                    "nil%": 0.0
+                },
+                "type": {
+                    "type/Number": {
+                        "min": 1.256807007034278E8,
+                        "q1": 1.277180884245776E8,
+                        "q3": 1.4257821803491282E8,
+                        "max": 1.4887777502074698E8,
+                        "sd": 8966928.163419789,
+                        "avg": 1.3526486656272435E8
+                    }
+                }
+            }
+        }
+    ],
+    "creator": {
+        "email": "john.doe@example.com",
+        "first_name": "John",
+        "last_login": "2023-08-03T09:33:25.157021Z",
+        "is_qbnewb": false,
+        "is_superuser": false,
+        "id": 1,
+        "last_name": "Doe",
+        "date_joined": "2020-07-13T07:29:31.805765Z",
+        "common_name": "John Doe"
+    },
+    "can_write": true,
+    "database_id": 2,
+    "enable_embedding": false,
+    "collection_id": 1135,
+    "query_type": "query",
+    "name": "Question with data from other question",
+    "last_query_start": null,
+    "dashboard_count": 1,
+    "average_query_time": null,
+    "creator_id": 31337,
+    "moderation_reviews": [],
+    "updated_at": "2023-06-01T14:01:59.592811Z",
+    "made_public_by_id": null,
+    "embedding_params": null,
+    "cache_ttl": null,
+    "dataset_query": {
+        "database": 2,
+        "query": {
+            "source-table": "card__1",
+            "filter": [
+                "time-interval",
+                [
+                    "field",
+                    "completed_at",
+                    {
+                        "base-type": "type/DateTimeWithTZ"
+                    }
+                ],
+                -8,
+                "day",
+                {
+                    "include-current": false
+                }
+            ],
+            "aggregation": [
+                [
+                    "distinct",
+                    [
+                        "field",
+                        "order_number",
+                        {
+                            "base-type": "type/Text"
+                        }
+                    ]
+                ],
+                [
+                    "sum",
+                    [
+                        "field",
+                        "nominal_total",
+                        {
+                            "base-type": "type/Float"
+                        }
+                    ]
+                ]
+            ],
+            "breakout": [
+                [
+                    "field",
+                    "completed_at",
+                    {
+                        "base-type": "type/DateTimeWithTZ",
+                        "temporal-unit": "day"
+                    }
+                ]
+            ]
+        },
+        "type": "query"
+    },
+    "id": 3,
+    "parameter_mappings": null,
+    "display": "table",
+    "entity_id": null,
+    "collection_preview": true,
+    "last-edit-info": {
+        "id": 1,
+        "email": "john.doe@example.com",
+        "first_name": "John",
+        "last_name": "Doe",
+        "timestamp": "2023-06-01T14:01:59.636581Z"
+    },
+    "visualization_settings": {},
+    "collection": {
+        "authority_level": null,
+        "description": null,
+        "archived": false,
+        "slug": "group",
+        "color": "#509EE3",
+        "name": "Group",
+        "personal_owner_id": null,
+        "id": 1135,
+        "entity_id": null,
+        "location": "/3/373/",
+        "namespace": null,
+        "created_at": "2020-07-17T19:28:39.513365Z"
+    },
+    "parameters": null,
+    "dataset": false,
+    "created_at": "2020-07-17T19:28:39.513365Z",
+    "parameter_usage_count": 0,
+    "public_uuid": null
+}]

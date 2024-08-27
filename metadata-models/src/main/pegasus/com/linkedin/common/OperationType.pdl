@@ -1,0 +1,36 @@
+namespace com.linkedin.common
+
+/**
+  * Enum to define the operation type when an entity changes.
+  */
+enum OperationType {
+  /**
+   * Rows were inserted
+   */
+  INSERT
+  /**
+   * Rows were updated
+   */
+  UPDATE
+  /**
+   * Rows were deleted
+   */
+  DELETE
+  /**
+   * Asset was created
+   */
+  CREATE
+  /**
+   * Asset was altered
+   */
+  ALTER
+  /**
+   * Asset was dropped
+   */
+  DROP
+  /**
+   * Custom asset operation
+   */
+  CUSTOM
+  UNKNOWN
+}

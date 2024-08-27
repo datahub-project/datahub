@@ -1,0 +1,54 @@
+{
+  "bool" : {
+    "must" : [
+      {
+        "bool" : {
+          "should" : [
+            {
+              "match" : {
+                "key1" : {
+                  "query" : "value1,value2",
+                  "operator" : "OR",
+                  "prefix_length" : 0,
+                  "max_expansions" : 50,
+                  "fuzzy_transpositions" : true,
+                  "lenient" : false,
+                  "zero_terms_query" : "NONE",
+                  "auto_generate_synonyms_phrase_query" : true,
+                  "boost" : 1.0
+                }
+              }
+            }
+          ],
+          "adjust_pure_negative" : true,
+          "boost" : 1.0
+        }
+      },
+      {
+        "bool" : {
+          "should" : [
+            {
+              "match" : {
+                "key2" : {
+                  "query" : "value2",
+                  "operator" : "OR",
+                  "prefix_length" : 0,
+                  "max_expansions" : 50,
+                  "fuzzy_transpositions" : true,
+                  "lenient" : false,
+                  "zero_terms_query" : "NONE",
+                  "auto_generate_synonyms_phrase_query" : true,
+                  "boost" : 1.0
+                }
+              }
+            }
+          ],
+          "adjust_pure_negative" : true,
+          "boost" : 1.0
+        }
+      }
+    ],
+    "adjust_pure_negative" : true,
+    "boost" : 1.0
+  }
+}

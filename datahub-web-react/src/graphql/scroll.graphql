@@ -1,0 +1,439 @@
+fragment downloadSearchResults on Entity {
+    urn
+    type
+    ... on Dataset {
+        name
+        origin
+        uri
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        editableProperties {
+            description
+        }
+        platformNativeType
+        properties {
+            name
+            description
+            qualifiedName
+            customProperties {
+                key
+                value
+            }
+            externalUrl
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        subTypes {
+            typeNames
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on CorpUser {
+        username
+        properties {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+        info {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+        editableProperties {
+            displayName
+            title
+            pictureLink
+        }
+    }
+    ... on CorpGroup {
+        name
+        info {
+            displayName
+            description
+        }
+    }
+    ... on Dashboard {
+        dashboardId
+        properties {
+            name
+            description
+            externalUrl
+            access
+            lastModified {
+                time
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+    }
+    ... on Chart {
+        chartId
+        properties {
+            name
+            description
+            externalUrl
+            type
+            access
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        subTypes {
+            typeNames
+        }
+    }
+    ... on DataFlow {
+        flowId
+        cluster
+        properties {
+            name
+            description
+            project
+            externalUrl
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on DataJob {
+        dataFlow {
+            ...nonRecursiveDataFlowFields
+        }
+        jobId
+        ownership {
+            ...ownershipFields
+        }
+        properties {
+            name
+            description
+            externalUrl
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        editableProperties {
+            description
+        }
+        domain {
+            ...entityDomain
+        }
+        ...entityDataProduct
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
+        }
+    }
+    ... on GlossaryTerm {
+        name
+        hierarchicalName
+        properties {
+            name
+            description
+            termSource
+            sourceRef
+            sourceUrl
+            rawSchema
+            customProperties {
+                key
+                value
+            }
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        parentNodes {
+            ...parentNodesFields
+        }
+        domain {
+            ...entityDomain
+        }
+    }
+    ... on GlossaryNode {
+        ...glossaryNode
+        parentNodes {
+            ...parentNodesFields
+        }
+    }
+    ... on Domain {
+        properties {
+            name
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+    }
+    ... on Container {
+        properties {
+            name
+            description
+            externalUrl
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        editableProperties {
+            description
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        subTypes {
+            typeNames
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLFeatureTable {
+        name
+        description
+        featureTableProperties {
+            description
+            mlFeatures {
+                urn
+            }
+            mlPrimaryKeys {
+                urn
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLFeature {
+        ...nonRecursiveMLFeature
+    }
+    ... on MLPrimaryKey {
+        ...nonRecursiveMLPrimaryKey
+    }
+    ... on MLModel {
+        name
+        description
+        origin
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLModelGroup {
+        name
+        origin
+        description
+        ownership {
+            ...ownershipFields
+        }
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on Tag {
+        name
+        properties {
+            name
+        }
+        description
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+}
+
+fragment downloadScrollResult on ScrollResults {
+    nextScrollId
+    count
+    total
+    searchResults {
+        entity {
+            ...downloadSearchResults
+        }
+        matchedFields {
+            name
+            value
+        }
+        insights {
+            text
+            icon
+        }
+    }
+    facets {
+        ...facetFields
+    }
+}
+
+query getDownloadScrollResults($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        ...downloadScrollResult
+    }
+}
+
+fragment downloadScrollAcrossLineageResult on ScrollAcrossLineageResults {
+    nextScrollId
+    count
+    total
+    searchResults {
+        degree
+        entity {
+            ...downloadSearchResults
+        }
+        matchedFields {
+            name
+            value
+        }
+        insights {
+            text
+            icon
+        }
+    }
+    facets {
+        ...facetFields
+    }
+}
+
+query getDownloadScrollAcrossLineageResults($input: ScrollAcrossLineageInput!) {
+    scrollAcrossLineage(input: $input) {
+        ...downloadScrollAcrossLineageResult
+    }
+}

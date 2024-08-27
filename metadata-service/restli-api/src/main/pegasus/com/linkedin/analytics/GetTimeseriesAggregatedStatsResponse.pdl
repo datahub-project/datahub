@@ -1,0 +1,44 @@
+namespace com.linkedin.analytics
+
+import com.linkedin.metadata.query.filter.Filter
+import com.linkedin.timeseries.AggregationSpec
+import com.linkedin.timeseries.GenericTable
+import com.linkedin.timeseries.GroupingBucket
+
+record GetTimeseriesAggregatedStatsResponse {
+  /**
+   * Input param entityName
+   */
+   entityName: string
+
+  /**
+   * Input param aspectName
+   */
+   aspectName: string
+
+  /**
+   * Input param filter.
+   */
+   filter: optional Filter
+
+  /**
+   * Input param aggregated metrics.
+   */
+   aggregationSpecs: optional array[AggregationSpec]
+
+  /**
+   * Input param groupingBuckets
+   */
+   groupingBuckets: array[GroupingBucket]
+
+  /**
+   * The results table.
+   */
+  table: GenericTable
+
+  /**
+   * When the index was last updated.
+   */
+  lastUpdatedTimeMillis: optional long
+
+}

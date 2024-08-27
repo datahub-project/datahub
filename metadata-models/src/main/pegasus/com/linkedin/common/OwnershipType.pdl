@@ -1,0 +1,75 @@
+namespace com.linkedin.common
+
+/**
+ * Asset owner types
+ */
+enum OwnershipType {
+
+  /**
+   * Set when ownership type is unknown or a when new one is specified as an ownership type entity for which we have no
+   * enum value for. This is used for backwards compatibility
+   */
+  CUSTOM
+
+  /**
+   * person or group who is responsible for technical aspects of the asset.
+   */
+  TECHNICAL_OWNER
+
+  /**
+   *A person or group who is responsible for logical, or business related, aspects of the asset.
+   */
+  BUSINESS_OWNER
+
+  /**
+   * A steward, expert, or delegate responsible for the asset.
+   */
+  DATA_STEWARD
+
+  /**
+   * No specific type associated to the owner.
+   */
+  NONE
+
+  /**
+   * A person or group that is in charge of developing the code
+   * Deprecated! Use TECHNICAL_OWNER instead.
+   */
+  @deprecated
+  DEVELOPER
+
+  /**
+   * A person or group that is owning the data
+   * Deprecated! Use TECHNICAL_OWNER instead.
+   */
+  @deprecated
+  DATAOWNER
+
+  /**
+   * A person or a group that overseas the operation, e.g. a DBA or SRE.
+   * Deprecated! Use TECHNICAL_OWNER instead.
+   */
+  @deprecated
+  DELEGATE
+
+  /**
+   * A person, group, or service that produces/generates the data
+   * Deprecated! Use TECHNICAL_OWNER instead.
+   */
+  @deprecated
+  PRODUCER
+
+  /**
+   * A person, group, or service that consumes the data
+   * Deprecated! Use TECHNICAL_OWNER or BUSINESS_OWNER instead.
+   */
+  @deprecated
+  CONSUMER
+
+  /**
+   * A person or a group that has direct business interest
+   * Deprecated! Use TECHNICAL_OWNER, BUSINESS_OWNER, or STEWARD instead.
+   */
+  @deprecated
+  STAKEHOLDER
+}

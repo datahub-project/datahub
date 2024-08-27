@@ -1,0 +1,6 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * A union of all supported metadata aspects for HyperParameter Value
+ */
+typeref HyperParameterValueType = union[string, int, float, double, boolean]

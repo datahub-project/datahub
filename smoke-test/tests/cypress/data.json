@@ -1,0 +1,2219 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/kafka/SampleKafkaDataset"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": null,
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleKafkaSchema",
+              "platform": "urn:li:dataPlatform:kafka",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "[version=2.0].[type=boolean].field_foo_2",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Foo field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "globalTags": {
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:NeedsDocumentation"
+                      }
+                    ]
+                  },
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "[version=2.0].[type=boolean].field_bar",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Bar field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "[version=2.0].[key=True].[type=int].id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Id specifying which partition the message should go to"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hdfs dataset",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/SampleCypressHdfsDataset"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ],
+              "fineGrainedLineages": [
+                {
+                  "upstreamType": "FIELD_SET",
+                  "upstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD),field_bar)"
+                  ],
+                  "downstreamType": "FIELD",
+                  "downstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),shipment_info)"
+                  ],
+                  "confidenceScore": 1.0
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "editableSchemaFieldInfo": [
+                {
+                  "fieldPath": "shipment_info",
+                  "globalTags": {
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:Legacy"
+                      }
+                    ]
+                  },
+                  "glossaryTerms": {
+                    "terms": [
+                      {
+                        "urn": "urn:li:glossaryTerm:CypressNode.CypressColumnInfoType"
+                      }
+                    ],
+                    "auditStamp": {
+                      "time": 0,
+                      "actor": "urn:li:corpuser:jdoe",
+                      "impersonator": null
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHdfsSchema",
+              "platform": "urn:li:dataPlatform:hdfs",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHdfsSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample HDFS dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "shipment_info",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.RecordType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.date",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info date description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "Date",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.target",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info target description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "text",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.destination",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info destination description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.geo_info",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info geo_info description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.RecordType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.geo_info.lat",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info geo_info lat"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "float",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.geo_info.lng",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info geo_info lng"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "float",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                },
+                {
+                  "tag": "urn:li:tag:Cypress2"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hive dataset",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Foo field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false,
+                  "isPartOfKey": true
+                },
+                {
+                  "fieldPath": "field_bar",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Bar field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table where each row represents a single log event",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "event_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of your logging event"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "event_data",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Data of your event"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false,
+                  "glossaryTerms": {
+                    "terms": [
+                      {
+                        "urn": "urn:li:glossaryTerm:CypressNode.CypressColumnInfoType"
+                      }
+                    ],
+                    "auditStamp": {
+                      "time": 0,
+                      "actor": "urn:li:corpuser:jdoe",
+                      "impersonator": null
+                    }
+                  }
+                },
+                {
+                  "fieldPath": "timestamp",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "TS the event was ingested"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "browser",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created_no_tag,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table containing all the users created on a single day. Creted from log events.",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "user_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Id of the user created"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "user_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of the user who signed up"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": [
+                {
+                  "name": "user id",
+                  "foreignFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                  ],
+                  "sourceFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                  ],
+                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table containing all the users created on a single day",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "user_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Id of the user created"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "user_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of the user who signed up"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null,
+              "foreignKeys": [
+                {
+                  "name": "user id",
+                  "foreignFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                  ],
+                  "sourceFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                  ],
+                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table containing all the users deleted on a single day",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+                  "type": "TRANSFORMED"
+                },
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "user_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of the user who was deleted"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "timestamp",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Timestamp user was deleted at"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "long",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "user_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Id of the user deleted"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "browser_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Cookie attached to identify the browser"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "session_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Cookie attached to identify the session"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "deletion_reason",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Why the user chose to deactivate"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": ["user_name"],
+              "foreignKeysSpecs": null,
+              "foreignKeys": [
+                {
+                  "name": "user session",
+                  "foreignFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD),user_id)"
+                  ],
+                  "sourceFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD),user_id)"
+                  ],
+                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD)"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_123)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+              "name": "User Creations",
+              "description": "Constructs the fct_users_created from logging_events",
+              "type": "SQL",
+              "flowUrn": "urn:li:dataFlow:(airflow,cypress_dag_abc,PROD)"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_456)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+              "name": "User Deletions",
+              "description": "Constructs the fct_users_deleted from logging_events",
+              "type": "SQL",
+              "flowUrn": "urn:li:dataFlow:(airflow,cypress_dag_abc,PROD)"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD)"
+              ],
+              "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_123)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+        "urn": "urn:li:dataFlow:(airflow,cypress_dag_abc,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+              "name": "Users",
+              "description": "Constructs the fct_users_deleted and fct_users_created tables",
+              "project": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+        "urn": "urn:li:chart:(looker,cypress_baz1)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.chart.ChartInfo": {
+              "title": "Baz Chart 1",
+              "description": "Baz Chart 1",
+              "lastModified": {
+                "created": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:datahub",
+                  "impersonator": null
+                },
+                "deleted": null
+              },
+              "chartUrl": null,
+              "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)"
+              ],
+              "type": null,
+              "access": null,
+              "lastRefreshed": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+        "urn": "urn:li:chart:(looker,cypress_baz2)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.chart.ChartInfo": {
+              "title": "Baz Chart 2",
+              "description": "Baz Chart 2",
+              "lastModified": {
+                "created": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:datahub",
+                  "impersonator": null
+                },
+                "deleted": null
+              },
+              "chartUrl": null,
+              "inputs": {
+                "array": [
+                  {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)"
+                  }
+                ]
+              },
+              "type": null,
+              "access": null,
+              "lastRefreshed": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+        "urn": "urn:li:dashboard:(looker,cypress_baz)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpGroup:bfoo",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+              "title": "Baz Dashboard",
+              "description": "Baz Dashboard",
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              },
+              "charts": [
+                "urn:li:chart:(looker,cypress_baz1)",
+                "urn:li:chart:(looker,cypress_baz2)"
+              ],
+              "lastModified": {
+                "created": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:datahub",
+                  "impersonator": null
+                },
+                "deleted": null
+              },
+              "dashboardUrl": null,
+              "access": null,
+              "lastRefreshed": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:CypressNode.CypressTerm",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "a product provided to consumers and businesses by a bank or similar depository institution such as a checking account, savings account, certificate of deposit, debit or pre-paid card, or credit card",
+              "parentNode": "urn:li:glossaryNode:CypressNode",
+              "sourceRef": "FIBO",
+              "termSource": "EXTERNAL",
+              "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
+              "customProperties": {
+                "FQDN": "SavingAccount"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+        "urn": "urn:li:glossaryNode:CypressNode",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+              "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:Cypress",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "Cypress",
+              "description": "Indicates the entity is for cypress integration test purposes"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:Cypress2",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "Cypress 2",
+              "description": "Indicates the entity is #2 for cypress test purposes"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.bigquery_usage_logs.cypress_logging_events,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1622243780153, \"lastUpdatedTimestamp\": 1622243780153, \"actor\": \"urn:li:corpuser:harshal\", \"operationType\": \"CREATE\", \"affectedDatasets\": []}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+      "value": "{\"customProperties\": {\"run_id\": \"manual__2022-03-30T11:35:08.970522+00:00\", \"duration\": \"None\", \"start_date\": \"2022-03-30 11:35:09.761704+00:00\", \"end_date\": \"None\", \"execution_date\": \"2022-03-30 11:35:08.970522+00:00\", \"try_number\": \"0\", \"hostname\": \"e4688afa8c61\", \"max_tries\": \"0\", \"external_executor_id\": \"None\", \"pid\": \"44744\", \"state\": \"running\", \"operator\": \"PythonOperator\", \"priority_weight\": \"1\", \"unixname\": \"airflow\", \"log_url\": \"http://localhost:8080/log?execution_date=2022-03-30T11%3A35%3A08.970522%2B00%3A00&task_id=ingest_airflow_dags&dag_id=datahub_airflow_ingest\"}, \"externalUrl\": \"http://localhost:8080/log?execution_date=2022-03-30T11%3A35%3A08.970522%2B00%3A00&task_id=ingest_airflow_dags&dag_id=datahub_airflow_ingest\", \"name\": \"manual__2022-03-30T11:35:08.970522+00:00\", \"type\": \"BATCH_AD_HOC\", \"created\": {\"time\": 1648630100320, \"actor\": \"urn:li:corpuser:datahub\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+      "value": "{\"inputs\": [\"urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created_no_tag,PROD)\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+      "value": "{\"outputs\": [\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+      "value": "{\"parentTemplate\": \"urn:li:dataJob:(urn:li:dataFlow:(airflow,cypress_dag_abc,PROD),cypress_task_123)\", \"upstreamInstances\": []}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1648640109761, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"FAILURE\", \"nativeResultType\": \"failed\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(cypress-test-2,some-cypress-feature-1)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "TEXT",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:CypressFeatureTag"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(cypress-test-2,some-cypress-feature-2)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": "this is a description from source system",
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:CypressPrimaryKeyTag"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,cypress-feature-table)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/sagemaker/cypress-feature-table"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {
+                "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-2",
+                "creation_time": "2021-06-24 09:48:37.035000",
+                "status": "Created"
+              },
+              "description": "Yet another test feature group",
+              "mlFeatures": [
+                "urn:li:mlFeature:(cypress-test-2,some-cypress-feature-1)"
+              ],
+              "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(cypress-test-2,some-cypress-feature-2)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,cypress-model,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+              "customProperties": {
+                "EnableNetworkIsolation": "True"
+              },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
+              "description": "ml model description",
+              "date": 1420070400000,
+              "version": null,
+              "type": null,
+              "hyperParameters": null,
+              "hyperParams": [
+                {
+                  "name": "parameter-1",
+                  "description": null,
+                  "value": "some-value",
+                  "createdAt": null
+                }
+              ],
+              "trainingMetrics": [
+                {
+                  "name": "another-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "createdAt": null
+                }
+              ],
+              "onlineMetrics": null,
+              "mlFeatures": [
+                "urn:li:mlFeature:(cypress-test-2,some-cypress-feature-1)"
+              ],
+              "tags": [],
+              "deployments": [],
+              "trainingJobs": [],
+              "downstreamJobs": [],
+              "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,cypress-model-package-group,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/sagemaker/cypress-model-package-group/cypress-model"]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot": {
+        "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,cypress-model-package-group,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties": {
+              "customProperties": {
+                "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+                "ModelPackageGroupDescription": "Just a model package group.",
+                "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
+                "ModelPackageGroupStatus": "Completed"
+              },
+              "description": "Just a model package group.",
+              "createdAt": 1420070400000,
+              "version": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:some-user",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/sagemaker/cypress-model-package-group"]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:CypressNode.CypressColumnInfoType",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "a definition",
+              "parentNode": "urn:li:glossaryNode:CypressNode",
+              "sourceRef": "FIBO",
+              "termSource": "EXTERNAL",
+              "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
+              "customProperties": {
+                "FQDN": "SavingAccount"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:marketing",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"Marketing\", \"description\": \"My custom domain\" }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\": [\"urn:li:domain:marketing\"] }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "query",
+    "entityUrn": "urn:li:query:test-query",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+      "value": "{\"name\":\"TestQuery\",\"description\":\"TestDescription\",\"source\":\"MANUAL\",\"statement\":{\"language\":\"SQL\",\"value\":\"SELECT*FROMTABLE\"},\"created\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0},\"lastModified\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "query",
+    "entityUrn": "urn:li:query:test-query",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+      "value": "{\"subjects\":[{\"entity\":\"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table for health",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD),field_foo)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"true\", \"type\": \"UNKNOWN\"} }, \"nativeType\": \"expect_column_values_to_equal\", \"nativeParameters\": {\"column\": \"field_foo\", \"value\": \"true\"}}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1675155843000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"FAILURE\", \"nativeResults\": {}}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:test",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"entities\":[\"urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)\"],\"created\":{\"actor\":\"urn:li:corpuser:admin\",\"time\":1692301854918},\"description\":\"test\",\"source\":{\"type\":\"MANUAL\"},\"title\":\"test\",\"type\":\"OPERATIONAL\",\"status\":{\"lastUpdated\":{\"actor\":\"urn:li:corpuser:admin\",\"time\":1692301854919},\"state\":\"ACTIVE\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "incidentsSummary",
+    "aspect": {
+      "value": "{\"resolvedIncidentDetails\":[], \"activeIncidentDetails\": [{ \"urn\": \"urn:li:incident:test\", \"type\": \"OPERATIONAL\", \"createdAt\": 0 }]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "businessAttributeInfo",
+    "aspect": {
+      "value": "{\n      \"fieldPath\": \"CypressAttribute\",\n      \"description\": \"CypressAttribute\",\n      \"globalTags\": {\n        \"tags\": [\n          {\n            \"tag\": \"urn:li:tag:Cypress\"\n          }\n        ]\n      },\n      \"glossaryTerms\": {\n        \"terms\": [\n          {\n            \"urn\": \"urn:li:glossaryTerm:CypressNode.CypressTerm\"\n          }\n        ],\n        \"auditStamp\": {\n          \"time\": 1706889592683,\n          \"actor\": \"urn:li:corpuser:datahub\"\n        }\n      },\n      \"customProperties\": {},\n      \"created\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"lastModified\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"name\": \"CypressAttribute\",\n      \"type\": {\n        \"type\": {\n          \"com.linkedin.schema.BooleanType\": {}\n        }\n      }\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\n      \"owners\": [\n        {\n          \"owner\": \"urn:li:corpuser:datahub\",\n          \"type\": \"TECHNICAL_OWNER\",\n          \"typeUrn\": \"urn:li:ownershipType:__system__technical_owner\",\n          \"source\": {\n            \"type\": \"MANUAL\"\n          }\n        }\n      ]\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:cypressTestAttribute",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "businessAttributeInfo",
+    "aspect": {
+      "value": "{\n      \"fieldPath\": \"cypressTestAttribute\",\n      \"description\": \"cypressTestAttribute\",\n      \"customProperties\": {},\n      \"created\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"lastModified\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"name\": \"cypressTestAttribute\",\n      \"type\": {\n        \"type\": {\n          \"com.linkedin.schema.BooleanType\": {}\n        }\n      }\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:cypressTestAttribute",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\n      \"owners\": [\n        {\n          \"owner\": \"urn:li:corpuser:datahub\",\n          \"type\": \"TECHNICAL_OWNER\",\n          \"typeUrn\": \"urn:li:ownershipType:__system__technical_owner\",\n          \"source\": {\n            \"type\": \"MANUAL\"\n          }\n        }\n      ]\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD),user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "documentation",
+    "aspect": {
+      "value": "{\"documentations\":[{\"attribution\":{\"actor\":\"urn:li:corpuser:__datahub_system\",\"source\":\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD),user_id)\",\"sourceDetail\":{\"actor\":\"urn:li:corpuser:shirshanka@acryl.io\",\"origin\":\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD),user_id)\",\"propagated\":\"true\"},\"time\":1721422917808},\"documentation\":\"Unique identifier of user profile.\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  }
+]

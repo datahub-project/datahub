@@ -1,0 +1,18 @@
+source:
+    type: starburst-trino-usage
+    config:
+    # Coordinates
+    host_port: yourtrinohost:port
+    # The name of the catalog from getting the usage
+    database: hive
+    # Credentials
+    username: trino_username
+    password: trino_password
+    email_domain: test.com
+    audit_catalog: audit
+    audit_schema: audit_schema
+
+sink:
+    type: "datahub-rest"
+    config:
+        server: "http://localhost:8080"

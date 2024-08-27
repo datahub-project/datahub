@@ -1,0 +1,100 @@
+fragment runResults on DataProcessInstanceResult {
+    count
+    start
+    total
+    runs {
+        urn
+        type
+        created {
+            time
+            actor
+        }
+        name
+        state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
+            status
+            attempt
+            result {
+                resultType
+                nativeResultType
+            }
+            timestampMillis
+            durationMillis
+        }
+        inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 20 }) {
+            ...runRelationshipResults
+        }
+        outputs: relationships(input: { types: ["Produces"], direction: OUTGOING, start: 0, count: 20 }) {
+            ...runRelationshipResults
+        }
+        parentTemplate: relationships(input: { types: ["InstanceOf"], direction: OUTGOING, start: 0, count: 1 }) {
+            ...runRelationshipResults
+        }
+        externalUrl
+    }
+}
+
+fragment runRelationshipResults on EntityRelationshipsResult {
+    start
+    count
+    total
+    relationships {
+        type
+        direction
+        entity {
+            urn
+            type
+            ... on Dataset {
+                name
+                properties {
+                    name
+                    description
+                    qualifiedName
+                }
+                editableProperties {
+                    description
+                }
+                platform {
+                    ...platformFields
+                }
+                subTypes {
+                    typeNames
+                }
+                status {
+                    removed
+                }
+            }
+            ... on DataJob {
+                urn
+                type
+                dataFlow {
+                    ...nonRecursiveDataFlowFields
+                }
+                jobId
+                properties {
+                    name
+                    description
+                    externalUrl
+                    customProperties {
+                        key
+                        value
+                    }
+                }
+                deprecation {
+                    ...deprecationFields
+                }
+                dataPlatformInstance {
+                    ...dataPlatformInstanceFields
+                }
+                subTypes {
+                    typeNames
+                }
+                editableProperties {
+                    description
+                }
+                status {
+                    removed
+                }
+            }
+        }
+    }
+}

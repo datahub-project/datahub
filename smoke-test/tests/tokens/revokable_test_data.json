@@ -1,0 +1,32 @@
+{
+  "auditHeader": null,
+  "proposedSnapshot": {
+    "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+      "urn": "urn:li:corpuser:user",
+      "aspects": [
+        {
+          "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+            "active": true,
+            "displayName": {
+              "string": "Robot Account"
+            },
+            "email": "user@acryl.com",
+            "title": {
+              "string": "Software Engineer"
+            },
+            "managerUrn": null,
+            "departmentId": null,
+            "departmentName": null,
+            "firstName": null,
+            "lastName": null,
+            "fullName": {
+              "string": "User Smith"
+            },
+            "countryCode": null
+          }
+        }
+      ]
+    }
+  },
+  "proposedDelta": null
+}

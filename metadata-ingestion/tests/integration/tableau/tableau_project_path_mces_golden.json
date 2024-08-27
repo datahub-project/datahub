@@ -1,0 +1,315 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "project_id": "79d02655-88e5-45a6-9f9b-eeaf5fe54903"
+            },
+            "name": "DenyProject"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "project_id": "190a6a5c-63ed-4de1-8045-faeae5df5b01"
+            },
+            "name": "default"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "workbook_id": "ee012e36-d916-4c21-94ab-f0d66736af4e"
+            },
+            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
+            "name": "Deny Pattern WorkBook",
+            "description": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Workbook"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+                },
+                {
+                    "id": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+                    "urn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+}
+]

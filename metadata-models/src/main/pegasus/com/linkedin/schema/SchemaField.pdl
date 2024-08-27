@@ -1,0 +1,163 @@
+namespace com.linkedin.schema
+
+import com.linkedin.dataset.SchemaFieldPath
+import com.linkedin.common.GlobalTags
+import com.linkedin.common.GlossaryTerms
+import com.linkedin.common.AuditStamp
+
+/**
+ * SchemaField to describe metadata related to dataset schema.
+ */
+record SchemaField {
+
+  /**
+   * Flattened name of the field. Field is computed from jsonPath field.
+   */
+  @Searchable = {
+    "fieldName": "fieldPaths",
+    "fieldType": "TEXT",
+    "boostScore": 5.0,
+    "queryByDefault": "true"
+  }
+  fieldPath: SchemaFieldPath
+
+  /**
+   * Flattened name of a field in JSON Path notation.
+   */
+  @Deprecated
+  jsonPath: optional string
+
+  /**
+   * Indicates if this field is optional or nullable
+   */
+  nullable: boolean = false
+
+  /**
+   * Description
+   */
+  @Searchable = {
+    "fieldName": "fieldDescriptions",
+    "fieldType": "TEXT",
+    "boostScore": 0.1
+  }
+  description: optional string
+
+  /**
+   * Label of the field. Provides a more human-readable name for the field than field path. Some sources will
+   * provide this metadata but not all sources have the concept of a label. If just one string is associated with
+   * a field in a source, that is most likely a description.
+   *
+   * Note that this field is deprecated and is not surfaced in the UI.
+   */
+  @Searchable = {
+    "fieldName": "fieldLabels",
+    "fieldType": "TEXT",
+    "boostScore": 0.2
+  }
+  @Deprecated
+  label: optional string
+
+  /**
+   * An AuditStamp corresponding to the creation of this schema field.
+   */
+  created: optional AuditStamp
+
+  /**
+   * An AuditStamp corresponding to the last modification of this schema field.
+   */
+  lastModified: optional AuditStamp
+
+  /**
+   * Platform independent field type of the field.
+   */
+  type: SchemaFieldDataType
+
+  /**
+   * The native type of the field in the dataset's platform as declared by platform schema.
+   */
+  nativeDataType: string
+
+  /**
+   * There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.
+   */
+  recursive: boolean = false
+
+  /**
+   * Tags associated with the field
+   */
+  @Relationship = {
+    "/tags/*/tag": {
+      "name": "SchemaFieldTaggedWith",
+      "entityTypes": [ "tag" ]
+    }
+  }
+  @Searchable = {
+    "/tags/*/tag": {
+      "fieldName": "fieldTags",
+      "fieldType": "URN",
+      "boostScore": 0.5
+    },
+    "/tags/*/attribution/time": {
+        "fieldName": "fieldTagAttributionDates",
+        "fieldType": "DATETIME"
+      },
+    "/tags/*/attribution/actor": {
+        "fieldName": "fieldTagAttributionActors",
+        "fieldType": "URN"
+      },
+    "/tags/*/attribution/source": {
+        "fieldName": "fieldTagAttributionSources",
+        "fieldType": "URN"
+      },
+  }
+  globalTags: optional GlobalTags
+
+  /**
+   * Glossary terms associated with the field
+   */
+   @Relationship = {
+      "/terms/*/urn": {
+        "name": "SchemaFieldWithGlossaryTerm",
+        "entityTypes": [ "glossaryTerm" ]
+      }
+   }
+   @Searchable = {
+    "/terms/*/urn": {
+      "fieldName": "fieldGlossaryTerms",
+      "fieldType": "URN",
+      "boostScore": 0.5
+    },
+    "/terms/*/attribution/time": {
+        "fieldName": "fieldTermAttributionDates",
+        "fieldType": "DATETIME"
+      },
+    "/terms/*/attribution/actor": {
+        "fieldName": "fieldTermAttributionActors",
+        "fieldType": "URN"
+      },
+    "/terms/*/attribution/source": {
+        "fieldName": "fieldTermAttributionSources",
+        "fieldType": "URN"
+      },
+  }
+  glossaryTerms: optional GlossaryTerms
+
+  /**
+   * For schema fields that are part of complex keys, set this field to true
+   * We do this to easily distinguish between value and key fields
+   */
+  isPartOfKey: boolean = false
+
+  /**
+   * For Datasets which are partitioned, this determines the partitioning key.
+   * Note that multiple columns can be part of a partitioning key, but currently we do not support
+   * rendering the ordered partitioning key.
+   */
+  isPartitioningKey: optional boolean
+
+  /**
+   * For schema fields that have other properties that are not modeled explicitly,
+   * use this field to serialize those properties into a JSON string
+   */
+  jsonProps: optional string
+}

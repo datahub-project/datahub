@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.DatasetUrn
+import com.linkedin.metadata.aspect.DatasetAspect
+
+/**
+ * A metadata snapshot for a specific dataset entity.
+ */
+@Entity = {
+  "name": "dataset",
+  "keyAspect": "datasetKey"
+}
+record DatasetSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: DatasetUrn
+
+  /**
+   * The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[DatasetAspect]
+}

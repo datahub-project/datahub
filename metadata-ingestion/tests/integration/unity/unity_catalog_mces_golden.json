@@ -1,0 +1,3293 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "hive_metastore"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore",
+            "name": "hive_metastore"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Catalog"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21058fb6993a790a4a43727021e52956",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "hive_metastore",
+                "unity_schema": "bronze_kambi"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/hive_metastore/bronze_kambi",
+            "name": "bronze_kambi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21058fb6993a790a4a43727021e52956",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21058fb6993a790a4a43727021e52956",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21058fb6993a790a4a43727021e52956",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21058fb6993a790a4a43727021e52956",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:21058fb6993a790a4a43727021e52956",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+                    "urn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:21058fb6993a790a4a43727021e52956"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "view1"
+            },
+            {
+                "op": "add",
+                "path": "/created",
+                "value": {
+                    "time": 1655874896000
+                }
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655874896000
+                }
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive_metastore.bronze_kambi.view1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "HIVE_VIEW"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Catalog",
+                "value": "hive_metastore"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Database",
+                "value": "bronze_kambi"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Table",
+                "value": "view1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Last Access",
+                "value": "UNKNOWN"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Created By",
+                "value": "Spark 3.2.1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Owner",
+                "value": "root"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_id",
+                "value": "hive_metastore.bronze_kambi.view1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/created_at",
+                "value": "2022-06-22 05:14:56"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "hive_metastore.bronze_kambi.view1",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "betStatusId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "channelId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=long].combinationref",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].currentodds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].eachway",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].livebetting",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].odds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "record"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].betoffertypeid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].criterionid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].criterionname",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].currentodds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventgroupid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "record"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<struct<id:bigint,name:string>>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"array<struct<id:bigint,name:string>>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=long].id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=string].name",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventname",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventstartdate",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=boolean].live",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].odds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=long].outcomeids",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "long"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<bigint>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"array<bigint>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].outcomelabel",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].sportid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].status",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].voidreason",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].payout",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].rewardextrapayout",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].stake",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+                    "urn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586"
+                },
+                {
+                    "id": "urn:li:container:21058fb6993a790a4a43727021e52956",
+                    "urn": "urn:li:container:21058fb6993a790a4a43727021e52956"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "CREATE VIEW `hive_metastore`.`bronze_kambi`.`view1` AS SELECT * FROM `hive_metastore`.`bronze_kambi`.`bet`",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:21058fb6993a790a4a43727021e52956"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "hive_metastore.bronze_kambi.bet",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "betStatusId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "channelId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=long].combinationref",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].currentodds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].eachway",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].livebetting",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].odds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "record"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].betoffertypeid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].criterionid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].criterionname",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].currentodds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventgroupid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "record"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<struct<id:bigint,name:string>>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"array<struct<id:bigint,name:string>>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=long].id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=string].name",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventname",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventstartdate",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=boolean].live",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].odds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=long].outcomeids",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "long"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<bigint>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"array<bigint>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].outcomelabel",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].sportid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].status",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].voidreason",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].payout",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].rewardextrapayout",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].stake",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+                    "urn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586"
+                },
+                {
+                    "id": "urn:li:container:21058fb6993a790a4a43727021e52956",
+                    "urn": "urn:li:container:21058fb6993a790a4a43727021e52956"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "bet"
+            },
+            {
+                "op": "add",
+                "path": "/created",
+                "value": {
+                    "time": 1655874896000
+                }
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655874896000
+                }
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive_metastore.bronze_kambi.bet"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/storage_location",
+                "value": "dbfs:/user/hive/warehouse/bronze_kambi.db/bet"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/data_source_format",
+                "value": "DELTA"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "HIVE_MANAGED_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Catalog",
+                "value": "hive_metastore"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Database",
+                "value": "bronze_kambi"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Table",
+                "value": "bet"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Last Access",
+                "value": "UNKNOWN"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Created By",
+                "value": "Spark 3.2.1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Statistics",
+                "value": "1024 bytes, 3 rows"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Owner",
+                "value": "root"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Is_managed_location",
+                "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Table Properties",
+                "value": "[delta.autoOptimize.autoCompact=true,delta.autoOptimize.optimizeWrite=true,delta.minReaderVersion=1,delta.minWriterVersion=2]"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_id",
+                "value": "hive_metastore.bronze_kambi.bet"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/created_at",
+                "value": "2022-06-22 05:14:56"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:21058fb6993a790a4a43727021e52956"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.delta_error_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:21058fb6993a790a4a43727021e52956"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+                    "urn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586"
+                },
+                {
+                    "id": "urn:li:container:21058fb6993a790a4a43727021e52956",
+                    "urn": "urn:li:container:21058fb6993a790a4a43727021e52956"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,external_metastore/,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,external_metastore/,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "external_metastore"
+            },
+            {
+                "op": "add",
+                "path": "/created",
+                "value": {
+                    "time": 1655874896000
+                }
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1655874896000
+                }
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive_metastore.bronze_kambi.external_metastore"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/storage_location",
+                "value": "s3://external_metastore/"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/data_source_format",
+                "value": "DELTA"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "HIVE_EXTERNAL_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Catalog",
+                "value": "hive_metastore"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Database",
+                "value": "bronze_kambi"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Table",
+                "value": "external_metastore"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Last Access",
+                "value": "UNKNOWN"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Created By",
+                "value": "Spark 3.2.1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Statistics",
+                "value": "1024 bytes, 3 rows"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Owner",
+                "value": "root"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Is_managed_location",
+                "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/Table Properties",
+                "value": "[delta.autoOptimize.autoCompact=true,delta.autoOptimize.optimizeWrite=true,delta.minReaderVersion=1,delta.minWriterVersion=2]"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_id",
+                "value": "hive_metastore.bronze_kambi.external_metastore"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/created_at",
+                "value": "2022-06-22 05:14:56"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "quickstart_catalog"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog",
+            "name": "quickstart_catalog",
+            "description": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.delta_error_table,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "delta_error_table"
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive_metastore.bronze_kambi.delta_error_table"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "UNKNOWN"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_id",
+                "value": "hive_metastore.bronze_kambi.delta_error_table"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,external_metastore/,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.delta_error_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "hive_metastore.bronze_kambi.delta_error_table",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "hive_metastore.bronze_kambi.external_metastore",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "betStatusId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "channelId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"struct<combinationref:bigint,currentodds:double,eachway:boolean,livebetting:boolean,odds:double,outcomes:array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>,payout:double,rewardextrapayout:double,stake:double>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=long].combinationref",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].currentodds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].eachway",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=boolean].livebetting",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].odds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "record"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"array<struct<betoffertypeid:bigint,criterionid:bigint,criterionname:string,currentodds:double,eventgroupid:bigint,eventgrouppath:array<struct<id:bigint,name:string>>,eventid:bigint,eventname:string,eventstartdate:string,live:boolean,odds:double,outcomeids:array<bigint>,outcomelabel:string,sportid:string,status:string,voidreason:string>>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].betoffertypeid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].criterionid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].criterionname",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].currentodds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventgroupid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "record"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<struct<id:bigint,name:string>>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"array<struct<id:bigint,name:string>>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=long].id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=struct].eventgrouppath.[type=string].name",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=long].eventid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"bigint\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventname",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].eventstartdate",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=boolean].live",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=double].odds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=array].[type=long].outcomeids",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "long"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<bigint>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"array<bigint>\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].outcomelabel",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].sportid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].status",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=array].[type=struct].outcomes.[type=string].voidreason",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].payout",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].rewardextrapayout",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].combination.[type=double].stake",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.delta_error_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.delta_error_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586",
+                    "urn": "urn:li:container:d91b261e5da1bf1434c6318b8c2ac586"
+                },
+                {
+                    "id": "urn:li:container:21058fb6993a790a4a43727021e52956",
+                    "urn": "urn:li:container:21058fb6993a790a4a43727021e52956"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Catalog"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:account users",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "quickstart_catalog",
+                "unity_schema": "quickstart_schema"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema",
+            "name": "quickstart_schema",
+            "description": "A new Unity Catalog schema called quickstart_schema"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)"
+            ],
+            "primary": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                },
+                {
+                    "id": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+                    "urn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:account users",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "quickstart_catalog.quickstart_schema.quickstart_table_external",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "quickstart_table_external"
+            },
+            {
+                "op": "add",
+                "path": "/created",
+                "value": {
+                    "time": 1666185698688,
+                    "actor": "urn:li:corpuser:abc@acryl.io"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1666186049633,
+                    "actor": "urn:li:corpuser:abc@acryl.io"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "quickstart_catalog.quickstart_schema.quickstart_table_external"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/storage_location",
+                "value": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/data_source_format",
+                "value": "DELTA"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/generation",
+                "value": "2"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "EXTERNAL"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/created_by",
+                "value": "abc@acryl.io"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/delta.lastCommitTimestamp",
+                "value": "1666185711000"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/delta.lastUpdateVersion",
+                "value": "1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/delta.minReaderVersion",
+                "value": "1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/delta.minWriterVersion",
+                "value": "2"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/spark.sql.statistics.numRows",
+                "value": "10"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/spark.sql.statistics.totalSize",
+                "value": "512"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_id",
+                "value": "cff27aa1-1c6a-4d78-b713-562c660c2896"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/owner",
+                "value": "account users"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/updated_by",
+                "value": "abc@acryl.io"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/updated_at",
+                "value": "2022-10-19 13:27:29.633000+00:00"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/created_at",
+                "value": "2022-10-19 13:21:38.688000+00:00"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/owners/urn:li:corpuser:account users/DATAOWNER",
+                "value": {
+                    "owner": "urn:li:corpuser:account users",
+                    "type": "DATAOWNER"
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "quickstart_catalog.quickstart_schema.quickstart_table",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "columnA",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "columnB",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "quickstart_table"
+            },
+            {
+                "op": "add",
+                "path": "/created",
+                "value": {
+                    "time": 1666185698688,
+                    "actor": "urn:li:corpuser:abc@acryl.io"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1666186049633,
+                    "actor": "urn:li:corpuser:abc@acryl.io"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "quickstart_catalog.quickstart_schema.quickstart_table"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/storage_location",
+                "value": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/data_source_format",
+                "value": "DELTA"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/generation",
+                "value": "2"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "MANAGED"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/created_by",
+                "value": "abc@acryl.io"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/delta.lastCommitTimestamp",
+                "value": "1666185711000"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/delta.lastUpdateVersion",
+                "value": "1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/delta.minReaderVersion",
+                "value": "1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/delta.minWriterVersion",
+                "value": "2"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/spark.sql.statistics.numRows",
+                "value": "10"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/spark.sql.statistics.totalSize",
+                "value": "512"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_id",
+                "value": "cff27aa1-1c6a-4d78-b713-562c660c2896"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/owner",
+                "value": "account users"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/updated_by",
+                "value": "abc@acryl.io"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/updated_at",
+                "value": "2022-10-19 13:27:29.633000+00:00"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/created_at",
+                "value": "2022-10-19 13:21:38.688000+00:00"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                },
+                {
+                    "id": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+                    "urn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/owners/urn:li:corpuser:account users/DATAOWNER",
+                "value": {
+                    "owner": "urn:li:corpuser:account users",
+                    "type": "DATAOWNER"
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705308660402,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 3,
+            "columnCount": 3,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "betStatusId",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.3333333333333333,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
+                },
+                {
+                    "fieldPath": "channelId",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.3333333333333333,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
+                }
+            ],
+            "sizeInBytes": 1024
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD),betStatusId)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD),betStatusId)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD),channelId)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD),channelId)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD),combination)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD),combination)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705308660402,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 10,
+            "columnCount": 2,
+            "fieldProfiles": [],
+            "sizeInBytes": 512
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1716198037325,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 3,
+            "columnCount": 3,
+            "fieldProfiles": [],
+            "sizeInBytes": 1024
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.delta_error_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1708671016385,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 10,
+            "columnCount": 2,
+            "fieldProfiles": [],
+            "sizeInBytes": 512
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.external_metastore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

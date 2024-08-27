@@ -1,0 +1,27 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    implementation project(path: ':metadata-models')
+    implementation project(path: ':metadata-io')
+    implementation project(path: ':metadata-service:restli-client')
+    implementation project(':metadata-service:configuration')
+
+    implementation externalDependency.slf4jApi
+    implementation externalDependency.springContext
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.testng
+
+    constraints {
+        implementation(externalDependency.log4jCore) {
+            because("previous versions are vulnerable to CVE-2021-45105")
+        }
+        implementation(externalDependency.log4jApi) {
+            because("previous versions are vulnerable to CVE-2021-45105")
+        }
+    }
+}

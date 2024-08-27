@@ -1,0 +1,26 @@
+[
+  {
+    "auditHeader":null,
+    "entityType":"domain",
+    "entityUrn": "urn:li:domain:marketing",
+    "changeType":"UPSERT",
+    "aspectName":"domainProperties",
+    "aspect":{
+      "value":"{\"name\": \"Sales\", \"description\": \"My custom domain\" }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.VIEWS,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"domains",
+    "aspect":{
+      "value":"{\"domains\": [\"urn:li:domain:marketing\"] }",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  }
+]

@@ -1,0 +1,111 @@
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
+
+sourceSets {
+  integTest {
+    compileClasspath += sourceSets.main.output
+    runtimeClasspath += sourceSets.main.output
+  }
+}
+
+idea {
+  module {
+    testSourceDirs += file('src/integTest/java')
+    scopes.TEST.plus += [ configurations.integTestCompileOnly ]
+  }
+}
+
+
+configurations {
+  integTestImplementation.extendsFrom implementation
+  integTestRuntimeOnly.extendsFrom runtimeOnly
+  integTestCompileOnly {
+    extendsFrom compileOnly
+    canBeResolved = true
+  }
+  modelValidation
+}
+
+dependencies {
+  constraints {
+    implementation(externalDependency.log4jCore) {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.log4jApi) {
+        because("previous versions are vulnerable to CVE-2021-45105")
+    }
+  }
+
+  implementation project(':metadata-service:restli-api')
+  implementation project(':metadata-auth:auth-api')
+  implementation project(path: ':metadata-service:restli-api', configuration: 'dataTemplate')
+  implementation project(':li-utils')
+  implementation project(':metadata-models')
+  implementation project(':metadata-utils')
+  implementation project(':metadata-io')
+  implementation spec.product.pegasus.restliServer
+  implementation externalDependency.slf4jApi
+  implementation externalDependency.dropwizardMetricsCore
+  implementation externalDependency.dropwizardMetricsJmx
+
+  implementation externalDependency.lombok
+  implementation externalDependency.neo4jJavaDriver
+  implementation externalDependency.opentelemetryAnnotations
+
+  runtimeOnly externalDependency.logbackClassic
+
+  annotationProcessor externalDependency.lombok
+
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation project(':mock-entity-registry')
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
+  testImplementation externalDependency.testng
+
+  integTestImplementation externalDependency.junitJupiterApi
+  integTestRuntimeOnly externalDependency.junitJupiterEngine
+
+  integTestCompileOnly externalDependency.junitJupiterApi
+  integTestCompileOnly externalDependency.junitJupiterParams
+
+  modelValidation project(path: ':metadata-models-validator')
+  dataModel project(path: ':metadata-models', configuration: 'dataTemplate')
+  dataModel project(path: ':li-utils', configuration: 'dataTemplate')
+}
+
+task integrationTest(type: Test) {
+  description = 'Runs integration tests.'
+  group = 'verification'
+  useJUnitPlatform()
+
+  testClassesDirs = sourceSets.integTest.output.classesDirs
+  classpath = sourceSets.integTest.runtimeClasspath
+  shouldRunAfter test
+}
+
+task validateModels(type: JavaExec) {
+  main = 'com.linkedin.metadata.model.validation.ModelValidationTask'
+  args '../../metadata-models/src/main/pegasus/:' + '../../li-utils/src/main/pegasus/:' + configurations.dataModel.asPath, project.getProjectDir().getAbsolutePath() + "/../../metadata-models/src/main/pegasus",
+  classpath = project.configurations.modelValidation
+  debugOptions {
+    enabled = false
+    port = 5005
+  }
+}
+
+compileJava.dependsOn validateModels
+check.dependsOn integrationTest
+integrationTest.enabled = false
+
+// Generate IDLs
+pegasus.main.idlOptions.addIdlItem([
+    'com.linkedin.metadata.resources',
+])
+
+ext.apiProject = project(':metadata-service:restli-api')
+
+spotlessJava.dependsOn generateTestDataTemplate
+spotlessJava.dependsOn generateIntegTestDataTemplate

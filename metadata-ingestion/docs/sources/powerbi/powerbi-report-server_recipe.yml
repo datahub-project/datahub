@@ -1,0 +1,27 @@
+source:
+  type: powerbi-report-server
+  config:
+    # Your Power BI Report Server Windows username
+    username: username
+    # Your Power BI Report Server Windows password
+    password: password
+    # Your Workstation name
+    workstation_name: workstation_name
+    # Your Power BI Report Server host URL, example: localhost:80
+    host_port: host_port
+    # Your alias for Power BI Report Server host URL, example: local_powerbi_report_server
+    server_alias: server_alias
+    # Workspace's dataset environments, example: (PROD, DEV, QA, STAGE)
+    env: DEV
+    # Your Power BI Report Server base virtual directory name for reports
+    report_virtual_directory_name: Reports
+    #  Your Power BI Report Server base virtual directory name for report server
+    report_server_virtual_directory_name: ReportServer
+    # Enable/Disable extracting ownership information of Dashboard
+    extract_ownership: True
+    # Set ownership type
+    ownership_type: TECHNICAL_OWNER
+
+
+sink:
+  # sink configs

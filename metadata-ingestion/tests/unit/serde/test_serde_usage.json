@@ -1,0 +1,187 @@
+[
+  {
+    "bucket": 1622073600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.austin311_derived,PROD)",
+    "metrics": {
+      "uniqueUserCount": 1,
+      "users": [
+        {
+          "user": "urn:li:corpuser:unknown",
+          "count": 1,
+          "userEmail": "harshal@acryl.io"
+        }
+      ],
+      "totalSqlQueries": 0,
+      "topSqlQueries": [],
+      "fields": [
+        {
+          "fieldName": "unique_key",
+          "count": 1
+        },
+        {
+          "fieldName": "complaint_type",
+          "count": 1
+        },
+        {
+          "fieldName": "complaint_description",
+          "count": 1
+        },
+        {
+          "fieldName": "owning_department",
+          "count": 1
+        },
+        {
+          "fieldName": "source",
+          "count": 1
+        },
+        {
+          "fieldName": "status",
+          "count": 1
+        },
+        {
+          "fieldName": "status_change_date",
+          "count": 1
+        },
+        {
+          "fieldName": "created_date",
+          "count": 1
+        },
+        {
+          "fieldName": "last_update_date",
+          "count": 1
+        },
+        {
+          "fieldName": "close_date",
+          "count": 1
+        },
+        {
+          "fieldName": "incident_address",
+          "count": 1
+        },
+        {
+          "fieldName": "street_number",
+          "count": 1
+        },
+        {
+          "fieldName": "street_name",
+          "count": 1
+        },
+        {
+          "fieldName": "city",
+          "count": 1
+        },
+        {
+          "fieldName": "incident_zip",
+          "count": 1
+        },
+        {
+          "fieldName": "county",
+          "count": 1
+        },
+        {
+          "fieldName": "state_plane_x_coordinate",
+          "count": 1
+        },
+        {
+          "fieldName": "state_plane_y_coordinate",
+          "count": 1
+        },
+        {
+          "fieldName": "latitude",
+          "count": 1
+        },
+        {
+          "fieldName": "longitude",
+          "count": 1
+        },
+        {
+          "fieldName": "location",
+          "count": 1
+        },
+        {
+          "fieldName": "council_district_code",
+          "count": 1
+        },
+        {
+          "fieldName": "map_page",
+          "count": 1
+        },
+        {
+          "fieldName": "map_tile",
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "bucket": 1622073600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.excess_deaths_derived,PROD)",
+    "metrics": {
+      "uniqueUserCount": 1,
+      "users": [
+        {
+          "user": "urn:li:corpuser:unknown",
+          "count": 4,
+          "userEmail": "harshal@acryl.io"
+        }
+      ],
+      "totalSqlQueries": 4,
+      "topSqlQueries": [
+        "\nSELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`;\n\n",
+        "SELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`"
+      ],
+      "fields": [
+        {
+          "fieldName": "placename",
+          "count": 4
+        },
+        {
+          "fieldName": "excess_deaths",
+          "count": 4
+        },
+        {
+          "fieldName": "deaths",
+          "count": 4
+        },
+        {
+          "fieldName": "end_date",
+          "count": 4
+        },
+        {
+          "fieldName": "frequency",
+          "count": 4
+        },
+        {
+          "fieldName": "expected_deaths",
+          "count": 4
+        },
+        {
+          "fieldName": "start_date",
+          "count": 4
+        },
+        {
+          "fieldName": "baseline",
+          "count": 4
+        },
+        {
+          "fieldName": "year",
+          "count": 4
+        },
+        {
+          "fieldName": "month",
+          "count": 4
+        },
+        {
+          "fieldName": "week",
+          "count": 4
+        },
+        {
+          "fieldName": "country",
+          "count": 4
+        }
+      ]
+    }
+  }
+]

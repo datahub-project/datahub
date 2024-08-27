@@ -1,0 +1,47 @@
+{
+  "description": null,
+  "features": ["full-join", "basic-aggregations", "standard-deviation-aggregations", "expression-aggregations", "percentile-aggregations", "foreign-keys", "right-join", "left-join", "native-parameters", "nested-queries", "expressions", "set-timezone", "regex", "case-sensitivity-string-filter-options", "binning", "inner-join", "advanced-math-expressions"],
+  "cache_field_values_schedule": "0 0 5 * * ? *",
+  "timezone": "UTC",
+  "auto_run_queries": true,
+  "metadata_sync_schedule": "0 15 * * * ? *",
+  "name": "DVD Rental",
+  "caveats": null,
+  "is_full_sync": true,
+  "updated_at": "2021-12-13T17:45:04.871",
+  "cache_ttl": null,
+  "details": {
+    "host": "172.17.0.1",
+    "port": 5432,
+    "dbname": "dvdrental",
+    "user": "postgres",
+    "password": "**MetabasePass**",
+    "ssl": true,
+    "additional-options": null,
+    "tunnel-enabled": false
+  },
+  "is_sample": false,
+  "id": 2,
+  "is_on_demand": false,
+  "options": null,
+  "schedules": {
+    "cache_field_values": {
+      "schedule_minute": 0,
+      "schedule_day": null,
+      "schedule_frame": null,
+      "schedule_hour": 5,
+      "schedule_type": "daily"
+    },
+    "metadata_sync": {
+      "schedule_minute": 15,
+      "schedule_day": null,
+      "schedule_frame": null,
+      "schedule_hour": null,
+      "schedule_type": "hourly"
+    }
+  },
+  "engine": "postgres",
+  "refingerprint": null,
+  "created_at": "2021-12-13T17:45:04.72",
+  "points_of_interest": null
+}

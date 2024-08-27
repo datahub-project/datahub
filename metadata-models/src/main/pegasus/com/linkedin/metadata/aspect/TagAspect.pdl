@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.TagKey
+import com.linkedin.tag.TagProperties
+import com.linkedin.common.Ownership
+import com.linkedin.common.Status
+
+/**
+ * A union of all supported metadata aspects for a tag
+ */
+typeref TagAspect = union[TagKey, Ownership, TagProperties, Status]

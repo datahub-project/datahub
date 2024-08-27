@@ -1,0 +1,24 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.DatasetUrn
+
+/**
+ * BaseData record
+ */
+record BaseData {
+
+  /**
+   * What dataset were used in the MLModel?
+   */
+  dataset: DatasetUrn
+
+  /**
+   * Why was this dataset chosen?
+   */
+  motivation: optional string
+
+  /**
+   * How was the data preprocessed (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?
+   */
+  preProcessing: optional array[string]
+}

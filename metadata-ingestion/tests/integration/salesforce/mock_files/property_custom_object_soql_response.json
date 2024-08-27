@@ -1,0 +1,34 @@
+{
+    "size": 1,
+    "totalSize": 1,
+    "done": true,
+    "queryLocator": null,
+    "entityTypeName": "CustomObject",
+    "records": [
+        {
+            "attributes": {
+                "type": "CustomObject",
+                "url": "/services/data/v54.0/tooling/sobjects/CustomObject/01I5i000000Y6fpEAC"
+            },
+            "Description": "A tangible asset such as an apartment, a house, etc",
+            "Language": "en_US",
+            "ManageableState": "unmanaged",
+            "CreatedDate": "2022-05-04T10:59:12.000+0000",
+            "CreatedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            },
+            "LastModifiedDate": "2022-05-17T10:40:43.000+0000",
+            "LastModifiedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            }
+        }
+    ]
+}

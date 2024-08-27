@@ -1,0 +1,36 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized dashboard identifier
+ */
+@java.class = "com.linkedin.common.urn.TestEntityUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "testEntity",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "TestEntity",
+  "doc" : "Standardized dashboard identifier",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "keyPart1",
+    "doc" : "First key part.",
+    "type" : "string",
+    "maxLength" : 20
+  },
+  {
+    "name" : "keyPart2",
+    "doc" : "Second key part",
+    "type" : "string",
+    "maxLength" : 200
+  },
+  {
+    "name" : "keyPart2",
+    "doc" : "Third key part",
+    "type" : "string",
+    "maxLength" : 200
+  }],
+  "maxLength" : 240
+}
+typeref TestEntityUrn = string

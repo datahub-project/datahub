@@ -1,0 +1,47 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.Urn
+
+/**
+ * The model for each entity returned by the lineage search query
+ */
+record LineageSearchEntity includes SearchEntity {
+
+  /**
+   * Optional list of entities between the source and destination node.
+   * There can be multiple paths from the source to the destination.
+   */
+  paths: array[array[Urn]] = []
+
+  /**
+   * Optional list of entities between the source and destination node
+   */
+  @deprecated
+  path: array[Urn] = []
+
+  /**
+   * Degree of relationship (number of hops to get to entity)
+   */
+  @deprecated
+  degree: int = 1
+
+  /**
+    * The degrees of separation (number of hops) between the source and this entity 
+    */
+  degrees: array[int] = []
+
+  /**
+   * Marks an entity as having been explored for as a part of the graph walk
+   */
+   explored: optional boolean
+
+  /**
+   * Indicates this destination node has additional unexplored child relationships
+   */
+  truncatedChildren: optional boolean
+
+  /**
+    * Whether this relationship was ignored as a hop while performing the graph walk
+    */
+  ignoredAsHop: optional boolean
+}

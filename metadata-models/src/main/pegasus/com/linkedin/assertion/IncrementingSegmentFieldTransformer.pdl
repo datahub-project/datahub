@@ -1,0 +1,60 @@
+namespace com.linkedin.assertion
+
+/**
+* The definition of the transformer function  that should be applied to a given field / column value in a dataset
+* in order to determine the segment or bucket that it belongs to, which in turn is used to evaluate
+* volume assertions.
+*/
+record IncrementingSegmentFieldTransformer {
+  /**
+  * A 'standard' transformer type. Note that not all source systems will support all operators.
+  */
+  type: enum IncrementingSegmentFieldTransformerType {
+    /**
+    * Rounds a timestamp (in seconds) down to the start of the month.
+    */
+    TIMESTAMP_MS_TO_MINUTE
+
+    /**
+    * Rounds a timestamp (in milliseconds) down to the nearest hour.
+    */
+    TIMESTAMP_MS_TO_HOUR
+
+    /**
+    * Rounds a timestamp (in milliseconds) down to the start of the day.
+    */
+    TIMESTAMP_MS_TO_DATE
+
+    /**
+    * Rounds a timestamp (in milliseconds) down to the start of the month
+    */
+    TIMESTAMP_MS_TO_MONTH
+
+    /**
+    * Rounds a timestamp (in milliseconds) down to the start of the year
+    */
+    TIMESTAMP_MS_TO_YEAR
+
+    /**
+    * Rounds a numeric value down to the nearest integer.
+    */
+    FLOOR
+
+    /**
+    * Rounds a numeric value up to the nearest integer.
+    */
+    CEILING
+
+    /**
+    * A backdoor to provide a native operator type specific to a given source system like
+    * Snowflake, Redshift, BQ, etc.
+    */
+    NATIVE
+  }
+
+  /**
+  * The 'native' transformer type, useful as a back door if a custom operator is required.
+  * This field is required if the type is NATIVE.
+  */
+  nativeType: optional string
+}

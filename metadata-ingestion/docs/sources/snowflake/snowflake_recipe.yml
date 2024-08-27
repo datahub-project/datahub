@@ -1,0 +1,35 @@
+source:
+  type: snowflake
+  config:
+    # This option is recommended to be used to ingest all lineage
+    ignore_start_time_lineage: true
+
+    # Coordinates
+    account_id: "abc48144"
+    warehouse: "COMPUTE_WH"
+
+    # Credentials
+    username: "${SNOWFLAKE_USER}"
+    password: "${SNOWFLAKE_PASS}"
+    role: "datahub_role"
+
+    # (Optional) Uncomment and update this section to filter ingested datasets 
+    # database_pattern:
+    #   allow:
+    #     - "^ACCOUNTING_DB$"
+    #     - "^MARKETING_DB$"
+
+    profiling:
+      # Change to false to disable profiling
+      enabled: true
+      # This option is recommended to reduce profiling time and costs.
+      turn_off_expensive_profiling_metrics: true
+
+    # (Optional) Uncomment and update this section to filter profiled tables
+    # profile_pattern:
+    #   allow:
+    #   - "ACCOUNTING_DB.*.*"
+    #   - "MARKETING_DB.*.*"
+
+# Default sink is datahub-rest and doesn't need to be configured
+# See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options

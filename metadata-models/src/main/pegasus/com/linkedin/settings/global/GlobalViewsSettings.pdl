@@ -1,0 +1,17 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.Urn
+
+/**
+ * Settings for DataHub Views feature.
+ */
+record GlobalViewsSettings {
+  /**
+   * The default View for the instance, or organization.
+   */
+   @Relationship = {
+      "name": "viewedWith",
+      "entityTypes": [ "dataHubView" ]
+   }
+   defaultView: optional Urn
+}

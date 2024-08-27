@@ -1,0 +1,124 @@
+
+// Change this to listen on a different port
+project.ext.httpPort = 9001
+project.ext.playBinaryBaseName = "datahub-frontend"
+
+runPlay {
+  httpPort = project.ext.httpPort
+}
+
+configurations {
+  play
+}
+
+dependencies {
+  implementation project(':datahub-web-react')
+
+  constraints {
+    play(externalDependency.jacksonDataBind)
+    play('com.nimbusds:oauth2-oidc-sdk:8.36.2')
+    play('com.nimbusds:nimbus-jose-jwt:8.18')
+    play('com.typesafe.akka:akka-actor_2.12:2.6.20')
+    play(externalDependency.jsonSmart)
+    play('io.netty:netty-all:4.1.86.Final')
+    implementation(externalDependency.commonsText) {
+      because("previous versions are vulnerable to CVE-2022-42889")
+    }
+    implementation(externalDependency.snappy) {
+      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
+  }
+
+  implementation project(":metadata-service:restli-client")
+  implementation project(":metadata-service:auth-config")
+  implementation project(":metadata-service:configuration")
+
+  implementation externalDependency.springCore
+  implementation externalDependency.springBeans
+  implementation externalDependency.springContext
+  implementation externalDependency.springBootAutoconfigure
+  implementation externalDependency.jettyJaas
+  implementation externalDependency.graphqlJava
+  implementation externalDependency.antlr4Runtime
+  implementation externalDependency.antlr4
+  implementation externalDependency.akkaHttp
+
+  implementation externalDependency.jerseyCore
+  implementation externalDependency.jerseyGuava
+
+  implementation(externalDependency.pac4j) {
+    exclude group: "net.minidev", module: "json-smart"
+    exclude group: "com.nimbusds", module: "nimbus-jose-jwt"
+  }
+
+  implementation 'com.nimbusds:nimbus-jose-jwt:8.18'
+  implementation externalDependency.jsonSmart
+  implementation externalDependency.playPac4j
+  implementation externalDependency.shiroCore
+
+  implementation externalDependency.playCache
+  implementation externalDependency.playCaffeineCache
+  implementation externalDependency.playWs
+  implementation externalDependency.playServer
+  implementation externalDependency.playAkkaHttpServer
+  implementation externalDependency.playFilters
+  implementation externalDependency.kafkaClients
+  implementation externalDependency.awsMskIamAuth
+
+  testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.playTest
+  testImplementation 'org.awaitility:awaitility:4.2.0'
+  testImplementation 'no.nav.security:mock-oauth2-server:0.3.1'
+  testImplementation 'org.junit-pioneer:junit-pioneer:1.9.1'
+  testImplementation externalDependency.junitJupiterApi
+  testRuntimeOnly externalDependency.junitJupiterEngine
+
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  runtimeOnly externalDependency.guicePlay
+  runtimeOnly (externalDependency.playDocs) {
+    exclude group: 'com.typesafe.akka', module: 'akka-http-core_2.12'
+  }
+  runtimeOnly externalDependency.playGuice
+  implementation externalDependency.log4j2Api
+
+  implementation externalDependency.logbackClassic
+
+  annotationProcessor externalDependency.lombok
+}
+
+play {
+  platform {
+    playVersion = '2.8.21'
+    scalaVersion = '2.12'
+    javaVersion = JavaVersion.VERSION_11
+  }
+
+  injectedRoutesGenerator = true
+}
+
+test {
+  useJUnitPlatform()
+
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
+
+  def playJava17CompatibleJvmArgs = [
+          "--add-opens=java.base/java.lang=ALL-UNNAMED",
+          //"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+          //"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+          //"--add-opens=java.base/java.io=ALL-UNNAMED",
+          //"--add-opens=java.base/java.net=ALL-UNNAMED",
+          //"--add-opens=java.base/java.nio=ALL-UNNAMED",
+          "--add-opens=java.base/java.util=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+          //"--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
+  ]
+  jvmArgs = playJava17CompatibleJvmArgs
+}

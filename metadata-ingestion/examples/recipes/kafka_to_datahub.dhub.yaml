@@ -1,0 +1,19 @@
+---
+# see https://datahubproject.io/docs/generated/ingestion/sources/kafka for complete documentation
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: "localhost:9092"
+    topic_patterns:
+      allow:
+        - ".*"
+      deny:
+        - "^_.+" # deny all tables that start with an underscore
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-kafka"
+  config:
+    connection:
+      bootstrap: "localhost:9092"

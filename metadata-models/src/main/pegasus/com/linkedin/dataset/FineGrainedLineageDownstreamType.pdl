@@ -1,0 +1,18 @@
+namespace com.linkedin.dataset
+
+/**
+* The type of downstream field(s) in a fine-grained lineage
+*/
+enum FineGrainedLineageDownstreamType {
+  /**
+  *  Indicates that the lineage is for a single, specific, downstream field
+  */
+  FIELD
+
+  /**
+  *  Indicates that the lineage is for a set of downstream fields
+  */
+  FIELD_SET
+}
+
+// In future, DATASET downstream may be added to capture dataset lineage as well
