@@ -13,7 +13,7 @@ describe("ingestion source creation flow", () => {
     cy.goToIngestionPage();
     cy.clickOptionWithId('[data-node-key="Sources"]');
     cy.clickOptionWithTestId("create-ingestion-source-button");
-    cy.clickOptionWithText("Snowflake");
+    cy.clickOptionWithTextToScrollintoView("Snowflake");
     cy.waitTextVisible("Snowflake Details");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);

@@ -18,6 +18,9 @@ class DatasetSubTypes(str, Enum):
     QLIK_DATASET = "Qlik Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
     SIGMA_DATASET = "Sigma Dataset"
+    SAC_MODEL = "Model"
+    SAC_IMPORT_DATA_MODEL = "Import Data Model"
+    SAC_LIVE_DATA_MODEL = "Live Data Model"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -71,3 +74,7 @@ class BIAssetSubTypes(str, Enum):
     MODE_REPORT = "Report"
     MODE_QUERY = "Query"
     MODE_CHART = "Chart"
+
+    # SAP Analytics Cloud
+    SAC_STORY = "Story"
+    SAC_APPLICATION = "Application"
