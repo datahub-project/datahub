@@ -30,6 +30,7 @@ import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import useKeyboardControls from './useKeyboardControls';
 import { ProposedTag, ProposedTerm } from '../../../../../sharedV2/tags/TagTermGroup';
 import { useInferDocumentationForItem } from '../../../components/inferredDocs/utils';
+import { findIndexOfFieldPathExcludingCollapsedFields } from '../../../../dataset/profile/schema/utils/utils';
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;
@@ -372,6 +373,26 @@ export default function SchemaTable({
         KEYBOARD_CONTROL_DEBOUNCE_MS,
         [expandedDrawerFieldPath, tableRef, filterText, schemaSorter],
     );
+
+    const [shouldScrollToSelectedRow, setShouldScrollToSelectedRow] = useState(true);
+
+    // scroll to expanded field on page load
+    useEffect(() => {
+        if (expandedDrawerFieldPath && shouldScrollToSelectedRow) {
+            const indexToScrollTo = findIndexOfFieldPathExcludingCollapsedFields(
+                expandedDrawerFieldPath,
+                expandedRows,
+                rows,
+                schemaSorter,
+                allColumns.find((column) => column.key === schemaSorter?.columnKey)?.sorter as any,
+            );
+            if (indexToScrollTo >= 0) {
+                setShouldScrollToSelectedRow?.(false);
+                vtRef?.current.scrollToIndex(indexToScrollTo);
+            }
+        }
+        /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    }, [expandedRows, expandedDrawerFieldPath]);
 
     const rowClassName = (record) => {
         let className = '';

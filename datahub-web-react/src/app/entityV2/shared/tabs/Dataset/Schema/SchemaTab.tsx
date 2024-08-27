@@ -24,7 +24,7 @@ import SchemaTable from './SchemaTable';
 import { useGetEntityWithSchema } from './useGetEntitySchema';
 import { filterSchemaRows, SchemaFilterType } from './utils/filterSchemaRows';
 import getExpandedDrawerFieldPath from './utils/getExpandedDrawerFieldPath';
-import getSchemaFilterFromQueryString from './utils/getSchemaFilterFromQueryString';
+import { getSchemaFilterFromQueryString, getMatchedTextFromQueryString } from './utils/queryStringUtils';
 import getSchemaFilterTypesFromUrl from './utils/getSchemaFilterTypesFromUrl';
 import useUpdateSchemaFilterQueryString from './utils/updateSchemaFilterQueryString';
 import useGetSemanticVersionFromUrlParams from './utils/useGetSemanticVersionFromUrlParams';
@@ -47,6 +47,13 @@ const LoadingWrapper = styled.div`
     font-size: 30px;
 `;
 
+const DEFAULT_SCHEMA_FILTER_TYPES = [
+    SchemaFilterType.Documentation,
+    SchemaFilterType.FieldPath,
+    SchemaFilterType.Tags,
+    SchemaFilterType.Terms,
+];
+
 export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderType; properties?: any }) => {
     const entityRegistry = useEntityRegistry();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -59,9 +66,11 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     const [showRaw, setShowRaw] = useState(false);
     const location = useLocation();
     const schemaFilter = getSchemaFilterFromQueryString(location);
+    const matchedTextFromUrl = getMatchedTextFromQueryString(location);
     const expandedDrawerFieldPathFromUrl = getExpandedDrawerFieldPath(location);
     const schemaFilterTypesFromUrl = getSchemaFilterTypesFromUrl(location);
     const [filterText, setFilterText] = useState(schemaFilter || '');
+    const [matchedText, setMatchedText] = useState<string | null>(matchedTextFromUrl || null);
     const [schemaFilterTypes, setSchemaFilterTypes] = useState<SchemaFilterType[]>(schemaFilterTypesFromUrl);
     const [expandedDrawerFieldPath, setExpandedDrawerFieldPath] = useState<string | null>(
         expandedDrawerFieldPathFromUrl,
@@ -155,7 +164,26 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         schemaFilterTypes,
         expandedDrawerFieldPath,
         entityRegistry,
+        false,
     );
+
+    useEffect(() => {
+        if (matchedText) {
+            const { filteredRows: matchedRows } = filterSchemaRows(
+                schemaMetadata?.fields,
+                editableSchemaMetadata,
+                matchedText,
+                DEFAULT_SCHEMA_FILTER_TYPES,
+                expandedDrawerFieldPath,
+                entityRegistry,
+                true,
+            );
+            if (matchedRows && matchedRows.length) {
+                setExpandedDrawerFieldPath(matchedRows[0].fieldPath);
+                setMatchedText(null);
+            }
+        }
+    }, [matchedText, schemaMetadata?.fields, editableSchemaMetadata, entityRegistry, expandedDrawerFieldPath]);
 
     useEffect(() => {
         setHighlightedMatchIndex(matches.length > 0 ? 0 : null);
@@ -170,12 +198,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     useEffect(() => {
         if (!loading && matches.length === 0) {
             setFilterText('');
-            setSchemaFilterTypes([
-                SchemaFilterType.Documentation,
-                SchemaFilterType.FieldPath,
-                SchemaFilterType.Tags,
-                SchemaFilterType.Terms,
-            ]);
+            setSchemaFilterTypes(DEFAULT_SCHEMA_FILTER_TYPES);
             setWasSearchReset(true);
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
