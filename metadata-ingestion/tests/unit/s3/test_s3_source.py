@@ -1,4 +1,6 @@
-from typing import List
+from typing import List, Tuple
+
+import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -68,6 +70,75 @@ def test_path_spec():
     )
     path = "s3://my-bucket/my-folder/year=2022/month=10/day=11/my_csv.csv"
     assert path_spec.allowed(path)
+
+
+def test_path_spec_with_double_star_ending():
+    path_spec = PathSpec(
+        include="s3://my-bucket/{table}/**",
+        default_extension="csv",
+        allow_double_stars=True,
+    )
+    path = "s3://my-bucket/my-folder/year=2022/month=10/day=11/my_csv.csv"
+    assert path_spec.allowed(path)
+    vars = path_spec.get_named_vars(path)
+    assert vars
+    assert vars["table"] == "my-folder"
+
+
+@pytest.mark.parametrize(
+    "path_spec,path, expected",
+    [
+        pytest.param(
+            "s3://my-bucket/{table}/**",
+            "s3://my-bucket/my-folder/year=2022/month=10/day=11/my_csv",
+            [("year", "2022"), ("month", "10"), ("day", "11")],
+            id="autodetect_partitions",
+        ),
+        pytest.param(
+            "s3://my-bucket/{table}/{partition_key[0]}={partition_value[0]}/{partition_key[1]}={partition_value[1]}/{partition_key[2]}={partition_value[2]}/*.csv",
+            "s3://my-bucket/my-folder/year=2022/month=10/day=11/my_csv.csv",
+            [("year", "2022"), ("month", "10"), ("day", "11")],
+            id="partition_key and value set",
+        ),
+        pytest.param(
+            "s3://my-bucket/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/{partition_key[2]}={partition[2]}/*.csv",
+            "s3://my-bucket/my-folder/year=2022/month=10/day=11/my_csv.csv",
+            [("year", "2022"), ("month", "10"), ("day", "11")],
+            id="partition_key and partition set",
+        ),
+        pytest.param(
+            "s3://my-bucket/{table}/{year}/{month}/{day}/*.csv",
+            "s3://my-bucket/my-folder/2022/10/11/my_csv.csv",
+            [("year", "2022"), ("month", "10"), ("day", "11")],
+            id="named partition keys",
+        ),
+        pytest.param(
+            "s3://my-bucket/{table}/{part[0]}/{part[1]}/{part[2]}/*.csv",
+            "s3://my-bucket/my-folder/2022/10/11/my_csv.csv",
+            [("part_0", "2022"), ("part_1", "10"), ("part_2", "11")],
+            id="indexed partition keys",
+        ),
+        pytest.param(
+            "s3://my-bucket/{table}/**",
+            "s3://my-bucket/my-folder/2022/10/11/my_csv.csv",
+            [("partition_0", "2022"), ("partition_1", "10"), ("partition_2", "11")],
+            id="partition autodetect with partition values only",
+        ),
+        pytest.param(
+            "s3://my-bucket/{table}/**",
+            "s3://my-bucket/my-folder/my_csv.csv",
+            None,
+            id="partition autodetect with non partitioned path",
+        ),
+    ],
+)
+def test_path_spec_partition_detection(
+    path_spec: str, path: str, expected: List[Tuple[str, str]]
+) -> None:
+    ps = PathSpec(include=path_spec, default_extension="csv", allow_double_stars=True)
+    assert ps.allowed(path)
+    partitions = ps.get_partition_from_path(path)
+    assert partitions == expected
 
 
 def test_path_spec_dir_allowed():
