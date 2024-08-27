@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Select, Tooltip, Typography } from 'antd';
 import Icon, { CaretDownFilled } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import EntityNode from './EntityNode';
 import { BrowseProvider } from './BrowseContext';
 import SidebarLoadingError from './SidebarLoadingError';
@@ -67,6 +68,7 @@ type Props = {
 };
 
 const BrowseSidebar = ({ visible }: Props) => {
+    const { t } = useTranslation();
     const { error, entityAggregations, retry } = useSidebarEntities({
         skip: !visible,
     });
@@ -82,7 +84,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                 data-testid="browse-v2"
             >
                 <SidebarHeader>
-                    <Typography.Text strong> Navigate</Typography.Text>
+                    <Typography.Text strong> {t('common.navigate')}</Typography.Text>
                     <Tooltip title="Sort folder results" showArrow={false} placement="left">
                         <SelectWrapper>
                             <StyledIcon component={SortIcon} />
@@ -108,7 +110,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                     </Tooltip>
                 </SidebarHeader>
                 <SidebarBody visible={visible}>
-                    {entityAggregations && !entityAggregations.length && <div>No results found</div>}
+                    {entityAggregations && !entityAggregations.length && <div>{t('common.noResultsFound')}</div>}
                     {entityAggregations
                         ?.filter((entityAggregation) => entityAggregation?.value !== 'DATA_PRODUCT')
                         ?.map((entityAggregation) => (

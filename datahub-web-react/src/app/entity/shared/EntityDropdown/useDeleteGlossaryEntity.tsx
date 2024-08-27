@@ -1,10 +1,12 @@
 import { message, Modal } from 'antd';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEntityData } from '../EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useDeleteGlossaryEntityMutation } from '../../../../graphql/glossary.generated';
 
 function useDeleteGlossaryEntity() {
+    const { t } = useTranslation();
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
     const { entityData, urn: entityDataUrn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -19,17 +21,17 @@ function useDeleteGlossaryEntity() {
         })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to delete: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.delete')} \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 message.loading({
-                    content: 'Deleting...',
+                    content: t('crud.deleting'),
                     duration: 2,
                 });
                 setTimeout(() => {
                     setHasBeenDeleted(true);
                     message.success({
-                        content: `Deleted ${entityRegistry.getEntityName(entityType)}!`,
+                        content: `${t('common.deleted')} ${entityRegistry.getEntityName(entityType)}!`,
                         duration: 2,
                     });
                 }, 2000);
@@ -38,13 +40,13 @@ function useDeleteGlossaryEntity() {
 
     function onDeleteEntity() {
         Modal.confirm({
-            title: `Delete ${entityRegistry.getDisplayName(entityType, entityData)}`,
-            content: `Are you sure you want to remove this ${entityRegistry.getEntityName(entityType)}?`,
+            title: `${t('crud.delete')} ${entityRegistry.getDisplayName(entityType, entityData)}`,
+            content: `${t('crud.doYouWantTo.removeContentWithThisName')} ${entityRegistry.getEntityName(entityType)}?`,
             onOk() {
                 handleDeleteGlossaryEntity();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });

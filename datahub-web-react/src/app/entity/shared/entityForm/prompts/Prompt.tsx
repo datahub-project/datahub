@@ -1,6 +1,7 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import {
     FormPrompt as PromptEntity,
     FormPromptType,
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function Prompt({ promptNumber, prompt, field, associatedUrn }: Props) {
+    const { t } = useTranslation();
     const [optimisticCompletedTimestamp, setOptimisticCompletedTimestamp] = useState<number | null>(null);
     const urn = useMutationUrn();
     const [submitFormPrompt] = useSubmitFormPromptMutation();
@@ -37,7 +39,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
                 setOptimisticCompletedTimestamp(Date.now());
             })
             .catch(() => {
-                message.error('Unknown error while submitting form response');
+                message.error(t('crud.error.unknownErrorWhileFormResponse'));
             });
     }
 

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import { SearchBar } from '../search/SearchBar';
@@ -37,6 +38,7 @@ const LoadingWrapper = styled.div`
 `;
 
 function DomainSearch() {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
@@ -86,7 +88,7 @@ function DomainSearch() {
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search Domains"
+                    placeholderText={t('common.searchDomain')}
                     suggestions={[]}
                     hideRecommendations
                     style={{

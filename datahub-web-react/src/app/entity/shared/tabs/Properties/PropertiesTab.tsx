@@ -1,5 +1,6 @@
 import styled from 'styled-components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ExpandIcon from '../Dataset/Schema/components/ExpandIcon';
 import { StyledTable as Table } from '../../components/styled/StyledTable';
 import { useEntityData } from '../../EntityContext';
@@ -20,6 +21,7 @@ const StyledTable = styled(Table)`
 ` as typeof Table;
 
 export const PropertiesTab = () => {
+    const { t } = useTranslation();
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -32,7 +34,7 @@ export const PropertiesTab = () => {
             render: (propertyRow: PropertyRow) => <NameColumn propertyRow={propertyRow} filterText={filterText} />,
         },
         {
-            title: 'Value',
+            title: t('common.value'),
             render: (propertyRow: PropertyRow) => <ValuesColumn propertyRow={propertyRow} filterText={filterText} />,
         },
     ];

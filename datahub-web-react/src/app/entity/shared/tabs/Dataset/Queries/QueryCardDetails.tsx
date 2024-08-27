@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../../../constants';
 import { toLocalDateString } from '../../../../../shared/time/timeUtils';
 import NoMarkdownViewer from '../../../components/styled/StripMarkdownText';
@@ -92,11 +93,13 @@ export default function QueryCardDetails({
     onDeleted,
     index,
 }: Props) {
+    const { t } = useTranslation();
+
     return (
         <Details>
             <Header>
                 <Title secondary={!title} level={5}>
-                    {title || 'No title'}
+                    {title || t('common.noTitle')}
                 </Title>
                 <Actions>
                     {showEdit && (
@@ -120,11 +123,11 @@ export default function QueryCardDetails({
                     >
                         {description}
                     </NoMarkdownViewer>
-                )) || <EmptyText>No description</EmptyText>}
+                )) || <EmptyText>{t('common.noDescription')}</EmptyText>}
             </Description>
             <Date>
                 {(createdAtMs && (
-                    <Typography.Text type="secondary">Created on {toLocalDateString(createdAtMs)}</Typography.Text>
+                    <Typography.Text type="secondary">{t('reporting.createdOnWithDate', { date: toLocalDateString(createdAtMs)})}</Typography.Text>
                 )) ||
                     undefined}
             </Date>

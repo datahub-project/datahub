@@ -3,6 +3,7 @@ import { Button, Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import { green, red } from '@ant-design/colors';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import LoadingSvg from '../../../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 import ConnectionCapabilityView from './ConnectionCapabilityView';
@@ -98,12 +99,13 @@ function TestConnectionModal({
     hideModal,
 }: Props) {
     const logoUrl = useGetSourceLogoUrl(sourceConfig?.name || '');
+    const { t } = useTranslation();
 
     return (
         <Modal
             visible
             onCancel={hideModal}
-            footer={<Button onClick={hideModal}>Done</Button>}
+            footer={<Button onClick={hideModal}>{t("common.done")}</Button>}
             title={
                 <ModalHeader style={{ margin: 0 }}>
                     <SourceIcon alt="source logo" src={logoUrl} />

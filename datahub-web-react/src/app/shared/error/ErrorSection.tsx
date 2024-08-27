@@ -1,6 +1,7 @@
 import { Image, Typography } from 'antd';
 import React from 'react';
 import styled, { useTheme } from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import dataHubLogo from '../../../images/datahublogo.png';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 
@@ -58,6 +59,8 @@ const resources = [
 
 export const ErrorSection = (): JSX.Element => {
     const themeConfig = useTheme();
+    const { t } = useTranslation();
+
 
     return (
         <Section>
@@ -67,14 +70,14 @@ export const ErrorSection = (): JSX.Element => {
                     <TitleText strong>{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>
-                    <Typography.Title level={2}>Something went wrong.</Typography.Title>
+                    <Typography.Title level={2}>{t('error.errorSection.somethingWentWrong')}</Typography.Title>
                     <DetailParagraph type="secondary">
-                        An unexpected error occurred. Please try again later, or reach out to your administrator
+                        {t('error.errorSection.anUnexpectedErrorOccurred')}
                     </DetailParagraph>
                 </MessageSection>
                 <div>
                     <DetailParagraph type="secondary">
-                        <b>Need support?</b> Check out these resources:
+                        {t('error.errorSection.needSupport_component')}
                     </DetailParagraph>
                     <ResourceList>
                         {resources.map((resource) => (

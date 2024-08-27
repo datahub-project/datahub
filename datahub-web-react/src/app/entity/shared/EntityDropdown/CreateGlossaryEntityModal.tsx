@@ -4,6 +4,7 @@ import { EditOutlined } from '@ant-design/icons';
 import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import DOMPurify from 'dompurify';
 import { useHistory } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import {
     useCreateGlossaryTermMutation,
     useCreateGlossaryNodeMutation,
@@ -39,6 +40,7 @@ interface Props {
 }
 
 function CreateGlossaryEntityModal(props: Props) {
+    const { t } = useTranslation();
     const { entityType, onClose, refetchData } = props;
     const entityData = useEntityData();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
@@ -62,7 +64,7 @@ function CreateGlossaryEntityModal(props: Props) {
 
             if (properties?.name) {
                 setStagedName(properties.name);
-                form.setFieldValue('name', properties.name);
+                form.setFieldValue(t("common.name"), properties.name);
             }
 
             if (properties?.description) {
@@ -87,7 +89,7 @@ function CreateGlossaryEntityModal(props: Props) {
             },
         })
             .then((res) => {
-                message.loading({ content: 'Updating...', duration: 2 });
+                message.loading({ content: t('error.updating'), duration: 2 });
                 setTimeout(() => {
                     analytics.event({
                         type: EventType.CreateGlossaryEntityEvent,
@@ -95,7 +97,7 @@ function CreateGlossaryEntityModal(props: Props) {
                         parentNodeUrn: selectedParentUrn || undefined,
                     });
                     message.success({
-                        content: `Created ${entityRegistry.getEntityName(entityType)}!`,
+                        content: `${t('common.created')} ${entityRegistry.getEntityName(entityType)}!`,
                         duration: 2,
                     });
                     refetch();
@@ -118,7 +120,7 @@ function CreateGlossaryEntityModal(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.create')} \n ${e.message || ''}`, duration: 3 });
             });
         onClose();
     }
@@ -130,20 +132,20 @@ function CreateGlossaryEntityModal(props: Props) {
 
     return (
         <Modal
-            title={`Create ${entityRegistry.getEntityName(entityType)}`}
+            title={`${t('common.create')} ${entityRegistry.getEntityName(entityType)}`}
             visible
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         onClick={createGlossaryEntity}
                         disabled={createButtonDisabled}
                         data-testid="glossary-entity-modal-create-button"
                     >
-                        Create
+                        {t('common.create')}
                     </Button>
                 </>
             }
@@ -158,14 +160,14 @@ function CreateGlossaryEntityModal(props: Props) {
                     setCreateButtonDisabled(form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
-                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('common.name')}</Typography.Text>}>
                     <StyledItem
                         data-testid="create-glossary-entity-modal-name"
                         name="name"
                         rules={[
                             {
                                 required: true,
-                                message: `Enter a ${entityRegistry.getEntityName(entityType)} name.`,
+                                message: t('form.enterANameWithName', { name: entityRegistry.getEntityName(entityType)}),
                             },
                             { whitespace: true },
                             { min: 1, max: 100 },
@@ -178,7 +180,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 <Form.Item
                     label={
                         <Typography.Text strong>
-                            Parent <OptionalWrapper>(optional)</OptionalWrapper>
+                            {t('common.parent')} <OptionalWrapper>{t('common.optional')}</OptionalWrapper>
                         </Typography.Text>
                     }
                 >
@@ -192,17 +194,17 @@ function CreateGlossaryEntityModal(props: Props) {
                 <StyledItem
                     label={
                         <Typography.Text strong>
-                            Documentation <OptionalWrapper>(optional)</OptionalWrapper>
+                            {t('common.documentation')} <OptionalWrapper>{t('common.optional')}</OptionalWrapper>
                         </Typography.Text>
                     }
                 >
                     <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
                         <EditOutlined />
-                        {documentation ? 'Edit' : 'Add'} Documentation
+                        {documentation ? t('common.edit') : t('common.add')} {t('common.documentation')}
                     </StyledButton>
                     {isDocumentationModalVisible && (
                         <DescriptionModal
-                            title="Add Documentation"
+                            title={t('common.addDocumentation')}
                             onClose={() => setIsDocumentationModalVisible(false)}
                             onSubmit={addDocumentation}
                             description={documentation}
@@ -210,7 +212,7 @@ function CreateGlossaryEntityModal(props: Props) {
                     )}
                 </StyledItem>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                    <Collapse.Panel header={<Typography.Text type="secondary">{t('common.advanced')}</Typography.Text>} key="1">
                         <Form.Item
                             label={
                                 <Typography.Text strong>
@@ -219,10 +221,7 @@ function CreateGlossaryEntityModal(props: Props) {
                             }
                         >
                             <Typography.Paragraph>
-                                By default, a random UUID will be generated to uniquely identify this entity. If
-                                you&apos;d like to provide a custom id, you may provide it here. Note that it should be
-                                unique across the entire Glossary. Be careful, you cannot easily change the id after
-                                creation.
+                                {t('entity.glossaryEntityUuidDescription')}
                             </Typography.Paragraph>
                             <Form.Item
                                 name="id"
@@ -232,13 +231,13 @@ function CreateGlossaryEntityModal(props: Props) {
                                             if (value && validateCustomUrnId(value)) {
                                                 return Promise.resolve();
                                             }
-                                            return Promise.reject(new Error('Please enter a valid entity id'));
+                                            return Promise.reject(new Error(t('filter.form.enterAValidEntityId')));
                                         },
                                     }),
                                 ]}
                             >
                                 <Input
-                                    placeholder="classification"
+                                    placeholder= {t("common.classification")}
                                     onChange={(event) => setStagedId(event.target.value)}
                                 />
                             </Form.Item>

@@ -1,5 +1,6 @@
 import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import DataProductBuilderForm from './DataProductBuilderForm';
 import { DataProductBuilderState } from './types';
 import { useUpdateDataProductMutation } from '../../../../graphql/dataProduct.generated';
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export default function EditDataProductModal({ dataProduct, onUpdateDataProduct, onClose }: Props) {
+    const { t } = useTranslation();
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>({
         name: dataProduct.properties?.name || '',
         description: dataProduct.properties?.description || '',
@@ -31,7 +33,7 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
         })
             .then(({ data, errors }) => {
                 if (!errors) {
-                    message.success('Updates Data Product!');
+                    message.success(t('shared.dataProductUpdate'));
                     if (data?.updateDataProduct) {
                         onUpdateDataProduct(data.updateDataProduct as DataProduct);
                     }
@@ -41,13 +43,13 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
             .catch(() => {
                 onClose();
                 message.destroy();
-                message.error({ content: 'Failed to update Data Product. An unexpected error occurred' });
+                message.error({ content: t('crud.error.failedToDeleteDataProduct') });
             });
     }
 
     return (
         <Modal
-            title={`Update ${dataProduct.properties?.name || 'Data Product'}`}
+            title={`${t('common.refresh')} ${dataProduct.properties?.name || t('common.dataProduct')}`}
             onCancel={onClose}
             style={MODAL_BODY_STYLE}
             width={MODAL_WIDTH}
@@ -55,10 +57,10 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={updateDataProduct} disabled={!builderState.name}>
-                        Update
+                        {t('common.update')}
                     </Button>
                 </>
             }

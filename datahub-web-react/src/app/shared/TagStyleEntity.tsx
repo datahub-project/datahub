@@ -7,10 +7,10 @@ import styled from 'styled-components';
 import { ChromePicker } from 'react-color';
 import ColorHash from 'color-hash';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useGetTagQuery } from '../../graphql/tag.generated';
 import { EntityType, FacetMetadata, Maybe, Scalars } from '../../types.generated';
 import { ExpandedOwner } from '../entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { EMPTY_MESSAGES } from '../entity/shared/constants';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useUpdateDescriptionMutation, useSetTagColorMutation } from '../../graphql/mutations.generated';
@@ -24,6 +24,7 @@ import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown'
 import { ErrorSection } from './error/ErrorSection';
 import { generateOrFilters } from '../search/utils/generateOrFilters';
 import { ENTITY_FILTER_NAME, UnionType } from '../search/utils/constants';
+import { translateDisplayNames } from '../../utils/translation/translation';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
@@ -182,6 +183,7 @@ const generateColor = new ColorHash({
  */
 export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSearchResults }: Props) {
     const history = useHistory();
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const { error, data, refetch } = useGetTagQuery({ variables: { urn } });
     const [updateDescription] = useUpdateDescriptionMutation();
@@ -352,7 +354,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
             </TagHeader>
             <Divider />
             {/* Tag Description */}
-            <DescriptionLabel>About</DescriptionLabel>
+            <DescriptionLabel>{t('common.about')}</DescriptionLabel>
             <Paragraph
                 style={{ fontSize: '12px', lineHeight: '15px', padding: '5px 0px' }}
                 editable={{ onChange: handleSaveDescription }}
@@ -364,15 +366,15 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
             {/* Tag Charts, Datasets and Owners */}
             <DetailsLayout>
                 <StatsBox>
-                    <StatsLabel>Applied to</StatsLabel>
+                    <StatsLabel>{t('shared.appliedTo')}</StatsLabel>
                     {facetLoading && (
                         <div>
-                            <EmptyStatsText>Loading...</EmptyStatsText>
+                            <EmptyStatsText>{t('common.loading')}</EmptyStatsText>
                         </div>
                     )}
                     {!facetLoading && aggregations && aggregations?.length === 0 && (
                         <div>
-                            <EmptyStatsText>No entities</EmptyStatsText>
+                            <EmptyStatsText>{t('shared.noEntities')}</EmptyStatsText>
                         </div>
                     )}
                     {!facetLoading &&
@@ -416,15 +418,15 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         ))}
                         {ownersEmpty && (
                             <Typography.Paragraph type="secondary">
-                                {EMPTY_MESSAGES.owners.title}. {EMPTY_MESSAGES.owners.description}
+                                {translateDisplayNames(t, 'emptyTitleOwner')}. {translateDisplayNames(t, 'emptyDescriptionOwner')}
                             </Typography.Paragraph>
                         )}
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
                             <PlusOutlined />
                             {ownersEmpty ? (
-                                <OwnerButtonEmptyTitle>Add Owners</OwnerButtonEmptyTitle>
+                                <OwnerButtonEmptyTitle>{t('shared.addOwners')}</OwnerButtonEmptyTitle>
                             ) : (
-                                <OwnerButtonTitle>Add Owners</OwnerButtonTitle>
+                                <OwnerButtonTitle>{t('shared.addOwners')}</OwnerButtonTitle>
                             )}
                         </Button>
                     </div>

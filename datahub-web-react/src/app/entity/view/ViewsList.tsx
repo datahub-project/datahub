@@ -4,6 +4,7 @@ import { useLocation } from 'react-router';
 import { Button, message, Pagination } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import * as QueryString from 'query-string';
+import { useTranslation } from 'react-i18next';
 import { useListMyViewsQuery } from '../../../graphql/view.generated';
 import { SearchBar } from '../../search/SearchBar';
 import TabToolbar from '../shared/components/styled/TabToolbar';
@@ -38,6 +39,7 @@ const searchBarInputStyle = {
  * This component renders a paginated, searchable list of Views.
  */
 export const ViewsList = () => {
+    const { t } = useTranslation();
     /**
      * Context
      */
@@ -100,15 +102,15 @@ export const ViewsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading Views..." />}
-            {error && message.error({ content: `Failed to load Views! An unexpected error occurred.`, duration: 3 })}
+            {!data && loading && <Message type="loading" content={t('common.loading')} />}
+            {error && message.error({ content: t('crud.error.failedToLoadViews'), duration: 3 })}
             <TabToolbar>
                 <Button type="text" onClick={onClickCreateView}>
-                    <PlusOutlined /> Create new View
+                    <PlusOutlined />{t('ingest.createNewView')}
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText="Search Views..."
+                    placeholderText= {t('placeholder.searchViews')}
                     suggestions={[]}
                     style={searchBarStyle}
                     inputStyle={searchBarInputStyle}

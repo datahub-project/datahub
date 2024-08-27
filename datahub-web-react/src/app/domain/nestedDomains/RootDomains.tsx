@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { ReadOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { Message } from '../../shared/Message';
 import { ResultWrapper } from '../../search/SearchResultList';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -18,17 +19,18 @@ interface Props {
     setIsCreatingDomain: React.Dispatch<React.SetStateAction<boolean>>;
 }
 export default function RootDomains({ setIsCreatingDomain }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const { loading, error, data, sortedDomains } = useListDomains({});
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading domains..." />}
-            {error && <Message type="error" content="Failed to load domains. An unexpected error occurred." />}
+            {!data && loading && <Message type="loading" content={t('common.loadingDomains')} />}
+            {error && <Message type="error" content={t('crud.error.failedToCreateDomain')} />}
             {!loading && (!data || !data?.listDomains?.domains?.length) && (
                 <EmptyDomainsSection
                     icon={<ReadOutlined />}
-                    title="Organize your data"
+                    title= {t('common.organizeYourData')}
                     description={<EmptyDomainDescription />}
                     setIsCreatingDomain={setIsCreatingDomain}
                 />

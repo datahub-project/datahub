@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, message, Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import CreatePostForm from './CreatePostForm';
 import {
     CREATE_POST_BUTTON_ID,
@@ -32,6 +33,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
     const [createPostMutation] = useCreatePostMutation();
     const [updatePostMutation] = useUpdatePostMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
+    const { t } = useTranslation();
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -147,7 +149,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
         onClose();
     };
 
-    const titleText = editData ? 'Edit Post' : 'Create new Post';
+    const titleText = editData ?t('post.editPost') : t('post.createNewPost');
 
     return (
         <Modal
@@ -157,7 +159,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             footer={
                 <>
                     <Button onClick={onCloseModal} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         id={CREATE_POST_BUTTON_ID}
@@ -165,7 +167,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                         onClick={!editData ? onCreatePost : onUpdatePost}
                         disabled={!createButtonEnabled}
                     >
-                        {!editData ? 'Create' : 'Update'}
+                        {!editData ? t('common.create') : t('crud.update')}
                     </Button>
                 </>
             }

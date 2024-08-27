@@ -1,5 +1,6 @@
 import { message, Modal } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ActionDropdown from './ActionDropdown';
 import { handleBatchError } from '../../../../utils';
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
@@ -13,6 +14,7 @@ type Props = {
 
 // eslint-disable-next-line
 export default function DataProductsDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
 
@@ -26,9 +28,9 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.loading({ content: 'Loading...', duration: 2 });
+                    message.loading({ content:t('common.loading'), duration: 2 });
                     setTimeout(() => {
-                        message.success({ content: 'Removed Data Product!', duration: 2 });
+                        message.success({ content: t('entity.removedDataProduct'), duration: 2 });
                         refetch?.();
                     }, 2000);
                 }
@@ -37,7 +39,7 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to remove assets from Data Product: \n ${e.message || ''}`,
+                        content: `${t('crud.error.removeAssetsWithName',{name: t('common.dataProduct')})}: \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );
@@ -47,25 +49,25 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
     return (
         <>
             <ActionDropdown
-                name="Data Product"
+                name={t('common.dataProducts')}
                 actions={[
                     {
-                        title: 'Set Data Product',
+                        title: t('common.setDataProducts'),
                         onClick: () => {
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Unset Data Product',
+                        title: t('common.unsetDataProducts'),
                         onClick: () => {
                             Modal.confirm({
-                                title: `If you continue, Data Product will be removed for the selected assets.`,
-                                content: `Are you sure you want to unset Data Product for these assets?`,
+                                title: t('entity.unsetDataProductTitle'),
+                                content: t('entity.unsetDomainContent'),
                                 onOk() {
                                     batchUnsetDataProducts();
                                 },
                                 onCancel() {},
-                                okText: 'Yes',
+                                okText: t('common.yes'),
                                 maskClosable: true,
                                 closable: true,
                             });

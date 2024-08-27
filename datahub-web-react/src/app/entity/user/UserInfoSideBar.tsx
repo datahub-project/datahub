@@ -1,6 +1,7 @@
 import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { EntityRelationship, DataHubRole } from '../../../types.generated';
 import UserEditProfileModal from './UserEditProfileModal';
@@ -51,6 +52,8 @@ const AVATAR_STYLE = { marginTop: '14px' };
  * UserInfoSideBar- Sidebar section for users profiles.
  */
 export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
+
+    const { t } = useTranslation();
     const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, dataHubRoles, urn } =
         sideBarData;
 
@@ -102,14 +105,14 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
         })
             .then(() => {
                 message.success({
-                    content: `Changes saved.`,
+                    content: t('crud.success.changesSaved'),
                     duration: 3,
                 });
                 refetch();
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.changesSaved')}: \n ${e.message || ''}`, duration: 3 });
             });
     };
     const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as DataHubRole).name;
@@ -144,7 +147,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
                     <AboutSection>
-                        About
+                        {t('common.about')}
                         <AboutSectionText>
                             <Paragraph
                                 editable={isProfileOwner ? { onChange: onSaveAboutMe } : false}
@@ -156,7 +159,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                     </AboutSection>
                     <Divider className="divider-groupsSection" />
                     <GroupsSection>
-                        Groups
+                    {t('common.groups')}
                         <EntityGroups
                             readMore={groupSectionExpanded}
                             setReadMore={() => setGroupSectionExpanded(!groupSectionExpanded)}
@@ -167,7 +170,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                 {isProfileOwner && (
                     <EditButton>
                         <Button icon={<EditOutlined />} onClick={() => showEditProfileModal(true)}>
-                            Edit Profile
+                            {t('user.editProfile')}
                         </Button>
                     </EditButton>
                 )}

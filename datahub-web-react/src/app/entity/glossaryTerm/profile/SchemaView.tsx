@@ -1,6 +1,7 @@
 import React from 'react';
 import { Empty, Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 
 export type Props = {
     rawSchema: string | null;
@@ -12,6 +13,8 @@ const Content = styled.div`
 `;
 
 export default function SchemaView({ rawSchema }: Props) {
+    const { t } = useTranslation();
+
     return (
         <>
             {rawSchema && rawSchema.length > 0 ? (
@@ -22,7 +25,7 @@ export default function SchemaView({ rawSchema }: Props) {
                 </Typography.Text>
             ) : (
                 <Content>
-                    <Empty description="No Schema" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                    <Empty description={t('common.noSchema')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 </Content>
             )}
         </>

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
@@ -43,6 +44,8 @@ interface Props {
 }
 
 export const AdvancedSearchFilters = ({
+    
+
     unionType = UnionType.AND,
     facets,
     selectedFilters,
@@ -52,6 +55,7 @@ export const AdvancedSearchFilters = ({
     direction = LayoutDirection.Vertical,
     disabled = false,
 }: Props) => {
+    const { t } = useTranslation();
     const { filterField, setFilterField, onFilterFieldSelect, onSelectValueFromModal } = useAdvancedSearchSelectFilters(
         { selectedFilters, onFilterSelect },
     );
@@ -107,7 +111,7 @@ export const AdvancedSearchFilters = ({
                 </AnyAllSection>
             )}
             {selectedFilters?.length === 0 && direction === LayoutDirection.Vertical && (
-                <EmptyStateSection>No filters applied.</EmptyStateSection>
+                <EmptyStateSection>{t('filter.noFilterApplied')}</EmptyStateSection>
             )}
         </>
     );

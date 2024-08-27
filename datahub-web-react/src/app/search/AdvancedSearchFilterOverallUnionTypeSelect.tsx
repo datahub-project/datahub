@@ -2,6 +2,7 @@ import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { UnionType } from './utils/constants';
 
@@ -22,6 +23,7 @@ const StyledSelect = styled(Select)`
 `;
 
 export const AdvancedSearchFilterOverallUnionTypeSelect = ({ unionType, onUpdate, disabled = false }: Props) => {
+    const { t } = useTranslation();
     return (
         <>
             <StyledSelect
@@ -38,8 +40,8 @@ export const AdvancedSearchFilterOverallUnionTypeSelect = ({ unionType, onUpdate
                 size="small"
                 dropdownMatchSelectWidth={false}
             >
-                <Option value={UnionType.AND}>all filters</Option>
-                <Option value={UnionType.OR}>any filter</Option>
+                <Option value={UnionType.AND}>{t('filter.allFilters')}</Option>
+                <Option value={UnionType.OR}>{t('filter.anyFilter')}</Option>
             </StyledSelect>
         </>
     );

@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import PolicyBuilderModal from './PolicyBuilderModal';
 import { AndFilterInput, Policy, PolicyState, FilterOperator } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
@@ -87,6 +88,7 @@ export enum StatusType {
 
 // TODO: Cleanup the styling.
 export const ManagePolicies = () => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -214,7 +216,7 @@ export const ManagePolicies = () => {
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: t('common.name'),
             dataIndex: 'name',
             key: 'name',
             render: (_, record: any) => {
@@ -229,7 +231,7 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: 'Type',
+            title: t('common.type'),
             dataIndex: 'type',
             key: 'type',
             render: (type: string) => {
@@ -238,13 +240,13 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: 'Description',
+            title: t('common.description'),
             dataIndex: 'description',
             key: 'description',
             render: (description: string) => description || '',
         },
         {
-            title: 'Actors',
+            title: t('common.actors'),
             dataIndex: 'actors',
             key: 'actors',
             render: (_, record: any) => {
@@ -265,7 +267,7 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: 'State',
+            title: t('common.state'),
             dataIndex: 'state',
             key: 'state',
             render: (state: string) => {
@@ -280,7 +282,7 @@ export const ManagePolicies = () => {
             render: (_, record: any) => (
                 <ActionButtonContainer>
                     <EditPolicyButton disabled={!record?.editable} onClick={() => onEditPolicy(record?.policy)}>
-                        EDIT
+                        {t('common.edit')}
                     </EditPolicyButton>
                     {record?.state === PolicyState.Active ? (
                         <Button
@@ -294,7 +296,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'red' : ANTD_GRAY[6], width: 100 }}
                         >
-                            DEACTIVATE
+                            {t('common.deactivate')}
                         </Button>
                     ) : (
                         <Button
@@ -308,7 +310,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'green' : ANTD_GRAY[6], width: 100 }}
                         >
-                            ACTIVATE
+                            {t('common.active')}
                         </Button>
                     )}
                     <Button
@@ -348,7 +350,7 @@ export const ManagePolicies = () => {
             {policiesLoading && !policiesData && (
                 <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
             )}
-            {policiesError && <Message type="error" content="Failed to load policies! An unexpected error occurred." />}
+            {policiesError && <Message type="error" content={ t('permissions.failedToLoadPolicies')} />}
             {updateError && message.error('Failed to update policies. An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>
@@ -359,13 +361,13 @@ export const ManagePolicies = () => {
                             onClick={onClickNewPolicy}
                             data-testid="add-policy-button"
                         >
-                            <PlusOutlined /> Create new policy
+                            <PlusOutlined /> {t('permissions.createNewPolicy')}
                         </Button>
                     </div>
                     <SelectContainer>
                         <SearchBar
                             initialQuery={query || ''}
-                            placeholderText="Search policies..."
+                            placeholderText={t('permissions.searchPolicies')}
                             suggestions={[]}
                             style={{
                                 maxWidth: 220,
@@ -389,13 +391,13 @@ export const ManagePolicies = () => {
                             style={{ width: 100 }}
                         >
                             <Select.Option value={StatusType.ALL} key="ALL">
-                                All
+                                {t('common.all')}
                             </Select.Option>
                             <Select.Option value={StatusType.ACTIVE} key="ACTIVE">
-                                Active
+                                {t('common.activate')}
                             </Select.Option>
                             <Select.Option value={StatusType.INACTIVE} key="INACTIVE">
-                                Inactive
+                                {t('common.Inactive')}
                             </Select.Option>
                         </StyledSelect>
                     </SelectContainer>

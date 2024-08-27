@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -34,6 +35,7 @@ const TermNodeName = styled.span`
 `;
 
 function GlossarySearch() {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const entityRegistry = useEntityRegistry();
@@ -54,7 +56,7 @@ function GlossarySearch() {
 
     const renderSearchResults = () => (
         <ResultsWrapper>
-            <TermNodeName>Glossary Terms</TermNodeName>
+            <TermNodeName>{t('common.glossaryTerms')}</TermNodeName>
             {searchResults?.map((result) => (
                 <GloassarySearchResultItem
                     key={result.entity.urn}
@@ -72,7 +74,7 @@ function GlossarySearch() {
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search Glossary"
+                    placeholderText={t('glossary.searchGlossary')}
                     suggestions={[]}
                     hideRecommendations
                     style={{

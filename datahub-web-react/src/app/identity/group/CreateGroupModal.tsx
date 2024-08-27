@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useCreateGroupMutation } from '../../../graphql/group.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../../shared/textUtil';
@@ -24,6 +25,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [createGroupMutation] = useCreateGroupMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
+    const { t } = useTranslation();
     const [form] = Form.useForm();
 
     // Reference to the styled editor for handling focus
@@ -66,7 +68,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 })
                 .catch((e) => {
                     message.destroy();
-                    message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `${t('crud.error.createWithName', { name: t('common.group') })}!: \n ${e.message || ''}`, duration: 3 });
                 })
                 .finally(() => {
                     setStagedName('');
@@ -94,10 +96,10 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button id="createGroupButton" onClick={onCreateGroup} disabled={createButtonEnabled}>
-                        Create
+                    {t('common.create')}
                     </Button>
                 </>
             }
@@ -110,7 +112,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
-                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('common.name')}</Typography.Text>}>
                     <Typography.Paragraph>Give your new group a name.</Typography.Paragraph>
                     <Form.Item
                         name="name"
@@ -131,7 +133,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('common.description')}</Typography.Text>}>
                     <Typography.Paragraph>An optional description for your new group.</Typography.Paragraph>
                     <Form.Item name="description" rules={[{ whitespace: true }]} hasFeedback>
                         {/* Styled editor for the group description */}
@@ -144,7 +146,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Group Id</Typography.Text>}>
                             <Typography.Paragraph>
-                                By default, a random UUID will be generated to uniquely identify this group. If
+                            By default, a random UUID will be generated to uniquely identify this group. If
                                 you&apos;d like to provide a custom id instead to more easily keep track of this group,
                                 you may provide it here. Be careful, you cannot easily change the group id after
                                 creation.

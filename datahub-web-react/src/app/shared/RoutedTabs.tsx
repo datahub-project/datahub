@@ -4,6 +4,8 @@ import { Redirect, useHistory } from 'react-router';
 import { Tabs } from 'antd';
 import { TabsProps } from 'antd/lib/tabs';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../utils/translation/translation';
 
 const { TabPane } = Tabs;
 
@@ -33,6 +35,7 @@ const RoutedTabsStyle = styled.div`
 export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) => {
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
+    const { t } = useTranslation();
     const history = useHistory();
     const subRoutes = tabs.map((tab) => tab.path.replace('/', ''));
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
@@ -51,7 +54,7 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
             >
                 {tabs.map((tab) => {
                     return (
-                        <TabPane tab={tab.name} key={tab.path.replace('/', '')} disabled={!tab.display?.enabled()} />
+                        <TabPane tab={translateDisplayNames(t, tab.name)} key={tab.path.replace('/', '')} disabled={!tab.display?.enabled()} />
                     );
                 })}
             </Tabs>

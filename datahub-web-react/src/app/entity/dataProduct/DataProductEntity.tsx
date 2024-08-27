@@ -22,6 +22,12 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
  * Definition of the DataHub Data Product entity.
  */
 export class DataProductEntity implements Entity<DataProduct> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.DataProduct;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -61,7 +67,7 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getEntityName = () => 'Data Product';
 
-    getCollectionName = () => 'Data Products';
+    getCollectionName = () => this.translationService('common.dataProducts');
 
     useEntityQuery = useGetDataProductQuery;
 

@@ -2,6 +2,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Empty, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../types.generated';
 import { useEntityData } from '../entity/shared/EntityContext';
 import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
@@ -29,6 +30,7 @@ interface Props {
 
 function EmptyGlossarySection(props: Props) {
     const { title, description, refetchForTerms, refetchForNodes } = props;
+    const { t } = useTranslation();
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
@@ -49,10 +51,10 @@ function EmptyGlossarySection(props: Props) {
                 }
             >
                 <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateTermModalVisible(true)}>
-                    <PlusOutlined /> Add Term
+                    <PlusOutlined /> {t('common.addTerm')}
                 </StyledButton>
                 <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateNodeModalVisible(true)}>
-                    <PlusOutlined /> Add Term Group
+                    <PlusOutlined /> {t('common.addTermGroup')}
                 </StyledButton>
             </StyledEmpty>
             {isCreateTermModalVisible && (

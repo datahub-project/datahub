@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Form, Input, Select, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { ViewBuilderState } from '../types';
 import { DataHubViewType } from '../../../../types.generated';
 import { ViewTypeLabel } from '../ViewTypeLabel';
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
+    const { t } = useTranslation();
     const userContext = useUserContext();
     const [form] = Form.useForm();
 
@@ -55,8 +57,8 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
     return (
         <span data-testid="view-builder-form">
             <Form form={form} initialValues={state} layout="vertical">
-                <StyledFormItem label={<Typography.Text strong>Name</Typography.Text>}>
-                    <Typography.Paragraph>Give your new View a name. </Typography.Paragraph>
+                <StyledFormItem label={<Typography.Text strong>{t('common.name')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('filter.view.nameDescription')} </Typography.Paragraph>
                     <Form.Item
                         name="name"
                         rules={[
@@ -77,8 +79,8 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                         />
                     </Form.Item>
                 </StyledFormItem>
-                <StyledFormItem label={<Typography.Text strong>Description</Typography.Text>}>
-                    <Typography.Paragraph>Write a description for your View.</Typography.Paragraph>
+                <StyledFormItem label={<Typography.Text strong>{t('common.description')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('common.description')}</Typography.Paragraph>
                     <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                         <Input.TextArea
                             data-testid="view-description-input"
@@ -88,8 +90,8 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                         />
                     </Form.Item>
                 </StyledFormItem>
-                <StyledFormItem label={<Typography.Text strong>Type</Typography.Text>}>
-                    <Typography.Paragraph>Select the type of your new View.</Typography.Paragraph>
+                <StyledFormItem label={<Typography.Text strong>{t('common.type')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('filter.view.typeDescription')}</Typography.Paragraph>
                     <Form.Item name="viewType">
                         <Select
                             onSelect={(value) => setViewType(value as DataHubViewType)}
@@ -104,10 +106,9 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                         </Select>
                     </Form.Item>
                 </StyledFormItem>
-                <StyledFormItem label={<Typography.Text strong>Filters</Typography.Text>} style={{ marginBottom: 8 }}>
+                <StyledFormItem label={<Typography.Text strong>{t('common.filter')}</Typography.Text>} style={{ marginBottom: 8 }}>
                     <Typography.Paragraph>
-                        Select the filters that are applied when this View is selected. Assets that match these filters
-                        will be shown when the View is applied.
+                        {t('filter.view.filterDescription')}
                     </Typography.Paragraph>
                 </StyledFormItem>
             </Form>

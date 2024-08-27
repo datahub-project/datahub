@@ -3,6 +3,7 @@ import { Pagination, Table, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import { useGetDataJobRunsQuery } from '../../../../graphql/dataJob.generated';
 import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '../../../../types.generated';
 import {
@@ -114,6 +115,7 @@ const columns = [
 const PAGE_SIZE = 20;
 
 export const RunsTab = () => {
+    const { t } = useTranslation();
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
 
@@ -137,7 +139,7 @@ export const RunsTab = () => {
         return (
             <LoadingContainer>
                 <LoadingSvg height={80} width={80} />
-                <LoadingText>Fetching runs...</LoadingText>
+                <LoadingText>{t('operation.fetchingRuns')}</LoadingText>
             </LoadingContainer>
         );
     }

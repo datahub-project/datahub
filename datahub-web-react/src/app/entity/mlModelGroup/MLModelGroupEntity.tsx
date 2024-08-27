@@ -21,6 +21,12 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
  * Definition of the DataHub MlModelGroup entity.
  */
 export class MLModelGroupEntity implements Entity<MlModelGroup> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.MlmodelGroup;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -54,7 +60,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getEntityName = () => 'ML Group';
 
-    getCollectionName = () => 'ML Groups';
+    getCollectionName = () => this.translationService('common.MLGroup');
 
     getOverridePropertiesFromEntity = (_?: MlModelGroup | null): GenericEntityProperties => {
         return {};

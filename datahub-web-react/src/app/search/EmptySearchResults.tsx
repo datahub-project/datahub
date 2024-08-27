@@ -3,6 +3,7 @@ import { useHistory } from 'react-router';
 import { Button } from 'antd';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import analytics, { EventType } from '../analytics';
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export default function EmptySearchResults({ suggestions }: Props) {
+    const { t } = useTranslation();
     const { query, filters, viewUrn } = useGetSearchQueryInputs();
     const history = useHistory();
     const userContext = useUserContext();
@@ -64,25 +66,25 @@ export default function EmptySearchResults({ suggestions }: Props) {
 
     return (
         <NoDataContainer>
-            <Section>No results found for &quot;{query}&quot;</Section>
+            <Section>{t('search.noResultsFoundFor')} &quot;{query}&quot;</Section>
             {refineSearchText && (
                 <>
-                    Try <SuggestedText onClick={clearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
+                    {t('common.try')} <SuggestedText onClick={clearFiltersAndView}>{refineSearchText}</SuggestedText>{' '}
                     {suggestText && (
                         <>
-                            or searching for <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
+                            {t('search.orSearchingFor_component')} <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
                         </>
                     )}
                 </>
             )}
             {!refineSearchText && suggestText && (
                 <>
-                    Did you mean <SuggestedText onClick={searchForSuggestion}>{suggestText}</SuggestedText>
+                    {t('search.didYouMean_component',{suggestText})}
                 </>
             )}
             {!refineSearchText && !suggestText && (
                 <Button onClick={onClickExploreAll}>
-                    <RocketOutlined /> Explore all
+                    <RocketOutlined /> {t('search.exploreAll')}
                 </Button>
             )}
         </NoDataContainer>

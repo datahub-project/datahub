@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, message, Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 
@@ -16,6 +17,7 @@ export type Props = {
 };
 
 export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
+    const { t } = useTranslation();
     const [deleteQueryMutation] = useDeleteQueryMutation();
 
     const deleteQuery = () => {
@@ -23,7 +25,7 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Deleted Query!`,
+                        content: t('crud.success.deletedQuery'),
                         duration: 3,
                     });
                     onDeleted?.(urn);
@@ -32,21 +34,21 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to delete Query! An unexpected error occurred',
-                    permissionMessage: 'Unauthorized to delete Query. Please contact your DataHub administrator.',
+                    defaultMessage:t('crud.error.failedToDeleteQuery'),
+                    permissionMessage: t('crud.error.unauthorizedToDeleteQuery'),
                 });
             });
     };
 
     const confirmDeleteQuery = () => {
         Modal.confirm({
-            title: `Delete Query`,
-            content: `Are you sure you want to delete this query?`,
+            title: t('crud.deleteWithName', { name: t('common.query')}),
+            content: t('query.confirmRemoval'),
             onOk() {
                 deleteQuery();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });
@@ -57,7 +59,7 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
             overlay={
                 <Menu>
                     <Menu.Item key="0" onClick={confirmDeleteQuery} data-testid={`query-delete-button-${index}`}>
-                        <DeleteOutlined /> &nbsp; Delete
+                        <DeleteOutlined /> &nbsp; {t('crud.delete')}
                     </Menu.Item>
                 </Menu>
             }

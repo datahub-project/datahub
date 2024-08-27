@@ -14,6 +14,7 @@ export const HOME_PAGE_SEARCH_BAR_ID = 'home-page-search-bar';
 export const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: GLOBAL_WELCOME_TO_DATAHUB_ID,
+        title: 'Welcome to DataHub! 👋',
         content: (
             <div>
                 <Image

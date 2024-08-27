@@ -2,6 +2,7 @@ import { Modal, Steps, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { isEqual } from 'lodash';
+import { useTranslation } from 'react-i18next';
 import { SourceBuilderState, StepProps } from './types';
 import { CreateScheduleStep } from './CreateScheduleStep';
 import { DefineRecipeStep } from './DefineRecipeStep';
@@ -69,8 +70,9 @@ type Props = {
 };
 
 export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation();
     const isEditing = initialState !== undefined;
-    const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
+    const titleText = isEditing ? t('crud.editWithName', { name: t('ingestion.ingestionSource')}) : t('onBoarding.ingestion.newIngestionSource');
     const initialStep = isEditing
         ? IngestionSourceBuilderStep.DEFINE_RECIPE
         : IngestionSourceBuilderStep.SELECT_TEMPLATE;

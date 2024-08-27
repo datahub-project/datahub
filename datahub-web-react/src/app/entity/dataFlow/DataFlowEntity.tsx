@@ -24,6 +24,12 @@ import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
  * Definition of the DataHub DataFlow entity.
  */
 export class DataFlowEntity implements Entity<DataFlow> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.DataFlow;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -57,7 +63,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getEntityName = () => 'Pipeline';
 
-    getCollectionName = () => 'Pipelines';
+    getCollectionName = ()  => this.translationService('common.pipeline');
 
     useEntityQuery = useGetDataFlowQuery;
 

@@ -3,6 +3,7 @@ import { useHistory } from 'react-router';
 import { Select } from 'antd';
 import styled from 'styled-components';
 import { VscTriangleDown } from 'react-icons/vsc';
+import { useTranslation } from 'react-i18next';
 import { useListMyViewsQuery, useListGlobalViewsQuery } from '../../../../graphql/view.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
@@ -80,6 +81,7 @@ type Props = {
  * In the event that a user refreshes their browser, the state of the view should be saved as well.
  */
 export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
+    const { t } = useTranslation();
     const history = useHistory();
     const userContext = useUserContext();
     const [isOpen, setIsOpen] = useState(false);
@@ -202,7 +204,7 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
                 data-testid="view-select"
                 onChange={() => (selectRef?.current as any)?.blur()}
                 value={(foundSelectedUrn && selectedUrn) || undefined}
-                placeholder="View all"
+                placeholder={t('common.viewAllShort')}
                 onSelect={onSelectView}
                 onClear={onClear}
                 ref={selectRef}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     AccessLevel,
     Domain,
@@ -20,6 +21,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
 import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
+import { translateDisplayNames } from '../../../../utils/translation/translation';
 
 export const DashboardPreview = ({
     urn,
@@ -77,6 +79,7 @@ export const DashboardPreview = ({
     health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
 
     return (
         <DefaultPreviewCard
@@ -84,7 +87,7 @@ export const DashboardPreview = ({
             name={name || ''}
             urn={urn}
             description={description || ''}
-            type={capitalizeFirstLetterOnly(subtype) || 'Dashboard'}
+            type={capitalizeFirstLetterOnly(subtype) || translateDisplayNames(t, 'dashboard')}
             typeIcon={entityRegistry.getIcon(EntityType.Dashboard, 14, IconStyleType.ACCENT)}
             logoUrl={logoUrl || ''}
             platformInstanceId={platformInstanceId}

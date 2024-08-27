@@ -11,6 +11,7 @@ import {
     TableOutlined,
 } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import CustomPagination from './CustomPagination';
 import TabToolbar from '../../../../shared/components/styled/TabToolbar';
 import { SemanticVersionStruct } from '../../../../../../types.generated';
@@ -162,6 +163,7 @@ export default function SchemaHeader({
     setFilterText,
     numRows,
 }: Props) {
+    const { t } = useTranslation();
     const history = useHistory();
     const location = useLocation();
     const onVersionChange = (version1, version2) => {
@@ -226,10 +228,10 @@ export default function SchemaHeader({
                     {hasKeySchema && (
                         <KeyValueButtonGroup>
                             <KeyButton $highlighted={showKeySchema} onClick={() => setShowKeySchema(true)}>
-                                Key
+                                {t('common.key')}
                             </KeyButton>
                             <ValueButton $highlighted={!showKeySchema} onClick={() => setShowKeySchema(false)}>
-                                Value
+                                {t('common.value')}
                             </ValueButton>
                         </KeyValueButtonGroup>
                     )}
@@ -242,7 +244,7 @@ export default function SchemaHeader({
                     {!showRaw && (
                         <StyledInput
                             defaultValue={schemaFilter}
-                            placeholder="Search in schema..."
+                            placeholder={t('placeholder.searchWithName', { name: t('common.schema') })}
                             onChange={debouncedSetFilterText}
                             allowClear
                             prefix={<SearchOutlined />}
@@ -282,11 +284,10 @@ export default function SchemaHeader({
                                 placement="right"
                                 content={
                                     <div>
-                                        Semantic versions for this view were computed using Technical Schema. You can
-                                        find more info about how DataHub computes versions
+                                        {t('dataset.linkToTechnicalSchema_component')}
                                         <a target="_blank" rel="noreferrer noopener" href={docLink}>
                                             {' '}
-                                            here.{' '}
+                                            {t('common.here')}.{' '}
                                         </a>
                                     </div>
                                 }

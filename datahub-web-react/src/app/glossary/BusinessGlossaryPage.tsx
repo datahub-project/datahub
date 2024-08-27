@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
@@ -12,6 +13,8 @@ import { Message } from '../shared/Message';
 import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
+
+
 import {
     BUSINESS_GLOSSARY_INTRO_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_ID,
@@ -50,6 +53,8 @@ export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;
 
 function BusinessGlossaryPage() {
+    const { t } = useTranslation();
+
     const {
         data: termsData,
         refetch: refetchForTerms,
@@ -85,6 +90,7 @@ function BusinessGlossaryPage() {
     const user = useUserContext();
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
 
+
     return (
         <>
             <OnboardingTour
@@ -106,7 +112,7 @@ function BusinessGlossaryPage() {
                         <TitleContainer>
                             <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />
                             <Typography.Title style={{ margin: '0' }} level={3}>
-                                Business Glossary
+                            {t('common.businessGlossary')}
                             </Typography.Title>
                         </TitleContainer>
                         <div>
@@ -117,7 +123,7 @@ function BusinessGlossaryPage() {
                                 type="text"
                                 onClick={() => setIsCreateTermModalVisible(true)}
                             >
-                                <PlusOutlined /> Add Term
+                                <PlusOutlined /> {t('common.addTerms')}
                             </Button>
                             <Button
                                 data-testid="add-term-group-button"
@@ -126,15 +132,15 @@ function BusinessGlossaryPage() {
                                 type="text"
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                             >
-                                <PlusOutlined /> Add Term Group
+                                <PlusOutlined /> {t('common.addTermGroup')}
                             </Button>
                         </div>
                     </HeaderWrapper>
                     {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
                     {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
                         <EmptyGlossarySection
-                            title="Empty Glossary"
-                            description="Create Terms and Term Groups to organize data assets using a shared vocabulary."
+                            title={t('glossary.emptyGlossary')}
+                            description= {t('glossary.emptyGlossaryDescription')}
                             refetchForTerms={refetchForTerms}
                             refetchForNodes={refetchForNodes}
                         />

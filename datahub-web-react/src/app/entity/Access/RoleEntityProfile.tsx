@@ -5,6 +5,7 @@ import { Divider, Typography } from 'antd';
 import { grey } from '@ant-design/colors';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import { Message } from '../../shared/Message';
 import { decodeUrn } from '../shared/utils';
 import { useGetExternalRoleQuery } from '../../../graphql/accessrole.generated';
@@ -55,6 +56,7 @@ const TitleText = styled(Typography.Text)`
 const { Paragraph } = Typography;
 
 export default function RoleEntityProfile() {
+    const { t } = useTranslation();
     const { urn: encodedUrn } = useParams<RolePageParams>();
     const urn = decodeUrn(encodedUrn);
     const { data, loading } = useGetExternalRoleQuery({ variables: { urn } });
@@ -62,11 +64,11 @@ export default function RoleEntityProfile() {
     return (
         <PageContainer>
             {loading && <LoadingMessage type="loading" content="Loading..." />}
-            <TitleLabel>Role</TitleLabel>
+            <TitleLabel>{t('common.role')}</TitleLabel>
             <TitleText>{data?.role?.properties?.name}</TitleText>
             <Divider />
             {/* Role Description */}
-            <DescriptionLabel>About</DescriptionLabel>
+            <DescriptionLabel>{t('common.about')}</DescriptionLabel>
             <Paragraph style={{ fontSize: '12px', lineHeight: '15px', padding: '5px 0px' }}>
                 {data?.role?.properties?.description}
             </Paragraph>

@@ -2,6 +2,7 @@ import { message, Modal, Tag } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
 import { EntityType, Owner } from '../../../../../../types.generated';
 import { getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly, fontSize }: Props) => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
@@ -60,7 +62,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                     },
                 },
             });
-            message.success({ content: 'Owner Removed', duration: 2 });
+            message.success({ content: t('common.ownerRemoved'), duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
@@ -70,7 +72,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to remove owner: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.remove')} \n ${e.message || ''}`, duration: 3 });
             }
         }
         refetch?.();
@@ -78,13 +80,13 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const onClose = (e) => {
         e.preventDefault();
         Modal.confirm({
-            title: `Do you want to remove ${name}?`,
-            content: `Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`,
+            title: t('crud.doYouWantTo.removeTitleWithName', { name }),
+            content: t('crud.doYouWantTo.removeContentWithTheName', { name: `${name} (${ownershipTypeName})` }),
             onOk() {
                 onDelete();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });

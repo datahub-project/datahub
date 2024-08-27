@@ -1,6 +1,7 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { Post } from '../../types.generated';
 
@@ -47,10 +48,11 @@ type Props = {
 };
 
 export const PostTextCard = ({ textPost }: Props) => {
+    const { t } = useTranslation();
     return (
         <CardContainer>
             <TextContainer>
-                <HeaderText type="secondary">Announcement</HeaderText>
+                <HeaderText type="secondary">{t('common.announcement')}</HeaderText>
                 <TitleText
                     ellipsis={{
                         rows: 1,

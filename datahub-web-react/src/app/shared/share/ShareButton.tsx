@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Button, Dropdown } from 'antd';
 import { ShareAltOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../types.generated';
 import ShareButtonMenu from './ShareButtonMenu';
 
@@ -22,6 +23,7 @@ const StyledShareIcon = styled(ShareAltOutlined)`
 `;
 
 export default function ShareButton({ urn, entityType, subType, name }: ShareButtonProps) {
+    const { t } = useTranslation();
     return (
         <Dropdown
             trigger={['click']}
@@ -33,7 +35,7 @@ export default function ShareButton({ urn, entityType, subType, name }: ShareBut
         >
             <StyledButton type="primary">
                 <StyledShareIcon />
-                Share
+                {t('common.share')}
             </StyledButton>
         </Dropdown>
     );

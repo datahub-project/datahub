@@ -16,6 +16,12 @@ const PreviewTagIcon = styled(TagOutlined)`
 //  * Definition of the DataHub Access Role entity.
 //  */
 export class RoleEntity implements Entity<Role> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.Role;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -47,7 +53,7 @@ export class RoleEntity implements Entity<Role> {
 
     getPathName: () => string = () => 'role';
 
-    getCollectionName: () => string = () => 'Roles';
+    getCollectionName: () => string = () => this.translationService('common.roles');
 
     getEntityName: () => string = () => 'Role';
 

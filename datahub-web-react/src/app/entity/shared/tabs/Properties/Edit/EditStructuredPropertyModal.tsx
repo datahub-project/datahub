@@ -1,6 +1,7 @@
 import { Button, Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
 import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
@@ -31,6 +32,7 @@ export default function EditStructuredPropertyModal({
     closeModal,
     refetch,
 }: Props) {
+    const { t } = useTranslation();
     const { refetch: entityRefetch } = useEntityContext();
     const mutationUrn = useMutationUrn();
     const urn = associatedUrn || mutationUrn;
@@ -44,7 +46,7 @@ export default function EditStructuredPropertyModal({
     }, [isOpen, initialValues, setSelectedValues]);
 
     function upsertProperties() {
-        message.loading('Updating...');
+        message.loading(t('crud.updating'));
         upsertStructuredProperties({
             variables: {
                 input: {
@@ -70,13 +72,13 @@ export default function EditStructuredPropertyModal({
                     entityRefetch();
                 }
                 message.destroy();
-                message.success('Successfully updated structured property!');
+                message.success(t('crud.success.successfulUpdated'));
                 closeModal();
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Unable to save structured property. Something went wrong.',
+                    defaultMessage: t('crud.error.unableToSaveStructured'),
                 });
                 closeModal();
             });
@@ -91,10 +93,10 @@ export default function EditStructuredPropertyModal({
             footer={
                 <>
                     <Button onClick={closeModal} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button type="primary" onClick={upsertProperties} disabled={!selectedValues.length}>
-                        Update
+                        {t('common.update')}
                     </Button>
                 </>
             }

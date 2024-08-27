@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
 import { useHistory, useRouteMatch } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
 import { EntityRelationshipsResult, Ownership } from '../../../types.generated';
 import { useUpdateNameMutation } from '../../../graphql/mutations.generated';
@@ -157,6 +158,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const { url } = useRouteMatch();
     const history = useHistory();
+    const { t } = useTranslation();
 
     const { updateTitle } = useBrowserTitle();
 
@@ -202,13 +204,13 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         setGroupTitle(name);
         await updateName({ variables: { input: { name, urn } } })
             .then(() => {
-                message.success({ content: 'Name Updated', duration: 2 });
+                message.success({ content: t('crud.success.updatedWithNameReverse',{name}), duration: 2 });
                 refetch();
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to update name: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `${t('crud.error.updateWithName',{name})} \n ${e.message || ''}`, duration: 3 });
                 }
             });
     };
@@ -232,14 +234,14 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         })
             .then(() => {
                 message.success({
-                    content: `Changes saved.`,
+                    content: t('crud.success.changesSaved'),
                     duration: 3,
                 });
                 refetch();
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.changesSaved')}\n ${e.message || ''}`, duration: 3 });
             });
     };
     return (
@@ -264,7 +266,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                         <Col>
                             {isExternalGroup && (
                                 <Tooltip
-                                    title={`Membership for this group cannot be edited in DataHub as it originates from ${externalGroupType}.`}
+                                    title={`${'entity.membershipThisGroupCannotEddit'} ${externalGroupType}.`}
                                 >
                                     <LockOutlined />
                                 </Tooltip>
@@ -305,7 +307,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                                                 setExpanded(false);
                                             }}
                                         >
-                                            Read Less
+                                            {t('common.readLessDescription')}
                                         </ReadLessText>
                                     )}
                                 </ExpandedActions>
@@ -322,7 +324,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                                                     setExpanded(true);
                                                 }}
                                             >
-                                                Read More
+                                                {t('common.readMoreDescription')}
                                             </Typography.Link>
                                         </>
                                     }

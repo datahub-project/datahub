@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { Button, Dropdown, List, Menu, message, Popover, Tag, Tooltip, Typography } from 'antd';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
 import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incidentUtils';
 import { useGetUserQuery } from '../../../../../../graphql/user.generated';
@@ -149,6 +150,7 @@ const MenuItem = styled.div`
 `;
 
 export default function IncidentListItem({ incident, refetch }: Props) {
+    const { t } = useTranslation();
     const { entityType } = useEntityData();
     const refetchEntity = useRefetch();
     const entityRegistry = useEntityRegistry();
@@ -183,7 +185,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     entityUrn: incident.urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
-                message.success({ content: 'Incident updated! .', duration: 2 });
+                message.success({ content: t('crud.success.update'), duration: 2 });
                 refetchEntity?.();
                 refetch?.();
                 setIsResolvedModalVisible(false);

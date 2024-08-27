@@ -3,6 +3,7 @@ import { Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../shared/constants';
@@ -63,6 +64,7 @@ const MemberCountContainer = styled.span`
 `;
 
 export const Preview = ({
+
     urn,
     name,
     description,
@@ -75,6 +77,7 @@ export const Preview = ({
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpGroup, urn);
+    const { t } = useTranslation();
 
     return (
         <PreviewContainer>
@@ -90,7 +93,7 @@ export const Preview = ({
                         <Link to={url}>
                             <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
                             <MemberCountContainer>
-                                <Tag>{membersCount} members</Tag>
+                                <Tag>{membersCount} {t('common.members')}</Tag>
                             </MemberCountContainer>
                         </Link>
                     </TitleContainer>

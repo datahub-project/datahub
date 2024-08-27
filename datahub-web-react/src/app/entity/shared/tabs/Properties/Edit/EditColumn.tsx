@@ -20,7 +20,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch 
     return (
         <>
             <Button type="link" onClick={() => setIsEditModalVisible(true)}>
-                Edit
+                {t('common.edit')}
             </Button>
             <EditStructuredPropertyModal
                 isOpen={isEditModalVisible}

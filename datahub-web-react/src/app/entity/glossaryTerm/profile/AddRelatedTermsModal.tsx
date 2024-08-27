@@ -1,6 +1,7 @@
 import { message, Button, Modal, Select, Tag } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useAddRelatedTermsMutation } from '../../../../graphql/glossaryTerm.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../graphql/search.generated';
 import { EntityType, SearchResult, TermRelationshipType } from '../../../../types.generated';
@@ -29,6 +30,7 @@ interface Props {
 }
 
 function AddRelatedTermsModal(props: Props) {
+    const { t } = useTranslation();
     const { onClose, relationshipType } = props;
 
     const [inputValue, setInputValue] = useState('');
@@ -53,13 +55,13 @@ function AddRelatedTermsModal(props: Props) {
         })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to move: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.move')} \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
-                message.loading({ content: 'Adding...', duration: 2 });
+                message.loading({ content: t('crud.adding'), duration: 2 });
                 setTimeout(() => {
                     message.success({
-                        content: 'Added Related Terms!',
+                        content: t('crud.success.addWithName', { name: t('common.relatedTerms')}),
                         duration: 2,
                     });
                     refetch();
@@ -166,16 +168,16 @@ function AddRelatedTermsModal(props: Props) {
 
     return (
         <Modal
-            title="Add Related Terms"
+            title={t('crud.addWithName', { name: t('common.relatedTerms')})}
             visible
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={addTerms} disabled={!selectedUrns.length}>
-                        Add
+                        {t('common.add')}
                     </Button>
                 </>
             }
@@ -185,7 +187,7 @@ function AddRelatedTermsModal(props: Props) {
                     autoFocus
                     mode="multiple"
                     filterOption={false}
-                    placeholder="Search for Glossary Terms..."
+                    placeholder={t('glossary.searchGlossaryTerms')}
                     showSearch
                     defaultActiveFirstOption={false}
                     onSelect={(asset: any) => onSelectValue(asset)}

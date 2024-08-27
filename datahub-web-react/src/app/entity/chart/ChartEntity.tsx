@@ -34,6 +34,12 @@ import { ChartQueryTab } from './ChartQueryTab';
  * Definition of the DataHub Chart entity.
  */
 export class ChartEntity implements Entity<Chart> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.Chart;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -71,9 +77,9 @@ export class ChartEntity implements Entity<Chart> {
 
     getPathName = () => 'chart';
 
-    getEntityName = () => 'Chart';
+    getEntityName = () => this.translationService('common.charts');
 
-    getCollectionName = () => 'Charts';
+    getCollectionName = () => this.translationService('common.charts');
 
     useEntityQuery = useGetChartQuery;
 
@@ -120,11 +126,11 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Documentation',
+                    name: this.translationService('common.documentation'),
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Fields',
+                    name: 'Input Fields',
                     component: InputFieldsTab,
                     display: {
                         visible: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
@@ -132,7 +138,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Preview',
+                    name: 'Embed',
                     component: EmbedTab,
                     display: {
                         visible: (_, chart: GetChartQuery) =>
@@ -149,7 +155,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Dashboards',
+                    name: this.translationService('common.charts'),
                     component: ChartDashboardsTab,
                     display: {
                         visible: (_, _1) => true,
@@ -157,11 +163,11 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Properties',
+                    name:this.translationService('common.properties'),
                     component: PropertiesTab,
                 },
                 {
-                    name: 'Incidents',
+                    name: 'Incident',
                     component: IncidentTab,
                     getDynamicName: (_, chart) => {
                         const activeIncidentCount = chart?.chart?.activeIncidents.total;

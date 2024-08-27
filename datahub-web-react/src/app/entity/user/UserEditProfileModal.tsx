@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form, Tooltip } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useAppConfig } from '../../useAppConfig';
@@ -26,10 +27,10 @@ export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
 export default function UserEditProfileModal({ visible, onClose, onSave, editModalData }: Props) {
     const { config } = useAppConfig();
+    const { t } = useTranslation();
     const { readOnlyModeEnabled } = config.featureFlags;
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
     const [form] = Form.useForm();
-
     const [saveButtonEnabled, setSaveButtonEnabled] = useState(true);
     const [data, setData] = useState<PropsData>({
         name: editModalData.name,
@@ -64,7 +65,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
         })
             .then(() => {
                 message.success({
-                    content: `Changes saved.`,
+                    content: t('crud.success.changesSaved'),
                     duration: 3,
                 });
                 onSave(); // call the refetch function once save
@@ -82,7 +83,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.changesSaved')}\n ${e.message || ''}`, duration: 3 });
             });
         onClose();
     };
@@ -100,10 +101,10 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
-                        Save Changes
+                    {t('common.saveChanges')}
                     </Button>
                 </>
             }
@@ -119,7 +120,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
             >
                 <Form.Item
                     name="name"
-                    label={<Typography.Text strong>Name</Typography.Text>}
+                    label={<Typography.Text strong>{t('common.name')}</Typography.Text>}
                     rules={[
                         {
                             required: true,
@@ -161,7 +162,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 >
                     <Form.Item
                         name="image"
-                        label={<Typography.Text strong>Image URL</Typography.Text>}
+                        label={<Typography.Text strong>{t('post.imageUrl')}</Typography.Text>}
                         rules={[{ whitespace: true }, { type: 'url', message: 'not valid url' }]}
                         hasFeedback
                     >
@@ -175,7 +176,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </Tooltip>
                 <Form.Item
                     name="team"
-                    label={<Typography.Text strong>Team</Typography.Text>}
+                    label={<Typography.Text strong>{t('common.team')}</Typography.Text>}
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                 >
                     <Input
@@ -187,7 +188,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </Form.Item>
                 <Form.Item
                     name="email"
-                    label={<Typography.Text strong>Email</Typography.Text>}
+                    label={<Typography.Text strong>{t('common.email')}</Typography.Text>}
                     rules={[
                         {
                             required: true,
@@ -224,7 +225,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </Form.Item>
                 <Form.Item
                     name="phone"
-                    label={<Typography.Text strong>Phone</Typography.Text>}
+                    label={<Typography.Text strong>{t('common.phone')}</Typography.Text>}
                     rules={[
                         {
                             pattern: new RegExp('^(?=.*[0-9])[- +()0-9]+$'),

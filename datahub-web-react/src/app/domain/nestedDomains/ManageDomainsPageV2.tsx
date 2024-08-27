@@ -3,6 +3,7 @@ import { Button } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import DomainsTitle from './DomainsTitle';
 import RootDomains from './RootDomains';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '../../onboarding/config/DomainsOnboardingConfig';
@@ -29,6 +30,7 @@ const Header = styled.div`
 `;
 
 export default function ManageDomainsPageV2() {
+    const { t } = useTranslation();
     const { setEntityData, setParentDomainsToUpdate } = useDomainsContext();
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const client = useApolloClient();
@@ -48,7 +50,7 @@ export default function ManageDomainsPageV2() {
                     onClick={() => setIsCreatingDomain(true)}
                     data-testid="domains-new-domain-button"
                 >
-                    <PlusOutlined /> New Domain
+                    <PlusOutlined /> {t('domain.newDomain')}
                 </Button>
             </Header>
             <RootDomains setIsCreatingDomain={setIsCreatingDomain} />

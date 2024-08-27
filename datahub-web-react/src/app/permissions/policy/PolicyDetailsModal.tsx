@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { Maybe, Policy, PolicyState, PolicyType } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
@@ -61,6 +62,7 @@ const Privileges = styled.div`
  * Component used for displaying the details about an existing Policy.
  */
 export default function PolicyDetailsModal({ policy, visible, onClose, privileges }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
 
     const isActive = policy?.state === PolicyState.Active;
@@ -78,7 +80,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
 
     const actionButtons = (
         <ButtonsContainer>
-            <Button onClick={onClose}>Close</Button>
+            <Button onClick={onClose}>{t('common.close')}</Button>
         </ButtonsContainer>
     );
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -27,13 +28,14 @@ interface Props {
 }
 
 export default function SectionHeader({ entityType }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const isDatasetType = entityType === EntityType.Dataset;
 
     return (
         <EntityTypeLabel showBorder>
             {entityRegistry.getCollectionName(entityType)}
-            {isDatasetType && <SubtypesDescription>tables, topics, views, and more</SubtypesDescription>}
+            {isDatasetType && <SubtypesDescription>{t('search.searchHeader')}</SubtypesDescription>}
         </EntityTypeLabel>
     );
 }

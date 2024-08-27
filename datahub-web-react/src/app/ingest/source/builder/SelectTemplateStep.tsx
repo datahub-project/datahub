@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Button, Input } from 'antd';
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { SourceConfig, SourceBuilderState, StepProps } from './types';
 import { IngestionSourceBuilderStep } from './steps';
 import useGetSourceLogoUrl from './useGetSourceLogoUrl';
@@ -86,6 +87,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
  * Component responsible for selecting the mechanism for constructing a new Ingestion Source
  */
 export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestionSources }: StepProps) => {
+    const { t } = useTranslation();
     const [searchFilter, setSearchFilter] = useState('');
 
     const onSelectTemplate = (type: string) => {
@@ -121,7 +123,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
             <Section>
                 <SearchBarContainer>
                     <StyledSearchBar
-                        placeholder="Search data sources..."
+                        placeholder={t('ingest.searchIngestionSources')}
                         value={searchFilter}
                         onChange={(e) => setSearchFilter(e.target.value)}
                         allowClear
@@ -134,7 +136,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
                     ))}
                 </PlatformListContainer>
             </Section>
-            <CancelButton onClick={cancel}>Cancel</CancelButton>
+            <CancelButton onClick={cancel}>{t('common.cancel')}</CancelButton>
         </Container>
     );
 };

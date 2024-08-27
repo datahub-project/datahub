@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Form, Input, message, Modal, Table } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import arrow from '../../../../../../images/Arrow.svg';
 import './CreateERModelRelationModal.less';
 import { EntityType, ErModelRelationship, OwnerEntityType } from '../../../../../../types.generated';
@@ -49,6 +50,7 @@ export const CreateERModelRelationModal = ({
     isEditing,
     refetch,
 }: Props) => {
+    const { t } = useTranslation();
     const [form] = Form.useForm();
     const { user } = useUserContext();
     const ownerEntityType =
@@ -143,13 +145,13 @@ export const CreateERModelRelationModal = ({
         })
             .then(({ data }) => {
                 message.loading({
-                    content: 'Create...',
+                    content: t('common.create'),
                     duration: 2,
                 });
                 setTimeout(() => {
                     refetch();
                     message.success({
-                        content: `ERModelRelation created!`,
+                        content: t('common.ERModelRelationCreated'),
                         duration: 2,
                     });
                 }, 2000);
@@ -166,7 +168,7 @@ export const CreateERModelRelationModal = ({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create erModelRelationship: ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.failedToCreateErModelRelationship')} ${e.message || ''}`, duration: 3 });
             });
     };
     const originalERModelRelationName = editERModelRelation?.properties?.name;
@@ -197,20 +199,20 @@ export const CreateERModelRelationModal = ({
         })
             .then(() => {
                 message.loading({
-                    content: 'updating...',
+                    content: t('crud.updating'),
                     duration: 2,
                 });
                 setTimeout(() => {
                     refetch();
                     message.success({
-                        content: `ERModelRelation updated!`,
+                        content: t('common.ERModelRelationUpdated'),
                         duration: 2,
                     });
                 }, 2000);
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to update erModelRelationship: ${e.message || ''}`, duration: 3 });
+                message.error({ content: `${t('crud.error.update')} ${e.message || ''}`, duration: 3 });
             });
     };
     const onSubmit = async () => {

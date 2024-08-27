@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Pagination, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useListOwnershipTypesQuery } from '../../../graphql/ownership.generated';
 import { Message } from '../../shared/Message';
 import { OwnershipBuilderModal } from './OwnershipBuilderModal';
@@ -35,6 +36,7 @@ const searchBarInputStyle = {
  * This component renders a paginated, searchable list of Ownership Types.
  */
 export const OwnershipList = () => {
+    const { t } = useTranslation();
     /**
      * Context
      */
@@ -82,19 +84,19 @@ export const OwnershipList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading Ownership Types..." />}
+            {!data && loading && <Message type="loading" content={t('common.loading')} />}
             {error &&
                 message.error({
-                    content: `Failed to load Ownership Types! An unexpected error occurred.`,
+                    content: t('error.errorSection.failedLoadTypePropriet'),
                     duration: 3,
                 })}
             <TabToolbar>
                 <Button type="text" onClick={onClickCreateOwnershipType}>
-                    <PlusOutlined /> Create new Ownership Type
+                    <PlusOutlined /> {t('onBoarding.entityProfile.createNewTypePropriet')}
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText="Search by Name..."
+                    placeholderText={t('common.searchByName')}
                     suggestions={[]}
                     style={searchBarStyle}
                     inputStyle={searchBarInputStyle}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Button, Empty, List, Select, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { useEntityData } from '../../EntityContext';
@@ -45,6 +46,7 @@ const IncidentStateSelect = styled(Select)`
 `;
 
 export const IncidentTab = () => {
+    const { t } = useTranslation();
     const { urn, entityType } = useEntityData();
     const incidentStates = INCIDENT_DISPLAY_STATES;
     const [selectedIncidentState, setSelectedIncidentState] = useState<IncidentState | undefined>(IncidentState.Active);
@@ -83,7 +85,7 @@ export const IncidentTab = () => {
             <Header>
                 <TabToolbar>
                     <Button icon={<PlusOutlined />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
-                        Raise Incident
+                        {t('deprecation.raiseIncident')}
                     </Button>
                     <AddIncidentModal
                         refetch={refetch}

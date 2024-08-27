@@ -1,10 +1,12 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { Owner, OwnershipTypeEntity } from '../../../../../../../../types.generated';
 import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { useMutationUrn, useRefetch } from '../../../../../EntityContext';
 import { getOwnershipTypeName } from '../ownershipUtils';
+import { translateDisplayNames } from '../../../../../../../../utils/translation/translation';
 
 const OwnershipTypeContainer = styled.div`
     display: flex;
@@ -34,12 +36,13 @@ interface Props {
 }
 
 export const OwnershipTypeSection = ({ ownershipType, owners, readOnly }: Props) => {
+    const { t } = useTranslation();
     const mutationUrn = useMutationUrn();
     const refetch = useRefetch();
     const ownershipTypeName = getOwnershipTypeName(ownershipType);
     return (
         <OwnershipTypeContainer>
-            <OwnershipTypeNameText>{ownershipTypeName}</OwnershipTypeNameText>
+            <OwnershipTypeNameText>{translateDisplayNames(t, `ownership${ownershipTypeName}name`)}</OwnershipTypeNameText>
             <OwnersContainer>
                 {owners.map((owner) => (
                     <ExpandedOwner

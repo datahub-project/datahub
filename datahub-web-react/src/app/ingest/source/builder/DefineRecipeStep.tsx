@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Button, message, Space, Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { StepProps } from './types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '../utils';
 import { YamlEditor } from './YamlEditor';
@@ -38,6 +39,7 @@ const ControlsContainer = styled.div`
  * The step for defining a recipe
  */
 export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSources }: StepProps) => {
+    const { t } = useTranslation();
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
     const { type } = state;
@@ -162,10 +164,10 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
             </BorderedSection>
             <ControlsContainer>
                 <Button disabled={isEditing} onClick={prev}>
-                    Previous
+                    {t('common.previous')}
                 </Button>
                 <Button type="primary" disabled={!stepComplete} onClick={onClickNext}>
-                    Next
+                    {t('common.next')}
                 </Button>
             </ControlsContainer>
         </>

@@ -2,13 +2,14 @@ import { Typography, Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { EMPTY_MESSAGES } from '../../../../constants';
+import { useTranslation } from 'react-i18next';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { SetDomainModal } from './SetDomainModal';
 import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { DomainLink } from '../../../../../../shared/tags/DomainLink';
 import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
+import { translateDisplayNames } from '../../../../../../../utils/translation/translation';
 
 const StyledButton = styled(Button)`
     display: block;
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
+    const { t } = useTranslation();
     const updateOnly = properties?.updateOnly;
     const { entityData } = useEntityData();
     const refetch = useRefetch();
@@ -45,26 +47,26 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const removeDomain = (urnToRemoveFrom) => {
         unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
             .then(() => {
-                message.success({ content: 'Removed Domain.', duration: 2 });
+                message.success({ content: t('common.removed'), duration: 2 });
                 refetch?.();
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove domain: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `${t('crud.error.remove')}\n ${e.message || ''}`, duration: 3 });
                 }
             });
     };
 
     const onRemoveDomain = (urnToRemoveFrom) => {
         Modal.confirm({
-            title: `Confirm Domain Removal`,
-            content: `Are you sure you want to remove this domain?`,
+            title: t('domain.confirmRemovedDomainTitle'),
+            content: t('domain.confirmRemovedDomain'),
             onOk() {
                 removeDomain(urnToRemoveFrom);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });
@@ -73,7 +75,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     return (
         <div>
             <div id={ENTITY_PROFILE_DOMAINS_ID} className="sidebar-domain-section">
-                <SidebarHeader title="Domain" />
+                <SidebarHeader title={t('common.domain')} />
                 <ContentWrapper displayInline={!!domain}>
                     {domain && (
                         <DomainLink
@@ -91,12 +93,12 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                         <>
                             {!domain && (
                                 <Typography.Paragraph type="secondary">
-                                    {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
+                                    {translateDisplayNames(t, 'emptyTitleDomain')}. {translateDisplayNames(t, 'emptyDescriptionDomain')}
                                 </Typography.Paragraph>
                             )}
                             {!readOnly && (
                                 <StyledButton type="default" onClick={() => setShowModal(true)}>
-                                    <EditOutlined /> Set Domain
+                                    <EditOutlined /> {t('domain.setDomain')}
                                 </StyledButton>
                             )}
                         </>
@@ -104,6 +106,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                 </ContentWrapper>
                 {showModal && (
                     <SetDomainModal
+                        titleOverride={t('domain.setDomain')}
                         urns={[urn]}
                         refetch={refetch}
                         onCloseModal={() => {

@@ -22,7 +22,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # If DATAHUB_VERSION is set, it takes precedence.
 TAG_VERSION=$(cd $DIR && git name-rev --name-only --tags HEAD)
 DEFAULT_VERSION=$(echo $TAG_VERSION | sed 's/undefined/head/')
-export DATAHUB_VERSION=${DATAHUB_VERSION:-${DEFAULT_VERSION}}
+export DATAHUB_VERSION=head #${DATAHUB_VERSION:-${DEFAULT_VERSION}}
 
 M1_COMPOSE=""
 if [[ $(uname -m) == 'arm64' && $(uname) == 'Darwin' ]]; then

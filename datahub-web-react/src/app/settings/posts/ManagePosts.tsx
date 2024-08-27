@@ -1,6 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { PostList } from './PostsList';
 
 const PageContainer = styled.div`
@@ -30,12 +31,13 @@ const ListContainer = styled.div`
 `;
 
 export default function ManagePosts() {
+    const { t } = useTranslation();
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>Home Page Posts</PageTitle>
+                <PageTitle level={3}>{t('settings.homePagePosts')}</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    View and manage pinned posts that appear to all users on the landing page.
+                {t('settings.homePagePostsDescription')}
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button, message, Typography } from 'antd';
 import styled from 'styled-components';
 import { FilterOutlined } from '@ant-design/icons';
-
+import { useTranslation } from 'react-i18next';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
 import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
@@ -65,6 +65,7 @@ export const SearchSelect = ({
     hideToolbar,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
 
     // Component state
     const [query, setQuery] = useState<string>('');
@@ -152,15 +153,15 @@ export const SearchSelect = ({
 
     return (
         <Container>
-            {error && message.error(`Failed to complete search: ${error && error.message}`)}
+            {error && message.error(`${t('search.searchError')}: ${error && error.message}`)}
             <SearchBarContainer>
                 <Button type="text" onClick={onToggleFilters}>
                     <FilterOutlined />
-                    <Typography.Text>Filters</Typography.Text>
+                    <Typography.Text>{t('common.filters')}</Typography.Text>
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText={placeholderText || 'Search entities...'}
+                    placeholderText={placeholderText || t('common.searchEntities')}
                     suggestions={[]}
                     style={SEARCH_BAR_STYLE}
                     inputStyle={SEARCH_INPUT_STYLE}

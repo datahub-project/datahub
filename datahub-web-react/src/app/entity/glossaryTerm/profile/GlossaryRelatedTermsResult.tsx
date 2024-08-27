@@ -2,16 +2,18 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { TermRelationshipType } from '../../../../types.generated';
 import { Message } from '../../../shared/Message';
 import { EmptyTab } from '../../shared/components/styled/EmptyTab';
 import { ANTD_GRAY } from '../../shared/constants';
 import AddRelatedTermsModal from './AddRelatedTermsModal';
 import RelatedTerm from './RelatedTerm';
+import { translateDisplayNames } from '../../../../utils/translation/translation';
 
 export enum RelatedTermTypes {
     hasRelatedTerms = 'Contains',
-    isRelatedTerms = 'Inherits',
+    isRelatedTerms = "Inherits",
     containedBy = 'Contained by',
     isAChildren = 'Inherited by',
 }
@@ -37,6 +39,7 @@ const TitleContainer = styled.div`
 const messageStyle = { marginTop: '10%' };
 
 export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, glossaryRelatedTermResult }: Props) {
+    const { t } = useTranslation();
     const [isShowingAddModal, setIsShowingAddModal] = useState(false);
     const glossaryRelatedTermUrns: Array<string> = [];
     glossaryRelatedTermResult.forEach((item: any) => {
@@ -60,11 +63,11 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                 <ListContainer>
                     <TitleContainer>
                         <Typography.Title style={{ margin: '0' }} level={3}>
-                            {glossaryRelatedTermType}
+                            {translateDisplayNames(t, glossaryRelatedTermType)}
                         </Typography.Title>
                         {canEditRelatedTerms && (
                             <Button type="text" onClick={() => setIsShowingAddModal(true)}>
-                                <PlusOutlined /> Add Terms
+                                <PlusOutlined /> {t('common.addTerm')}
                             </Button>
                         )}
                     </TitleContainer>

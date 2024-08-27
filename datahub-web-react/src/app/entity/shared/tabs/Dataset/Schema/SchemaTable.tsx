@@ -3,6 +3,8 @@ import { ColumnsType } from 'antd/es/table';
 import { useVT } from 'virtualizedtableforantd4';
 import ResizeObserver from 'rc-resize-observer';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+
 import {
     EditableSchemaMetadata,
     ForeignKeyConstraint,
@@ -92,6 +94,8 @@ export default function SchemaTable({
     inputFields,
 }: Props): JSX.Element {
     const businessAttributesFlag = useBusinessAttributesFlag();
+    const { t } = useTranslation();
+
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
     const [tableHeight, setTableHeight] = useState(0);
     const [selectedFkFieldPath, setSelectedFkFieldPath] = useState<null | {
@@ -128,7 +132,7 @@ export default function SchemaTable({
 
     const fieldColumn = {
         width: '22%',
-        title: 'Field',
+        title: t('common.field'),
         dataIndex: 'fieldPath',
         key: 'fieldPath',
         render: schemaTitleRenderer,
@@ -140,7 +144,7 @@ export default function SchemaTable({
 
     const descriptionColumn = {
         width: '22%',
-        title: 'Description',
+        title: t('common.description'),
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
@@ -156,7 +160,7 @@ export default function SchemaTable({
 
     const termColumn = {
         width: '13%',
-        title: 'Glossary Terms',
+        title: t('common.glossaryTerms'),
         dataIndex: 'globalTags',
         key: 'tag',
         render: termRenderer,

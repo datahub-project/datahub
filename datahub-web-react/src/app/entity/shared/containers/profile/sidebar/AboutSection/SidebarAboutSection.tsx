@@ -1,6 +1,7 @@
 import { Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEntityData, useRouteToTab } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import DescriptionSection from './DescriptionSection';
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
+    const { t } = useTranslation();
     const hideLinksButton = properties?.hideLinksButton;
     const { entityData } = useEntityData();
     const routeToTab = useRouteToTab();
@@ -32,12 +34,12 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     return (
         <div>
             <SidebarHeader
-                title="About"
+                title={t('common.about')}
                 actions={
                     hasContent &&
                     !readOnly && (
                         <Button
-                            onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                            onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}
                             type="text"
                             shape="circle"
                         >

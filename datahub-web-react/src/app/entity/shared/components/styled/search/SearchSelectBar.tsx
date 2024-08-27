@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Checkbox, Modal, Typography } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../../../constants';
 import { EntityAndType } from '../../../types';
 import { SearchSelectActions } from './SearchSelectActions';
@@ -53,17 +54,19 @@ export const SearchSelectBar = ({
     onCancel,
     refetch,
 }: Props) => {
+    const { t } = useTranslation();
+
     const selectedEntityCount = selectedEntities.length;
     const onClickCancel = () => {
         if (selectedEntityCount > 0) {
             Modal.confirm({
-                title: `Exit Selection`,
-                content: `Are you sure you want to exit? ${selectedEntityCount} selection(s) will be cleared.`,
+                title: t('search.modal.exitSelectionTitle'),
+                content: t('search.modal.exitSelectionContent_interval', {count: selectedEntityCount }),
                 onOk() {
                     onCancel?.();
                 },
                 onCancel() {},
-                okText: 'Yes',
+                okText: t('common.yes'),
                 maskClosable: true,
                 closable: true,
             });
@@ -80,14 +83,14 @@ export const SearchSelectBar = ({
                     onChange={(e) => onChangeSelectAll(e.target.checked as boolean)}
                 />
                 <Typography.Text strong type="secondary">
-                    {selectedEntityCount} selected
+                    {selectedEntityCount} {t('common.selected')}
                 </Typography.Text>
             </CheckboxContainer>
             <ActionsContainer>
                 {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
                 {showCancel && (
                     <CancelButton onClick={onClickCancel} type="link">
-                        Done
+                        {t('common.done')}
                     </CancelButton>
                 )}
             </ActionsContainer>

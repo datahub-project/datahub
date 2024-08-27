@@ -1,6 +1,7 @@
 import { Button } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import Tour from 'reactour';
+import { useTranslation } from 'react-i18next';
 import { useBatchUpdateStepStatesMutation } from '../../graphql/step.generated';
 import { EducationStepsContext } from '../../providers/EducationStepsContext';
 import { StepStateResult } from '../../types.generated';
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export const OnboardingTour = ({ stepIds }: Props) => {
+    const { t } = useTranslation();
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
     const userUrn = useUserContext()?.user?.urn;
     const [isOpen, setIsOpen] = useState(true);
@@ -33,7 +35,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         document.addEventListener('keydown', handleKeyDown);
     }, []);
 
-    const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', reshow);
+    const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', reshow, t);
     const filteredSteps = steps.filter((step) => step.id && educationStepIdsAllowlist.has(step.id));
     const filteredStepIds: string[] = filteredSteps.map((step) => step?.id).filter((stepId) => !!stepId) as string[];
 
@@ -64,7 +66,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
             rounded={10}
             scrollDuration={500}
             accentColor={accentColor}
-            lastStepNextButton={<Button>Let&apos;s go!</Button>}
+            lastStepNextButton={<Button>{t('onBoarding.letsGo')}</Button>}
         />
     );
 };

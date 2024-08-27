@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { Button, Divider, Typography } from 'antd';
 import { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
 
+import { useTranslation } from 'react-i18next';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
 import { EmptyTab } from '../../components/styled/EmptyTab';
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export const DocumentationTab = ({ properties }: { properties?: Props }) => {
+    const { t } = useTranslation();
     const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData } = useEntityData();
     const refetch = useRefetch();
@@ -43,7 +45,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
         if (editedDescriptions.hasOwnProperty(urn)) {
             routeToTab({
-                tabName: 'Documentation',
+                tabName: t('common.documentation'),
                 tabParams: { editing: true, modal: !!showModal },
             });
         }
@@ -51,7 +53,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
 
     return isEditing && !showModal ? (
         <>
-            <DescriptionEditor onComplete={() => routeToTab({ tabName: 'Documentation' })} />
+            <DescriptionEditor onComplete={() => routeToTab({ tabName: t('common.documentation') })} />
         </>
     ) : (
         <>
@@ -62,9 +64,9 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             <Button
                                 data-testid="edit-documentation-button"
                                 type="text"
-                                onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                                onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}
                             >
-                                <EditOutlined /> Edit
+                                <EditOutlined /> {t('common.edit')}
                             </Button>
                             {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
                         </div>
@@ -73,7 +75,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 type="text"
                                 onClick={() =>
                                     routeToTab({
-                                        tabName: 'Documentation',
+                                        tabName: t('common.documentation'),
                                         tabParams: { modal: true },
                                     })
                                 }
@@ -87,7 +89,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             <Editor content={description} readOnly />
                         ) : (
                             <DocumentationContainer>
-                                <Typography.Text type="secondary">No documentation added yet.</Typography.Text>
+                                <Typography.Text type="secondary">{t('entity.noDocumentationAddedYet')}</Typography.Text>
                             </DocumentationContainer>
                         )}
                         <Divider />
@@ -98,8 +100,8 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                 </>
             ) : (
                 <EmptyTab tab="documentation">
-                    <Button onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}>
-                        <EditOutlined /> Add Documentation
+                    <Button onClick={() => routeToTab({ tabName: t('common.documentation'), tabParams: { editing: true } })}>
+                        <EditOutlined /> {t('common.addDocumentation')}
                     </Button>
                     {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                 </EmptyTab>
@@ -109,7 +111,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     editMode={(isEditing && true) || false}
                     description={description}
                     onClose={() => {
-                        routeToTab({ tabName: 'Documentation', tabParams: { editing: false } });
+                        routeToTab({ tabName: t('common.documentation'), tabParams: { editing: false } });
                     }}
                 />
             )}

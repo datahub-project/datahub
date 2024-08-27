@@ -2,10 +2,12 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DisplayedFilterOption } from './mapFilterOption';
 import { SearchFilterLabel } from './styledComponents';
+import { translateDisplayNames } from '../../../utils/translation/translation';
 
 export const IconWrapper = styled.div`
     margin-right: 8px;
@@ -41,6 +43,9 @@ export default function SearchFilterView({
     setSearchQuery,
     updateFilters,
 }: Props) {
+    const { t } = useTranslation();
+    const translatedDisplayName = translateDisplayNames(t, displayName);
+
     return (
         <Dropdown
             trigger={['click']}
@@ -54,19 +59,20 @@ export default function SearchFilterView({
                     searchQuery={searchQuery}
                     updateSearchQuery={setSearchQuery}
                     isLoading={loading}
-                    searchPlaceholder={displayName}
+                    searchPlaceholder={translatedDisplayName}
                 />
             )}
         >
             <SearchFilterLabel
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
                 isActive={!!numActiveFilters}
-                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
+                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(translatedDisplayName)}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                {capitalizeFirstLetterOnly(displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                {capitalizeFirstLetterOnly(translatedDisplayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </SearchFilterLabel>
         </Dropdown>
     );
 }
+

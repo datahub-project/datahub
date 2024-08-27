@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import UserListItem from './UserListItem';
 import { Message } from '../../shared/Message';
 import { useListUsersQuery } from '../../../graphql/user.generated';
@@ -112,7 +113,7 @@ export const UserList = () => {
     const loading = usersLoading || rolesLoading;
     const error = usersError || rolesError;
     const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
-
+    const { t } = useTranslation();
     useToggleEducationStepIdsAllowList(canManagePolicies, USERS_INVITE_LINK_ID);
 
     return (
@@ -129,12 +130,12 @@ export const UserList = () => {
                             type="text"
                             onClick={() => setIsViewingInviteToken(true)}
                         >
-                            <UsergroupAddOutlined /> Invite Users
+                            <UsergroupAddOutlined /> {t('user.inviteUser')}
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search users..."
+                        placeholderText={t('common.searchUsers')}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,

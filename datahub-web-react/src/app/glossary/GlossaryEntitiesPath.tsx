@@ -3,6 +3,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { PageRoutes } from '../../conf/Global';
 import { GlossaryNode, GlossaryTerm, ParentNodesResult } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -28,6 +29,7 @@ function getGlossaryBreadcrumbs(parentNodes: Maybe<ParentNodesResult>, entity: M
 }
 
 function GlossaryEntitiesPath() {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useGlossaryEntityData();
 
@@ -37,7 +39,7 @@ function GlossaryEntitiesPath() {
         <PathWrapper>
             <BreadcrumbsWrapper separator=">">
                 <BreadcrumbItem>
-                    <Link to={PageRoutes.GLOSSARY}>Glossary</Link>
+                    <Link to={PageRoutes.GLOSSARY}>{t('common.glossary')}</Link>
                 </BreadcrumbItem>
                 {breadcrumbs &&
                     breadcrumbs.map((node) => {

@@ -1,6 +1,7 @@
 import React, { CSSProperties } from 'react';
 import { Button } from 'antd';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 
 const StyledButton = styled(Button)`
     width: 100%;
@@ -37,13 +38,14 @@ interface Props {
 }
 
 export default function BooleanMoreFilterMenu({ menuOption, onUpdate, style }: Props) {
+    const { t } = useTranslation();
     return (
         <DropdownMenu data-testid="boolean-filter-dropdown" style={style}>
             <ScrollableContent>
                 {React.cloneElement(menuOption as React.ReactElement, { style: { boxShadow: 'none' } })}
             </ScrollableContent>
             <StyledButton type="text" onClick={onUpdate} data-testid="boolean-update-filters">
-                Update
+                {t('crud.update')}
             </StyledButton>
         </DropdownMenu>
     );

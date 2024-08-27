@@ -75,9 +75,10 @@ export const getHealthSummaryIcon = (
     return undefined;
 };
 
-export const getHealthSummaryMessage = (healths: Health[]) => {
+export const getHealthSummaryMessage = (healths: Health[], t: any) => {
     const unhealthy = isUnhealthy(healths);
-    return unhealthy ? 'This asset may be unhealthy' : 'This asset is healthy';
+
+    return unhealthy ? t('incident.unhealthy') : t('incident.healthy');
 };
 
 export const getHealthColor = (status: HealthStatus) => {

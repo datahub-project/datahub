@@ -2,6 +2,7 @@ import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { Divider, Dropdown, Menu } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
 import { EntityType, TermRelationshipType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -40,6 +41,7 @@ interface Props {
 
 function RelatedTerm(props: Props) {
     const { urn, relationshipType, isEditable } = props;
+    const { t } = useTranslation();
 
     const entityRegistry = useEntityRegistry();
     const { data, loading } = useGetGlossaryTermQuery({ variables: { urn } });
@@ -61,7 +63,7 @@ function RelatedTerm(props: Props) {
                             <Menu>
                                 <Menu.Item key="0">
                                     <MenuItem onClick={onRemove}>
-                                        <DeleteOutlined /> &nbsp; Remove Term
+                                        <DeleteOutlined /> &nbsp; {t('common.removeTerm')}
                                     </MenuItem>
                                 </Menu.Item>
                             </Menu>

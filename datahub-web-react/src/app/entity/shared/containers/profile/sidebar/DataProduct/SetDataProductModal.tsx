@@ -2,6 +2,7 @@ import Modal from 'antd/lib/modal/Modal';
 import { Button, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../../graphql/search.generated';
 import { DataProduct, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export default function SetDataProductModal({
+
     urns,
     currentDataProduct,
     onModalClose,
@@ -39,6 +41,7 @@ export default function SetDataProductModal({
     setDataProduct,
     refetch,
 }: Props) {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
@@ -68,7 +71,7 @@ export default function SetDataProductModal({
             variables: { input: { resourceUrns: urns, dataProductUrn: selectedDataProduct.urn } },
         })
             .then(() => {
-                message.success({ content: 'Updated Data Product!', duration: 3 });
+                message.success({ content: t('crud.doYouWantTo.updatedWithNameReverse', { name: t('common.dataProduct')}), duration: 3 });
                 setDataProduct?.(selectedDataProduct);
                 onModalClose();
                 setSelectedDataProduct(null);
@@ -81,7 +84,7 @@ export default function SetDataProductModal({
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to add assets to Data Product: \n ${e.message || ''}`,
+                        content: `${t('crud.error.addAssetsToWithName', { name: t('common.dataProduct')})}: \n ${e.message || ''}`,
                         duration: 3,
                     }),
                 );
@@ -114,16 +117,16 @@ export default function SetDataProductModal({
 
     return (
         <Modal
-            title={titleOverride || 'Set Data Product'}
+            title={titleOverride || t('common.setDataProducts')}
             open
             onCancel={onModalClose}
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
-                        Add
+                        {t('common.add')}
                     </Button>
                 </>
             }
@@ -136,7 +139,7 @@ export default function SetDataProductModal({
                 showSearch
                 mode="multiple"
                 defaultActiveFirstOption={false}
-                placeholder="Search for Data Products..."
+                placeholder={t('entity.searchDataProducts')}
                 onSelect={(urn: string) => onSelectDataProduct(urn)}
                 onDeselect={onDeselect}
                 onSearch={(value: string) => setQuery(value.trim())}

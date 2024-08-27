@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { ViewsList } from './ViewsList';
 
 const PageContainer = styled.div`
@@ -33,13 +34,13 @@ const ListContainer = styled.div`
  * Component used for displaying the 'Manage Views' experience.
  */
 export const ManageViews = () => {
+    const { t } = useTranslation();
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Views</PageTitle>
+                <PageTitle level={3}>{t('entity.manageView')}</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    Create, edit, and remove your Views. Views allow you to save and share sets of filters for reuse
-                    when browsing DataHub.
+                    {t('filter.view.manageViewDescription')}
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>

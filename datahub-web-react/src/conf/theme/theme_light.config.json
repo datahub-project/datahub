@@ -30,7 +30,7 @@
     "content": {
         "title": "DataHub",
         "homepage": {
-            "homepageMessage": "Find data you can count on"
+            "homepageMessage": "Find data you can count(*) on"
         },
         "search": {
             "searchbarMessage": "Search Tables, Dashboards, People, & more..."

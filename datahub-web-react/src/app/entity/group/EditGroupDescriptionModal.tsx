@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, Modal, Form } from 'antd';
 import styled from 'styled-components';
 
+import { useTranslation } from 'react-i18next';
 import { Editor } from '../shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../shared/constants';
 
@@ -21,6 +22,7 @@ export default function EditGroupDescriptionModal({
     setStagedDescription,
     stagedDescription,
 }: Props) {
+    const { t } = useTranslation();
     const [form] = Form.useForm();
     const [aboutText, setAboutText] = useState(stagedDescription);
 
@@ -43,10 +45,10 @@ export default function EditGroupDescriptionModal({
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button id="updateGroupButton" onClick={saveDescription} disabled={!stagedDescription}>
-                        Update
+                        {t('crud.update')}
                     </Button>
                 </>
             }

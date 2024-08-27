@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Popover, Divider } from 'antd';
+import { useTranslation } from 'react-i18next';
 import {
     getHealthSummaryIcon,
     getHealthSummaryMessage,
@@ -55,13 +56,14 @@ type Props = {
 };
 
 export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, placement = 'right' }: Props) => {
+    const { t } = useTranslation();
     return (
         <Popover
             content={
                 <>
                     <Header>
                         <Icon>{getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize)}</Icon>{' '}
-                        <Title>{getHealthSummaryMessage(health)}</Title>
+                        <Title>{getHealthSummaryMessage(health, t)}</Title>
                     </Header>
                     <StyledDivider />
                     {health.map((h) => (

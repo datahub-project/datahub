@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Button, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { DataHubViewType } from '../../../../types.generated';
 import { ANTD_GRAY } from '../../shared/constants';
 import { ViewTypeLabel } from '../ViewTypeLabel';
@@ -64,9 +65,10 @@ type DescriptionColumnProps = {
 };
 
 export function DescriptionColumn({ description }: DescriptionColumnProps) {
+    const { t } = useTranslation();
     return (
         <StyledDescription>
-            {description || <Typography.Text type="secondary">No description</Typography.Text>}
+            {description || <Typography.Text type="secondary">{t('common.noDescription')}</Typography.Text>}
         </StyledDescription>
     );
 }

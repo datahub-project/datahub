@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
 import EmptyGlossarySection from '../../glossary/EmptyGlossarySection';
 import GlossaryEntitiesList from '../../glossary/GlossaryEntitiesList';
@@ -8,6 +9,7 @@ import { useEntityData } from '../shared/EntityContext';
 import { sortGlossaryNodes } from './utils';
 
 function ChildrenTab() {
+    const { t } = useTranslation();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
 
@@ -33,7 +35,7 @@ function ChildrenTab() {
         );
     }
 
-    return <EmptyGlossarySection description="No Terms or Term Groups" />;
+    return <EmptyGlossarySection description={t('term.noTermNorGroup')} />;
 }
 
 export default ChildrenTab;

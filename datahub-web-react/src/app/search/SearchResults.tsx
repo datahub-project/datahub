@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { Entity, FacetFilterInput, FacetMetadata, MatchedField, SearchSuggestion } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
@@ -166,6 +167,7 @@ export const SearchResults = ({
     onChangeSelectAll,
     refetch,
 }: Props) => {
+    const { t } = useTranslation();
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
     const { isSidebarOpen, toggleSidebar } = useToggleSidebar();
@@ -211,17 +213,17 @@ export const SearchResults = ({
                             <LeftControlsContainer>
                                 {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
                                 <Typography.Text>
-                                    Showing{' '}
+                                    {t('search.showing')} {' '}
                                     <b>
                                         {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                                     </b>{' '}
-                                    of{' '}
+                                    {t('common.of')} {' '}
                                     <b>
                                         {totalResults >= 10000
                                             ? `${formatNumberWithoutAbbreviation(10000)}+`
                                             : formatNumberWithoutAbbreviation(totalResults)}
                                     </b>{' '}
-                                    results
+                                    {t('common.results')}
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>

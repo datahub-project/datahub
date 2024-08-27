@@ -2,6 +2,7 @@ import React from 'react';
 import { Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { Maybe, Ownership } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
@@ -33,6 +34,8 @@ export function DomainListMenuColumn(handleDelete: (urn: string) => void) {
 }
 
 export function DomainNameColumn(logoIcon: JSX.Element) {
+    const { t } = useTranslation();
+
     return (record: DomainEntry) => (
         <span data-testid={record.urn}>
             <Link to={record.url}>
@@ -40,8 +43,8 @@ export function DomainNameColumn(logoIcon: JSX.Element) {
                 <DomainNameContainer>
                     <Typography.Text>{record.name}</Typography.Text>
                 </DomainNameContainer>
-                <Tooltip title={`There are ${record.entities} entities in this domain.`}>
-                    <Tag>{record.entities} entities</Tag>
+                <Tooltip title={t('domain.nbrOfEntityInDomain', { value: record.entities })}>
+                    <Tag>{record.entities} {t('common.entities')} </Tag>
                 </Tooltip>
             </Link>
         </span>

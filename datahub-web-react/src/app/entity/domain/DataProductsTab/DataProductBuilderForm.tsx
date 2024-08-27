@@ -1,6 +1,7 @@
 import { Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { Editor as MarkdownEditor } from '../../shared/tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../shared/constants';
 import { DataProductBuilderFormProps } from './types';
@@ -11,6 +12,7 @@ const StyledEditor = styled(MarkdownEditor)`
 `;
 
 export default function DataProductBuilderForm({ builderState, updateBuilderState }: DataProductBuilderFormProps) {
+    const { t } = useTranslation();
     function updateName(name: string) {
         updateBuilderState({
             ...builderState,
@@ -30,17 +32,17 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
             <Form.Item
                 rules={[{ min: 1, max: 500 }]}
                 hasFeedback
-                label={<Typography.Text strong>Name</Typography.Text>}
+                label={<Typography.Text strong>{t('common.name')}</Typography.Text>}
                 required
             >
                 <Input
                     autoFocus
                     value={builderState.name}
                     onChange={(e) => updateName(e.target.value)}
-                    placeholder="Revenue Dashboards"
+                    placeholder={t('placeholder.revenueDashboards')}
                 />
             </Form.Item>
-            <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>{t('common.description')}</Typography.Text>}>
                 <StyledEditor doNotFocus content={builderState.description} onChange={updateDescription} />
             </Form.Item>
             <DataProductAdvancedOption builderState={builderState} updateBuilderState={updateBuilderState} />

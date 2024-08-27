@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useEntityData, useMutationUrn } from '../../EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
@@ -13,6 +14,7 @@ type AddLinkProps = {
 };
 
 export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
+    const { t } = useTranslation();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const mutationUrn = useMutationUrn();
     const user = useUserContext();
@@ -36,7 +38,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                 await addLinkMutation({
                     variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },
                 });
-                message.success({ content: 'Link Added', duration: 2 });
+                message.success({ content: t('common.linkAdded'), duration: 2 });
                 analytics.event({
                     type: EventType.EntityActionEvent,
                     entityType,
@@ -46,32 +48,32 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
             } catch (e: unknown) {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to add link: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `${t('crud.error.addWithName',{name: t('common.link')})} \n ${e.message || ''}`, duration: 3 });
                 }
             }
             refetch?.();
             handleClose();
         } else {
-            message.error({ content: `Error adding link: no user`, duration: 2 });
+            message.error({ content: `${t('crud.error.errorAddingLink')}`, duration: 2 });
         }
     };
 
     return (
         <>
             <Button data-testid="add-link-button" icon={<PlusOutlined />} onClick={showModal} {...buttonProps}>
-                Add Link
+                {t('common.addLink')}
             </Button>
             <Modal
-                title="Add Link"
+                title={t('common.addLink')}
                 visible={isModalVisible}
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[
                     <Button type="text" onClick={handleClose}>
-                        Cancel
+                        {t('common.cancel')}
                     </Button>,
                     <Button data-testid="add-link-modal-add-button" form="addLinkForm" key="submit" htmlType="submit">
-                        Add
+                        {t('common.add')}
                     </Button>,
                 ]}
                 getContainer={getModalDomContainer}
@@ -98,7 +100,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                     <Form.Item
                         data-testid="add-link-modal-label"
                         name="label"
-                        label="Label"
+                        label={t('common.label')}
                         rules={[
                             {
                                 required: true,
@@ -106,7 +108,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                             },
                         ]}
                     >
-                        <Input placeholder="A short label for this link" />
+                        <Input placeholder={t('placeholder.shortLabelForLink')} />
                     </Form.Item>
                 </Form>
             </Modal>

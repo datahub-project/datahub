@@ -2,6 +2,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { ANTD_GRAY } from '../../constants';
 
 const StyledInput = styled(Input)`
@@ -19,10 +20,11 @@ interface Props {
 }
 
 export default function TabHeader({ setFilterText }: Props) {
+    const { t } = useTranslation();
     return (
         <TableHeader>
             <StyledInput
-                placeholder="Search in properties..."
+                placeholder={t('placeholder.searchInProperties')}
                 onChange={(e) => setFilterText(e.target.value)}
                 allowClear
                 prefix={<SearchOutlined />}

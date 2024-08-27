@@ -35,6 +35,12 @@ const getDataJobPlatformName = (data?: DataJob): string => {
  * Definition of the DataHub DataJob entity.
  */
 export class DataJobEntity implements Entity<DataJob> {
+    constructor(translationService: any) {
+        this.translationService = translationService;
+    }
+
+    translationService: any;
+
     type: EntityType = EntityType.DataJob;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
@@ -68,7 +74,7 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getEntityName = () => 'Task';
 
-    getCollectionName = () => 'Tasks';
+    getCollectionName = () => this.translationService('common.tasks');
 
     useEntityQuery = useGetDataJobQuery;
 

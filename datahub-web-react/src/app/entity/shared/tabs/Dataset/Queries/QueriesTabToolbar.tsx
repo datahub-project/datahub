@@ -2,6 +2,7 @@ import { Button, Input, Tooltip } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { ADD_UNAUTHORIZED_MESSAGE } from './utils/constants';
 
@@ -17,18 +18,20 @@ type Props = {
 };
 
 export default function QueriesTabToolbar({ addQueryDisabled, onAddQuery, onChangeSearch }: Props) {
+    const { t } = useTranslation();
+
     return (
         <TabToolbar>
             <Tooltip
                 placement="right"
-                title={(addQueryDisabled && ADD_UNAUTHORIZED_MESSAGE) || 'Add a highlighted query'}
+                title={(addQueryDisabled && ADD_UNAUTHORIZED_MESSAGE) || t('query.addAHighlightedQuery')}
             >
                 <Button disabled={addQueryDisabled} type="text" onClick={onAddQuery} data-testid="add-query-button">
-                    <PlusOutlined /> Add Query
+                    <PlusOutlined /> {t('query.addQuery')}
                 </Button>
             </Tooltip>
             <StyledInput
-                placeholder="Search in queries..."
+                placeholder={t('query.searchQuery')}
                 onChange={onChangeSearch}
                 allowClear
                 prefix={<SearchOutlined />}

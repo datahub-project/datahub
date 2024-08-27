@@ -1,6 +1,7 @@
 import { Button, Form, Modal, Select, Tag, Tooltip } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Container, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
@@ -37,6 +38,7 @@ const PreviewImage = styled.img`
 export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
     const [containerSearch, { data: platforSearchData }] = useGetSearchResultsLazyQuery();
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
 
     const containerSearchResults =
         platforSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
@@ -148,7 +150,7 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
                         Cancel
                     </Button>
                     <Button id="setContainerButton" disabled={selectedContainers?.length === 0} onClick={onOk}>
-                        Add
+                        {t('common.add')}
                     </Button>
                 </>
             }
@@ -161,7 +163,7 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
                         showSearch
                         mode="multiple"
                         defaultActiveFirstOption={false}
-                        placeholder="Search for Containers..."
+                        placeholder={t('placeholder.searchWithName', { name: t('common.containers') })}
                         onSelect={(containerUrn: any) => onSelectContainer(containerUrn)}
                         onDeselect={onDeselectContainer}
                         onSearch={(value: string) => {

@@ -1,6 +1,7 @@
 import { Typography, Modal, Button, Form } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY } from '../../constants';
 
@@ -43,7 +44,7 @@ export default function UpdateDescriptionModal({
     isAddDesc,
 }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
-
+    const { t } = useTranslation();
     const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (
             event.key === 'ArrowDown' ||
@@ -64,13 +65,13 @@ export default function UpdateDescriptionModal({
             okText={isAddDesc ? 'Submit' : 'Update'}
             footer={
                 <>
-                    <Button onClick={onClose}>Cancel</Button>
+                    <Button onClick={onClose}>{t('common.cancel')}</Button>
                     <Button
                         onClick={() => onSubmit(updatedDesc)}
                         disabled={updatedDesc === description}
                         data-testid="description-modal-update-button"
                     >
-                        Update
+                        {t('crud.update')}
                     </Button>
                 </>
             }
@@ -85,7 +86,7 @@ export default function UpdateDescriptionModal({
                     />
                 </Form.Item>
                 {!isAddDesc && description && original && (
-                    <OriginalDocumentation label={<FormLabel>Original:</FormLabel>}>
+                    <OriginalDocumentation label={<FormLabel>{t('common.original')}:</FormLabel>}>
                         <StyledViewer content={original || ''} readOnly />
                     </OriginalDocumentation>
                 )}

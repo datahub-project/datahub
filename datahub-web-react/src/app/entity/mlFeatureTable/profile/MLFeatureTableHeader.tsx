@@ -1,6 +1,7 @@
 import { Image, Row, Space, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { MlFeatureTable } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CompactContext from '../../../shared/CompactContext';
@@ -32,6 +33,7 @@ export type Props = {
 export default function MLFeatureTableHeader({ mlFeatureTable: { platform, description, ownership } }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
+    const { t } = useTranslation();
 
     const platformName = platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name);
 
@@ -43,7 +45,7 @@ export default function MLFeatureTableHeader({ mlFeatureTable: { platform, descr
                         <HeaderInfoItem>
                             <div>
                                 <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
-                                    Platform
+                                    {t('common.platform')}
                                 </Typography.Text>
                             </div>
                             <Space direction="horizontal">

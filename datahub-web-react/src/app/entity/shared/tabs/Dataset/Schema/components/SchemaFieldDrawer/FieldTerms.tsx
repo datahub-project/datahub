@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { EditableSchemaMetadata, GlobalTags, SchemaField } from '../../../../../../../../types.generated';
 import useTagsAndTermsRenderer from '../../utils/useTagsAndTermsRenderer';
 import { SectionHeader, StyledDivider } from './components';
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function FieldTerms({ expandedField, editableSchemaMetadata }: Props) {
+    const { t } = useTranslation();
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const termRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -23,7 +25,7 @@ export default function FieldTerms({ expandedField, editableSchemaMetadata }: Pr
 
     return (
         <>
-            <SectionHeader>Glossary Terms</SectionHeader>
+            <SectionHeader>{t('common.glossaryTerms')}</SectionHeader>
             {/* pass in globalTags since this is a shared component, tags will not be shown or used */}
             <div data-testid={`schema-field-${expandedField.fieldPath}-terms`}>
                 {termRenderer(expandedField.globalTags as GlobalTags, expandedField)}

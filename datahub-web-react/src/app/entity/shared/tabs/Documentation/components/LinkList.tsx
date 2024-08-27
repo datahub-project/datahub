@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { message, Button, List, Typography, Modal, Form, Input } from 'antd';
 import { LinkOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { EntityType, InstitutionalMemoryMetadata } from '../../../../../../types.generated';
 import { useEntityData, useMutationUrn } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -34,6 +35,7 @@ type LinkListProps = {
 };
 
 export const LinkList = ({ refetch }: LinkListProps) => {
+    const { t } = useTranslation();
     const [editModalVisble, setEditModalVisible] = useState(false);
     const [linkDetails, setLinkDetails] = useState<InstitutionalMemoryMetadata | undefined>(undefined);
     const { urn: entityUrn, entityData, entityType } = useEntityData();
@@ -49,11 +51,11 @@ export const LinkList = ({ refetch }: LinkListProps) => {
             await removeLinkMutation({
                 variables: { input: { linkUrl: metadata.url, resourceUrn: metadata.associatedUrn || entityUrn } },
             });
-            message.success({ content: 'Link Removed', duration: 2 });
+            message.success({ content: t('common.linkRemoved'), duration: 2 });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Error removing link: \n ${e.message || ''}`, duration: 2 });
+                message.error({ content: `${t('crud.error.errorRemovingLink')} \n ${e.message || ''}`, duration: 2 });
             }
         }
         refetch?.();
@@ -83,7 +85,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                 variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },
             });
 
-            message.success({ content: 'Link Updated', duration: 2 });
+            message.success({ content: t('crud.success.update'), duration: 2 });
 
             analytics.event({
                 type: EventType.EntityActionEvent,
@@ -98,7 +100,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
             message.destroy();
 
             if (e instanceof Error) {
-                message.error({ content: `Error updating link: \n ${e.message || ''}`, duration: 2 });
+                message.error({ content: `${t('crud.error.errorupdatingLink')}\n ${e.message || ''}`, duration: 2 });
             }
         }
     };
@@ -112,10 +114,10 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                 onCancel={handleClose}
                 footer={[
                     <Button type="text" onClick={handleClose}>
-                        Cancel
+                        {t('common.cancel')}
                     </Button>,
                     <Button form="editLinkForm" key="submit" htmlType="submit">
-                        Edit
+                        {t('common.edit')}
                     </Button>,
                 ]}
             >

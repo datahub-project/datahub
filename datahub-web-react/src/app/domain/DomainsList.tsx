@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { PlusOutlined } from '@ant-design/icons';
 import { AlignType } from 'rc-table/lib/interface';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../types.generated';
 import { useListDomainsQuery } from '../../graphql/domain.generated';
 import CreateDomainModal from './CreateDomainModal';
@@ -42,6 +43,7 @@ const PaginationInfo = styled(Typography.Text)`
 const DEFAULT_PAGE_SIZE = 25;
 
 export const DomainsList = () => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -84,7 +86,7 @@ export const DomainsList = () => {
 
     const allColumns = [
         {
-            title: 'Name',
+            title: t('common.name'),
             dataIndex: '',
             key: 'name',
             sorter: (sourceA, sourceB) => {
@@ -100,7 +102,7 @@ export const DomainsList = () => {
             ),
         },
         {
-            title: 'Owners',
+            title: t('common.owners'),
             dataIndex: 'ownership',
             width: '10%',
             key: 'ownership',
@@ -132,17 +134,17 @@ export const DomainsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading domains..." />}
-            {error && <Message type="error" content="Failed to load domains! An unexpected error occurred." />}
+            {!data && loading && <Message type="loading" content= {t('common.loadingDomains')} />}
+            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.domains') })} />}
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>
                 <TabToolbar>
                     <Button id={DOMAINS_CREATE_DOMAIN_ID} type="text" onClick={() => setIsCreatingDomain(true)}>
-                        <PlusOutlined /> New Domain
+                        <PlusOutlined /> {t('domain.newDomain')}
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search domains..."
+                        placeholderText={t('placeholder.searchWithName', { name: t('common.domains') })}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -163,7 +165,7 @@ export const DomainsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     pagination={false}
-                    locale={{ emptyText: <Empty description="No Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                    locale={{ emptyText: <Empty description={t('domain.noDomain')} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>

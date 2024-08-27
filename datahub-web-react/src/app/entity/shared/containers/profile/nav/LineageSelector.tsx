@@ -4,6 +4,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 import { Badge } from 'antd';
 import { InfoCircleOutlined, PartitionOutlined } from '@ant-design/icons';
 import { grey, blue } from '@ant-design/colors';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../../../../types.generated';
 import { navigateToLineageUrl } from '../../../../../lineage/utils/navigateToLineageUrl';
 import { ANTD_GRAY, ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../../constants';
@@ -75,6 +76,7 @@ type Props = {
  * Responsible for rendering a clickable browse path view.
  */
 export const LineageSelector = ({ urn, type }: Props): JSX.Element => {
+    const { t } = useTranslation();
     const history = useHistory();
     const location = useLocation();
     const isLineageMode = useIsLineageMode();
@@ -124,7 +126,7 @@ export const LineageSelector = ({ urn, type }: Props): JSX.Element => {
                     }}
                 >
                     <DetailIcon />
-                    Details
+                    {t('common.details')}
                 </IconGroup>
                 <IconGroup
                     disabled={!canNavigateToLineage}
@@ -142,7 +144,7 @@ export const LineageSelector = ({ urn, type }: Props): JSX.Element => {
                     }}
                 >
                     <LineageIcon />
-                    Lineage
+                    {t('common.lineage')}
                 </IconGroup>
             </LineageIconGroup>
             <LineageSummary>

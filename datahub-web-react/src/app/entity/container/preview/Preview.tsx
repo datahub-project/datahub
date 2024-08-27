@@ -1,6 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import {
     Container,
     EntityType,
@@ -20,6 +21,7 @@ import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
+import { translateDisplayNames } from '../../../../utils/translation/translation';
 
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
@@ -71,6 +73,7 @@ export const Preview = ({
     paths?: EntityPath[];
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
     const typeName = capitalizeFirstLetterOnly(subTypes?.typeNames?.[0]) || 'Container';
     return (
         <DefaultPreviewCard
@@ -80,7 +83,7 @@ export const Preview = ({
             platform={platformName}
             platformInstanceId={platformInstanceId}
             description={description || ''}
-            type={typeName}
+            type={translateDisplayNames(t, typeName)}
             owners={owners}
             deprecation={deprecation}
             insights={insights}

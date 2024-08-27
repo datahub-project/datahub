@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
 import PlatformContent from './PlatformContent';
@@ -18,6 +19,7 @@ import { useUserContext } from '../../../../../context/useUserContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import EntityHeaderLoadingSection from './EntityHeaderLoadingSection';
 import { useIsEditableDatasetNameEnabled } from '../../../../../useAppConfig';
+import { translateDisplayNames } from '../../../../../../utils/translation/translation';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -88,6 +90,7 @@ type Props = {
 };
 
 export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEditable, subHeader }: Props) => {
+    const { t } = useTranslation();
     const { urn, entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
     const me = useUserContext();
@@ -96,7 +99,8 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
     const entityCount = entityData?.entityCount;
 
     const entityName = entityData?.name;
-    const subType = capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) || undefined;
+    const subtypeEntity = entityData?.subTypes?.typeNames?.[0] ? translateDisplayNames(t, entityData?.subTypes?.typeNames?.[0]) : entityData?.subTypes?.typeNames?.[0];
+    const subType = capitalizeFirstLetterOnly(subtypeEntity) || undefined;
 
     const isEditableDatasetNameEnabled = useIsEditableDatasetNameEnabled();
     const canEditName =

@@ -3,6 +3,7 @@ import { Button, message, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
+import { useTranslation } from 'react-i18next';
 import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { downloadFile } from '../../../search/utils/csvUtils';
@@ -118,6 +119,7 @@ type Props = {
 };
 
 export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
+    const { t } = useTranslation();
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
 
@@ -170,7 +172,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     return (
         <Modal
             width={800}
-            footer={<Button onClick={onClose}>Close</Button>}
+            footer={<Button onClick={onClose}>{t('common.close')}</Button>}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
             title={

@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
+import { useTranslation } from 'react-i18next';
 import {
     DataProduct,
     Deprecation,
@@ -66,13 +67,14 @@ export const Preview = ({
     health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation();
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
             name={name}
             urn={urn}
             description={description || ''}
-            type={subType || 'Data Task'}
+            type={subType || t('common.dataTask')}
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
             platform={platformName}
             logoUrl={platformLogo || ''}
