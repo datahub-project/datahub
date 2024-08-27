@@ -348,7 +348,8 @@ class TableauConfig(
     )
 
     fetch_size: int = Field(
-        default=200, description="How many records to fetch at a time"
+        default=250,
+        description="Specifies the number of records to retrieve in each batch during a query execution.",
     )
 
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
