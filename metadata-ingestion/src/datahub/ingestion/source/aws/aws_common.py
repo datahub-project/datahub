@@ -68,6 +68,10 @@ AUTODETECT_CREDENTIALS_DOC_LINK = "Can be auto-detected, see [the AWS boto3 docs
 
 
 class LazyEvaluator:
+    """
+    Used by debug logging to avoid costly function calls if the information is not logged (due to the logging level set
+    higher than DEBUG)
+    """
     def __init__(self, callback, *args):
         self.callback = callback
         self.args = args
@@ -132,33 +136,10 @@ class AwsConnectionConfig(ConfigModel):
 
     @staticmethod
     def get_caller_identity(session: Session) -> Optional[str]:
-        logger.debug("Retrieving identity of session: %s", session.profile_name)
+        logger.info("Retrieving identity of session: %s", session.profile_name)
         sts_client = session.client("sts")
         response = sts_client.get_caller_identity()
         return response.get("Arn")
-
-    @staticmethod
-    def get_caller_identity_from_credentials(
-        credentials: Dict, region: Optional[str]
-    ) -> Optional[str]:
-        logger.debug(
-            "Retrieving identity for credentials starting: %s",
-            credentials["AccessKeyId"][:6],
-        )
-        local_session = Session(
-            aws_access_key_id=credentials["AccessKeyId"],
-            aws_secret_access_key=credentials["SecretAccessKey"],
-            aws_session_token=credentials["SessionToken"],
-            region_name=region,
-        )
-        sts_client = local_session.client("sts")
-        response = sts_client.get_caller_identity()
-        return response.get("Arn")
-
-    def allowed_cred_refresh(self) -> bool:
-        if self._normalized_aws_roles():
-            return True
-        return False
 
     def _normalized_aws_roles(self) -> List[AwsAssumeRoleConfig]:
         if not self.aws_role:
@@ -212,37 +193,13 @@ class AwsConnectionConfig(ConfigModel):
                 "SecretAccessKey": current_credentials.secret_key,
                 "SessionToken": current_credentials.token,
             }
-            logger.debug(
-                "Initial identity from current credentials: %s",
-                LazyEvaluator(
-                    self.get_caller_identity_from_credentials,
-                    credentials,
-                    self.aws_region,
-                ),
-            )
 
             for role in self._normalized_aws_roles():
-                logger.debug(
-                    "Should I refresh my credentials? %s",
-                    self._should_refresh_credentials(),
+                credentials = assume_role(
+                    role,
+                    self.aws_region,
+                    credentials=credentials,
                 )
-                if self._should_refresh_credentials():
-                    credentials = assume_role(
-                        role,
-                        self.aws_region,
-                        credentials=credentials,
-                    )
-                    if isinstance(credentials["Expiration"], datetime):
-                        self._credentials_expiration = credentials["Expiration"]
-                    logger.debug(
-                        "Assumed identity: %s for role: %s",
-                        LazyEvaluator(
-                            self.get_caller_identity_from_credentials,
-                            credentials,
-                            self.aws_region,
-                        ),
-                        role,
-                    )
 
             session = Session(
                 aws_access_key_id=credentials["AccessKeyId"],
@@ -250,22 +207,31 @@ class AwsConnectionConfig(ConfigModel):
                 aws_session_token=credentials["SessionToken"],
                 region_name=self.aws_region,
             )
-            logger.debug(
-                "Final session from normalized aws roles: %s",
-                LazyEvaluator(self.get_caller_identity, session),
-            )
+            if isinstance(credentials["Expiration"], datetime):
+                self._credentials_expiration = credentials["Expiration"]
 
         logger.debug(
-            "Session just before returning from get_session: %s",
+            "Final session: %s",
             LazyEvaluator(self.get_caller_identity, session),
         )
         return session
 
-    def _should_refresh_credentials(self) -> bool:
+    def should_refresh_credentials(self) -> bool:
+        logger.debug("Checking whether we should refresh credentials")
+        if not self._normalized_aws_roles():
+            # Maybe we should be enabling refreshing also in other cases? Should be as simple as removing this check
+            logger.debug("Didn't recognize any aws roles to assume, deciding not to refresh")
+            return False
         if self._credentials_expiration is None:
+            logger.debug("No credentials expiration time recorded")
             return True
-        remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
-        return remaining_time < timedelta(minutes=5)
+        time_now = datetime.now(timezone.utc)
+        remaining_time = self._credentials_expiration - time_now
+        should_refresh = remaining_time < timedelta(minutes=5)
+        logger.debug(f"Current credentials expiration: %s | Current time: %s | Remaining time: %s | Therefor should "
+                     f"we refresh? %s", self._credentials_expiration, time_now, remaining_time,
+                     "YES" if should_refresh else "NO")
+        return should_refresh
 
     def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()

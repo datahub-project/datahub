@@ -127,10 +127,9 @@ class SagemakerSource(StatefulIngestionSourceBase):
 class ClientFactory:
     def __init__(self, config: SagemakerSourceConfig):
         self.config = config
-        self._cached_client = self.config.sagemaker_client
+        self._cached_client = None
 
     def get_client(self) -> "SageMakerClient":
-        if self.config.allowed_cred_refresh():
-            # Always fetch the client dynamically with auto-refresh logic
-            return self.config.sagemaker_client
+        if not self._cached_client or self.config.should_refresh_credentials():
+            self._cached_client = self.config.sagemaker_client
         return self._cached_client
