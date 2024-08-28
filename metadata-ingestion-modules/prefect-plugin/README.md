@@ -55,18 +55,15 @@ After successful deployment, the DataHub GMS service should be running on `http:
 Save your DataHub configuration as a Prefect block:
 
 ```python
-import asyncio
 from prefect_datahub.datahub_emitter import DatahubEmitter
 
-async def save_datahub_emitter():
-    datahub_emitter = DatahubEmitter(
-        datahub_rest_url="http://localhost:8080",
-        env="PROD",
-        platform_instance="local_prefect",
-    )
-    await datahub_emitter.save("my-datahub-config", overwrite=True)
-
-asyncio.run(save_datahub_emitter())
+datahub_emitter = DatahubEmitter(
+    datahub_rest_url="http://localhost:8080",
+    env="DEV",
+    platform_instance="local_prefect",
+    token=None,  # generate auth token in the datahub and provide here if gms endpoint is secure
+)
+datahub_emitter.save("datahub-emitter-test")
 ```
 
 Configuration options:
@@ -82,13 +79,11 @@ Configuration options:
 Here's an example of how to use the DataHub Emitter in a Prefect workflow:
 
 ```python
-import asyncio
 from prefect import flow, task
 from prefect_datahub.datahub_emitter import DatahubEmitter
 from prefect_datahub.entities import Dataset
 
-async def load_datahub_emitter():
-    return await DatahubEmitter.load("my-datahub-config")
+datahub_emitter_block = DatahubEmitter.load("datahub-emitter-test")
 
 @task(name="Extract", description="Extract the data")
 def extract():
@@ -105,7 +100,7 @@ def transform(data, datahub_emitter):
 
 @flow(name="ETL", description="Extract transform load flow")
 def etl():
-    datahub_emitter = asyncio.run(load_datahub_emitter())
+    datahub_emitter = datahub_emitter_block
     data = extract()
     transformed_data = transform(data, datahub_emitter)
     datahub_emitter.emit_flow()

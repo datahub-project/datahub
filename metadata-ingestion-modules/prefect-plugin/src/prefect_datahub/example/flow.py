@@ -6,11 +6,7 @@ from prefect import flow, task
 from prefect_datahub.datahub_emitter import DatahubEmitter
 from prefect_datahub.entities import Dataset
 
-
-async def load_datahub_emitter():
-    datahub_emitter = DatahubEmitter()
-    emitter = datahub_emitter.load("BLOCK-ID")
-    return emitter
+datahub_emitter_block = DatahubEmitter.load("datahub-emitter-test")
 
 
 @task(name="Extract", description="Extract the data")
@@ -47,9 +43,9 @@ def transform(
 
 @flow(name="ETL", description="Extract transform load flow")
 def etl() -> None:
-    datahub_emitter = asyncio.run(load_datahub_emitter())
+    datahub_emitter = datahub_emitter_block
     data = extract()
-    return_value = transform(data, datahub_emitter)
+    return_value = transform(data, datahub_emitter)  # type: ignore
     emitter = return_value[1]
     emitter.emit_flow()
 
