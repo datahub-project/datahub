@@ -476,12 +476,11 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[
     });
 };
 
-const STATUSES = [AssertionResultType.Success, AssertionResultType.Failure, AssertionResultType.Error];
+const CORE_STATUSES = [AssertionResultType.Success, AssertionResultType.Failure, AssertionResultType.Error];
 
 // Generate Assertion Group By Status
 const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]): AssertionStatusGroup[] => {
-    const assertionStatus = [...STATUSES];
-    assertionStatus.push(AssertionResultType.Init);
+    const assertionStatus = [...CORE_STATUSES, AssertionResultType.Init];
 
     const assertionGroup: AssertionStatusGroup[] = [];
 
@@ -568,12 +567,11 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
 
     // maintain array to show all the Assertion Type count even if it is not present
     const remainingAssertionTypes = ASSERTION_INFO.map((item) => item.type);
-    const remainingAssertionStatus = [...STATUSES];
+    const remainingAssertionStatus = [...CORE_STATUSES];
 
     assertions.forEach((assertion: AssertionWithMonitorDetails) => {
+        // filter out tracked types
         const type = (assertion.info?.type || '') as AssertionType;
-
-        // Remove assertion type if we aready calculating count
         const index = remainingAssertionTypes.indexOf(type);
         if (index > -1) {
             remainingAssertionTypes.splice(index, 1);
@@ -581,10 +579,10 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
 
         filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
 
+        // filter out tracked statuses
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
         const resultType = mostRecentRun?.result?.type || '';
         if (resultType) {
-            // Remove assertion status if we aready calculating count
             const index = remainingAssertionStatus.indexOf(resultType);
             if (index > -1) {
                 remainingAssertionStatus.splice(index, 1);
@@ -619,7 +617,7 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         filterGroupCounts.type[assertionType] = 0;
     });
 
-    // Add remaining Assertion type with count 0
+    // Add remaining Assertion status with count 0
     remainingAssertionStatus.forEach((status: AssertionResultType) => {
         filterGroupCounts.status[status] = 0;
     });

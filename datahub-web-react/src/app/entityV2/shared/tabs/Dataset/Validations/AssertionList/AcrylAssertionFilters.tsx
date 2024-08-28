@@ -32,7 +32,7 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
         onFilterChange(newSelectedFilters);
     };
 
-    const isSelected = (filter: FilterOption) => selectedFilters.some((f) => f.name === filter.name);
+    const checkIsSelected = (filter: FilterOption) => selectedFilters.some((f) => f.name === filter.name);
 
     const renderSubMenu = (category: string, filters: FilterOption[]) => {
         return filters && filters.length > 0 ? (
@@ -40,7 +40,7 @@ export const AcrylAssertionFilters: React.FC<AcrylAssertionFiltersProps> = ({
                 {filters.map((filter) => (
                     <Menu.Item key={filter.name}>
                         <Checkbox
-                            checked={isSelected(filter)}
+                            checked={checkIsSelected(filter)}
                             onChange={(e) => handleFilterChange(filter, e.target.checked)}
                         >
                             {filter.displayName} ({filter.count})
