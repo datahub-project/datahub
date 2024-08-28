@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import boto3
 from boto3.session import Session
@@ -72,6 +72,7 @@ class LazyEvaluator:
     Used by debug logging to avoid costly function calls if the information is not logged (due to the logging level set
     higher than DEBUG)
     """
+
     def __init__(self, callback, *args):
         self.callback = callback
         self.args = args
@@ -220,7 +221,9 @@ class AwsConnectionConfig(ConfigModel):
         logger.debug("Checking whether we should refresh credentials")
         if not self._normalized_aws_roles():
             # Maybe we should be enabling refreshing also in other cases? Should be as simple as removing this check
-            logger.debug("Didn't recognize any aws roles to assume, deciding not to refresh")
+            logger.debug(
+                "Didn't recognize any aws roles to assume, deciding not to refresh"
+            )
             return False
         if self._credentials_expiration is None:
             logger.debug("No credentials expiration time recorded")
@@ -228,9 +231,14 @@ class AwsConnectionConfig(ConfigModel):
         time_now = datetime.now(timezone.utc)
         remaining_time = self._credentials_expiration - time_now
         should_refresh = remaining_time < timedelta(minutes=5)
-        logger.debug(f"Current credentials expiration: %s | Current time: %s | Remaining time: %s | Therefor should "
-                     f"we refresh? %s", self._credentials_expiration, time_now, remaining_time,
-                     "YES" if should_refresh else "NO")
+        logger.debug(
+            "Current credentials expiration: %s | Current time: %s | Remaining time: %s | Therefor should "
+            "we refresh? %s",
+            self._credentials_expiration,
+            time_now,
+            remaining_time,
+            "YES" if should_refresh else "NO",
+        )
         return should_refresh
 
     def get_credentials(self) -> Dict[str, Optional[str]]:
