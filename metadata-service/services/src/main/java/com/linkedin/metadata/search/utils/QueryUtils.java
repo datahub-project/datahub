@@ -293,7 +293,7 @@ public class QueryUtils {
 
     Criterion schemaUrnAliasCriterion =
         new Criterion()
-            .setField(SCHEMA_FIELD_ALIASES_ASPECT)
+            .setField(String.format("%s.keyword", SCHEMA_FIELD_ALIASES_ASPECT))
             .setValue("")
             .setValues(
                 new StringArray(

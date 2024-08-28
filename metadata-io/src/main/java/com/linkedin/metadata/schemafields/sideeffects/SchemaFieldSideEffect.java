@@ -407,9 +407,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                     // avoid processing already existing fields
                     || !previousSchemaMetadata.getFields().contains(schemaField)
                     // system update pass through
-                    || (systemMetadata.getProperties() != null
-                        && SYSTEM_UPDATE_SOURCE.equals(
-                            systemMetadata.getProperties().get(APP_SOURCE))))
+                    || isSystemUpdate(systemMetadata))
         .map(
             schemaField ->
                 ChangeItemImpl.builder()
@@ -451,9 +449,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                     || previousSchemaMetadata == null
                     || !previousSchemaMetadata.getFields().equals(schemaMetadata.getFields())
                     // system update pass through
-                    || (systemMetadata.getProperties() != null
-                        && SYSTEM_UPDATE_SOURCE.equals(
-                            systemMetadata.getProperties().get(APP_SOURCE))))
+                    || isSystemUpdate(systemMetadata))
         .map(
             schemaField -> {
               Set<Urn> currentAliases =
@@ -467,7 +463,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                           previousSchemaMetadata,
                           schemaField);
 
-              if (!previousAliases.equals(currentAliases)) {
+              if (!previousAliases.equals(currentAliases) || isSystemUpdate(systemMetadata)) {
                 return ChangeItemImpl.builder()
                     .urn(
                         SchemaFieldUtils.generateSchemaFieldUrn(
@@ -618,5 +614,11 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                 !item.getAspectName().equals(item.getEntitySpec().getKeyAspectName())
                     || !otherUrns.contains(item.getUrn())),
         other.stream());
+  }
+
+  private static boolean isSystemUpdate(@Nullable SystemMetadata systemMetadata) {
+    return systemMetadata != null
+        && systemMetadata.getProperties() != null
+        && SYSTEM_UPDATE_SOURCE.equals(systemMetadata.getProperties().get(APP_SOURCE));
   }
 }
