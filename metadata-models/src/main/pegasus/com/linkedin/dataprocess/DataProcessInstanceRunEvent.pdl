@@ -16,7 +16,6 @@ record DataProcessInstanceRunEvent includes TimeseriesAspectBase, ExternalRefere
 
   @TimeseriesField = {}
   @Searchable = {
-    "fieldType": "TEXT",
     "hasValuesFieldName": "hasRunEvents"
   }
   status: enum DataProcessRunStatus {
