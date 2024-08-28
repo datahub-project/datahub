@@ -337,7 +337,7 @@ function EntityDropdown(props: Props) {
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
-                    visible={isRaiseIncidentModalVisible}
+                    open={isRaiseIncidentModalVisible}
                     onClose={() => setIsRaiseIncidentModalVisible(false)}
                     refetch={
                         (() => {

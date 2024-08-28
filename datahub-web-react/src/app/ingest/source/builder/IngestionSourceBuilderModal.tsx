@@ -63,12 +63,12 @@ const modalBodyStyle = { padding: '16px 24px 16px 24px', backgroundColor: '#F6F6
 
 type Props = {
     initialState?: SourceBuilderState;
-    visible: boolean;
+    open: boolean;
     onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
     onCancel?: () => void;
 };
 
-export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
+export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel }: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
@@ -139,7 +139,7 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
             }
             style={{ top: 40 }}
             bodyStyle={modalBodyStyle}
-            visible={visible}
+            open={open}
             onCancel={onCancel}
         >
             {currentStepIndex > 0 ? (
