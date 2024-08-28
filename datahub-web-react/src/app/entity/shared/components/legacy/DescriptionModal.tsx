@@ -58,7 +58,7 @@ export default function UpdateDescriptionModal({
     return (
         <Modal
             title={title}
-            visible
+            open
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}

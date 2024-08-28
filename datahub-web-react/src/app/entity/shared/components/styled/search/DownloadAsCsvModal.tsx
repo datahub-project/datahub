@@ -123,7 +123,7 @@ export default function DownloadAsCsvModal({
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
             title="Download as..."
-            visible={showDownloadAsCsvModal}
+            open={showDownloadAsCsvModal}
             footer={
                 <>
                     <Button onClick={() => setShowDownloadAsCsvModal(false)} type="text">
