@@ -67,22 +67,27 @@ const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
 `;
 
 const getStyledIconComponent = (type: AssertionType) => {
-    const Component = () => ASSERTION_TYPE_TO_ICON_MAP[type];
-    return styled(Component)`
-        && {
-            margin: 0px;
-            padding: 0px;
-            margin-right: 8px;
-            font-size: 18px;
-        }
+    const IconComponent = ASSERTION_TYPE_TO_ICON_MAP[type];
+
+    // Wrap the JSX element in a styled div
+    const StyledIcon = styled.div`
+        margin: 0;
+        padding: 0;
+        margin-right: 8px;
+        font-size: 18px;
+        display: inline-flex;
+        align-items: center;
     `;
+
+    // Return the styled wrapper with the icon inside
+    return () => <StyledIcon>{IconComponent}</StyledIcon>;
 };
 
 export const ASSERTION_INFO = [
     {
         name: 'Freshness',
         description: 'Define & monitor your expectations about when this dataset should be updated',
-        icon: getStyledIconComponent(AssertionType.Freshness),
+        icon: React.createElement(getStyledIconComponent(AssertionType.Freshness)),
         type: AssertionType.Freshness,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -91,7 +96,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Volume',
         description: 'Define & monitor your expectations about the size of this dataset',
-        icon: getStyledIconComponent(AssertionType.Volume),
+        icon: React.createElement(getStyledIconComponent(AssertionType.Volume)),
         type: AssertionType.Volume,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -100,7 +105,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Column',
         description: 'Define & monitor your expectations about the values in a column',
-        icon: getStyledIconComponent(AssertionType.Field),
+        icon: React.createElement(getStyledIconComponent(AssertionType.Field)),
         type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -110,7 +115,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Schema',
         description: "Define & monitor your expectations about the table's columns and their types",
-        icon: getStyledIconComponent(AssertionType.DataSchema),
+        icon: React.createElement(getStyledIconComponent(AssertionType.DataSchema)),
         type: AssertionType.DataSchema,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -119,7 +124,7 @@ export const ASSERTION_INFO = [
     {
         name: 'SQL',
         description: 'Define & monitor your expectations using custom SQL rules',
-        icon: getStyledIconComponent(AssertionType.Sql),
+        icon: React.createElement(getStyledIconComponent(AssertionType.Sql)),
         type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -129,7 +134,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Other',
         description: 'Other assertions that are defined and maintained outside of DataHub.',
-        icon: getStyledIconComponent(AssertionType.Dataset),
+        icon: React.createElement(getStyledIconComponent(AssertionType.Dataset)),
         type: AssertionType.Dataset,
         entityTypes: [EntityType.Dataset],
         enabled: false,
