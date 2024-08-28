@@ -1,6 +1,6 @@
+import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import React from 'react';
 import styled from 'styled-components';
-import LaunchIcon from '@mui/icons-material/Launch';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import ColoredBackgroundPlatformIconGroup, { PlatformContentWrapper } from './ColoredBackgroundPlatformIconGroup';
 import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
@@ -13,7 +13,6 @@ import { GenericEntityProperties } from '../entity/shared/types';
 import SearchCardBrowsePath from './SearchCardBrowsePath';
 import StaticSearchCardBrowsePath from './StaticSearchCardBrowsePath';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import StyledExternalLink from '../entityV2/shared/links/StyledExternalLink';
 
 interface RowContainerProps {
     hidden?: boolean;
@@ -215,16 +214,12 @@ export const CompactView = ({
                                 actions={actions}
                             />
                         )}
-                        {externalUrl && (
-                            <StyledExternalLink url={externalUrl}>
-                                <LaunchIcon
-                                    style={{
-                                        fontSize: '16px',
-                                    }}
-                                />
-                                View in {platform}
-                            </StyledExternalLink>
-                        )}
+                        <ViewInPlatform
+                            urn={urn}
+                            entityType={entityType}
+                            platform={platform}
+                            externalUrl={externalUrl}
+                        />
                     </ActionsSection>
                 </ActionsAndStatusSection>
             </RowContainer>
