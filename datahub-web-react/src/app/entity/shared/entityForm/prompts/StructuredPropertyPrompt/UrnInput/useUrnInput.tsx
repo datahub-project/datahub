@@ -2,7 +2,10 @@ import { Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Entity, EntityType } from '../../../../../../../types.generated';
-import { useGetSearchResultsForMultipleLazyQuery } from '../../../../../../../graphql/search.generated';
+import {
+    useGetAutoCompleteMultipleResultsLazyQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '../../../../../../../graphql/search.generated';
 import { useEntityData } from '../../../../EntityContext';
 import SelectedEntity from './SelectedEntity';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
@@ -26,12 +29,14 @@ interface Props {
     selectedValues: any[];
     updateSelectedValues: (values: any[]) => void;
     initialEntities: Entity[];
+    allowedEntities?: Entity[];
     allowedEntityTypes?: EntityType[];
     isMultiple: boolean;
 }
 
 export default function useUrnInput({
     initialEntities,
+    allowedEntities,
     selectedValues,
     updateSelectedValues,
     allowedEntityTypes,
@@ -42,10 +47,23 @@ export default function useUrnInput({
 
     // we store the selected entity objects here to render display name, platform, etc.
     // selectedValues contains a list of urns that we store for the structured property values
+    const [isFocused, setIsFocused] = useState(false);
+    const [searchValue, setSearchValue] = useState<string>('');
     const [selectedEntities, setSelectedEntities] = useState<Entity[]>(initialEntities);
-    const [searchAcrossEntities, { data: searchData, loading }] = useGetSearchResultsForMultipleLazyQuery();
-    const searchResults =
-        searchData?.searchAcrossEntities?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const { data: initialData } = useGetSearchResultsForMultipleQuery({
+        variables: { input: { query: '*', types: allowedEntityTypes, count: 5 } },
+        skip: !!allowedEntities?.length,
+    });
+    const [getAutoCompleteResults, { data: autoCompleteData, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    let entityOptions: Entity[] =
+        autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((result) => result.entities) ||
+        allowedEntities?.filter((e) =>
+            entityRegistry.getDisplayName(e.type, e).toLocaleLowerCase().includes(searchValue.toLocaleLowerCase()),
+        ) ||
+        [];
+    if (!entityOptions.length && !searchValue) {
+        entityOptions = initialData?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
+    }
     const entityTypeNames: string[] | undefined = allowedEntityTypes?.map(
         (entityType) => entityRegistry.getEntityName(entityType) || '',
     );
@@ -58,8 +76,9 @@ export default function useUrnInput({
     }, [entityData?.urn, previousEntityUrn, initialEntities]);
 
     function handleSearch(query: string) {
-        if (query.length > 0) {
-            searchAcrossEntities({ variables: { input: { query, types: allowedEntityTypes } } });
+        setSearchValue(query);
+        if (!allowedEntities?.length && query.length > 0) {
+            getAutoCompleteResults({ variables: { input: { query, types: allowedEntityTypes } } });
         }
     }
 
@@ -67,8 +86,17 @@ export default function useUrnInput({
         const newValues = isMultiple ? [...selectedValues, urn] : [urn];
         updateSelectedValues(newValues);
 
-        const selectedEntity = searchResults?.find((result) => result.urn === urn) as Entity;
+        const selectedEntity = entityOptions?.find((result) => result.urn === urn) as Entity;
+
         const newEntities = isMultiple ? [...selectedEntities, selectedEntity] : [selectedEntity];
+        setSelectedEntities(newEntities);
+    };
+
+    const onSelectEntity = (entity: Entity) => {
+        const newValues = isMultiple ? [...selectedValues, entity.urn] : [entity.urn];
+        updateSelectedValues(newValues);
+
+        const newEntities = isMultiple ? [...selectedEntities, entity] : [entity];
         setSelectedEntities(newEntities);
     };
 
@@ -98,10 +126,15 @@ export default function useUrnInput({
         tagRender,
         handleSearch,
         onSelectValue,
+        onSelectEntity,
         onDeselectValue,
         selectedEntities,
-        searchResults,
+        entityOptions,
         loading,
         entityTypeNames,
+        searchValue,
+        setSearchValue,
+        isFocused,
+        setIsFocused,
     };
 }

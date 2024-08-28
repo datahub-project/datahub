@@ -66,7 +66,13 @@ const StyleTag = styled(CustomTag)`
     line-height: 16px;
 `;
 
-export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; maxHeight?: number }>`
+export const BrowserWrapper = styled.div<{
+    isHidden: boolean;
+    width?: string;
+    maxHeight?: number;
+    minWidth?: number;
+    maxWidth?: number;
+}>`
     background-color: white;
     border-radius: 5px;
     box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
@@ -75,6 +81,8 @@ export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; ma
     position: absolute;
     transition: opacity 0.2s;
     width: ${(props) => (props.width ? props.width : '480px')};
+    ${(props) => props.minWidth !== undefined && `min-width: ${props.minWidth}px;`}
+    ${(props) => props.maxWidth !== undefined && `max-width: ${props.maxWidth}px;`}
     z-index: 1051;
     ${(props) =>
         props.isHidden &&
