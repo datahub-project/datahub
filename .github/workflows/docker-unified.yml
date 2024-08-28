@@ -615,7 +615,7 @@ jobs:
           target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.full_tag }}
+          image_tag: ${{ needs.setup.outputs.full_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
