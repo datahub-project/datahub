@@ -575,6 +575,7 @@ jobs:
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.slim_tag }}
+          flavor: slim
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
@@ -673,6 +674,7 @@ jobs:
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
             APP_ENV=slim
           image_tag: ${{ needs.setup.outputs.slim_tag }}
+          flavor: slim
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
