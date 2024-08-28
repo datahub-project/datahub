@@ -318,17 +318,20 @@ class DatahubSensors:
         if not self._is_valid_asset_materialization(log):
             return
 
-        asset_key = log.asset_materialization.asset_key.path
+        asset_materialization = log.asset_materialization
+        if asset_materialization is None:
+            return
+
+        asset_key = asset_materialization.asset_key.path
         asset_downstream_urn = self._get_asset_downstream_urn(
-            log, context, dagster_generator, asset_key
+            log, context, dagster_generator, list(asset_key)
         )
 
         if not asset_downstream_urn:
             return
 
         properties = {
-            key: str(value)
-            for (key, value) in log.asset_materialization.metadata.items()
+            key: str(value) for (key, value) in asset_materialization.metadata.items()
         }
         upstreams, downstreams = self._process_lineage(
             context=context,
@@ -341,7 +344,7 @@ class DatahubSensors:
             context,
             dagster_generator,
             log,
-            asset_key,
+            list(asset_key),
             properties,
             upstreams,
             downstreams,
@@ -365,6 +368,9 @@ class DatahubSensors:
         asset_key: List[str],
     ) -> Optional[DatasetUrn]:
         materialization = log.asset_materialization
+        if materialization is None:
+            return None
+
         asset_downstream_urn: Optional[DatasetUrn] = None
 
         if materialization.metadata.get("datahub_urn") and isinstance(
@@ -453,26 +459,30 @@ class DatahubSensors:
             dataset_urn = dagster_generator.emit_asset(
                 self.graph,
                 asset_key,
-                log.asset_materialization.description,
+                log.asset_materialization.description
+                if log.asset_materialization
+                else None,
                 properties,
                 downstreams=downstreams,
                 upstreams=upstreams,
                 materialize_dependencies=self.config.materialize_dependencies,
             )
-            dataset_outputs[log.step_key].add(dataset_urn)
+            if log.step_key:
+                dataset_outputs[log.step_key].add(dataset_urn)
         else:
             context.log.info(
                 "Not emitting assets but connecting materialized dataset to DataJobs"
             )
-            dataset_outputs[log.step_key] = dataset_outputs[log.step_key].union(
-                [DatasetUrn.from_string(d) for d in downstreams]
-            )
-            dataset_inputs[log.step_key] = dataset_inputs[log.step_key].union(
-                [DatasetUrn.from_string(u) for u in upstreams]
-            )
-            context.log.info(
-                f"Dataset Inputs: {dataset_inputs[log.step_key]} Dataset Outputs: {dataset_outputs[log.step_key]}"
-            )
+            if log.step_key:
+                dataset_outputs[log.step_key] = dataset_outputs[log.step_key].union(
+                    [DatasetUrn.from_string(d) for d in downstreams]
+                )
+                dataset_inputs[log.step_key] = dataset_inputs[log.step_key].union(
+                    [DatasetUrn.from_string(u) for u in upstreams]
+                )
+                context.log.info(
+                    f"Dataset Inputs: {dataset_inputs[log.step_key]} Dataset Outputs: {dataset_outputs[log.step_key]}"
+                )
 
     def process_asset_observation(
         self,
