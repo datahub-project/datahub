@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.jobs;
 
-import static com.linkedin.metadata.Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME;
-
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -123,9 +121,9 @@ public class DataJobRunsResolver
                     .setCondition(Condition.EQUAL)
                     .setValue(entityUrn),
                 new Criterion()
-                        .setField(HAS_RUN_EVENTS_FIELD_NAME)
-                        .setCondition(Condition.EQUAL)
-                        .setValue(Boolean.TRUE.toString())));
+                    .setField(HAS_RUN_EVENTS_FIELD_NAME)
+                    .setCondition(Condition.EQUAL)
+                    .setValue(Boolean.TRUE.toString())));
 
     final Filter filter = new Filter();
     filter.setOr(
