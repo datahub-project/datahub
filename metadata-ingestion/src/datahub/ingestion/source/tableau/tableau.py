@@ -3054,18 +3054,14 @@ class TableauSiteSource:
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
         for _id, project in self.tableau_project_registry.items():
             parent_container_key: Optional[ContainerKey] = None
+            logger.debug(
+                f"project {project.name} and it's parent {project.parent_name} and parent id {project.parent_id}"
+            )
             if project.parent_id:
                 parent_container_key = self.gen_project_key(project.parent_id)
             elif self.config.add_site_container and self.site and self.site.id:
                 parent_container_key = self.gen_site_key(self.site.id)
 
-            yield from gen_containers(
-                container_key=self.gen_project_key(_id),
-                name=project.name,
-                description=project.description,
-                sub_types=[c.PROJECT],
-                parent_container_key=parent_container_key,
-            )
             if (
                 project.parent_id is not None
                 and project.parent_id not in self.tableau_project_registry
@@ -3078,6 +3074,14 @@ class TableauSiteSource:
                     name=cast(str, project.parent_name),
                     sub_types=[c.PROJECT],
                 )
+
+            yield from gen_containers(
+                container_key=self.gen_project_key(_id),
+                name=project.name,
+                description=project.description,
+                sub_types=[c.PROJECT],
+                parent_container_key=parent_container_key,
+            )
 
     def emit_site_container(self):
         if not self.site or not self.site.id:
