@@ -1,4 +1,3 @@
-import asyncio
 from typing import List, Tuple
 
 from prefect import flow, task
