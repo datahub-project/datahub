@@ -119,7 +119,7 @@ export const MatchContextContainer = ({
                                 setExpandedSection: () => {},
                             }}
                         >
-                            <HorizontalScroller alwaysVisible>
+                            <HorizontalScroller alwaysVisible scrollDistance={300}>
                                 <SearchCardSlideoutContent item={item} expandedSection={expandedSection} />
                             </HorizontalScroller>
                         </MatchContext.Provider>

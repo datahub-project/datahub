@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
@@ -96,7 +96,12 @@ const HorizontalScroller: React.FC<Props> = ({
     useEffect(() => {
         if (!contentRef.current) return () => {};
         const div = contentRef.current;
+        const child = contentRef.current.children[0];
         new ResizeObserver(updateScrollButtons).observe(div);
+        if (child) {
+            // the child may change size by something like "see more" and we should react
+            new ResizeObserver(updateScrollButtons).observe(child);
+        }
         div.addEventListener('scroll', updateScrollButtons);
         return () => {
             div.removeEventListener('scroll', updateScrollButtons);

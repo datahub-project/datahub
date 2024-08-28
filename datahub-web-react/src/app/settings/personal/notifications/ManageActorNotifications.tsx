@@ -21,16 +21,22 @@ type Props = {
     isPersonal: boolean;
     groupUrn?: string;
     groupName?: string;
+    canManageNotifications: boolean;
 };
 
 /**
  * Component used for managing actor notifications and subscriptions
  */
-export const ManageActorNotifications = ({ isPersonal, groupUrn, groupName }: Props) => {
+export const ManageActorNotifications = ({ isPersonal, groupUrn, groupName, canManageNotifications }: Props) => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <ManageActorNotificationSettings isPersonal={isPersonal} groupUrn={groupUrn} groupName={groupName} />
+                <ManageActorNotificationSettings
+                    isPersonal={isPersonal}
+                    groupUrn={groupUrn}
+                    groupName={groupName}
+                    canManageNotifications={canManageNotifications}
+                />
                 <VerticalSpacer />
             </PageHeaderContainer>
         </PageContainer>

@@ -73,6 +73,10 @@ export type LineageNode = LineageEntity | LineageFilter;
 
 const TRANSFORMATION_TYPES: string[] = [EntityType.Query, EntityType.DataJob];
 
+export function isGhostEntity(node?: FetchedEntityV2): boolean {
+    return !!node && node.status?.removed !== false && ![EntityType.Query, EntityType.SchemaField].includes(node.type);
+}
+
 export function isDbt(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
     return (
         (node.type === EntityType.Dataset || node.type === EntityType.SchemaField) &&
@@ -184,6 +188,8 @@ export interface NodeContext {
     setDisplayVersion: Dispatch<SetStateAction<[number, Urn[]]>>;
     hideTransformations: boolean;
     setHideTransformations: (hide: boolean) => void;
+    showGhostEntities: boolean;
+    setShowGhostEntities: (hide: boolean) => void;
 }
 
 export const LineageNodesContext = React.createContext<NodeContext>({
@@ -202,6 +208,8 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setDisplayVersion: () => {},
     hideTransformations: false,
     setHideTransformations: () => {},
+    showGhostEntities: false,
+    setShowGhostEntities: () => {},
 });
 
 export function getParents(node: LineageNode, adjacencyList: NodeContext['adjacencyList']): string[] {

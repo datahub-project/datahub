@@ -54,7 +54,7 @@ export const ByFormSelector = () => {
             optionFilterProp="label"
             onChange={(value: any) => setSelectedForm(value)}
             options={options}
-            defaultValue={getDefaultValue()}
+            value={getDefaultValue()}
             size="large"
             style={{ width: 300 }}
         />

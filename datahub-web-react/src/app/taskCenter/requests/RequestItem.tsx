@@ -6,6 +6,8 @@ import EntityFormModal from '../../entity/shared/entityForm/EntityFormModal';
 import { FormType } from '../../../types.generated';
 import { pluralize } from '../../shared/textUtil';
 import analytics, { DocRequestCTASource, EventType } from '../../analytics';
+import { useAppConfig } from '../../useAppConfig';
+import { FormView } from '../../entity/shared/entityForm/EntityFormContext';
 
 type Props = {
     request: any;
@@ -13,6 +15,8 @@ type Props = {
 };
 
 export const RequestItem = ({ request, refetch }: Props) => {
+    const appConfig = useAppConfig();
+    const defaultFormView = appConfig.config.featureFlags.showBulkFormByDefault ? FormView.BY_QUESTION : undefined;
     const [modalOpen, setModalOpen] = useState(false);
     const { form, numEntitiesToComplete } = request;
     const { type, name } = form.info;
@@ -56,7 +60,12 @@ export const RequestItem = ({ request, refetch }: Props) => {
                 </Typography.Text>
                 <Button onClick={openModal}>Open in Documentation Center</Button>
             </List.Item>
-            <EntityFormModal selectedFormUrn={form.urn} isFormVisible={modalOpen} hideFormModal={closeModal} />
+            <EntityFormModal
+                selectedFormUrn={form.urn}
+                isFormVisible={modalOpen}
+                hideFormModal={closeModal}
+                defaultFormView={defaultFormView}
+            />
         </>
     );
 };

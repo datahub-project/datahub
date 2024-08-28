@@ -56,8 +56,9 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                     .filter((n) => newNodeMap.has(n.id))
                     .map((n) => ({
                         ...n,
-                        data: newNodeMap.get(n.id)?.data || n.data,
                         position: (!n.data.dragged && newNodeMap.get(n.id)?.position) || n.position,
+                        data: newNodeMap.get(n.id)?.data ?? n.data,
+                        selectable: newNodeMap.get(n.id)?.selectable ?? n.selectable,
                     })),
                 ...nodesToAdd.map((n) => ({ ...n, data: { ...n.data, dragged: false } })),
             ];

@@ -1198,6 +1198,11 @@ type FeatureFlagsConfig {
   iii) Representing source sibling as a merged node, with both icons on graph and combined version in sidebar
   """
   hideDbtSourceInLineage: Boolean!
+
+  """
+  If turned on, the bulk form by question view will be shown by default from the task center
+  """
+  showBulkFormByDefault: Boolean!
 }
 
 """

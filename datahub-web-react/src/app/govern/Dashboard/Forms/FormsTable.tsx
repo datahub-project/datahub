@@ -12,6 +12,7 @@ import { Dropdown, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
+import EmptyForms from './EmptyForms';
 import { CardIcons } from './styledComponents';
 
 const FormName = styled(Typography.Text)`
@@ -86,6 +87,10 @@ const FormsTable = () => {
     useEffect(() => {
         refetch();
     }, [refetch]);
+
+    if (!isLoading && !formsData.length) {
+        return <EmptyForms />;
+    }
 
     const handleDeleteForm = (formData) => {
         showToastMessage(ToastType.LOADING, 'Deleting form', 1);

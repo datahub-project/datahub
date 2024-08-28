@@ -207,7 +207,8 @@ public class ValidationUtils {
   public static EntityLineageResult validateEntityLineageResult(
       @Nonnull OperationContext opContext,
       @Nullable final EntityLineageResult entityLineageResult,
-      @Nonnull final EntityService<?> entityService) {
+      @Nonnull final EntityService<?> entityService,
+      boolean includeGhostEntities) {
     if (entityLineageResult == null) {
       return null;
     }
@@ -225,8 +226,8 @@ public class ValidationUtils {
                 entityLineageResult.getRelationships(),
                 LineageRelationship::getEntity,
                 entityService,
-                true,
-                false)
+                !includeGhostEntities,
+                includeGhostEntities)
             .filter((rel) -> !rel.getEntity().getEntityType().equals(QUERY_ENTITY_NAME))
             .collect(Collectors.toCollection(LineageRelationshipArray::new));
 

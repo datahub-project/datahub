@@ -7,9 +7,10 @@ interface Props {
     description: string;
     buttonLabel: string;
     buttonOnClick?: () => void;
+    isButtonDisabled?: boolean;
 }
 
-const AddElement = ({ heading, description, buttonLabel, buttonOnClick }: Props) => {
+const AddElement = ({ heading, description, buttonLabel, buttonOnClick, isButtonDisabled = false }: Props) => {
     return (
         <AddElementContainer>
             <LeftSection>
@@ -21,7 +22,9 @@ const AddElement = ({ heading, description, buttonLabel, buttonOnClick }: Props)
                 </Text>
             </LeftSection>
             <div>
-                <Button onClick={buttonOnClick}>{buttonLabel}</Button>
+                <Button onClick={buttonOnClick} isDisabled={isButtonDisabled}>
+                    {buttonLabel}
+                </Button>
             </div>
         </AddElementContainer>
     );

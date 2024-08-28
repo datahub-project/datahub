@@ -134,3 +134,10 @@ export const getDescriptionSlice = (text: string, target: string) => {
     const endEllipsis = end < text.length ? '...' : '';
     return `${startEllipsis}${text.slice(start, end)}${endEllipsis}`;
 };
+
+export const getColumnsTabUrlPath = (entityType: EntityType) => {
+    if (entityType === EntityType.Chart) {
+        return 'Fields';
+    }
+    return 'Columns';
+};

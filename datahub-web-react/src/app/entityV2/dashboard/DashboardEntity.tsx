@@ -17,7 +17,7 @@ import {
 import { Dashboard, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
-import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
+import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';

@@ -43,4 +43,5 @@ public class FeatureFlags {
   private boolean alternateMCPValidation = false;
   private boolean schemaFieldCLLEnabled = false;
   private boolean hideDbtSourceInLineage = false;
+  private boolean showBulkFormByDefault = false;
 }

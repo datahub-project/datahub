@@ -572,6 +572,7 @@ fragment entityLineageV2 on Entity {
                 separateSiblings: $separateSiblings
                 startTimeMillis: $startTimeMillis
                 endTimeMillis: $endTimeMillis
+                includeGhostEntities: $includeGhostEntities
             }
         ) @skip(if: $excludeUpstream) {
             ...lineageV2Result
@@ -584,6 +585,7 @@ fragment entityLineageV2 on Entity {
                 separateSiblings: $separateSiblings
                 startTimeMillis: $startTimeMillis
                 endTimeMillis: $endTimeMillis
+                includeGhostEntities: $includeGhostEntities
             }
         ) @skip(if: $excludeDownstream) {
             ...lineageV2Result
@@ -703,6 +705,7 @@ query getEntityLineageV2(
     $endTimeMillis: Long
     $excludeUpstream: Boolean = false
     $excludeDownstream: Boolean = false
+    $includeGhostEntities: Boolean = false
 ) {
     entity(urn: $urn) {
         ...entityLineageV2
@@ -717,6 +720,7 @@ query getBulkEntityLineageV2(
     $endTimeMillis: Long
     $excludeUpstream: Boolean = false
     $excludeDownstream: Boolean = false
+    $includeGhostEntities: Boolean = false
 ) {
     entities(urns: $urns) {
         ...entityLineageV2

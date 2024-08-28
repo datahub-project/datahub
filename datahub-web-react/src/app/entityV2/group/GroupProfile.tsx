@@ -3,6 +3,8 @@ import { Col, Row } from 'antd';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { useGetGrantedPrivilegesQuery } from '@src/graphql/policy.generated';
 import { ReadOutlined } from '@ant-design/icons';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
@@ -98,6 +100,24 @@ export default function GroupProfile({ urn }: Props) {
     const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
     const groupName = data?.corpGroup ? entityRegistry.getDisplayName(EntityType.CorpGroup, data.corpGroup) : undefined;
 
+    const authenticatedUserUrn = useUserContext()?.user?.urn;
+    const { data: privilegesData } = useGetGrantedPrivilegesQuery({
+        variables: {
+            input: {
+                actorUrn: authenticatedUserUrn as string,
+                resourceSpec: {
+                    resourceType: EntityType.CorpGroup,
+                    resourceUrn: urn,
+                },
+            },
+        },
+        skip: !authenticatedUserUrn,
+        fetchPolicy: 'cache-first',
+    });
+    const canManageNotifications =
+        privilegesData?.getGrantedPrivileges?.privileges.some((v) => v === 'MANAGE_GROUP_NOTIFICATION_SETTINGS') ||
+        false;
+
     const finalTabs = [
         {
             name: 'About',
@@ -143,7 +163,14 @@ export default function GroupProfile({ urn }: Props) {
             {
                 name: TabType.Notifications,
                 path: TabType.Notifications.toLocaleLowerCase(),
-                content: <ManageActorNotifications isPersonal={false} groupUrn={urn} groupName={groupName} />,
+                content: (
+                    <ManageActorNotifications
+                        isPersonal={false}
+                        groupUrn={urn}
+                        groupName={groupName}
+                        canManageNotifications={canManageNotifications}
+                    />
+                ),
                 display: {
                     enabled: () => true,
                 },

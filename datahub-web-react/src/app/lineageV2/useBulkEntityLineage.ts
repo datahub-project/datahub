@@ -23,7 +23,7 @@ const BATCH_SIZE = 10;
 
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
     const flags = useAppConfig().config.featureFlags;
-    const { nodes, edges, adjacencyList, dataVersion, setDataVersion, setDisplayVersion } =
+    const { nodes, edges, adjacencyList, showGhostEntities, dataVersion, setDataVersion, setDisplayVersion } =
         useContext(LineageNodesContext);
     shownUrns.sort();
     const prevShownUrns = usePrevious(shownUrns);
@@ -50,7 +50,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             }
             return oldUrnsToFetch;
         });
-    }, [nodes, dataVersion, memoizedShownUrns]);
+    }, [nodes, dataVersion, memoizedShownUrns, showGhostEntities]);
 
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
@@ -63,6 +63,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             endTimeMillis,
             separateSiblings: true,
             showColumns: true,
+            includeGhostEntities: showGhostEntities,
         },
     });
 

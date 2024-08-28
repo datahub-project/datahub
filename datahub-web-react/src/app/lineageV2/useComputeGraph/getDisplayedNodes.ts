@@ -167,7 +167,7 @@ function getChildrenToFilter(
         }
         children?.forEach((childUrn) => {
             const child = nodes.get(childUrn);
-            if (!child || seen.has(childUrn) || child.entity?.status?.removed) return;
+            if (!child || seen.has(childUrn)) return;
 
             if (isTransformational(child)) {
                 queue.push(child);

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Col, Row } from 'antd';
 import styled from 'styled-components/macro';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { useGetGrantedPrivilegesQuery } from '@src/graphql/policy.generated';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
@@ -63,6 +65,25 @@ export default function GroupProfile() {
     const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
     const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
     const groupName = data?.corpGroup ? entityRegistry.getDisplayName(EntityType.CorpGroup, data.corpGroup) : undefined;
+    const authenticatedUserUrn = useUserContext()?.user?.urn;
+
+    const { data: privilegesData } = useGetGrantedPrivilegesQuery({
+        variables: {
+            input: {
+                actorUrn: authenticatedUserUrn as string,
+                resourceSpec: {
+                    resourceType: EntityType.CorpGroup,
+                    resourceUrn: urn,
+                },
+            },
+        },
+        skip: !authenticatedUserUrn,
+        fetchPolicy: 'cache-first',
+    });
+
+    const canManageNotifications =
+        privilegesData?.getGrantedPrivileges?.privileges.some((v) => v === 'MANAGE_GROUP_NOTIFICATION_SETTINGS') ||
+        false;
 
     const getTabs = () => {
         return [
@@ -94,7 +115,14 @@ export default function GroupProfile() {
             {
                 name: TabType.Notifications,
                 path: TabType.Notifications.toLocaleLowerCase(),
-                content: <ManageActorNotifications isPersonal={false} groupUrn={urn} groupName={groupName} />,
+                content: (
+                    <ManageActorNotifications
+                        isPersonal={false}
+                        groupUrn={urn}
+                        groupName={groupName}
+                        canManageNotifications={canManageNotifications}
+                    />
+                ),
                 display: {
                     enabled: () => true,
                 },
