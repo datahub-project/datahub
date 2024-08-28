@@ -64,6 +64,11 @@ input AsyncBatchSubmitFormPromptInput {
     types: [EntityType!]!
 
     """
+    An optional query string for the search to get the results to sumbit
+    """
+    query: String
+
+    """
     A list of disjunctive criterion for the filter. (or operation to combine filters)
     """
     orFilters: [AndFilterInput!]
@@ -92,6 +97,11 @@ input AsyncBatchVerifyFormInput {
     Entity types to be submit a response for
     """
     types: [EntityType!]!
+
+    """
+    An optional query string for the search to get the results to sumbit
+    """
+    query: String
 
     """
     A list of disjunctive criterion for the filter. (or operation to combine filters)

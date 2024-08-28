@@ -108,6 +108,20 @@ export default function useSearchPage({
         });
     };
 
+    const onChangeQuery = (newQuery: string) => {
+        scrollToTop();
+        navigateToSearchUrl({
+            type: activeType,
+            query: newQuery,
+            selectedSortOption,
+            page: 1,
+            filters,
+            history,
+            unionType,
+            currentPath,
+        });
+    };
+
     const searchResultEntities =
         searchResults?.map((result) => ({
             urn: result.entity.urn,
@@ -147,5 +161,6 @@ export default function useSearchPage({
         onChangeUnionType,
         onChangePage,
         onChangeSelectAll,
+        onChangeQuery,
     };
 }

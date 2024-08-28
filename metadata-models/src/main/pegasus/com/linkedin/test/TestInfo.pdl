@@ -60,6 +60,12 @@ record TestInfo {
       * See TestResult for more details.
       */
       md5: optional string
+
+      /**
+      * Optional search query to execute to get the assets this test applies to.
+      * This only works with elastic search test executor and when evaluating a single test.
+      */
+      onQuery: optional string
     }
 
     /**

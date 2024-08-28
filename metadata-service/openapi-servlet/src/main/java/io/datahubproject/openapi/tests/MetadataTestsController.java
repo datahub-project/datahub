@@ -110,7 +110,7 @@ public class MetadataTestsController {
     try {
       // Can Select
       if (elasticSearchExplainSelect.size() == 1) {
-        List<Urn> selection = testEngine.getElasticSearchTestExecutor().select(testDefinition);
+        List<Urn> selection = testEngine.getElasticSearchTestExecutor().select(testDefinition, "*");
         selectionExplanation =
             String.format("Able to select using ElasticSearch, count is: %s", selection.size());
         if (includeUrns) {

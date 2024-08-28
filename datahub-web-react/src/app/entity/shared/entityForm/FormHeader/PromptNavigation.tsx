@@ -5,6 +5,7 @@ import { message, notification } from 'antd';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
+import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
 import { useEntityFormContext } from '../EntityFormContext';
 import { ArrowLeft, ArrowRight, BulkNavigationWrapper, NavigationWrapper } from './components';
 import { EntityType, FormPromptType, SubmitFormPromptInput } from '../../../../../types.generated';
@@ -34,6 +35,7 @@ const RightColumn = styled.div`
 export default function PromptNavigation() {
     const history = useHistory();
     const location = useLocation();
+    const { query } = useGetSearchQueryInputs();
     const {
         form: { isVerificationType },
         submission: { handlePromptSubmission, handleUndoPromptSubmission, handleAsyncBatchSubmit },
@@ -129,6 +131,7 @@ export default function PromptNavigation() {
                     types: types || [],
                     formFilter,
                     orFilters,
+                    query,
                     input: promptInput,
                     taskInput: { taskName: `Question ${promptIndex + 1}` },
                 },
