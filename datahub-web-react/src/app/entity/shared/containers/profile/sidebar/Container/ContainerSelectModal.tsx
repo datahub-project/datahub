@@ -140,7 +140,7 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
     return (
         <Modal
             title={titleOverride || 'Select Container'}
-            visible
+            open
             onCancel={onModalClose}
             footer={
                 <>

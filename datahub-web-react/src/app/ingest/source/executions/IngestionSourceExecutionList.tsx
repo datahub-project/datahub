@@ -172,7 +172,7 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
             {focusExecutionUrn && (
                 <ExecutionDetailsModal
                     urn={focusExecutionUrn}
-                    visible={focusExecutionUrn !== undefined}
+                    open={focusExecutionUrn !== undefined}
                     onClose={() => setFocusExecutionUrn(undefined)}
                 />
             )}
