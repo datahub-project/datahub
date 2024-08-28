@@ -83,7 +83,8 @@ dev_requirements = {
     "pytest-cov>=2.8.1",
     "tox",
     "tox-uv",
-    "deepdiff==7.0.1",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
     "tenacity",
     "build",
     "twine",
