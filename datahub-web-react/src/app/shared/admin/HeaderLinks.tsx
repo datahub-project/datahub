@@ -10,7 +10,7 @@ import {
     GlobalOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { Button, Dropdown, Menu, Tooltip } from 'antd';
+import { Button, Dropdown, Tooltip } from 'antd';
 import { useAppConfig, useBusinessAttributesFlag } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
@@ -35,12 +35,6 @@ const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     `}
 `;
 
-const MenuItem = styled(Menu.Item)`
-    font-size: 12px;
-    font-weight: bold;
-    max-width: 240px;
-`;
-
 const NavTitleContainer = styled.span`
     display: flex;
     align-items: center;
@@ -50,6 +44,7 @@ const NavTitleContainer = styled.span`
 
 const NavTitleText = styled.span`
     margin-left: 6px;
+    font-weight: bold;
 `;
 
 const NavTitleDescription = styled.div`
@@ -79,6 +74,59 @@ export function HeaderLinks(props: Props) {
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
+    const items = [
+        {
+            key: 0,
+            label: (
+                <Link to="/glossary">
+                    <NavTitleContainer>
+                        <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                        <NavTitleText>Glossary</NavTitleText>
+                    </NavTitleContainer>
+                    <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
+                </Link>
+            ),
+        },
+        {
+            key: 1,
+            label: (
+                <Link to="/domains">
+                    <NavTitleContainer>
+                        <DomainIcon
+                            style={{
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                            }}
+                        />
+                        <NavTitleText>Domains</NavTitleText>
+                    </NavTitleContainer>
+                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
+                </Link>
+            ),
+        },
+        ...(businessAttributesFlag
+            ? [
+                  {
+                      key: 2,
+                      label: (
+                          <Link to="/business-attribute">
+                              <NavTitleContainer>
+                                  <GlobalOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Business Attribute</NavTitleText>
+                              </NavTitleContainer>
+                              <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+    ];
+
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
             {showAnalytics && (
@@ -95,52 +143,7 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
-            <Dropdown
-                trigger={['click']}
-                overlay={
-                    <Menu>
-                        <MenuItem key="0">
-                            <Link to="/glossary">
-                                <NavTitleContainer>
-                                    <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                    <NavTitleText>Glossary</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
-                            </Link>
-                        </MenuItem>
-                        <MenuItem key="1">
-                            <Link to="/domains">
-                                <NavTitleContainer>
-                                    <DomainIcon
-                                        style={{
-                                            fontSize: 14,
-                                            fontWeight: 'bold',
-                                        }}
-                                    />
-                                    <NavTitleText>Domains</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
-                            </Link>
-                        </MenuItem>
-                        {businessAttributesFlag && (
-                            <MenuItem key="2">
-                                <Link to="/business-attribute">
-                                    <NavTitleContainer>
-                                        <GlobalOutlined
-                                            style={{
-                                                fontSize: 14,
-                                                fontWeight: 'bold',
-                                            }}
-                                        />
-                                        <NavTitleText>Business Attribute</NavTitleText>
-                                    </NavTitleContainer>
-                                    <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
-                                </Link>
-                            </MenuItem>
-                        )}
-                    </Menu>
-                }
-            >
+            <Dropdown trigger={['click']} menu={{ items }}>
                 <LinkWrapper>
                     <Button type="text">
                         <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
