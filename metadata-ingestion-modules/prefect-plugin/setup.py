@@ -12,6 +12,13 @@ def get_long_description():
     root = os.path.dirname(__file__)
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
+_version: str = package_metadata["__version__"]
+_self_pin = (
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
+)
+
 
 rest_common = {"requests", "requests_file"}
 
@@ -21,7 +28,9 @@ base_requirements = {
     # Actual dependencies.
     "prefect >= 2.0.0",
     *rest_common,
-    f"acryl-datahub == {package_metadata['__version__']}",
+    # Ignoring the dependency below because it causes issues with the vercel built wheel install
+    # f"acryl-datahub[datahub-rest]{_self_pin}",
+    "acryl-datahub[datahub-rest]",
 }
 
 
