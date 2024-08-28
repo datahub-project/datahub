@@ -13,7 +13,6 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
-
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
