@@ -1,0 +1,11 @@
+namespace com.linkedin.common
+
+/**
+ * Response for a glossary terms type prompt
+ */
+record GlossaryTermsPromptResponse {
+    /**
+     * The glossaryTerms applied to an asset from this prompt response
+     */
+    glossaryTerms: array[Urn]
+}

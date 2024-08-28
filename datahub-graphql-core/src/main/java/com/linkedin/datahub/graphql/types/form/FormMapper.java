@@ -18,6 +18,9 @@ import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.FormState;
 import com.linkedin.datahub.graphql.generated.FormStatus;
 import com.linkedin.datahub.graphql.generated.FormType;
+import com.linkedin.datahub.graphql.generated.GlossaryNode;
+import com.linkedin.datahub.graphql.generated.GlossaryTerm;
+import com.linkedin.datahub.graphql.generated.GlossaryTermsParams;
 import com.linkedin.datahub.graphql.generated.OwnershipParams;
 import com.linkedin.datahub.graphql.generated.PromptCardinality;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
@@ -124,6 +127,11 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
       formPrompt.setOwnershipParams(ownershipParams);
     }
 
+    if (gmsFormPrompt.getGlossaryTermsParams() != null) {
+      formPrompt.setGlossaryTermsParams(
+          mapGlossaryTermsParams(gmsFormPrompt.getGlossaryTermsParams()));
+    }
+
     return formPrompt;
   }
 
@@ -151,5 +159,40 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     CorpGroup group = new CorpGroup();
     group.setUrn(groupUrn.toString());
     return group;
+  }
+
+  private GlossaryTermsParams mapGlossaryTermsParams(
+      com.linkedin.form.GlossaryTermsParams inputParams) {
+    final GlossaryTermsParams glossaryTermsParams = new GlossaryTermsParams();
+    glossaryTermsParams.setCardinality(
+        PromptCardinality.valueOf(inputParams.getCardinality().toString()));
+    if (inputParams.getAllowedTerms() != null) {
+      List<GlossaryTerm> allowedTerms =
+          inputParams.getAllowedTerms().stream()
+              .map(
+                  urn -> {
+                    GlossaryTerm term = new GlossaryTerm();
+                    term.setUrn(urn.toString());
+                    term.setType(EntityType.GLOSSARY_TERM);
+                    return term;
+                  })
+              .collect(Collectors.toList());
+      glossaryTermsParams.setAllowedTerms(allowedTerms);
+    }
+    if (inputParams.getAllowedTermGroups() != null) {
+      List<GlossaryNode> allowedTermsGroups =
+          inputParams.getAllowedTermGroups().stream()
+              .map(
+                  urn -> {
+                    GlossaryNode termGroup = new GlossaryNode();
+                    termGroup.setUrn(urn.toString());
+                    termGroup.setType(EntityType.GLOSSARY_NODE);
+                    return termGroup;
+                  })
+              .collect(Collectors.toList());
+      glossaryTermsParams.setAllowedTermGroups(allowedTermsGroups);
+    }
+
+    return glossaryTermsParams;
   }
 }

@@ -26,7 +26,7 @@ record FormPromptResponse {
     ownershipResponse: optional OwnershipPromptResponse
 
     /**
-     * Response for a structured property type prompt
+     * Response for a documentation type prompt
      */
     documentationResponse: optional record DocumentationPromptResponse {
         /**
@@ -34,4 +34,9 @@ record FormPromptResponse {
         */
         documentation: string
     }
+
+    /**
+     * Response for a glossary terms type prompt
+     */
+    glossaryTermsResponse: optional GlossaryTermsPromptResponse
 }

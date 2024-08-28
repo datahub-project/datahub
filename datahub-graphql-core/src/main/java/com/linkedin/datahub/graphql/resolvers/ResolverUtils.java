@@ -6,7 +6,9 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -248,5 +250,24 @@ public class ResolverUtils {
       return System.currentTimeMillis();
     }
     return null;
+  }
+
+  public static Filter createUrnFilter(
+      @Nonnull final String fieldName, @Nonnull final List<Urn> urns) {
+    Filter filter = new Filter();
+    CriterionArray criterionArray = new CriterionArray();
+    Criterion criterion = new Criterion();
+    criterion.setCondition(Condition.EQUAL);
+    criterion.setField(fieldName);
+    StringArray urnStrings = new StringArray();
+    urns.forEach(urn -> urnStrings.add(urn.toString()));
+    criterion.setValues(urnStrings);
+    criterion.setValue(urnStrings.size() > 0 ? urnStrings.get(0) : "");
+    criterionArray.add(criterion);
+    filter.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
+
+    return filter;
   }
 }
