@@ -47,6 +47,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 from datahub_dagster_plugin.client.dagster_generator import (
+    DATAHUB_ASSET_GROUP_NAME_CACHE,
     DagsterEnvironment,
     DagsterGenerator,
     DatahubDagsterSourceConfig,
@@ -368,6 +369,8 @@ class DatahubSensors:
                                 materialization.metadata.get("Query"), TextMetadataValue
                             )
                         ):
+                            if self.config.debug_mode:
+                                context.log.info("Query found in metadata...")
                             query_metadata = materialization.metadata.get("Query")
                             assert query_metadata
                             lineage = self.parse_sql(
@@ -380,6 +383,19 @@ class DatahubSensors:
                             )
                             # To make sure we don't process select queries check if downstream is present
                             if lineage and lineage.downstreams:
+                                if self.config.emit_queries:
+                                    if self.config.debug_mode:
+                                        context.log.info("Emitting query metadata...")
+                                    if self.config.debug_mode:
+                                        context.log.info("Emitting query metadata...")
+                                    dagster_generator.gen_query_aspect(
+                                        graph=self.graph,
+                                        platform=asset_downstream_urn.platform,
+                                        query_subject_urns=lineage.upstreams
+                                        + lineage.upstreams,
+                                        query=str(query_metadata.text),
+                                    )
+
                                 downstreams = downstreams.union(
                                     set(lineage.downstreams)
                                 )
@@ -395,19 +411,35 @@ class DatahubSensors:
                             context.log.info("Query not found in metadata")
                     except Exception as e:
                         context.log.info(f"Error in processing asset logs: {e}")
+                        context.log.info(f"Traceback: {traceback.format_exc()}")
 
-                # Emitting asset with upstreams and downstreams
-                dataset_urn = dagster_generator.emit_asset(
-                    self.graph,
-                    asset_key,
-                    materialization.description,
-                    properties,
-                    downstreams=downstreams,
-                    upstreams=upstreams,
-                    materialize_dependencies=self.config.materialize_dependencies,
-                )
+                if self.config.emit_assets:
+                    context.log.info("Emitting asset metadata...")
+                    # Emitting asset with upstreams and downstreams
+                    dataset_urn = dagster_generator.emit_asset(
+                        self.graph,
+                        asset_key,
+                        materialization.description,
+                        properties,
+                        downstreams=downstreams,
+                        upstreams=upstreams,
+                        materialize_dependencies=self.config.materialize_dependencies,
+                    )
 
-                dataset_outputs[log.step_key].add(dataset_urn)
+                    dataset_outputs[log.step_key].add(dataset_urn)
+                else:
+                    context.log.info(
+                        "Not emitting assets but connecting materialized dataset to DataJobs"
+                    )
+                    dataset_outputs[log.step_key] = dataset_outputs[log.step_key].union(
+                        [DatasetUrn.from_string(d) for d in downstreams]
+                    )
+                    dataset_inputs[log.step_key] = dataset_inputs[log.step_key].union(
+                        [DatasetUrn.from_string(u) for u in upstreams]
+                    )
+                    context.log.info(
+                        f"Dataset Inputs: {dataset_inputs[log.step_key]} Dataset Outputs: {dataset_outputs[log.step_key]}"
+                    )
 
     def process_asset_observation(
         self,
@@ -581,7 +613,9 @@ class DatahubSensors:
             dagster_environment=dagster_environment,
         )
 
-        context.log.info("Emitting asset metadata...")
+        context.log.info(
+            f"Updating asset group name cache... {DATAHUB_ASSET_GROUP_NAME_CACHE}"
+        )
         dagster_generator.update_asset_group_name_cache(context)
 
         return SkipReason("Asset metadata processed")
@@ -669,10 +703,17 @@ class DatahubSensors:
                 platform_instance=self.config.platform_instance,
             )
 
+            if dataflow.name.startswith("__ASSET_JOB") and dataflow.name.split("__"):
+                dagster_generator.generate_browse_path(
+                    dataflow.name.split("__"), urn=dataflow.urn, graph=self.graph
+                )
+                dataflow.name = dataflow.name.split("__")[-1]
+
             dataflow.emit(self.graph)
             if self.config.debug_mode:
                 for mcp in dataflow.generate_mcp():
-                    context.log.debug(f"Emitted MCP: {mcp}")
+                    if self.config.debug_mode:
+                        context.log.debug(f"Emitted MCP: {mcp}")
 
             # Emit dagster job run which get mapped with datahub data process instance entity
             dagster_generator.emit_job_run(
@@ -708,6 +749,12 @@ class DatahubSensors:
                     output_datasets=dataset_outputs,
                     input_datasets=dataset_inputs,
                 )
+
+                if datajob.name.startswith("__ASSET_JOB") and datajob.name.split("__"):
+                    dagster_generator.generate_browse_path(
+                        datajob.name.split("__"), urn=datajob.urn, graph=self.graph
+                    )
+                    datajob.name = datajob.name.split("__")[-1]
 
                 datajob.emit(self.graph)
 
