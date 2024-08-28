@@ -11,5 +11,9 @@ record EditableMLPrimaryKeyProperties {
   /**
    * Documentation of the MLPrimaryKey
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "fieldName": "editedDescription",
+  }
   description: optional string
 }

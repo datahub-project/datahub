@@ -56,16 +56,11 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
       return false;
     }
 
-    try {
-      final EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
-      return entitySpec.hasAspect(query.getQueryParts().get(0));
-    } catch (Exception e) {
-      log.info(
-          "Unknown entity type {} while evaluating {}",
-          entityType,
-          this.getClass().getSimpleName());
-      return false;
-    }
+    final Map<String, AspectSpec> aspectSpecMap = entityRegistry.getAspectSpecs();
+    // if the first query part (the name of the aspect) matches any of the keys (aspect names) then
+    // it's a valid aspect that exists
+    return aspectSpecMap.entrySet().stream()
+        .anyMatch(entry -> entry.getKey().equals(query.getQueryParts().get(0)));
   }
 
   @Override
@@ -79,12 +74,6 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
 
     String aspect = query.getQueryParts().get(0);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspect);
-    if (aspectSpec == null) {
-      return invalidResultWithMessage(
-          String.format(
-              "Query %s is invalid for entity type %s: Unknown aspect %s",
-              query, entityType, aspect));
-    }
 
     // Check whether the query matches the schema by traversing through the query parts
     RecordDataSchema schema = aspectSpec.getPegasusSchema();
@@ -159,11 +148,6 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
     Set<String> aspectsToQuery = new HashSet<>();
     for (TestQuery query : queries) {
       String aspect = query.getQueryParts().get(0);
-      if (!entitySpec.hasAspect(aspect)) {
-        log.error("Unknown aspect {} for entity type {}", aspect, entityType);
-        throw new RuntimeException(
-            String.format("Unknown aspect %s for entityType %s", aspect, entityType));
-      }
       aspectsToQuery.add(aspect);
     }
 

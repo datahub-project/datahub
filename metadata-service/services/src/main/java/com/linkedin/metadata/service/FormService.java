@@ -195,7 +195,8 @@ public class FormService extends BaseService {
       return;
     }
     final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);
-    final TestInfo testDefinition = FormTestBuilder.buildFormPromptCompletionTest(formUrn, prompt);
+    final TestInfo testDefinition =
+        FormTestBuilder.buildFormPromptCompletionTest(opContext, formUrn, prompt);
     try {
       List<MetadataChangeProposal> changes =
           ImmutableList.of(

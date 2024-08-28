@@ -150,7 +150,6 @@ public class FormsMapper {
       documentationResponse.setDocumentation(gmsDocumentationResponse.getDocumentation());
       result.setDocumentationResponse(documentationResponse);
     }
-
     return result;
   }
 

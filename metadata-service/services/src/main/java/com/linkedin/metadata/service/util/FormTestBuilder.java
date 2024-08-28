@@ -12,18 +12,30 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.metadata.models.EntitySpecUtils;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestSource;
 import com.linkedin.test.TestSourceType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -45,7 +57,16 @@ public class FormTestBuilder {
           DATA_JOB_ENTITY_NAME,
           DATA_FLOW_ENTITY_NAME,
           CHART_ENTITY_NAME,
-          DASHBOARD_ENTITY_NAME);
+          DASHBOARD_ENTITY_NAME,
+          ML_MODEL_ENTITY_NAME,
+          ML_MODEL_GROUP_ENTITY_NAME,
+          ML_FEATURE_TABLE_ENTITY_NAME,
+          ML_FEATURE_ENTITY_NAME,
+          ML_PRIMARY_KEY_ENTITY_NAME,
+          GLOSSARY_TERM_ENTITY_NAME,
+          GLOSSARY_NODE_ENTITY_NAME,
+          DOMAIN_ENTITY_NAME,
+          DATA_PRODUCT_ENTITY_NAME);
 
   public static TestInfo buildFormAssignmentTest(
       @Nonnull final Urn formUrn, @Nonnull final DynamicFormAssignment assignment) {
@@ -64,7 +85,9 @@ public class FormTestBuilder {
   }
 
   public static TestInfo buildFormPromptCompletionTest(
-      @Nonnull final Urn formUrn, @Nonnull final FormPrompt prompt) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final FormPrompt prompt) {
     final TestInfo testInfo = new TestInfo();
     testInfo.setName(
         String.format(
@@ -74,7 +97,7 @@ public class FormTestBuilder {
         String.format(
             "This test was auto-generated to implement form assignment for form with urn %s",
             formUrn));
-    testInfo.setDefinition(buildFormPromptCompletionTestDefinition(formUrn, prompt));
+    testInfo.setDefinition(buildFormPromptCompletionTestDefinition(opContext, formUrn, prompt));
     testInfo.setCreated(createSystemAuditStamp());
     testInfo.setLastUpdated(createSystemAuditStamp());
     testInfo.setSource(new TestSource().setType(TestSourceType.FORMS).setSourceEntity(formUrn));
@@ -96,12 +119,14 @@ public class FormTestBuilder {
   }
 
   public static TestDefinition buildFormPromptCompletionTestDefinition(
-      @Nonnull final Urn formUrn, @Nonnull final FormPrompt prompt) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final FormPrompt prompt) {
     TestDefinition definition = new TestDefinition();
     definition.setType(TestDefinitionType.JSON);
     try {
       // Convert completion test to JSON.
-      definition.setJson(buildFormPromptCompletionTestDefinitionJson(formUrn, prompt));
+      definition.setJson(buildFormPromptCompletionTestDefinitionJson(opContext, formUrn, prompt));
     } catch (Exception e) {
       throw new RuntimeException(
           "Failed to generate JSON test definition for form prompt completion!", e);
@@ -186,7 +211,10 @@ public class FormTestBuilder {
   }
 
   public static String buildFormPromptCompletionTestDefinitionJson(
-      @Nonnull final Urn formUrn, @Nonnull final FormPrompt prompt) throws JsonProcessingException {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn formUrn,
+      @Nonnull final FormPrompt prompt)
+      throws JsonProcessingException {
 
     ObjectNode definitionNode = OBJECT_MAPPER.createObjectNode();
 
@@ -235,6 +263,10 @@ public class FormTestBuilder {
         ArrayNode ownershipAndArray = rulesNode.putArray("and");
         ownershipAndArray.addAll(buildOwnershipTestConditions(prompt));
         break;
+      case DOCUMENTATION:
+        ArrayNode documentationOrArray = rulesNode.putArray("or");
+        documentationOrArray.addAll(buildDocumentationTestConditions(opContext));
+        break;
       default:
         throw new IllegalArgumentException(
             String.format(
@@ -276,6 +308,39 @@ public class FormTestBuilder {
     propertyNode.put("property", "ownership.owners.owner");
     propertyNode.put("operator", "exists");
     return ImmutableList.of(propertyNode);
+  }
+
+  /*
+   * The description field has different aspect paths depending on the entity type.
+   * Get the different paths and ensure that one of them exists for this test to pass.
+   */
+  private static List<JsonNode> buildDocumentationTestConditions(
+      @Nonnull final OperationContext opContext) {
+    // (1) build a Filter for description
+    Filter documentationFilter = new Filter();
+    ConjunctiveCriterionArray conjunctiveCriteria = new ConjunctiveCriterionArray();
+    conjunctiveCriteria.add(buildFieldExistsConjunctiveCriterion("description"));
+    conjunctiveCriteria.add(buildFieldExistsConjunctiveCriterion("editedDescription"));
+    conjunctiveCriteria.add(buildFieldExistsConjunctiveCriterion("definition"));
+    documentationFilter.setOr(conjunctiveCriteria);
+
+    // (2) get searchable fields to aspect paths map
+    final @Nullable Map<String, List<PathSpec>> searchableFieldsToPathSpecs =
+        EntitySpecUtils.getSearchableFieldsToPathSpecs(
+            opContext.getEntityRegistry(), new ArrayList<>(FORM_ASSIGNMENT_ENTITY_TYPES));
+
+    // (3) convert the filter to test conditions
+    return MetadataTestServiceUtils.convertFilterToTestConditions(
+        documentationFilter, searchableFieldsToPathSpecs);
+  }
+
+  private static ConjunctiveCriterion buildFieldExistsConjunctiveCriterion(
+      @Nonnull String fieldName) {
+    CriterionArray descriptionCriterionArray = new CriterionArray();
+    Criterion descriptionCriterion =
+        new Criterion().setField(fieldName).setCondition(Condition.EXISTS).setValue("");
+    descriptionCriterionArray.add(descriptionCriterion);
+    return new ConjunctiveCriterion().setAnd(descriptionCriterionArray);
   }
 
   public static Urn createTestUrnForFormPrompt(
