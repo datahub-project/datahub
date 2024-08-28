@@ -35,13 +35,13 @@ const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
 `;
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     accessToken: string;
     expiresInText: string;
 };
 
-export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText }: Props) => {
+export const AccessTokenModal = ({ open, onClose, accessToken, expiresInText }: Props) => {
     const baseUrl = window.location.origin;
     const accessTokenCurl = `curl -X POST '${baseUrl}/api/graphql' \\
 --header 'Authorization: Bearer ${accessToken}' \\
@@ -56,7 +56,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     <b> New Personal Access Token</b>
                 </Typography.Text>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
             footer={
                 <>

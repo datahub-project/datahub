@@ -15,7 +15,7 @@ type PrivilegeOptionType = {
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     privileges: PrivilegeOptionType[] | undefined;
 };
@@ -60,7 +60,7 @@ const Privileges = styled.div`
 /**
  * Component used for displaying the details about an existing Policy.
  */
-export default function PolicyDetailsModal({ policy, visible, onClose, privileges }: Props) {
+export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const isActive = policy?.state === PolicyState.Active;
@@ -121,7 +121,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
     };
 
     return (
-        <Modal title={policy?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
+        <Modal title={policy?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
                     <Typography.Title level={5}>Type</Typography.Title>
