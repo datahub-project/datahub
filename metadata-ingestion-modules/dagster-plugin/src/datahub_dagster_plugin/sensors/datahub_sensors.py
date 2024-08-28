@@ -736,7 +736,11 @@ class DatahubSensors:
                 platform_instance=self.config.platform_instance,
             )
 
-            if dataflow.name and dataflow.name.startswith("__ASSET_JOB") and dataflow.name.split("__"):
+            if (
+                dataflow.name
+                and dataflow.name.startswith("__ASSET_JOB")
+                and dataflow.name.split("__")
+            ):
                 dagster_generator.generate_browse_path(
                     dataflow.name.split("__"), urn=dataflow.urn, graph=self.graph
                 )
@@ -783,7 +787,11 @@ class DatahubSensors:
                     input_datasets=dataset_inputs,
                 )
 
-                if datajob.name and datajob.name.startswith("__ASSET_JOB") and datajob.name.split("__"):
+                if (
+                    datajob.name
+                    and datajob.name.startswith("__ASSET_JOB")
+                    and datajob.name.split("__")
+                ):
                     dagster_generator.generate_browse_path(
                         datajob.name.split("__"), urn=datajob.urn, graph=self.graph
                     )
