@@ -83,7 +83,7 @@ dev_requirements = {
     "pytest-cov>=2.8.1",
     "tox",
     "tox-uv",
-    "deepdiff",
+    "deepdiff==7.0.1",
     "tenacity",
     "build",
     "twine",
