@@ -8,6 +8,7 @@ import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { AssertionGroup } from '../../acrylTypes';
 import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '../AcrylAssertionListConstants';
+import { buildAssertionUrlSearch } from '../utils';
 
 const StyledSummaryLabel = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
@@ -34,14 +35,9 @@ const SummarySection = styled.div`
 type SummarySectionProps = {
     group: AssertionGroup;
     visibleStatus: string[];
-    buildAssertionUrlSearch: ({ type, status }: { type?: AssertionType; status?: AssertionResultType }) => string;
 };
 
-export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({
-    group,
-    visibleStatus,
-    buildAssertionUrlSearch,
-}) => {
+export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ group, visibleStatus }) => {
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 

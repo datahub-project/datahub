@@ -693,3 +693,24 @@ export const getFilteredTransformedAssertionData = (
     const assertionRawData = assignFilteredAssertionToGroup(filteredAssertions);
     return assertionRawData;
 };
+
+/** Build the Assertion Redirect Search Param URL to help add with location pathname for redirection */
+export const buildAssertionUrlSearch = ({
+    type,
+    status,
+}: {
+    type?: AssertionType;
+    status?: AssertionResultType;
+}): string => {
+    const search = window.location.search;
+    const params = new URLSearchParams(search);
+
+    if (type) {
+        params.set('assertion_type', type);
+    }
+    if (status) {
+        params.set('assertion_status', status);
+    }
+
+    return params.toString() ? `?${params.toString()}` : '';
+};
