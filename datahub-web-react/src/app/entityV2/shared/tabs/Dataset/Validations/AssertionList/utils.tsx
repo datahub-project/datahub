@@ -708,12 +708,12 @@ export const getFilteredTransformedAssertionData = (
 
     // Apply search filter if searchText is provided
     let filteredAssertions = assertionsWithDescription;
-    const { searchText, type, status, others } = filter.filterCriteria;
+    const { searchText } = filter.filterCriteria;
 
     if (searchText) {
         fuse.setCollection(assertionsWithDescription || []);
         const result = fuse.search(searchText);
-        filteredAssertions = result.map((result) => result.item as AssertionWithDescription);
+        filteredAssertions = result.map((match) => match.item as AssertionWithDescription);
     }
 
     // Apply type, status, and other filters
@@ -722,4 +722,25 @@ export const getFilteredTransformedAssertionData = (
     // Transform filtered assertions
     const assertionRawData = assignFilteredAssertionToGroup(filteredAssertions);
     return assertionRawData;
+};
+
+/** Build the Assertion Redirect Search Param URL to help add with location pathname for redirection */
+export const buildAssertionUrlSearch = ({
+    type,
+    status,
+}: {
+    type?: AssertionType;
+    status?: AssertionResultType;
+}): string => {
+    const { search } = window.location;
+    const params = new URLSearchParams(search);
+
+    if (type) {
+        params.set('assertion_type', type);
+    }
+    if (status) {
+        params.set('assertion_status', status);
+    }
+
+    return params.toString() ? `?${params.toString()}` : '';
 };

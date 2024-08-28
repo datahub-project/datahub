@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.post.PostService;
 import com.linkedin.common.Media;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -49,7 +50,9 @@ public class CreatePostResolver implements DataFetcher<CompletableFuture<Boolean
     String targetUrn;
     if (targetSubresource != null) {
       targetUrn =
-          SchemaFieldUtils.generateSchemaFieldUrn(targetResource, targetSubresource).toString();
+          SchemaFieldUtils.generateSchemaFieldUrn(
+                  UrnUtils.getUrn(targetResource), targetSubresource)
+              .toString();
     } else {
       targetUrn = targetResource;
     }

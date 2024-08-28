@@ -17,9 +17,7 @@ import logging
 import time
 from typing import Any, Iterable, List, Optional
 
-import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
-from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -45,6 +43,7 @@ from datahub_integrations.actions.oss.stats_util import (
     ActionStageReport,
     EventProcessingStats,
 )
+from datahub_integrations.propagation.propagation_utils import get_unique_siblings
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +122,7 @@ class DocPropagationConfig(ConfigModel):
         description="Indicates whether column documentation propagation is enabled or not.",
         example=True,
     )
+    # TODO: Currently this flag does nothing. Datasets are NOT supported for docs propagation.
     datasets_enabled: bool = Field(
         False,
         description="Indicates whether dataset level documentation propagation is enabled or not.",
@@ -197,6 +197,7 @@ class DocPropagationAction(Action):
         previous_aspect_value: Optional[GenericAspectClass],
     ) -> Optional[DocPropagationDirective]:
         if aspect_name == "documentation":
+            logger.debug("Processing 'documentation' MCL")
             if self.config.columns_enabled:
                 current_docs = DocumentationClass.from_obj(
                     json.loads(aspect_value.value)
@@ -260,6 +261,7 @@ class DocPropagationAction(Action):
                 and self.config is not None
                 and self.config.enabled
             ):
+                logger.debug("Processing EntityChangeEvent Documentation Change")
                 if self.config.columns_enabled and (
                     semantic_event.entityType == "schemaField"
                 ):
@@ -345,6 +347,7 @@ class DocPropagationAction(Action):
                                 doc_association.attribution = attribution
                             elif operation == "REMOVE":
                                 # TODO : should we remove the documentation or just set it to empty string?
+                                # Ideally we remove it
                                 doc_association.documentation = ""
                                 doc_association.attribution = attribution
             if not action_sourced:
@@ -379,12 +382,6 @@ class DocPropagationAction(Action):
                 aspect=documentations,
             )
         return None
-        # graph.graph.emit(
-        #     MetadataChangeProposalWrapper(
-        #         entityUrn=schema_field_urn,
-        #         aspect=documentations,
-        #     )
-        # )
 
     def refresh_config(self, event: Optional[EventEnvelope] = None) -> None:
         """
@@ -409,6 +406,9 @@ class DocPropagationAction(Action):
                         )
                         if doc_propagation_config:
                             if doc_propagation_config.get("enabled") is not None:
+                                logger.info(
+                                    "Overwriting the asset-level config using globalSettings"
+                                )
                                 self.config.enabled = doc_propagation_config.get(
                                     "enabled"
                                 )
@@ -416,6 +416,9 @@ class DocPropagationAction(Action):
                                 doc_propagation_config.get("columnPropagationEnabled")
                                 is not None
                             ):
+                                logger.info(
+                                    "Overwriting the column-level config using globalSettings"
+                                )
                                 self.config.columns_enabled = (
                                     doc_propagation_config.get(
                                         "columnPropagationEnabled"
@@ -436,44 +439,10 @@ class DocPropagationAction(Action):
                 return True
         return False
 
-    def _get_unique_siblings(
-        self, graph: AcrylDataHubGraph, entity_urn: str
-    ) -> list[str]:
-        """
-        Get unique siblings for the entity urn
-        """
-
-        if entity_urn.startswith("urn:li:schemaField"):
-            parent_urn = Urn.create_from_string(entity_urn).get_entity_id()[0]
-            entity_field_path = Urn.create_from_string(entity_urn).get_entity_id()[1]
-            # Does my parent have siblings?
-            siblings: Optional[models.SiblingsClass] = graph.graph.get_aspect(
-                parent_urn,
-                models.SiblingsClass,
-            )
-            if siblings and siblings.siblings:
-                other_siblings = [x for x in siblings.siblings if x != parent_urn]
-                if len(other_siblings) == 1:
-                    target_sibling = other_siblings[0]
-                    # now we need to find the schema field in this sibling that
-                    # matches us
-                    if target_sibling.startswith("urn:li:dataset"):
-                        schema_fields = graph.graph.get_aspect(
-                            target_sibling, models.SchemaMetadataClass
-                        )
-                        if schema_fields:
-                            for schema_field in schema_fields.fields:
-                                if schema_field.fieldPath == entity_field_path:
-                                    # we found the sibling field
-                                    schema_field_urn = make_schema_field_urn(
-                                        target_sibling, schema_field.fieldPath
-                                    )
-                                    return [schema_field_urn]
-        return []
-
     def get_upstreams(self, graph: AcrylDataHubGraph, entity_urn: str) -> List[str]:
         """
-        Will remove this once OSS PR is merged in
+        Fetch the upstreams for an dataset or schema field.
+        Note that this DOES NOT support DataJob upstreams, or any intermediate nodes.
         """
         import urllib.parse
 
@@ -490,27 +459,36 @@ class DocPropagationAction(Action):
         self,
         graph: AcrylDataHubGraph,
         downstream_field: str,
-        upstream_field: Optional[str] = None,
+        upstream_field: str,
     ) -> bool:
         """
         Check if there is only one upstream field for the downstream field. If upstream_field is provided,
         it will also check if the upstream field is the only upstream
+
+        TODO: We should cache upstreams because we make this fetch upstreams call FOR EVERY downstream that must be propagated to.
         """
         upstreams = (
             graph.get_upstreams(entity_urn=downstream_field)
             if hasattr(graph, "get_upstreams")
             else self.get_upstreams(graph, downstream_field)
         )
-        upstream_fields = [x for x in upstreams if x.startswith("urn:li:schemaField")]
+        # Use a set here in case there are duplicated upstream edges
+        upstream_fields = list(
+            {x for x in upstreams if x.startswith("urn:li:schemaField")}
+        )
+
+        # If we found no upstreams for the downstream field, simply skip.
         if not upstream_fields:
-            logger.debug("No upstream fields found")
+            logger.warning(
+                f"No upstream fields found. Skipping propagation to downstream {downstream_field}"
+            )
             return False
-        if not upstream_field:
-            return len(upstream_fields) == 1
+
+        # Convert the set to a list to access by index
         result = len(upstream_fields) == 1 and upstream_fields[0] == upstream_field
         if not result:
-            logger.debug(
-                f"Failed check on solo upstream: Upstream fields: {upstream_fields} and upstream field: {upstream_field}"
+            logger.warning(
+                f"Failed check for single upstream: Found upstream fields {upstream_fields} for downstream {downstream_field}. Expecting only one upstream field: {upstream_field}"
             )
         return result
 
@@ -526,22 +504,26 @@ class DocPropagationAction(Action):
         """
         self.refresh_config(event)
         if not self.config.enabled or not self.config.columns_enabled:
-            logger.warning("Doc propagation is disabled. skipping event")
+            logger.warning("Doc propagation is disabled. Skipping event")
             return
         else:
             logger.debug(f"Processing event {event}")
+
         if not self._stats.event_processing_stats:
             self._stats.event_processing_stats = EventProcessingStats()
+
         stats = self._stats.event_processing_stats
         stats.start(event)
+
         try:
             doc_propagation_directive = self.should_propagate(event)
             logger.debug(
                 f"Doc propagation directive for {event}: {doc_propagation_directive}"
             )
+
             if (
                 doc_propagation_directive is not None
-                and doc_propagation_directive.propagate is True
+                and doc_propagation_directive.propagate
             ):
                 self._stats.increment_assets_processed(doc_propagation_directive.entity)
                 context = SourceDetails(
@@ -551,80 +533,108 @@ class DocPropagationAction(Action):
                     actor=doc_propagation_directive.actor,
                 )
                 assert self.ctx.graph
-                # find downstream lineage
-                downstreams = self.ctx.graph.get_downstreams(
-                    entity_urn=doc_propagation_directive.entity
-                )
-                logger.debug(
-                    f"Downstreams: {downstreams} for {doc_propagation_directive.entity}"
-                )
-                entity_urn = doc_propagation_directive.entity
-                if entity_urn.startswith("urn:li:schemaField"):
-                    downstream_fields = [
-                        x for x in downstreams if x.startswith("urn:li:schemaField")
-                    ]
-                    for field in downstream_fields:
-                        schema_field_urn = Urn.create_from_string(field)
-                        parent_urn = schema_field_urn.get_entity_id()[0]
-                        field_path = schema_field_urn.get_entity_id()[1]
-                        logger.debug(
-                            f"Will {doc_propagation_directive.operation} documentation {doc_propagation_directive.doc_string} for {field_path} on {parent_urn}"
-                        )
-                        if parent_urn.startswith("urn:li:dataset"):
-                            if self._only_one_upstream_field(
-                                self.ctx.graph,
-                                downstream_field=str(schema_field_urn),
-                                upstream_field=entity_urn,
-                            ):
-                                # we only propagate if there is only one
-                                # upstream field and that's us
-                                maybe_mcp = self.modify_docs_on_columns(
-                                    self.ctx.graph,
-                                    doc_propagation_directive.operation,
-                                    field,
-                                    parent_urn,
-                                    field_doc=doc_propagation_directive.doc_string,
-                                    context=context,
-                                )
-                                if maybe_mcp:
-                                    yield maybe_mcp
-                        elif parent_urn.startswith("urn:li:chart"):
-                            logger.warning(
-                                "Charts are expected to have fields that are dataset schema fields. Skipping for now..."
-                            )
-                        self._stats.increment_assets_impacted(field)
-                elif entity_urn.startswith("urn:li:dataset"):
-                    logger.debug(
-                        "Dataset level documentation propagation is not implemented yet."
-                    )
 
-                # Also handle siblings
-                siblings = self._get_unique_siblings(self.ctx.graph, entity_urn)
-                if siblings:
-                    for sibling in siblings:
-                        if entity_urn.startswith(
-                            "urn:li:schemaField"
-                        ) and sibling.startswith("urn:li:schemaField"):
-                            parent_urn = Urn.create_from_string(
-                                sibling
-                            ).get_entity_id()[0]
-                            self._stats.increment_assets_impacted(sibling)
-                            maybe_mcp = self.modify_docs_on_columns(
-                                self.ctx.graph,
-                                doc_propagation_directive.operation,
-                                schema_field_urn=sibling,
-                                dataset_urn=parent_urn,
-                                field_doc=doc_propagation_directive.doc_string,
-                                context=context,
-                            )
-                            if maybe_mcp:
-                                yield maybe_mcp
-            else:
-                logger.debug("No doc propagation directive")
+                # TODO: Put each mechanism behind a config flag to be controlled externally.
+
+                # Step 1: Propagate to downstream entities
+                yield from self._propagate_to_downstreams(
+                    doc_propagation_directive, context
+                )
+
+                # Step 2: Propagate to sibling entities
+                yield from self._propagate_to_siblings(
+                    doc_propagation_directive, context
+                )
+
             stats.end(event, success=True)
+
         except Exception:
             logger.error(f"Error processing event {event}:", exc_info=True)
             stats.end(event, success=False)
+
+    def _propagate_to_downstreams(
+        self, doc_propagation_directive: DocPropagationDirective, context: SourceDetails
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """
+        Propagate the documentation to downstream entities.
+        """
+        downstreams = self.ctx.graph.get_downstreams(
+            entity_urn=doc_propagation_directive.entity
+        )
+        logger.debug(
+            f"Downstreams: {downstreams} for {doc_propagation_directive.entity}"
+        )
+        entity_urn = doc_propagation_directive.entity
+
+        if entity_urn.startswith("urn:li:schemaField"):
+            downstream_fields = {
+                x for x in downstreams if x.startswith("urn:li:schemaField")
+            }
+            for field in downstream_fields:
+                schema_field_urn = Urn.create_from_string(field)
+                parent_urn = schema_field_urn.get_entity_id()[0]
+                field_path = schema_field_urn.get_entity_id()[1]
+
+                logger.debug(
+                    f"Will {doc_propagation_directive.operation} documentation {doc_propagation_directive.doc_string} for {field_path} on {parent_urn}"
+                )
+
+                if parent_urn.startswith("urn:li:dataset"):
+                    if self._only_one_upstream_field(
+                        self.ctx.graph,
+                        downstream_field=str(schema_field_urn),
+                        upstream_field=entity_urn,
+                    ):
+                        maybe_mcp = self.modify_docs_on_columns(
+                            self.ctx.graph,
+                            doc_propagation_directive.operation,
+                            field,
+                            parent_urn,
+                            field_doc=doc_propagation_directive.doc_string,
+                            context=context,
+                        )
+                        if maybe_mcp:
+                            yield maybe_mcp
+
+                elif parent_urn.startswith("urn:li:chart"):
+                    logger.warning(
+                        "Charts are expected to have fields that are dataset schema fields. Skipping for now..."
+                    )
+
+                self._stats.increment_assets_impacted(field)
+
+        elif entity_urn.startswith("urn:li:dataset"):
+            logger.debug(
+                "Dataset level documentation propagation is not yet supported!"
+            )
+
+    def _propagate_to_siblings(
+        self, doc_propagation_directive: DocPropagationDirective, context: SourceDetails
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """
+        Propagate the documentation to sibling entities.
+        """
+        entity_urn = doc_propagation_directive.entity
+        siblings = get_unique_siblings(self.ctx.graph, entity_urn)
+
+        logger.debug(f"Siblings: {siblings} for {doc_propagation_directive.entity}")
+
+        for sibling in siblings:
+            if entity_urn.startswith("urn:li:schemaField") and sibling.startswith(
+                "urn:li:schemaField"
+            ):
+                parent_urn = Urn.create_from_string(sibling).get_entity_id()[0]
+                self._stats.increment_assets_impacted(sibling)
+                maybe_mcp = self.modify_docs_on_columns(
+                    self.ctx.graph,
+                    doc_propagation_directive.operation,
+                    schema_field_urn=sibling,
+                    dataset_urn=parent_urn,
+                    field_doc=doc_propagation_directive.doc_string,
+                    context=context,
+                )
+                if maybe_mcp:
+                    yield maybe_mcp
 
     def close(self) -> None:
         return super().close()

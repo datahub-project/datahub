@@ -2,12 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Tooltip } from 'antd';
 import styled from 'styled-components';
-import { AssertionResultType, AssertionType, EntityType } from '@src/types.generated';
+import { EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { AssertionGroup } from '../../acrylTypes';
 import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '../AcrylAssertionListConstants';
+import { buildAssertionUrlSearch } from '../utils';
 
 const StyledSummaryLabel = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
@@ -34,14 +35,9 @@ const SummarySection = styled.div`
 type SummarySectionProps = {
     group: AssertionGroup;
     visibleStatus: string[];
-    buildAssertionUrlSearch: ({ type, status }: { type?: AssertionType; status?: AssertionResultType }) => string;
 };
 
-export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({
-    group,
-    visibleStatus,
-    buildAssertionUrlSearch,
-}) => {
+export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ group, visibleStatus }) => {
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 

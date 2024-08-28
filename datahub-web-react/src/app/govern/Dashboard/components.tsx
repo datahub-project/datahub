@@ -4,15 +4,18 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 export const Layout = styled.div`
-    flex: 1;
+    overflow: hidden;
+    margin: 0 12px 12px 0;
+    border-radius: 8px;
     display: flex;
+    flex: 1;
     flex-direction: column;
     background-color: #fff;
 `;
 
 export const Header = styled.div`
     display: flex;
-    height: 85px;
+    min-height: 85px;
     align-items: center;
     justify-content: space-between;
     padding: 0 1rem;
@@ -165,6 +168,11 @@ export const Body = styled.div`
     flex-direction: column;
     background-color: #f8f9fa;
     padding: 1rem;
+`;
+
+export const TabBody = styled.div`
+    overflow: auto;
+    height: calc(100% - 70px);
 `;
 
 export const ChartGroup = styled.div`

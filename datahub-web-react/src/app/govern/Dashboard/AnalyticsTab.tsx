@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Tabs, Tooltip } from 'antd';
-import { json2csv } from 'json-2-csv';
-import dayjs from 'dayjs';
 import DownloadForOfflineOutlinedIcon from '@mui/icons-material/DownloadForOfflineOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
-import { SeriesSelect } from './SeriesSelect';
-import { Assignees, Domains, Forms, Stats, OverallProgress, Questions } from './charts';
-import { IntegrationServiceOffline } from './charts/AuxViews';
-import { ByFormSelector } from './ByFormSelector';
+import { Tabs, Tooltip } from 'antd';
+import dayjs from 'dayjs';
+import { json2csv } from 'json-2-csv';
+import React, { useEffect, useState } from 'react';
+import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
+import { useAppConfig } from '../../useAppConfig';
+import { useIsThemeV2 } from '../../useIsThemeV2';
 import { ByAssigneeSelector } from './ByAssigneeSelector';
 import { ByDomainSelector } from './ByDomainSelector';
-import { mergeRowAndHeaderData, freshnessColor } from './utils';
+import { ByFormSelector } from './ByFormSelector';
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
-import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
-import { TabsContainer, Body, BodyHeader, Filters, DataFreshness } from './components';
-import { useIsThemeV2 } from '../../useIsThemeV2';
-import { useAppConfig } from '../../useAppConfig';
+import { SeriesSelect } from './SeriesSelect';
+import { Assignees, Domains, Forms, OverallProgress, Questions, Stats } from './charts';
+import { IntegrationServiceOffline } from './charts/AuxViews';
+import { Body, BodyHeader, DataFreshness, Filters, TabBody, TabsContainer } from './components';
+import { freshnessColor, mergeRowAndHeaderData } from './utils';
 
 interface Tab {
     key: string;
@@ -135,33 +135,38 @@ const AnalyticsTab = () => {
                             </span>
                         </DataFreshness>
                     </TabsContainer>
-
-                    <Body>
-                        {showLoadingState && 'Loading...'}
-                        {!showLoadingState && (
-                            <>
-                                <BodyHeader>
-                                    <div>
-                                        {thisTab?.key === 'byForm' && !thisTab?.disabled && <ByFormSelector />}
-                                        {thisTab?.key === 'byAssignee' && !thisTab?.disabled && <ByAssigneeSelector />}
-                                        {thisTab?.key === 'byDomain' && !thisTab?.disabled && <ByDomainSelector />}
-                                    </div>
-                                    <Filters>
-                                        <SeriesSelect />
-                                        <Tooltip title="Download Results" placement="bottom" showArrow={false}>
-                                            <DownloadForOfflineOutlinedIcon
-                                                style={{ cursor: 'pointer' }}
-                                                onClick={handleDownloadCSV}
-                                            />
-                                        </Tooltip>
-                                    </Filters>
-                                </BodyHeader>
-                                {!thisTab?.disabled
-                                    ? charts.map((chart) => <React.Fragment key={chart.props}>{chart}</React.Fragment>)
-                                    : 'No data for this tab during this timeframe.'}
-                            </>
-                        )}
-                    </Body>
+                    <TabBody>
+                        <Body>
+                            {showLoadingState && 'Loading...'}
+                            {!showLoadingState && (
+                                <>
+                                    <BodyHeader>
+                                        <div>
+                                            {thisTab?.key === 'byForm' && !thisTab?.disabled && <ByFormSelector />}
+                                            {thisTab?.key === 'byAssignee' && !thisTab?.disabled && (
+                                                <ByAssigneeSelector />
+                                            )}
+                                            {thisTab?.key === 'byDomain' && !thisTab?.disabled && <ByDomainSelector />}
+                                        </div>
+                                        <Filters>
+                                            <SeriesSelect />
+                                            <Tooltip title="Download Results" placement="bottom" showArrow={false}>
+                                                <DownloadForOfflineOutlinedIcon
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={handleDownloadCSV}
+                                                />
+                                            </Tooltip>
+                                        </Filters>
+                                    </BodyHeader>
+                                    {!thisTab?.disabled
+                                        ? charts.map((chart) => (
+                                              <React.Fragment key={chart.props}>{chart}</React.Fragment>
+                                          ))
+                                        : 'No data for this tab during this timeframe.'}
+                                </>
+                            )}
+                        </Body>
+                    </TabBody>
                 </>
             )}
         </>

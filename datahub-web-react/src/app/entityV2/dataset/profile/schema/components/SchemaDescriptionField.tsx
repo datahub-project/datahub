@@ -16,7 +16,7 @@ import analytics, { EventType, EntityActionType } from '../../../../../analytics
 import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
 import { REDESIGN_COLORS } from '../../../../shared/constants';
 import { StringMapEntry } from '../../../../../../types.generated';
-import PropagationDetails from '../../../../../sharedV2/propagation/PropagationDetails';
+import DocumentationPropagationDetails from '../../../../../sharedV2/propagation/DocumentationPropagationDetails';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -263,7 +263,7 @@ export default function DescriptionField({
                         shouldWrap
                     > */}
                         <DescriptionWrapper>
-                            {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
+                            {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
                             {isInferred && <InferenceDetailsIndicator />}
                             &nbsp;
                             {description}

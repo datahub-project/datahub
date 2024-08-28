@@ -178,10 +178,12 @@ export const GroupsSection = styled.div`
 `;
 
 export const TagsSection = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    display: flex;
+    align-items: start;
+    justify-content: start;
+    flex-wrap: wrap;
     margin-top: 0.5rem;
+    align-self: start;
 `;
 
 export const NoDataFound = styled.span`
@@ -383,7 +385,7 @@ export const WhiteEditOutlinedIconStyle = styled(EditOutlinedIcon)`
 `;
 
 export const ShowMoreButton = styled.div`
-    margin-top: 12px;
+    margin-top: 8px;
     padding: 0px;
     color: ${ANTD_GRAY[7]};
     text-align: left;

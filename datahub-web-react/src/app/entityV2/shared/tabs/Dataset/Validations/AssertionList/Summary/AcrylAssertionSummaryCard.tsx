@@ -1,8 +1,8 @@
 import React from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import { RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { AssertionResultType, AssertionType, EntityType } from '@src/types.generated';
+import { AssertionType, EntityType } from '@src/types.generated';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
@@ -12,6 +12,8 @@ import { AcrylAssertionProgressBar, AssertionProgressSummary } from '../AcrylAss
 import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '../AcrylAssertionListConstants';
 import { AcrylAssertionSummarySection } from './AcrylAssertionSummarySection';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '../../shared/constant';
+import { ASSERTION_SUMMARY_CARD_STATUSES } from '../constant';
+import { buildAssertionUrlSearch } from '../utils';
 
 const StyledCard = styled.div`
     display: flex;
@@ -102,36 +104,13 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
-    const { search } = useLocation();
     const name = getAssertionGroupName(group.name);
     const icon = ASSERTION_TYPE_TO_ICON_MAP[group.type];
 
     const visibleStatuses: string[] = ['passing', 'failing', 'erroring'].filter((status) => group.summary?.[status]);
 
-    /** Build the Assertion Redirect Search Param URL to help add with location pathname for redirection */
-    const buildAssertionUrlSearch = ({
-        type,
-        status,
-    }: {
-        type?: AssertionType;
-        status?: AssertionResultType;
-    }): string => {
-        const params = new URLSearchParams(search);
-
-        if (type) {
-            params.set('assertion_type', type);
-        }
-        if (status) {
-            params.set('assertion_status', status);
-        }
-
-        return params.toString() ? `?${params.toString()}` : '';
-    };
-
-    const getHeaderTitle = () => {
-        const status = ['failing', 'passing', 'erroring'].find((key) => group.summary[key]);
-        return status ? ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[status].headerComponent : null;
-    };
+    const status = ASSERTION_SUMMARY_CARD_STATUSES.find((key) => group.summary[key]);
+    const headerTitle = status ? ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[status].headerComponent : null;
 
     const handleCardClick = (type: AssertionType, event: React.MouseEvent) => {
         event.stopPropagation(); // Prevent parent click handlers from being triggered
@@ -145,7 +124,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
     return (
         <StyledCard onClick={(event) => handleCardClick(group.type, event)}>
             {/* **********************Render Summary Card header **************************** */}
-            <div>{getHeaderTitle()}</div>
+            <div>{headerTitle}</div>
 
             {/* **********************Render Icon and Type of Assertion **************************** */}
             <AssertionDetailsContainer>
@@ -159,11 +138,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
             <StyledCardChartSection>
                 <ChartSectionContainer>
                     {/* **********************Render Assertion Summary Card Summary Section**************************** */}
-                    <AcrylAssertionSummarySection
-                        group={group}
-                        visibleStatus={visibleStatuses}
-                        buildAssertionUrlSearch={buildAssertionUrlSearch}
-                    />
+                    <AcrylAssertionSummarySection group={group} visibleStatus={visibleStatuses} />
                     <ViewAllWrapper>
                         <ViewAllText>View All</ViewAllText>
                         <RightOutlined style={{ height: 12, width: 12 }} />

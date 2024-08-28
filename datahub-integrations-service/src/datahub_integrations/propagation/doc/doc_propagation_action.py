@@ -53,6 +53,32 @@ ECE_EVENT_TYPE = "EntityChangeEvent_v1"
 
 
 class DocPropagationAction(ExtendedAction[str]):  # type: ignore
+    """
+    This action is responsible for propagating documentation between DataHub entities.
+    It extends the open source Docs Propagation Action.
+
+    Known Limitations & Risks:
+
+        - Asset-level Propagation is fully unsupported - Only Entity Type supported is Schema Fields
+        - Deletion / Cleanup of Propagated Documentation is not yet supported.
+        - [Important!] This action contains read-modify-write patterns on aspects. This MUST be migrated to PATCH soon, as this
+          can cause conflicting overwrites on the same URN. This is relevant because we are writing the DOWNSTREAM aspect
+          so Kafka partitioning does not help us here.
+        - Bootstrap & rollback can both be very expensive operations (with conflicting write) and can potentially overload the system. There is no max number of entities limited for either operation.
+
+    Opportunities to Extend:
+
+        - Support configuration of propagation mechanisms: Lineage, Siblings, Children (Containers)
+        - Support for more entity types - Datasets, Containers, Dashboards, Charts, Data Jobs, ML Models
+        - Support filtering the "source" entities for propagation
+            - By Platform: Only propagate from Snowflake
+            - By Asset Type or Sub Type: Only propagate from Views, etc.
+            - By Container: Only propagate in the "prod" DB
+            - By Domain: Only propagate for the Marketing Domain
+            - By Tag: Only propagate for a specific tag
+
+            This will require richer hydration support, but can lead to a vastly more usable experience.
+    """
 
     ACTION_STALE_THRESHOLD_MILLIS = 300000  # 5 minutes
 

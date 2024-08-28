@@ -23,6 +23,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -102,7 +103,7 @@ public class RestoreFromParquetStep implements UpgradeStep {
       String backupReaderName = System.getenv("BACKUP_READER");
       if (backupReaderName == null || !_backupReaders.containsKey(backupReaderName)) {
         context.report().addLine("BACKUP_READER is not set or is not valid: " + backupReaderName);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
 
       Class<? extends BackupReader<ParquetReaderWrapper>> clazz =
@@ -161,7 +162,7 @@ public class RestoreFromParquetStep implements UpgradeStep {
                   + _entityCounts.entrySet().stream()
                       .map(entry -> entry.getKey() + "->" + entry.getValue().get())
                       .collect(Collectors.joining("\n\t")));
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

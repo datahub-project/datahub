@@ -1,6 +1,7 @@
 import React from 'react';
 import styled, { keyframes } from 'styled-components';
 import { Sparkle } from 'phosphor-react';
+import analytics, { EventType, InferDocsClickEvent } from '../../../../analytics';
 
 const GradientAnimation = keyframes`
     0% {
@@ -97,11 +98,23 @@ type Props = {
     title?: string;
     onClick: () => void;
     style?: React.CSSProperties;
+    // For analytics
+    surface?: InferDocsClickEvent['surface'];
 };
 
-export default function InferDocsButton({ title = 'Generate with AI', onClick, style }: Props) {
+export default function InferDocsButton({ title = 'Generate with AI', onClick, surface, style }: Props) {
+    const onClickInternal = () => {
+        if (surface) {
+            analytics.event({
+                type: EventType.InferDocsClickEvent,
+                surface,
+            });
+        }
+        onClick();
+    };
+
     return (
-        <GenerateButton style={style} type="button" onClick={onClick}>
+        <GenerateButton style={style} type="button" onClick={onClickInternal}>
             <ButtonContent>
                 <AiSparkle />
                 <span>{title}</span>

@@ -2,6 +2,7 @@ package com.linkedin.metadata.boot.kafka;
 
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.DUHE_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY;
+import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.MCP_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_PREFIX;
 import static io.datahubproject.openapi.schema.registry.Constants.FIXED_SCHEMA_VERSION;
@@ -27,9 +28,12 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
 
   private static final Map<String, AvroSchema> AVRO_SCHEMA_MAP =
       Map.of(
-          DUHE_SCHEMA_REGISTRY_TOPIC_KEY, new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA),
+          DUHE_SCHEMA_REGISTRY_TOPIC_KEY,
+          new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA),
           MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY,
-              new AvroSchema(EventUtils.RENAMED_MCL_AVRO_SCHEMA));
+          new AvroSchema(EventUtils.RENAMED_MCL_AVRO_SCHEMA),
+          MCP_SCHEMA_REGISTRY_TOPIC_KEY,
+          new AvroSchema(EventUtils.RENAMED_MCP_AVRO_SCHEMA));
 
   private Map<String, Pair<AvroSchema, Integer>> topicNameToAvroSchemaMap;
 

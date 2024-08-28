@@ -114,7 +114,8 @@ public enum DataHubUsageEventType {
   SHOW_HIDE_LINEAGE_COLUMNS_EVENT("ShowHideLineageColumnsEvent"),
   SEARCH_LINEAGE_COLUMNS_EVENT("SearchLineageColumnsEvent"),
   FILTER_LINEAGE_COLUMNS_EVENT("FilterLineageColumnsEvent"),
-  DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent");
+  DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent"),
+  INFER_DOCS_CLICK_EVENT("InferDocsClickEvent");
 
   private final String type;
 

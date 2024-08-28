@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { message, Modal, Button, Form, Select, Tag } from 'antd';
+import { message, Modal, Button, Select, Tag } from 'antd';
+import { getModalDomContainer } from '@src/utils/focus';
 import styled from 'styled-components';
 import { useAddGroupMembersMutation } from '../../../graphql/group.generated';
 import { CorpUser, Entity, EntityType } from '../../../types.generated';
@@ -15,11 +16,7 @@ type Props = {
     onSubmit: () => void;
 };
 
-const SelectInput = styled(Select)`
-    > .ant-select-selector {
-        height: 36px;
-    }
-`;
+const SelectInput = styled(Select)``;
 
 const StyleTag = styled(Tag)`
     padding: 0px 7px 0px 0px;
@@ -150,36 +147,34 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
-            <Form component={false}>
-                <Form.Item>
-                    <SelectInput
-                        data-testid="search-for-users-input"
-                        labelInValue
-                        autoFocus
-                        defaultOpen
-                        mode="multiple"
-                        ref={inputEl}
-                        placeholder="Search for users..."
-                        showSearch
-                        filterOption={false}
-                        defaultActiveFirstOption={false}
-                        onSelect={(actorUrn: any) => onSelectMember(actorUrn)}
-                        onDeselect={(actorUrn: any) => onDeselectMember(actorUrn)}
-                        onSearch={(value: string) => {
-                            // eslint-disable-next-line react/prop-types
-                            handleUserSearch(value.trim());
-                            // eslint-disable-next-line react/prop-types
-                            setInputValue(value.trim());
-                        }}
-                        tagRender={tagRender}
-                        onBlur={handleBlur}
-                        value={selectedMembers}
-                    >
-                        {groupSearchOptions}
-                    </SelectInput>
-                </Form.Item>
-            </Form>
+            <SelectInput
+                data-testid="search-for-users-input"
+                labelInValue
+                autoFocus
+                defaultOpen
+                mode="multiple"
+                ref={inputEl}
+                placeholder="Search for users..."
+                showSearch
+                filterOption={false}
+                defaultActiveFirstOption={false}
+                onSelect={(actorUrn: any) => onSelectMember(actorUrn)}
+                onDeselect={(actorUrn: any) => onDeselectMember(actorUrn)}
+                onSearch={(value: string) => {
+                    // eslint-disable-next-line react/prop-types
+                    handleUserSearch(value.trim());
+                    // eslint-disable-next-line react/prop-types
+                    setInputValue(value.trim());
+                }}
+                tagRender={tagRender}
+                onBlur={handleBlur}
+                value={selectedMembers}
+                style={{ width: '100%' }}
+            >
+                {groupSearchOptions}
+            </SelectInput>
         </Modal>
     );
 };

@@ -14,7 +14,6 @@ import com.linkedin.common.InputFields;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataset.FineGrainedLineage;
@@ -30,7 +29,6 @@ import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
-import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -41,11 +39,10 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -327,17 +324,6 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
   }
 
-  private Urn generateSchemaFieldUrn(
-      @Nonnull final String resourceUrn, @Nonnull final String fieldPath) {
-    // we rely on schemaField fieldPaths to be encoded since we do that with fineGrainedLineage on
-    // the ingestion side
-    final String encodedFieldPath =
-        fieldPath.replaceAll("\\(", "%28").replaceAll("\\)", "%29").replaceAll(",", "%2C");
-    final SchemaFieldKey key =
-        new SchemaFieldKey().setParent(UrnUtils.getUrn(resourceUrn)).setFieldPath(encodedFieldPath);
-    return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.SCHEMA_FIELD_ENTITY_NAME);
-  }
-
   // TODO: remove this method once we implement sourceOverride and update inputFields aspect
   private void updateInputFieldEdgesAndRelationships(
       @Nonnull final Urn urn,
@@ -350,7 +336,7 @@ public class UpdateIndicesService implements SearchIndicesService {
             && field.hasSchemaField()
             && field.getSchemaField().hasFieldPath()) {
           final Urn sourceFieldUrn =
-              generateSchemaFieldUrn(urn.toString(), field.getSchemaField().getFieldPath());
+              SchemaFieldUtils.generateSchemaFieldUrn(urn, field.getSchemaField().getFieldPath());
           // TODO: add edges uniformly across aspects
           edgesToAdd.add(
               new Edge(
@@ -554,11 +540,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       return;
     }
 
-    Optional<String> docId = SearchUtils.getDocId(urn);
-
-    if (!docId.isPresent()) {
-      return;
-    }
+    final String docId = _entityIndexBuilders.getIndexConvention().getEntityDocumentId(urn);
 
     if (_searchDiffMode
         && (systemMetadata == null
@@ -590,7 +572,7 @@ public class UpdateIndicesService implements SearchIndicesService {
                 searchDocument.get(), previousSearchDocument.orElse(null))
             .toString();
 
-    _entitySearchService.upsertDocument(opContext, entityName, finalDocument, docId.get());
+    _entitySearchService.upsertDocument(opContext, entityName, finalDocument, docId);
   }
 
   /** Process snapshot and update time-series index */

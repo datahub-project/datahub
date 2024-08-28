@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.policy.DataHubPolicyInfo;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -90,7 +91,7 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
 
       BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
 
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

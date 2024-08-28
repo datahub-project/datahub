@@ -1,19 +1,10 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
 import { Typography } from 'antd';
 import { EntityType, Ownership } from '../../../types.generated';
 import { ExpandedOwner } from '../shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { EditOwnersModal } from '../shared/containers/profile/sidebar/Ownership/EditOwnersModal';
 import { ShowMoreSection } from '../shared/sidebarSection/ShowMoreSection';
-
-const SectionWrapper = styled.div`
-    display: flex;
-    align-items: start;
-    justify-content: start;
-    flex-wrap: wrap;
-    margin-top: 0.5rem;
-    align-self: start;
-`;
+import { TagsSection } from '../shared/SidebarStyledComponents';
 
 type Props = {
     ownership: Ownership;
@@ -38,14 +29,16 @@ export default function GroupOwnerSidebarSectionContent({
 
     return (
         <>
-            <SectionWrapper>
+            <TagsSection>
+                {ownersEmpty && (
+                    <Typography.Paragraph type="secondary">No group owners added yet.</Typography.Paragraph>
+                )}
                 {ownership &&
                     ownership?.owners?.map(
                         (owner, index) =>
                             index < entityCount && <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />,
                     )}
-            </SectionWrapper>
-            {ownersEmpty && <Typography.Paragraph type="secondary">No group owners added yet.</Typography.Paragraph>}
+            </TagsSection>
             {ownershipCount > entityCount && (
                 <ShowMoreSection
                     totalCount={ownershipCount}

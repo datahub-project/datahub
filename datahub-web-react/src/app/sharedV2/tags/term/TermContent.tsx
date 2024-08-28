@@ -5,12 +5,12 @@ import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 import CloseIcon from '@mui/icons-material/Close';
 import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
-import { GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
+import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { generateColorFromPalette } from '../../../glossaryV2/colorUtils';
-import PropagationInfo from '../PropagationInfo';
+import LabelPropagationDetails from '../../propagation/LabelPropagationDetails';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
@@ -190,7 +190,7 @@ export default function TermContent({
                 <StyledHighlight matchStyle={highlightMatchStyle} search={highlightText}>
                     {displayName}
                 </StyledHighlight>
-                <PropagationInfo context={context} />
+                <LabelPropagationDetails entityType={EntityType.GlossaryTerm} context={context} />
 
                 {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
             </StyledTerm>

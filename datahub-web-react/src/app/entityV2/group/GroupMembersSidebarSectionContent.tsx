@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { Typography } from 'antd';
 import { CorpUser, EntityRelationship } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { EmptyValue, TagsSection } from '../shared/SidebarStyledComponents';
+import { TagsSection } from '../shared/SidebarStyledComponents';
 import { ShowMoreSection } from '../shared/sidebarSection/ShowMoreSection';
 import { GroupMemberLink } from './GroupMemberLink';
 
@@ -16,13 +17,17 @@ export default function GroupMembersSidebarSectionContent({ relationships }: Pro
     const entityRegistry = useEntityRegistry();
     const relationshipsCount = relationships?.length || 0;
     return (
-        <TagsSection>
-            {relationships.length === 0 && <EmptyValue />}
-            {relationships.length > 0 &&
-                relationships.map((item, index) => {
-                    const user = item.entity as CorpUser;
-                    return index < entityCount && <GroupMemberLink user={user} entityRegistry={entityRegistry} />;
-                })}
+        <>
+            <TagsSection>
+                {relationships.length === 0 && (
+                    <Typography.Paragraph type="secondary">No members yet.</Typography.Paragraph>
+                )}
+                {relationships.length > 0 &&
+                    relationships.map((item, index) => {
+                        const user = item.entity as CorpUser;
+                        return index < entityCount && <GroupMemberLink user={user} entityRegistry={entityRegistry} />;
+                    })}
+            </TagsSection>
             {relationshipsCount > entityCount && (
                 <ShowMoreSection
                     totalCount={relationshipsCount}
@@ -31,6 +36,6 @@ export default function GroupMembersSidebarSectionContent({ relationships }: Pro
                     showMaxEntity={DEFAULT_MAX_ENTITIES_TO_SHOW}
                 />
             )}
-        </TagsSection>
+        </>
     );
 }

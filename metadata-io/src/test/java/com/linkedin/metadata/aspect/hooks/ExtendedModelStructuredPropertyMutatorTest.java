@@ -261,19 +261,19 @@ public class ExtendedModelStructuredPropertyMutatorTest {
         STRUCTURED_PROPERTIES_ASPECT_NAME);
     assertEquals(
         result.get(1).getMetadataChangeProposal().getEntityUrn(),
-        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN.toString(), "foo"));
+        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "foo"));
     assertEquals(
         result.get(2).getMetadataChangeProposal().getAspectName(),
         STRUCTURED_PROPERTIES_ASPECT_NAME);
     assertEquals(
         result.get(2).getMetadataChangeProposal().getEntityUrn(),
-        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN.toString(), "bar"));
+        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "bar"));
     assertEquals(
         result.get(3).getMetadataChangeProposal().getAspectName(),
         STRUCTURED_PROPERTIES_ASPECT_NAME);
     assertEquals(
         result.get(3).getMetadataChangeProposal().getEntityUrn(),
-        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN.toString(), "foobar"));
+        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "foobar"));
   }
 
   @Test

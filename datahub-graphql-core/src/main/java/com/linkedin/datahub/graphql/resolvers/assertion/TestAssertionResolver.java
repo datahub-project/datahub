@@ -32,7 +32,6 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
     final QueryContext context = environment.getContext();
     final TestAssertionInput input =
         ResolverUtils.bindArgument(environment.getArgument("input"), TestAssertionInput.class);
-
     final Urn asserteeUrn = UrnUtils.getUrn(AssertionUtils.getAsserteeUrnFromTestInput(input));
     final Urn connectionUrn = UrnUtils.getUrn(input.getConnectionUrn());
 

@@ -112,6 +112,7 @@ export default function UpdateDescriptionModal({
                             setDesc(updatedDesc + desc);
                             setEditorKey((key) => key + 1);
                         }}
+                        surface="schema-docs-editor"
                     />
                 )}
             </Form>

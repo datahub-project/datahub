@@ -1,13 +1,19 @@
 package com.linkedin.metadata.schemafields.sideeffects;
 
+import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ALIASES_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -23,13 +29,21 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.schema.SchemaField;
+import com.linkedin.metadata.timeline.data.ChangeCategory;
+import com.linkedin.metadata.timeline.data.ChangeEvent;
+import com.linkedin.metadata.timeline.data.ChangeOperation;
+import com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.schemafield.SchemaFieldAliases;
 import com.linkedin.util.Pair;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -47,9 +61,10 @@ import lombok.extern.slf4j.Slf4j;
 @Accessors(chain = true)
 public class SchemaFieldSideEffect extends MCPSideEffect {
   @Nonnull private AspectPluginConfig config;
+  @Nonnull private EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
 
   private static final Set<String> REQUIRED_ASPECTS =
-      Set.of(Constants.SCHEMA_METADATA_ASPECT_NAME, Constants.STATUS_ASPECT_NAME);
+      Set.of(SCHEMA_METADATA_ASPECT_NAME, STATUS_ASPECT_NAME);
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
@@ -81,6 +96,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
       Collection<MCLItem> mclItems,
       Map<Urn, Map<String, Aspect>> aspectData,
       @Nonnull RetrieverContext retrieverContext) {
+
     List<MCLItem> schemaMetadataDeletes =
         mclItems.stream()
             .filter(
@@ -89,6 +105,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                         && DATASET_ENTITY_NAME.equals(item.getUrn().getEntityType())
                         && SCHEMA_METADATA_ASPECT_NAME.equals(item.getAspectName()))
             .collect(Collectors.toList());
+
     Stream<MCPItem> schemaMetadataSchemaFieldMCPs =
         schemaMetadataDeletes.stream()
             .flatMap(
@@ -127,10 +144,11 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
     return Stream.concat(schemaMetadataSchemaFieldMCPs, statusSchemaFieldMCPs);
   }
 
-  private static Stream<MCPItem> processUpserts(
+  private Stream<ChangeMCP> processUpserts(
       Collection<MCLItem> mclItems,
       Map<Urn, Map<String, Aspect>> aspectData,
       @Nonnull RetrieverContext retrieverContext) {
+
     Map<Urn, Set<String>> batchMCPAspectNames =
         mclItems.stream()
             .filter(item -> item.getChangeType() != ChangeType.DELETE)
@@ -147,9 +165,12 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                         && DATASET_ENTITY_NAME.equals(changeMCP.getUrn().getEntityType())
                         && Constants.SCHEMA_METADATA_ASPECT_NAME.equals(changeMCP.getAspectName()))
             .flatMap(
+                // Build schemaField Keys and Aliases
                 item ->
-                    buildSchemaFieldKeyMCPs(
-                        item, aspectData, retrieverContext.getAspectRetriever()));
+                    optimizedKeyAspectMCPsConcat(
+                        buildSchemaFieldKeyMCPs(
+                            item, aspectData, retrieverContext.getAspectRetriever()),
+                        buildSchemaFieldAliasesMCPs(item, retrieverContext.getAspectRetriever())));
 
     Stream<ChangeMCP> statusSideEffects =
         mclItems.stream()
@@ -166,7 +187,21 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                 item ->
                     mirrorStatusAspect(item, aspectData, retrieverContext.getAspectRetriever()));
 
-    return Stream.concat(statusSideEffects, schemaFieldSideEffects);
+    Stream<ChangeMCP> removedFieldStatusSideEffects =
+        mclItems.stream()
+            .filter(
+                changeMCP ->
+                    changeMCP.getChangeType() != ChangeType.DELETE
+                        && DATASET_ENTITY_NAME.equals(changeMCP.getUrn().getEntityType())
+                        && SCHEMA_METADATA_ASPECT_NAME.equals(changeMCP.getAspectName())
+                        && changeMCP.getPreviousRecordTemplate() != null)
+            .flatMap(
+                item ->
+                    buildRemovedSchemaFieldStatusAspect(
+                        item, retrieverContext.getAspectRetriever()));
+
+    return optimizedKeyAspectMCPsConcat(
+        Stream.concat(schemaFieldSideEffects, statusSideEffects), removedFieldStatusSideEffects);
   }
 
   /**
@@ -189,36 +224,115 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
             .map(aspect -> new SchemaMetadata(aspect.data()))
             .orElse(null);
 
-    return buildSchemaFieldStatusMCPs(parentDatasetStatusItem, schemaMetadata, aspectRetriever);
+    if (schemaMetadata != null) {
+      return schemaMetadata.getFields().stream()
+          .map(
+              schemaField -> {
+                Boolean removed =
+                    parentDatasetStatusItem.getRecordTemplate() != null
+                        ? parentDatasetStatusItem.getAspect(Status.class).isRemoved()
+                        : null;
+                return buildSchemaFieldStatusMCPs(
+                    SchemaFieldUtils.generateSchemaFieldUrn(
+                        parentDatasetStatusItem.getUrn(), schemaField),
+                    removed,
+                    parentDatasetStatusItem.getAuditStamp(),
+                    parentDatasetStatusItem.getSystemMetadata(),
+                    aspectRetriever);
+              });
+    }
+
+    return Stream.empty();
   }
 
   /**
    * Build a schema field status MCP based on the input status from the dataset
    *
-   * @param parentDatasetStatusItem dataset's status aspect
-   * @param parentDatasetSchemaMetadata dataset's schema metadata
+   * @param schemaFieldUrn schema fields's urn
+   * @param removed removed status
+   * @param datasetAuditStamp origin audit stamp
+   * @param datasetSystemMetadata origin system metadata
    * @param aspectRetriever aspect retriever
    * @return stream of status aspects for schema fields
    */
-  public static Stream<ChangeMCP> buildSchemaFieldStatusMCPs(
-      @Nonnull BatchItem parentDatasetStatusItem,
-      @Nullable SchemaMetadata parentDatasetSchemaMetadata,
+  public static ChangeMCP buildSchemaFieldStatusMCPs(
+      Urn schemaFieldUrn,
+      @Nullable Boolean removed,
+      AuditStamp datasetAuditStamp,
+      SystemMetadata datasetSystemMetadata,
       @Nonnull AspectRetriever aspectRetriever) {
-    if (parentDatasetSchemaMetadata == null) {
-      return Stream.empty();
-    } else {
-      return parentDatasetSchemaMetadata.getFields().stream()
-          .map(
-              schemaField ->
-                  ChangeItemImpl.builder()
-                      .urn(getSchemaFieldUrn(parentDatasetStatusItem.getUrn(), schemaField))
-                      .changeType(ChangeType.UPSERT)
-                      .aspectName(parentDatasetStatusItem.getAspectName())
-                      .recordTemplate(parentDatasetStatusItem.getRecordTemplate())
-                      .auditStamp(parentDatasetStatusItem.getAuditStamp())
-                      .systemMetadata(parentDatasetStatusItem.getSystemMetadata())
-                      .build(aspectRetriever));
+    return ChangeItemImpl.builder()
+        .urn(schemaFieldUrn)
+        .changeType(ChangeType.UPSERT)
+        .aspectName(STATUS_ASPECT_NAME)
+        .recordTemplate(new Status().setRemoved(removed != null ? removed : false))
+        .auditStamp(datasetAuditStamp)
+        .systemMetadata(datasetSystemMetadata)
+        .build(aspectRetriever);
+  }
+
+  private Stream<ChangeMCP> buildRemovedSchemaFieldStatusAspect(
+      MCLItem parentDatasetSchemaMetadataItem, @Nonnull AspectRetriever aspectRetriever) {
+
+    List<ChangeEvent> changeEvents =
+        ChangeEventGeneratorUtils.generateChangeEvents(
+            entityChangeEventGeneratorRegistry,
+            parentDatasetSchemaMetadataItem.getUrn(),
+            parentDatasetSchemaMetadataItem.getEntitySpec().getName(),
+            parentDatasetSchemaMetadataItem.getAspectName(),
+            new com.linkedin.metadata.timeline.eventgenerator.Aspect<>(
+                parentDatasetSchemaMetadataItem.getPreviousAspect(SchemaMetadata.class),
+                parentDatasetSchemaMetadataItem.getPreviousSystemMetadata()),
+            new com.linkedin.metadata.timeline.eventgenerator.Aspect<>(
+                parentDatasetSchemaMetadataItem.getAspect(SchemaMetadata.class),
+                parentDatasetSchemaMetadataItem.getSystemMetadata()),
+            parentDatasetSchemaMetadataItem.getAuditStamp());
+
+    return changeEvents.stream()
+        .flatMap(
+            changeEvent ->
+                createRemovedStatusItem(
+                    changeEvent, parentDatasetSchemaMetadataItem, aspectRetriever)
+                    .stream());
+  }
+
+  private static Optional<ChangeMCP> createRemovedStatusItem(
+      @Nonnull final ChangeEvent changeEvent,
+      @Nonnull final MCLItem parentDatasetSchemaMetadataItem,
+      @Nonnull AspectRetriever aspectRetriever) {
+
+    if (changeEvent.getCategory().equals(ChangeCategory.TECHNICAL_SCHEMA)) {
+      if (log.isDebugEnabled()) {
+        // Protect against expensive toString() call
+        String parameterString = "";
+        if (changeEvent.getParameters() != null) {
+          parameterString =
+              changeEvent.getParameters().entrySet().stream()
+                  .map(entry -> entry.getKey() + ":" + entry.getValue())
+                  .collect(Collectors.joining(","));
+        }
+        log.debug(
+            "Technical Schema Event: Entity: {}\nOperation: {}\nModifier: {}\nAuditStamp: {}\nParameters:{}\nCategory:{} ",
+            changeEvent.getEntityUrn(),
+            changeEvent.getOperation(),
+            changeEvent.getModifier(),
+            changeEvent.getAuditStamp(),
+            parameterString,
+            changeEvent.getCategory());
+      }
+      if (changeEvent.getOperation().equals(ChangeOperation.REMOVE)) {
+        String fieldPath = changeEvent.getModifier().toString();
+        log.debug("Creating status change proposal {} for field: {}", true, fieldPath);
+        return Optional.of(
+            buildSchemaFieldStatusMCPs(
+                UrnUtils.getUrn(fieldPath),
+                true,
+                parentDatasetSchemaMetadataItem.getAuditStamp(),
+                parentDatasetSchemaMetadataItem.getSystemMetadata(),
+                aspectRetriever));
+      }
     }
+    return Optional.empty();
   }
 
   /**
@@ -229,7 +343,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
    * @return side effect schema field aspects
    */
   private static Stream<ChangeMCP> buildSchemaFieldKeyMCPs(
-      BatchItem parentDatasetMetadataSchemaItem,
+      MCLItem parentDatasetMetadataSchemaItem,
       Map<Urn, Map<String, Aspect>> aspectData,
       @Nonnull AspectRetriever aspectRetriever) {
 
@@ -265,7 +379,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
       statusSideEffects = Stream.empty();
     }
 
-    return Stream.concat(schemaFieldKeys, statusSideEffects);
+    return optimizedKeyAspectMCPsConcat(schemaFieldKeys, statusSideEffects);
   }
 
   /**
@@ -276,16 +390,32 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
    * @return stream of schema field MCPs for its key aspect
    */
   private static Stream<ChangeMCP> buildSchemaFieldKeyMCPs(
-      @Nonnull BatchItem parentDatasetMetadataSchemaItem,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull MCLItem parentDatasetMetadataSchemaItem, @Nonnull AspectRetriever aspectRetriever) {
 
+    SystemMetadata systemMetadata = parentDatasetMetadataSchemaItem.getSystemMetadata();
     SchemaMetadata schemaMetadata = parentDatasetMetadataSchemaItem.getAspect(SchemaMetadata.class);
+    SchemaMetadata previousSchemaMetadata =
+        parentDatasetMetadataSchemaItem.getPreviousRecordTemplate() != null
+            ? parentDatasetMetadataSchemaItem.getPreviousAspect(SchemaMetadata.class)
+            : null;
 
     return schemaMetadata.getFields().stream()
+        .filter(
+            schemaField ->
+                ChangeType.RESTATE.equals(parentDatasetMetadataSchemaItem.getChangeType())
+                    || previousSchemaMetadata == null
+                    // avoid processing already existing fields
+                    || !previousSchemaMetadata.getFields().contains(schemaField)
+                    // system update pass through
+                    || (systemMetadata.getProperties() != null
+                        && SYSTEM_UPDATE_SOURCE.equals(
+                            systemMetadata.getProperties().get(APP_SOURCE))))
         .map(
             schemaField ->
                 ChangeItemImpl.builder()
-                    .urn(getSchemaFieldUrn(parentDatasetMetadataSchemaItem.getUrn(), schemaField))
+                    .urn(
+                        SchemaFieldUtils.generateSchemaFieldUrn(
+                            parentDatasetMetadataSchemaItem.getUrn(), schemaField))
                     .changeType(ChangeType.UPSERT)
                     .aspectName(SCHEMA_FIELD_KEY_ASPECT)
                     .recordTemplate(
@@ -295,6 +425,65 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                     .auditStamp(parentDatasetMetadataSchemaItem.getAuditStamp())
                     .systemMetadata(parentDatasetMetadataSchemaItem.getSystemMetadata())
                     .build(aspectRetriever));
+  }
+
+  /**
+   * Given a dataset's metadata schema item, generate schema field alias aspects
+   *
+   * @param parentDatasetMetadataSchemaItem dataset's metadata schema MCP
+   * @param aspectRetriever retriever
+   * @return stream of schema field aliases for its key aspect
+   */
+  private static Stream<ChangeMCP> buildSchemaFieldAliasesMCPs(
+      @Nonnull MCLItem parentDatasetMetadataSchemaItem, @Nonnull AspectRetriever aspectRetriever) {
+
+    SystemMetadata systemMetadata = parentDatasetMetadataSchemaItem.getSystemMetadata();
+    SchemaMetadata schemaMetadata = parentDatasetMetadataSchemaItem.getAspect(SchemaMetadata.class);
+    SchemaMetadata previousSchemaMetadata =
+        parentDatasetMetadataSchemaItem.getPreviousRecordTemplate() != null
+            ? parentDatasetMetadataSchemaItem.getPreviousAspect(SchemaMetadata.class)
+            : null;
+
+    return schemaMetadata.getFields().stream()
+        .filter(
+            schemaField ->
+                ChangeType.RESTATE.equals(parentDatasetMetadataSchemaItem.getChangeType())
+                    || previousSchemaMetadata == null
+                    || !previousSchemaMetadata.getFields().equals(schemaMetadata.getFields())
+                    // system update pass through
+                    || (systemMetadata.getProperties() != null
+                        && SYSTEM_UPDATE_SOURCE.equals(
+                            systemMetadata.getProperties().get(APP_SOURCE))))
+        .map(
+            schemaField -> {
+              Set<Urn> currentAliases =
+                  SchemaFieldUtils.getSchemaFieldAliases(
+                      parentDatasetMetadataSchemaItem.getUrn(), schemaMetadata, schemaField);
+              Set<Urn> previousAliases =
+                  previousSchemaMetadata == null
+                      ? Set.of()
+                      : SchemaFieldUtils.getSchemaFieldAliases(
+                          parentDatasetMetadataSchemaItem.getUrn(),
+                          previousSchemaMetadata,
+                          schemaField);
+
+              if (!previousAliases.equals(currentAliases)) {
+                return ChangeItemImpl.builder()
+                    .urn(
+                        SchemaFieldUtils.generateSchemaFieldUrn(
+                            parentDatasetMetadataSchemaItem.getUrn(), schemaField))
+                    .changeType(ChangeType.UPSERT)
+                    .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
+                    .recordTemplate(
+                        new SchemaFieldAliases().setAliases(new UrnArray(currentAliases)))
+                    .auditStamp(parentDatasetMetadataSchemaItem.getAuditStamp())
+                    .systemMetadata(parentDatasetMetadataSchemaItem.getSystemMetadata())
+                    .build(aspectRetriever);
+              }
+
+              return (ChangeMCP) null;
+            })
+        .filter(Objects::nonNull);
   }
 
   /**
@@ -321,7 +510,9 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                     .map(
                         aspectSpec ->
                             DeleteItemImpl.builder()
-                                .urn(getSchemaFieldUrn(datasetUrn, schemaField))
+                                .urn(
+                                    SchemaFieldUtils.generateSchemaFieldUrn(
+                                        datasetUrn, schemaField))
                                 .aspectName(aspectSpec.getName())
                                 .auditStamp(parentDatasetSchemaMetadataDelete.getAuditStamp())
                                 .entitySpec(entityRegistry.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
@@ -342,7 +533,9 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
           .map(
               schemaField ->
                   DeleteItemImpl.builder()
-                      .urn(getSchemaFieldUrn(parentDatasetStatusDelete.getUrn(), schemaField))
+                      .urn(
+                          SchemaFieldUtils.generateSchemaFieldUrn(
+                              parentDatasetStatusDelete.getUrn(), schemaField))
                       .aspectName(STATUS_ASPECT_NAME)
                       .auditStamp(parentDatasetStatusDelete.getAuditStamp())
                       .entitySpec(entityRegistry.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
@@ -406,8 +599,24 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
     return aspectData;
   }
 
-  private static Urn getSchemaFieldUrn(Urn parentUrn, SchemaField field) {
-    return Urn.createFromTuple(
-        SCHEMA_FIELD_ENTITY_NAME, parentUrn.toString(), field.getFieldPath());
+  /**
+   * We can reduce the number of MCPs sent via kafka by 1/2 to 1/3 because key aspects are
+   * automatically created if they don't exist. The only case where there needs to be an explicit
+   * key aspect is when there are no other aspects being generated.
+   *
+   * @param keyMCPs stream of MCPs which *may* contain key aspects
+   * @param otherMCPs stream of MCPs which are not expected to contain key aspects
+   * @return reduced stream of MCPs
+   */
+  private static <T extends MCPItem> Stream<T> optimizedKeyAspectMCPsConcat(
+      Stream<T> keyMCPs, Stream<T> otherMCPs) {
+    List<T> other = otherMCPs.collect(Collectors.toList());
+    Set<Urn> otherUrns = other.stream().map(T::getUrn).collect(Collectors.toSet());
+    return Stream.concat(
+        keyMCPs.filter(
+            item ->
+                !item.getAspectName().equals(item.getEntitySpec().getKeyAspectName())
+                    || !otherUrns.contains(item.getUrn())),
+        other.stream());
   }
 }

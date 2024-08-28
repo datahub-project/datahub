@@ -38,6 +38,7 @@ import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -108,7 +109,7 @@ public class PropagateTermsStep implements UpgradeStep {
             .report()
             .addLine(
                 "Missing required arguments. This job requires at least one instance of SOURCE_FILTER argument");
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
       Filter sourceFilter = buildFilter(sourceFiltersStr, systemOpContext.getAspectRetriever());
 
@@ -192,7 +193,7 @@ public class PropagateTermsStep implements UpgradeStep {
                   "Finished term propagation (Run ID: %s). Ingested %d aspects",
                   runId, numAspectsProduced));
 
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

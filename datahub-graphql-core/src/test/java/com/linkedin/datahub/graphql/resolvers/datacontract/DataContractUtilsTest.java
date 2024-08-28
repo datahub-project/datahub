@@ -12,6 +12,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
 import graphql.Assert;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -55,6 +56,11 @@ public class DataContractUtilsTest {
               public OperationContext getOperationContext() {
                 return TestOperationContexts.userContextNoSearchAuthorization(
                     getAuthorizer(), getAuthentication());
+              }
+
+              @Override
+              public DataHubAppConfiguration getDataHubAppConfig() {
+                return new DataHubAppConfiguration();
               }
             },
             testUrn);

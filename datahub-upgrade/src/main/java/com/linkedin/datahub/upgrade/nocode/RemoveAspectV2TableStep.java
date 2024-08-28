@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.util.function.Function;
 
@@ -26,7 +27,7 @@ public class RemoveAspectV2TableStep implements UpgradeStep {
     return (context) -> {
       context.report().addLine("Cleanup requested. Dropping metadata_aspect_v2");
       _server.execute(_server.sqlUpdate("DROP TABLE IF EXISTS metadata_aspect_v2"));
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 

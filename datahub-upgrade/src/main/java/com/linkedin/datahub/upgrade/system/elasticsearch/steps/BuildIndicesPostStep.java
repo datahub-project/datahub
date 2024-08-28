@@ -14,6 +14,7 @@ import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Map;
@@ -86,14 +87,14 @@ public class BuildIndicesPostStep implements UpgradeStep {
             log.error(
                 "Partial index settings update, some indices may still be blocking writes."
                     + " Please fix the error and rerun the BuildIndices upgrade job.");
-            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
         }
       } catch (Exception e) {
         log.error("BuildIndicesPostStep failed.", e);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 }

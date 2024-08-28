@@ -32,6 +32,6 @@ public class LineageSearchServiceFactory {
         graphService,
         cacheEnabled ? cacheManager.getCache(LINEAGE_SEARCH_SERVICE_CACHE_NAME) : null,
         cacheEnabled,
-        configurationProvider.getCache().getSearch().getLineage());
+        configurationProvider);
   }
 }

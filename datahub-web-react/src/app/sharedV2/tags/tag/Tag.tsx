@@ -10,7 +10,7 @@ import { HoverEntityTooltip } from '../../../recommendations/renderer/component/
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { TagProfileDrawer } from '../../../shared/tags/TagProfileDrawer';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
-import PropagationInfo from '../PropagationInfo';
+import LabelPropagationDetails from '../../propagation/LabelPropagationDetails';
 
 const TagLink = styled.span<{ $showOneAndCount?: boolean }>`
     display: inline-block;
@@ -134,7 +134,7 @@ export default function Tag({
                         >
                             {displayName}
                         </Highlight>
-                        <PropagationInfo context={context} />
+                        <LabelPropagationDetails entityType={EntityType.Tag} context={context} />
                     </StyledTag>
                 </TagLink>
             </HoverEntityTooltip>

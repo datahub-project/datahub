@@ -28,7 +28,7 @@ export function getFieldDescriptionDetails({
         ?.filter((documentation) => enableInferredDescriptions || !checkIsInferredDocumentation(documentation))
         .sort((doc1, doc2) => (doc2.attribution?.time || 0) - (doc1.attribution?.time || 0));
     const documentation = sortedDocumentations?.[0];
-    const isUsingDocumentationAspect = !editableFieldInfo?.description && !!documentation;
+    const isUsingDocumentationAspect = !editableFieldInfo?.description && !defaultDescription && !!documentation;
     const isPropagated =
         isUsingDocumentationAspect &&
         !!documentation?.attribution?.sourceDetail?.find(
@@ -37,7 +37,7 @@ export function getFieldDescriptionDetails({
     const isInferred = isUsingDocumentationAspect && checkIsInferredDocumentation(documentation);
 
     const displayedDescription =
-        editableFieldInfo?.description || documentation?.documentation || defaultDescription || '';
+        editableFieldInfo?.description || defaultDescription || documentation?.documentation || '';
 
     const sourceDetail = documentation?.attribution?.sourceDetail;
     const propagatedDescription = isPropagated ? documentation?.documentation : undefined;

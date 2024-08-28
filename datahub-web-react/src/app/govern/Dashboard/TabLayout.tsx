@@ -7,13 +7,13 @@ import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { useAppConfig } from '../../useAppConfig';
 import { useIsThemeV2 } from '../../useIsThemeV2';
 import AnalyticsTab from './AnalyticsTab';
-import FormsTab from './Forms/FormsTab';
 import { MissingPermissions } from './charts/AuxViews';
 import { Header, Layout } from './components';
+import FormsTab from './Forms/FormsTab';
 
 const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
-    height: 100%;
     flex: 1;
+    overflow: hidden;
 
     .ant-tabs-tab {
         padding: 10px 20px;
@@ -87,11 +87,24 @@ export const TabLayout = () => {
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
+        setCurrentTab(params.get('documentationTab') || currentTab);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.search]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
         params.set('documentationTab', currentTab);
+
+        if (currentTab === 'forms') {
+            params.delete('tab');
+            params.delete('filter');
+            params.delete('series');
+        }
 
         // Update the URL without reloading the page
         history.replace({ search: params.toString() });
-    }, [currentTab, history, location.search]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentTab, history]);
 
     const handleTabChange = (tab) => {
         setCurrentTab(tab);

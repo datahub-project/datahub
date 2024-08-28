@@ -3,11 +3,13 @@ package com.linkedin.datahub.upgrade.system.schemafield;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
@@ -18,8 +20,13 @@ import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.upgrade.DataHubUpgradeResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -49,6 +56,9 @@ import org.jetbrains.annotations.Nullable;
  */
 @Slf4j
 public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
+  private static final String LAST_URN_KEY = "lastUrn";
+  private static final List<String> REQUIRED_ASPECTS =
+      List.of(SCHEMA_METADATA_ASPECT_NAME, STATUS_ASPECT_NAME);
 
   private final OperationContext opContext;
   private final EntityService<?> entityService;
@@ -89,13 +99,21 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
    * variable SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA to determine whether to skip.
    */
   public boolean skip(UpgradeContext context) {
-    boolean envFlagRecommendsSkip =
-        Boolean.parseBoolean(System.getenv("SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA"));
-    if (envFlagRecommendsSkip) {
+    if (Boolean.parseBoolean(System.getenv("SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA"))) {
       log.info(
           "Environment variable SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA is set to true. Skipping.");
+      return true;
     }
-    return envFlagRecommendsSkip;
+
+    Optional<DataHubUpgradeResult> prevResult =
+        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
+
+    return prevResult
+        .filter(
+            result ->
+                DataHubUpgradeState.SUCCEEDED.equals(result.getState())
+                    || DataHubUpgradeState.ABORTED.equals(result.getState()))
+        .isPresent();
   }
 
   protected Urn getUpgradeIdUrn() {
@@ -106,12 +124,29 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     log.info("Starting GenerateSchemaFieldsFromSchemaMetadataStep");
     return (context) -> {
+      // Resume state
+      Optional<DataHubUpgradeResult> prevResult =
+          context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
+      String resumeUrn =
+          prevResult
+              .filter(
+                  result ->
+                      DataHubUpgradeState.IN_PROGRESS.equals(result.getState())
+                          && result.getResult() != null
+                          && result.getResult().containsKey(LAST_URN_KEY))
+              .map(result -> result.getResult().get(LAST_URN_KEY))
+              .orElse(null);
+      if (resumeUrn != null) {
+        log.info("{}: Resuming from URN: {}", getUpgradeIdUrn(), resumeUrn);
+      }
 
       // re-using for configuring the sql scan
       RestoreIndicesArgs args =
           new RestoreIndicesArgs()
-              .aspectNames(List.of(SCHEMA_METADATA_ASPECT_NAME, STATUS_ASPECT_NAME))
+              .aspectNames(REQUIRED_ASPECTS)
               .batchSize(batchSize)
+              .lastUrn(resumeUrn)
+              .urnBasedPagination(resumeUrn != null)
               .limit(limit);
 
       if (getUrnLike() != null) {
@@ -146,7 +181,8 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                                               .aspectSpec(systemAspect.getAspectSpec())
                                               .recordTemplate(systemAspect.getRecordTemplate())
                                               .auditStamp(systemAspect.getAuditStamp())
-                                              .systemMetadata(systemAspect.getSystemMetadata())
+                                              .systemMetadata(
+                                                  withAppSource(systemAspect.getSystemMetadata()))
                                               .build(
                                                   opContext
                                                       .getRetrieverContext()
@@ -157,6 +193,24 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
 
                   // re-ingest the aspects to trigger side effects
                   entityService.ingestAspects(opContext, aspectsBatch, true, false);
+
+                  // record progress
+                  Urn lastUrn =
+                      aspectsBatch.getItems().stream()
+                          .reduce((a, b) -> b)
+                          .map(ReadItem::getUrn)
+                          .orElse(null);
+                  if (lastUrn != null) {
+                    log.info("{}: Saving state. Last urn:{}", getUpgradeIdUrn(), lastUrn);
+                    context
+                        .upgrade()
+                        .setUpgradeResult(
+                            opContext,
+                            getUpgradeIdUrn(),
+                            entityService,
+                            DataHubUpgradeState.IN_PROGRESS,
+                            Map.of(LAST_URN_KEY, lastUrn.toString()));
+                  }
 
                   if (batchDelayMs > 0) {
                     log.info("Sleeping for {} ms", batchDelayMs);
@@ -172,7 +226,25 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
       BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
       context.report().addLine("State updated: " + getUpgradeIdUrn());
 
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
+  }
+
+  private static SystemMetadata withAppSource(@Nullable SystemMetadata systemMetadata) {
+    SystemMetadata withAppSourceSystemMetadata = null;
+    try {
+      withAppSourceSystemMetadata =
+          systemMetadata != null
+              ? new SystemMetadata(systemMetadata.copy().data())
+              : new SystemMetadata();
+    } catch (CloneNotSupportedException e) {
+      throw new RuntimeException(e);
+    }
+    StringMap properties = withAppSourceSystemMetadata.getProperties();
+    StringMap map = properties != null ? new StringMap(properties.data()) : new StringMap();
+    map.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+
+    withAppSourceSystemMetadata.setProperties(map);
+    return withAppSourceSystemMetadata;
   }
 }

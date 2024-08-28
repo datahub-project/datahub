@@ -65,6 +65,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                             showInferDocsButton && (
                                 <InferDocsButton
                                     style={{ height: 32, width: 128, marginTop: 8 }}
+                                    surface="entity-sidebar"
                                     onClick={() =>
                                         routeToTab({
                                             tabName: 'Documentation',

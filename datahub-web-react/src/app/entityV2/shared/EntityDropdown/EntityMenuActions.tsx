@@ -83,6 +83,7 @@ function EntityMenuActions(props: Props) {
                 </MenuItems>
             ) : (
                 <MenuItems>
+                    {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
                     <MoreOptionsContainer id={ENTITY_PROFILE_V2_SUBSCRIPTION_ID}>
                         <MoreOptionsMenuAction
                             menuItems={menuItems}
@@ -92,7 +93,6 @@ function EntityMenuActions(props: Props) {
                             refetch={refetch}
                         />
                     </MoreOptionsContainer>
-                    {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
                 </MenuItems>
             )}
         </>

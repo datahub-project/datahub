@@ -255,7 +255,7 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
     const isStopped = state === AutomationStatus.INACTIVE;
 
     // Sub Status States
-    const isRollbacking = status?.rollback?.statusCode === AutomationActionStatus.RUNNING;
+    // const isRollbacking = status?.rollback?.statusCode === AutomationActionStatus.RUNNING;
     const isBootstrapping = status?.bootstrap?.statusCode === AutomationActionStatus.RUNNING;
 
     return (
@@ -296,16 +296,17 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
                                     label: 'Initialize',
                                     tooltip: 'Backfill the automation for existing data assets. This may take a while!',
                                 },
-                                {
-                                    key: 'undo',
-                                    onClick: () => setShowUndoConfirmation(true),
-                                    disabled: isRunning || isRollbacking,
-                                    icon: 'Restore',
-                                    label: 'Rollback',
-                                    tooltip: `This will rollback all metadata changes made by this automation. ${
-                                        isRunning ? 'Stop the automation before rolling back.' : ''
-                                    }`,
-                                },
+                                // TODO: Rollback is currently disabled due to quality problems.
+                                // {
+                                //     key: 'undo',
+                                //     onClick: () => setShowUndoConfirmation(true),
+                                //     disabled: isRunning || isRollbacking,
+                                //     icon: 'Restore',
+                                //     label: 'Rollback',
+                                //     tooltip: `This will rollback all metadata changes made by this automation. ${
+                                //         isRunning ? 'Stop the automation before rolling back.' : ''
+                                //     }`,
+                                // },
                                 {
                                     key: 'edit',
                                     onClick: openEditModal,

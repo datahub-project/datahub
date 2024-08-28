@@ -47,6 +47,18 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible]);
 
+    const getErrorMessage = (errorData: any): string => {
+        if ((errorData?.networkError as any)?.statusCode === 503) {
+            return 'Oops! The assertion has exceeded the real-time results timeout (30s). Create the assertion to run it to completion!';
+        }
+
+        if (errorData?.graphQLErrors?.[0]?.extensions?.code === 400) {
+            return `This assertion can not be tested due to: ${errorData.message}`;
+        }
+
+        return 'Oops. An unknown error occurred while testing the assertion! Try again later.';
+    };
+
     return (
         <Modal
             title="Assertion Result"
@@ -69,13 +81,7 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
                     </Row>
                 </>
             )}
-            {error && (
-                <Typography.Paragraph>
-                    {(error?.networkError as any)?.statusCode === 503
-                        ? 'Oops! The assertion has exceeded the real-time results timeout (30s). Create the assertion to run it to completion!'
-                        : 'Oops. An unknown error occurred while testing the assertion! Try again later.'}
-                </Typography.Paragraph>
-            )}
+            {error && <Typography.Paragraph>{getErrorMessage(error)}</Typography.Paragraph>}
             {loading && <LoadingIcon spin />}
         </Modal>
     );

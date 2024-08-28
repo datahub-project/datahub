@@ -164,8 +164,7 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
   private Set<Urn> getSchemaFieldUrns(@Nonnull SchemaMetadata schemaMetadata, @Nonnull Urn urn) {
     return schemaMetadata.getFields().stream()
         .map(
-            schemaField ->
-                SchemaFieldUtils.generateSchemaFieldUrn(urn.toString(), schemaField.getFieldPath()))
+            schemaField -> SchemaFieldUtils.generateSchemaFieldUrn(urn, schemaField.getFieldPath()))
         .collect(Collectors.toSet());
   }
 

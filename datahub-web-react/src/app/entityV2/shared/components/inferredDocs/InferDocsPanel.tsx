@@ -2,6 +2,7 @@ import { Button, message, Skeleton, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Sparkle } from 'phosphor-react';
+import { InferDocsClickEvent } from '@src/app/analytics';
 import { ANTD_GRAY } from '../../constants';
 import { useInferDocumentationForItem, useIsDocumentationInferenceEnabled } from './utils';
 import { Editor } from '../../tabs/Documentation/components/editor/Editor';
@@ -79,6 +80,8 @@ type Props = {
     onInsertDescription: (desc: string) => void;
     inferOnMount?: boolean;
     forColumnPath?: string;
+    // For analytics tracking
+    surface?: InferDocsClickEvent['surface'];
 };
 
 export default function InferDocsPanel({
@@ -90,6 +93,7 @@ export default function InferDocsPanel({
     onInsertDescription,
     inferOnMount,
     forColumnPath,
+    surface,
 }: Props) {
     const [isPanelExpanded, setIsPanelExpanded] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -173,6 +177,6 @@ export default function InferDocsPanel({
             </InferencePanelFooter>
         </InferencePanelContainer>
     ) : (
-        <InferDocsButton title={buttonText} onClick={generateSuggestion} />
+        <InferDocsButton surface={surface} title={buttonText} onClick={generateSuggestion} />
     );
 }
