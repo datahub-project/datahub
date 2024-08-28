@@ -354,10 +354,10 @@ class DatahubSensors:
 
     def _is_valid_asset_materialization(self, log: EventLogEntry) -> bool:
         return (
-            log.dagster_event
+            log.dagster_event is not None
             and log.dagster_event.event_type == DagsterEventType.ASSET_MATERIALIZATION
-            and log.step_key
-            and log.asset_materialization
+            and log.step_key is not None
+            and log.asset_materialization is not None
         )
 
     def _get_asset_downstream_urn(
@@ -406,7 +406,10 @@ class DatahubSensors:
         downstreams = {asset_downstream_urn.urn()}
         upstreams: Set[str] = set()
 
-        if self.config.enable_asset_query_metadata_parsing:
+        if (
+            log.asset_materialization
+            and self.config.enable_asset_query_metadata_parsing
+        ):
             try:
                 query_metadata = log.asset_materialization.metadata.get("Query")
                 if isinstance(query_metadata, TextMetadataValue):
