@@ -1,4 +1,5 @@
 import React from 'react';
+import Fuse from 'fuse.js';
 import { decodeSchemaField } from '@src/app/lineage/utils/columnLineageUtils';
 import styled from 'styled-components';
 import { Typography } from 'antd';
@@ -9,6 +10,7 @@ import {
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
+    AssertionSourceType,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameters,
@@ -46,9 +48,18 @@ import {
 } from '../fieldDescriptionUtils';
 
 import { getFormattedParameterValue } from '../assertionUtils';
-import { AssertionWithMonitorDetails, createAssertionGroups } from '../acrylUtils';
+import { AssertionWithMonitorDetails, createAssertionGroups, getAssertionGroupName } from '../acrylUtils';
+import { isExternalAssertion } from '../assertion/profile/shared/isExternalAssertion';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
-import { AssertionStatusGroup, AssertionTable, AssertionListFilter, AssertionListTableRow } from './types';
+import {
+    AssertionStatusGroup,
+    AssertionTable,
+    AssertionListFilter,
+    AssertionListTableRow,
+    AssertionFilterOptions,
+    AssertionRecommendedFilter,
+    AssertionWithDescription,
+} from './types';
 import { createCronText, createFixedIntervalText, createSinceTheLastCheckText } from '../FreshnessAssertionDescription';
 
 /**
@@ -371,6 +382,28 @@ export const getPlainTextDescriptionFromAssertion = (
     return primaryLabel;
 };
 
+const ASSERTION_TYPE_NAME_MAP = {
+    VOLUME: 'Volume',
+    SQL: 'Sql',
+    FIELD: 'Field',
+    FRESHNESS: 'Freshness',
+    DATASET: 'Other',
+};
+
+const ASSERTION_STATUS_NAME_MAP = {
+    FAILURE: 'Failing',
+    SUCCESS: 'Passing',
+    ERROR: 'Error',
+};
+
+const STATUS_GROUP_NAME_MAP = { ...ASSERTION_TYPE_NAME_MAP, ...ASSERTION_STATUS_NAME_MAP };
+
+const RECOMMENDED_FILTER_NAME_MAP = {
+    [AssertionSourceType.External]: 'External',
+    [AssertionSourceType.Native]: 'Native',
+    [AssertionSourceType.Inferred]: 'Smart Assertions',
+};
+
 // Create Group's Summary to name and number of records for each group
 const getGroupNameBySummary = (record) => {
     const TextContainer = styled.div`
@@ -394,27 +427,17 @@ const getGroupNameBySummary = (record) => {
         }
     `;
 
-    const NAME_MAP = {
-        FAILURE: 'Failing',
-        SUCCESS: 'Passing',
-        ERROR: 'Error',
-        VOLUME: 'Volume',
-        SQL: 'Sql',
-        FIELD: 'Field',
-        FRESHNESS: 'Freshness',
-        DATASET: 'Other',
-    };
     const newSummary = record.summary;
     const list: string[] = [];
     Object.keys(newSummary).forEach((key) => {
         if (newSummary[key] > 0) {
-            list.push(`${newSummary[key]} ${NAME_MAP[key]}`);
+            list.push(`${newSummary[key]} ${STATUS_GROUP_NAME_MAP[key]}`);
         }
     });
 
     return (
         <TextContainer>
-            <Title strong>{NAME_MAP[record.name]}</Title>
+            <Title strong>{STATUS_GROUP_NAME_MAP[record.name]}</Title>
             <Message type="secondary">{list.join(', ')}</Message>
         </TextContainer>
     );
@@ -495,32 +518,105 @@ export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]
     return assertionRawData;
 };
 
-/** return fitlered transformed assertions */
-export const getFilteredTransformedAssertionData = (
-    assertions: AssertionWithMonitorDetails[],
-    filter: AssertionListFilter,
-): AssertionTable => {
-    const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] } };
-    const filteredAssertions = assertions.filter((assertion: AssertionWithMonitorDetails) => {
-        const { searchText, type, status } = filter.filterCriteria;
-        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
-        const monitor = assertion.monitor?.relationships?.[0]?.entity;
-        const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
+// Build the Filter Options as per the type & status
+const buildFilterOptions = (key: string, value: Record<string, number>, filterOptions: AssertionFilterOptions) => {
+    Object.entries(value).forEach(([name, count]) => {
+        const displayName = key === 'type' ? getAssertionGroupName(name) : STATUS_GROUP_NAME_MAP[name] || name;
+        const filterItem = { name, category: key, count, displayName } as AssertionRecommendedFilter;
 
-        if (searchText && description.indexOf(searchText) === -1) {
-            return false;
-        }
-        if (type.length > 0 && !type.includes(assertion.info?.type || '')) {
-            return false;
-        }
-        if (status.length > 0 && !status.includes(mostRecentRun?.status || '')) {
-            return false;
-        }
-        return true;
+        filterOptions.recommendedFilters.push(filterItem);
+        filterOptions.filterGroupOptions[key].push(filterItem);
     });
-    const assertionsTableData = mapAssertionData(filteredAssertions);
+};
 
-    assertionRawData.assertions = assertionsTableData;
+/** Create filter option list as per the assertion data present 
+ * for example
+ * status :[
+ * 
+  {
+    name: "SUCCESS",
+    category: 'status',
+    count:10,
+    displayName: "Passing"
+  }
+ * ]
+ * 
+ * 
+*/
+const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorDetails[]) => {
+    const filterOptions: AssertionFilterOptions = {
+        filterGroupOptions: {
+            type: [],
+            status: [],
+            column: [],
+            tags: [],
+        },
+        recommendedFilters: [],
+    };
+
+    const filterGroupCounts = {
+        type: {} as Record<string, number>,
+        status: {} as Record<string, number>,
+        column: {} as Record<string, number>,
+        tags: {} as Record<string, number>,
+    };
+
+    const others: Record<string, number> = {};
+
+    assertions.forEach((assertion: AssertionWithMonitorDetails) => {
+        const type = assertion.info?.type || '';
+        filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
+
+        const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+        const resultType = mostRecentRun?.result?.type || '';
+        if (resultType) {
+            filterGroupCounts.status[resultType] = (filterGroupCounts.status[resultType] || 0) + 1;
+        }
+
+        const tags = assertion.tags?.tags || [];
+        tags.forEach((tag) => {
+            const tagName = tag.tag.properties?.name || '';
+            filterGroupCounts.tags[tagName] = (filterGroupCounts.tags[tagName] || 0) + 1;
+        });
+
+        switch (assertion.info?.source?.type) {
+            case AssertionSourceType.Inferred:
+                others[AssertionSourceType.Inferred] = (others[AssertionSourceType.Inferred] || 0) + 1;
+                break;
+            case AssertionSourceType.Native:
+                others[AssertionSourceType.Native] = (others[AssertionSourceType.Native] || 0) + 1;
+                break;
+            default:
+                if (isExternalAssertion(assertion)) {
+                    others[AssertionSourceType.External] = (others[AssertionSourceType.External] || 0) + 1;
+                }
+                break;
+        }
+    });
+
+    buildFilterOptions('type', filterGroupCounts.type, filterOptions);
+    buildFilterOptions('status', filterGroupCounts.status, filterOptions);
+
+    Object.entries(others).forEach(([name, count]) => {
+        filterOptions.recommendedFilters.push({
+            name,
+            category: 'others',
+            count,
+            displayName: RECOMMENDED_FILTER_NAME_MAP[name] || name,
+        });
+    });
+
+    return filterOptions;
+};
+
+// Assign Filtered Assertions to group
+const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescription[]): AssertionTable => {
+    const assertionRawData: AssertionTable = {
+        assertions: [],
+        groupBy: { type: [], status: [] },
+        filterOptions: {},
+    };
+    assertionRawData.assertions = mapAssertionData(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = assertionsByType;
     (assertionRawData.groupBy.type || []).forEach((item) => {
@@ -531,5 +627,90 @@ export const getFilteredTransformedAssertionData = (
         item.groupName = <AssertionGroupHeader group={item} />;
     });
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(filteredAssertions);
+    assertionRawData.filterOptions = extractFilterOptionListFromAssertions(filteredAssertions);
     return assertionRawData;
+};
+
+const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
+    const { type, status, others } = filter.filterCriteria;
+
+    // Apply type, status, and other filters
+    return assertions.filter((assertion: AssertionWithMonitorDetails) => {
+        const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
+
+        const matchesType = type.length === 0 || type.includes(assertion.info?.type as AssertionType);
+        const matchesStatus = status.length === 0 || status.includes(resultType);
+        const matchesOthers =
+            others.length === 0 ||
+            others.includes(assertion.info?.source?.type as AssertionSourceType) ||
+            (others.includes(AssertionSourceType.External) && isExternalAssertion(assertion));
+
+        return matchesType && matchesStatus && matchesOthers;
+    });
+};
+
+// Fuse.js setup for search functionality
+const fuse = new Fuse<AssertionWithDescription>([], {
+    keys: ['description'],
+    threshold: 0.4,
+});
+
+/** Return return filter assertion as per selected type status and other things
+ * it returns transformated into
+ * 1. group of assertions as per type , status
+ * 2. Transform data into {@link AssertionListTableRow }  data
+ * 2. Filter out assertions as per the search text
+ * 3. filter out assertions as per the selected type and status
+ */
+export const getFilteredTransformedAssertionData = (
+    assertions: AssertionWithMonitorDetails[],
+    filter: AssertionListFilter,
+): AssertionTable => {
+    // Add descriptions to assertions
+    const assertionsWithDescription = assertions.map((assertion) => {
+        const monitor = assertion.monitor?.relationships?.[0]?.entity;
+        const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
+        return {
+            ...assertion,
+            description,
+        };
+    });
+
+    // Apply search filter if searchText is provided
+    let filteredAssertions = assertionsWithDescription;
+    const { searchText } = filter.filterCriteria;
+
+    if (searchText) {
+        fuse.setCollection(assertionsWithDescription || []);
+        const result = fuse.search(searchText);
+        filteredAssertions = result.map((match) => match.item as AssertionWithDescription);
+    }
+
+    // Apply type, status, and other filters
+    filteredAssertions = getFilteredAssertions(filteredAssertions, filter);
+
+    // Transform filtered assertions
+    const assertionRawData = assignFilteredAssertionToGroup(filteredAssertions);
+    return assertionRawData;
+};
+
+/** Build the Assertion Redirect Search Param URL to help add with location pathname for redirection */
+export const buildAssertionUrlSearch = ({
+    type,
+    status,
+}: {
+    type?: AssertionType;
+    status?: AssertionResultType;
+}): string => {
+    const { search } = window.location;
+    const params = new URLSearchParams(search);
+
+    if (type) {
+        params.set('assertion_type', type);
+    }
+    if (status) {
+        params.set('assertion_status', status);
+    }
+
+    return params.toString() ? `?${params.toString()}` : '';
 };

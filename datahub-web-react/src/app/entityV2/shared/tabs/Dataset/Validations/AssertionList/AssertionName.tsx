@@ -41,6 +41,11 @@ const AssertionDescriptionContainer = styled.div`
     align-items: center;
 `;
 
+const StyledAssertionBadgeContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
 type Props = {
     record: AssertionListTableRow;
     groupBy: string;
@@ -118,23 +123,27 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                         <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
                     </Tooltip>
                 ) : null}
-                {/* ******** Smart assertion Popover ******** */}
-                {isSmartAssertion && (
-                    <InferredAssertionPopover>
-                        <InferredAssertionBadge />
-                    </InferredAssertionPopover>
-                )}
+                {(isSmartAssertion || isPartOfContract) && (
+                    <StyledAssertionBadgeContainer>
+                        {/* ******** Smart assertion Popover ******** */}
+                        {isSmartAssertion && (
+                            <InferredAssertionPopover>
+                                <InferredAssertionBadge />
+                            </InferredAssertionPopover>
+                        )}
+                        {/* ******** Data Contract Popover ******** */}
 
-                {/* ******** Data Contract Popover ******** */}
-                {(isPartOfContract && entityData?.urn && (
-                    <DataContractBadge
-                        link={`${entityRegistry.getEntityUrl(
-                            EntityType.Dataset,
-                            entityData.urn,
-                        )}/Quality/Data Contract`}
-                    />
-                )) ||
-                    undefined}
+                        {(isPartOfContract && entityData?.urn && (
+                            <DataContractBadge
+                                link={`${entityRegistry.getEntityUrl(
+                                    EntityType.Dataset,
+                                    entityData.urn,
+                                )}/Quality/Data Contract`}
+                            />
+                        )) ||
+                            undefined}
+                    </StyledAssertionBadgeContainer>
+                )}
             </AssertionDescriptionContainer>
         </StyledAssertionNameContainer>
     );

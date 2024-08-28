@@ -13,7 +13,10 @@ import { createCachedAssertionWithMonitor, updateDatasetAssertionsCache } from '
 import { AcrylAssertionsSummaryLoading } from '../AcrylAssertionsSummaryLoading';
 import { AssertionTable, AssertionListFilter } from './types';
 import { AssertionListTitleContainer } from './AssertionListTitleContainer';
+import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
 import { AcrylAssertionListTable } from './AcrylAssertionListTable';
+import { useSetFilterFromURLParams } from './hooks';
+import { DEFAULT_FILTERS } from './constant';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -29,17 +32,9 @@ export const AcrylAssertionList = () => {
         groupBy: { type: [], status: [] },
     });
     // TODO we need to create setter function to set the filter as per the filter component
-    const [filter] = useState<AssertionListFilter>({
-        sortBy: '',
-        groupBy: 'type',
-        filterCriteria: {
-            searchText: '',
-            status: [],
-            type: [],
-            tags: [],
-            columns: [],
-        },
-    });
+    const [filter, setFilters] = useState<AssertionListFilter>(DEFAULT_FILTERS);
+    useSetFilterFromURLParams(filter, setFilters);
+
     const [assertionMonitorData, setAssertionMonitorData] = useState<AssertionWithMonitorDetails[]>([]);
 
     const { data, refetch, client, loading } = useGetDatasetAssertionsWithMonitorsQuery({
@@ -109,6 +104,13 @@ export const AcrylAssertionList = () => {
             <AssertionListTitleContainer
                 privileges={privileges as EntityPrivileges}
                 setShowAssertionBuilder={setShowAssertionBuilder}
+            />
+            <AcrylAssertionListFilters
+                filterOptions={visibleAssertions?.filterOptions}
+                setFilters={setFilters}
+                filter={filter}
+                allAssertionCount={assertionMonitorData?.length || 0}
+                filteredAssertions={visibleAssertions}
             />
             {renderListTable()}
             {showAssertionBuilder && (

@@ -9,6 +9,7 @@ import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 import { AcrylAssertionList } from './AssertionList/AcrylAssertionList';
+import { AcrylAssertionSummaryTab } from './AssertionList/Summary/AcrylAssertionSummaryTab';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -40,9 +41,10 @@ const TabToolbar = styled.div`
 enum TabPaths {
     ASSERTIONS = 'List',
     DATA_CONTRACT = 'Data Contract',
+    SUMMARY = 'Summary',
 }
 
-const DEFAULT_TAB = TabPaths.ASSERTIONS;
+const DEFAULT_TAB = TabPaths.SUMMARY;
 
 /**
  * Acryl-specific component used for rendering the Entity Validations Tab.
@@ -72,12 +74,24 @@ export const AcrylValidationsTab = () => {
         {
             title: (
                 <>
+                    <TabTitle>Summary</TabTitle>
+                </>
+            ),
+            path: TabPaths.SUMMARY,
+            disabled: false, // Always keep the assertions tab clickable in saas.
+            content: <AcrylAssertionSummaryTab />,
+            id: 'summary',
+        },
+        {
+            title: (
+                <>
                     <TabTitle>Assertions</TabTitle>
                 </>
             ),
             path: TabPaths.ASSERTIONS,
             disabled: false, // Always keep the assertions tab clickable in saas.
             content: <AcrylAssertionList />,
+            id: 'assertions',
         },
     ];
 
@@ -100,6 +114,7 @@ export const AcrylValidationsTab = () => {
                     <b>Composed Of</b> sidebar section on the right.
                 </>
             ) : null,
+            id: 'data-contract',
         });
     }
 
@@ -112,6 +127,7 @@ export const AcrylValidationsTab = () => {
                             key={tab.path}
                             disabled={tab.disabled}
                             selected={selectedTab === tab.path}
+                            id={`acryl-validation-tab-${tab.id}-sub-tab`}
                             onClick={() => {
                                 if (!tab.disabled) {
                                     history.replace(

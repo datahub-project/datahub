@@ -3,17 +3,8 @@ import styled from 'styled-components';
 import * as moment from 'moment-timezone';
 import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
-import {
-    ClockCircleOutlined,
-    TableOutlined,
-    ProjectOutlined,
-    ConsoleSqlOutlined,
-    CheckOutlined,
-    CloseOutlined,
-    ApiOutlined,
-    CodeOutlined,
-    ExclamationCircleOutlined,
-} from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, ApiOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import {
     Assertion,
     AssertionResultType,
@@ -38,42 +29,6 @@ import { GenericEntityProperties } from '../../../../../entity/shared/types';
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
 export const WARNING_COLOR_HEX = '#FA8C16';
-
-const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 14px;
-    }
-`;
-
-const StyledTableOutlined = styled(TableOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
-
-const StyledProjectOutlined = styled(ProjectOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
-
-const StyledConsoleSqlOutlined = styled(ConsoleSqlOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
-`;
 
 const StyledApiOutlined = styled(ApiOutlined)`
     && {
@@ -111,20 +66,28 @@ const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
     }
 `;
 
-const StyledCodeOutlined = styled(CodeOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
+const getStyledIconComponent = (type: AssertionType) => {
+    const IconComponent = ASSERTION_TYPE_TO_ICON_MAP[type];
+
+    // Wrap the JSX element in a styled div
+    const StyledIcon = styled.div`
+        margin: 0;
+        padding: 0;
         margin-right: 8px;
         font-size: 18px;
-    }
-`;
+        display: inline-flex;
+        align-items: center;
+    `;
+
+    // Return the styled wrapper with the icon inside
+    return () => <StyledIcon>{IconComponent}</StyledIcon>;
+};
 
 export const ASSERTION_INFO = [
     {
         name: 'Freshness',
         description: 'Define & monitor your expectations about when this dataset should be updated',
-        icon: <StyledClockCircleOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.Freshness)),
         type: AssertionType.Freshness,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -133,7 +96,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Volume',
         description: 'Define & monitor your expectations about the size of this dataset',
-        icon: <StyledTableOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.Volume)),
         type: AssertionType.Volume,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -142,7 +105,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Column',
         description: 'Define & monitor your expectations about the values in a column',
-        icon: <StyledProjectOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.Field)),
         type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -152,7 +115,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Schema',
         description: "Define & monitor your expectations about the table's columns and their types",
-        icon: <StyledCodeOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.DataSchema)),
         type: AssertionType.DataSchema,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -161,7 +124,7 @@ export const ASSERTION_INFO = [
     {
         name: 'SQL',
         description: 'Define & monitor your expectations using custom SQL rules',
-        icon: <StyledConsoleSqlOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.Sql)),
         type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
         enabled: true,
@@ -171,7 +134,7 @@ export const ASSERTION_INFO = [
     {
         name: 'Other',
         description: 'Other assertions that are defined and maintained outside of DataHub.',
-        icon: <StyledApiOutlined />,
+        icon: React.createElement(getStyledIconComponent(AssertionType.Dataset)),
         type: AssertionType.Dataset,
         entityTypes: [EntityType.Dataset],
         enabled: false,
@@ -188,7 +151,7 @@ export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
-const getAssertionGroupTypeIcon = (type: string) => {
+export const getAssertionGroupTypeIcon = (type: string) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 
@@ -374,7 +337,6 @@ export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, mayb
         return undefined;
     }
 };
-
 export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
     return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
         ...type,

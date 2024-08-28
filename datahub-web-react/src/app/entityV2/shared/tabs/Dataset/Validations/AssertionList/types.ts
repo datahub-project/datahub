@@ -2,6 +2,8 @@ import {
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
+    AssertionSourceType,
+    AssertionType,
     AuditStamp,
     DataPlatform,
     GlobalTags,
@@ -15,15 +17,16 @@ export type AssertionListFilter = {
     groupBy: string;
     filterCriteria: {
         searchText: string;
-        status: string[];
-        type: string[];
+        status: AssertionResultType[];
+        type: AssertionType[];
         tags: string[];
         columns: string[];
+        others: AssertionSourceType[];
     };
 };
 
 export type AssertionListTableRow = {
-    type?: string;
+    type?: AssertionType;
     lastUpdated?: AuditStamp;
     tags: GlobalTags;
     descriptionHTML: JSX.Element | null;
@@ -61,4 +64,24 @@ type AssertionGroupBy = {
 export type AssertionTable = {
     assertions: AssertionListTableRow[];
     groupBy: AssertionGroupBy;
+    filterOptions?: any;
 };
+
+export type AssertionFilterOptions = {
+    filterGroupOptions: {
+        type: AssertionType[];
+        status: AssertionResultType[];
+        column: string[];
+        tags: string[];
+    };
+    recommendedFilters: AssertionRecommendedFilter[];
+};
+
+export type AssertionRecommendedFilter = {
+    name: string;
+    category: 'status' | 'type' | 'others';
+    count: number;
+    displayName: string;
+};
+
+export type AssertionWithDescription = AssertionWithMonitorDetails & { description: string };

@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Button, Dropdown, Menu } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
+
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useAppConfig } from '@src/app/useAppConfig';
 
