@@ -463,7 +463,10 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                           previousSchemaMetadata,
                           schemaField);
 
-              if (!previousAliases.equals(currentAliases) || isSystemUpdate(systemMetadata)) {
+              boolean forceUpdate =
+                  isSystemUpdate(systemMetadata)
+                      || ChangeType.RESTATE.equals(parentDatasetMetadataSchemaItem.getChangeType());
+              if (!previousAliases.equals(currentAliases) || forceUpdate) {
                 return ChangeItemImpl.builder()
                     .urn(
                         SchemaFieldUtils.generateSchemaFieldUrn(
