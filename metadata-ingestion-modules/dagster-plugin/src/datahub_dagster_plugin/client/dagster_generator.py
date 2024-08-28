@@ -1,16 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from logging import Logger
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-)
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Set
 from urllib.parse import urlsplit
 
 import pydantic
@@ -975,5 +966,5 @@ class DagsterGenerator:
             entityUrn=f"urn:li:query:dagster_{query_id}",
             aspects=aspects,
         )
-
-        graph.emit_mcps(mcps)
+        for mcp in mcps:
+            graph.emit_mcp(mcp)

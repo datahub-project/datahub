@@ -315,131 +315,164 @@ class DatahubSensors:
         dataset_inputs: Dict[str, Set[DatasetUrn]],
         dataset_outputs: Dict[str, Set[DatasetUrn]],
     ) -> None:
-        if (
+        if not self._is_valid_asset_materialization(log):
+            return
+
+        asset_key = log.asset_materialization.asset_key.path
+        asset_downstream_urn = self._get_asset_downstream_urn(
+            log, context, dagster_generator, asset_key
+        )
+
+        if not asset_downstream_urn:
+            return
+
+        properties = {
+            key: str(value)
+            for (key, value) in log.asset_materialization.metadata.items()
+        }
+        upstreams, downstreams = self._process_lineage(
+            context=context,
+            dagster_generator=dagster_generator,
+            log=log,
+            asset_downstream_urn=asset_downstream_urn,
+        )
+
+        self._emit_or_connect_asset(
+            context,
+            dagster_generator,
+            log,
+            asset_key,
+            properties,
+            upstreams,
+            downstreams,
+            dataset_inputs,
+            dataset_outputs,
+        )
+
+    def _is_valid_asset_materialization(self, log: EventLogEntry) -> bool:
+        return (
             log.dagster_event
             and log.dagster_event.event_type == DagsterEventType.ASSET_MATERIALIZATION
+            and log.step_key
+            and log.asset_materialization
+        )
+
+    def _get_asset_downstream_urn(
+        self,
+        log: EventLogEntry,
+        context: RunStatusSensorContext,
+        dagster_generator: DagsterGenerator,
+        asset_key: List[str],
+    ) -> Optional[DatasetUrn]:
+        materialization = log.asset_materialization
+        asset_downstream_urn: Optional[DatasetUrn] = None
+
+        if materialization.metadata.get("datahub_urn") and isinstance(
+            materialization.metadata.get("datahub_urn"), TextMetadataValue
         ):
-            assert log.step_key
-
-            materialization = log.asset_materialization
-            if not materialization:
-                return
-
-            properties = {
-                key: str(value) for (key, value) in materialization.metadata.items()
-            }
-            asset_key = materialization.asset_key.path
-
-            asset_downstream_urn: Optional[DatasetUrn] = None
-            # If DataHub Urn is set then we prefer that as downstream urn
-            if materialization.metadata.get("datahub_urn") and isinstance(
-                materialization.metadata.get("datahub_urn"), TextMetadataValue
-            ):
-                try:
-                    asset_downstream_urn = DatasetUrn.from_string(
-                        str(materialization.metadata["datahub_urn"].text)
-                    )
-                    context.log.info(
-                        f"asset_downstream_urn from metadata datahub_urn: {asset_downstream_urn}"
-                    )
-                except Exception as e:
-                    context.log.error(f"Error in parsing datahub_urn: {e}")
-
-            if not asset_downstream_urn:
-                asset_downstream_urn = (
-                    dagster_generator.asset_keys_to_dataset_urn_converter(asset_key)
+            try:
+                asset_downstream_urn = DatasetUrn.from_string(
+                    str(materialization.metadata["datahub_urn"].text)
                 )
                 context.log.info(
-                    f"asset_downstream_urn from asset keys: {asset_downstream_urn}"
+                    f"asset_downstream_urn from metadata datahub_urn: {asset_downstream_urn}"
                 )
+            except Exception as e:
+                context.log.error(f"Error in parsing datahub_urn: {e}")
 
-            if asset_downstream_urn:
-                context.log.info(f"asset_downstream_urn: {asset_downstream_urn}")
+        if not asset_downstream_urn:
+            asset_downstream_urn = (
+                dagster_generator.asset_keys_to_dataset_urn_converter(asset_key)
+            )
+            context.log.info(
+                f"asset_downstream_urn from asset keys: {asset_downstream_urn}"
+            )
 
-                downstreams = {asset_downstream_urn.urn()}
-                context.log.info(f"downstreams: {downstreams}")
-                upstreams: Set[str] = set()
-                if self.config.enable_asset_query_metadata_parsing:
-                    try:
-                        if (
-                            materialization
-                            and materialization.metadata
-                            and materialization.metadata.get("Query")
-                            and isinstance(
-                                materialization.metadata.get("Query"), TextMetadataValue
-                            )
-                        ):
-                            if self.config.debug_mode:
-                                context.log.info("Query found in metadata...")
-                            query_metadata = materialization.metadata.get("Query")
-                            assert query_metadata
-                            lineage = self.parse_sql(
-                                context=context,
-                                sql_query=str(query_metadata.text),
-                                env=asset_downstream_urn.env,
-                                platform=asset_downstream_urn.platform.replace(
-                                    "urn:li:dataPlatform:", ""
-                                ),
-                            )
-                            # To make sure we don't process select queries check if downstream is present
-                            if lineage and lineage.downstreams:
-                                if self.config.emit_queries:
-                                    if self.config.debug_mode:
-                                        context.log.info("Emitting query metadata...")
-                                    if self.config.debug_mode:
-                                        context.log.info("Emitting query metadata...")
-                                    dagster_generator.gen_query_aspect(
-                                        graph=self.graph,
-                                        platform=asset_downstream_urn.platform,
-                                        query_subject_urns=lineage.upstreams
-                                        + lineage.upstreams,
-                                        query=str(query_metadata.text),
-                                    )
+        return asset_downstream_urn
 
-                                downstreams = downstreams.union(
-                                    set(lineage.downstreams)
-                                )
-                                upstreams = upstreams.union(set(lineage.upstreams))
-                                context.log.info(
-                                    f"Upstreams: {upstreams} Downstreams: {downstreams}"
-                                )
-                            else:
-                                context.log.info(
-                                    f"Lineage not found for {query_metadata.text}"
-                                )
-                        else:
-                            context.log.info("Query not found in metadata")
-                    except Exception as e:
-                        context.log.info(f"Error in processing asset logs: {e}")
-                        context.log.info(f"Traceback: {traceback.format_exc()}")
+    def _process_lineage(
+        self,
+        context: RunStatusSensorContext,
+        dagster_generator: DagsterGenerator,
+        log: EventLogEntry,
+        asset_downstream_urn: DatasetUrn,
+    ) -> Tuple[Set[str], Set[str]]:
+        downstreams = {asset_downstream_urn.urn()}
+        upstreams: Set[str] = set()
 
-                if self.config.emit_assets:
-                    context.log.info("Emitting asset metadata...")
-                    # Emitting asset with upstreams and downstreams
-                    dataset_urn = dagster_generator.emit_asset(
-                        self.graph,
-                        asset_key,
-                        materialization.description,
-                        properties,
-                        downstreams=downstreams,
-                        upstreams=upstreams,
-                        materialize_dependencies=self.config.materialize_dependencies,
+        if self.config.enable_asset_query_metadata_parsing:
+            try:
+                query_metadata = log.asset_materialization.metadata.get("Query")
+                if isinstance(query_metadata, TextMetadataValue):
+                    lineage = self.parse_sql(
+                        context=context,
+                        sql_query=str(query_metadata.text),
+                        env=asset_downstream_urn.env,
+                        platform=asset_downstream_urn.platform.replace(
+                            "urn:li:dataPlatform:", ""
+                        ),
                     )
-
-                    dataset_outputs[log.step_key].add(dataset_urn)
+                    if lineage and lineage.downstreams:
+                        if self.config.emit_queries:
+                            dagster_generator.gen_query_aspect(
+                                graph=self.graph,
+                                platform=asset_downstream_urn.platform,
+                                query_subject_urns=lineage.upstreams
+                                + lineage.downstreams,
+                                query=str(query_metadata.text),
+                            )
+                        downstreams = downstreams.union(set(lineage.downstreams))
+                        upstreams = upstreams.union(set(lineage.upstreams))
+                        context.log.info(
+                            f"Upstreams: {upstreams} Downstreams: {downstreams}"
+                        )
+                    else:
+                        context.log.info(f"Lineage not found for {query_metadata.text}")
                 else:
-                    context.log.info(
-                        "Not emitting assets but connecting materialized dataset to DataJobs"
-                    )
-                    dataset_outputs[log.step_key] = dataset_outputs[log.step_key].union(
-                        [DatasetUrn.from_string(d) for d in downstreams]
-                    )
-                    dataset_inputs[log.step_key] = dataset_inputs[log.step_key].union(
-                        [DatasetUrn.from_string(u) for u in upstreams]
-                    )
-                    context.log.info(
-                        f"Dataset Inputs: {dataset_inputs[log.step_key]} Dataset Outputs: {dataset_outputs[log.step_key]}"
-                    )
+                    context.log.info("Query not found in metadata")
+            except Exception as e:
+                context.log.error(f"Error in processing asset logs: {e}")
+                context.log.error(f"Traceback: {traceback.format_exc()}")
+
+        return upstreams, downstreams
+
+    def _emit_or_connect_asset(
+        self,
+        context: RunStatusSensorContext,
+        dagster_generator: DagsterGenerator,
+        log: EventLogEntry,
+        asset_key: List[str],
+        properties: Dict[str, str],
+        upstreams: Set[str],
+        downstreams: Set[str],
+        dataset_inputs: Dict[str, Set[DatasetUrn]],
+        dataset_outputs: Dict[str, Set[DatasetUrn]],
+    ) -> None:
+        if self.config.emit_assets:
+            context.log.info("Emitting asset metadata...")
+            dataset_urn = dagster_generator.emit_asset(
+                self.graph,
+                asset_key,
+                log.asset_materialization.description,
+                properties,
+                downstreams=downstreams,
+                upstreams=upstreams,
+                materialize_dependencies=self.config.materialize_dependencies,
+            )
+            dataset_outputs[log.step_key].add(dataset_urn)
+        else:
+            context.log.info(
+                "Not emitting assets but connecting materialized dataset to DataJobs"
+            )
+            dataset_outputs[log.step_key] = dataset_outputs[log.step_key].union(
+                [DatasetUrn.from_string(d) for d in downstreams]
+            )
+            dataset_inputs[log.step_key] = dataset_inputs[log.step_key].union(
+                [DatasetUrn.from_string(u) for u in upstreams]
+            )
+            context.log.info(
+                f"Dataset Inputs: {dataset_inputs[log.step_key]} Dataset Outputs: {dataset_outputs[log.step_key]}"
+            )
 
     def process_asset_observation(
         self,
@@ -703,7 +736,7 @@ class DatahubSensors:
                 platform_instance=self.config.platform_instance,
             )
 
-            if dataflow.name.startswith("__ASSET_JOB") and dataflow.name.split("__"):
+            if dataflow.name and dataflow.name.startswith("__ASSET_JOB") and dataflow.name.split("__"):
                 dagster_generator.generate_browse_path(
                     dataflow.name.split("__"), urn=dataflow.urn, graph=self.graph
                 )
@@ -750,7 +783,7 @@ class DatahubSensors:
                     input_datasets=dataset_inputs,
                 )
 
-                if datajob.name.startswith("__ASSET_JOB") and datajob.name.split("__"):
+                if datajob.name and datajob.name.startswith("__ASSET_JOB") and datajob.name.split("__"):
                     dagster_generator.generate_browse_path(
                         datajob.name.split("__"), urn=datajob.urn, graph=self.graph
                     )
