@@ -109,7 +109,7 @@ jobs:
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         with:
           python-version: "3.10"
@@ -121,7 +121,7 @@ jobs:
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         with:
           distribution: "zulu"
@@ -141,7 +141,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -205,7 +205,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -269,7 +269,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -333,7 +333,7 @@ jobs:
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -397,7 +397,7 @@ jobs:
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -639,7 +639,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -726,7 +726,7 @@ jobs:
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
@@ -853,12 +853,12 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
           cache: "pip"
