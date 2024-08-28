@@ -702,7 +702,7 @@ export const buildAssertionUrlSearch = ({
     type?: AssertionType;
     status?: AssertionResultType;
 }): string => {
-    const search = window.location.search;
+    const { search } = window.location;
     const params = new URLSearchParams(search);
 
     if (type) {
