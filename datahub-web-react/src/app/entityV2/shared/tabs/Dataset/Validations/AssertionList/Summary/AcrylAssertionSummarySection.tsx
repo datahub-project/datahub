@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Tooltip } from 'antd';
 import styled from 'styled-components';
-import { AssertionResultType, AssertionType, EntityType } from '@src/types.generated';
+import { EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
