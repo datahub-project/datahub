@@ -1007,7 +1007,7 @@ class TableauSiteSource:
 
             # If ingestion has been running for over 2 hours, the Tableau
             # temporary credentials will expire. If this happens, this exception
-            # will be thrown and we need to re-authenticate and retry.
+            # will be thrown, and we need to re-authenticate and retry.
             self._re_authenticate()
             return self.get_connection_object_page(
                 query=query,
@@ -1016,7 +1016,7 @@ class TableauSiteSource:
                 fetch_size=fetch_size,
                 current_cursor=current_cursor,
                 retry_on_auth_error=False,
-                retries_remaining=retries_remaining,
+                retries_remaining=retries_remaining - 1,
             )
         except OSError:
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
@@ -1034,7 +1034,7 @@ class TableauSiteSource:
                 fetch_size=fetch_size,
                 current_cursor=current_cursor,
                 retry_on_auth_error=False,
-                retries_remaining=retries_remaining,
+                retries_remaining=retries_remaining - 1,
             )
 
         if c.ERRORS in query_data:
