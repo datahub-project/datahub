@@ -42,6 +42,7 @@ public class DataJobRunsResolver
 
   private static final String PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME = "parentTemplate";
   private static final String CREATED_TIME_SEARCH_INDEX_FIELD_NAME = "created";
+  private static final String HAS_RUN_EVENTS_FIELD_NAME = "hasRunEvents";
   private static final Logger log = LoggerFactory.getLogger(DataJobRunsResolver.class);
 
   private final EntityClient _entityClient;
@@ -95,40 +96,13 @@ public class DataJobRunsResolver
             final List<DataProcessInstance> dataProcessInstances =
                 gmsResults.stream()
                     .filter(Objects::nonNull)
-                    .filter(
-                        p -> {
-                          try {
-                            // check that at least one run-event exists
-                            return !_entityClient
-                                .getTimeseriesAspectValues(
-                                    context.getOperationContext(),
-                                    p.getUrn().toString(),
-                                    "dataProcessInstance",
-                                    DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-                                    null,
-                                    null,
-                                    1,
-                                    null,
-                                    null)
-                                .isEmpty();
-                          } catch (RemoteInvocationException e) {
-                            log.error("Could not fetch runEvent aspect of {}", p.getUrn());
-                            return false;
-                          }
-                        })
                     .map(p -> DataProcessInstanceMapper.map(context, p))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
             final DataProcessInstanceResult result = new DataProcessInstanceResult();
-
-            /* Note: the number of dataProcessInstance records may be less than the "count" due to the above filtering.
-              Pagination on a UI would work correctly, except that some pages may have less than "count" records.
-            */
             result.setCount(gmsResult.getPageSize());
             result.setStart(gmsResult.getFrom());
-
-            // Note: "total" could be an inexact upper bound due to the above filtering.
             result.setTotal(gmsResult.getNumEntities());
             result.setRuns(dataProcessInstances);
             return result;
@@ -147,7 +121,12 @@ public class DataJobRunsResolver
                 new Criterion()
                     .setField(PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME)
                     .setCondition(Condition.EQUAL)
-                    .setValue(entityUrn)));
+                    .setValue(entityUrn),
+                new Criterion()
+                        .setField(HAS_RUN_EVENTS_FIELD_NAME)
+                        .setCondition(Condition.EQUAL)
+                        .setValue(Boolean.TRUE.toString())));
+
     final Filter filter = new Filter();
     filter.setOr(
         new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));
