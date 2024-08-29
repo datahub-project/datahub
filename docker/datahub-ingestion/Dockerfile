@@ -59,4 +59,6 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 
+WORKDIR /datahub-ingestion
+
 USER datahub

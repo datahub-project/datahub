@@ -26,4 +26,6 @@ RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
 
 FROM slim-install as final
 
+WORKDIR /datahub-ingestion
+
 USER datahub
