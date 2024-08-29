@@ -12,13 +12,13 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
-from mypy_boto3_s3.service_resource import ObjectSummary, S3ServiceResource
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
+from build.lib.datahub.lite.lite_server import browse
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -751,12 +751,10 @@ class S3Source(StatefulIngestionSourceBase):
     def extract_table_data(
         self,
         path_spec: PathSpec,
-        path: str,
-        timestamp: datetime,
-        size: int,
-        partitions: List[Folder],
-        content_type: Optional[str],
+        browse_path: BrowsePath,
     ) -> TableData:
+        path = browse_path.file
+        partitions = browse_path.partitions
         logger.debug(f"Getting table data for path: {path}")
         table_name, table_path = path_spec.extract_table_name_and_path(path)
         return TableData(
@@ -766,12 +764,12 @@ class S3Source(StatefulIngestionSourceBase):
             partitions=partitions,
             max_partition=partitions[-1] if partitions else None,
             min_partition=partitions[0] if partitions else None,
-            timestamp=timestamp,
+            timestamp=browse_path.timestamp,
             table_path=table_path,
             number_of_files=1,
             size_in_bytes=(
-                size
-                if size
+                browse_path.size
+                if browse_path.size
                 else sum(
                     [
                         partition.size if partition.size else 0
@@ -779,7 +777,7 @@ class S3Source(StatefulIngestionSourceBase):
                     ]
                 )
             ),
-            content_type=content_type,
+            content_type=browse_path.content_type,
         )
 
     def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
@@ -1109,14 +1107,7 @@ class S3Source(StatefulIngestionSourceBase):
                         and self.source_config.use_s3_content_type,
                     ):
                         continue
-                    table_data = self.extract_table_data(
-                        path_spec,
-                        browse_path.file,
-                        browse_path.timestamp,
-                        browse_path.size,
-                        browse_path.partitions,
-                        browse_path.content_type,
-                    )
+                    table_data = self.extract_table_data(path_spec, browse_path)
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:
