@@ -943,6 +943,7 @@ class TableauSiteSource:
 
     def _populate_projects_registry(self) -> None:
         if self.server is None:
+            logger.warning("server is None. Can not initialize the project registry")
             return
 
         logger.info("Initializing site project registry")
