@@ -354,8 +354,8 @@ export const SearchBar = ({
         if (showCommandK) {
             const handleKeyDown = (event) => {
                 const isMac = (navigator as any).userAgentData
-                    ? (navigator as any).userAgentData.platform.includes('Mac')
-                    : navigator.userAgent.includes('Mac');
+                    ? (navigator as any).userAgentData.platform.toLowerCase().includes('mac')
+                    : navigator.userAgent.toLowerCase().includes('mac');
 
                 // Support command-k to select the search bar on all platforms
                 // Support ctrl-k to select the search bar on non-Mac platforms
