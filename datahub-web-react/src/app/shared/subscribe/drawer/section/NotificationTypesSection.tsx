@@ -153,7 +153,7 @@ const NotificationTypesSection = ({ entityUrn, entityType, forSubResource, subsc
             // Trigger on next tick of event loop
             setTimeout(() => onExpand([firstKeyInTree]), 50);
         }
-    }, [isForSubResource, firstKeyInTree, onExpand]);
+    }, [isForSubResource, firstKeyInTree, onExpand, checkedKeys]);
 
     return (
         <NotificationTypesContainer>
