@@ -37,6 +37,7 @@ from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
+    DownstreamColumnRef,
     SqlParsingResult,
     infer_output_schema,
     sqlglot_lineage,
@@ -570,9 +571,6 @@ class SqlParsingAggregator(Closeable):
         Because this method takes in urns, it does not require that the urns
         are part of the platform that the aggregator is configured for.
 
-        TODO: In the future, this method will also generate CLL if we have
-        schemas for either the upstream or downstream.
-
         The known lineage mapping does not contribute to usage statistics or operations.
 
         Args:
@@ -585,6 +583,21 @@ class SqlParsingAggregator(Closeable):
         # We generate a fake "query" object to hold the lineage.
         query_id = self._known_lineage_query_id()
 
+        # Generate CLL if schema of downstream is known
+        column_lineage: List[ColumnLineageInfo] = []
+        if self._schema_resolver.has_urn(downstream_urn):
+            schema = self._schema_resolver._resolve_schema_info(downstream_urn)
+            if schema:
+                column_lineage = [
+                    ColumnLineageInfo(
+                        downstream=DownstreamColumnRef(
+                            table=downstream_urn, column=field_path
+                        ),
+                        upstreams=[ColumnRef(table=upstream_urn, column=field_path)],
+                    )
+                    for field_path in schema
+                ]
+
         # Register the query.
         self._add_to_query_map(
             QueryMetadata(
@@ -596,7 +609,7 @@ class SqlParsingAggregator(Closeable):
                 latest_timestamp=None,
                 actor=None,
                 upstreams=[upstream_urn],
-                column_lineage=[],
+                column_lineage=column_lineage,
                 column_usage={},
                 confidence_score=1.0,
             )

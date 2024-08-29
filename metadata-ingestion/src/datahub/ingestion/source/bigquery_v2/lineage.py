@@ -204,28 +204,6 @@ def make_lineage_edges_from_parsing_result(
     return list(table_edges.values())
 
 
-def make_lineage_edge_for_snapshot(
-    snapshot: BigqueryTableSnapshot,
-) -> Optional[LineageEdge]:
-    if snapshot.base_table_identifier:
-        base_table_name = str(
-            BigQueryTableRef.from_bigquery_table(snapshot.base_table_identifier)
-        )
-        return LineageEdge(
-            table=base_table_name,
-            column_mapping=frozenset(
-                LineageEdgeColumnMapping(
-                    out_column=column.field_path,
-                    in_columns=frozenset([column.field_path]),
-                )
-                for column in snapshot.columns
-            ),
-            auditStamp=datetime.now(timezone.utc),
-            type=DatasetLineageTypeClass.TRANSFORMED,
-        )
-    return None
-
-
 class BigqueryLineageExtractor:
     def __init__(
         self,
@@ -303,7 +281,6 @@ class BigqueryLineageExtractor:
         snapshot_refs_by_project: Dict[str, Set[str]],
         snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_lineage: Dict[str, Set[LineageEdge]] = {}
         for project in projects:
             if self.config.lineage_parse_view_ddl:
                 for view in view_refs_by_project[project]:
@@ -316,20 +293,21 @@ class BigqueryLineageExtractor:
                         default_db=project,
                     )
 
-            # TODO: Ideally snapshot lineage also uses sql aggregator, however, there is no
-            # api in aggregator to add lineage with CLL without query
-            self.populate_snapshot_lineage(
-                dataset_lineage,
-                snapshot_refs_by_project[project],
-                snapshots_by_ref,
-            )
-
-            for lineage_key in dataset_lineage.keys():
-                table_ref = BigQueryTableRef.from_string_name(lineage_key)
-                self.datasets_skip_audit_log_lineage.add(lineage_key)
-                yield from self.gen_lineage_workunits_for_table(
-                    dataset_lineage, table_ref
+            for snapshot_ref in snapshot_refs_by_project[project]:
+                snapshot = snapshots_by_ref[snapshot_ref]
+                if not snapshot.base_table_identifier:
+                    continue
+                self.datasets_skip_audit_log_lineage.add(snapshot_ref)
+                snapshot_urn = self.identifiers.gen_dataset_urn_from_raw_ref(
+                    BigQueryTableRef.from_string_name(snapshot_ref)
                 )
+                base_table_urn = self.identifiers.gen_dataset_urn_from_raw_ref(
+                    BigQueryTableRef(snapshot.base_table_identifier)
+                )
+                self.aggregator.add_known_lineage_mapping(
+                    upstream_urn=base_table_urn, downstream_urn=snapshot_urn
+                )
+
         yield from auto_workunit(self.aggregator.gen_metadata())
 
     def get_lineage_workunits(
@@ -413,17 +391,6 @@ class BigqueryLineageExtractor:
             yield from self.gen_lineage_workunits_for_table(
                 lineage, BigQueryTableRef.from_string_name(lineage_key)
             )
-
-    def populate_snapshot_lineage(
-        self,
-        snapshot_lineage: Dict[str, Set[LineageEdge]],
-        snapshot_refs: Set[str],
-        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
-    ) -> None:
-        for snapshot in snapshot_refs:
-            lineage_edge = make_lineage_edge_for_snapshot(snapshots_by_ref[snapshot])
-            if lineage_edge:
-                snapshot_lineage[snapshot] = {lineage_edge}
 
     def gen_lineage_workunits_for_table(
         self, lineage: Dict[str, Set[LineageEdge]], table_ref: BigQueryTableRef
