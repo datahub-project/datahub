@@ -7,10 +7,8 @@ import { MediaType, PostContentType, PostType, SubResourceType } from '../../../
 import { PostEntry } from '../../../settings/posts/PostsListColumns';
 import {
     CREATE_POST_BUTTON_ID,
-    DESCRIPTION_FIELD_NAME,
     LINK_FIELD_NAME,
     LOCATION_FIELD_NAME,
-    TITLE_FIELD_NAME,
     TYPE_FIELD_NAME,
 } from '../../../settings/posts/constants';
 import handleGraphQLError from '../../../shared/handleGraphQLError';
@@ -90,6 +88,8 @@ export default function CreateEntityAnnouncementModal({
     const [createPostMutation] = useCreatePostMutation();
     const [updatePostMutation] = useUpdatePostMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
+    const noteTitle = 'Title';
+    const noteContent = 'Content';
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -111,8 +111,8 @@ export default function CreateEntityAnnouncementModal({
                     postType: PostType.EntityAnnouncement,
                     content: {
                         contentType: PostContentType.Text,
-                        title: form.getFieldValue(TITLE_FIELD_NAME),
-                        description: form.getFieldValue(DESCRIPTION_FIELD_NAME) ?? null,
+                        title: form.getFieldValue(noteTitle),
+                        description: form.getFieldValue(noteContent) ?? null,
                     },
                     resourceUrn: urn,
                     subResource,
@@ -126,7 +126,7 @@ export default function CreateEntityAnnouncementModal({
                         content: `Created Note!`,
                         duration: 3,
                     });
-                    onCreate?.(form.getFieldValue(TITLE_FIELD_NAME), form.getFieldValue(DESCRIPTION_FIELD_NAME));
+                    onCreate?.(form.getFieldValue(noteTitle), form.getFieldValue(noteContent));
                     form.resetFields();
                 }
             })
@@ -155,8 +155,8 @@ export default function CreateEntityAnnouncementModal({
                     postType: PostType.HomePageAnnouncement,
                     content: {
                         contentType: PostContentType.Text,
-                        title: form.getFieldValue(TITLE_FIELD_NAME),
-                        description: form.getFieldValue(DESCRIPTION_FIELD_NAME) ?? null,
+                        title: form.getFieldValue(noteTitle),
+                        description: form.getFieldValue(noteContent) ?? null,
                         link: form.getFieldValue(LINK_FIELD_NAME) ?? null,
                         media: mediaValue,
                     },
@@ -199,7 +199,7 @@ export default function CreateEntityAnnouncementModal({
      * @param {string} value - The new value of the description field.
      */
     const handleDescriptionChange = (value) => {
-        form.setFieldsValue({ [DESCRIPTION_FIELD_NAME]: value });
+        form.setFieldsValue({ [noteContent]: value });
         form.validateFields();
     };
 
@@ -246,12 +246,12 @@ export default function CreateEntityAnnouncementModal({
                     }
                 }}
             >
-                <Typography.Paragraph>Note Title</Typography.Paragraph>
-                <SubFormItem name={TITLE_FIELD_NAME} rules={[{ min: 1, max: 500 }]} hasFeedback>
+                <Typography.Paragraph>Title</Typography.Paragraph>
+                <SubFormItem name={noteTitle} rules={[{ min: 1, max: 500, required: true }]} hasFeedback>
                     <Input placeholder="Your title" />
                 </SubFormItem>
-                <Typography.Paragraph>Note Content</Typography.Paragraph>
-                <SubFormItem name={DESCRIPTION_FIELD_NAME} rules={[{ min: 1, max: 5000 }]} hasFeedback>
+                <Typography.Paragraph>Content</Typography.Paragraph>
+                <SubFormItem name={noteContent} rules={[{ min: 1, max: 5000 }]} hasFeedback>
                     <EditorContainer>
                         <Editor
                             content={editData?.description || ''}

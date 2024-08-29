@@ -369,7 +369,11 @@ const EntityDropdown = (props: Props) => {
                 />
             )}
             {isEntityAnnouncementModalVisible && (
-                <CreateEntityAnnouncementModal urn={urn} onClose={() => setIsEntityAnnouncementModalVisible(false)} />
+                <CreateEntityAnnouncementModal
+                    urn={urn}
+                    onClose={() => setIsEntityAnnouncementModalVisible(false)}
+                    onCreate={() => setTimeout(() => refetchForEntity?.(), 2000)}
+                />
             )}
             {isMoveModalVisible && isGlossaryEntity && (
                 <MoveGlossaryEntityModal
