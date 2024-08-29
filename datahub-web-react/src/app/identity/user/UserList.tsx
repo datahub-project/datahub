@@ -182,10 +182,7 @@ export const UserList = () => {
                     />
                 </UserPaginationContainer>
                 {canManagePolicies && (
-                    <ViewInviteTokenModal
-                        visible={isViewingInviteToken}
-                        onClose={() => setIsViewingInviteToken(false)}
-                    />
+                    <ViewInviteTokenModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
                 )}
             </UserContainer>
         </>

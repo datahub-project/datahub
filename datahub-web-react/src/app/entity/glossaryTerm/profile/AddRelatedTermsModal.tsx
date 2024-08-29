@@ -167,7 +167,7 @@ function AddRelatedTermsModal(props: Props) {
     return (
         <Modal
             title="Add Related Terms"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>
