@@ -75,6 +75,11 @@ public class FormService extends BaseService {
   private static final int TEST_SEARCH_BATCH_SIZE = 10000;
   private static final int FORMS_BATCH_SIZE = 1000;
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
+  private static final List<FormPromptType> FIELD_LEVEL_PROMPT_TYPES =
+      ImmutableList.of(
+          FormPromptType.FIELDS_STRUCTURED_PROPERTY,
+          FormPromptType.FIELDS_DOCUMENTATION,
+          FormPromptType.FIELDS_GLOSSARY_TERMS);
 
   private final OwnerService _ownerService;
   private final GlossaryTermService _glossaryTermService;
@@ -194,9 +199,8 @@ public class FormService extends BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn formUrn,
       @Nonnull final FormPrompt prompt) {
-    if (prompt.getType().equals(FormPromptType.FIELDS_STRUCTURED_PROPERTY)) {
-      log.info(
-          "Encountered FIELDS_STRUCTURED_PROPERTY prompt type. Skipping form prompt completion automation");
+    if (FIELD_LEVEL_PROMPT_TYPES.contains(prompt.getType())) {
+      log.info("Encountered field level prompt type. Skipping form prompt completion automation");
       return;
     }
     final Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(formUrn, prompt);

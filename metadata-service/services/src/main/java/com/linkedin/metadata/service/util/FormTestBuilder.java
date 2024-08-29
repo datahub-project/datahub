@@ -15,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.form.GlossaryTermsParams;
 import com.linkedin.form.OwnershipParams;
 import com.linkedin.metadata.models.EntitySpecUtils;
 import com.linkedin.metadata.query.filter.Condition;
@@ -268,6 +269,10 @@ public class FormTestBuilder {
         ArrayNode documentationOrArray = rulesNode.putArray("or");
         documentationOrArray.addAll(buildDocumentationTestConditions(opContext));
         break;
+      case GLOSSARY_TERMS:
+        ArrayNode glossaryTermsAndArray = rulesNode.putArray("or");
+        glossaryTermsAndArray.addAll(buildGlossaryTermsTestConditions(prompt));
+        break;
       default:
         throw new IllegalArgumentException(
             String.format(
@@ -371,6 +376,39 @@ public class FormTestBuilder {
         new Criterion().setField(fieldName).setCondition(Condition.EXISTS).setValue("");
     descriptionCriterionArray.add(descriptionCriterion);
     return new ConjunctiveCriterion().setAnd(descriptionCriterionArray);
+  }
+
+  private static List<JsonNode> buildGlossaryTermsTestConditions(@Nonnull final FormPrompt prompt) {
+    GlossaryTermsParams promptParams = prompt.getGlossaryTermsParams();
+    if (promptParams.getAllowedTerms() == null && promptParams.getAllowedTermGroups() == null) {
+      // assert that the asset has any glossary term on it if no specified terms or term groups
+      ObjectNode propertyNode = OBJECT_MAPPER.createObjectNode();
+      propertyNode.put("property", "glossaryTerms.terms.urn");
+      propertyNode.put("operator", "exists");
+      return ImmutableList.of(propertyNode);
+    }
+
+    List<JsonNode> propertiesList = new ArrayList<>();
+
+    if (promptParams.getAllowedTerms() != null) {
+      ObjectNode termsPropertyNode = OBJECT_MAPPER.createObjectNode();
+      termsPropertyNode.put("property", "glossaryTerms.terms.urn");
+      termsPropertyNode.put("operator", "contains_any");
+      ArrayNode termsValues = termsPropertyNode.putArray("values");
+      promptParams.getAllowedTerms().forEach(termUrn -> termsValues.add(termUrn.toString()));
+      propertiesList.add(termsPropertyNode);
+    }
+
+    if (promptParams.getAllowedTermGroups() != null) {
+      ObjectNode nodesPropertyNode = OBJECT_MAPPER.createObjectNode();
+      nodesPropertyNode.put("property", "glossaryTerms.terms.urn.glossaryTermInfo.parentNode");
+      nodesPropertyNode.put("operator", "contains_any");
+      ArrayNode nodesValues = nodesPropertyNode.putArray("values");
+      promptParams.getAllowedTermGroups().forEach(nodeUrn -> nodesValues.add(nodeUrn.toString()));
+      propertiesList.add(nodesPropertyNode);
+    }
+
+    return propertiesList;
   }
 
   public static Urn createTestUrnForFormPrompt(

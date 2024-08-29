@@ -44,6 +44,7 @@ import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
 import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
+import com.linkedin.form.GlossaryTermsParams;
 import com.linkedin.form.OwnershipParams;
 import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
@@ -87,6 +88,10 @@ public class FormServiceTest {
 
   private static final String TEST_FORM_PROMPT_TEST_DEFINITION_PATH =
       "./forms/form_prompt_test_definition.json";
+  private static final String TEST_GLOSSARY_TERMS_PROMPT_TEST_DEFINITION_PATH =
+      "./forms/form_prompt_test_definition_glossary_terms.json";
+  private static final String TEST_GLOSSARY_TERMS_ALLOWED_LIST_PROMPT_TEST_DEFINITION_PATH =
+      "./forms/form_prompt_test_definition_glossary_terms_allowed_list.json";
   private static final String TEST_FORM_OWNERSHIP_PROMPT_TEST_DEFINITION_PATH =
       "./forms/form_ownership_prompt_test_definition.json";
   private static final String TEST_FORM_OWNERSHIP_WITH_PARAMS_PROMPT_TEST_DEFINITION_PATH =
@@ -962,6 +967,86 @@ public class FormServiceTest {
         new ObjectMapper()
             .readTree(
                 new ClassPathResource(TEST_FORM_OWNERSHIP_WITH_PARAMS_PROMPT_TEST_DEFINITION_PATH)
+                    .getFile());
+    Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
+    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    // Verify that the correct test was ingested.
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.argThat(
+                new FormTestArgumentMatcher(
+                    AspectUtils.buildMetadataChangeProposal(
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+            eq(false));
+  }
+
+  @Test
+  private void testUpsertGlossaryTermsPromptCompletionAutomation() throws Exception {
+    // Verify that a test of the expected format is created.
+    // This test should assert that the asset has any glossary term on it
+    String promptId = "test-id";
+    FormPrompt prompt =
+        new FormPrompt()
+            .setId(promptId)
+            .setType(FormPromptType.GLOSSARY_TERMS)
+            .setTitle("Test Title")
+            .setDescription("Test Description")
+            .setRequired(true)
+            .setGlossaryTermsParams(
+                new GlossaryTermsParams().setCardinality(PromptCardinality.MULTIPLE));
+
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    JsonNode testDefinition =
+        new ObjectMapper()
+            .readTree(
+                new ClassPathResource(TEST_GLOSSARY_TERMS_PROMPT_TEST_DEFINITION_PATH).getFile());
+    Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
+    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    // Verify that the correct test was ingested.
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.argThat(
+                new FormTestArgumentMatcher(
+                    AspectUtils.buildMetadataChangeProposal(
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+            eq(false));
+  }
+
+  @Test
+  private void testUpsertGlossaryTermsAllowedListPromptCompletionAutomation() throws Exception {
+    // Verify that a test of the expected format is created.
+    // This test should assert that the asset has two different glossary terms on it
+    // one explicit and one from a term group set
+    String promptId = "test-id";
+    FormPrompt prompt =
+        new FormPrompt()
+            .setId(promptId)
+            .setType(FormPromptType.GLOSSARY_TERMS)
+            .setTitle("Test Title")
+            .setDescription("Test Description")
+            .setRequired(true)
+            .setGlossaryTermsParams(
+                new GlossaryTermsParams()
+                    .setCardinality(PromptCardinality.MULTIPLE)
+                    .setAllowedTermGroups(
+                        new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:glossaryNode:test"))))
+                    .setAllowedTerms(
+                        new UrnArray(
+                            ImmutableList.of(UrnUtils.getUrn("urn:li:glossaryTerm:test1")))));
+
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    JsonNode testDefinition =
+        new ObjectMapper()
+            .readTree(
+                new ClassPathResource(TEST_GLOSSARY_TERMS_ALLOWED_LIST_PROMPT_TEST_DEFINITION_PATH)
                     .getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
     TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
