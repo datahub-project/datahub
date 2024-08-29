@@ -82,6 +82,7 @@ class LazyEvaluator:
     def __repr__(self):
         if not self.value_stored:
             self.value = self.callback(*self.args)
+            self.value_stored = True
         return self.value
 
 
