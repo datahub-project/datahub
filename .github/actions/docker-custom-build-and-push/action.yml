@@ -57,6 +57,19 @@ runs:
           type=raw,value=head,suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }},enable={{is_default_branch}}
           type=sha,prefix=,format=short,suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
 
+    - name: Single Tag
+      id: single_tag
+      shell: bash
+      run: |
+        IMAGES="""
+        ${{ inputs.images }}
+        """
+        TAGS="""
+        ${{ inputs.image_tag }}
+        """
+        echo "SINGLE_IMAGE=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> $GITHUB_OUTPUT
+        echo "SINGLE_TAG=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }'):$(echo $TAGS | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> $GITHUB_OUTPUT
+
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
       uses: docker/build-push-action@v6
@@ -73,21 +86,10 @@ runs:
         load: true
         push: false
         cache-from: |
+          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_TAG }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
           type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: |
           type=inline
-    - name: Single Tag
-      if: ${{ inputs.publish != 'true' }}
-      shell: bash
-      run: |
-        IMAGES="""
-        ${{ inputs.images }}
-        """
-        TAGS="""
-        ${{ inputs.image_tag }}
-        """
-        echo "SINGLE_TAG=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }'):$(echo $TAGS | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> $GITHUB_OUTPUT
-      id: single_tag
     - name: Upload image locally for testing (if not publishing)
       uses: ishworkh/docker-image-artifact-upload@v1
       if: ${{ inputs.publish != 'true' }}
@@ -124,6 +126,7 @@ runs:
         target: ${{ inputs.target }}
         push: true
         cache-from: |
+          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_TAG }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
           type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: |
           type=inline
