@@ -147,7 +147,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 bodyStyle={MODAL_BODY_STYLE}
                 title={<Typography.Text>{isUpdating ? 'Edit' : 'New'} Query</Typography.Text>}
                 className="query-builder-modal"
-                visible
+                open
                 onCancel={confirmClose}
                 footer={
                     <>

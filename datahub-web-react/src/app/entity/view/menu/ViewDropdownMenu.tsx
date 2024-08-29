@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useApolloClient } from '@apollo/client';
 import { MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
+import { Dropdown, message, Modal } from 'antd';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { useUpdateCorpUserViewsSettingsMutation } from '../../../../graphql/user.generated';
@@ -30,17 +30,6 @@ const MenuButton = styled(MoreOutlined)`
     }
     :hover {
         cursor: pointer;
-    }
-`;
-
-const MenuStyled = styled(Menu)`
-    &&& {
-        .ant-dropdown-menu-item:not(:hover) {
-            background: none;
-        }
-        .ant-dropdown-menu-item:hover {
-            background: #f5f5f5;
-        }
     }
 `;
 
@@ -240,28 +229,42 @@ export const ViewDropdownMenu = ({
     const showRemoveGlobalDefaultView = canManageGlobalViews && isGlobalView && isGlobalDefault;
     const showSetGlobalDefaultView = canManageGlobalViews && isGlobalView && !isGlobalDefault;
 
+    const items = [
+        {
+            key: 0,
+            label: (canManageView && <EditViewItem key="0" onClick={onEditView} />) || (
+                <PreviewViewItem key="0" onClick={onPreviewView} />
+            ),
+        },
+        {
+            key: 1,
+            label: (isUserDefault && <RemoveUserDefaultItem key="1" onClick={() => setUserDefault(null)} />) || (
+                <SetUserDefaultItem key="1" onClick={() => setUserDefault(view.urn)} />
+            ),
+        },
+        showRemoveGlobalDefaultView
+            ? {
+                  key: 2,
+                  label: <RemoveGlobalDefaultItem key="2" onClick={() => setGlobalDefault(null)} />,
+              }
+            : null,
+        showSetGlobalDefaultView
+            ? {
+                  key: 2,
+                  label: <SetGlobalDefaultItem key="2" onClick={() => setGlobalDefault(view.urn)} />,
+              }
+            : null,
+        canManageView
+            ? {
+                  key: 3,
+                  label: <DeleteViewItem key="3" onClick={confirmDeleteView} />,
+              }
+            : null,
+    ];
+
     return (
         <>
-            <Dropdown
-                overlay={
-                    <MenuStyled>
-                        {(canManageView && <EditViewItem key="0" onClick={onEditView} />) || (
-                            <PreviewViewItem key="0" onClick={onPreviewView} />
-                        )}
-                        {(isUserDefault && <RemoveUserDefaultItem key="1" onClick={() => setUserDefault(null)} />) || (
-                            <SetUserDefaultItem key="1" onClick={() => setUserDefault(view.urn)} />
-                        )}
-                        {showRemoveGlobalDefaultView && (
-                            <RemoveGlobalDefaultItem key="2" onClick={() => setGlobalDefault(null)} />
-                        )}
-                        {showSetGlobalDefaultView && (
-                            <SetGlobalDefaultItem key="2" onClick={() => setGlobalDefault(view.urn)} />
-                        )}
-                        {canManageView && <DeleteViewItem key="3" onClick={confirmDeleteView} />}
-                    </MenuStyled>
-                }
-                trigger={[trigger]}
-            >
+            <Dropdown menu={{ items }} trigger={[trigger]}>
                 <MenuButton data-testid="views-table-dropdown" style={{ display: visible ? undefined : 'none' }} />
             </Dropdown>
             {viewBuilderState.visible && (

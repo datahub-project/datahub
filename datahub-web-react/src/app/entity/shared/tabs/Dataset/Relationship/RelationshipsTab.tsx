@@ -219,7 +219,7 @@ export const RelationshipsTab = () => {
                     table1Schema={entityWithSchema}
                     table2={table2LazyDataset}
                     table2Schema={table2LazySchema}
-                    visible={modalVisible}
+                    open={modalVisible}
                     setModalVisible={setModalVisible}
                     onCancel={() => {
                         setModalVisible(false);
