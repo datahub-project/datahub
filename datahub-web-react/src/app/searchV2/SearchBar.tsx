@@ -301,21 +301,30 @@ export const SearchBar = ({
 
     const options = useMemo(() => {
         const content = autoCompleteEntityOptions.length ? autoCompleteEntityOptions : emptyQueryOptions;
+        const baseOptions: any[] = [...autoCompleteQueryOptions, ...quickFilterOption, ...content];
 
-        const exploreAllOption = {
-            value: 'explore-all-unique-key',
-            type: '',
-            label: (
-                <Button type="link" onClick={onClickExploreAll}>
-                    Explore all →
-                </Button>
-            ),
-            style: { marginLeft: 'auto', cursor: 'auto' },
-            disabled: true,
-        };
-
-        return [...autoCompleteQueryOptions, ...quickFilterOption, ...content, exploreAllOption];
-    }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions, quickFilterOption, onClickExploreAll]);
+        if (showViewAllResults) {
+            baseOptions.push({
+                value: 'explore-all-unique-key',
+                type: '',
+                label: (
+                    <Button type="link" onClick={onClickExploreAll}>
+                        Explore all →
+                    </Button>
+                ),
+                style: { marginLeft: 'auto', cursor: 'auto' },
+                disabled: true,
+            });
+        }
+        return baseOptions;
+    }, [
+        emptyQueryOptions,
+        autoCompleteEntityOptions,
+        autoCompleteQueryOptions,
+        quickFilterOption,
+        showViewAllResults,
+        onClickExploreAll,
+    ]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);
 
