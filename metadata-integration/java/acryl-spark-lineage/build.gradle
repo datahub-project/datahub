@@ -49,6 +49,8 @@ dependencies {
   implementation externalDependency.typesafeConfig
   implementation externalDependency.json
 
+  implementation project(':metadata-integration:java:openlineage-converter')
+
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
   implementation project(path: ':metadata-integration:java:openlineage-converter', configuration: 'shadow')
 
