@@ -77,6 +77,7 @@ type Props = {
     title?: string;
     description?: string;
     isAllowedToEdit?: boolean;
+    isEditable?: boolean;
     onClose?: () => void;
     onEditSubmitted: (newQuery) => void;
     showDetails?: boolean;
@@ -89,6 +90,7 @@ export default function QueryModal({
     description,
     showDetails = true,
     isAllowedToEdit = false,
+    isEditable = false,
     onClose,
     onEditSubmitted,
 }: Props) {
@@ -169,7 +171,7 @@ export default function QueryModal({
                         buttonText="Summarize"
                         insertText="Save as description"
                         collapseOnInsert={false}
-                        showInsert={isAllowedToEdit}
+                        showInsert={isAllowedToEdit && isEditable}
                         onInsertDescription={updateDescription}
                         surface="query-viewer-modal"
                     />

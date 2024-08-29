@@ -154,7 +154,14 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                 firstQueries.map((query, idx) => (
                     <StyledQueryContainer>
                         <StyledQueryCard>
-                            <Query query={query.query} index={idx} isCompact showDetails={false} showHeader={false} />
+                            <Query
+                                query={query.query}
+                                index={idx}
+                                isCompact
+                                showDetails={false}
+                                isEditable={false}
+                                showHeader={false}
+                            />
                             <QuerySubtitleContainer>
                                 <SubtitleSection>
                                     Last run by{' '}

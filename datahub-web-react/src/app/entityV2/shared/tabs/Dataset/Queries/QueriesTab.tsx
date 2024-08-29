@@ -146,6 +146,7 @@ export default function QueriesTab() {
                                 onAddQuery={() => setShowQueryBuilder(true)}
                                 isTopSection
                                 isAllowedToEdit={canEditQueries}
+                                isEditable
                                 {...props}
                             />
                         )}

@@ -86,6 +86,7 @@ type Props = {
     showEdit?: boolean;
     showDelete?: boolean;
     isAllowedToEdit?: boolean;
+    isEditable?: boolean;
     onDeleted?: (query) => void;
     onEdited?: (query) => void;
     section: QueriesTabSection;
@@ -111,6 +112,7 @@ export default function QueriesListSection({
     showEdit,
     showDelete,
     isAllowedToEdit,
+    isEditable,
     onDeleted,
     onEdited,
     section,
@@ -152,6 +154,7 @@ export default function QueriesListSection({
         showDetails,
         showEdit,
         isAllowedToEdit,
+        isEditable,
         onDeleted,
         onEdited,
         sorting,

@@ -14,6 +14,7 @@ export type Props = {
     showDetails?: boolean;
     showHeader?: boolean;
     isAllowedToEdit?: boolean;
+    isEditable?: boolean;
     onDeleted?: () => void;
     onEdited?: (query) => void;
     index?: number;
@@ -31,6 +32,7 @@ export default function Query({
     showDetails = true,
     showHeader = true,
     isAllowedToEdit,
+    isEditable,
     onDeleted,
     onEdited,
     index,
@@ -71,6 +73,7 @@ export default function Query({
                     onClose={() => setShowQueryModal(false)}
                     onEditSubmitted={onEditSubmitted}
                     isAllowedToEdit={isAllowedToEdit}
+                    isEditable={isEditable}
                     showDetails={showDetails}
                 />
             )}
