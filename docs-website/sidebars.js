@@ -446,6 +446,11 @@ module.exports = {
         },
         {
           type: "doc",
+          id: "docs/lineage/prefect",
+          label: "Prefect",
+        },
+        {
+          type: "doc",
           id: "metadata-integration/java/acryl-spark-lineage/README",
           label: "Spark",
         },
@@ -917,6 +922,7 @@ module.exports = {
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
+    //"metadata-ingestion-modules/prefect-plugin/README"
     //"metadata-ingestion-modules/gx-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
@@ -948,6 +954,7 @@ module.exports = {
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
+    // "docs/SECURITY_STANCE"
     // ],
   ],
 };

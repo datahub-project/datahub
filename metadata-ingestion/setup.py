@@ -238,7 +238,7 @@ pyhive_common = {
     # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
-microsoft_common = {"msal==1.22.0"}
+microsoft_common = {"msal>=1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -271,7 +271,7 @@ s3_base = {
 
 abs_base = {
     "azure-core==1.29.4",
-    "azure-identity>=1.14.0",
+    "azure-identity>=1.17.1",
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
     "more-itertools>=8.12.0",
@@ -313,6 +313,12 @@ databricks = {
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
+
+sac = {
+    "requests",
+    "pyodata>=1.11.1",
+    "Authlib",
+}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -359,6 +365,7 @@ plugins: Dict[str, Set[str]] = {
         "google-cloud-datacatalog-lineage==0.2.2",
     }
     | classification_lib,
+    "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "cockroachdb": sql_common | postgres_common | {"sqlalchemy-cockroachdb<2.0.0"},
@@ -479,6 +486,7 @@ plugins: Dict[str, Set[str]] = {
     "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
+    "sac": sac,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -536,7 +544,8 @@ mypy_stubs = {
 
 test_api_requirements = {
     "pytest>=6.2.2",
-    "deepdiff",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
     "PyYAML",
     "pytest-docker>=1.1.0",
 }
@@ -619,6 +628,7 @@ base_dev_requirements = {
             "kafka-connect",
             "qlik-sense",
             "sigma",
+            "sac",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -668,6 +678,7 @@ entry_points = {
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
+        "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
@@ -733,6 +744,7 @@ entry_points = {
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
+        "sac = datahub.ingestion.source.sac.sac:SACSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

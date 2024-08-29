@@ -3,6 +3,7 @@ ARG APP_ENV=full
 ARG BASE_IMAGE=acryldata/datahub-ingestion-base
 ARG DOCKER_VERSION=head-full
 ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
+ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
 FROM $BASE_IMAGE:$DOCKER_VERSION AS base
@@ -10,7 +11,9 @@ FROM $BASE_IMAGE:$DOCKER_VERSION AS base
 # Optionally set corporate mirror for deb
 USER 0
 ARG DEBIAN_REPO_URL
-RUN if [ "${DEBIAN_REPO_URL}" != "http://deb.debian.org/debian" ] ; then sed -i "s#http.*://deb.debian.org/debian#${DEBIAN_REPO_URL}#g" /etc/apt/sources.list.d/debian.sources ; fi
+ARG UBUNTU_REPO_URL
+RUN if [ "${DEBIAN_REPO_URL}" != "http://deb.debian.org/debian" ] ; then sed -i "s#http.*://deb.debian.org/debian#${DEBIAN_REPO_URL}#g" /etc/apt/sources.list ; fi
+RUN if [ "${UBUNTU_REPO_URL}" != "http://ports.ubuntu.com/ubuntu-ports" ] ; then sed -i "s#http.*://ports.ubuntu.com/ubuntu-ports#${UBUNTU_REPO_URL}#g" /etc/apt/sources.list ; fi
 USER datahub
 
 # Optionally set corporate mirror for pip

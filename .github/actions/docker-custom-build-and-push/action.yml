@@ -53,11 +53,10 @@ runs:
         images: ${{ inputs.images }}
         flavor: |
           latest=false
-          suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
         tags: |
           type=raw,value=${{ inputs.image_tag }}
-          type=raw,value=head,enable={{is_default_branch}}
-          type=sha,prefix=,format=short
+          type=raw,value=head,suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }},enable={{is_default_branch}}
+          type=sha,prefix=,format=short,suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
 
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)

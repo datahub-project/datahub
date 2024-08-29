@@ -453,17 +453,13 @@ export const IngestionSourceList = () => {
             </SourceContainer>
             <IngestionSourceBuilderModal
                 initialState={removeExecutionsFromIngestionSource(focusSource)}
-                visible={isBuildingSource}
+                open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
-                <ExecutionDetailsModal
-                    urn={focusExecutionUrn}
-                    visible
-                    onClose={() => setFocusExecutionUrn(undefined)}
-                />
+                <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
             )}
         </>
     );
