@@ -57,7 +57,6 @@ class SagemakerSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.source_config = config
         self.report = SagemakerSourceReport()
-        self.sagemaker_client = config.sagemaker_client
         self.env = config.env
         self.client_factory = ClientFactory(config)
 
@@ -100,7 +99,7 @@ class SagemakerSource(StatefulIngestionSourceBase):
                 env=self.env,
                 report=self.report,
                 job_type_filter=self.source_config.extract_jobs,
-                aws_region=self.sagemaker_client.meta.region_name,
+                aws_region=self.client_factory.get_client().meta.region_name,
             )
             yield from job_processor.get_workunits()
 
@@ -116,7 +115,7 @@ class SagemakerSource(StatefulIngestionSourceBase):
                 model_image_to_jobs=model_image_to_jobs,
                 model_name_to_jobs=model_name_to_jobs,
                 lineage=lineage,
-                aws_region=self.sagemaker_client.meta.region_name,
+                aws_region=self.client_factory.get_client().meta.region_name,
             )
             yield from model_processor.get_workunits()
 
@@ -131,6 +130,6 @@ class ClientFactory:
 
     def get_client(self) -> "SageMakerClient":
         if not self._cached_client or self.config.should_refresh_credentials():
-            self._cached_client = self.config.sagemaker_client
+            self._cached_client = self.config.get_sagemaker_client()
         assert self._cached_client is not None
         return self._cached_client

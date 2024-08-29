@@ -225,7 +225,6 @@ class AwsConnectionConfig(ConfigModel):
     def should_refresh_credentials(self) -> bool:
         logger.debug("Checking whether we should refresh credentials")
         if not self._normalized_aws_roles():
-            # Maybe we should be enabling refreshing also in other cases? Should be as simple as removing this check
             logger.debug(
                 "Didn't recognize any aws roles to assume, deciding not to refresh"
             )

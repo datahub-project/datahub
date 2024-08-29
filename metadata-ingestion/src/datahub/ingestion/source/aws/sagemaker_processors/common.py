@@ -27,10 +27,6 @@ class SagemakerSourceConfig(
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @property
-    def sagemaker_client(self):
-        return self.get_sagemaker_client()
-
 
 @dataclass
 class SagemakerSourceReport(StaleEntityRemovalSourceReport):
