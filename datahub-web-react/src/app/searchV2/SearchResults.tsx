@@ -93,7 +93,6 @@ const SearchResultsScrollContainer = styled.div`
 
 const LeftControlsContainer = styled.div`
     display: flex;
-    align-items: center;
     gap: 12px;
 `;
 

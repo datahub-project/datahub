@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.CreatePromptInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FormActorAssignmentInput;
 import com.linkedin.datahub.graphql.generated.FormFilter;
+import com.linkedin.datahub.graphql.generated.GlossaryTermsParamsInput;
 import com.linkedin.datahub.graphql.generated.OwnershipParamsInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParamsInput;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
@@ -31,6 +32,7 @@ import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormState;
 import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
+import com.linkedin.form.GlossaryTermsParams;
 import com.linkedin.form.OwnershipParams;
 import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
@@ -330,6 +332,9 @@ public class FormUtils {
     if (promptInput.getOwnershipParams() != null) {
       result.setOwnershipParams(mapOwnershipParams(promptInput.getOwnershipParams()));
     }
+    if (promptInput.getGlossaryTermsParams() != null) {
+      result.setGlossaryTermsParams(mapGlossaryTermsParams(promptInput.getGlossaryTermsParams()));
+    }
     if (promptInput.getRequired() != null) {
       result.setRequired(promptInput.getRequired());
     }
@@ -354,6 +359,31 @@ public class FormUtils {
 
     final OwnershipParams result = new OwnershipParams();
     result.setCardinality(PromptCardinality.valueOf(paramsInput.getCardinality().toString()));
+    return result;
+  }
+
+  @Nonnull
+  public static GlossaryTermsParams mapGlossaryTermsParams(
+      @Nonnull final GlossaryTermsParamsInput paramsInput) {
+    Objects.requireNonNull(paramsInput, "paramsInput must not be null");
+
+    final GlossaryTermsParams result = new GlossaryTermsParams();
+    result.setCardinality(
+        paramsInput.getCardinality() != null
+            ? PromptCardinality.valueOf(paramsInput.getCardinality().toString())
+            : PromptCardinality.MULTIPLE);
+    if (paramsInput.getAllowedTerms() != null) {
+      UrnArray allowedTerms = new UrnArray();
+      paramsInput.getAllowedTerms().forEach(termUrn -> allowedTerms.add(UrnUtils.getUrn(termUrn)));
+      result.setAllowedTerms(allowedTerms);
+    }
+    if (paramsInput.getAllowedTermGroups() != null) {
+      UrnArray allowedTermGroups = new UrnArray();
+      paramsInput
+          .getAllowedTermGroups()
+          .forEach(termGroupUrn -> allowedTermGroups.add(UrnUtils.getUrn(termGroupUrn)));
+      result.setAllowedTermGroups(allowedTermGroups);
+    }
     return result;
   }
 

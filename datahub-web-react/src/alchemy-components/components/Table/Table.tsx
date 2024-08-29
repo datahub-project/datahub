@@ -43,9 +43,7 @@ export const Table = <T,>({
         return (
             <LoadingContainer>
                 <LoadingOutlined />
-                <Text size="sm" color="gray">
-                    Loading data...
-                </Text>
+                <Text color="gray">Loading data...</Text>
             </LoadingContainer>
         );
     }

@@ -16,7 +16,7 @@ import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
-import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
+import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '../../searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { useAppConfig } from '../../useAppConfig';

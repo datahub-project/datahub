@@ -45,6 +45,14 @@ record FormPrompt {
      * This prompt is meant to apply documentation to a schema field entity
      */
     FIELDS_DOCUMENTATION
+    /**
+     * This prompt is meant to apply glossary terms to an entity
+     */
+    GLOSSARY_TERMS
+    /**
+     * This prompt is meant to apply glossary terms to a schema field entity
+     */
+    FIELDS_GLOSSARY_TERMS
   }
 
   /**
@@ -68,6 +76,12 @@ record FormPrompt {
      */
     cardinality: PromptCardinality
   }
+
+  /**
+   * An optional set of information specific to glossary terms prompts.
+   * This should be filled out if the prompt is type GLOSSARY_TERMS or FIELDS_GLOSSARY_TERM.
+   */
+  glossaryTermsParams: optional GlossaryTermsParams
 
   /**
    * Whether the prompt is required to be completed, in order for the form to be marked as complete.

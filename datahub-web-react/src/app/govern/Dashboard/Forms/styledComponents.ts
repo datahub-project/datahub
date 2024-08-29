@@ -76,6 +76,12 @@ export const BreadcrumbContainer = styled.div`
     margin: 12px 0 16px 0;
 `;
 
+export const Header = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 export const BackText = styled.div`
     :hover {
         cursor: pointer;
@@ -210,4 +216,19 @@ export const StyledTag = styled(Tag)`
     display: flex;
     justify-content: start;
     align-items: center;
+`;
+
+export const EmptyContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    gap: 16px;
+
+    svg {
+        width: 160px;
+        height: 160px;
+    }
 `;

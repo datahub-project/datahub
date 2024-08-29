@@ -1,9 +1,10 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
+import GhostEntityMenu from '@app/lineageV2/LineageEntityNode/GhostEntityMenu';
 import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
 import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
-import { Skeleton, Spin } from 'antd';
+import { Skeleton, Spin, Tooltip } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
@@ -15,7 +16,7 @@ import HealthIcon from '../../previewV2/HealthIcon';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { FetchStatus, getNodeColor, LineageEntity, onClickPreventSelect } from '../common';
+import { FetchStatus, getNodeColor, isGhostEntity, LineageEntity, onClickPreventSelect } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { FetchedEntityV2 } from '../types';
 import Columns from './Columns';
@@ -31,10 +32,16 @@ const NodeWrapper = styled.div<{
     expandHeight?: number;
     color: string;
     $transitionDuration: number;
+    isGhost: boolean;
 }>`
     align-items: center;
     background-color: white;
-    border: 1px solid ${({ color, selected }) => (selected ? color : LINEAGE_COLORS.NODE_BORDER)};
+    border: 1px solid
+        ${({ color, selected, isGhost }) => {
+            if (selected) return color;
+            if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
+            return LINEAGE_COLORS.NODE_BORDER;
+        }};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -44,7 +51,7 @@ const NodeWrapper = styled.div<{
     overflow-y: hidden;
     transition: max-height ${({ $transitionDuration }) => $transitionDuration}ms ease-in-out;
     width: ${LINEAGE_NODE_WIDTH}px;
-    cursor: pointer;
+    cursor: ${({ isGhost }) => (isGhost ? 'not-allowed' : 'pointer')};
 `;
 
 const CARD_HEIGHT = LINEAGE_NODE_HEIGHT - 2; // Inside border
@@ -57,7 +64,7 @@ const FakeCard = styled.div`
     width: 100%;
 `;
 
-const CardWrapper = styled.div`
+const CardWrapper = styled.div<{ isGhost: boolean }>`
     align-items: center;
     display: flex;
     flex-direction: row;
@@ -65,10 +72,12 @@ const CardWrapper = styled.div`
     position: absolute;
     padding: 8px 11px;
     width: 100%;
+    ${({ isGhost }) => isGhost && 'opacity: 0.5;'}
 `;
 
-const EntityTypeShadow = styled.div<{ color: string }>`
+const EntityTypeShadow = styled.div<{ color: string; isGhost: boolean }>`
     background: ${({ color }) => color};
+    opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
     border-radius: 6px;
     position: absolute;
 
@@ -251,6 +260,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     const entityRegistry = useEntityRegistry();
 
+    const isGhost = isGhostEntity(entity);
+
     const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
     const expandHeight =
         LINEAGE_NODE_HEIGHT +
@@ -307,14 +318,15 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         );
     }
 
-    return (
+    const contents = (
         <NodeWrapper
             selected={selected}
             expandHeight={expandHeight}
             color={nodeColor}
             $transitionDuration={transitionDuration}
+            isGhost={isGhost}
         >
-            <EntityTypeShadow color={nodeColor} />
+            <EntityTypeShadow color={nodeColor} isGhost={isGhost} />
             <FakeCard />
             <FakeCard style={{ position: 'absolute' }}>
                 {hasUpstreamChildren &&
@@ -363,7 +375,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     </LoadingWrapper>
                 )}
             </FakeCard>
-            <CardWrapper onMouseEnter={() => setHoveredNode(urn)} onMouseLeave={() => setHoveredNode(null)}>
+            <CardWrapper
+                isGhost={isGhost}
+                onMouseEnter={() => setHoveredNode(urn)}
+                onMouseLeave={() => setHoveredNode(null)}
+            >
                 <CustomHandle type="target" position={Position.Left} isConnectable={false} />
                 <CustomHandle type="source" position={Position.Right} isConnectable={false} />
                 <IconsWrapper>
@@ -376,7 +392,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     {entity?.icon && !entity.lineageSiblingIcon && (
                         <PlatformIcon src={entity.icon} alt={platformName || 'platform'} title={platformName} />
                     )}
-                    {!entity?.icon && <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />}
+                    {!entity && <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />}
                     {entity ? (
                         getTypeIcon(entityRegistry, entity.type, entity.subtype, true)
                     ) : (
@@ -398,14 +414,14 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 )}
                             </TitleLine>
                         </TitleWrapper>
-                        {!!numColumnsTotal && (
+                        {!!numColumnsTotal && !isGhost && (
                             <ExpandColumnsWrapper onClick={showHideColumns} defaultHeight={10}>
                                 {numColumnsTotal} columns
                                 {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
                                 {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
                             </ExpandColumnsWrapper>
                         )}
-                        <ManageLineageMenu node={props} refetch={refetch} />
+                        {isGhost ? <GhostEntityMenu urn={urn} /> : <ManageLineageMenu node={props} refetch={refetch} />}
                     </MainTextWrapper>
                 )}
                 {!entity && <NodeSkeleton />}
@@ -415,6 +431,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     <HorizontalDivider margin={0} />
                     <Columns
                         entity={entity}
+                        isGhost={isGhost}
                         showAllColumns={showColumns}
                         paginatedColumns={paginatedColumns}
                         highlightedColumns={extraHighlightedColumns}
@@ -431,4 +448,14 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
             )}
         </NodeWrapper>
     );
+
+    if (isGhost) {
+        const message = entity?.status?.removed ? 'has been deleted' : 'does not exist in DataHub';
+        return (
+            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3}>
+                {contents}
+            </Tooltip>
+        );
+    }
+    return contents;
 }

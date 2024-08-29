@@ -1703,6 +1703,14 @@ fragment formFields on Form {
             ownershipParams {
                 cardinality
             }
+            glossaryTermsParams {
+                cardinality
+                resolvedAllowedTerms {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
         }
         actors {
             owners
@@ -1727,6 +1735,13 @@ fragment formFields on Form {
                 editableProperties {
                     pictureLink
                 }
+            }
+        }
+        status {
+            state
+            lastModified {
+                time
+                actor
             }
         }
     }

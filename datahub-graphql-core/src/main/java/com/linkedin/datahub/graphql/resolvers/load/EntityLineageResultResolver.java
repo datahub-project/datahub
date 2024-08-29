@@ -70,14 +70,15 @@ public class EntityLineageResultResolver
     }
 
     final LineageDirection lineageDirection = input.getDirection();
-    @Nullable final Integer start = input.getStart(); // Optional!
-    @Nullable final Integer count = input.getCount(); // Optional!
-    @Nullable final Boolean separateSiblings = input.getSeparateSiblings(); // Optional!
-    @Nullable final Long startTimeMillis = input.getStartTimeMillis(); // Optional!
+    // All inputs are optional
+    @Nullable final Integer start = input.getStart();
+    @Nullable final Integer count = input.getCount();
+    @Nullable final Boolean separateSiblings = input.getSeparateSiblings();
+    @Nullable final Long startTimeMillis = input.getStartTimeMillis();
     @Nullable
     final Long endTimeMillis =
-        ResolverUtils.getLineageEndTimeMillis(
-            input.getStartTimeMillis(), input.getEndTimeMillis()); // Optional!
+        ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
+    @Nullable final Boolean includeGhostEntities = input.getIncludeGhostEntities();
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
@@ -103,6 +104,7 @@ public class EntityLineageResultResolver
                     separateSiblings != null
                         ? input.getSeparateSiblings()
                         : _featureFlags.isSeparateSiblingsLineageByDefault(),
+                    Boolean.TRUE.equals(input.getIncludeGhostEntities()),
                     new HashSet<>());
 
             Set<Urn> restrictedUrns = new HashSet<>();

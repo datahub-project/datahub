@@ -26,6 +26,7 @@ from datahub.metadata.schema_classes import (
     FormActorAssignmentClass,
     FormInfoClass,
     FormPromptClass,
+    GlossaryTermsParamsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipParamsClass,
@@ -51,12 +52,20 @@ class OwnershipParams(ConfigModel):
     cardinality: str
 
 
+class GlossaryTermsParams(ConfigModel):
+    cardinality: Optional[str] = None
+    allowed_terms: Optional[List[str]] = None
+    allowed_term_groups: Optional[List[str]] = None
+
+
 class PromptType(Enum):
     STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
     FIELDS_STRUCTURED_PROPERTY = "FIELDS_STRUCTURED_PROPERTY"
     OWNERSHIP = "OWNERSHIP"
     DOCUMENTATION = "DOCUMENTATION"
     FIELDS_DOCUMENTATION = "FIELDS_DOCUMENTATION"
+    GLOSSARY_TERMS = "GLOSSARY_TERMS"
+    FIELDS_GLOSSARY_TERMS = "FIELDS_GLOSSARY_TERMS"
 
     @classmethod
     def has_value(cls, value):
@@ -72,6 +81,7 @@ class Prompt(ConfigModel):
     structured_property_urn: Optional[str] = None
     required: Optional[bool] = None
     ownership_params: Optional[OwnershipParams] = None
+    glossary_terms_params: Optional[GlossaryTermsParams] = None
 
     @validator("structured_property_urn", pre=True, always=True)
     def structured_property_urn_must_be_present(cls, v, values):
@@ -217,7 +227,12 @@ class Forms(ConfigModel):
                             f"Prompt cardinality {prompt.ownership_params.cardinality} is not valid. Please try again with a valid Prompt cardinality."
                         )
                 if (
-                    prompt.type == PromptType.FIELDS_STRUCTURED_PROPERTY.value
+                    prompt.type
+                    in (
+                        PromptType.FIELDS_STRUCTURED_PROPERTY.value,
+                        PromptType.FIELDS_DOCUMENTATION.value,
+                        PromptType.FIELDS_GLOSSARY_TERMS.value,
+                    )
                     and prompt.required
                 ):
                     raise Exception(
@@ -240,6 +255,7 @@ class Forms(ConfigModel):
                         )
                         if prompt.ownership_params
                         else None,
+                        glossaryTermsParams=self.get_glossary_terms_params(prompt),
                         required=prompt.required,
                     )
                 )
@@ -247,6 +263,32 @@ class Forms(ConfigModel):
             logger.warning(f"No prompts exist on form {self.urn}. Is that intended?")
 
         return prompts
+
+    def get_glossary_terms_params(
+        self, prompt: Prompt
+    ) -> Union[None, GlossaryTermsParamsClass]:
+        if prompt.type not in (
+            PromptType.GLOSSARY_TERMS.value,
+            PromptType.FIELDS_GLOSSARY_TERMS.value,
+        ):
+            return None
+
+        glossary_terms_params = GlossaryTermsParamsClass(cardinality="MULTIPLE")
+        if prompt.glossary_terms_params:
+            if prompt.glossary_terms_params.cardinality:
+                glossary_terms_params.cardinality = (
+                    prompt.glossary_terms_params.cardinality
+                )
+            if prompt.glossary_terms_params.allowed_terms:
+                glossary_terms_params.allowedTerms = (
+                    prompt.glossary_terms_params.allowed_terms
+                )
+            if prompt.glossary_terms_params.allowed_term_groups:
+                glossary_terms_params.allowedTermGroups = (
+                    prompt.glossary_terms_params.allowed_term_groups
+                )
+
+        return glossary_terms_params
 
     def create_form_actors(
         self, actors: Optional[Actors] = None

@@ -33,6 +33,7 @@ public class AsyncBatchVerifyFormResolverTest {
   private static final AsyncBatchVerifyFormInput TEST_INPUT =
       new AsyncBatchVerifyFormInput(
           new ArrayList<>(),
+          null,
           new ArrayList<>(),
           new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
           TEST_FORM_URN,

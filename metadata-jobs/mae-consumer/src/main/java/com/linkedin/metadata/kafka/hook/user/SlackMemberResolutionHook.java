@@ -234,7 +234,7 @@ public class SlackMemberResolutionHook implements MetadataChangeLogHook {
             "Found member resource matching user %s slack handle %s. Updating corpUserEditableInfo",
             userUrn, slackHandle));
     try {
-      return memberResolutionUtils.upsertCorpUserEditableInfoWithSlackMemberDetails(
+      return memberResolutionUtils.upsertCorpUserAspectsWithSlackMemberDetails(
           systemOperationContext, userUrn, matchingPlatformResource, existingEditableInfo);
     } catch (Exception e) {
       log.error(
@@ -299,7 +299,7 @@ public class SlackMemberResolutionHook implements MetadataChangeLogHook {
             "Found member resource matching user %s email %s. Updating corpUserEditableInfo",
             userUrn, email));
     try {
-      return memberResolutionUtils.upsertCorpUserEditableInfoWithSlackMemberDetails(
+      return memberResolutionUtils.upsertCorpUserAspectsWithSlackMemberDetails(
           systemOperationContext, userUrn, matchingPlatformResource, existingEditableInfo);
     } catch (Exception e) {
       log.error(

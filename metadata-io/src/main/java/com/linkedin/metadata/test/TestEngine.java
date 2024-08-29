@@ -1085,12 +1085,8 @@ public class TestEngine {
             .setTestDefinition(testDefinition.getRawDefinition()));
     log.info("BatchTestRunResult pre eval: {}", batchTestRunResults.get(testUrn));
 
-    boolean isBulkFormSubmission =
-        testInfo.getSource() != null
-            && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
-
     final Map<Urn, TestResults> results =
-        getUrnTestResultsMap(testUrn, testDefinition, batchTestRunResults, isBulkFormSubmission);
+        getUrnTestResultsMap(testUrn, testDefinition, batchTestRunResults, testInfo);
     log.info("BatchTestRunResult post eval: {}", batchTestRunResults.get(testUrn));
     // (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
@@ -1102,7 +1098,7 @@ public class TestEngine {
 
       // Writes entity results
       // skip writing asset results if the source type is bulk form submission
-      batchIngestResults(results, mode, true, oldResults, !isBulkFormSubmission);
+      batchIngestResults(results, mode, true, oldResults, !isBulkFormSubmission(testInfo));
 
       // Writes test summary results
       List<MetadataChangeProposal> reportingMCPs =
@@ -1154,9 +1150,11 @@ public class TestEngine {
       Urn testUrn,
       TestDefinition testDefinition,
       Map<Urn, BatchTestRunResult> batchTestRunResults,
-      boolean shouldExecuteBatchBeyondLimit) {
+      TestInfo testInfo) {
     final Map<Urn, TestResults> results;
     Map<Urn, TestResults> tempResults;
+    final String query =
+        testInfo.getDefinition().getOnQuery() != null ? testInfo.getDefinition().getOnQuery() : "*";
     // Prefer ElasticSearchTestExecutor if it can execute the test
     try {
       boolean canSelect =
@@ -1165,14 +1163,21 @@ public class TestEngine {
         log.info("ElasticSearchTestExecutor can execute test {}", testUrn);
         tempResults =
             elasticSearchTestExecutor.evaluate(
-                testDefinition, batchTestRunResults.get(testUrn), shouldExecuteBatchBeyondLimit);
+                testDefinition,
+                query,
+                batchTestRunResults.get(testUrn),
+                isBulkFormSubmission(testInfo));
         log.info("Test results size for test {} is {}", testUrn, tempResults.size());
       } else {
         final Set<Urn> candidateUrns = new HashSet<>();
         if (canSelect) {
           log.info("ElasticSearchTestExecutor can select test {}", testUrn);
-          candidateUrns.addAll(elasticSearchTestExecutor.select(testDefinition));
+          candidateUrns.addAll(elasticSearchTestExecutor.select(testDefinition, query));
         } else {
+          if (isBulkFormSubmission(testInfo)) {
+            throw new UnsupportedOperationException(
+                "Tried to use default selector when evaluating bulk form submission test. Elastic selector is required.");
+          }
           defaultSelect(testDefinition, testUrn, candidateUrns);
         }
 
@@ -1182,6 +1187,10 @@ public class TestEngine {
       // If we know the selection is too large, don't try to use default selector
       throw se;
     } catch (Exception e) {
+      if (isBulkFormSubmission(testInfo)) {
+        throw new UnsupportedOperationException(
+            "Tried to use default selector when evaluating bulk form submission test. Elastic selector is required.");
+      }
       // If ES Test executor fails try to do default
       log.warn("Unable to use ElasticSearchExecutor.", e);
       Set<Urn> candidateUrns = new HashSet<>();
@@ -1276,6 +1285,11 @@ public class TestEngine {
       log.error(String.format("Failed to fetch test info for test urn %s", testUrn));
     }
     return testInfo;
+  }
+
+  private boolean isBulkFormSubmission(@Nonnull final TestInfo testInfo) {
+    return testInfo.getSource() != null
+        && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
   }
 
   /**

@@ -1,6 +1,6 @@
 import { Button, Text, TextArea } from '@src/alchemy-components';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType, FormPromptType } from '@src/types.generated';
+import { EntityType, FormPromptType, FormState } from '@src/types.generated';
 import { Form, Input, Radio, Select } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,6 +19,8 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
     const { formValues, setFormValues } = useContext(ManageFormContext);
     const [form] = Form.useForm();
     const [selectedType, setSelectedType] = useState<string | undefined>();
+
+    const isFormDisabled = formValues.state !== FormState.Draft;
 
     const [structuredProperties, setStructuredProperties] = useState<
         | {
@@ -105,25 +107,37 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
         }
     };
 
+    const getModalTitle = () => {
+        if (isFormDisabled) return 'View Question';
+        if (question) return 'Edit Question';
+        return 'Add Question';
+    };
+
     return (
         <StyledModal
             title={
                 <Text color="gray" size="lg" weight="bold">
-                    {question ? 'Edit Question' : 'Add Question'}
+                    {getModalTitle()}
                 </Text>
             }
             open={showQuestionModal}
             onCancel={handleModalClose}
             footer={
                 <ModalFooter>
-                    <Button variant="text" onClick={handleModalClose}>
-                        Cancel
-                    </Button>
-                    <Button onClick={handleCreateOrUpdateQuestion}>{question ? 'Update' : 'Create'}</Button>
+                    {isFormDisabled ? (
+                        <Button onClick={handleModalClose}>Close</Button>
+                    ) : (
+                        <>
+                            <Button variant="text" onClick={handleModalClose}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleCreateOrUpdateQuestion}>{question ? 'Update' : 'Create'}</Button>
+                        </>
+                    )}
                 </ModalFooter>
             }
         >
-            <Form form={form} onValuesChange={handleValuesChange}>
+            <Form form={form} onValuesChange={handleValuesChange} disabled={isFormDisabled}>
                 <FormFieldsContainer>
                     <FieldLabel> Type</FieldLabel>
                     <Form.Item
@@ -194,7 +208,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                         <Input placeholder="Add Question here" />
                     </Form.Item>
                     <Form.Item name="description">
-                        <TextArea label="Description" placeholder="Add description here" />
+                        <TextArea label="Description" placeholder="Add description here" isDisabled={isFormDisabled} />
                     </Form.Item>
                     <FieldLabel> Mandatory</FieldLabel>
                     <Form.Item name="required">

@@ -51,6 +51,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
   private static final AsyncBatchSubmitFormPromptInput TEST_INPUT =
       new AsyncBatchSubmitFormPromptInput(
           new ArrayList<>(),
+          null,
           new ArrayList<>(),
           new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
           PROMPT_INPUT,
@@ -102,6 +103,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
     final AsyncBatchSubmitFormPromptInput testInput =
         new AsyncBatchSubmitFormPromptInput(
             new ArrayList<>(),
+            null,
             new ArrayList<>(),
             new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
             promptInput,
@@ -136,6 +138,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
     final AsyncBatchSubmitFormPromptInput testInput =
         new AsyncBatchSubmitFormPromptInput(
             new ArrayList<>(),
+            null,
             new ArrayList<>(),
             new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
             promptInput,
@@ -177,6 +180,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
     final AsyncBatchSubmitFormPromptInput testInput =
         new AsyncBatchSubmitFormPromptInput(
             new ArrayList<>(),
+            null,
             new ArrayList<>(),
             new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
             promptInput,
@@ -218,6 +222,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
     final AsyncBatchSubmitFormPromptInput testInput =
         new AsyncBatchSubmitFormPromptInput(
             new ArrayList<>(),
+            null,
             new ArrayList<>(),
             new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
             promptInput,

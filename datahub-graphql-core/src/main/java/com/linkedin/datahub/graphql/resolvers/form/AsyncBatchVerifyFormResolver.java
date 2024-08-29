@@ -86,6 +86,9 @@ public class AsyncBatchVerifyFormResolver
     com.linkedin.test.TestDefinition definition = new com.linkedin.test.TestDefinition();
     definition.setType(TestDefinitionType.JSON);
     definition.setJson(buildJsonTestDefinition(context, input, searchableFieldsToPathSpecs));
+    if (input.getQuery() != null) {
+      definition.setOnQuery(input.getQuery());
+    }
     testInfo.setDefinition(definition);
 
     final TestKey key = new TestKey();

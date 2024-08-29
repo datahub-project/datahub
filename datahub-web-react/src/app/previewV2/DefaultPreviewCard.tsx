@@ -1,4 +1,4 @@
-import LaunchIcon from '@mui/icons-material/Launch';
+import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import { CloseOutlined } from '@ant-design/icons';
@@ -39,7 +39,6 @@ import { useSearchContext } from '../search/context/SearchContext';
 import { CompactView } from './CompactView';
 
 import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
-import StyledExternalLink from '../entityV2/shared/links/StyledExternalLink';
 import { useEntityContext, useEntityData } from '../entity/shared/EntityContext';
 import { useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
 
@@ -334,16 +333,12 @@ export default function DefaultPreviewCard({
                                         actions={actions}
                                     />
                                 )}
-                                {externalUrl && (
-                                    <StyledExternalLink url={externalUrl}>
-                                        <LaunchIcon
-                                            style={{
-                                                fontSize: '16px',
-                                            }}
-                                        />
-                                        View in {platform}
-                                    </StyledExternalLink>
-                                )}
+                                <ViewInPlatform
+                                    urn={urn}
+                                    entityType={entityType}
+                                    platform={platform}
+                                    externalUrl={externalUrl}
+                                />
                             </ActionsSection>
                         </ActionsAndStatusSection>
                     </RowContainer>

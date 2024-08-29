@@ -78,6 +78,7 @@ export function filterSchemaRows(
     // if they have the drawer expanded on some asset we don't want to let this collapse
     expandedDrawerFieldPath: string | null,
     entityRegistry: EntityRegistry,
+    skipParents?: boolean,
 ) {
     if (!rows) return { filteredRows: [], expandedRowsFromFilter: new Set<string>() };
 
@@ -114,9 +115,10 @@ export function filterSchemaRows(
         const splitFieldPath = row.fieldPath.split('.');
         const fieldName = splitFieldPath.slice(-1)[0];
         if (
-            matchesFieldName(fieldName, formattedFilterText, schemaFilterTypes) ||
-            matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
-            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry, schemaFilterTypes) // non-editable tags, terms and description
+            !skipParents &&
+            (matchesFieldName(fieldName, formattedFilterText, schemaFilterTypes) ||
+                matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
+                matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry, schemaFilterTypes)) // non-editable tags, terms and description
         ) {
             // if we match specifically on this field (not just its parent), add and expand all parents
             matches.push({ path: row.fieldPath, index: idx });

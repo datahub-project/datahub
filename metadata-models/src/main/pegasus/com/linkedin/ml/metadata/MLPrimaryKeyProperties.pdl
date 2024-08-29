@@ -16,6 +16,10 @@ record MLPrimaryKeyProperties includes CustomProperties {
   /**
    * Documentation of the MLPrimaryKey
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**

@@ -37,10 +37,14 @@ import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGe
 import com.linkedin.metadata.timeline.eventgenerator.StatusChangeEventGenerator;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schemafield.SchemaFieldAliases;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
+import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.nio.charset.StandardCharsets;
@@ -603,5 +607,107 @@ public class SchemaFieldSideEffectTest {
     registry.register(STATUS_ASPECT_NAME, new StatusChangeEventGenerator());
 
     return registry;
+  }
+
+  @Test
+  public void schemaMetadataRestateAliasesTest() throws CloneNotSupportedException {
+    SchemaFieldSideEffect test = new SchemaFieldSideEffect();
+    test.setEntityChangeEventGeneratorRegistry(mock(EntityChangeEventGeneratorRegistry.class));
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    SchemaMetadata schemaMetadata = getTestSchemaMetadata();
+
+    List<MCPItem> testOutput;
+    for (ChangeType changeType : List.of(ChangeType.RESTATE)) {
+      // Run test with RESTATE MCP
+      SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+      MetadataChangeProposal restateMCP =
+          new MetadataChangeProposal()
+              .setEntityUrn(TEST_URN)
+              .setChangeType(changeType)
+              .setAspectName(SCHEMA_METADATA_ASPECT_NAME)
+              .setEntityType(TEST_URN.getEntityType())
+              .setSystemMetadata(systemMetadata)
+              .setAspect(GenericRecordUtils.serializeAspect(schemaMetadata));
+
+      MCPItem schemaMetadataChangeItem =
+          TestMCP.builder()
+              .urn(TEST_URN)
+              .metadataChangeProposal(restateMCP)
+              .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
+              .changeType(changeType)
+              .aspectSpec(
+                  TEST_REGISTRY
+                      .getEntitySpec(DATASET_ENTITY_NAME)
+                      .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+              .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+              .systemMetadata(systemMetadata)
+              .build();
+
+      testOutput =
+          test.postMCPSideEffect(
+                  List.of(
+                      MCLItemImpl.builder()
+                          .build(
+                              schemaMetadataChangeItem,
+                              schemaMetadata,
+                              schemaMetadataChangeItem.getSystemMetadata(),
+                              retrieverContext.getAspectRetriever())),
+                  retrieverContext)
+              .toList();
+
+      // Verify test
+      switch (changeType) {
+        default -> {
+          assertEquals(
+              testOutput.size(), 2, "Unexpected output items for changeType:" + changeType);
+
+          assertEquals(
+              testOutput,
+              List.of(
+                  ChangeItemImpl.builder()
+                      .urn(
+                          UrnUtils.getUrn(
+                              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
+                      .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
+                      .changeType(ChangeType.UPSERT)
+                      .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
+                      .aspectSpec(
+                          TEST_REGISTRY
+                              .getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)
+                              .getAspectSpec(SCHEMA_FIELD_ALIASES_ASPECT))
+                      .recordTemplate(
+                          new SchemaFieldAliases()
+                              .setAliases(
+                                  new UrnArray(
+                                      List.of(
+                                          UrnUtils.getUrn(
+                                              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)")))))
+                      .auditStamp(schemaMetadataChangeItem.getAuditStamp())
+                      .systemMetadata(systemMetadata)
+                      .build(mockAspectRetriever),
+                  ChangeItemImpl.builder()
+                      .urn(
+                          UrnUtils.getUrn(
+                              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"))
+                      .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
+                      .changeType(ChangeType.UPSERT)
+                      .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
+                      .aspectSpec(
+                          TEST_REGISTRY
+                              .getEntitySpec(SCHEMA_FIELD_ENTITY_NAME)
+                              .getAspectSpec(SCHEMA_FIELD_ALIASES_ASPECT))
+                      .recordTemplate(
+                          new SchemaFieldAliases()
+                              .setAliases(
+                                  new UrnArray(
+                                      List.of(
+                                          UrnUtils.getUrn(
+                                              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)")))))
+                      .auditStamp(schemaMetadataChangeItem.getAuditStamp())
+                      .systemMetadata(systemMetadata)
+                      .build(mockAspectRetriever)));
+        }
+      }
+    }
   }
 }

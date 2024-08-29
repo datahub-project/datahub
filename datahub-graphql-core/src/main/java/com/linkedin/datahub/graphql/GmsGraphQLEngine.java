@@ -76,6 +76,7 @@ import com.linkedin.datahub.graphql.generated.GetRootGlossaryTermsResult;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
+import com.linkedin.datahub.graphql.generated.GlossaryTermsParams;
 import com.linkedin.datahub.graphql.generated.IncidentSource;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
@@ -185,6 +186,7 @@ import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.DeleteFormResolver;
+import com.linkedin.datahub.graphql.resolvers.form.GlossaryTermsParamsResolver;
 import com.linkedin.datahub.graphql.resolvers.form.IsFormAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.form.SubmitFormPromptResolver;
 import com.linkedin.datahub.graphql.resolvers.form.UpdateFormResolver;
@@ -2797,6 +2799,26 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher("isAssignedToMe", new IsFormAssignedToMeResolver(groupService)));
+    builder.type(
+        "FormPrompt",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "glossaryTermsParams", new GlossaryTermsParamsResolver(entityClient)));
+    builder.type(
+        "GlossaryTermsParams",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "resolvedAllowedTerms",
+                new LoadableTypeBatchResolver<>(
+                    glossaryTermType,
+                    (env) -> {
+                      final GlossaryTermsParams termsParams = env.getSource();
+                      return termsParams.getResolvedAllowedTerms() != null
+                          ? termsParams.getResolvedAllowedTerms().stream()
+                              .map(GlossaryTerm::getUrn)
+                              .collect(Collectors.toList())
+                          : null;
+                    })));
     builder.type(
         "OwnershipPromptResponse",
         typeWiring ->

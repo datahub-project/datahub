@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 import styled from 'styled-components';
+import { EmbeddedSearchBar } from '@src/app/searchV2/EmbeddedSearchBar';
 
 import { SearchResults as NotAlchemySearchResults } from '../../../search/SearchResults';
 import { SearchFilters as NotAlchemySearchFilers } from '../../../search/filters/SearchFilters';
@@ -32,6 +33,15 @@ const FormByQuestionWrapper = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
+`;
+
+const V1SearchBarWrapper = styled.div<{ $padding?: string }>`
+    padding: ${(props) => (props.$padding ? props.$padding : '8px 20px')};
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+`;
+
+const V2SearchBarWrapper = styled.div`
+    padding: 8px 32px;
 `;
 
 interface Props {
@@ -78,6 +88,7 @@ export default function FormByQuestion({ closeModal }: Props) {
         onChangeUnionType,
         onChangePage,
         onChangeSelectAll,
+        onChangeQuery,
     } = useSearchPage({
         searchResults: resultItems,
         currentPath: window.location.pathname,
@@ -96,6 +107,7 @@ export default function FormByQuestion({ closeModal }: Props) {
     const handleViewRemaining = () => {
         setFormResponsesFilters([FormResponsesFilter.INCOMPLETE]);
         onChangeFilters([]);
+        onChangeQuery('');
         setSelectedEntities([]);
         setNumSubmittedEntities(0);
     };
@@ -119,6 +131,9 @@ export default function FormByQuestion({ closeModal }: Props) {
                         FORM_ANSWER_IN_BULK_ID,
                     ]}
                 />
+                <V1SearchBarWrapper $padding={showSearchFiltersV2 ? '8px 24px' : undefined}>
+                    <EmbeddedSearchBar />
+                </V1SearchBarWrapper>
                 {showSearchFiltersV2 && (
                     <div id={FORM_FILTER_AND_BROWSE_ID}>
                         <NotAlchemySearchFilers
@@ -185,6 +200,9 @@ export default function FormByQuestion({ closeModal }: Props) {
                     FORM_ANSWER_IN_BULK_ID,
                 ]}
             />
+            <V2SearchBarWrapper>
+                <EmbeddedSearchBar />
+            </V2SearchBarWrapper>
             {showSearchFiltersV2 && (
                 <div id={FORM_FILTER_AND_BROWSE_ID}>
                     <SearchFilters

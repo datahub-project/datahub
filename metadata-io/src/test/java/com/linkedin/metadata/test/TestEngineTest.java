@@ -34,6 +34,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -142,6 +143,58 @@ public class TestEngineTest {
   }
 
   @Test
+  public void testSingleEvalNoQueryProvided() throws Exception {
+    TestFetcher.Test testDefinition = buildSimpleTest("123");
+    List<TestFetcher.Test> tests = List.of(testDefinition);
+    TestEngine testEngine = buildTestEngine(tests);
+    assertNotNull(testEngine);
+    SearchResult searchResult = new SearchResult();
+    searchResult.setNumEntities(1);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,data,PROD)"));
+    searchEntities.add(searchEntity);
+    searchResult.setEntities(searchEntities);
+    when(mockSearchService.predicateSearch(
+            any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenReturn(searchResult);
+
+    // run method
+    testEngine.evaluateSingleTest(
+        mock(OperationContext.class), testDefinition.getUrn(), TestEngine.EvaluationMode.DEFAULT);
+
+    // verify search is called with correct default query
+    Mockito.verify(mockSearchService, Mockito.times(2))
+        .predicateSearch(any(), any(), eq("*"), any(), any(), anyInt(), anyInt(), any());
+  }
+
+  @Test
+  public void testSingleEvalQueryProvided() throws Exception {
+    TestFetcher.Test testDefinition = buildSimpleTest("123", "test query");
+    List<TestFetcher.Test> tests = List.of(testDefinition);
+    TestEngine testEngine = buildTestEngine(tests);
+    assertNotNull(testEngine);
+    SearchResult searchResult = new SearchResult();
+    searchResult.setNumEntities(1);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,data,PROD)"));
+    searchEntities.add(searchEntity);
+    searchResult.setEntities(searchEntities);
+    when(mockSearchService.predicateSearch(
+            any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenReturn(searchResult);
+
+    // run method
+    testEngine.evaluateSingleTest(
+        mock(OperationContext.class), testDefinition.getUrn(), TestEngine.EvaluationMode.DEFAULT);
+
+    // verify search is called with correct provided query
+    Mockito.verify(mockSearchService, Mockito.times(2))
+        .predicateSearch(any(), any(), eq("test query"), any(), any(), anyInt(), anyInt(), any());
+  }
+
+  @Test
   public void testExplain() throws Exception {
     TestFetcher.Test test = buildSimpleTest("123");
     List<TestFetcher.Test> tests = List.of(test);
@@ -169,6 +222,11 @@ public class TestEngineTest {
 
   /** on: types: - dataset rules: and: - property: status.removed operator: is_true */
   private TestFetcher.Test buildSimpleTest(String id) throws Exception {
+    return buildSimpleTest(id, null);
+  }
+
+  /** on: types: - dataset rules: and: - property: status.removed operator: is_true */
+  private TestFetcher.Test buildSimpleTest(String id, @Nullable String query) throws Exception {
     Urn testUrn = UrnUtils.getUrn("urn:li:test:" + id);
 
     TestInfo testInfo = new TestInfo();
@@ -178,6 +236,9 @@ public class TestEngineTest {
     TestDefinition testDefinition = new TestDefinition();
     testDefinition.setJson(loadTest("test/valid_testengine_simple.yaml"));
     testDefinition.setType(TestDefinitionType.JSON);
+    if (query != null) {
+      testDefinition.setOnQuery(query);
+    }
     testInfo.setDefinition(testDefinition);
 
     return new TestFetcher.Test(testUrn, testInfo);

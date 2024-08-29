@@ -1,3 +1,4 @@
+import { FormState } from '@src/types.generated';
 import { FormInstance } from 'antd';
 import React from 'react';
 import { FormFields, FormMode } from './formUtils';
@@ -22,6 +23,7 @@ const ManageFormContext = React.createContext<ManageFormState>({
             users: [],
             groups: [],
         },
+        state: FormState.Draft,
     },
     setFormValues: () => {},
     form: undefined,

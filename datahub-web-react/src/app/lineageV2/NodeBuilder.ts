@@ -9,6 +9,7 @@ import {
     createEdgeId,
     EdgeId,
     getParents,
+    isGhostEntity,
     isTransformational,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
@@ -136,8 +137,12 @@ export default class NodeBuilder {
         this.computeNodeY();
 
         const nodes: LineageVisualizationNode[] = [];
-        nodes.push(...this.entities.map((n) => this.createNode(n, LINEAGE_ENTITY_NODE_NAME)));
-        nodes.push(...this.transformations.map((n) => this.createNode(n, LINEAGE_TRANSFORMATION_NODE_NAME)));
+        nodes.push(...this.entities.map((n) => this.createNode(n, LINEAGE_ENTITY_NODE_NAME, !isGhostEntity(n.entity))));
+        nodes.push(
+            ...this.transformations.map((n) =>
+                this.createNode(n, LINEAGE_TRANSFORMATION_NODE_NAME, !isGhostEntity(n.entity)),
+            ),
+        );
         nodes.push(...this.filterNodes.map((n) => this.createFilterNode(n)));
         return nodes;
     }
@@ -406,7 +411,12 @@ export default class NodeBuilder {
         });
     }
 
-    createNode<T extends LineageNode>(node: T, type: string, transformData = (v: T) => v): LineageVisualizationNode {
+    createNode<T extends LineageNode>(
+        node: T,
+        type: string,
+        selectable: boolean,
+        transformData = (v: T) => v,
+    ): LineageVisualizationNode {
         const info = this.nodeInformation[node.id];
         const layer = info.layer || '';
         return {
@@ -417,12 +427,12 @@ export default class NodeBuilder {
                 y: info.y || 0,
             },
             data: transformData(node),
-            selectable: type !== LINEAGE_FILTER_TYPE,
+            selectable,
         };
     }
 
     createFilterNode(filter: LineageFilter): LineageVisualizationNode {
-        return this.createNode(filter, LINEAGE_FILTER_NODE_NAME, (node) => ({
+        return this.createNode(filter, LINEAGE_FILTER_NODE_NAME, false, (node) => ({
             ...node,
             numShown: Array.from(node.allChildren).filter((urn) => urn in this.nodeInformation).length,
         }));

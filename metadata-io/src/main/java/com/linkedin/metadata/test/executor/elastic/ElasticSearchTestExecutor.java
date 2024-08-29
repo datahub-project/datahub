@@ -68,13 +68,13 @@ public class ElasticSearchTestExecutor {
     return convertor.explainEvaluate(testDefinition);
   }
 
-  public List<Urn> select(TestDefinition testDefinition) {
+  public List<Urn> select(TestDefinition testDefinition, @Nonnull final String query) {
     ElasticTestDefinition elasticTestDefinition = convertor.convert(testDefinition);
     SearchResult searchResult =
         searchService.predicateSearch(
             opContext,
             elasticTestDefinition.getSelectedEntityTypes(),
-            "*",
+            query,
             elasticTestDefinition.getSelectionFilters(),
             null,
             0,
@@ -90,6 +90,7 @@ public class ElasticSearchTestExecutor {
 
   public Map<Urn, TestResults> evaluate(
       TestDefinition testDefinition,
+      @Nonnull String query,
       @Nonnull final BatchTestRunResult batchTestRunResult,
       final boolean shouldExecuteBatchBeyondLimit) {
     ElasticTestDefinition elasticTestDefinition = convertor.convert(testDefinition);
@@ -119,7 +120,7 @@ public class ElasticSearchTestExecutor {
         passingFilters);
     SearchResult passingSearchResult =
         searchService.predicateSearch(
-            opContext, entityTypes, "*", passingFilters, null, 0, executionLimit, null);
+            opContext, entityTypes, query, passingFilters, null, 0, executionLimit, null);
     if (!shouldExecuteBatchBeyondLimit && passingSearchResult.getNumEntities() >= executionLimit) {
       throw abortBeyondLimitExecution(testDefinition, passingSearchResult.getNumEntities());
     }
@@ -147,7 +148,7 @@ public class ElasticSearchTestExecutor {
               .predicateSearch(
                   opContext,
                   entityTypes,
-                  "*",
+                  query,
                   elasticTestDefinition.getFailingFilters(),
                   null,
                   0,
@@ -160,7 +161,7 @@ public class ElasticSearchTestExecutor {
           searchService.predicateSearch(
               opContext,
               entityTypes,
-              "*",
+              query,
               elasticTestDefinition.getSelectionFilters(),
               null,
               0,

@@ -14,6 +14,7 @@ import analytics, { EventType, DocRequestView } from '../../../../analytics';
 import useColumnSelector from './useColumnSelector';
 import OwnershipPrompt from './OwnershipPrompt/OwnershipPrompt';
 import DocumentationPrompt from './DocumentationPrompt/DocumentationPrompt';
+import GlossaryTermsPrompt from './GlossaryTermsPrompt/GlossaryTermsPrompt';
 
 export const PromptWrapper = styled.div`
     background-color: white;
@@ -125,6 +126,24 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
             )}
             {prompt.type === FormPromptType.FieldsDocumentation && (
                 <DocumentationPrompt
+                    promptNumber={promptNumber}
+                    prompt={prompt}
+                    submitResponse={handleSubmitResponse}
+                    field={field}
+                    optimisticCompletedTimestamp={optimisticCompletedTimestamp}
+                    columnSelectorProps={columnSelectorProps}
+                />
+            )}
+            {prompt.type === FormPromptType.GlossaryTerms && (
+                <GlossaryTermsPrompt
+                    promptNumber={promptNumber}
+                    prompt={prompt}
+                    submitResponse={handleSubmitResponse}
+                    optimisticCompletedTimestamp={optimisticCompletedTimestamp}
+                />
+            )}
+            {prompt.type === FormPromptType.FieldsGlossaryTerms && (
+                <GlossaryTermsPrompt
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}

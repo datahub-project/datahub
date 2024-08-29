@@ -15,6 +15,8 @@ import com.linkedin.datahub.graphql.generated.FormPromptAssociation;
 import com.linkedin.datahub.graphql.generated.FormPromptFieldAssociations;
 import com.linkedin.datahub.graphql.generated.FormPromptResponse;
 import com.linkedin.datahub.graphql.generated.FormVerificationAssociation;
+import com.linkedin.datahub.graphql.generated.GlossaryTerm;
+import com.linkedin.datahub.graphql.generated.GlossaryTermsPromptResponse;
 import com.linkedin.datahub.graphql.generated.NumberValue;
 import com.linkedin.datahub.graphql.generated.OwnershipPromptResponse;
 import com.linkedin.datahub.graphql.generated.PropertyValue;
@@ -149,6 +151,23 @@ public class FormsMapper {
       DocumentationResponse documentationResponse = new DocumentationResponse();
       documentationResponse.setDocumentation(gmsDocumentationResponse.getDocumentation());
       result.setDocumentationResponse(documentationResponse);
+    }
+    if (promptResponse.getGlossaryTermsResponse() != null) {
+      com.linkedin.common.GlossaryTermsPromptResponse gmsGlossaryTermsResponse =
+          promptResponse.getGlossaryTermsResponse();
+      GlossaryTermsPromptResponse glossaryTermsResponse = new GlossaryTermsPromptResponse();
+      List<GlossaryTerm> terms = new ArrayList<>();
+      gmsGlossaryTermsResponse
+          .getGlossaryTerms()
+          .forEach(
+              urn -> {
+                GlossaryTerm term = new GlossaryTerm();
+                term.setType(EntityType.GLOSSARY_TERM);
+                term.setUrn(urn.toString());
+                terms.add(term);
+              });
+      glossaryTermsResponse.setGlossaryTerms(terms);
+      result.setGlossaryTermsResponse(glossaryTermsResponse);
     }
 
     return result;

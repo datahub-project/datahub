@@ -160,6 +160,11 @@
       "type" : "string",
       "doc" : "MD5 hash of the test definition.\nComputed by the server.\nUsed to stamp test results accurately.\nSee TestResult for more details.",
       "optional" : true
+    }, {
+      "name" : "onQuery",
+      "type" : "string",
+      "doc" : "Optional search query to execute to get the assets this test applies to.\nThis only works with elastic search test executor.",
+      "optional" : true
     } ]
   }, "com.linkedin.test.TestDefinitionType", {
     "type" : "record",

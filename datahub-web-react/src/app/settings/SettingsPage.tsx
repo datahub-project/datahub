@@ -89,7 +89,7 @@ const ACRYL_PATHS = [
     { path: 'integrations', content: <PlatformIntegrations /> },
     { path: 'notifications', content: <PlatformNotifications /> },
     { path: 'sso', content: <PlatformSsoIntegrations /> },
-    { path: 'personal-notifications', content: <ManageActorNotifications isPersonal /> },
+    { path: 'personal-notifications', content: <ManageActorNotifications isPersonal canManageNotifications /> },
     { path: 'personal-subscriptions', content: <ManageActorSubscriptions isPersonal /> },
 ];
 const menuStyle = { width: 256, marginTop: 8, overflow: 'hidden auto' };

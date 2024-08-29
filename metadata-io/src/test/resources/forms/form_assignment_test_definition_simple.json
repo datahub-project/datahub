@@ -1,6 +1,6 @@
 {
   "on": {
-    "types": ["dataset", "container", "dataJob", "dataFlow", "chart", "dashboard"],
+    "types": ["dataset", "container", "dataJob", "dataFlow", "chart", "dashboard", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "glossaryTerm", "glossaryNode", "domain", "dataProduct"],
     "conditions": {
       "or": [
         {

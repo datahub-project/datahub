@@ -66,7 +66,13 @@ export default function DocumentationPropagationDetails({ sourceDetail }: Props)
             <PopoverWrapper>
                 <PopoverDescription>
                     This description was automatically propagated from an upstream column.{' '}
-                    <PopoverDocumentation>Learn more</PopoverDocumentation>
+                    <PopoverDocumentation
+                        href="https://datahubproject.io/docs/automation/docs-propagation"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Learn more
+                    </PopoverDocumentation>
                 </PopoverDescription>
                 <PopoverAttributes>
                     {originEntity && originEntity.urn !== viaEntity?.urn && (

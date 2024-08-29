@@ -17,9 +17,10 @@ import { useEntityFormTasks } from './useEntityFormTasks';
 interface Props {
     children: React.ReactNode;
     formUrn: string;
+    defaultFormView?: FormView;
 }
 
-export default function EntityFormContextProvider({ children, formUrn }: Props) {
+export default function EntityFormContextProvider({ children, formUrn, defaultFormView }: Props) {
     // Import external contexts
     const { entityData, refetch: refetchEntityProfile, loading: profileLoading } = useEntityContext();
     const entityRegistry = useEntityRegistry();
@@ -28,7 +29,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
      * State setup
      */
 
-    const [formView, setFormView] = useState<FormView>(FormView.BY_ENTITY);
+    const [formView, setFormView] = useState<FormView>(defaultFormView || FormView.BY_ENTITY);
     const [selectedEntity, setSelectedEntity] = useState<Entity | undefined>(entityData as Entity);
     const [selectedPromptId, setSelectedPromptId] = useState<string>();
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);

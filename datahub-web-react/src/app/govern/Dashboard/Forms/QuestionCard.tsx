@@ -1,7 +1,8 @@
+import { Button, Icon, Text } from '@components';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Icon, Text } from '@src/alchemy-components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
+import { FormState } from '@src/types.generated';
 import React, { useContext, useState } from 'react';
 import { FormQuestion, questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';
@@ -17,7 +18,7 @@ const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Pr
     const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
         id: question.id,
     });
-    const { setFormValues } = useContext(ManageFormContext);
+    const { setFormValues, formValues } = useContext(ManageFormContext);
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
 
     const handleDeleteQuestion = () => {
@@ -40,7 +41,9 @@ const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Pr
                 isDragging={isDragging}
                 transform={CSS.Transform.toString(transform)}
             >
-                <DragIcon {...listeners} size="lg" color="gray" icon="DragIndicator" isDragging={isDragging} />
+                {formValues.state === FormState.Draft && (
+                    <DragIcon {...listeners} size="lg" color="gray" icon="DragIndicator" isDragging={isDragging} />
+                )}
                 <CardData width="30%">
                     <Text color="gray" weight="medium">
                         {question.title}
@@ -52,17 +55,29 @@ const QuestionCard = ({ question, setShowQuestionModal, setCurrentQuestion }: Pr
                     </Text>
                 </CardData>
                 <CardData width="20%">{question.required ? <MandatoryTag> Mandatory</MandatoryTag> : <></>}</CardData>
-                <CardIcons>
-                    <Icon icon="Delete" size="md" onClick={() => setShowConfirmDelete(true)} />
-                    <Icon
-                        icon="Edit"
-                        size="md"
+                {formValues.state === FormState.Draft ? (
+                    <CardIcons>
+                        <Icon icon="Delete" size="md" onClick={() => setShowConfirmDelete(true)} />
+                        <Icon
+                            icon="Edit"
+                            size="md"
+                            onClick={() => {
+                                setCurrentQuestion(question);
+                                setShowQuestionModal(true);
+                            }}
+                        />
+                    </CardIcons>
+                ) : (
+                    <Button
+                        variant="text"
                         onClick={() => {
                             setCurrentQuestion(question);
                             setShowQuestionModal(true);
                         }}
-                    />
-                </CardIcons>
+                    >
+                        View
+                    </Button>
+                )}
             </CardContainer>
             <ConfirmationModal
                 isOpen={showConfirmDelete}

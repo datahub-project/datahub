@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.query.filter.Condition;
@@ -29,6 +30,7 @@ public class MetadataTestServiceUtils {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String KEYWORD_SUFFIX = ".keyword";
+  private static final List<String> UNARY_OPERATORS = ImmutableList.of("exists");
 
   private MetadataTestServiceUtils() {}
 
@@ -129,7 +131,9 @@ public class MetadataTestServiceUtils {
     } else {
       finalValues.forEach(valuesNode::add);
     }
-    predicateNode.put("values", valuesNode);
+    if (!UNARY_OPERATORS.contains(finalOperator)) {
+      predicateNode.put("values", valuesNode);
+    }
 
     // Finally, if we are negating the conditions, negate that here.
     if (criterion.isNegated()) {

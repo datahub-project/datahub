@@ -15,12 +15,11 @@ import { AcrylAssertionsSummaryLoading } from '../../AcrylAssertionsSummaryLoadi
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    //   gap: 24px;
     padding: 24px;
     row-gap: 24px;
     column-gap: 24px;
+    overflow: auto;
 `;
-
 export const AcrylAssertionSummaryTab = () => {
     const { urn } = useEntityData();
 

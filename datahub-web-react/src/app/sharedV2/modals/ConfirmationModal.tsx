@@ -1,26 +1,31 @@
+import { Button, Heading, Text, typography } from '@components';
+import { Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { ModalTitle, StyledButton, StyledModal } from '../../shared/share/v2/styledComponents';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-
-const Container = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-`;
-
-const Content = styled.div`
-    font-size: 16px;
-    font-weight: 400;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
-`;
 
 const ButtonsContainer = styled.div`
     display: flex;
-    gap: 10px;
-    align-self: end;
-    margin: 10px 0;
+    gap: 16px;
+    justify-content: end;
+`;
+
+export const StyledModal = styled(Modal)`
+    font-family: ${typography.fonts.body};
+
+    &&& .ant-modal-content {
+        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        border-radius: 12px;
+    }
+
+    .ant-modal-header {
+        border-bottom: 0;
+        padding-bottom: 0;
+        border-radius: 12px !important;
+    }
+
+    .ant-modal-body {
+        padding: 12px 24px;
+    }
 `;
 
 interface Props {
@@ -29,6 +34,8 @@ interface Props {
     handleClose: () => void;
     modalTitle?: string;
     modalText?: string;
+    closeButtonText?: string;
+    confirmButtonText?: string;
     isDeleteModal?: boolean;
 }
 
@@ -38,36 +45,34 @@ export const ConfirmationModal = ({
     handleConfirm,
     modalTitle,
     modalText,
+    closeButtonText,
+    confirmButtonText,
     isDeleteModal,
 }: Props) => {
     return (
         <StyledModal
             open={isOpen}
             onCancel={handleClose}
-            footer={null}
-            closeIcon={<CloseOutlinedIcon />}
-            title={<ModalTitle>{modalTitle || 'Confirm'}</ModalTitle>}
-        >
-            <Container>
-                <Content>{modalText || 'Are you sure?'}</Content>
+            centered
+            footer={
                 <ButtonsContainer>
-                    <StyledButton
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
-                        $type={!isDeleteModal ? 'filled' : 'outlined'}
-                        onClick={handleConfirm}
-                    >
-                        Yes
-                    </StyledButton>
-                    <StyledButton
-                        $type={isDeleteModal ? 'filled' : 'outlined'}
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
-                        $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
-                        onClick={handleClose}
-                    >
-                        No
-                    </StyledButton>
+                    <Button variant={isDeleteModal ? 'filled' : 'text'} onClick={handleClose}>
+                        {closeButtonText || 'Cancel'}
+                    </Button>
+                    <Button variant={!isDeleteModal ? 'filled' : 'text'} onClick={handleConfirm}>
+                        {confirmButtonText || 'Yes'}
+                    </Button>
                 </ButtonsContainer>
-            </Container>
+            }
+            title={
+                <Heading type="h1" weight="bold">
+                    {modalTitle || 'Confirm'}
+                </Heading>
+            }
+        >
+            <Text color="gray" size="lg">
+                {modalText || 'Are you sure?'}
+            </Text>
         </StyledModal>
     );
 };

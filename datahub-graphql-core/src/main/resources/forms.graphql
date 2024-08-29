@@ -136,6 +136,11 @@ type FormPromptResponse {
     Response for a documentation type prompt
     """
     documentationResponse: DocumentationResponse
+
+    """
+    Response for a glossary terms type prompt
+    """
+    glossaryTermsResponse: GlossaryTermsPromptResponse
 }
 
 """
@@ -176,6 +181,16 @@ type DocumentationResponse {
     The documentation provided in the response
     """
     documentation: String!
+}
+
+"""
+Response for a glossary term type prompt
+"""
+type GlossaryTermsPromptResponse {
+    """
+    The glossary terms associated with this prompt response
+    """
+    glossaryTerms: [GlossaryTerm!]!
 }
 
 """
@@ -356,6 +371,11 @@ type FormPrompt {
     The params for this prompt if type is OWNERSHIP
     """
     ownershipParams: OwnershipParams
+
+    """
+    The params for this prompt if type is GLOSSARY_TERMS or FIELDS_GLOSSARY_TERMS
+    """
+    glossaryTermsParams: GlossaryTermsParams
 }
 
 """
@@ -382,6 +402,14 @@ enum FormPromptType {
     A schema field-level documentation form prompt type.
     """
     FIELDS_DOCUMENTATION
+    """
+    This prompt is meant to apply glossary terms to an entity
+    """
+    GLOSSARY_TERMS
+    """
+    A schema field-level glossary terms form prompt type.
+    """
+    FIELDS_GLOSSARY_TERMS
 }
 
 """
@@ -399,9 +427,36 @@ Params for an ownership type prompt
 """
 type OwnershipParams {
     """
-    The structured property required for the prompt on this entity
+    The cardinality of this question type
     """
     cardinality: PromptCardinality!
+}
+
+"""
+Params for an glossary terms type prompt
+"""
+type GlossaryTermsParams {
+    """
+    The cardinality of this question type
+    """
+    cardinality: PromptCardinality!
+
+    """
+    The optional list of glossary terms the user has to choose from
+    """
+    allowedTerms: [GlossaryTerm!]
+
+    """
+    The optional list of glossary groups the user has to choose terms from
+    """
+    allowedTermGroups: [GlossaryNode!]
+
+    """
+    The optional list of glossary terms the user has to choose from.
+    This combines the allowedTerms and terms inside of allowedTermGroups.
+    This field will be used directly by the UI
+    """
+    resolvedAllowedTerms: [GlossaryTerm!]
 }
 
 """
@@ -683,6 +738,11 @@ input CreatePromptInput {
     ownershipParams: OwnershipParamsInput
 
     """
+    The params if this prompt type is GLOSSARY_TERMS or FIELDS_GLOSSARY_TERMS
+    """
+    glossaryTermsParams: GlossaryTermsParamsInput
+
+    """
     Whether this prompt will be required or not. Default is false.
     """
     required: Boolean
@@ -727,6 +787,26 @@ input OwnershipParamsInput {
     The cardinality of the ownership prompts (single or multiple) - default is multiple
     """
     cardinality: PromptCardinality!
+}
+
+"""
+Input for an ownership type prompt
+"""
+input GlossaryTermsParamsInput {
+    """
+    The cardinality of the ownership prompts (single or multiple) - default is multiple
+    """
+    cardinality: PromptCardinality
+
+    """
+    The optional list of allowed terms that a user can submit for this prompt
+    """
+    allowedTerms: [String!]
+
+    """
+    The optional list of term groups where allowed terms should come from
+    """
+    allowedTermGroups: [String!]
 }
 
 """
