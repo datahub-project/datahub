@@ -3,7 +3,6 @@ import string
 from typing import Any, Dict
 from unittest.mock import patch
 
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from freezegun import freeze_time
 from google.cloud.bigquery.table import TableListItem
 
@@ -12,6 +11,7 @@ from datahub.ingestion.glossary.classifier import (
     DynamicTypedClassifierConfig,
 )
 from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
