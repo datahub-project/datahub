@@ -76,9 +76,13 @@ class LazyEvaluator:
     def __init__(self, callback, *args):
         self.callback = callback
         self.args = args
+        self.value_stored = False
+        self.value = None
 
     def __repr__(self):
-        return self.callback(*self.args)
+        if not self.value_stored:
+            self.value = self.callback(*self.args)
+        return self.value
 
 
 class AwsConnectionConfig(ConfigModel):
