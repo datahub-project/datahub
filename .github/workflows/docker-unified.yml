@@ -33,6 +33,10 @@ env:
   DATAHUB_INGESTION_BASE_IMAGE: "acryldata/datahub-ingestion-base"
   DATAHUB_INGESTION_IMAGE: "acryldata/datahub-ingestion"
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   setup:
     runs-on: ubuntu-latest
