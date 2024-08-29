@@ -85,7 +85,7 @@
       "tags": {
         "Platform Type": "Orchestrator",
         "Connection Type": "Pull",
-        "Features": "Stateful Ingestion, UI Ingestion, Status Aspect"
+        "Features": "Status Aspect"
       }
     },
     {
@@ -427,6 +427,17 @@
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Lower Casing, Status Aspect"
+      }
+    },
+    {
+      "Path": "docs/lineage/prefect",
+      "imgPath": "img/logos/platforms/prefect.svg",
+      "Title": "Prefect",
+      "Description": "Prefect is a modern workflow orchestration for data and ML engineers.",
+      "tags": {
+        "Platform Type": "Orchestrator",
+        "Connection Type": "Pull",
+        "Features": "Status Aspect"
       }
     },
     {

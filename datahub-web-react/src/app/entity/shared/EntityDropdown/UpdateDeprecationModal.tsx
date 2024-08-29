@@ -58,7 +58,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
     return (
         <Modal
             title="Add Deprecation Details"
-            visible
+            open
             onCancel={handleClose}
             keyboard
             footer={
