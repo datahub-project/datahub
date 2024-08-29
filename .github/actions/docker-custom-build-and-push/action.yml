@@ -67,8 +67,8 @@ runs:
         TAGS="""
         ${{ inputs.image_tag }}
         """
-        echo "SINGLE_IMAGE=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> $GITHUB_OUTPUT
-        echo "SINGLE_TAG=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }'):$(echo $TAGS | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> $GITHUB_OUTPUT
+        echo "SINGLE_IMAGE=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> "$GITHUB_OUTPUT"
+        echo "SINGLE_TAG=$(echo $IMAGES | tr '\n' ' ' | awk -F' |,' '{ print $1 }'):$(echo $TAGS | tr '\n' ' ' | awk -F' |,' '{ print $1 }')" >> "$GITHUB_OUTPUT"
 
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
