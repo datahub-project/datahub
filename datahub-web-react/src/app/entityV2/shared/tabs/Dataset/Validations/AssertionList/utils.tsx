@@ -583,9 +583,9 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
         const resultType = mostRecentRun?.result?.type || '';
         if (resultType) {
-            const index = remainingAssertionStatus.indexOf(resultType);
-            if (index > -1) {
-                remainingAssertionStatus.splice(index, 1);
+            const statusIndex = remainingAssertionStatus.indexOf(resultType);
+            if (statusIndex > -1) {
+                remainingAssertionStatus.splice(statusIndex, 1);
             }
 
             filterGroupCounts.status[resultType] = (filterGroupCounts.status[resultType] || 0) + 1;
