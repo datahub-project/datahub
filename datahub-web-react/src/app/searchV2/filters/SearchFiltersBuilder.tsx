@@ -52,6 +52,7 @@ interface Props {
     showClearAll?: boolean;
     isCompact?: boolean;
     isOperatorDisabled?: boolean;
+    includeCount?: boolean;
 }
 
 export default function SearchFiltersBuilder({
@@ -68,6 +69,7 @@ export default function SearchFiltersBuilder({
     showAddFilter = true,
     showClearAll = true,
     isCompact = false,
+    includeCount = false,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     isOperatorDisabled = false,
 }: Props) {
@@ -118,7 +120,8 @@ export default function SearchFiltersBuilder({
     };
 
     const Wrapper = vertical ? VerticalWrapper : HorizontalWrapper;
-    const addFilter = <AddFilterDropdown fields={fields} onAddFilter={onAddFilter} />;
+
+    const addFilter = <AddFilterDropdown fields={fields} onAddFilter={onAddFilter} includeCount={includeCount} />;
     return (
         <Container>
             <FlexSpacer>

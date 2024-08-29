@@ -70,6 +70,7 @@ export default function SelectedSearchFilters({
             showClearAll={showClearAll}
             isCompact={isCompact}
             isOperatorDisabled={isOperatorDisabled}
+            includeCount={false}
         />
     );
 }

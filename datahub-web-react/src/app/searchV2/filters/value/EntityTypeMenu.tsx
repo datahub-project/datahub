@@ -66,6 +66,7 @@ export default function EntityTypeMenu({
                     entity: option.entity,
                     displayName: option.displayName,
                 },
+                includeCount,
                 entityRegistry,
                 selectedFilterOptions: values.map((value) => {
                     return { field: field.field, value: value.value };

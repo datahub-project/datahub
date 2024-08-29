@@ -66,15 +66,23 @@ const overlayStyle = { borderRadius: 8, overflow: 'hidden', marginLeft: 12 };
 interface Props {
     fields?: FilterField[];
     onAddFilter: (predicate: FilterPredicate) => void;
+    includeCount?: boolean;
 }
 
-export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAddFilter }: Props) {
+export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAddFilter, includeCount }: Props) {
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     const items = fields.map((field) => {
         return {
             key: field.field,
-            label: <FilterPopover field={field} onAddFilter={onAddFilter} setDropdownOpen={setDropdownOpen} />,
+            label: (
+                <FilterPopover
+                    field={field}
+                    onAddFilter={onAddFilter}
+                    setDropdownOpen={setDropdownOpen}
+                    includeCount={includeCount}
+                />
+            ),
         };
     });
 
@@ -97,9 +105,10 @@ interface PopoverProps {
     field: FilterField;
     onAddFilter: (predicate: FilterPredicate) => void;
     setDropdownOpen: (open: boolean) => void;
+    includeCount?: boolean;
 }
 
-function FilterPopover({ field, onAddFilter, setDropdownOpen }: PopoverProps) {
+function FilterPopover({ field, onAddFilter, setDropdownOpen, includeCount }: PopoverProps) {
     const [popoverOpen, setPopoverOpen] = useState(false);
     const entityRegistry = useEntityRegistry();
 
@@ -122,6 +131,7 @@ function FilterPopover({ field, onAddFilter, setDropdownOpen }: PopoverProps) {
                         field={field}
                         values={[]}
                         defaultOptions={[]}
+                        includeCount={includeCount}
                         onChangeValues={(values) => {
                             onAddFilter({
                                 field,

@@ -18,6 +18,7 @@ interface CreateFilterOptionProps {
     selectedFilterOptions: FilterOptionType[];
     setSelectedFilterOptions: (values: FilterOptionType[]) => void;
     nestedOptions?: FilterOptionType[];
+    includeCount?: boolean;
 }
 
 export function mapFilterOption({
@@ -26,6 +27,7 @@ export function mapFilterOption({
     selectedFilterOptions,
     setSelectedFilterOptions,
     nestedOptions,
+    includeCount = true,
 }: CreateFilterOptionProps): DisplayedFilterOption {
     const { label: displayName } = getFilterIconAndLabel(
         filterOption.field,
@@ -44,6 +46,7 @@ export function mapFilterOption({
                 selectedFilterOptions={selectedFilterOptions}
                 setSelectedFilterOptions={setSelectedFilterOptions}
                 nestedOptions={nestedOptions}
+                includeCount={includeCount}
             />
         ),
         style: { padding: 0 },
