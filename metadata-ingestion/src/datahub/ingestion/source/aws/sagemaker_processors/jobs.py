@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
@@ -48,6 +49,8 @@ from datahub.metadata.schema_classes import (
 
 if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
+
+logger = logging.getLogger(__name__)
 
 JobInfo = TypeVar(
     "JobInfo",
@@ -171,9 +174,11 @@ class JobProcessor:
 
     def get_jobs(self, job_type: JobType, job_spec: JobInfo) -> List[Any]:
         jobs = []
+        logger.debug("Attempting to retrieve all jobs for type %s", job_type)
         paginator = self.sagemaker_client().get_paginator(job_spec.list_command)
         for page in paginator.paginate():
             page_jobs: List[Any] = page[job_spec.list_key]
+            logger.debug("Retrieved %s jobs", len(page_jobs))
 
             for job in page_jobs:
                 job_name = (
@@ -269,6 +274,11 @@ class JobProcessor:
         describe_command = job_type_to_info[job_type].describe_command
         describe_name_key = job_type_to_info[job_type].describe_name_key
 
+        logger.debug(
+            "Retrieving description for job: %s using command: %s",
+            job_name,
+            describe_command,
+        )
         return getattr(self.sagemaker_client(), describe_command)(
             **{describe_name_key: job_name}
         )
