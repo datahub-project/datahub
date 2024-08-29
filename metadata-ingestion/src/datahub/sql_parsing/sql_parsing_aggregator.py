@@ -72,6 +72,8 @@ _MISSING_SESSION_ID = "__MISSING_SESSION_ID"
 _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
     os.getenv("DATAHUB_SQL_AGG_QUERY_LOG") or QueryLogSetting.DISABLED.name
 ]
+MAX_UPSTREAM_TABLES_COUNT = 1000
+MAX_FINEGRAINEDLINEAGE_COUNT = 5000
 
 
 @dataclasses.dataclass
@@ -1154,6 +1156,24 @@ class SqlParsingAggregator(Closeable):
                         confidenceScore=queries_map[query_id].confidence_score,
                     )
                 )
+
+        if len(upstream_aspect.upstreams) > MAX_UPSTREAM_TABLES_COUNT:
+            logger.warning(
+                f"Too many upstream tables for {downstream_urn}: {len(upstream_aspect.upstreams)}"
+                f"Keeping only {MAX_UPSTREAM_TABLES_COUNT} table level upstreams/"
+            )
+            upstream_aspect.upstreams = upstream_aspect.upstreams[
+                :MAX_UPSTREAM_TABLES_COUNT
+            ]
+        if len(upstream_aspect.fineGrainedLineages) > MAX_FINEGRAINEDLINEAGE_COUNT:
+            logger.warning(
+                f"Too many upstream columns for {downstream_urn}: {len(upstream_aspect.fineGrainedLineages)}"
+                f"Keeping only {MAX_FINEGRAINEDLINEAGE_COUNT} column level upstreams/"
+            )
+            upstream_aspect.fineGrainedLineages = upstream_aspect.fineGrainedLineages[
+                :MAX_FINEGRAINEDLINEAGE_COUNT
+            ]
+
         upstream_aspect.fineGrainedLineages = (
             upstream_aspect.fineGrainedLineages or None
         )
