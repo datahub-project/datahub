@@ -9,6 +9,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.FormActorAssignment;
@@ -22,11 +23,13 @@ import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermsParams;
 import com.linkedin.datahub.graphql.generated.OwnershipParams;
+import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.PromptCardinality;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParams;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
@@ -120,11 +123,7 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
       formPrompt.setStructuredPropertyParams(params);
     }
     if (gmsFormPrompt.getOwnershipParams() != null) {
-      final OwnershipParams ownershipParams = new OwnershipParams();
-      ownershipParams.setCardinality(
-          PromptCardinality.valueOf(
-              gmsFormPrompt.getOwnershipParams().getCardinality().toString()));
-      formPrompt.setOwnershipParams(ownershipParams);
+      formPrompt.setOwnershipParams(mapOwnershipParams(gmsFormPrompt.getOwnershipParams()));
     }
 
     if (gmsFormPrompt.getGlossaryTermsParams() != null) {
@@ -133,6 +132,34 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     }
 
     return formPrompt;
+  }
+
+  private OwnershipParams mapOwnershipParams(com.linkedin.form.OwnershipParams inputParams) {
+    final OwnershipParams ownershipParams = new OwnershipParams();
+    ownershipParams.setCardinality(
+        PromptCardinality.valueOf(inputParams.getCardinality().toString()));
+    if (inputParams.getAllowedOwners() != null) {
+      List<Entity> allowedOwners =
+          inputParams.getAllowedOwners().stream()
+              .map(urn -> UrnToEntityMapper.map(null, urn))
+              .collect(Collectors.toList());
+      ownershipParams.setAllowedOwners(allowedOwners);
+    }
+    if (inputParams.getAllowedOwnershipTypes() != null) {
+      List<OwnershipTypeEntity> allowedOwnershipTypes =
+          inputParams.getAllowedOwnershipTypes().stream()
+              .map(
+                  urn -> {
+                    OwnershipTypeEntity termGroup = new OwnershipTypeEntity();
+                    termGroup.setUrn(urn.toString());
+                    termGroup.setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
+                    return termGroup;
+                  })
+              .collect(Collectors.toList());
+      ownershipParams.setAllowedOwnershipTypes(allowedOwnershipTypes);
+    }
+
+    return ownershipParams;
   }
 
   private FormActorAssignment mapFormActors(com.linkedin.form.FormActorAssignment gmsFormActors) {

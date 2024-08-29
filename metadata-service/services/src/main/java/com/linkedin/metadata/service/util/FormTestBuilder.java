@@ -15,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.form.OwnershipParams;
 import com.linkedin.metadata.models.EntitySpecUtils;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -304,10 +305,39 @@ public class FormTestBuilder {
   }
 
   private static List<JsonNode> buildOwnershipTestConditions(@Nonnull final FormPrompt prompt) {
-    ObjectNode propertyNode = OBJECT_MAPPER.createObjectNode();
-    propertyNode.put("property", "ownership.owners.owner");
-    propertyNode.put("operator", "exists");
-    return ImmutableList.of(propertyNode);
+    OwnershipParams promptParams = prompt.getOwnershipParams();
+    if (promptParams.getAllowedOwners() == null
+        && promptParams.getAllowedOwnershipTypes() == null) {
+      // assert that the asset has any owner on it if no specified owners or ownership types
+      ObjectNode propertyNode = OBJECT_MAPPER.createObjectNode();
+      propertyNode.put("property", "ownership.owners.owner");
+      propertyNode.put("operator", "exists");
+      return ImmutableList.of(propertyNode);
+    }
+
+    List<JsonNode> propertiesList = new ArrayList<>();
+
+    if (promptParams.getAllowedOwners() != null) {
+      ObjectNode ownersPropertyNode = OBJECT_MAPPER.createObjectNode();
+      ownersPropertyNode.put("property", "ownership.owners.owner");
+      ownersPropertyNode.put("operator", "contains_any");
+      ArrayNode ownersValues = ownersPropertyNode.putArray("values");
+      promptParams.getAllowedOwners().forEach(ownerUrn -> ownersValues.add(ownerUrn.toString()));
+      propertiesList.add(ownersPropertyNode);
+    }
+
+    if (promptParams.getAllowedOwnershipTypes() != null) {
+      ObjectNode ownerTypesPropertyNode = OBJECT_MAPPER.createObjectNode();
+      ownerTypesPropertyNode.put("property", "ownership.owners.typeUrn");
+      ownerTypesPropertyNode.put("operator", "contains_any");
+      ArrayNode ownerTypesValues = ownerTypesPropertyNode.putArray("values");
+      promptParams
+          .getAllowedOwnershipTypes()
+          .forEach(nodeUrn -> ownerTypesValues.add(nodeUrn.toString()));
+      propertiesList.add(ownerTypesPropertyNode);
+    }
+
+    return propertiesList;
   }
 
   /*

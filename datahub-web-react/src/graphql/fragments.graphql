@@ -1702,6 +1702,19 @@ fragment formFields on Form {
             }
             ownershipParams {
                 cardinality
+                allowedOwners {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+                allowedOwnershipTypes {
+                    urn
+                    type
+                    info {
+                        name
+                        description
+                    }
+                }
             }
             glossaryTermsParams {
                 cardinality

@@ -358,7 +358,24 @@ public class FormUtils {
     Objects.requireNonNull(paramsInput, "paramsInput must not be null");
 
     final OwnershipParams result = new OwnershipParams();
-    result.setCardinality(PromptCardinality.valueOf(paramsInput.getCardinality().toString()));
+    result.setCardinality(
+        paramsInput.getCardinality() != null
+            ? PromptCardinality.valueOf(paramsInput.getCardinality().toString())
+            : PromptCardinality.MULTIPLE);
+    if (paramsInput.getAllowedOwners() != null) {
+      UrnArray allowedOwners = new UrnArray();
+      paramsInput
+          .getAllowedOwners()
+          .forEach(termUrn -> allowedOwners.add(UrnUtils.getUrn(termUrn)));
+      result.setAllowedOwners(allowedOwners);
+    }
+    if (paramsInput.getAllowedOwnershipTypes() != null) {
+      UrnArray allowedOwnershipTypes = new UrnArray();
+      paramsInput
+          .getAllowedOwnershipTypes()
+          .forEach(termGroupUrn -> allowedOwnershipTypes.add(UrnUtils.getUrn(termGroupUrn)));
+      result.setAllowedOwnershipTypes(allowedOwnershipTypes);
+    }
     return result;
   }
 

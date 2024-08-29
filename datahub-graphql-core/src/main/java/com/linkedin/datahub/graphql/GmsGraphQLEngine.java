@@ -103,6 +103,7 @@ import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.MetadataAttribution;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.OwnershipParams;
 import com.linkedin.datahub.graphql.generated.OwnershipPromptResponse;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
@@ -2820,6 +2821,30 @@ public class GmsGraphQLEngine {
                               .collect(Collectors.toList())
                           : null;
                     })));
+    builder.type(
+        "OwnershipParams",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "allowedOwners",
+                    new BatchGetEntitiesResolver(
+                        entityTypes,
+                        (env) ->
+                            ((OwnershipParams) env.getSource()).getAllowedOwners() != null
+                                ? ((OwnershipParams) env.getSource()).getAllowedOwners()
+                                : new ArrayList<>()))
+                .dataFetcher(
+                    "allowedOwnershipTypes",
+                    new LoadableTypeBatchResolver<>(
+                        ownershipType,
+                        (env) -> {
+                          final OwnershipParams params = env.getSource();
+                          return params.getAllowedOwnershipTypes() != null
+                              ? params.getAllowedOwnershipTypes().stream()
+                                  .map(OwnershipTypeEntity::getUrn)
+                                  .collect(Collectors.toList())
+                              : new ArrayList<>();
+                        })));
     builder.type(
         "OwnershipPromptResponse",
         typeWiring ->

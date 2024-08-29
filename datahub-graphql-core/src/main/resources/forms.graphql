@@ -430,6 +430,17 @@ type OwnershipParams {
     The cardinality of this question type
     """
     cardinality: PromptCardinality!
+
+    """
+    An optional list of allowed owners to choose from
+    """
+    allowedOwners: [Entity!]
+
+    """
+    An optional list of ownership type urns to choose from. If this is empty, all types will be allowed.
+    If only one type is provided, the user will be required to set that type when responding.
+    """
+    allowedOwnershipTypes: [OwnershipTypeEntity!]
 }
 
 """
@@ -801,7 +812,19 @@ input OwnershipParamsInput {
     """
     The cardinality of the ownership prompts (single or multiple) - default is multiple
     """
-    cardinality: PromptCardinality!
+    cardinality: PromptCardinality
+
+    """
+    The optional list of allowed owners that a user can submit for this prompt
+    This needs to be user or group urns.
+    """
+    allowedOwners: [String!]
+
+    """
+    The optional list of ownership types for this prompt.
+    This needs to be an ownership type urn.
+    """
+    allowedOwnershipTypes: [String!]
 }
 
 """

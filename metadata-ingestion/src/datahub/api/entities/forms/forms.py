@@ -49,7 +49,9 @@ class PromptCardinality(Enum):
 
 
 class OwnershipParams(ConfigModel):
-    cardinality: str
+    cardinality: Optional[str] = None
+    allowed_owners: Optional[List[str]] = None
+    allowed_ownership_types: Optional[List[str]] = None
 
 
 class GlossaryTermsParams(ConfigModel):
@@ -215,17 +217,6 @@ class Forms(ConfigModel):
                     raise Exception(
                         f"Prompt type is {prompt.type} but no structured properties exist. Unable to create form."
                     )
-                if prompt.type == PromptType.OWNERSHIP.value:
-                    if not prompt.ownership_params:
-                        raise Exception(
-                            f"Prompt type is {prompt.type} and no ownership params were provided."
-                        )
-                    elif not PromptCardinality.has_value(
-                        prompt.ownership_params.cardinality
-                    ):
-                        raise Exception(
-                            f"Prompt cardinality {prompt.ownership_params.cardinality} is not valid. Please try again with a valid Prompt cardinality."
-                        )
                 if (
                     prompt.type
                     in (
@@ -250,12 +241,8 @@ class Forms(ConfigModel):
                         )
                         if prompt.structured_property_urn
                         else None,
-                        ownershipParams=OwnershipParamsClass(
-                            cardinality=prompt.ownership_params.cardinality
-                        )
-                        if prompt.ownership_params
-                        else None,
                         glossaryTermsParams=self.get_glossary_terms_params(prompt),
+                        ownershipParams=self.get_ownership_params(prompt),
                         required=prompt.required,
                     )
                 )
@@ -289,6 +276,29 @@ class Forms(ConfigModel):
                 )
 
         return glossary_terms_params
+
+    def get_ownership_params(
+        self, prompt: Prompt
+    ) -> Union[None, OwnershipParamsClass]:
+        if prompt.type != PromptType.OWNERSHIP.value:
+            return None
+
+        ownership_params = OwnershipParamsClass(cardinality="MULTIPLE")
+        if prompt.ownership_params:
+            if prompt.ownership_params.cardinality:
+                ownership_params.cardinality = (
+                    prompt.ownership_params.cardinality
+                )
+            if prompt.ownership_params.allowed_owners:
+                ownership_params.allowedOwners = (
+                    prompt.ownership_params.allowed_owners
+                )
+            if prompt.ownership_params.allowed_ownership_types:
+                ownership_params.allowedOwnershipTypes = (
+                    prompt.ownership_params.allowed_ownership_types
+                )
+
+        return ownership_params
 
     def create_form_actors(
         self, actors: Optional[Actors] = None

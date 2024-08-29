@@ -84,15 +84,22 @@ export default function OwnershipPrompt({
     optimisticCompletedTimestamp,
     columnSelectorProps,
 }: Props) {
+    const allowedOwnershipTypes = useMemo(
+        () => prompt.ownershipParams?.allowedOwnershipTypes || [],
+        [prompt.ownershipParams?.allowedOwnershipTypes],
+    );
     const { data: ownershipTypesData } = useListOwnershipTypesQuery({
         variables: {
             input: {},
         },
+        skip: allowedOwnershipTypes.length > 0,
         fetchPolicy: 'cache-first',
     });
     const ownershipTypes = useMemo(() => {
-        return ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    }, [ownershipTypesData]);
+        return allowedOwnershipTypes.length > 0
+            ? allowedOwnershipTypes
+            : ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
+    }, [ownershipTypesData, allowedOwnershipTypes]);
 
     const {
         hasEdited,
@@ -119,7 +126,7 @@ export default function OwnershipPrompt({
         optimisticCompletedTimestamp,
     });
 
-    const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0;
+    const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0 && selectedOwnerTypeUrn;
     const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0;
 
     return (
@@ -135,6 +142,7 @@ export default function OwnershipPrompt({
                     <InputSection>
                         <UrnInput
                             initialEntities={initialEntities}
+                            allowedEntities={prompt.ownershipParams?.allowedOwners || []}
                             allowedEntityTypes={[EntityType.CorpUser, EntityType.CorpGroup]}
                             isMultiple={prompt.ownershipParams?.cardinality === PromptCardinality.Multiple}
                             selectedValues={selectedValues}

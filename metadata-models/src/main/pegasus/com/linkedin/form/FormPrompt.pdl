@@ -70,12 +70,7 @@ record FormPrompt {
    * An optional set of information specific to ownership prompts.
    * This should be filled out if the prompt is type OWNERSHIP.
    */
-  ownershipParams: optional record OwnershipParams {
-    /**
-     * Whether one or multiple owners are accepted as a response.
-     */
-    cardinality: PromptCardinality
-  }
+  ownershipParams: optional OwnershipParams
 
   /**
    * An optional set of information specific to glossary terms prompts.

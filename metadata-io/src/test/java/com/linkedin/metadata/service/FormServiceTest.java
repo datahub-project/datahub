@@ -44,6 +44,8 @@ import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
 import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
+import com.linkedin.form.OwnershipParams;
+import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.query.filter.Condition;
@@ -85,6 +87,10 @@ public class FormServiceTest {
 
   private static final String TEST_FORM_PROMPT_TEST_DEFINITION_PATH =
       "./forms/form_prompt_test_definition.json";
+  private static final String TEST_FORM_OWNERSHIP_PROMPT_TEST_DEFINITION_PATH =
+      "./forms/form_ownership_prompt_test_definition.json";
+  private static final String TEST_FORM_OWNERSHIP_WITH_PARAMS_PROMPT_TEST_DEFINITION_PATH =
+      "./forms/form_ownership_with_params_prompt_test_definition.json";
   private static final String TEST_FORM_ASSIGNMENT_TEST_DEFINITION_SIMPLE_PATH =
       "./forms/form_assignment_test_definition_simple.json";
   private static final String TEST_FORM_ASSIGNMENT_TEST_DEFINITION_COMPLEX_PATH =
@@ -876,21 +882,7 @@ public class FormServiceTest {
         new ObjectMapper()
             .readTree(new ClassPathResource(TEST_FORM_PROMPT_TEST_DEFINITION_PATH).getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
-    TestInfo expectedTestInfo =
-        new TestInfo()
-            .setName(
-                String.format("Form Prompts Test - %s, Prompt Id - %s", TEST_FORM_URN, promptId))
-            .setDescription(
-                String.format(
-                    "This test was auto-generated to implement form assignment for form with urn %s",
-                    TEST_FORM_URN))
-            .setCategory("Forms")
-            .setSource(
-                new TestSource().setType(TestSourceType.FORMS).setSourceEntity(TEST_FORM_URN))
-            .setDefinition(
-                new TestDefinition()
-                    .setType(TestDefinitionType.JSON)
-                    .setJson(testDefinition.toString()));
+    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -900,6 +892,103 @@ public class FormServiceTest {
                     AspectUtils.buildMetadataChangeProposal(
                         expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
             eq(false));
+  }
+
+  @Test
+  private void testUpsertOwnershipFormPromptCompletionAutomation() throws Exception {
+    // Verify that a test of the expected format is created for ownership with no extra params
+    String promptId = "test-id";
+    FormPrompt prompt =
+        new FormPrompt()
+            .setId(promptId)
+            .setType(FormPromptType.OWNERSHIP)
+            .setTitle("Test Title")
+            .setDescription("Test Description")
+            .setRequired(true)
+            .setOwnershipParams(new OwnershipParams().setCardinality(PromptCardinality.MULTIPLE));
+
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    JsonNode testDefinition =
+        new ObjectMapper()
+            .readTree(
+                new ClassPathResource(TEST_FORM_OWNERSHIP_PROMPT_TEST_DEFINITION_PATH).getFile());
+    Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
+    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    // Verify that the correct test was ingested.
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.argThat(
+                new FormTestArgumentMatcher(
+                    AspectUtils.buildMetadataChangeProposal(
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+            eq(false));
+  }
+
+  @Test
+  private void testUpsertOwnershipWithParamsFormPromptCompletionAutomation() throws Exception {
+    // Verify that a test of the expected format is created for ownership with no extra params
+    String promptId = "test-id";
+    OwnershipParams ownershipParams = new OwnershipParams();
+    UrnArray allowedOwners =
+        new UrnArray(
+            ImmutableList.of(
+                UrnUtils.getUrn("urn:li:corpuser:admin"),
+                UrnUtils.getUrn("urn:li:corpGroup:jdoe")));
+    ownershipParams.setAllowedOwners(allowedOwners);
+    UrnArray allowedOwnershipTypes =
+        new UrnArray(
+            ImmutableList.of(
+                UrnUtils.getUrn("urn:li:ownershipType:test1"),
+                UrnUtils.getUrn("urn:li:ownershipType:test2")));
+    ownershipParams.setAllowedOwnershipTypes(allowedOwnershipTypes);
+    FormPrompt prompt =
+        new FormPrompt()
+            .setId(promptId)
+            .setType(FormPromptType.OWNERSHIP)
+            .setTitle("Test Title")
+            .setDescription("Test Description")
+            .setRequired(true)
+            .setOwnershipParams(ownershipParams);
+
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    JsonNode testDefinition =
+        new ObjectMapper()
+            .readTree(
+                new ClassPathResource(TEST_FORM_OWNERSHIP_WITH_PARAMS_PROMPT_TEST_DEFINITION_PATH)
+                    .getFile());
+    Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
+    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    // Verify that the correct test was ingested.
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.argThat(
+                new FormTestArgumentMatcher(
+                    AspectUtils.buildMetadataChangeProposal(
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+            eq(false));
+  }
+
+  private TestInfo createExpectedTestInfo(JsonNode testDefinition, String promptId) {
+    return new TestInfo()
+        .setName(String.format("Form Prompts Test - %s, Prompt Id - %s", TEST_FORM_URN, promptId))
+        .setDescription(
+            String.format(
+                "This test was auto-generated to implement form assignment for form with urn %s",
+                TEST_FORM_URN))
+        .setCategory("Forms")
+        .setSource(new TestSource().setType(TestSourceType.FORMS).setSourceEntity(TEST_FORM_URN))
+        .setDefinition(
+            new TestDefinition()
+                .setType(TestDefinitionType.JSON)
+                .setJson(testDefinition.toString()));
   }
 
   @Test

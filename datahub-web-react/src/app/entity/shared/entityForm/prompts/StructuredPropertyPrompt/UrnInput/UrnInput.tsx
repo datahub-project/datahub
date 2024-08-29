@@ -1,10 +1,10 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import React, { useRef } from 'react';
-import styled from 'styled-components';
 import GlossaryBrowser from '@src/app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ClickOutside from '@src/app/shared/ClickOutside';
 import { BrowserWrapper } from '@src/app/shared/tags/AddTagsTermsModal';
+import styled from 'styled-components';
 import { Entity, EntityType, FormPromptType } from '../../../../../../../types.generated';
 import useUrnInput from './useUrnInput';
 import SelectedEntity from './SelectedEntity';
@@ -81,7 +81,10 @@ export default function UrnInput({
     const isShowingGlossaryBrowser = canShowGlossaryBrowser && !searchValue;
 
     return (
-        <ClickOutside onClickOutside={() => setIsFocused(false)} style={{ width: '75%', position: 'relative' }}>
+        <ClickOutside
+            onClickOutside={() => setIsFocused(false)}
+            style={{ width: '75%', minWidth: 400, maxWidth: 600, position: 'relative' }}
+        >
             <EntitySelect
                 mode="multiple"
                 filterOption={false}

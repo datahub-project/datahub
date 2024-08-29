@@ -1,0 +1,45 @@
+{
+  "on": {
+    "types": ["dataset", "container", "dataJob", "dataFlow", "chart", "dashboard", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "glossaryTerm", "glossaryNode", "domain", "dataProduct"],
+    "conditions": {
+      "or": [
+        {
+          "property": "forms.incompleteForms.urn",
+          "operator": "equals",
+          "values": ["urn:li:form:test"]
+        },
+        {
+          "property": "forms.completedForms.urn",
+          "operator": "equals",
+          "values": ["urn:li:form:test"]
+        }
+      ]
+    }
+  },
+  "rules": {
+    "and": [
+      {
+        "property": "ownership.owners.owner",
+        "operator": "contains_any",
+        "values": ["urn:li:corpuser:admin", "urn:li:corpGroup:jdoe"]
+      },
+      {
+        "property": "ownership.owners.typeUrn",
+        "operator": "contains_any",
+        "values": ["urn:li:ownershipType:test1", "urn:li:ownershipType:test2"]
+      }
+    ]
+  },
+  "actions": {
+    "passing": [],
+    "failing": [
+      {
+        "type": "SET_FORM_PROMPT_INCOMPLETE",
+        "params": {
+          "formUrn": "urn:li:form:test",
+          "formPromptId": "test-id"
+        }
+      }
+    ]
+  }
+}

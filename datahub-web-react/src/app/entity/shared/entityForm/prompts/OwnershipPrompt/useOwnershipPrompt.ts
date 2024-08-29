@@ -36,13 +36,16 @@ export default function useOwnershipPrompt({ prompt, submitResponse, field }: Pr
                 : [],
         [formView, promptAssociation?.response?.ownershipResponse?.owners],
     );
+    const defaultOwnershipTypeUrn =
+        prompt.ownershipParams?.allowedOwnershipTypes && prompt.ownershipParams.allowedOwnershipTypes.length === 1
+            ? prompt.ownershipParams.allowedOwnershipTypes[0].urn
+            : undefined;
     const initialOwnershipTypeUrn = useMemo(
         () =>
             formView === FormView.BY_ENTITY || formView === FormView.BULK_VERIFY
-                ? promptAssociation?.response?.ownershipResponse?.ownershipTypeUrn ||
-                  'urn:li:ownershipType:__system__technical_owner'
-                : 'urn:li:ownershipType:__system__technical_owner',
-        [formView, promptAssociation?.response?.ownershipResponse?.ownershipTypeUrn],
+                ? promptAssociation?.response?.ownershipResponse?.ownershipTypeUrn || defaultOwnershipTypeUrn
+                : defaultOwnershipTypeUrn,
+        [formView, promptAssociation?.response?.ownershipResponse?.ownershipTypeUrn, defaultOwnershipTypeUrn],
     );
 
     const [selectedValues, setSelectedValues] = useState<any[]>(initialValues);

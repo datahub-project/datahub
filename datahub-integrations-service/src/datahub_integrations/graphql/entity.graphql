@@ -134,6 +134,11 @@ fragment entityDisplayNameFields on Entity {
     ... on DataPlatformInstance {
         instanceId
     }
+    ... on OwnershipTypeEntity {
+        info {
+          name
+        }
+    }
 }
 
 

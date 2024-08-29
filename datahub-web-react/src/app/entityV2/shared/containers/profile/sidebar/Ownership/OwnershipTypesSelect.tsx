@@ -1,6 +1,13 @@
 import { OwnershipTypeEntity } from '@src/types.generated';
 import { Select, Typography } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
+
+const StyledSelect = styled(Select)`
+    .ant-select-selection-placeholder {
+        font-size: 12px;
+    }
+`;
 
 interface Props {
     selectedOwnerTypeUrn?: string;
@@ -10,7 +17,11 @@ interface Props {
 
 export default function OwnershipTypesSelect({ selectedOwnerTypeUrn, ownershipTypes, onSelectOwnerType }: Props) {
     return (
-        <Select value={selectedOwnerTypeUrn} onChange={onSelectOwnerType}>
+        <StyledSelect
+            value={selectedOwnerTypeUrn}
+            onChange={(v) => onSelectOwnerType(v as string)}
+            placeholder="Select ownership type..."
+        >
             {ownershipTypes.map((ownershipType: OwnershipTypeEntity | undefined) => {
                 const ownershipTypeUrn = ownershipType?.urn || '';
                 const ownershipTypeName = ownershipType?.info?.name || ownershipType?.urn || '';
@@ -27,6 +38,6 @@ export default function OwnershipTypesSelect({ selectedOwnerTypeUrn, ownershipTy
                     </Select.Option>
                 );
             })}
-        </Select>
+        </StyledSelect>
     );
 }
