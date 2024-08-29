@@ -27,6 +27,17 @@ const SearchFilterContainer = styled.div`
     padding: 0px 10px;
     margin-bottom: 8px;
     margin-top: 8px;
+    gap: 12px;
+`;
+
+const StyledFilterContainer = styled.div`
+    button {
+        box-shadow: none !important;
+        height: 36px !important;
+        font-size: 14px !important;
+        border-radius: 8px !important;
+        color: #5f6685;
+    }
 `;
 
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
@@ -96,15 +107,15 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 />
 
                 {/* ************Render Filter Component ************************* */}
-                <div>
+                <StyledFilterContainer>
                     <AcrylAssertionFilters
                         filterOptions={filterOptions?.filterGroupOptions || []}
                         selectedFilters={appliedFilters}
                         onFilterChange={handleFilterChange}
                     />
-                </div>
+                </StyledFilterContainer>
                 {/* ************Render Group By Component ************************* */}
-                <div style={{ marginLeft: 8 }}>
+                <div>
                     <AcryAssertionTypeSelect
                         options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
                         selectedValue={selectedGroupBy}
