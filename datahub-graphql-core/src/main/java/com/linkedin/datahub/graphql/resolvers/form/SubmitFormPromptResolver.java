@@ -138,6 +138,40 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   promptId,
                   uniqueFieldPaths,
                   UrnUtils.getUrn(context.getActorUrn()));
+            } else if (input.getType().equals(FormPromptType.GLOSSARY_TERMS)) {
+              if (input.getGlossaryTermsParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide glossary terms params for prompt type GLOSSARY_TERMS");
+              }
+              final List<Urn> termUrns =
+                  input.getGlossaryTermsParams().getGlossaryTermUrns().stream()
+                      .map(UrnUtils::getUrn)
+                      .collect(Collectors.toList());
+              return _formService.submitGlossaryTermsPromptResponse(
+                  context.getOperationContext(),
+                  entityUrn,
+                  termUrns,
+                  formUrn,
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()));
+            } else if (input.getType().equals(FormPromptType.FIELDS_GLOSSARY_TERMS)) {
+              if (input.getGlossaryTermsParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide glossary terms params for prompt type FIELDS_GLOSSARY_TERMS");
+              }
+              List<String> uniqueFieldPaths = getAndVerifyFieldPaths(fieldPath, fieldPaths);
+              final List<Urn> termUrns =
+                  input.getGlossaryTermsParams().getGlossaryTermUrns().stream()
+                      .map(UrnUtils::getUrn)
+                      .collect(Collectors.toList());
+              return _formService.submitFieldGlossaryTermsPromptResponse(
+                  context.getOperationContext(),
+                  entityUrn,
+                  termUrns,
+                  formUrn,
+                  promptId,
+                  uniqueFieldPaths,
+                  UrnUtils.getUrn(context.getActorUrn()));
             }
             return false;
           } catch (Exception e) {

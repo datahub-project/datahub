@@ -77,6 +77,7 @@ import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermsParams;
+import com.linkedin.datahub.graphql.generated.GlossaryTermsPromptResponse;
 import com.linkedin.datahub.graphql.generated.IncidentSource;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
@@ -2827,6 +2828,18 @@ public class GmsGraphQLEngine {
                 new BatchGetEntitiesResolver(
                     entityTypes,
                     (env) -> ((OwnershipPromptResponse) env.getSource()).getOwners())));
+    builder.type(
+        "GlossaryTermsPromptResponse",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "glossaryTerms",
+                new LoadableTypeBatchResolver<>(
+                    glossaryTermType,
+                    (env) ->
+                        ((GlossaryTermsPromptResponse) env.getSource())
+                            .getGlossaryTerms().stream()
+                                .map(GlossaryTerm::getUrn)
+                                .collect(Collectors.toList()))));
   }
 
   private void configureDataProductResolvers(final RuntimeWiring.Builder builder) {

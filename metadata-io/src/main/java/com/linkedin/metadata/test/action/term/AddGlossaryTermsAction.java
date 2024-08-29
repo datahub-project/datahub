@@ -46,7 +46,7 @@ public class AddGlossaryTermsAction extends ValuesAction {
       @Nonnull OperationContext opContext, List<Urn> tagUrns, List<Urn> urns) {
     if (!urns.isEmpty()) {
       this.glossaryTermService.batchAddGlossaryTerms(
-          opContext, tagUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE);
+          opContext, tagUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE, null);
     }
   }
 }

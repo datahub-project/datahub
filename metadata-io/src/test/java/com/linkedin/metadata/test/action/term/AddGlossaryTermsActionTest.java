@@ -73,14 +73,16 @@ public class AddGlossaryTermsActionTest {
             any(OperationContext.class),
             Mockito.eq(TEST_TERMS),
             Mockito.eq(DASHBOARD_REFERENCES),
-            Mockito.eq(METADATA_TESTS_SOURCE));
+            Mockito.eq(METADATA_TESTS_SOURCE),
+            Mockito.eq(null));
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchAddGlossaryTerms(
             any(OperationContext.class),
             Mockito.eq(TEST_TERMS),
             Mockito.eq(DATASET_REFERENCES),
-            Mockito.eq(METADATA_TESTS_SOURCE));
+            Mockito.eq(METADATA_TESTS_SOURCE),
+            Mockito.eq(null));
 
     Mockito.verifyNoMoreInteractions(service);
   }

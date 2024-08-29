@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.AsyncBatchSubmitFormPromptInput;
 import com.linkedin.datahub.graphql.generated.AsyncBatchSubmitFormPromptResponse;
 import com.linkedin.datahub.graphql.generated.FormFilter;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
+import com.linkedin.datahub.graphql.generated.GlossaryTermsInputParams;
 import com.linkedin.datahub.graphql.generated.PropertyValueInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyInputParams;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
@@ -46,6 +47,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
           null,
           null,
           PROPERTIES_INPUT,
+          null,
           null,
           null);
   private static final AsyncBatchSubmitFormPromptInput TEST_INPUT =
@@ -99,6 +101,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
             null,
             null,
             null,
+            null,
             null);
     final AsyncBatchSubmitFormPromptInput testInput =
         new AsyncBatchSubmitFormPromptInput(
@@ -134,7 +137,15 @@ public class AsyncBatchSubmitFormPromptResolverTest {
     // null ownership params with ownership input
     final SubmitFormPromptInput promptInput =
         new SubmitFormPromptInput(
-            TEST_PROMPT_ID, TEST_FORM_URN, FormPromptType.OWNERSHIP, null, null, null, null, null);
+            TEST_PROMPT_ID,
+            TEST_FORM_URN,
+            FormPromptType.OWNERSHIP,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
     final AsyncBatchSubmitFormPromptInput testInput =
         new AsyncBatchSubmitFormPromptInput(
             new ArrayList<>(),
@@ -172,6 +183,7 @@ public class AsyncBatchSubmitFormPromptResolverTest {
             TEST_PROMPT_ID,
             TEST_FORM_URN,
             FormPromptType.DOCUMENTATION,
+            null,
             null,
             null,
             null,
@@ -214,6 +226,97 @@ public class AsyncBatchSubmitFormPromptResolverTest {
             TEST_PROMPT_ID,
             TEST_FORM_URN,
             FormPromptType.FIELDS_DOCUMENTATION,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    final AsyncBatchSubmitFormPromptInput testInput =
+        new AsyncBatchSubmitFormPromptInput(
+            new ArrayList<>(),
+            null,
+            new ArrayList<>(),
+            new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
+            promptInput,
+            null);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we never called ingest test
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+  }
+
+  @Test
+  public void testGetInputGlossaryTerms() throws Exception {
+    FormService mockFormService = initMockFormService(true);
+    EntityClient mockClient = initMockClient();
+    MetadataTestClient mockTestClient = Mockito.mock(MetadataTestClient.class);
+    AsyncBatchSubmitFormPromptResolver resolver =
+        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient, mockTestClient);
+    GlossaryTermsInputParams termsInputParams = new GlossaryTermsInputParams();
+    termsInputParams.setGlossaryTermUrns(ImmutableList.of("urn:li:glossaryTerm:test1"));
+
+    // null ownership params with documentation input
+    final SubmitFormPromptInput promptInput =
+        new SubmitFormPromptInput(
+            TEST_PROMPT_ID,
+            TEST_FORM_URN,
+            FormPromptType.GLOSSARY_TERMS,
+            null,
+            null,
+            null,
+            null,
+            null,
+            termsInputParams);
+    final AsyncBatchSubmitFormPromptInput testInput =
+        new AsyncBatchSubmitFormPromptInput(
+            new ArrayList<>(),
+            null,
+            new ArrayList<>(),
+            new FormFilter(TEST_FORM_URN, TEST_USER_URN, false, false, TEST_PROMPT_ID, false),
+            promptInput,
+            null);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    AsyncBatchSubmitFormPromptResponse response = resolver.get(mockEnv).get();
+
+    assertEquals(response.getTaskUrn(), TEST_TASK_URN);
+
+    // Validate that we called submit to create this test
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+  }
+
+  @Test
+  public void testGetInvalidInputGlossaryTerms() throws Exception {
+    FormService mockFormService = initMockFormService(true);
+    EntityClient mockClient = initMockClient();
+    MetadataTestClient mockTestClient = Mockito.mock(MetadataTestClient.class);
+    AsyncBatchSubmitFormPromptResolver resolver =
+        new AsyncBatchSubmitFormPromptResolver(mockFormService, mockClient, mockTestClient);
+
+    // null ownership params with documentation input
+    final SubmitFormPromptInput promptInput =
+        new SubmitFormPromptInput(
+            TEST_PROMPT_ID,
+            TEST_FORM_URN,
+            FormPromptType.GLOSSARY_TERMS,
+            null,
             null,
             null,
             null,

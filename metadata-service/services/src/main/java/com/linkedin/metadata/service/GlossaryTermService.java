@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.METADATA_TESTS_SOURCE;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
 
@@ -14,6 +15,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.GlossaryTermsPatchBuilder;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -35,11 +37,23 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GlossaryTermService extends BaseService {
 
+  private final boolean _isAsync;
+
+  public GlossaryTermService(
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper,
+      final boolean isAsync) {
+    super(entityClient, openApiClient, objectMapper);
+    _isAsync = isAsync;
+  }
+
   public GlossaryTermService(
       @Nonnull SystemEntityClient entityClient,
       @Nonnull final OpenApiClient openApiClient,
       @Nonnull ObjectMapper objectMapper) {
     super(entityClient, openApiClient, objectMapper);
+    _isAsync = false;
   }
 
   /**
@@ -54,13 +68,14 @@ public class GlossaryTermService extends BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources,
-      @Nullable String appSource) {
+      @Nullable String appSource,
+      @Nullable Urn actorUrn) {
     log.debug(
         "Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}",
         resources,
         glossaryTermUrns);
     try {
-      addGlossaryTermsToResources(opContext, glossaryTermUrns, resources, appSource);
+      addGlossaryTermsToResources(opContext, glossaryTermUrns, resources, appSource, actorUrn);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -104,14 +119,15 @@ public class GlossaryTermService extends BaseService {
       @Nonnull OperationContext opContext,
       List<Urn> glossaryTerms,
       List<ResourceReference> resources,
-      @Nullable String appSource)
+      @Nullable String appSource,
+      @Nullable Urn actorUrn)
       throws Exception {
     List<MetadataChangeProposal> changes =
-        buildAddGlossaryTermsProposals(opContext, glossaryTerms, resources);
+        buildAddGlossaryTermsProposals(opContext, glossaryTerms, resources, appSource, actorUrn);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   private void removeGlossaryTermsFromResources(
@@ -125,14 +141,16 @@ public class GlossaryTermService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildAddGlossaryTermsProposals(
       @Nonnull OperationContext opContext,
       List<Urn> glossaryTermUrns,
-      List<ResourceReference> resources)
+      List<ResourceReference> resources,
+      @Nullable String appSource,
+      @Nullable Urn actorUrn)
       throws URISyntaxException {
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
@@ -144,7 +162,8 @@ public class GlossaryTermService extends BaseService {
                     resource.getSubResource() == null || resource.getSubResource().equals(""))
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> entityProposals =
-        buildAddGlossaryTermsToEntityProposals(opContext, glossaryTermUrns, entityRefs);
+        buildAddGlossaryTermsToEntityProposals(
+            opContext, glossaryTermUrns, entityRefs, appSource, actorUrn);
 
     final List<ResourceReference> schemaFieldRefs =
         resources.stream()
@@ -200,8 +219,22 @@ public class GlossaryTermService extends BaseService {
   List<MetadataChangeProposal> buildAddGlossaryTermsToEntityProposals(
       @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> glossaryTermUrns,
-      List<ResourceReference> resources)
+      List<ResourceReference> resources,
+      @Nullable String appSource,
+      @Nullable Urn actorUrn)
       throws URISyntaxException {
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+
+    final Urn finalActorUrn =
+        actorUrn != null
+            ? actorUrn
+            : UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr());
+    AuditStamp lastModified =
+        new AuditStamp().setTime(System.currentTimeMillis()).setActor(finalActorUrn);
+
+    if (appSource != null && appSource.equals(METADATA_TESTS_SOURCE)) {
+      return patchAddGlossaryTerms(glossaryTermUrns, resources, lastModified);
+    }
 
     final Map<Urn, GlossaryTerms> glossaryTermAspects =
         getGlossaryTermsAspects(
@@ -209,7 +242,6 @@ public class GlossaryTermService extends BaseService {
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
             new GlossaryTerms());
 
-    final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
 
       com.linkedin.common.GlossaryTerms glossaryTerms = glossaryTermAspects.get(resource.getUrn());
@@ -225,12 +257,29 @@ public class GlossaryTermService extends BaseService {
                 .setActor(
                     UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
       }
-      addGlossaryTermsIfNotExists(glossaryTerms, glossaryTermUrns);
+      addGlossaryTermsIfNotExists(opContext, glossaryTerms, glossaryTermUrns);
       changes.add(
           buildMetadataChangeProposal(
               resource.getUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms));
     }
     return changes;
+  }
+
+  List<MetadataChangeProposal> patchAddGlossaryTerms(
+      List<com.linkedin.common.urn.Urn> ownerUrns,
+      List<ResourceReference> resources,
+      AuditStamp lastModified) {
+    final List<MetadataChangeProposal> mcps = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+      GlossaryTermsPatchBuilder patchBuilder =
+          new GlossaryTermsPatchBuilder().urn(resource.getUrn());
+      for (Urn ownerUrn : ownerUrns) {
+        patchBuilder.addTerm(ownerUrn, null);
+      }
+      patchBuilder.addAuditStamp(lastModified);
+      mcps.add(patchBuilder.build());
+    }
+    return mcps;
   }
 
   @VisibleForTesting
@@ -261,7 +310,8 @@ public class GlossaryTermService extends BaseService {
         editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
       }
 
-      addGlossaryTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), glossaryTermUrns);
+      addGlossaryTermsIfNotExists(
+          opContext, editableFieldInfo.getGlossaryTerms(), glossaryTermUrns);
       changes.add(
           buildMetadataChangeProposal(
               resource.getUrn(),
@@ -346,7 +396,8 @@ public class GlossaryTermService extends BaseService {
     return changes;
   }
 
-  private void addGlossaryTermsIfNotExists(GlossaryTerms glossaryTerms, List<Urn> glossaryTermUrns)
+  private void addGlossaryTermsIfNotExists(
+      @Nonnull OperationContext opContext, GlossaryTerms glossaryTerms, List<Urn> glossaryTermUrns)
       throws URISyntaxException {
     if (!glossaryTerms.hasTerms()) {
       glossaryTerms.setTerms(new GlossaryTermAssociationArray());
@@ -373,6 +424,8 @@ public class GlossaryTermService extends BaseService {
       newAssociation.setUrn(GlossaryTermUrn.createFromUrn(glossaryTermUrn));
       glossaryTermAssociationArray.add(newAssociation);
     }
+
+    glossaryTerms.setAuditStamp(opContext.getAuditStamp());
   }
 
   private static GlossaryTermAssociationArray removeGlossaryTermsIfExists(

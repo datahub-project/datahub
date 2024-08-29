@@ -70,7 +70,9 @@ public class GlossaryTermServiceTest {
             ImmutableList.of(newGlossaryTermUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
+            null,
+            null);
 
     GlossaryTermAssociationArray expected =
         new GlossaryTermAssociationArray(
@@ -112,7 +114,9 @@ public class GlossaryTermServiceTest {
             ImmutableList.of(newGlossaryTermUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
+            null,
+            null);
 
     GlossaryTermAssociationArray expectedTermsArray =
         new GlossaryTermAssociationArray(
@@ -183,8 +187,9 @@ public class GlossaryTermServiceTest {
             ImmutableList.of(newGlossaryTermUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(
-                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
+                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
+            null,
+            null);
 
     GlossaryTermAssociationArray expected =
         new GlossaryTermAssociationArray(
@@ -247,8 +252,9 @@ public class GlossaryTermServiceTest {
             ImmutableList.of(newGlossaryTermUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(
-                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
+                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
+            null,
+            null);
 
     GlossaryTermAssociationArray expected =
         new GlossaryTermAssociationArray(

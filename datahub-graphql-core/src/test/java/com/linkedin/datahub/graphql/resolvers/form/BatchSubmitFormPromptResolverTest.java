@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchSubmitFormPromptInput;
 import com.linkedin.datahub.graphql.generated.DocumentationInputParams;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
+import com.linkedin.datahub.graphql.generated.GlossaryTermsInputParams;
 import com.linkedin.datahub.graphql.generated.PropertyValueInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyInputParams;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
@@ -37,6 +38,7 @@ public class BatchSubmitFormPromptResolverTest {
   private static final String PROMPT_ID = "123";
   private static final String TEST_FORM_URN = "urn:li:form:1";
   private static final String TEST_DOCUMENTATION = "test documentation";
+  private static final String TERM_URN = "urn:li:glossaryTerm:test1";
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -181,6 +183,47 @@ public class BatchSubmitFormPromptResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
+  @Test
+  public void testGetGlossaryTermsSuccess() throws Exception {
+    FormService mockFormService = initMockFormService();
+    BatchSubmitFormPromptResolver resolver = new BatchSubmitFormPromptResolver(mockFormService);
+
+    BatchSubmitFormPromptInput input = generateGlossaryTermsInput(true);
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    boolean success = resolver.get(mockEnv).get();
+
+    assertTrue(success);
+
+    // Validate we never call form service with missing params
+    Mockito.verify(mockFormService, Mockito.times(1))
+        .batchSubmitGlossaryTermsPromptResponse(
+            any(OperationContext.class),
+            Mockito.eq(ENTITY_URNS),
+            Mockito.eq(ImmutableList.of(UrnUtils.getUrn(TERM_URN))),
+            Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
+            Mockito.eq(PROMPT_ID),
+            Mockito.any(),
+            Mockito.eq(true));
+  }
+
+  @Test
+  public void testGetFailureMissingGlossaryTermsParams() throws Exception {
+    FormService mockFormService = initMockFormService();
+    BatchSubmitFormPromptResolver resolver = new BatchSubmitFormPromptResolver(mockFormService);
+
+    BatchSubmitFormPromptInput input = generateGlossaryTermsInput(false);
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
   private FormService initMockFormService() throws Exception {
     FormService service = Mockito.mock(FormService.class);
     Mockito.when(
@@ -209,6 +252,17 @@ public class BatchSubmitFormPromptResolverTest {
 
     Mockito.when(
             service.batchSubmitDocumentationPromptResponse(
+                any(OperationContext.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(true)))
+        .thenReturn(true);
+
+    Mockito.when(
+            service.batchSubmitGlossaryTermsPromptResponse(
                 any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
@@ -257,6 +311,24 @@ public class BatchSubmitFormPromptResolverTest {
       DocumentationInputParams documentationParams = new DocumentationInputParams();
       documentationParams.setDocumentation(TEST_DOCUMENTATION);
       promptInput.setDocumentationParams(documentationParams);
+    }
+    input.setInput(promptInput);
+
+    return input;
+  }
+
+  private BatchSubmitFormPromptInput generateGlossaryTermsInput(boolean addDocParams)
+      throws Exception {
+    BatchSubmitFormPromptInput input = new BatchSubmitFormPromptInput();
+    input.setAssetUrns(ENTITY_URNS);
+    SubmitFormPromptInput promptInput = new SubmitFormPromptInput();
+    promptInput.setType(FormPromptType.GLOSSARY_TERMS);
+    promptInput.setPromptId(PROMPT_ID);
+    promptInput.setFormUrn(TEST_FORM_URN);
+    if (addDocParams) {
+      GlossaryTermsInputParams glossaryTermParams = new GlossaryTermsInputParams();
+      glossaryTermParams.setGlossaryTermUrns(ImmutableList.of(TERM_URN));
+      promptInput.setGlossaryTermsParams(glossaryTermParams);
     }
     input.setInput(promptInput);
 

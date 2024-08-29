@@ -20,6 +20,7 @@ import { pluralize } from '../../../../shared/textUtil';
 import analytics, { EventType, DocRequestView } from '../../../../analytics';
 import OwnershipPrompt from '../prompts/OwnershipPrompt/OwnershipPrompt';
 import DocumentationPrompt from '../prompts/DocumentationPrompt/DocumentationPrompt';
+import GlossaryTermsPrompt from '../prompts/GlossaryTermsPrompt/GlossaryTermsPrompt';
 
 const FormPromptsWrapper = styled(BulkNavigationWrapper)`
     justify-content: space-between;
@@ -198,6 +199,14 @@ export default function PromptNavigation() {
             )}
             {prompt?.type === FormPromptType.Documentation && (
                 <DocumentationPrompt
+                    key={promptIndex}
+                    promptNumber={promptIndex + 1}
+                    prompt={prompt}
+                    submitResponse={submitResponse}
+                />
+            )}
+            {prompt?.type === FormPromptType.GlossaryTerms && (
+                <GlossaryTermsPrompt
                     key={promptIndex}
                     promptNumber={promptIndex + 1}
                     prompt={prompt}

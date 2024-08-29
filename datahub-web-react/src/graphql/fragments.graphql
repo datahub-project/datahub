@@ -1785,6 +1785,13 @@ fragment formPromptAssociationFields on FormPromptAssociation {
         documentationResponse {
             documentation
         }
+        glossaryTermsResponse {
+            glossaryTerms {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
     }
     fieldAssociations {
         completedFieldPrompts {
@@ -1808,6 +1815,13 @@ fragment formPromptAssociationFields on FormPromptAssociation {
                 }
                 documentationResponse {
                     documentation
+                }
+                glossaryTermsResponse {
+                    glossaryTerms {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
                 }
             }
         }

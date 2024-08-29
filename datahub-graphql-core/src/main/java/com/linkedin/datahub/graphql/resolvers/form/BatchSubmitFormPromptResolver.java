@@ -129,6 +129,23 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   promptId,
                   UrnUtils.getUrn(context.getActorUrn()),
                   true);
+            } else if (promptInput.getType().equals(FormPromptType.GLOSSARY_TERMS)) {
+              if (promptInput.getGlossaryTermsParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide glossary terms params for prompt type GLOSSARY_TERMS");
+              }
+              final List<Urn> termUrns =
+                  promptInput.getGlossaryTermsParams().getGlossaryTermUrns().stream()
+                      .map(UrnUtils::getUrn)
+                      .collect(Collectors.toList());
+              return _formService.batchSubmitGlossaryTermsPromptResponse(
+                  context.getOperationContext(),
+                  entityUrns,
+                  termUrns,
+                  formUrn,
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()),
+                  true);
             }
             return false;
           } catch (Exception e) {

@@ -32,6 +32,7 @@ public class SubmitFormPromptAction implements Action {
   private static final String OWNERS_PARAMETER = "owners";
   private static final String OWNERSHIP_TYPE_URN_PARAMETER = "ownershipTypeUrn";
   private static final String DOCUMENTATION_PARAMETER = "documentation";
+  private static final String GLOSSARY_TERMS_PARAMETER = "glossaryTerms";
 
   private final FormService formService;
 
@@ -83,6 +84,8 @@ public class SubmitFormPromptAction implements Action {
         submitOwnershipResponse(opContext, params, urnStrings, formUrn, promptId, actorUrn);
       } else if (promptType.equals(FormPromptType.DOCUMENTATION)) {
         submitDocumentationResponse(opContext, params, urnStrings, formUrn, promptId, actorUrn);
+      } else if (promptType.equals(FormPromptType.GLOSSARY_TERMS)) {
+        submitGlossaryTermsResponse(opContext, params, urnStrings, formUrn, promptId, actorUrn);
       } else {
         log.error(
             String.format(
@@ -196,6 +199,34 @@ public class SubmitFormPromptAction implements Action {
 
       formService.batchSubmitDocumentationPromptResponse(
           opContext, urnStrings, documentation, formUrn, promptId, actorUrn, false);
+    } catch (Exception e) {
+      log.error(
+          String.format(
+              "Failed to submit ownership response for urns %s, form urn %s", urnStrings, formUrn),
+          e);
+    }
+  }
+
+  private void submitGlossaryTermsResponse(
+      @Nonnull OperationContext opContext,
+      ActionParameters params,
+      List<String> urnStrings,
+      Urn formUrn,
+      String promptId,
+      Urn actorUrn) {
+    try {
+      // Grab params specific to submitting documentation response
+      if (!paramsContainsKey(params, GLOSSARY_TERMS_PARAMETER)) {
+        throw new InvalidActionParamsException(
+            "Action parameters are missing the required 'glossaryTerms' parameter.");
+      }
+      List<Urn> termUrns =
+          params.getParams().get(GLOSSARY_TERMS_PARAMETER).stream()
+              .map(UrnUtils::getUrn)
+              .collect(Collectors.toList());
+
+      formService.batchSubmitGlossaryTermsPromptResponse(
+          opContext, urnStrings, termUrns, formUrn, promptId, actorUrn, false);
     } catch (Exception e) {
       log.error(
           String.format(

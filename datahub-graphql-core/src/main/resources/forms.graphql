@@ -519,6 +519,11 @@ input SubmitFormPromptInput {
     Input params for a documentation type prompt
     """
     documentationParams: DocumentationInputParams
+
+    """
+    Input params for a glossary terms type prompt
+    """
+    glossaryTermsParams: GlossaryTermsInputParams
 }
 
 
@@ -575,6 +580,16 @@ input DocumentationInputParams {
     The documentation to be applied on an entity
     """
     documentation: String!
+}
+
+"""
+Input params for a glossary terms type prompt
+"""
+input GlossaryTermsInputParams {
+    """
+    The list of glossary term urns being applied to asets
+    """
+    glossaryTermUrns: [String!]!
 }
 
 """

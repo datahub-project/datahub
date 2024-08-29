@@ -34,6 +34,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.FormKey;
 import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.resource.ResourceReference;
+import com.linkedin.metadata.resource.SubResourceType;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.util.FormTestBuilder;
@@ -76,6 +77,7 @@ public class FormService extends BaseService {
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
   private final OwnerService _ownerService;
+  private final GlossaryTermService _glossaryTermService;
   private final DocumentationService _documentationService;
   private final String _appSource;
   private final boolean _isAsync;
@@ -88,6 +90,8 @@ public class FormService extends BaseService {
       final boolean isAsync) {
     super(systemEntityClient, openApiClient, objectMapper);
     _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper, isAsync);
+    _glossaryTermService =
+        new GlossaryTermService(systemEntityClient, openApiClient, objectMapper, isAsync);
     _documentationService =
         new DocumentationService(
             systemEntityClient, openApiClient, objectMapper, appSource, isAsync);
@@ -101,6 +105,7 @@ public class FormService extends BaseService {
       @Nonnull ObjectMapper objectMapper) {
     super(systemEntityClient, openApiClient, objectMapper);
     _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
+    _glossaryTermService = new GlossaryTermService(systemEntityClient, openApiClient, objectMapper);
     _documentationService =
         new DocumentationService(systemEntityClient, openApiClient, objectMapper);
     _appSource = null;
@@ -492,6 +497,97 @@ public class FormService extends BaseService {
     DocumentationPromptResponse documentationResponse = new DocumentationPromptResponse();
     documentationResponse.setDocumentation(documentation);
     promptResponse.setDocumentationResponse(documentationResponse);
+    return promptResponse;
+  }
+
+  /** Batch submit a response for a glossary terms type prompt. */
+  public Boolean batchSubmitGlossaryTermsPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityUrns,
+      @Nonnull final List<Urn> glossaryTerms,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nullable Urn actorUrn,
+      final boolean shouldThrow)
+      throws Exception {
+    entityUrns.forEach(
+        urnStr -> {
+          Urn urn = UrnUtils.getUrn(urnStr);
+          try {
+            submitGlossaryTermsPromptResponse(
+                opContext, urn, glossaryTerms, formUrn, formPromptId, actorUrn);
+          } catch (Exception e) {
+            log.error("Failed to batch submit structured property prompt", e);
+            if (shouldThrow) {
+              throw new RuntimeException("Failed to batch submit structured property prompt", e);
+            }
+          }
+        });
+
+    return true;
+  }
+
+  /** Submit a response for a glossary terms type prompt. */
+  public Boolean submitGlossaryTermsPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final List<Urn> glossaryTerms,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nullable Urn actorUrn)
+      throws Exception {
+
+    // First, let's apply the action and add the terms
+    ResourceReference resourceRef = new ResourceReference(entityUrn, null, null);
+    final String finalAppSource = _appSource != null ? _appSource : UI_SOURCE;
+    _glossaryTermService.batchAddGlossaryTerms(
+        opContext, glossaryTerms, ImmutableList.of(resourceRef), finalAppSource, actorUrn);
+
+    // Then, let's apply the change to the entity's form status.
+    FormPromptResponse promptResponse = createGlossaryTermsPromptResponse(glossaryTerms);
+    ingestCompletedFormResponse(
+        opContext, entityUrn, formUrn, formPromptId, promptResponse, actorUrn);
+
+    return true;
+  }
+
+  /** Submit a response for a field-level Documentation type prompt. */
+  public Boolean submitFieldGlossaryTermsPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final List<Urn> glossaryTerms,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nonnull final List<String> fieldPaths,
+      @Nullable final Urn actorUrn)
+      throws Exception {
+
+    // First, let's apply the action and add the terms
+    List<ResourceReference> resourceRefs = new ArrayList<>();
+    fieldPaths.forEach(
+        fieldPath -> {
+          resourceRefs.add(
+              new ResourceReference(entityUrn, SubResourceType.DATASET_FIELD, fieldPath));
+        });
+    final String finalAppSource = _appSource != null ? _appSource : UI_SOURCE;
+    _glossaryTermService.batchAddGlossaryTerms(
+        opContext, glossaryTerms, resourceRefs, finalAppSource, actorUrn);
+
+    // Then, let's apply the change to the entity's form status.
+    FormPromptResponse promptResponse = createGlossaryTermsPromptResponse(glossaryTerms);
+    ingestCompletedFieldFormResponse(
+        opContext, entityUrn, formUrn, formPromptId, fieldPaths, actorUrn, promptResponse);
+
+    return true;
+  }
+
+  private FormPromptResponse createGlossaryTermsPromptResponse(
+      @Nonnull final List<Urn> glossaryTerms) {
+    FormPromptResponse promptResponse = new FormPromptResponse();
+    GlossaryTermsPromptResponse termsPromptResponse = new GlossaryTermsPromptResponse();
+    UrnArray termUrns = new UrnArray(glossaryTerms);
+    termsPromptResponse.setGlossaryTerms(termUrns);
+    promptResponse.setGlossaryTermsResponse(termsPromptResponse);
     return promptResponse;
   }
 

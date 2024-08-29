@@ -25,18 +25,19 @@ export default function useGlossaryTermsPrompt({ prompt, submitResponse, field }
         form: { formView },
     } = useEntityFormContext();
 
-    const initialEntities = useMemo(
-        () =>
-            formView === FormView.BY_ENTITY && field
-                ? completedFieldAssociation?.response?.glossaryTermsResponse?.glossaryTerms || []
-                : promptAssociation?.response?.glossaryTermsResponse?.glossaryTerms || [],
-        [
-            formView,
-            promptAssociation?.response?.glossaryTermsResponse?.glossaryTerms,
-            completedFieldAssociation?.response?.glossaryTermsResponse?.glossaryTerms,
-            field,
-        ],
-    );
+    const initialEntities = useMemo(() => {
+        if (formView !== FormView.BY_ENTITY) {
+            return [];
+        }
+        return field
+            ? completedFieldAssociation?.response?.glossaryTermsResponse?.glossaryTerms || []
+            : promptAssociation?.response?.glossaryTermsResponse?.glossaryTerms || [];
+    }, [
+        formView,
+        promptAssociation?.response?.glossaryTermsResponse?.glossaryTerms,
+        completedFieldAssociation?.response?.glossaryTermsResponse?.glossaryTerms,
+        field,
+    ]);
     const initialValues = useMemo(() => initialEntities.map((e) => e.urn), [initialEntities]);
 
     const [selectedValues, setSelectedValues] = useState<string[]>(initialValues);
@@ -52,9 +53,11 @@ export default function useGlossaryTermsPrompt({ prompt, submitResponse, field }
                 {
                     promptId: prompt.id,
                     formUrn: prompt.formUrn,
-                    type: field ? FormPromptType.FieldsDocumentation : FormPromptType.Documentation,
+                    type: field ? FormPromptType.FieldsGlossaryTerms : FormPromptType.GlossaryTerms,
                     fieldPath: field?.fieldPath,
-                    // TODO: accept response
+                    glossaryTermsParams: {
+                        glossaryTermUrns: selectedValues,
+                    },
                 },
                 () => {
                     setHasEdited(false);

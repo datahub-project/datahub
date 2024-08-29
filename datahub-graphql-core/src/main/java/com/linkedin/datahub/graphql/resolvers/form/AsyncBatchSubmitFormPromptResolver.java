@@ -155,6 +155,8 @@ public class AsyncBatchSubmitFormPromptResolver
       addOwnershipPromptParams(submitPromptParamsNode, promptInput);
     } else if (promptInput.getType().equals(FormPromptType.DOCUMENTATION)) {
       addDocumentationPromptParams(submitPromptParamsNode, promptInput);
+    } else if (promptInput.getType().equals(FormPromptType.GLOSSARY_TERMS)) {
+      addGlossaryTermsPromptParams(submitPromptParamsNode, promptInput);
     } else {
       throw new IllegalArgumentException(
           String.format(
@@ -233,5 +235,19 @@ public class AsyncBatchSubmitFormPromptResolver
     }
     submitPromptParamsNode.put(
         "documentation", promptInput.getDocumentationParams().getDocumentation());
+  }
+
+  /*
+   * Adds the params necessary to submit a glossary terms response
+   */
+  private void addGlossaryTermsPromptParams(
+      ObjectNode submitPromptParamsNode, SubmitFormPromptInput promptInput)
+      throws IllegalArgumentException {
+    if (promptInput.getGlossaryTermsParams() == null) {
+      throw new IllegalArgumentException(
+          "Failed to submit as no glossary terms params were provided for glossary terms response");
+    }
+    ArrayNode termsArray = submitPromptParamsNode.putArray("glossaryTerms");
+    promptInput.getGlossaryTermsParams().getGlossaryTermUrns().forEach(termsArray::add);
   }
 }
