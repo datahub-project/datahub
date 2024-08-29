@@ -316,7 +316,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         assert all(map(lambda let: isinstance(let, Dataset), op2.outlets))
 
         # Check that the right things were emitted.
-        assert mock_emitter.emit.call_count == 17 if capture_executions else 9
+        assert mock_emitter.emit.call_count == 19 if capture_executions else 11
 
         # TODO: Replace this with a golden file-based comparison.
         assert mock_emitter.method_calls[0].args[0].aspectName == "dataFlowInfo"
@@ -325,127 +325,139 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
         )
 
-        assert mock_emitter.method_calls[1].args[0].aspectName == "ownership"
+        assert mock_emitter.method_calls[1].args[0].aspectName == "status"
         assert (
             mock_emitter.method_calls[1].args[0].entityUrn
             == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
         )
 
-        assert mock_emitter.method_calls[2].args[0].aspectName == "globalTags"
+        assert mock_emitter.method_calls[2].args[0].aspectName == "ownership"
         assert (
             mock_emitter.method_calls[2].args[0].entityUrn
             == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
         )
 
-        assert mock_emitter.method_calls[3].args[0].aspectName == "dataJobInfo"
+        assert mock_emitter.method_calls[3].args[0].aspectName == "globalTags"
         assert (
             mock_emitter.method_calls[3].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
+            == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
         )
 
-        assert mock_emitter.method_calls[4].args[0].aspectName == "dataJobInputOutput"
+        assert mock_emitter.method_calls[4].args[0].aspectName == "dataJobInfo"
         assert (
             mock_emitter.method_calls[4].args[0].entityUrn
             == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
         )
-        assert (
-            mock_emitter.method_calls[4].args[0].aspect.inputDatajobs[0]
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task1_upstream)"
-        )
-        assert (
-            mock_emitter.method_calls[4].args[0].aspect.inputDatajobs[1]
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"
-        )
-        assert (
-            mock_emitter.method_calls[4].args[0].aspect.inputDatasets[0]
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
-        )
-        assert (
-            mock_emitter.method_calls[4].args[0].aspect.outputDatasets[0]
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
-        )
 
-        assert mock_emitter.method_calls[5].args[0].aspectName == "datasetKey"
+        assert mock_emitter.method_calls[5].args[0].aspectName == "status"
         assert (
             mock_emitter.method_calls[5].args[0].entityUrn
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
-        )
-
-        assert mock_emitter.method_calls[6].args[0].aspectName == "datasetKey"
-        assert (
-            mock_emitter.method_calls[6].args[0].entityUrn
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
-        )
-
-        assert mock_emitter.method_calls[7].args[0].aspectName == "ownership"
-        assert (
-            mock_emitter.method_calls[7].args[0].entityUrn
             == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
         )
 
-        assert mock_emitter.method_calls[8].args[0].aspectName == "globalTags"
+        assert mock_emitter.method_calls[6].args[0].aspectName == "dataJobInputOutput"
+        assert (
+            mock_emitter.method_calls[6].args[0].entityUrn
+            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
+        )
+        assert (
+            mock_emitter.method_calls[6].args[0].aspect.inputDatajobs[0]
+            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task1_upstream)"
+        )
+        assert (
+            mock_emitter.method_calls[6].args[0].aspect.inputDatajobs[1]
+            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"
+        )
+        assert (
+            mock_emitter.method_calls[6].args[0].aspect.inputDatasets[0]
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
+        )
+        assert (
+            mock_emitter.method_calls[6].args[0].aspect.outputDatasets[0]
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
+        )
+
+        assert mock_emitter.method_calls[7].args[0].aspectName == "datasetKey"
+        assert (
+            mock_emitter.method_calls[7].args[0].entityUrn
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
+        )
+
+        assert mock_emitter.method_calls[8].args[0].aspectName == "datasetKey"
         assert (
             mock_emitter.method_calls[8].args[0].entityUrn
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
+        )
+
+        assert mock_emitter.method_calls[9].args[0].aspectName == "ownership"
+        assert (
+            mock_emitter.method_calls[9].args[0].entityUrn
+            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
+        )
+
+        assert mock_emitter.method_calls[10].args[0].aspectName == "globalTags"
+        assert (
+            mock_emitter.method_calls[10].args[0].entityUrn
             == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
         )
 
         if capture_executions:
             assert (
-                mock_emitter.method_calls[9].args[0].aspectName
-                == "dataProcessInstanceProperties"
-            )
-            assert (
-                mock_emitter.method_calls[9].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
-            )
-
-            assert (
-                mock_emitter.method_calls[10].args[0].aspectName
-                == "dataProcessInstanceRelationships"
-            )
-            assert (
-                mock_emitter.method_calls[10].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
-            )
-            assert (
                 mock_emitter.method_calls[11].args[0].aspectName
-                == "dataProcessInstanceInput"
+                == "dataProcessInstanceProperties"
             )
             assert (
                 mock_emitter.method_calls[11].args[0].entityUrn
                 == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
             )
+
             assert (
                 mock_emitter.method_calls[12].args[0].aspectName
-                == "dataProcessInstanceOutput"
+                == "dataProcessInstanceRelationships"
             )
             assert (
                 mock_emitter.method_calls[12].args[0].entityUrn
                 == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
             )
-            assert mock_emitter.method_calls[13].args[0].aspectName == "datasetKey"
+            assert (
+                mock_emitter.method_calls[13].args[0].aspectName
+                == "dataProcessInstanceInput"
+            )
             assert (
                 mock_emitter.method_calls[13].args[0].entityUrn
-                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
-            )
-            assert mock_emitter.method_calls[14].args[0].aspectName == "datasetKey"
-            assert (
-                mock_emitter.method_calls[14].args[0].entityUrn
-                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
-            )
-            assert (
-                mock_emitter.method_calls[15].args[0].aspectName
-                == "dataProcessInstanceRunEvent"
-            )
-            assert (
-                mock_emitter.method_calls[15].args[0].entityUrn
                 == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
             )
             assert (
-                mock_emitter.method_calls[16].args[0].aspectName
+                mock_emitter.method_calls[14].args[0].aspectName
+                == "dataProcessInstanceOutput"
+            )
+            assert (
+                mock_emitter.method_calls[14].args[0].entityUrn
+                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
+            )
+            assert mock_emitter.method_calls[15].args[0].aspectName == "datasetKey"
+            assert (
+                mock_emitter.method_calls[15].args[0].entityUrn
+                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
+            )
+            assert mock_emitter.method_calls[16].args[0].aspectName == "datasetKey"
+            assert (
+                mock_emitter.method_calls[16].args[0].entityUrn
+                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
+            )
+            assert (
+                mock_emitter.method_calls[17].args[0].aspectName
                 == "dataProcessInstanceRunEvent"
             )
             assert (
-                mock_emitter.method_calls[16].args[0].entityUrn
+                mock_emitter.method_calls[17].args[0].entityUrn
+                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
+            )
+            assert (
+                mock_emitter.method_calls[18].args[0].aspectName
+                == "dataProcessInstanceRunEvent"
+            )
+            assert (
+                mock_emitter.method_calls[18].args[0].entityUrn
                 == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
             )

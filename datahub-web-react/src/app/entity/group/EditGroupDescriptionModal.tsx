@@ -38,7 +38,7 @@ export default function EditGroupDescriptionModal({
         <Modal
             width={700}
             title="Edit Description"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>

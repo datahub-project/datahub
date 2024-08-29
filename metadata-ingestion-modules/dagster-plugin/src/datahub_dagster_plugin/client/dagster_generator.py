@@ -4,7 +4,13 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Se
 from urllib.parse import urlsplit
 
 import pydantic
-from dagster import DagsterRunStatus, PathMetadataValue, RunStatusSensorContext
+from dagster import (
+    DagsterRunStatus,
+    MultiAssetSensorEvaluationContext,
+    PathMetadataValue,
+    RunStatusSensorContext,
+    TableSchemaMetadataValue,
+)
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
 from dagster._core.snap import JobSnapshot
 from dagster._core.snap.node import OpDefSnap
@@ -19,13 +25,47 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata.schema_classes import DataPlatformInstanceClass, SubTypesClass
+from datahub.metadata._schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    GlobalTagsClass,
+    TagAssociationClass,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
+    BooleanType,
+    BytesType,
+    DateType,
+    MySqlDDL,
+    NullType,
+    NumberType,
+    RecordType,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+    StringType,
+    TimeType,
+)
+from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    DatasetKeyClass,
+    DatasetLineageTypeClass,
+    SubTypesClass,
+    UpstreamClass,
+)
+from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.urns._urn_base import Urn
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+ASSET_SUBTYPE = "Asset"
+
+DAGSTER_PLATFORM = "dagster"
 
 
 class Constant:
@@ -68,10 +108,48 @@ class Constant:
     STEP_KEY = "step_key"
     ATTEMPTS = "attempts"
 
+    SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
+        "DATE": DateType,
+        "BIGINT": NumberType,
+        "BINARY": BytesType,
+        # 'BIT': BIT,
+        "BOOLEAN": BooleanType,
+        "CHAR": NullType,
+        "CHARACTER": NullType,
+        "DATETIME": TimeType,
+        "DEC": NumberType,
+        "DECIMAL": NumberType,
+        "DOUBLE": NumberType,
+        "FIXED": NumberType,
+        "FLOAT": NumberType,
+        "FLOAT64": NumberType,
+        "INT": NumberType,
+        "INTEGER": NumberType,
+        "NUMBER": NumberType,
+        # 'OBJECT': ?
+        "REAL": NumberType,
+        "BYTEINT": NumberType,
+        "SMALLINT": NumberType,
+        "STRING": StringType,
+        "TEXT": StringType,
+        "TIME": TimeType,
+        "TIMESTAMP": TimeType,
+        "TIMESTAMP_TZ": TimeType,
+        "TIMESTAMP_LTZ": TimeType,
+        "TIMESTAMP_NTZ": TimeType,
+        "TINYINT": NumberType,
+        "VARBINARY": BytesType,
+        "VARCHAR": StringType,
+        "VARIANT": RecordType,
+        "OBJECT": NullType,
+        "ARRAY": ArrayType,
+        "GEOGRAPHY": NullType,
+    }
+
 
 class DatasetLineage(NamedTuple):
-    inputs: Set[str]
-    outputs: Set[str]
+    inputs: Set[DatasetUrn]
+    outputs: Set[DatasetUrn]
 
 
 class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
@@ -95,6 +173,16 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         description="Whether to capture and try to parse input and output from HANDLED_OUTPUT, LOADED_INPUT event. (currently only filepathvalue metadata supported",
     )
 
+    connect_ops_to_ops: bool = pydantic.Field(
+        default=False,
+        description="Whether to connect ops to ops based on the order of execution",
+    )
+
+    enable_asset_query_metadata_parsing: bool = pydantic.Field(
+        default=True,
+        description="Whether to enable parsing query from asset metadata",
+    )
+
     asset_lineage_extractor: Optional[
         Callable[
             [RunStatusSensorContext, "DagsterGenerator", DataHubGraph],
@@ -103,6 +191,31 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
     ] = pydantic.Field(
         default=None,
         description="Custom asset lineage extractor function. See details at [https://datahubproject.io/docs/lineage/dagster/#define-your-custom-logic-to-capture-asset-lineage-information]",
+    )
+
+    capture_dataset_from_asset_key: Optional[bool] = pydantic.Field(
+        default=True,
+        description="Whether to capture dataset from asset key",
+    )
+
+    asset_keys_to_dataset_urn_converter: Optional[
+        Callable[
+            [Sequence[str]],
+            DatasetUrn,
+        ]
+    ] = pydantic.Field(
+        default=None,
+        description="Custom asset key to urn converter function. See details at [https://datahubproject.io/docs/lineage/dagster/#define-your-custom-logic-to-capture-asset-lineage-information]",
+    )
+
+    materialize_dependencies: Optional[bool] = pydantic.Field(
+        default=False,
+        description="Whether to materialize asset dependency in DataHub. It emits a datasetKey for each dependencies. Default is False.",
+    )
+
+    debug_mode: Optional[bool] = pydantic.Field(
+        default=False,
+        description="Whether to enable debug mode",
     )
 
 
@@ -132,6 +245,8 @@ def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment)
 
 
 class DagsterGenerator:
+    asset_group_name_cache: Dict[str, str] = {}
+
     def __init__(
         self,
         logger: Logger,
@@ -141,6 +256,60 @@ class DagsterGenerator:
         self.logger = logger
         self.config = config
         self.dagster_environment = dagster_environment
+
+    def dataset_urn_from_asset(self, asset_key: Sequence[str]) -> DatasetUrn:
+        """
+        Generate dataset urn from asset key
+        """
+        return DatasetUrn(
+            #  A key/name can only contain letters, numbers, and _ in Dagster
+            platform="dagster",
+            env=self.config.env,
+            name=".".join(asset_key),
+        )
+
+    def asset_keys_to_dataset_urn_converter(
+        self, asset_key: Sequence[str]
+    ) -> Optional[DatasetUrn]:
+        """
+        Convert asset key to dataset urn
+
+        By default we assume the following asset key structure:
+        key_prefix=["prod", "snowflake", "db_name", "schema_name"]
+        """
+        if self.config.asset_keys_to_dataset_urn_converter:
+            return self.config.asset_keys_to_dataset_urn_converter(asset_key)
+
+        if len(asset_key) >= 3:
+            return DatasetUrn(
+                platform=asset_key[1],
+                env=asset_key[0],
+                name=".".join(asset_key[2:]),
+            )
+        else:
+            return None
+
+    def update_asset_group_name_cache(
+        self, asset_context: MultiAssetSensorEvaluationContext
+    ) -> None:
+        """
+        Update asset group name cache
+        """
+        for _, asset_def in asset_context.assets_defs_by_key.items():
+            if asset_def:
+                for key, group_name in asset_def.group_names_by_key.items():
+                    asset_urn = self.dataset_urn_from_asset(key.path)
+                    DagsterGenerator.asset_group_name_cache[
+                        asset_urn.urn()
+                    ] = group_name
+                    if self.config.debug_mode:
+                        self.logger.debug(
+                            f"Asset group name cache updated: {asset_urn.urn()} -> {group_name}"
+                        )
+        if self.config.debug_mode:
+            self.logger.debug(
+                f"Asset group name cache: {DagsterGenerator.asset_group_name_cache}"
+            )
 
     def path_metadata_resolver(self, value: PathMetadataValue) -> Optional[DatasetUrn]:
         """
@@ -222,13 +391,15 @@ class DagsterGenerator:
         """
         Generates a Datajob object from an Dagster op snapshot
         :param job_snapshot: JobSnapshot - Job snapshot object
+        :param step_deps: Dict[str, List] - step dependencies
         :param op_def_snap: OpDefSnap - Op def snapshot object
         :param env: str
         :param platform_instance: Optional[str]
         :param output_datasets: dict[str, Set[DatasetUrn]] - output datasets for each op
+        :param input_datasets: dict[str, Set[DatasetUrn]] - input datasets for each op
         :return: DataJob - Data generated datajob
         """
-
+        self.logger.info(f"Generating datajob for Op Def Snap: {op_def_snap}")
         if self.dagster_environment.is_cloud:
             flow_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{job_snapshot.name}"
             job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{op_def_snap.name}"
@@ -254,6 +425,7 @@ class DagsterGenerator:
         datajob.description = op_def_snap.description
         datajob.tags = set(op_def_snap.tags.keys())
 
+        inlets: Set[DatasetUrn] = set()
         # Add upstream dependencies for this op
         for upstream_op_name in step_deps[op_def_snap.name]:
             if self.dagster_environment.is_cloud:
@@ -266,13 +438,17 @@ class DagsterGenerator:
                 data_flow_urn=str(dataflow_urn),
                 job_id=upstream_job_id,
             )
-            datajob.upstream_urns.extend([upstream_op_urn])
+            if self.config.connect_ops_to_ops:
+                datajob.upstream_urns.extend([upstream_op_urn])
+            inlets.update(output_datasets.get(upstream_op_name, []))
         job_property_bag: Dict[str, str] = {}
         if input_datasets:
             self.logger.info(
                 f"Input datasets for {op_def_snap.name} are { list(input_datasets.get(op_def_snap.name, []))}"
             )
-            datajob.inlets = list(input_datasets.get(op_def_snap.name, []))
+            inlets.update(input_datasets.get(op_def_snap.name, []))
+
+        datajob.inlets = list(inlets)
 
         if output_datasets:
             self.logger.info(
@@ -298,7 +474,10 @@ class DagsterGenerator:
             job_property_bag[f"output_{output_def_snap.name}"] = str(
                 output_def_snap._asdict()
             )
-            if Constant.DATAHUB_OUTPUTS in output_def_snap.metadata:
+            if (
+                Constant.DATAHUB_OUTPUTS in output_def_snap.metadata
+                and self.config.connect_ops_to_ops
+            ):
                 datajob.outlets.extend(
                     _str_urn_to_dataset_urn(
                         output_def_snap.metadata[Constant.DATAHUB_OUTPUTS].value  # type: ignore
@@ -448,13 +627,77 @@ class DagsterGenerator:
                 result_type=Constant.ORCHESTRATOR,
             )
 
-    def dataset_urn_from_asset(self, asset_key: Sequence[str]) -> DatasetUrn:
+    def convert_table_schema_to_schema_metadata(
+        self, table_schema: TableSchemaMetadataValue, parent_urn: DatasetUrn
+    ) -> MetadataChangeProposalWrapper:
         """
-        Generate dataset urn from asset key
+        Convert TableSchemaMetadataValue to SchemaSpecification
         """
-        return DatasetUrn(
-            platform="dagster", env=self.config.env, name="/".join(asset_key)
+        self.logger.info(f"Converting table schema to schema metadata: {table_schema}")
+        fields = []
+        for column in table_schema.schema.columns:
+            fields.append(
+                SchemaField(
+                    fieldPath=column.name,
+                    nativeDataType=column.type,
+                    type=SchemaFieldDataType(
+                        Constant.SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(
+                            column.type.upper(), NullType
+                        )()
+                    ),
+                    nullable=column.constraints.nullable,
+                    description=column.description,
+                )
+            )
+        self.logger.info(f"Fields: {fields}")
+        schema_metadata = SchemaMetadata(
+            schemaName="",
+            platform=parent_urn.platform,
+            version=0,
+            hash="",
+            platformSchema=MySqlDDL(tableSchema=""),
+            fields=fields,
         )
+        return MetadataChangeProposalWrapper(
+            entityUrn=parent_urn.urn(), aspect=schema_metadata
+        )
+
+    def generate_asset_group_tag(
+        self, graph: DataHubGraph, asset_urn: DatasetUrn, target_urn: Optional[Urn]
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        if not target_urn:
+            target_urn = asset_urn
+        self.logger.info(
+            f"Getting {asset_urn.urn()} from Asset Cache: {DagsterGenerator.asset_group_name_cache}"
+        )
+        group_name = DagsterGenerator.asset_group_name_cache.get(asset_urn.urn())
+        if group_name:
+            current_tags: Optional[GlobalTagsClass] = graph.get_aspect(
+                entity_urn=target_urn.urn(),
+                aspect_type=GlobalTagsClass,
+            )
+
+            tag_to_add = make_tag_urn(f"asset_group:{group_name}")
+            tag_association_to_add = TagAssociationClass(
+                tag=make_tag_urn(f"asset_group:{group_name}")
+            )
+            need_write = False
+            if current_tags:
+                if tag_to_add not in [x.tag for x in current_tags.tags]:
+                    current_tags.tags.append(tag_association_to_add)
+                    need_write = True
+            else:
+                current_tags = GlobalTagsClass(tags=[tag_association_to_add])
+                need_write = True
+
+            if need_write:
+                mcp = MetadataChangeProposalWrapper(
+                    entityUrn=target_urn.urn(), aspect=current_tags
+                )
+                self.logger.info(f"tag_mcp: {mcp}")
+                return mcp
+
+        return None
 
     def emit_asset(
         self,
@@ -462,7 +705,11 @@ class DagsterGenerator:
         asset_key: Sequence[str],
         description: Optional[str],
         properties: Optional[Dict[str, str]],
-    ) -> str:
+        downstreams: Optional[Set[str]] = None,
+        upstreams: Optional[Set[str]] = None,
+        schema: Optional[TableSchemaMetadataValue] = None,
+        materialize_dependencies: Optional[bool] = False,
+    ) -> DatasetUrn:
         """
         Emit asset to datahub
         """
@@ -470,11 +717,11 @@ class DagsterGenerator:
         dataset = Dataset(
             id=None,
             urn=dataset_urn.urn(),
-            platform="dagster",
+            platform=DAGSTER_PLATFORM,
             name=asset_key[-1],
             schema=None,
             downstreams=None,
-            subtype="Asset",
+            subtype=ASSET_SUBTYPE,
             subtypes=None,
             description=description,
             env=self.config.env,
@@ -483,9 +730,15 @@ class DagsterGenerator:
         for mcp in dataset.generate_mcp():
             graph.emit_mcp(mcp)
 
+        if schema:
+            mcp = self.convert_table_schema_to_schema_metadata(
+                table_schema=schema, parent_urn=dataset_urn
+            )
+            graph.emit_mcp(mcp)
+
         mcp = MetadataChangeProposalWrapper(
             entityUrn=dataset_urn.urn(),
-            aspect=SubTypesClass(typeNames=["Asset"]),
+            aspect=SubTypesClass(typeNames=[ASSET_SUBTYPE]),
         )
         graph.emit_mcp(mcp)
 
@@ -495,10 +748,90 @@ class DagsterGenerator:
                 aspect=DataPlatformInstanceClass(
                     instance=make_dataplatform_instance_urn(
                         instance=self.config.platform_instance,
-                        platform="dagster",
+                        platform=DAGSTER_PLATFORM,
                     ),
-                    platform=make_data_platform_urn("dagster"),
+                    platform=make_data_platform_urn(DAGSTER_PLATFORM),
                 ),
             )
             graph.emit_mcp(mcp)
-        return dataset_urn.urn()
+
+        tag_mcp = self.generate_asset_group_tag(
+            graph, asset_urn=dataset_urn, target_urn=dataset_urn
+        )
+        if tag_mcp:
+            graph.emit_mcp(tag_mcp)
+
+        if downstreams:
+            for downstream in downstreams:
+                if materialize_dependencies:
+                    mcp = MetadataChangeProposalWrapper(
+                        entityUrn=downstream,
+                        aspect=DatasetKeyClass(
+                            name=DatasetUrn.create_from_string(downstream).name,
+                            platform=DatasetUrn.create_from_string(downstream).platform,
+                            origin=DatasetUrn.create_from_string(downstream).env,
+                        ),
+                    )
+                    self.logger.info(f"mcp: {mcp}")
+                    graph.emit_mcp(mcp)
+
+                patch_builder = DatasetPatchBuilder(downstream)
+                patch_builder.add_upstream_lineage(
+                    UpstreamClass(
+                        dataset=dataset_urn.urn(),
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                )
+                for patch_event in patch_builder.build():
+                    graph.emit_mcp(patch_event)
+
+        if upstreams:
+            for upstream in upstreams:
+                mcp = MetadataChangeProposalWrapper(
+                    entityUrn=upstream,
+                    aspect=DatasetKeyClass(
+                        name=DatasetUrn.create_from_string(upstream).name,
+                        platform=DatasetUrn.create_from_string(upstream).platform,
+                        origin=DatasetUrn.create_from_string(upstream).env,
+                    ),
+                )
+                self.logger.info(f"mcp: {mcp}")
+                graph.emit_mcp(mcp)
+
+                patch_builder = DatasetPatchBuilder(dataset_urn.urn())
+                patch_builder.add_upstream_lineage(
+                    UpstreamClass(
+                        dataset=upstream,
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                )
+                for patch_event in patch_builder.build():
+                    graph.emit_mcp(patch_event)
+
+        self.logger.info(f"asset_key: {asset_key}")
+        self.generate_browse_path(asset_key=asset_key, urn=dataset_urn, graph=graph)
+        return dataset_urn
+
+    def generate_browse_path(
+        self, asset_key: Sequence[str], urn: Urn, graph: DataHubGraph
+    ) -> None:
+        """
+        Generate browse path from asset key
+        """
+        asset_group_name = DagsterGenerator.asset_group_name_cache.get(
+            self.dataset_urn_from_asset(asset_key).urn()
+        )
+        browsePaths: List[BrowsePathEntryClass] = []
+        if asset_group_name:
+            browsePaths.append(BrowsePathEntryClass(asset_group_name))
+
+        for key in asset_key[:-1]:
+            browsePaths.append(BrowsePathEntryClass(key))
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=urn.urn(),
+            aspect=BrowsePathsV2Class(
+                path=browsePaths,
+            ),
+        )
+        graph.emit_mcp(mcp)

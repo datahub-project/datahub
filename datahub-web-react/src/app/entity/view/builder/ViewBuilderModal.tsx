@@ -77,7 +77,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                 }
                 style={modalStyle}
                 bodyStyle={modalBodyStyle}
-                visible
+                open
                 width={modalWidth}
                 onCancel={onCancel}
                 data-testid="view-modal"
