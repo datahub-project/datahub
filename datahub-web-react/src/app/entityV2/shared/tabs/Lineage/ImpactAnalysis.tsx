@@ -1,6 +1,8 @@
 import React from 'react';
 import { FacetFilterInput, LineageDirection } from '../../../../../types.generated';
-import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
+import generateUseSearchResultsViaRelationshipHook, {
+    generateUseSearchResultsCountViaRelationshipHook,
+} from './generateUseSearchResultsViaRelationshipHook';
 import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
 import { EmbeddedListSearchEmbed } from '../../components/styled/search/EmbeddedListSearchEmbed';
 import generateUseDownloadScrollAcrossLineageSearchResultsHook from './generateUseDownloadScrollAcrossLineageSearchResultsHook';
@@ -56,6 +58,14 @@ export const ImpactAnalysis = ({
                 setIsLoading,
             })}
             useGetDownloadSearchResults={generateUseDownloadScrollAcrossLineageSearchResultsHook({
+                urn,
+                direction,
+                startTimeMillis: finalStartTimeMillis,
+                endTimeMillis: finalEndTimeMillis,
+                skipCache,
+                setSkipCache,
+            })}
+            useGetSearchCountResult={generateUseSearchResultsCountViaRelationshipHook({
                 urn,
                 direction,
                 startTimeMillis: finalStartTimeMillis,

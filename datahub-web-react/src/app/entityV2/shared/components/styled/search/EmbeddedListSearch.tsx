@@ -83,7 +83,7 @@ const useGetSearchCountQueryResult = (param) => {
     }, [getSearchResult]);
 
     return {
-        data: data?.searchAcrossEntities,
+        total: data?.searchAcrossEntities?.total,
     };
 };
 
@@ -113,6 +113,9 @@ type Props = {
         loading: boolean;
         error: ApolloError | undefined;
         refetch: (variables: GetSearchResultsParams['variables']) => Promise<SearchResultsInterface | undefined | null>;
+    };
+    useGetSearchCountResult?: (params: GetSearchResultsParams) => {
+        total: number | undefined;
     };
     useGetDownloadSearchResults?: (params: DownloadSearchResultsParams) => {
         loading: boolean;
@@ -150,6 +153,7 @@ export const EmbeddedListSearch = ({
     skipCache,
     useGetSearchResults = useWrappedSearchResults,
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
+    useGetSearchCountResult = useGetSearchCountQueryResult,
     shouldRefetch,
     resetShouldRefetch,
     applyView = false,
@@ -217,7 +221,7 @@ export const EmbeddedListSearch = ({
     });
 
     const useGetViewSearchData = (viewUrn: string | undefined) => {
-        return useGetSearchCountQueryResult({
+        return useGetSearchCountResult({
             variables: {
                 input: {
                     ...searchInput,
@@ -228,8 +232,8 @@ export const EmbeddedListSearch = ({
         });
     };
 
-    const allSearchCount = useGetViewSearchData(undefined)?.data?.total;
-    const defaultViewCount = useGetViewSearchData(defaultViewUrn)?.data?.total;
+    const allSearchCount = useGetViewSearchData(undefined).total;
+    const defaultViewCount = useGetViewSearchData(defaultViewUrn).total;
     const { data: viewData } = useGetViewQuery({
         variables: {
             urn: defaultViewUrn || '',

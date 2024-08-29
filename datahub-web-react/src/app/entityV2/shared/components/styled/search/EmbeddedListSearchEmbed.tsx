@@ -32,6 +32,9 @@ type Props = {
         searchResults: DownloadSearchResults | undefined | null;
         refetch: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | undefined | null>;
     };
+    useGetSearchCountResult?: (params: GetSearchResultsParams) => {
+        total: number | undefined;
+    };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
     applyView?: boolean;
@@ -50,6 +53,7 @@ export const EmbeddedListSearchEmbed = ({
     skipCache,
     useGetSearchResults,
     useGetDownloadSearchResults,
+    useGetSearchCountResult,
     shouldRefetch,
     resetShouldRefetch,
     applyView,
@@ -96,6 +100,7 @@ export const EmbeddedListSearchEmbed = ({
             useGetSearchResults={useGetSearchResults}
             useGetDownloadSearchResults={useGetDownloadSearchResults}
             shouldRefetch={shouldRefetch}
+            useGetSearchCountResult={useGetSearchCountResult}
             resetShouldRefetch={resetShouldRefetch}
             applyView={applyView}
             showFilterBar={showFilterBar}

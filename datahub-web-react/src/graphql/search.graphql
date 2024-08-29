@@ -1174,6 +1174,12 @@ query searchAcrossLineage(
     }
 }
 
+query searchAcrossLineageCount($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        total
+    }
+}
+
 query searchAcrossLineageStructure($input: SearchAcrossLineageInput!) {
     searchAcrossLineage(input: $input) {
         start
