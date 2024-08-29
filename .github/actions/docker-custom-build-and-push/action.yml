@@ -92,7 +92,7 @@ runs:
         load: true
         push: false
         cache-from: |
-          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_TAG }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
+          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_IMAGE }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
           type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: |
           type=inline
@@ -133,7 +133,7 @@ runs:
         target: ${{ inputs.target }}
         push: true
         cache-from: |
-          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_TAG }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
+          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_IMAGE }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
           type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: |
           type=inline
@@ -150,7 +150,7 @@ runs:
         target: ${{ inputs.target }}
         push: true
         cache-from: |
-          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_TAG }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
+          type=registry,ref=${{ steps.single_tag.outputs.SINGLE_IMAGE }}:head${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
           type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: |
           type=inline
