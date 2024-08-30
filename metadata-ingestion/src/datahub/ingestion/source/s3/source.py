@@ -11,7 +11,6 @@ from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
-from build.lib.datahub.lite.lite_server import browse
 from more_itertools import peekable
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
