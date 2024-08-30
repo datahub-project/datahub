@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.validation.constraints.Null;
 import org.apache.commons.collections.CollectionUtils;
 
 public class QueryUtils {
@@ -54,6 +55,26 @@ public class QueryUtils {
         .setField(field)
         .setValue(value)
         .setValues(new StringArray(ImmutableList.of(value)))
+        .setCondition(condition);
+  }
+
+  // Creates new Criterion with field and value, using EQUAL condition.
+  @Nullable
+  public static Criterion newCriterion(@Nonnull String field, @Nonnull List<String> values) {
+    return newCriterion(field, values, Condition.EQUAL);
+  }
+
+  // Creates new Criterion with field, value and condition.
+  @Null
+  public static Criterion newCriterion(
+      @Nonnull String field, @Nonnull List<String> values, @Nonnull Condition condition) {
+    if (values.isEmpty()) {
+      return null;
+    }
+    return new Criterion()
+        .setField(field)
+        .setValue(values.get(0)) // Hack! This is due to bad modeling.
+        .setValues(new StringArray(values))
         .setCondition(condition);
   }
 
