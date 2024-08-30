@@ -770,23 +770,30 @@ def make_mapping_upstream_lineage(
     downstream_urn: str,
     node: DBTNode,
     convert_column_urns_to_lowercase: bool,
+    skip_sources_in_lineage: bool,
 ) -> UpstreamLineageClass:
     cll = []
-    for column in node.columns or []:
-        field_name = column.name
-        if convert_column_urns_to_lowercase:
-            field_name = field_name.lower()
+    if not (node.node_type == "source" and skip_sources_in_lineage):
+        # If `skip_sources_in_lineage` is enabled, we want to generate table lineage (for siblings)
+        # but not CLL. That's because CLL will make it look like the warehouse node has downstream
+        # column lineage, but it's really just empty.
+        for column in node.columns or []:
+            field_name = column.name
+            if convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
 
-        cll.append(
-            FineGrainedLineage(
-                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                upstreams=[mce_builder.make_schema_field_urn(upstream_urn, field_name)],
-                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                downstreams=[
-                    mce_builder.make_schema_field_urn(downstream_urn, field_name)
-                ],
+            cll.append(
+                FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        mce_builder.make_schema_field_urn(upstream_urn, field_name)
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[
+                        mce_builder.make_schema_field_urn(downstream_urn, field_name)
+                    ],
+                )
             )
-        )
 
     return UpstreamLineageClass(
         upstreams=[
@@ -1477,6 +1484,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     downstream_urn=node_datahub_urn,
                     node=node,
                     convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
+                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
                 )
                 if self.config.incremental_lineage:
                     # We only generate incremental lineage for non-dbt nodes.
@@ -1822,6 +1830,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 downstream_urn=node_urn,
                 node=node,
                 convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
+                skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
         else:
             upstream_urns = get_upstreams(

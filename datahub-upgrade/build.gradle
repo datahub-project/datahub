@@ -49,13 +49,16 @@ dependencies {
     implementation('io.airlift:aircompressor:0.27') {
       because("CVE-2024-36114")
     }
+    implementation('dnsjava:dnsjava:3.6.1') {
+      because("CVE-2024-25638")
+    }
   }
 
 
   // mock internal schema registry
   implementation externalDependency.kafkaAvroSerde
   implementation externalDependency.kafkaAvroSerializer
-  implementation "org.apache.kafka:kafka_2.12:3.7.0"
+  implementation "org.apache.kafka:kafka_2.12:3.7.1"
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok

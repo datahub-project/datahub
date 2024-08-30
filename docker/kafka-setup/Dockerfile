@@ -1,4 +1,4 @@
-ARG KAFKA_DOCKER_VERSION=7.4.4
+ARG KAFKA_DOCKER_VERSION=7.4.6
 
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
@@ -22,7 +22,7 @@ ARG ALPINE_REPO_URL
 ARG APACHE_DOWNLOAD_URL
 ARG GITHUB_REPO_URL
 
-ENV KAFKA_VERSION=3.7.0
+ENV KAFKA_VERSION=3.7.1
 ENV SCALA_VERSION=2.13
 
 LABEL name="kafka" version=${KAFKA_VERSION}
@@ -71,6 +71,7 @@ COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
 COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh
 COPY docker/kafka-setup/kafka-topic-workers.sh ./kafka-topic-workers.sh
 COPY docker/kafka-setup/kafka-ready.sh ./kafka-ready.sh
+COPY docker/kafka-setup/env_to_properties.py ./env_to_properties.py
 
 RUN chmod +x ./kafka-setup.sh ./kafka-topic-workers.sh ./kafka-ready.sh
 

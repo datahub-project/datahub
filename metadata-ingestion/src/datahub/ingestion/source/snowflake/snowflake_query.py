@@ -35,6 +35,7 @@ class SnowflakeQuery:
         SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
         SnowflakeObjectDomain.VIEW.capitalize(),
         SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
+        SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
     }
 
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(

@@ -170,16 +170,22 @@ public class AspectsBatchImpl implements AspectsBatch {
           mcps.stream()
               .map(
                   mcp -> {
-                    if (mcp.getChangeType().equals(ChangeType.PATCH)) {
-                      return PatchItemImpl.PatchItemImplBuilder.build(
-                          mcp,
-                          auditStamp,
-                          retrieverContext.getAspectRetriever().getEntityRegistry());
-                    } else {
-                      return ChangeItemImpl.ChangeItemImplBuilder.build(
-                          mcp, auditStamp, retrieverContext.getAspectRetriever());
+                    try {
+                      if (mcp.getChangeType().equals(ChangeType.PATCH)) {
+                        return PatchItemImpl.PatchItemImplBuilder.build(
+                            mcp,
+                            auditStamp,
+                            retrieverContext.getAspectRetriever().getEntityRegistry());
+                      } else {
+                        return ChangeItemImpl.ChangeItemImplBuilder.build(
+                            mcp, auditStamp, retrieverContext.getAspectRetriever());
+                      }
+                    } catch (IllegalArgumentException e) {
+                      log.error("Invalid proposal, skipping and proceeding with batch: " + mcp, e);
+                      return null;
                     }
                   })
+              .filter(Objects::nonNull)
               .collect(Collectors.toList()));
       return this;
     }

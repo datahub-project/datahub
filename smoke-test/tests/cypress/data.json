@@ -96,7 +96,11 @@
                   },
                   "nativeDataType": "varchar(100)",
                   "globalTags": {
-                    "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }]
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:NeedsDocumentation"
+                      }
+                    ]
                   },
                   "recursive": false
                 },
@@ -137,7 +141,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -246,7 +254,13 @@
               "editableSchemaFieldInfo": [
                 {
                   "fieldPath": "shipment_info",
-                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] },
+                  "globalTags": {
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:Legacy"
+                      }
+                    ]
+                  },
                   "glossaryTerms": {
                     "terms": [
                       {
@@ -401,8 +415,12 @@
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
               "tags": [
-                { "tag": "urn:li:tag:Cypress" },
-                { "tag": "urn:li:tag:Cypress2" }
+                {
+                  "tag": "urn:li:tag:Cypress"
+                },
+                {
+                  "tag": "urn:li:tag:Cypress2"
+                }
               ]
             }
           }
@@ -542,7 +560,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -718,7 +740,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1011,7 +1037,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1229,7 +1259,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1279,7 +1313,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1332,7 +1370,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1371,7 +1413,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1413,7 +1459,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1459,7 +1509,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1521,7 +1575,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:Cypress"
+                }
+              ]
             }
           }
         ]
@@ -1758,7 +1816,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:CypressFeatureTag" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:CypressFeatureTag"
+                }
+              ]
             }
           }
         ]
@@ -1785,7 +1847,11 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:CypressPrimaryKeyTag" }]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:CypressPrimaryKeyTag"
+                }
+              ]
             }
           }
         ]
@@ -2134,6 +2200,18 @@
     "aspectName": "ownership",
     "aspect": {
       "value": "{\n      \"owners\": [\n        {\n          \"owner\": \"urn:li:corpuser:datahub\",\n          \"type\": \"TECHNICAL_OWNER\",\n          \"typeUrn\": \"urn:li:ownershipType:__system__technical_owner\",\n          \"source\": {\n            \"type\": \"MANUAL\"\n          }\n        }\n      ]\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD),user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "documentation",
+    "aspect": {
+      "value": "{\"documentations\":[{\"attribution\":{\"actor\":\"urn:li:corpuser:__datahub_system\",\"source\":\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD),user_id)\",\"sourceDetail\":{\"actor\":\"urn:li:corpuser:shirshanka@acryl.io\",\"origin\":\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD),user_id)\",\"propagated\":\"true\"},\"time\":1721422917808},\"documentation\":\"Unique identifier of user profile.\"}]}",
       "contentType": "application/json"
     },
     "systemMetadata": null

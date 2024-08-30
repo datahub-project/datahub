@@ -64,6 +64,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
   private final ESIndexBuilder _indexBuilder;
+  private final String idHashAlgo;
   public static final String INDEX_NAME = "graph_service_v1";
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
@@ -125,7 +126,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void addEdge(@Nonnull final Edge edge) {
-    String docId = edge.toDocId();
+    String docId = edge.toDocId(idHashAlgo);
     String edgeDocument = toDocument(edge);
     _graphWriteDAO.upsertDocument(docId, edgeDocument);
   }
@@ -137,7 +138,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void removeEdge(@Nonnull final Edge edge) {
-    String docId = edge.toDocId();
+    String docId = edge.toDocId(idHashAlgo);
     _graphWriteDAO.deleteDocument(docId);
   }
 

@@ -4,6 +4,9 @@ from datetime import datetime, timezone
 import pytest
 from freezegun import freeze_time
 
+from datahub.configuration.datetimes import parse_user_datetime
+from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
@@ -20,7 +23,7 @@ from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
-FROZEN_TIME = "2024-02-06 01:23:45"
+FROZEN_TIME = "2024-02-06T01:23:45Z"
 
 
 def _ts(ts: int) -> datetime:
@@ -498,4 +501,103 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_table_rename.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_create_table_query_mcps(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=True,
+    )
+
+    aggregator.add_observed_query(
+        query="create or replace table `dataset.foo` (date_utc timestamp, revenue int);",
+        default_db="dev",
+        default_schema="public",
+        query_timestamp=datetime.now(),
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_create_table_query_mcps.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_lineage_via_temp_table_disordered_add(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    aggregator.add_observed_query(
+        query="create table derived_from_foo as select * from foo",
+        default_db="dev",
+        default_schema="public",
+    )
+    aggregator.add_observed_query(
+        query="create temp table foo as select a, b+c as c from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_lineage_via_temp_table_disordered_add.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_basic_usage(pytestconfig: pytest.Config) -> None:
+
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=False,
+        generate_usage_statistics=True,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("redshift", "dev.public.foo").urn(),
+        {"a": "int", "b": "int", "c": "int"},
+    )
+
+    aggregator.add_observed_query(
+        query="select * from foo",
+        default_db="dev",
+        default_schema="public",
+        usage_multiplier=5,
+        query_timestamp=frozen_timestamp,
+        user=CorpUserUrn("user1"),
+    )
+    aggregator.add_observed_query(
+        query="create table bar as select b+c as c from foo",
+        default_db="dev",
+        default_schema="public",
+        query_timestamp=frozen_timestamp,
+        user=CorpUserUrn("user2"),
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_basic_usage.json",
     )
