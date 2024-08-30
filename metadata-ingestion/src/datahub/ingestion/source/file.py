@@ -177,7 +177,7 @@ class FileSourceReport(SourceReport):
 class GenericFileSource(TestableSource):
     """
     This plugin pulls metadata from a previously generated file.
-    The [metadata file sink](../../../../metadata-ingestion/sink_docs/metadata-file.md) can produce such files, and a number of
+    The [metadata file sink](/metadata-ingestion/sink_docs/metadata-file.md) can produce such files, and a number of
     samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
     """
 

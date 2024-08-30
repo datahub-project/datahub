@@ -190,7 +190,7 @@ class AzureADSource(StatefulIngestionSourceBase):
     would like to take actions like adding them to a group or assigning them a role.
 
     For instructions on how to do configure Azure AD OIDC SSO, please read the documentation
-    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-registration-in-microsoft-azure-portal).
+    [here](/docs/authentication/guides/sso/configure-oidc-react.md#create-an-application-registration-in-microsoft-azure-portal).
 
     ### Extracting DataHub Users
 

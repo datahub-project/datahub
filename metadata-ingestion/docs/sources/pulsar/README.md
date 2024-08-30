@@ -35,4 +35,4 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 ## Metadata Ingestion Quickstart
 
-For context on getting started with ingestion, check out our [metadata ingestion guide](../../../../metadata-ingestion/README.md).
+For context on getting started with ingestion, check out our [metadata ingestion guide](/metadata-ingestion/README.md).

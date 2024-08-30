@@ -2,7 +2,7 @@
 
 This source pulls data from two locations:
 - The DataHub database, containing a single table holding all versioned aspects
-- The DataHub Kafka cluster, reading from the [MCL Log](../../../../docs/what/mxe.md#metadata-change-log-mcl)
+- The DataHub Kafka cluster, reading from the [MCL Log](/docs/what/mxe.md#metadata-change-log-mcl)
 topic for timeseries aspects.
 
 All data is first read from the database, before timeseries data is ingested from kafka.
@@ -63,10 +63,10 @@ On a subsequent run, all aspects for that timestamp will be ingested.
 
 #### Performance
 On your destination DataHub instance, we suggest the following settings:
-- Enable [async ingestion](../../../../docs/deploy/environment-vars.md#ingestion)
+- Enable [async ingestion](/docs/deploy/environment-vars.md#ingestion)
 - Use standalone consumers
-([mae-consumer](../../../../metadata-jobs/mae-consumer-job/README.md)
-and [mce-consumer](../../../../metadata-jobs/mce-consumer-job/README.md))
+([mae-consumer](/metadata-jobs/mae-consumer-job/README.md)
+and [mce-consumer](/metadata-jobs/mce-consumer-job/README.md))
   * If you are migrating large amounts of data, consider scaling consumer replicas.
 - Increase the number of gms pods to add redundancy and increase resilience to node evictions
   * If you are migrating large amounts of data, consider increasing elasticsearch's

@@ -215,7 +215,7 @@ class OktaSource(StatefulIngestionSourceBase):
     like to take actions like adding them to a group or assigning them a role.
 
     For instructions on how to do configure Okta OIDC SSO, please read the documentation
-    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-in-okta-developer-console).
+    [here](/docs/authentication/guides/sso/configure-oidc-react.md#create-an-application-in-okta-developer-console).
 
     ### Extracting DataHub Users
 

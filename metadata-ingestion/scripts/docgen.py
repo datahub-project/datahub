@@ -409,12 +409,14 @@ def get_capability_text(src_capability: SourceCapability) -> str:
     """
     Returns markdown format cell text for a capability, hyperlinked to capability feature page if known
     """
+
+    # TODO: this should be relevant to the url (managed)
     capability_docs_mapping: Dict[SourceCapability, str] = {
-        SourceCapability.DELETION_DETECTION: "../../../../metadata-ingestion/docs/dev_guides/stateful.md#stale-entity-removal",
-        SourceCapability.DOMAINS: "../../../domains.md",
-        SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
-        SourceCapability.DATA_PROFILING: "../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md",
-        SourceCapability.CLASSIFICATION: "../../../../metadata-ingestion/docs/dev_guides/classification.md",
+        SourceCapability.DELETION_DETECTION: "/metadata-ingestion/docs/dev_guides/stateful.md#stale-entity-removal",
+        SourceCapability.DOMAINS: "/docs/domains.md",
+        SourceCapability.PLATFORM_INSTANCE: "/docs/platform-instances.md",
+        SourceCapability.DATA_PROFILING: "/metadata-ingestion/docs/dev_guides/sql_profiles.md",
+        SourceCapability.CLASSIFICATION: "/metadata-ingestion/docs/dev_guides/classification.md",
     }
 
     capability_doc = capability_docs_mapping.get(src_capability)
@@ -829,7 +831,7 @@ def generate(
                         "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
                     )
                     f.write(
-                        "For general pointers on writing and running a recipe, see our [main recipe guide](../../../../metadata-ingestion/README.md#recipes).\n"
+                        "For general pointers on writing and running a recipe, see our [main recipe guide](/metadata-ingestion/README.md#recipes).\n"
                     )
                     f.write("```yaml\n")
                     f.write(plugin_docs["recipe"])
@@ -867,7 +869,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                     f.write(f"- Class Name: `{plugin_docs['classname']}`\n")
                     if "filename" in plugin_docs:
                         f.write(
-                            f"- Browse on [GitHub](../../../../metadata-ingestion/{plugin_docs['filename']})\n\n"
+                            f"- Browse on [GitHub](/metadata-ingestion/{plugin_docs['filename']})\n\n"
                         )
                 metrics["plugins"]["generated"] = metrics["plugins"]["generated"] + 1  # type: ignore
 
@@ -906,7 +908,7 @@ This can happen within a single system (like data moving between Snowflake table
 With data lineage, you can
 - Maintaining Data Integrity
 - Simplify and Refine Complex Relationships
-- Perform [Lineage Impact Analysis](../../act-on-metadata/impact-analysis.md)
+- Perform [Lineage Impact Analysis](/docs/act-on-metadata/impact-analysis.md)
 - [Propagate Metadata](https://blog.datahubproject.io/acryl-data-introduces-lineage-support-and-automated-propagation-of-governance-information-for-339c99536561) Across Lineage
 
 
@@ -947,12 +949,12 @@ Below is how column-level lineage can be set with dbt and Postgres tables.
 ### Ingestion Source
 
 If you're using an ingestion source that supports extraction of Lineage (e.g. **Table Lineage Capability**), then lineage information can be extracted automatically.
-For detailed instructions, refer to the [source documentation](https://datahubproject.io/integrations) for the source you are using.
+For detailed instructions, refer to the <a href="https://datahubproject.io/integrations">source documentation</a> for the source you are using.
 
 ### UI
 
 As of `v0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction or establish important entity relationships in sources that do not support automatic extraction. Editing lineage by hand is supported for Datasets, Charts, Dashboards, and Data Jobs.
-Please refer to our [UI Guides on Lineage](../../features/feature-guides/ui-lineage.md) for more information.
+Please refer to our [UI Guides on Lineage](/docs/features/feature-guides/ui-lineage.md) for more information.
 
 :::caution Recommendation on UI-based lineage
 
@@ -964,7 +966,7 @@ It is strongly recommend that lineage is edited manually in cases where lineage 
 ### API
 
 If you are not using a Lineage-support ingestion source, you can programmatically emit lineage edges between entities via API.
-Please refer to [API Guides on Lineage](../../api/tutorials/lineage.md) for more information.
+Please refer to [API Guides on Lineage](/docs/api/tutorials/lineage.md) for more information.
 
 
 ## Lineage Support
@@ -976,16 +978,21 @@ For data tools with limited native lineage tracking, **DataHub's SQL Parser** de
 
 Types of lineage connections supported in DataHub and the example codes are as follows.
 
-* Dataset to Dataset
-    * [Dataset Lineage](../../../metadata-ingestion/examples/library/lineage_emitter_rest.py)
-    * [Finegrained Dataset Lineage](../../../metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py)
-    * [Datahub BigQuery Lineage](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/sql/snowflake.py#L249)
-    * [Dataset Lineage via MCPW REST Emitter](../../../metadata-ingestion/examples/library/lineage_emitter_mcpw_rest.py)
-    * [Dataset Lineage via Kafka Emitter](../../../metadata-ingestion/examples/library/lineage_emitter_kafka.py)
-* [DataJob to DataFlow](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)
-* [DataJob to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_job_dataset.py)
-* [Chart to Dashboard](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)
-* [Chart to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py)
+<ul>
+  <li>Dataset to Dataset
+    <ul>
+      <li><a href="https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_emitter_rest.py">Dataset Lineage</a></li>
+      <li><a href="https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py">Finegrained Dataset Lineage</a></li>
+      <li><a href="https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/sql/snowflake.py#L249">Datahub BigQuery Lineage</a></li>
+      <li><a href="https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_emitter_mcpw_rest.py">Dataset Lineage via MCPW REST Emitter</a></li>
+      <li><a href="https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_emitter_kafka.py">Dataset Lineage via Kafka Emitter</a></li>
+    </ul>
+  </li>
+  <li><a href="https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_job_dataflow.py">DataJob to DataFlow</a></li>
+  <li><a href="https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_dataset_job_dataset.py">DataJob to Dataset</a></li>
+  <li><a href="https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_chart_dashboard.py">Chart to Dashboard</a></li>
+  <li><a href="https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_dataset_chart.py">Chart to Dataset</a></li>
+</ul>
 
 ### Automatic Lineage Extraction Support
 
@@ -1066,7 +1073,7 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
                 ]
                 if platform_id not in lineage_not_applicable_sources:
                     f.write(
-                        f"| [{platform_name}](../../generated/ingestion/sources/{platform_id}.md) | {table_level_supported} | {column_level_supported} | {config_names}|\n"
+                        f"| [{platform_name}](/docs/generated/ingestion/sources/{platform_id}.md) | {table_level_supported} | {column_level_supported} | {config_names}|\n"
                     )
 
         f.write(
@@ -1077,7 +1084,7 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
 If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, 
 we have a SQL queries connector that generates column-level lineage and detailed table usage statistics from the query log.
 
-If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://datahubproject.io/docs/python-sdk/clients/))
+If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code <a href="https://datahubproject.io/docs/python-sdk/clients">here</a>)
 
 For more information, refer to the [Extracting Column-Level Lineage from SQL](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567) 
 
@@ -1107,12 +1114,16 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
     # iterate though nested directories
     for root, dirs, files in os.walk(source_dir):
         for file in files:
+            if not file.endswith(".md"):
+                continue
             # construct the full file path
             source_file = os.path.join(root, file)
-            target_file = source_file.replace(source_dir, target_dir)
+            target_file = source_file.replace('/docs/', '/docs/managed-datahub/')
+
             # create the directories if not exist
+            # Create the directories if they do not exist
             os.makedirs(os.path.dirname(target_file), exist_ok=True)
-            # copy the file
+            # Copy the content of the file
             shutil.copyfile(source_file, target_file)
 
     print("Copied generated docs to managed-datahub directory")
