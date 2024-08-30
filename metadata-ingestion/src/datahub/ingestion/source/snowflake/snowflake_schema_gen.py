@@ -746,6 +746,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         schema_name: str,
         db_name: str,
     ) -> DatasetProperties:
+        custom_properties = {}
+
+        if isinstance(table, SnowflakeTable) and table.clustering_key:
+            custom_properties["CLUSTERING_KEY"] = table.clustering_key
+
         return DatasetProperties(
             name=table.name,
             created=(
@@ -760,7 +765,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             ),
             description=table.comment,
             qualifiedName=f"{db_name}.{schema_name}.{table.name}",
-            customProperties={},
+            customProperties=custom_properties,
             externalUrl=(
                 self.snowsight_url_builder.get_external_url_for_table(
                     table.name,

@@ -235,7 +235,7 @@ def default_query_results(  # noqa: C901
                 "BYTES": 1024,
                 "ROW_COUNT": 10000,
                 "COMMENT": "Comment for Table",
-                "CLUSTERING_KEY": None,
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
             }
             for tbl_idx in range(1, num_tables + 1)
         ]

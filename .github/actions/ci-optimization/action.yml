@@ -57,7 +57,8 @@ runs:
             - "metadata-ingestion-modules/**"
             - "metadata-ingestion/**"
             - "metadata-models/**"
-            - "docker/datahub-ingestion**"
+            - "docker/datahub-ingestion-base/**"
+            - "docker/datahub-ingestion/**"
           ingestion-base:
             - "docker/datahub-ingestion-base/**"
           docker:
