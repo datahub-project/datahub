@@ -66,7 +66,7 @@ public class GreaterThanEvaluator extends BaseOperatorEvaluator {
     try {
       Number lhsNumber = NumberFormat.getInstance().parse(lhs);
       Number rhsNumber = NumberFormat.getInstance().parse(rhs);
-      return lhsNumber.intValue() > rhsNumber.intValue(); // REVISIT THIS!
+      return lhsNumber.longValue() > rhsNumber.longValue();
     } catch (ParseException e) {
       log.warn(
           "Failed to evaluate Greater Than (>) Operator. Input values "

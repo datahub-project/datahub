@@ -204,7 +204,8 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
     if (siblingData != null) {
       siblingResult =
           siblingData.keySet().stream()
-              .map(siblingUrn -> lastIngestedTime(siblingData.get(siblingUrn).getAspects()))
+              .map(siblingData::get)
+              .map(getAspectMetric)
               .filter(Objects::nonNull)
               .reduce(op);
     }

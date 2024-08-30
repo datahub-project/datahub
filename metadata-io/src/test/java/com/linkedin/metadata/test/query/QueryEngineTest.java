@@ -454,7 +454,7 @@ public class QueryEngineTest {
     // Validate system query with sibling that have content and appeared *before* main entity
 
     final EntityResponse siblingEntityResponse = new EntityResponse();
-    entityResponse.setUrn(SIBLING_URN);
+    siblingEntityResponse.setUrn(SIBLING_URN);
     final DatasetKey siblingDatasetKey = new DatasetKey().setName(SIBLING_URN.toString());
     final DatasetProperties siblingDatasetProperties =
         new DatasetProperties().setDescription("test description");
