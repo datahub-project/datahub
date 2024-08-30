@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, DefaultDict, Dict, List, Set, Callable
+from typing import TYPE_CHECKING, Any, Callable, DefaultDict, Dict, List, Set
 
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceReport,

@@ -76,14 +76,18 @@ class SagemakerSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # get common lineage graph
         lineage_processor = LineageProcessor(
-            sagemaker_client=self.client_factory.get_client, env=self.env, report=self.report
+            sagemaker_client=self.client_factory.get_client,
+            env=self.env,
+            report=self.report,
         )
         lineage = lineage_processor.get_lineage()
 
         # extract feature groups if specified
         if self.source_config.extract_feature_groups:
             feature_group_processor = FeatureGroupProcessor(
-                sagemaker_client=self.client_factory.get_client, env=self.env, report=self.report
+                sagemaker_client=self.client_factory.get_client,
+                env=self.env,
+                report=self.report,
             )
             yield from feature_group_processor.get_workunits()
 

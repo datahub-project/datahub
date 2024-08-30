@@ -4,13 +4,14 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
+    Callable,
     DefaultDict,
     Dict,
     Iterable,
     List,
     Optional,
     Set,
-    Tuple, Callable,
+    Tuple,
 )
 
 import datahub.emitter.mce_builder as builder
