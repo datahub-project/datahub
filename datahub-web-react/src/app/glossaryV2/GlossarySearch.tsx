@@ -71,13 +71,7 @@ function GlossarySearch() {
                     placeholderText="Search"
                     suggestions={[]}
                     hideRecommendations
-                    style={{
-                        padding: 9,
-                        paddingLeft: 9,
-                        paddingBottom: 14,
-                        maxWidth: '100%',
-                        boxSizing: 'border-box',
-                    }}
+                    style={{ padding: 9 }}
                     inputStyle={{
                         height: 30,
                         fontSize: 10,

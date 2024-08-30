@@ -20,7 +20,7 @@ const StyledEntitySidebarContainer = styled.div<{
     max-height: 100%;
 
     width: ${(props) => (props.isCollapsed ? '63px' : `${props.$width}px`)};
-    margin: 0 12px 12px;
+    margin-bottom: 12px;
     transition: width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
     background-color: #ffffff;
@@ -32,10 +32,10 @@ const StyledEntitySidebarContainer = styled.div<{
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     align-items: center;
-    justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
-    padding: 16px;
+    justify-content: ${(props) => (props.isCollapsed ? 'end' : 'space-between')};
+    padding: 15px 18px 10px 12px;
     overflow: hidden;
-    gap: 12px;
+    height: 50px;
 `;
 
 const CloseButton = styled(Button)<{ $isActive }>`

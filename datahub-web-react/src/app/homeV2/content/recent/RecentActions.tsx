@@ -1,4 +1,5 @@
-import React from 'react';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { RecentlyEditedOrViewed } from './RecentlyEditedOrViewed';
 import { useGetRecentActions } from './useGetRecentActions';
@@ -20,20 +21,16 @@ const Container = styled.div`
  * Component for displaying recent actions, e.g. things recently viewed or edited for a given user.
  */
 export const RecentActions = () => {
-    const { user } = useUserContext();
-    const recentActions = useGetRecentActions(user);
-    const recentlyViewed = recentActions.viewed;
+    const { user, loaded } = useUserContext();
+    const { viewed, loading } = useGetRecentActions(user);
+    const { isUserInitializing } = useContext(OnboardingContext);
+
+    if (!loaded || loading || isUserInitializing) return null;
+    if (!viewed.length) return null;
 
     return (
-        <>
-            {(recentlyViewed.length && (
-                <>
-                    <Container>
-                        <RecentlyEditedOrViewed entities={recentlyViewed} />
-                    </Container>
-                </>
-            )) ||
-                null}
-        </>
+        <Container>
+            <RecentlyEditedOrViewed entities={viewed} />
+        </Container>
     );
 };

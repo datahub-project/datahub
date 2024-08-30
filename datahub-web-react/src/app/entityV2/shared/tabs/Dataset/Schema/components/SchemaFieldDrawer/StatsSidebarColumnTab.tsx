@@ -9,7 +9,7 @@ import NoStatsAvailble from '../../../../../../../../images/no-stats-available.s
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '../../../../../utils';
 
-const CHART_WIDTH = 210;
+const CHART_WIDTH = 460;
 const CHART_HEIGHT = 170;
 const DEFAULT_LINE_COLOR = REDESIGN_COLORS.BACKGROUND_PURPLE;
 

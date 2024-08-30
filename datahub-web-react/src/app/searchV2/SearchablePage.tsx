@@ -25,15 +25,21 @@ const Body = styled.div`
     display: flex;
     flex-direction: row;
     flex: 1;
+`;
+
+const BodyBackground = styled.div`
     background-color: ${REDESIGN_COLORS.BACKGROUND};
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    z-index: -2;
 `;
 
 const Navigation = styled.div`
-    z-index: 14;
+    z-index: 200;
 `;
 
 const Content = styled.div`
-    z-index: 12;
     border-radius: 8px;
     margin-top: 72px;
     flex: 1;
@@ -153,6 +159,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 onQueryChange={onAutoComplete || autoComplete}
                 entityRegistry={entityRegistry}
             />
+            <BodyBackground />
             <Body>
                 <Navigation>
                     <NavSidebar />

@@ -15,7 +15,6 @@ import {
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { useGlossaryEntityData } from '../entityV2/shared/GlossaryEntityContext';
 import { useUserContext } from '../context/useUserContext';
-// import GlossaryStatsProvider from './GlossaryStatsProvider';
 import GlossaryContentProvider from './GlossaryContentProvider';
 
 const GlossaryWrapper = styled.div`
@@ -28,8 +27,7 @@ const GlossaryWrapper = styled.div`
 
 const MainWrapper = styled.div`
     flex: 1;
-    margin-right: 16px;
-    margin-bottom: 12px;
+    margin: 0 16px 12px 12px;
 `;
 
 const BusinessGlossaryPage = () => {

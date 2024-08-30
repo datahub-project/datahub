@@ -35,13 +35,6 @@ const LoadingWrapper = styled(ResultsWrapper)`
     font-size: 16px;
 `;
 
-const inputStyle = {
-    fontSize: 14,
-    borderRadius: '5px',
-    border: `1px solid ${REDESIGN_COLORS.FOUNDATION_BLUE_2}`,
-    background: ANTD_GRAY[1],
-};
-
 const SearchIcon = styled(SearchOutlined)`
     color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
     padding: 16px;
@@ -81,11 +74,7 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
     return (
         <DomainSearchWrapper>
             {isCollapsed && unhideSidebar ? (
-                <SearchIcon
-                    onClick={() => {
-                        unhideSidebar();
-                    }}
-                />
+                <SearchIcon onClick={unhideSidebar} />
             ) : (
                 <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                     <SearchBar
@@ -93,12 +82,15 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
                         placeholderText="Search Domains"
                         suggestions={[]}
                         hideRecommendations
-                        style={{
-                            padding: 16,
-                            paddingBottom: 16,
+                        style={{ padding: 9 }}
+                        inputStyle={{
+                            height: 30,
+                            fontSize: 10,
+                            fontWeight: 500,
+                            backgroundColor: ANTD_GRAY[3],
                         }}
                         textColor={ANTD_GRAY[10]}
-                        inputStyle={inputStyle}
+                        placeholderColor={REDESIGN_COLORS.PLACEHOLDER_PURPLE}
                         onSearch={() => null}
                         onQueryChange={(q) => handleQueryChange(q)}
                         entityRegistry={entityRegistry}

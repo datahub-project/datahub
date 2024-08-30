@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Switch, Route, useLocation, useHistory } from 'react-router-dom';
 import { Layout } from 'antd';
+import styled from 'styled-components';
 import DataHubTitle from './DataHubTitle';
 import AcrylRoutes from './AcrylRoutes';
 import { HomePage } from './home/HomePage';
@@ -11,6 +12,10 @@ import { AcrylPageRoutes, NEW_ROUTE_MAP, PageRoutes } from '../conf/Global';
 import { useIsThemeV2 } from './useIsThemeV2';
 import { OnboardingContextProvider } from './onboarding/OnboardingContextProvider';
 import { getRedirectUrl } from '../conf/utils';
+
+const StyledLayout = styled(Layout)`
+    background-color: transparent;
+`;
 
 /**
  * Container for all views behind an authentication wall.
@@ -32,14 +37,14 @@ export const ProtectedRoutes = (): JSX.Element => {
     return (
         <OnboardingContextProvider>
             <DataHubTitle />
-            <Layout className={isThemeV2 ? 'themeV2' : undefined}>
+            <StyledLayout className={isThemeV2 ? 'themeV2' : undefined}>
                 <Switch>
                     <Route exact path="/" render={() => <FinalHomePage />} />
                     <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
                     <Route path={Object.values(AcrylPageRoutes)} component={AcrylRoutes} />
                     <Route path="/*" render={() => <SearchRoutes />} />
                 </Switch>
-            </Layout>
+            </StyledLayout>
         </OnboardingContextProvider>
     );
 };

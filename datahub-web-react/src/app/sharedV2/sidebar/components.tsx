@@ -10,7 +10,6 @@ export const SidebarWrapper = styled.div<{ width: number }>`
     display: ${(props) => (props.width ? 'block' : 'none')};
     background-color: #fff;
     border-radius: 8px;
-    margin-right: 12px;
     margin-bottom: 12px;
 `;
 

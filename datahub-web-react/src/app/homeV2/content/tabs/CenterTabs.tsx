@@ -28,7 +28,7 @@ const Tabs = styled.div`
 `;
 
 const Body = styled.div`
-    margin: 20px 0px 16px 0px;
+    margin-top: 20px;
     flex: 1;
 `;
 

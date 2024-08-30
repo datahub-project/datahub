@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Typography } from 'antd';
+import { Button } from 'antd';
 import { PlusCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { Link } from 'react-router-dom';
@@ -17,14 +17,15 @@ const SidebarTitleWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 12px 10px 15px;
+    padding: 15px 12px 10px 12px;
     border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_3};
     height: 50px;
+
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    font-size: 20px;
 `;
 
-const SidebarTitle = styled(Typography)`
-    font-size: 12px;
-    font-weight: 700;
+const StyledLink = styled(Link)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
 `;
 
@@ -32,12 +33,8 @@ const StyledButton = styled(Button)`
     padding: 0;
     border: none;
     box-shadow: none;
-    height: auto;
-`;
-
-const StyledPlusCircleOutlined = styled(PlusCircleOutlined)`
-    font-size: 20px !important;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: inherit;
+    font-size: inherit;
 `;
 
 export default function GlossarySidebar() {
@@ -54,11 +51,9 @@ export default function GlossarySidebar() {
         <>
             <SidebarWrapper width={width} data-testid="glossary-browser-sidebar">
                 <SidebarTitleWrapper>
-                    <Link to="/glossary">
-                        <SidebarTitle>Business Glossary</SidebarTitle>
-                    </Link>
+                    <StyledLink to="/glossary">Business Glossary</StyledLink>
                     <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
-                        <StyledPlusCircleOutlined />
+                        <PlusCircleOutlined style={{ fontSize: 'inherit' }} />
                     </StyledButton>
                 </SidebarTitleWrapper>
                 <GlossarySearch />

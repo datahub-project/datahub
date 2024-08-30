@@ -31,7 +31,6 @@ const Count = styled.div`
 
 const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
     flex: 1;
-    overflow: hidden;
     padding: 2px;
     ${(props) => props.$isSelected && `color: ${SEARCH_COLORS.TITLE_PURPLE};`}
     ${(props) => props.$addLeftPadding && 'padding-left: 20px;'}

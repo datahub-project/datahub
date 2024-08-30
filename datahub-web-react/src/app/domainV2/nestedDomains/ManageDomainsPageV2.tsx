@@ -19,6 +19,7 @@ const PageWrapper = styled.div`
     flex-direction: column;
     overflow: hidden;
     border-radius: 8px;
+    margin-left: 12px;
 `;
 
 const Header = styled.div`

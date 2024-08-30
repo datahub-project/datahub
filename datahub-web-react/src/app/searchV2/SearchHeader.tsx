@@ -8,25 +8,7 @@ import { EntityRegistry } from '../../entityRegistryContext';
 import { useAppConfig } from '../useAppConfig';
 import OnboardingContext from '../onboarding/OnboardingContext';
 
-const { Header } = Layout;
-
 const styles = {
-    container: {
-        height: 100,
-        position: 'fixed',
-        zIndex: 10,
-        width: '100%',
-        lineHeight: '20px',
-        padding: '0px 12px',
-        backgroundColor: '#171723',
-    },
-    header: {
-        height: 60,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: '#171723',
-    },
     input: {
         backgroundColor: '#343444',
     },
@@ -42,6 +24,29 @@ const styles = {
         minWidth: '400px',
     },
 };
+
+const Wrapper = styled.div`
+    position: fixed;
+    width: 100%;
+    line-height: 20px;
+    padding: 0px 12px;
+`;
+
+const Header = styled(Layout)`
+    background-color: transparent;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+`;
+
+const HeaderBackground = styled.div`
+    background-color: #171723;
+    position: fixed;
+    height: 100px;
+    width: 100%;
+    z-index: -1;
+`;
 
 const SearchBarContainer = styled.div`
     display: flex;
@@ -78,31 +83,34 @@ export const SearchHeader = ({
     const { isUserInitializing } = useContext(OnboardingContext);
 
     return (
-        <div style={styles.container as any}>
-            <Header style={styles.header as any}>
-                <SearchBarContainer>
-                    <SearchBar
-                        isLoading={isUserInitializing || !appConfig.loaded}
-                        id={V2_SEARCH_BAR_ID}
-                        style={styles.searchBoxContainer}
-                        autoCompleteStyle={styles.searchBox}
-                        inputStyle={styles.input}
-                        initialQuery={initialQuery}
-                        placeholderText={placeholderText}
-                        suggestions={suggestions}
-                        onSearch={onSearch}
-                        onQueryChange={onQueryChange}
-                        entityRegistry={entityRegistry}
-                        setIsSearchBarFocused={setIsSearchBarFocused}
-                        viewsEnabled={viewsEnabled}
-                        combineSiblings
-                        fixAutoComplete
-                        showQuickFilters
-                        showViewAllResults
-                        showCommandK
-                    />
-                </SearchBarContainer>
-            </Header>
-        </div>
+        <>
+            <HeaderBackground />
+            <Wrapper>
+                <Header>
+                    <SearchBarContainer>
+                        <SearchBar
+                            isLoading={isUserInitializing || !appConfig.loaded}
+                            id={V2_SEARCH_BAR_ID}
+                            style={styles.searchBoxContainer}
+                            autoCompleteStyle={styles.searchBox}
+                            inputStyle={styles.input}
+                            initialQuery={initialQuery}
+                            placeholderText={placeholderText}
+                            suggestions={suggestions}
+                            onSearch={onSearch}
+                            onQueryChange={onQueryChange}
+                            entityRegistry={entityRegistry}
+                            setIsSearchBarFocused={setIsSearchBarFocused}
+                            viewsEnabled={viewsEnabled}
+                            combineSiblings
+                            fixAutoComplete
+                            showQuickFilters
+                            showViewAllResults
+                            showCommandK
+                        />
+                    </SearchBarContainer>
+                </Header>
+            </Wrapper>
+        </>
     );
 };

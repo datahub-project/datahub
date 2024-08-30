@@ -2,17 +2,18 @@ import React from 'react';
 import styled from 'styled-components';
 import DomainIcon from '../DomainIcon';
 
-const IconWrapper = styled.span`
-    margin-right: 10px;
+const Wrapper = styled.span`
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
 `;
 
 export default function DomainsTitle() {
     return (
-        <span>
-            <IconWrapper>
-                <DomainIcon />
-            </IconWrapper>
+        <Wrapper>
+            <DomainIcon />
             Domains
-        </span>
+        </Wrapper>
     );
 }
