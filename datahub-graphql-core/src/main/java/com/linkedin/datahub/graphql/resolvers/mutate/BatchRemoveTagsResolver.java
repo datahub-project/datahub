@@ -63,7 +63,8 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
   private void validateTags(List<Urn> tagUrns, QueryContext context) {
     for (Urn tagUrn : tagUrns) {
       if (!LabelUtils.isAuthorizedToAssociateTag(context, tagUrn)) {
-        throw new AuthorizationException("Only users granted permission to this tag can assign or remove it");
+        throw new AuthorizationException(
+            "Only users granted permission to this tag can assign or remove it");
       }
     }
   }

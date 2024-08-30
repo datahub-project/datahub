@@ -15,7 +15,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -129,10 +128,12 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
 
   private void validateTags(@Nonnull QueryContext context, List<Urn> tagUrns) {
     for (Urn tagUrn : tagUrns) {
-      LabelUtils.validateLabel(context.getOperationContext(), tagUrn, Constants.TAG_ENTITY_NAME, _entityService);
-      
+      LabelUtils.validateLabel(
+          context.getOperationContext(), tagUrn, Constants.TAG_ENTITY_NAME, _entityService);
+
       if (!LabelUtils.isAuthorizedToAssociateTag(context, tagUrn)) {
-        throw new AuthorizationException("Only users granted permission to this tag can assign or remove it");
+        throw new AuthorizationException(
+            "Only users granted permission to this tag can assign or remove it");
       }
     }
   }

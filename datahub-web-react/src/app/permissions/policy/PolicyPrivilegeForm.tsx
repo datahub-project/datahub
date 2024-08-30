@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Form, Select, Tag, Tooltip, Typography, Tag as CustomTag, Checkbox } from 'antd';
+import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import styled from 'styled-components/macro';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -183,7 +184,12 @@ export default function PolicyPrivilegeForm({
         };
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'TYPE', [...resourceTypes, createCriterionValue(selectedResourceType)], PolicyMatchCondition.Equals),
+            filter: setFieldValues(
+                filter,
+                'TYPE',
+                [...resourceTypes, createCriterionValue(selectedResourceType)],
+                PolicyMatchCondition.Equals,
+            ),
         });
     };
 
@@ -209,15 +215,18 @@ export default function PolicyPrivilegeForm({
         };
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'URN', [
-                ...resourceEntities,
-                createCriterionValueWithEntity(
-                    resource,
-                    getEntityFromSearchResults(resourceSearchResults, resource) || null,
-                ),
-            ],
-            matchCondition,
-           ),
+            filter: setFieldValues(
+                filter,
+                'URN',
+                [
+                    ...resourceEntities,
+                    createCriterionValueWithEntity(
+                        resource,
+                        getEntityFromSearchResults(resourceSearchResults, resource) || null,
+                    ),
+                ],
+                matchCondition,
+            ),
         });
     };
 
@@ -258,13 +267,10 @@ export default function PolicyPrivilegeForm({
         };
         const domainEntity = domainObj || getEntityFromSearchResults(domainSearchResults, domainUrn);
         const updatedFilter = setFieldValues(
-          filter,
-          'DOMAIN',
-          [
-            ...domains,
-            createCriterionValueWithEntity(domainUrn, domainEntity || null),
-          ],
-          PolicyMatchCondition.Equals,
+            filter,
+            'DOMAIN',
+            [...domains, createCriterionValueWithEntity(domainUrn, domainEntity || null)],
+            PolicyMatchCondition.Equals,
         );
         setResources({
             ...resources,
@@ -412,7 +418,7 @@ export default function PolicyPrivilegeForm({
             setSelectedTags(editTags);
             setResources({
                 ...resources,
-                filter: setFieldValues(filter, 'TAG', [...(newTag as any)]),
+                filter: setFieldValues(filter, 'TAG', [...(newTag as any)], PolicyMatchCondition.Equals),
             });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -426,7 +432,7 @@ export default function PolicyPrivilegeForm({
 
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'TAG', [...tags, urn as any]),
+            filter: setFieldValues(filter, 'TAG', [...tags, urn as any], PolicyMatchCondition.Equals),
         });
         setSelectedTags([...(selectedTags as any), selectedTagOption]);
         if (inputEl && inputEl.current) {
@@ -448,6 +454,7 @@ export default function PolicyPrivilegeForm({
                 filter,
                 'TAG',
                 tags?.filter((criterionValue) => (criterionValue as any) !== urn),
+                PolicyMatchCondition.Equals,
             ),
         });
     };
@@ -540,13 +547,11 @@ export default function PolicyPrivilegeForm({
                         </Typography.Paragraph>
                         <Checkbox
                             checked={matchCondition === PolicyMatchCondition.NotEquals}
-                            onChange={(value) => {
+                            onChange={(event: CheckboxChangeEvent) => {
                                 setMatchCondition(
-                                    value?.target?.checked
-                                        ? PolicyMatchCondition.NotEquals
-                                        : PolicyMatchCondition.Equals,
+                                    event.target.checked ? PolicyMatchCondition.NotEquals : PolicyMatchCondition.Equals,
                                 );
-                                updateMatchConditionInResources(value?.target?.checked);
+                                updateMatchConditionInResources(event.target.checked);
                             }}
                         >
                             Exclude Resources
@@ -576,9 +581,9 @@ export default function PolicyPrivilegeForm({
                             )}
                         >
                             {resourceSearchResults?.map((result) => (
-                               <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                 {renderSearchResult(result)}
-                               </Select.Option>
+                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                                    {renderSearchResult(result)}
+                                </Select.Option>
                             ))}
                         </Select>
                     </Form.Item>

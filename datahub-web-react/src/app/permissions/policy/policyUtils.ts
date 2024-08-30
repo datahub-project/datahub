@@ -103,10 +103,14 @@ export const convertLegacyResourceFilter = (resourceFilter: Maybe<ResourceFilter
     }
     const criteria = new Array<PolicyMatchCriterion>();
     if (resourceFilter.type) {
-        criteria.push(createCriterion('TYPE', [createCriterionValue(resourceFilter.type)]), PolicyMatchCondition.Equals,);
+        criteria.push(
+            createCriterion('TYPE', [createCriterionValue(resourceFilter.type)], PolicyMatchCondition.Equals),
+        );
     }
     if (resourceFilter.resources && resourceFilter.resources.length > 0) {
-        criteria.push(createCriterion('URN', resourceFilter.resources.map(createCriterionValue), PolicyMatchCondition.Equals));
+        criteria.push(
+            createCriterion('URN', resourceFilter.resources.map(createCriterionValue), PolicyMatchCondition.Equals),
+        );
     }
     return {
         filter: {
