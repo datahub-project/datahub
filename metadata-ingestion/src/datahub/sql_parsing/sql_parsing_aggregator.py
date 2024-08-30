@@ -72,6 +72,8 @@ _MISSING_SESSION_ID = "__MISSING_SESSION_ID"
 _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
     os.getenv("DATAHUB_SQL_AGG_QUERY_LOG") or QueryLogSetting.DISABLED.name
 ]
+MAX_UPSTREAM_TABLES_COUNT = 300
+MAX_FINEGRAINEDLINEAGE_COUNT = 2000
 
 
 @dataclasses.dataclass
@@ -229,6 +231,8 @@ class SqlAggregatorReport(Report):
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
     num_lineage_skipped_due_to_filters: int = 0
+    num_table_lineage_trimmed_due_to_large_size: int = 0
+    num_column_lineage_trimmed_due_to_large_size: int = 0
 
     # Queries.
     num_queries_entities_generated: int = 0
@@ -1154,6 +1158,26 @@ class SqlParsingAggregator(Closeable):
                         confidenceScore=queries_map[query_id].confidence_score,
                     )
                 )
+
+        if len(upstream_aspect.upstreams) > MAX_UPSTREAM_TABLES_COUNT:
+            logger.warning(
+                f"Too many upstream tables for {downstream_urn}: {len(upstream_aspect.upstreams)}"
+                f"Keeping only {MAX_UPSTREAM_TABLES_COUNT} table level upstreams/"
+            )
+            upstream_aspect.upstreams = upstream_aspect.upstreams[
+                :MAX_UPSTREAM_TABLES_COUNT
+            ]
+            self.report.num_table_lineage_trimmed_due_to_large_size += 1
+        if len(upstream_aspect.fineGrainedLineages) > MAX_FINEGRAINEDLINEAGE_COUNT:
+            logger.warning(
+                f"Too many upstream columns for {downstream_urn}: {len(upstream_aspect.fineGrainedLineages)}"
+                f"Keeping only {MAX_FINEGRAINEDLINEAGE_COUNT} column level upstreams/"
+            )
+            upstream_aspect.fineGrainedLineages = upstream_aspect.fineGrainedLineages[
+                :MAX_FINEGRAINEDLINEAGE_COUNT
+            ]
+            self.report.num_column_lineage_trimmed_due_to_large_size += 1
+
         upstream_aspect.fineGrainedLineages = (
             upstream_aspect.fineGrainedLineages or None
         )
