@@ -13,7 +13,7 @@ import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
 const Container = styled.div`
     display: flex;
     flex-direction: row;
-    padding: 10px 20px 12px 20px;
+    padding: 10px 12px 10px 12px;
     background-color: #ffffff;
     border-radius: 10px;
     min-width: 200px;

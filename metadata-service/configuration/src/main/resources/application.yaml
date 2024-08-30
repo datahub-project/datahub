@@ -149,7 +149,7 @@ visualConfig:
   searchResult:
     enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
 
-# Classification/Propagation Automation Config
+# Enable or disable the automations screen.
 classificationConfig:
   # enable the classification center
   enabled: ${CLASSIFICATION_CONFIG_ENABLED:false}
