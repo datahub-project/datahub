@@ -207,7 +207,7 @@ def test_fivetran_with_snowflake_dest(pytestconfig, tmp_path):
                         },
                         "destination_patterns": {
                             "allow": [
-                                "interval_unconstitutional"
+                                "interval_unconstitutional",
                             ]
                         },
                         "sources_to_database": {
@@ -298,7 +298,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
                         },
                         "destination_patterns": {
                             "allow": [
-                                "interval_unconstitutional"
+                                "interval_unconstitutional",
                             ]
                         },
                         "sources_to_database": {
