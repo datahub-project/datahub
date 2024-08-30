@@ -9153,7 +9153,7 @@ enum PolicyMatchCondition {
   """
   EQUALS
   """
-  Whether the field does not the value
+  Whether the field does not match the value
   """
   NOT_EQUALS
 }

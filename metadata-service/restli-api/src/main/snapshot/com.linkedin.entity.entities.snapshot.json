@@ -5477,7 +5477,7 @@
                                     "symbols" : [ "EQUALS", "NOT_EQUALS" ],
                                     "symbolDocs" : {
                                       "EQUALS" : "Whether the field matches the value",
-                                      "NOT_EQUALS" : "Whether the field matches the value"
+                                      "NOT_EQUALS" : "Whether the field does not match the value"
                                     }
                                   },
                                   "doc" : "The condition for the criterion",
