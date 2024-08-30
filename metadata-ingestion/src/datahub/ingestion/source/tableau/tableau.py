@@ -980,11 +980,22 @@ class TableauSiteSource:
         query: str,
         connection_type: str,
         query_filter: str,
-        current_cursor: Optional[str],  # initial value is None
-        fetch_size: int = 0,
+        current_cursor: Optional[str],
+        fetch_size: int = 250,
         retry_on_auth_error: bool = True,
         retries_remaining: Optional[int] = None,
     ) -> Tuple[dict, Optional[str], int]:
+        """
+        `current_cursor:` Tableau Server executes the query and returns
+            a set of records based on the specified fetch_size. It also provides a cursor that
+            indicates the current position within the result set. In the next API call,
+            you pass this cursor to retrieve the next batch of records,
+            with each batch containing up to fetch_size records.
+            Initial value is None.
+
+        `fetch_size:` The number of records to retrieve from Tableau
+            Server in a single API call, starting from the current cursor position on Tableau Server.
+        """
         retries_remaining = retries_remaining or self.config.max_retries
 
         logger.debug(
@@ -1083,8 +1094,11 @@ class TableauSiteSource:
                 if node_limit_errors:
                     logger.debug(f"Node Limit Error. query_data {query_data}")
                     self.report.warning(
-                        title="Node Limit Errors",
-                        message="Increase your tableau node limit",
+                        title="Tableau Data Exceed Predefined Limit",
+                        message="The numbers of record in result set exceeds a predefined limit. Increase the tableau "
+                        "configuration metadata query node limit to higher value. Refer "
+                        "https://help.tableau.com/current/server/en-us/"
+                        "cli_configuration-set_tsm.htm#metadata_nodelimit",
                         context=f"""{{
                                 "errors": {node_limit_errors},
                                 "connection_type": {connection_type},
@@ -1164,8 +1178,8 @@ class TableauSiteSource:
                     query=query,
                     connection_type=connection_type,
                     query_filter=filter_,
-                    fetch_size=self.config.fetch_size,
                     current_cursor=current_cursor,
+                    fetch_size=self.config.fetch_size,
                 )
 
                 yield from connection_objects.get(c.NODES) or []
