@@ -231,6 +231,8 @@ class SqlAggregatorReport(Report):
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
     num_lineage_skipped_due_to_filters: int = 0
+    num_table_lineage_trimmed_due_to_large_size: int = 0
+    num_column_lineage_trimmed_due_to_large_size: int = 0
 
     # Queries.
     num_queries_entities_generated: int = 0
@@ -1165,6 +1167,7 @@ class SqlParsingAggregator(Closeable):
             upstream_aspect.upstreams = upstream_aspect.upstreams[
                 :MAX_UPSTREAM_TABLES_COUNT
             ]
+            self.report.num_table_lineage_trimmed_due_to_large_size += 1
         if len(upstream_aspect.fineGrainedLineages) > MAX_FINEGRAINEDLINEAGE_COUNT:
             logger.warning(
                 f"Too many upstream columns for {downstream_urn}: {len(upstream_aspect.fineGrainedLineages)}"
@@ -1173,6 +1176,7 @@ class SqlParsingAggregator(Closeable):
             upstream_aspect.fineGrainedLineages = upstream_aspect.fineGrainedLineages[
                 :MAX_FINEGRAINEDLINEAGE_COUNT
             ]
+            self.report.num_column_lineage_trimmed_due_to_large_size += 1
 
         upstream_aspect.fineGrainedLineages = (
             upstream_aspect.fineGrainedLineages or None
