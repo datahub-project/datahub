@@ -1,7 +1,6 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from enum import Enum
 from typing import Dict, List, Optional, Set, cast
 
 import pydantic
@@ -31,6 +30,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.utilities.global_warning_util import add_global_warning
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.Logger(__name__)
 
@@ -48,7 +48,7 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 ]
 
 
-class TagOption(str, Enum):
+class TagOption(StrEnum):
     with_lineage = "with_lineage"
     without_lineage = "without_lineage"
     skip = "skip"

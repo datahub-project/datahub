@@ -1,6 +1,5 @@
 import time
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -21,6 +20,7 @@ from datahub.metadata.schema_classes import (
     DataProcessRunStatusClass,
     DataProcessTypeClass,
 )
+from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.data_process_instance_urn import DataProcessInstanceUrn
@@ -33,7 +33,7 @@ class DataProcessInstanceKey(DatahubKey):
     id: str
 
 
-class InstanceRunResult(str, Enum):
+class InstanceRunResult(StrEnum):
     SUCCESS = RunResultType.SUCCESS
     SKIPPED = RunResultType.SKIPPED
     FAILURE = RunResultType.FAILURE
