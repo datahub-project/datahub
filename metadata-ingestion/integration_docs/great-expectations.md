@@ -32,7 +32,7 @@ This integration does not support
     action_list:
       - name: datahub_action
         action:
-          module_name: module_name: datahub_gx_plugin.action
+          module_name: datahub_gx_plugin.action
           class_name: DataHubValidationAction
           server_url: http://localhost:8080 #datahub server url
     ```

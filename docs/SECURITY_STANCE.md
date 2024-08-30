@@ -8,10 +8,11 @@ aspects of our approach to handling security vulnerabilities and keeping our com
 
 ## Our Track Record
 
-We have a proactive approach to security. To date we've successfully resolved over 2,000 security related issues
-flagged by automated scanners and reported by community members, demonstrating our commitment to maintaining a secure
-platform. This is a testament to the collaborative efforts of our community in identifying and helping us address
-potential vulnerabilities. It truly takes a village.
+We have a proactive approach to security. To date we've successfully resolved many security related issues reported by
+community members or flagged by automated scanners (which includes upstream dependencies and what known risks the
+dependencies contain), demonstrating our commitment to maintaining a secure platform. This is a testament to the
+collaborative efforts of our community in identifying and helping us address potential vulnerabilities. It truly takes
+a village.
 
 ## Reporting Security Issues
 
