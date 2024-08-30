@@ -54,7 +54,7 @@ def sagemaker_source() -> SagemakerSource:
 def test_sagemaker_ingest(tmp_path, pytestconfig):
     sagemaker_source_instance = sagemaker_source()
 
-    with Stubber(sagemaker_source_instance.sagemaker_client) as sagemaker_stubber:
+    with Stubber(sagemaker_source_instance.client_factory.get_client()) as sagemaker_stubber:
         sagemaker_stubber.add_response(
             "list_actions",
             list_actions_response,
@@ -222,17 +222,11 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             {"ModelName": "the-second-model"},
         )
 
-        # Patch the client factory's get_client method to return the stubbed client for jobs
-        with patch.object(
-            sagemaker_source_instance.client_factory,
-            "get_client",
-            return_value=sagemaker_source_instance.sagemaker_client,
-        ):
-            # Run the test and generate the MCEs
-            mce_objects = [
-                wu.metadata for wu in sagemaker_source_instance.get_workunits()
-            ]
-            write_metadata_file(tmp_path / "sagemaker_mces.json", mce_objects)
+        # Run the test and generate the MCEs
+        mce_objects = [
+            wu.metadata for wu in sagemaker_source_instance.get_workunits()
+        ]
+        write_metadata_file(tmp_path / "sagemaker_mces.json", mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/sagemaker"
