@@ -143,13 +143,20 @@ fragment subscriptionFields on DataHubSubscription {
         ... on GlossaryTerm {
             name
             properties {
+                name
                 description
+            }
+            parentNodes {
+                ...parentNodesFields
             }
         }
         ... on GlossaryNode {
             properties {
                 name
                 description
+            }
+            parentNodes {
+                ...parentNodesFields
             }
         }
         ... on Container {

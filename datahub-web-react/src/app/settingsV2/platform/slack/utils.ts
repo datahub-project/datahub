@@ -21,7 +21,7 @@ export const decodeSlackConnection = (rawJson: string): SlackConnection | null =
 /**
  * Encodes the Slack Configuration object to JSON.
  */
-export const encodeSlackConnection = (config: SlackConnection): string => {
+export const encodeSlackConnection = (config: SlackConnection, isUsingAppConfigTokens: boolean): string => {
     let appDetails =
         typeof config.json === 'object' && 'app_details' in config.json ? config.json.app_details : undefined;
     if (config.appId) {
@@ -34,7 +34,7 @@ export const encodeSlackConnection = (config: SlackConnection): string => {
         if (!appDetails) {
             appDetails = {};
         }
-        appDetails.signing_secret = config.signingSecret;
+        appDetails.signing_secret = !isUsingAppConfigTokens ? config.signingSecret : undefined;
     }
 
     const jsonObject = {
@@ -44,7 +44,7 @@ export const encodeSlackConnection = (config: SlackConnection): string => {
             refresh_token: config.appConfigRefreshToken,
         },
         app_details: appDetails,
-        bot_token: config.botToken,
+        bot_token: !isUsingAppConfigTokens ? config.botToken : undefined,
     };
     return JSON.stringify(jsonObject);
 };

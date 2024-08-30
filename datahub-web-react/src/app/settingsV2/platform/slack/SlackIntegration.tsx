@@ -150,7 +150,7 @@ export const SlackIntegration = () => {
         }
     }, [data, setSettings]);
 
-    const updateSlackConnection = (onComplete?: () => void) => {
+    const updateSlackConnection = (isUsingAppConfigTokens: boolean, onComplete?: () => void) => {
         upsertConnection({
             variables: {
                 input: {
@@ -158,7 +158,7 @@ export const SlackIntegration = () => {
                     platformUrn: SLACK_PLATFORM_URN,
                     type: DataHubConnectionDetailsType.Json,
                     json: {
-                        blob: encodeSlackConnection(connection),
+                        blob: encodeSlackConnection(connection, isUsingAppConfigTokens),
                     },
                 },
             },
@@ -181,7 +181,7 @@ export const SlackIntegration = () => {
             });
     };
 
-    const updateSlackSettings = (onComplete?: () => void) => {
+    const updateSlackSettings = (isUsingAppConfigTokens: boolean, onComplete?: () => void) => {
         updateGlobalIntegrationSettings({
             variables: {
                 input: {
@@ -194,7 +194,7 @@ export const SlackIntegration = () => {
             .then(() => {
                 // If the connection has changed OR we are in the app tokens tab, update it.
                 if (!isEqual(connection, slackConnData) || selectTypeValue === APP_CONFIG_SELECT_ID) {
-                    updateSlackConnection(onComplete);
+                    updateSlackConnection(isUsingAppConfigTokens, onComplete);
                 }
             })
             .catch((e: unknown) => {
@@ -226,7 +226,7 @@ export const SlackIntegration = () => {
             <>
                 <Button
                     onClick={() =>
-                        updateSlackSettings(() => {
+                        updateSlackSettings(isOnAppConfigTab, () => {
                             // If we are using the app-token path, redirect once settings are updated.
                             if (isOnAppConfigTab) {
                                 if (isConnected) {
@@ -262,7 +262,7 @@ export const SlackIntegration = () => {
                                     title: `Install a new Slack App?`,
                                     content: `This will create and install a new Slack app with the currently set App Tokens.\nEnsure the tokens entered are up-to-date.`,
                                     onOk() {
-                                        updateSlackSettings(redirectToSlackInstall);
+                                        updateSlackSettings(true, redirectToSlackInstall);
                                     },
                                     onCancel() {},
                                     okText: 'Continue',
