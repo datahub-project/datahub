@@ -1,4 +1,5 @@
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import { CloseOutlined } from '@ant-design/icons';
@@ -50,7 +51,13 @@ const TransparentButton = styled(Button)`
     padding: 0px 10px;
     display: none;
 
+    &&& span {
+        font-size: 12px;
+    }
+
     &:hover {
+        display: flex;
+        align-items: center;
         opacity: 0.9;
         color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
@@ -232,6 +239,7 @@ export default function DefaultPreviewCard({
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
+    const { showRemovalFromList } = useSearchCardContext();
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -312,15 +320,14 @@ export default function DefaultPreviewCard({
 
                         <ActionsAndStatusSection>
                             <ActionsSection>
-                                {pageEntityType === EntityType.GlossaryTerm &&
-                                    entityType !== EntityType.GlossaryTerm && (
-                                        <TransparentButton size="small" onClick={removeRelationship}>
-                                            <CloseOutlined size={5} /> Remove from glossary
-                                        </TransparentButton>
-                                    )}
-                                {pageEntityType === EntityType.Domain && entityType !== EntityType.DataProduct && (
+                                {showRemovalFromList && pageEntityType === EntityType.GlossaryTerm && (
                                     <TransparentButton size="small" onClick={removeRelationship}>
-                                        <CloseOutlined size={5} /> Remove from domain
+                                        <CloseOutlined size={5} /> Remove Glossary Term
+                                    </TransparentButton>
+                                )}
+                                {showRemovalFromList && pageEntityType === EntityType.Domain && (
+                                    <TransparentButton size="small" onClick={removeRelationship}>
+                                        <CloseOutlined size={5} /> Remove from Domain
                                     </TransparentButton>
                                 )}
                                 {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (

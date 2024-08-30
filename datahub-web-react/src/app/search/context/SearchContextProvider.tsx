@@ -27,7 +27,13 @@ export default function SearchContextProvider({ children }: { children: React.Re
 
     return (
         <SearchContext.Provider
-            value={{ query, selectedSortOption, isFullViewCard, setSelectedSortOption, setIsFullViewCard }}
+            value={{
+                query,
+                selectedSortOption,
+                isFullViewCard,
+                setSelectedSortOption,
+                setIsFullViewCard,
+            }}
         >
             {children}
         </SearchContext.Provider>
