@@ -9,7 +9,7 @@ import { useGetSchemaFieldQuery } from '@graphql/schemaField.generated';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
-import { PartitionOutlined, PicCenterOutlined } from '@ant-design/icons';
+import { PartitionOutlined, PicCenterOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { EntityType, SchemaFieldEntity as SchemaField, SearchResult } from '@types';
 
 import { Entity, IconStyleType, PreviewType } from '../Entity';
@@ -59,6 +59,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                    icon: UnorderedListOutlined,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

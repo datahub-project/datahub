@@ -1,4 +1,10 @@
-import Icon, { AppstoreOutlined, BookFilled, FileOutlined, LayoutOutlined } from '@ant-design/icons';
+import Icon, {
+    AppstoreOutlined,
+    BookFilled,
+    FileOutlined,
+    LayoutOutlined,
+    UnorderedListOutlined,
+} from '@ant-design/icons';
 import * as React from 'react';
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
 import BookOutlined from '../../../images/glossary_term_material_logo.svg?react';
@@ -123,6 +129,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     {
                         name: 'Properties',
                         component: PropertiesTab,
+                        icon: UnorderedListOutlined,
                     },
                 ]}
                 sidebarSections={this.getSidebarSections()}

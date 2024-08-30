@@ -5,6 +5,7 @@ import {
     PartitionOutlined,
     ShareAltOutlined,
     SyncOutlined,
+    UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
 import { DataJob, EntityType, SearchResult } from '../../../types.generated';
@@ -126,6 +127,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                    icon: UnorderedListOutlined,
                 },
                 {
                     name: 'Runs',

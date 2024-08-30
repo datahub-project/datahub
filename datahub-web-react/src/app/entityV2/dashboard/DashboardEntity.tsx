@@ -6,6 +6,7 @@ import {
     FileOutlined,
     PartitionOutlined,
     TableOutlined,
+    UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
 import * as React from 'react';
@@ -180,6 +181,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                    icon: UnorderedListOutlined,
                 },
                 {
                     name: 'Incidents',

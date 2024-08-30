@@ -6,7 +6,7 @@ import { SchemaFieldFieldsFragment } from '../../../../../../graphql/fragments.g
 import { Post, SchemaMetadata } from '../../../../../../types.generated';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
 import { REDESIGN_COLORS } from '../../../../shared/constants';
-import {
+import NullableLabel, {
     ForeignKeyLabel,
     PartitioningKeyLabel,
     PrimaryKeyLabel,
@@ -90,6 +90,7 @@ export const InteriorTitleContent = ({
             </FieldPathContainer>
             {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
             {record.isPartitioningKey && <PartitioningKeyLabel />}
+            {record.nullable && <NullableLabel />}
             {/* {record.nullable && <NullableLabel />} */}
             {schemaMetadata?.foreignKeys
                 ?.filter(

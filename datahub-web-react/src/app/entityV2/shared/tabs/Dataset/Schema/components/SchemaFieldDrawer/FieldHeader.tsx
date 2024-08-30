@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { SchemaField } from '../../../../../../../../types.generated';
 import translateFieldPath from '../../../../../../dataset/profile/schema/utils/translateFieldPath';
 import { REDESIGN_COLORS } from '../../../../../constants';
-import { PartitioningKeyLabel, PrimaryKeyLabel } from '../ConstraintLabels';
+import NullableLabel, { PartitioningKeyLabel, PrimaryKeyLabel } from '../ConstraintLabels';
 import MenuColumn from '../MenuColumn';
 import TypeLabel from '../TypeLabel';
 import FieldPath from './FieldPath';
@@ -21,7 +21,6 @@ const FieldHeaderWrapper = styled.div`
 `;
 
 const NameTypesWrapper = styled.div`
-    overflow: hidden;
     display: flex;
     flex-direction: column;
 `;
@@ -132,6 +131,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
                     {expandedField.isPartOfKey && <PrimaryKeyLabel />}
                     {expandedField.isPartitioningKey && <PartitioningKeyLabel />}
+                    {!expandedField.nullable && <NullableLabel />}
                     <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
                 </TitleWrapper>
             </NameTypesWrapper>

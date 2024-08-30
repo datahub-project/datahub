@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { AppstoreOutlined, FileOutlined, FolderOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, FileOutlined, FolderOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Container, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -111,6 +111,7 @@ export class ContainerEntity implements Entity<Container> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                    icon: UnorderedListOutlined,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

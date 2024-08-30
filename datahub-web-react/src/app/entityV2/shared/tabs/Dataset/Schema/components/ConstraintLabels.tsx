@@ -23,6 +23,11 @@ const ForeignKeyPill = styled(Pill)`
     border-color: ${green[2]};
 `;
 
+const NullablePill = styled(Pill)`
+    color: ${ANTD_GRAY[7]} !important;
+    border-color: ${ANTD_GRAY[7]};
+`;
+
 export function PrimaryKeyLabel() {
     return <PrimaryKeyPill>Primary Key</PrimaryKeyPill>;
 }
@@ -33,4 +38,8 @@ export function ForeignKeyLabel() {
 
 export function PartitioningKeyLabel() {
     return <PrimaryKeyPill>Partition Key</PrimaryKeyPill>;
+}
+
+export default function NullableLabel() {
+    return <NullablePill>Nullable</NullablePill>;
 }

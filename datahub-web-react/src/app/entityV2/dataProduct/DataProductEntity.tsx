@@ -1,4 +1,10 @@
-import { AppstoreOutlined, FileDoneOutlined, FileOutlined, ReadOutlined } from '@ant-design/icons';
+import {
+    AppstoreOutlined,
+    FileDoneOutlined,
+    FileOutlined,
+    ReadOutlined,
+    UnorderedListOutlined,
+} from '@ant-design/icons';
 import * as React from 'react';
 import { useGetDataProductQuery } from '../../../graphql/dataProduct.generated';
 import { GetDatasetQuery } from '../../../graphql/dataset.generated';
@@ -107,6 +113,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                    icon: UnorderedListOutlined,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

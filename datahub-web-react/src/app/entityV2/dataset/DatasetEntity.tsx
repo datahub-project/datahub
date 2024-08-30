@@ -8,6 +8,7 @@ import {
     LayoutOutlined,
     PartitionOutlined,
     UnlockOutlined,
+    UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
@@ -182,6 +183,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                    icon: UnorderedListOutlined,
                 },
                 {
                     name: 'Queries',

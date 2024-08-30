@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { AppstoreOutlined, FileDoneOutlined, FileOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Domain, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -124,6 +124,7 @@ export class DomainEntity implements Entity<Domain> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                    icon: UnorderedListOutlined,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
