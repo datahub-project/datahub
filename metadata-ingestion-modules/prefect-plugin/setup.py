@@ -12,6 +12,7 @@ def get_long_description():
     root = os.path.dirname(__file__)
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
+
 _version: str = package_metadata["__version__"]
 _self_pin = (
     f"=={_version}"
@@ -101,10 +102,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -118,7 +115,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,
