@@ -271,6 +271,16 @@
     "urn": "urn:li:dataPlatform:presto",
     "aspect": {
       "datasetNameDelimiter": ".",
+      "name": "prefect",
+      "displayName": "Prefect",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/prefectlogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:presto",
+    "aspect": {
+      "datasetNameDelimiter": ".",
       "name": "presto",
       "displayName": "Presto",
       "type": "QUERY_ENGINE",
