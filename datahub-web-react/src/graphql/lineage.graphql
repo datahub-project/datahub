@@ -2,8 +2,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
     urn
     type
     ... on DataJob {
-        urn
-        type
+        exists
         dataFlow {
             ...nonRecursiveDataFlowFields
         }
@@ -67,6 +66,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
     }
     ... on DataFlow {
+        exists
         orchestrator
         flowId
         cluster
@@ -105,8 +105,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
     }
     ... on Dashboard {
-        urn
-        type
+        exists
         tool
         dashboardId
         properties {
@@ -166,6 +165,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
     }
     ... on Chart {
+        exists
         tool
         chartId
         properties {
@@ -203,6 +203,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
     }
     ... on Dataset {
+        exists
         name
         properties {
             name
@@ -247,8 +248,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
     }
     ... on MLModelGroup {
-        urn
-        type
+        exists
         name
         description
         origin
@@ -266,8 +266,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
     }
     ... on MLModel {
-        urn
-        type
+        exists
         name
         description
         origin
@@ -600,26 +599,6 @@ fragment entityLineageV2 on Entity {
         }
         status {
             removed
-        }
-    }
-    ... on Container {
-        # For Workbooks in lineage
-        properties {
-            name
-            description
-            qualifiedName
-        }
-        platform {
-            ...platformFields
-        }
-        subTypes {
-            typeNames
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
         }
     }
     ... on QueryEntity {

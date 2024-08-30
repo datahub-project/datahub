@@ -74,7 +74,11 @@ export type LineageNode = LineageEntity | LineageFilter;
 const TRANSFORMATION_TYPES: string[] = [EntityType.Query, EntityType.DataJob];
 
 export function isGhostEntity(node?: FetchedEntityV2): boolean {
-    return !!node && node.status?.removed !== false && ![EntityType.Query, EntityType.SchemaField].includes(node.type);
+    return (
+        !!node &&
+        (!node?.exists || !!node.status?.removed) &&
+        ![EntityType.Query, EntityType.SchemaField].includes(node.type)
+    );
 }
 
 export function isDbt(node: Pick<LineageNode, 'urn' | 'type'>): boolean {

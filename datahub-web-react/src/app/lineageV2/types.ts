@@ -45,10 +45,11 @@ export type FetchedEntityV2Relationship = LineageRelationship & { urn: string };
 
 export interface FetchedEntityV2 {
     urn: string;
+    type: EntityType;
+    exists?: boolean;
     name: string;
     // name to be shown on expansion if available
     expandedName?: string;
-    type: EntityType;
     subtype?: string;
     icon?: string;
     numUpstreamChildren?: number;

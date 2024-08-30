@@ -244,6 +244,7 @@ export default class EntityRegistry {
             upstreamRelationships: genericEntityProperties.upstream?.relationships
                 ?.map((r) => ({ ...r, urn: r.entity?.urn }))
                 .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
+            exists: genericEntityProperties.exists,
             health: genericEntityProperties.health ?? undefined,
             status: genericEntityProperties.status ?? undefined,
             schemaMetadata: genericEntityProperties.schemaMetadata ?? undefined,
