@@ -31,7 +31,7 @@ const deleteExisitingDomain = () => {
 };
 
 const createDomain = (domain) => {
-  cy.get(".anticon-plus").first().click();
+  cy.get('[id="browse-v2"]').find('[type="button"]').first().click();
   cy.waitTextVisible("Create New Domain");
   cy.clickOptionWithText("Create New Domain");
   if (domain === "sub domain") {
@@ -234,15 +234,8 @@ describe("Verify nested domains test functionalities", () => {
   });
 
   it("Verify Add and delete parent domain from parent domain", () => {
-    cy.clickFirstOptionWithText("Marketing");
-    cy.wait(3000);
-    const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-    cy.on("uncaught:exception", (err) => {
-      if (err.message.includes(resizeObserverLoopErrRe)) {
-        return false;
-      }
-    });
-    cy.waitTextVisible("Add Data Product");
+    cy.visit("domain/urn:li:domain:marketing/Documentation");
+    cy.get('[aria-label="edit"]').should("be.visible");
     createDomain("sub domain");
     cy.ensureTextNotPresent("Created domain!");
     cy.goToDomainList();
@@ -256,15 +249,8 @@ describe("Verify nested domains test functionalities", () => {
   });
 
   it("Verify Add and delete sub domain", () => {
-    cy.clickFirstOptionWithText("Marketing");
-    cy.wait(3000);
-    const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-    cy.on("uncaught:exception", (err) => {
-      if (err.message.includes(resizeObserverLoopErrRe)) {
-        return false;
-      }
-    });
-    cy.waitTextVisible("Add Data Product");
+    cy.visit("domain/urn:li:domain:marketing/Documentation");
+    cy.get('[aria-label="edit"]').should("be.visible");
     createDomain();
     cy.ensureTextNotPresent("Created domain!");
     cy.goToDomainList();

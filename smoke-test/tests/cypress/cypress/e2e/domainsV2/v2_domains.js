@@ -9,7 +9,7 @@ describe("domains", () => {
     cy.goToDomain("urn:li:domain:marketing/Entities");
     cy.contains("Marketing");
     cy.get('[data-node-key="Assets"]').click();
-    cy.contains("SampleCypressKafkaDataset");
+    cy.contains("Baz Chart 1");
     cy.contains("1 - 1 of 1");
   });
 });
