@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.form;
 
-import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -9,6 +8,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.DynamicFormAssignment;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Form;
@@ -58,6 +58,7 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<Form> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(FORM_INFO_ASPECT_NAME, this::mapFormInfo);
+    mappingHelper.mapToResult(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME, this::mapDynamicFormAssignment);
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (form, dataMap) ->
@@ -221,5 +222,15 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     }
 
     return glossaryTermsParams;
+  }
+
+  private void mapDynamicFormAssignment(@Nonnull Form form, @Nonnull DataMap dataMap) {
+    com.linkedin.form.DynamicFormAssignment gmsFormAssignment =
+        new com.linkedin.form.DynamicFormAssignment(dataMap);
+    DynamicFormAssignment formAssignment = new DynamicFormAssignment();
+    if (gmsFormAssignment.getJson() != null) {
+      formAssignment.setJson(gmsFormAssignment.getJson());
+    }
+    form.setDynamicFormAssignment(formAssignment);
   }
 }

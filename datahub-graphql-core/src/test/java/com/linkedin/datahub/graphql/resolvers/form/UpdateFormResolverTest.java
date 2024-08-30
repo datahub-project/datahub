@@ -13,6 +13,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -24,12 +25,14 @@ public class UpdateFormResolverTest {
   private static final String TEST_FORM_URN = "urn:li:form:1";
 
   private static final UpdateFormInput TEST_INPUT =
-      new UpdateFormInput(TEST_FORM_URN, "new name", null, null, null, null, null, null, null);
+      new UpdateFormInput(
+          TEST_FORM_URN, "new name", null, null, null, null, null, null, null, null);
 
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockEntityClient = initMockEntityClient(true);
-    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient);
+    FormService mockService = Mockito.mock(FormService.class);
+    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient, mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -49,7 +52,8 @@ public class UpdateFormResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     EntityClient mockEntityClient = initMockEntityClient(true);
-    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient);
+    FormService mockService = Mockito.mock(FormService.class);
+    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient, mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockDenyContext();
@@ -67,7 +71,8 @@ public class UpdateFormResolverTest {
   @Test
   public void testGetFailure() throws Exception {
     EntityClient mockEntityClient = initMockEntityClient(false);
-    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient);
+    FormService mockService = Mockito.mock(FormService.class);
+    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient, mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();

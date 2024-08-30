@@ -1377,7 +1377,8 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
               .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
-              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
+              .dataFetcher(
+                  "updateForm", new UpdateFormResolver(this.entityClient, this.formService))
               .dataFetcher(
                   "updateDocPropagationSettings",
                   new UpdateDocPropagationSettingsResolver(this.settingsService));

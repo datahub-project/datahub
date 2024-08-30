@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
 import com.linkedin.datahub.graphql.types.form.FormMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.FormService;
@@ -57,6 +58,13 @@ public class CreateFormResolver implements DataFetcher<CompletableFuture<Form>> 
             EntityResponse response =
                 _entityClient.getV2(
                     context.getOperationContext(), Constants.FORM_ENTITY_NAME, formUrn, null);
+            if (input.getFormAssetAssignment() != null) {
+              DynamicFormAssignment dynamicFormAssignment =
+                  FormUtils.updateDynamicFormAssignment(
+                      context.getOperationContext(), response, input.getFormAssetAssignment());
+              _formService.createDynamicFormAssignment(
+                  context.getOperationContext(), dynamicFormAssignment, formUrn);
+            }
             return FormMapper.map(context, response);
           } catch (Exception e) {
             throw new RuntimeException(

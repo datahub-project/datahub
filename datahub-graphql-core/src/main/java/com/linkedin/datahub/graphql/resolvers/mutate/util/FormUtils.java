@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.CreateFormInput;
 import com.linkedin.datahub.graphql.generated.CreatePromptInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FormActorAssignmentInput;
+import com.linkedin.datahub.graphql.generated.FormAssetAssignment;
 import com.linkedin.datahub.graphql.generated.FormFilter;
 import com.linkedin.datahub.graphql.generated.GlossaryTermsParamsInput;
 import com.linkedin.datahub.graphql.generated.OwnershipParamsInput;
@@ -23,6 +24,7 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyParamsInput;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
@@ -36,6 +38,7 @@ import com.linkedin.form.GlossaryTermsParams;
 import com.linkedin.form.OwnershipParams;
 import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -258,6 +261,39 @@ public class FormUtils {
                 .anyMatch(
                     group ->
                         groupsForUser.stream().anyMatch(userGroup -> userGroup.equals(group))));
+  }
+
+  @Nonnull
+  public static DynamicFormAssignment updateDynamicFormAssignment(
+      @Nonnull OperationContext context,
+      @Nullable final EntityResponse response,
+      @Nonnull final FormAssetAssignment formAssetAssignmentInput) {
+    Objects.requireNonNull(formAssetAssignmentInput, "formAssetAssignmentInput must not be null");
+
+    final DynamicFormAssignment dynamicFormAssignment =
+        response != null
+                && response.getAspects().containsKey(Constants.DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME)
+            ? new DynamicFormAssignment(
+                response
+                    .getAspects()
+                    .get(Constants.DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME)
+                    .getValue()
+                    .data())
+            : new DynamicFormAssignment();
+
+    if (formAssetAssignmentInput.getOrFilters() != null) {
+      final Filter filter =
+          new Filter()
+              .setOr(
+                  ResolverUtils.buildConjunctiveCriterionArrayWithOr(
+                      formAssetAssignmentInput.getOrFilters(), context.getAspectRetriever()));
+      dynamicFormAssignment.setFilter(filter);
+    }
+    if (formAssetAssignmentInput.getJson() != null) {
+      dynamicFormAssignment.setJson(formAssetAssignmentInput.getJson());
+    }
+
+    return dynamicFormAssignment;
   }
 
   @Nonnull

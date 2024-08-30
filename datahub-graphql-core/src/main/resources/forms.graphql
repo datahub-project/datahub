@@ -238,6 +238,11 @@ type Form implements Entity {
     ownership: Ownership
 
     """
+    Dynamic form assignment of this form
+    """
+    dynamicFormAssignment: DynamicFormAssignment
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -727,6 +732,11 @@ input CreateFormInput {
     The state of this form (whether it's draft/published/unpublished)
     """
     state: FormState
+
+    """
+    Info about how this form is assigned to assets
+    """
+    formAssetAssignment: FormAssetAssignment
 }
 
 """
@@ -793,6 +803,23 @@ input FormActorAssignmentInput {
     The optional list of group urns to assign this form to
     """
     groups: [String!]
+}
+
+"""
+Input for assigning a form to assets
+"""
+input FormAssetAssignment {
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters).
+    This is the filter to select assets to be assigned to this form.
+    """
+    orFilters: [AndFilterInput!]
+
+    """
+    The json string representing the logical predicate that the user builds in the UI
+    to select assets to assign this form to.
+    """
+    json: String
 }
 
 """
@@ -896,6 +923,11 @@ input UpdateFormInput {
     The state of this form (whether it's draft/published/unpublished)
     """
     state: FormState
+
+    """
+    Info about how this form is assigned to assets
+    """
+    formAssetAssignment: FormAssetAssignment
 }
 
 """
@@ -949,3 +981,15 @@ input DeleteFormInput {
     """
     urn: String!
 }
+
+"""
+Information about how a form is assigned to entities dynamically.
+"""
+type DynamicFormAssignment {
+    """
+    The stringified json representing the logical predicate built in the UI to select assets.
+    """
+    json: String
+}
+
+

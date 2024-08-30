@@ -13,24 +13,31 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
 import com.linkedin.datahub.graphql.types.form.FormMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormState;
 import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.FormInfoPatchBuilder;
+import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> {
 
   private final EntityClient _entityClient;
+  private final FormService _formService;
 
-  public UpdateFormResolver(@Nonnull final EntityClient entityClient) {
+  public UpdateFormResolver(
+      @Nonnull final EntityClient entityClient, @Nonnull final FormService formService) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
+    _formService = Objects.requireNonNull(formService, "formService must not be null");
   }
 
   @Override
@@ -98,12 +105,25 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
                 patchBuilder.setAssignedGroups(input.getActors().getGroups());
               }
             }
-            _entityClient.ingestProposal(
-                context.getOperationContext(), patchBuilder.build(), false);
+            try {
+              _entityClient.ingestProposal(
+                  context.getOperationContext(), patchBuilder.build(), false);
+            } catch (IllegalArgumentException e) {
+              log.info("Empty patch detected in updateFormResolver", e);
+            }
 
             EntityResponse response =
                 _entityClient.getV2(
                     context.getOperationContext(), Constants.FORM_ENTITY_NAME, formUrn, null);
+
+            if (input.getFormAssetAssignment() != null) {
+              DynamicFormAssignment dynamicFormAssignment =
+                  FormUtils.updateDynamicFormAssignment(
+                      context.getOperationContext(), response, input.getFormAssetAssignment());
+              _formService.createDynamicFormAssignment(
+                  context.getOperationContext(), dynamicFormAssignment, formUrn);
+            }
+
             return FormMapper.map(context, response);
           } catch (Exception e) {
             throw new RuntimeException(
