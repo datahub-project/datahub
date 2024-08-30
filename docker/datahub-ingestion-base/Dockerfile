@@ -29,6 +29,7 @@ ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y -qq \
+    lsb-release \
     python3 \
     python3-pip \
     python3-venv \
