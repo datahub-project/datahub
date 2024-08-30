@@ -11,6 +11,7 @@ from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
+from build.lib.datahub.lite.lite_server import browse
 from more_itertools import peekable
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
@@ -18,7 +19,6 @@ from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
-from build.lib.datahub.lite.lite_server import browse
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
