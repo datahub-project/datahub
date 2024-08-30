@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional
 import requests
 from pydantic import Field, validator
 from simple_salesforce import Salesforce
+from simple_salesforce.exceptions import SalesforceAuthenticationFailed
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -285,15 +286,20 @@ class SalesforceSource(Source):
                     **common_args,
                 )
 
-        except Exception as e:
+        except SalesforceAuthenticationFailed as e:
             logger.error(e)
             if "API_CURRENTLY_DISABLED" in str(e):
                 # https://help.salesforce.com/s/articleView?id=001473830&type=1
                 error = "Salesforce login failed. Please make sure user has API Enabled Access."
             else:
                 error = "Salesforce login failed. Please verify your credentials."
-                "Please set `is_sandbox: True` in recipe if this is sandbox account."
+                if (
+                    self.config.instance_url
+                    and "sandbox" in self.config.instance_url.lower()
+                ):
+                    error += "Please set `is_sandbox: True` in recipe if this is sandbox account."
             raise ConfigurationError(error) from e
+
         if not self.config.api_version:
             # List all REST API versions and use latest one
             versions_url = "https://{instance}/services/data/".format(
