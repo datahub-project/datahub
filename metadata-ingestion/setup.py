@@ -283,8 +283,8 @@ abs_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ~=1.1.0",
-    "pyspark~=3.3.0",
+    "pydeequ>=1.1.0",
+    "pyspark~=3.5.0",
 }
 
 delta_lake = {
@@ -302,7 +302,7 @@ slack = {"slack-sdk==3.18.1"}
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     "databricks-sdk>=0.30.0",
-    "pyspark~=3.3.0",
+    "pyspark~=3.5.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
