@@ -70,6 +70,7 @@ export const DataProductsSection = () => {
     });
 
     const dataProducts = data?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
+    const numDataProducts = data?.searchAcrossEntities?.total || 0;
 
     return (
         <SectionContainer>
@@ -77,7 +78,7 @@ export const DataProductsSection = () => {
                 <SummaryHeaderButtonGroup>
                     <SummaryTabHeaderTitle
                         icon={entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT, ANTD_GRAY[8])}
-                        title={`Data Products (${dataProducts.length})`}
+                        title={`Data Products (${numDataProducts})`}
                     />
                     <StyledAddButton
                         type="primary"
