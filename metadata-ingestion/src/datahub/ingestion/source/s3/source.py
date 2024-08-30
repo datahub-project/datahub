@@ -47,6 +47,7 @@ from datahub.ingestion.source.data_lake_common.path_spec import FolderTraversalM
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
+from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -81,7 +82,6 @@ PAGE_SIZE = 1000
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
-
 
 # config flags to emit telemetry for
 config_options_to_report = [
@@ -161,6 +161,7 @@ class BrowsePath:
     timestamp: datetime
     size: int
     partitions: List[Folder]
+    content_type: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -175,6 +176,7 @@ class TableData:
     partitions: Optional[List[Folder]] = None
     max_partition: Optional[Folder] = None
     min_partition: Optional[Folder] = None
+    content_type: Optional[str] = None
 
 
 @platform_name("S3 / Local Files", id="s3")
@@ -378,8 +380,6 @@ class S3Source(StatefulIngestionSourceBase):
             # capabilities of smart_open.
             file = smart_open(table_data.full_path, "rb")
 
-        fields = []
-
         extension = pathlib.Path(table_data.full_path).suffix
         from datahub.ingestion.source.data_lake_common.path_spec import (
             SUPPORTED_COMPRESSIONS,
@@ -391,38 +391,24 @@ class S3Source(StatefulIngestionSourceBase):
         if extension == "" and path_spec.default_extension:
             extension = f".{path_spec.default_extension}"
 
-        try:
-            if extension == ".parquet":
-                fields = parquet.ParquetInferrer().infer_schema(file)
-            elif extension == ".csv":
-                fields = csv_tsv.CsvInferrer(
-                    max_rows=self.source_config.max_rows
-                ).infer_schema(file)
-            elif extension == ".tsv":
-                fields = csv_tsv.TsvInferrer(
-                    max_rows=self.source_config.max_rows
-                ).infer_schema(file)
-            elif extension == ".jsonl":
-                fields = json.JsonInferrer(
-                    max_rows=self.source_config.max_rows, format="jsonl"
-                ).infer_schema(file)
-            elif extension == ".json":
-                fields = json.JsonInferrer().infer_schema(file)
-            elif extension == ".avro":
-                fields = avro.AvroInferrer().infer_schema(file)
-            else:
+        fields = []
+        inferrer = self._get_inferrer(extension, table_data.content_type)
+        if inferrer:
+            try:
+                fields = inferrer.infer_schema(file)
+                logger.debug(f"Extracted fields in schema: {fields}")
+            except Exception as e:
                 self.report.report_warning(
                     table_data.full_path,
-                    f"file {table_data.full_path} has unsupported extension",
+                    f"could not infer schema for file {table_data.full_path}: {e}",
                 )
-            file.close()
-        except Exception as e:
+        else:
             self.report.report_warning(
                 table_data.full_path,
-                f"could not infer schema for file {table_data.full_path}: {e}",
+                f"file {table_data.full_path} has unsupported extension",
             )
-            file.close()
-        logger.debug(f"Extracted fields in schema: {fields}")
+        file.close()
+
         if self.source_config.sort_schema_fields:
             fields = sorted(fields, key=lambda f: f.fieldPath)
 
@@ -432,6 +418,36 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
         return fields
+
+    def _get_inferrer(
+        self, extension: str, content_type: Optional[str]
+    ) -> Optional[SchemaInferenceBase]:
+        if content_type == "application/vnd.apache.parquet":
+            return parquet.ParquetInferrer()
+        elif content_type == "text/csv":
+            return csv_tsv.CsvInferrer(max_rows=self.source_config.max_rows)
+        elif content_type == "text/tab-separated-values":
+            return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
+        elif content_type == "application/json":
+            return json.JsonInferrer()
+        elif content_type == "application/avro":
+            return avro.AvroInferrer()
+        elif extension == ".parquet":
+            return parquet.ParquetInferrer()
+        elif extension == ".csv":
+            return csv_tsv.CsvInferrer(max_rows=self.source_config.max_rows)
+        elif extension == ".tsv":
+            return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
+        elif extension == ".jsonl":
+            return json.JsonInferrer(
+                max_rows=self.source_config.max_rows, format="jsonl"
+            )
+        elif extension == ".json":
+            return json.JsonInferrer()
+        elif extension == ".avro":
+            return avro.AvroInferrer()
+        else:
+            return None
 
     def add_partition_columns_to_schema(
         self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
@@ -734,26 +750,25 @@ class S3Source(StatefulIngestionSourceBase):
     def extract_table_data(
         self,
         path_spec: PathSpec,
-        path: str,
-        timestamp: datetime,
-        size: int,
-        partitions: List[Folder],
+        browse_path: BrowsePath,
     ) -> TableData:
+        path = browse_path.file
+        partitions = browse_path.partitions
         logger.debug(f"Getting table data for path: {path}")
         table_name, table_path = path_spec.extract_table_name_and_path(path)
-        table_data = TableData(
+        return TableData(
             display_name=table_name,
             is_s3=self.is_s3_platform(),
             full_path=path,
             partitions=partitions,
             max_partition=partitions[-1] if partitions else None,
             min_partition=partitions[0] if partitions else None,
-            timestamp=timestamp,
+            timestamp=browse_path.timestamp,
             table_path=table_path,
             number_of_files=1,
             size_in_bytes=(
-                size
-                if size
+                browse_path.size
+                if browse_path.size
                 else sum(
                     [
                         partition.size if partition.size else 0
@@ -761,8 +776,8 @@ class S3Source(StatefulIngestionSourceBase):
                     ]
                 )
             ),
+            content_type=browse_path.content_type,
         )
-        return table_data
 
     def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
         folder_split: List[str] = prefix.split("*", 1)
@@ -1001,6 +1016,7 @@ class S3Source(StatefulIngestionSourceBase):
                             timestamp=max_folder.modification_time,
                             size=max_folder.size,
                             partitions=partitions,
+                            # TODO: Support content type inference for partitions
                         )
                 except Exception as e:
                     # This odd check if being done because boto does not have a proper exception to catch
@@ -1021,11 +1037,17 @@ class S3Source(StatefulIngestionSourceBase):
             for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
                 s3_path = self.create_s3_path(obj.bucket_name, obj.key)
                 logger.debug(f"Path: {s3_path}")
+
+                content_type = None
+                if self.source_config.use_s3_content_type:
+                    content_type = s3.Object(obj.bucket_name, obj.key).content_type
+
                 yield BrowsePath(
                     file=s3_path,
                     timestamp=obj.last_modified,
                     size=obj.size,
                     partitions=[],
+                    content_type=content_type,
                 )
 
     def create_s3_path(self, bucket_name: str, key: str) -> str:
@@ -1078,15 +1100,13 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 table_dict: Dict[str, TableData] = {}
                 for browse_path in file_browser:
-                    if not path_spec.allowed(browse_path.file):
-                        continue
-                    table_data = self.extract_table_data(
-                        path_spec,
+                    if not path_spec.allowed(
                         browse_path.file,
-                        browse_path.timestamp,
-                        browse_path.size,
-                        browse_path.partitions,
-                    )
+                        ignore_ext=self.is_s3_platform()
+                        and self.source_config.use_s3_content_type,
+                    ):
+                        continue
+                    table_data = self.extract_table_data(path_spec, browse_path)
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:
