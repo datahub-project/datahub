@@ -544,7 +544,8 @@ mypy_stubs = {
 
 test_api_requirements = {
     "pytest>=6.2.2",
-    "deepdiff",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
     "PyYAML",
     "pytest-docker>=1.1.0",
 }

@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -123,6 +124,14 @@ class DataJob:
                 customProperties=self.properties,
                 externalUrl=self.url,
                 env=env,
+            ),
+        )
+        yield mcp
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(self.urn),
+            aspect=StatusClass(
+                removed=False,
             ),
         )
         yield mcp

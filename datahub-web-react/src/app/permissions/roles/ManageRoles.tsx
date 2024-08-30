@@ -284,7 +284,7 @@ export const ManageRoles = () => {
                     showSizeChanger={false}
                 />
             </PaginationContainer>
-            <RoleDetailsModal role={focusRole as DataHubRole} visible={showViewRoleModal} onClose={resetRoleState} />
+            <RoleDetailsModal role={focusRole as DataHubRole} open={showViewRoleModal} onClose={resetRoleState} />
         </PageContainer>
     );
 };
