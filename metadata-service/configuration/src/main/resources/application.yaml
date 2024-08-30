@@ -350,6 +350,9 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_REPROCESS:false}
+  processInstanceHasRunEvents:
+    enabled: true
+    batchSize: 50
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
