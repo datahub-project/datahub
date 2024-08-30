@@ -11,18 +11,21 @@ ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
 
-COPY --chown=datahub ./metadata-ingestion /datahub-ingestion
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
 
 ARG RELEASE_VERSION
-WORKDIR /datahub-ingestion
+WORKDIR /metadata-ingestion
 RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" src/datahub/__init__.py && \
     cat src/datahub/__init__.py
 
 FROM base as slim-install
 
-RUN uv pip install --no-cache -e ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
+RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
+    UV_LINK_MODE=copy uv pip install -e ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 
 FROM slim-install as final
+
+WORKDIR /datahub-ingestion
 
 USER datahub
