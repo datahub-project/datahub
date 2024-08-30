@@ -558,7 +558,8 @@ public class ESUtils {
         return QueryBuilders.wildcardQuery(
                 toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
                 "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*")
-            .queryName(queryName != null ? queryName : fieldName);
+            .queryName(queryName != null ? queryName : fieldName)
+            .caseInsensitive(true);
       } else if (condition == Condition.START_WITH) {
         return QueryBuilders.wildcardQuery(
                 toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
