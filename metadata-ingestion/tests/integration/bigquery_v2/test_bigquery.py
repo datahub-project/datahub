@@ -11,6 +11,7 @@ from datahub.ingestion.glossary.classifier import (
     DynamicTypedClassifierConfig,
 )
 from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
@@ -18,6 +19,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryProject,
     BigQuerySchemaApi,
     BigqueryTable,
+    BigqueryTableSnapshot,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
@@ -47,7 +49,7 @@ def recipe(mcp_output_path: str, override: dict = {}) -> dict:
             "config": {
                 "project_ids": ["project-id-1"],
                 "include_usage_statistics": False,
-                "include_table_lineage": False,
+                "include_table_lineage": True,
                 "include_data_platform_instance": True,
                 "classification": ClassificationConfig(
                     enabled=True,
@@ -68,6 +70,7 @@ def recipe(mcp_output_path: str, override: dict = {}) -> dict:
 
 
 @freeze_time(FROZEN_TIME)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
 @patch.object(BigQuerySchemaGenerator, "get_core_table_details")
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
@@ -85,6 +88,7 @@ def test_bigquery_v2_ingest(
     get_datasets_for_project_id,
     get_core_table_details,
     get_tables_for_dataset,
+    get_snapshots_for_dataset,
     pytestconfig,
     tmp_path,
 ):
@@ -100,31 +104,35 @@ def test_bigquery_v2_ingest(
         {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
     )
     table_name = "table-1"
+    snapshot_table_name = "snapshot-table-1"
     get_core_table_details.return_value = {table_name: table_list_item}
+    columns = [
+        BigqueryColumn(
+            name="age",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="col_1",
+            data_type="INT",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=["Test Policy Tag"],
+        ),
+        BigqueryColumn(
+            name="email",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="col_2",
+            data_type="STRING",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+        ),
+    ]
+
     get_columns_for_dataset.return_value = {
-        table_name: [
-            BigqueryColumn(
-                name="age",
-                ordinal_position=1,
-                is_nullable=False,
-                field_path="col_1",
-                data_type="INT",
-                comment="comment",
-                is_partition_column=False,
-                cluster_column_position=None,
-                policy_tags=["Test Policy Tag"],
-            ),
-            BigqueryColumn(
-                name="email",
-                ordinal_position=1,
-                is_nullable=False,
-                field_path="col_2",
-                data_type="STRING",
-                comment="comment",
-                is_partition_column=False,
-                cluster_column_position=None,
-            ),
-        ]
+        table_name: columns,
+        snapshot_table_name: columns,
     }
     get_sample_data_for_table.return_value = {
         "age": [random.randint(1, 80) for i in range(20)],
@@ -140,6 +148,20 @@ def test_bigquery_v2_ingest(
         rows_count=None,
     )
     get_tables_for_dataset.return_value = iter([bigquery_table])
+    snapshot_table = BigqueryTableSnapshot(
+        name=snapshot_table_name,
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+        base_table_identifier=BigqueryTableIdentifier(
+            project_id="project-id-1",
+            dataset="bigquery-dataset-1",
+            table="table-1",
+        ),
+    )
+    get_snapshots_for_dataset.return_value = iter([snapshot_table])
 
     pipeline_config_dict: Dict[str, Any] = recipe(mcp_output_path=mcp_output_path)
 
