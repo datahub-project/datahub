@@ -44,6 +44,7 @@ RUN apt-get update && apt-get upgrade -y \
     krb5-config \
     libkrb5-dev \
     wget \
+    curl \
     zip \
     unzip \
     ldap-utils \
