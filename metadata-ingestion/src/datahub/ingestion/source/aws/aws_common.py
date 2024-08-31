@@ -1,8 +1,7 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import boto3
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.utils import fix_s3_host
@@ -43,13 +42,13 @@ def assume_role(
     credentials: Optional[dict] = None,
 ) -> dict:
     credentials = credentials or {}
-    sts_client: "STSClient" = boto3.client(
-        "sts",
-        region_name=aws_region,
+    session = Session(
         aws_access_key_id=credentials.get("AccessKeyId"),
         aws_secret_access_key=credentials.get("SecretAccessKey"),
         aws_session_token=credentials.get("SessionToken"),
+        region_name=aws_region,
     )
+    sts_client: STSClient = session.client("sts")
 
     assume_role_args: dict = {
         **dict(
@@ -67,7 +66,7 @@ def assume_role(
 AUTODETECT_CREDENTIALS_DOC_LINK = "Can be auto-detected, see [the AWS boto3 docs](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html) for details."
 
 
-class LazyEvaluator:
+class LazyLogEvaluator:
     """
     Used by debug logging to avoid costly function calls if the information is not logged (due to the logging level set
     higher than DEBUG)
@@ -170,7 +169,7 @@ class AwsConnectionConfig(ConfigModel):
             )
             logger.debug(
                 "Authenticated using access key, I am: %s",
-                LazyEvaluator(self.get_caller_identity, session),
+                LazyLogEvaluator(self.get_caller_identity, session),
             )
         elif self.aws_profile:
             session = Session(
@@ -178,14 +177,14 @@ class AwsConnectionConfig(ConfigModel):
             )
             logger.debug(
                 "Authenticated using AWS profile, I am: %s",
-                LazyEvaluator(self.get_caller_identity, session),
+                LazyLogEvaluator(self.get_caller_identity, session),
             )
         else:
             # Use boto3's credential autodetection.
             session = Session(region_name=self.aws_region)
             logger.debug(
                 "Authenticated using auto-detection, I am: %s",
-                LazyEvaluator(self.get_caller_identity, session),
+                LazyLogEvaluator(self.get_caller_identity, session),
             )
 
         if self._normalized_aws_roles():
@@ -218,7 +217,7 @@ class AwsConnectionConfig(ConfigModel):
 
         logger.debug(
             "Final session: %s",
-            LazyEvaluator(self.get_caller_identity, session),
+            LazyLogEvaluator(self.get_caller_identity, session),
         )
         return session
 
@@ -232,7 +231,7 @@ class AwsConnectionConfig(ConfigModel):
         if self._credentials_expiration is None:
             logger.debug("No credentials expiration time recorded")
             return True
-        time_now = datetime.now(timezone.utc)
+        time_now = datetime.now(self._credentials_expiration.tzinfo)
         remaining_time = self._credentials_expiration - time_now
         should_refresh = remaining_time < timedelta(minutes=5)
         logger.debug(

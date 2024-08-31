@@ -1,6 +1,9 @@
-from unittest.mock import MagicMock, patch
+import datetime
+from unittest.mock import ANY, MagicMock, call, patch
 
 import boto3
+import pytest
+from botocore.credentials import Credentials
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
@@ -52,14 +55,7 @@ def sagemaker_source() -> SagemakerSource:
     )
 
 
-@freeze_time(FROZEN_TIME)
-def test_sagemaker_ingest(tmp_path, pytestconfig):
-    sagemaker_source_instance = sagemaker_source()
-
-    mock_session = MagicMock()
-    mock_client_sagemaker = boto3.client("sagemaker")
-    mock_client_sts = boto3.client("sts")
-
+def get_aws_client(mock_client_sts, mock_client_sagemaker):
     def _get_client(client_type, *args, **kwargs):
         if client_type == "sts":
             return mock_client_sts
@@ -67,11 +63,200 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             return mock_client_sagemaker
         raise Exception("client type not handled by the mock")
 
-    mock_session.client.side_effect = _get_client
+    return _get_client
 
+
+@pytest.fixture
+def frozen_time():
+    with freeze_time(FROZEN_TIME) as f:
+        yield f
+
+
+@patch("datahub.ingestion.source.aws.aws_common.Session")
+def test_token_refreshing(mock_session, frozen_time):
+    """
+    We should move it to separate class once the same logic is shared by other AWS sources
+    """
+    sagemaker_source_instance = SagemakerSource(
+        ctx=PipelineContext(run_id="sagemaker-source-test"),
+        config=SagemakerSourceConfig(
+            aws_region="us-west-2",
+            aws_role="arn:aws:iam::123456789000:role/test-role-for-ingestor",
+        ),
+    )
+
+    mock_client_sagemaker = boto3.client("sagemaker", region_name="us-west-2")
+    mock_client_sts = boto3.client("sts")
+    mock_session.return_value.client.side_effect = get_aws_client(
+        mock_client_sts, mock_client_sagemaker
+    )
+    mock_session.return_value.profile_name = "mock_session"
     sagemaker_stubber = Stubber(mock_client_sagemaker)
     sts_stubber = Stubber(mock_client_sts)
 
+    mock_session.return_value.get_credentials.return_value = Credentials(
+        access_key="A", secret_key="B", token="C"
+    )
+
+    session_initialization_call_list = [
+        call(region_name="us-west-2"),  # auth via auto-detect
+        call().client("sts"),  # get sts client to print current role
+        call().get_credentials(),  # get credentials
+        call(
+            aws_access_key_id="A",
+            aws_secret_access_key="B",
+            aws_session_token="C",
+            region_name="us-west-2",
+        ),  # use credentials to auth
+        call().client("sts"),  # assume role
+        call(
+            aws_access_key_id="DDDDDDDDDDDDDDDD",
+            aws_secret_access_key="EEEEEEEEEEEEEEEE",
+            aws_session_token="FFFFFFFFFFFFFFFF",
+            region_name="us-west-2",
+        ),  # use new credentials to auth
+        call().client("sts"),  # get sts client to print assumed role
+        call().client("sagemaker", config=ANY),  # get sagemaker client
+    ]
+
+    # now session initialisation will be:
+    # 1. auto-detect current role
+    # 2. print the current identity (hence first get_caller_identity)
+    # 3. iterate over normalized_roles and assume the fake role (hence assume_role call)
+    # 4. print final identity before returning (hence second get_caller_identity)
+    sts_stubber.add_response(
+        "get_caller_identity",
+        get_caller_identity_response,
+        {},
+    )
+    # the role will expire 1 hour from now
+    sts_stubber.add_response(
+        "assume_role",
+        {
+            "Credentials": {
+                "AccessKeyId": "DDDDDDDDDDDDDDDD",
+                "SecretAccessKey": "EEEEEEEEEEEEEEEE",
+                "SessionToken": "FFFFFFFFFFFFFFFF",
+                "Expiration": datetime.datetime.now() + datetime.timedelta(hours=1),
+            }
+        },
+        {
+            "RoleArn": "arn:aws:iam::123456789000:role/test-role-for-ingestor",
+            "RoleSessionName": "DatahubIngestionSource",
+        },
+    )
+    sts_stubber.add_response(
+        "get_caller_identity",
+        {
+            "UserId": "ABCDEFGHIJKLMNOPRSTUW:dummy-user",
+            "Account": "123456789000",
+            "Arn": "arn:aws:sts::123456789000:assumed-role/test-role-for-ingestor/DatahubIngestionSource",
+        },
+        {},
+    )
+
+    sagemaker_stubber.add_response(
+        "describe_feature_group",
+        describe_feature_group_response_1,
+        {
+            "FeatureGroupName": "test-2",
+        },
+    )
+    sagemaker_stubber.add_response(
+        "describe_feature_group",
+        describe_feature_group_response_1,
+        {
+            "FeatureGroupName": "test-2",
+        },
+    )
+    sagemaker_stubber.add_response(
+        "describe_feature_group",
+        describe_feature_group_response_1,
+        {
+            "FeatureGroupName": "test-2",
+        },
+    )
+
+    sts_stubber.activate()
+    sagemaker_stubber.activate()
+
+    # this will trigger initialization of the session
+    sagemaker_source_instance.client_factory.get_client().describe_feature_group(
+        FeatureGroupName="test-2"
+    )
+
+    assert (
+        mock_session.mock_calls == session_initialization_call_list
+    ), "Initialization was not done as expected after first get_client() call"
+
+    frozen_time.tick(delta=datetime.timedelta(minutes=6))
+    # this will reuse the session
+    sagemaker_source_instance.client_factory.get_client().describe_feature_group(
+        FeatureGroupName="test-2"
+    )
+    assert (
+        mock_session.mock_calls == session_initialization_call_list
+    ), "Expected cached session to be used after 6 minutes get_client() call"
+
+    # this will trigger session refresh therefor we setup stub to answer properly
+    frozen_time.tick(delta=datetime.timedelta(minutes=50))
+    sts_stubber.add_response(
+        "get_caller_identity",
+        get_caller_identity_response,
+        {},
+    )
+    # the role will expire 1 hour from now
+    sts_stubber.add_response(
+        "assume_role",
+        {
+            "Credentials": {
+                "AccessKeyId": "DDDDDDDDDDDDDDDD",
+                "SecretAccessKey": "EEEEEEEEEEEEEEEE",
+                "SessionToken": "FFFFFFFFFFFFFFFF",
+                "Expiration": datetime.datetime.now() + datetime.timedelta(hours=1),
+            }
+        },
+        {
+            "RoleArn": "arn:aws:iam::123456789000:role/test-role-for-ingestor",
+            "RoleSessionName": "DatahubIngestionSource",
+        },
+    )
+    sts_stubber.add_response(
+        "get_caller_identity",
+        {
+            "UserId": "ABCDEFGHIJKLMNOPRSTUW:dummy-user",
+            "Account": "123456789000",
+            "Arn": "arn:aws:sts::123456789000:assumed-role/test-role-for-ingestor/DatahubIngestionSource",
+        },
+        {},
+    )
+    sagemaker_source_instance.client_factory.get_client().describe_feature_group(
+        FeatureGroupName="test-2"
+    )
+    assert (
+        mock_session.mock_calls
+        == session_initialization_call_list + session_initialization_call_list
+    ), "Expected session will be re-initialized after 56 minutes"
+
+    sts_stubber.assert_no_pending_responses()
+    sagemaker_stubber.assert_no_pending_responses()
+
+
+@freeze_time(FROZEN_TIME)
+def test_sagemaker_ingest(tmp_path, pytestconfig):
+    sagemaker_source_instance = sagemaker_source()
+
+    mock_session = MagicMock()
+    mock_client_sagemaker = boto3.client("sagemaker", region_name="us-west-2")
+    mock_client_sts = boto3.client("sts")
+    mock_session.client.side_effect = get_aws_client(
+        mock_client_sts, mock_client_sagemaker
+    )
+    sagemaker_stubber = Stubber(mock_client_sagemaker)
+    sts_stubber = Stubber(mock_client_sts)
+
+    # this is needed because running tests run on DEBUG-level log. This in turn causes `get_session` logic to
+    # check session details against STS
     sts_stubber.add_response(
         "get_caller_identity",
         get_caller_identity_response,
