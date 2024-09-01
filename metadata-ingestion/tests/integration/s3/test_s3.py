@@ -6,7 +6,7 @@ from datetime import datetime
 import moto.s3
 import pytest
 from boto3.session import Session
-from moto import mock_s3
+from moto import mock_s3, mock_sts
 from pydantic import ValidationError
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
@@ -158,6 +158,7 @@ S3_SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
 s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES_PATH)]
 
 
+@mock_sts
 @pytest.mark.integration
 @pytest.mark.parametrize("source_file_tuple", shared_source_files + s3_source_files)
 def test_data_lake_s3_ingest(
@@ -195,6 +196,7 @@ def test_data_lake_s3_ingest(
     )
 
 
+@mock_sts
 @pytest.mark.integration
 @pytest.mark.parametrize("source_file_tuple", shared_source_files)
 def test_data_lake_local_ingest(
@@ -253,6 +255,7 @@ def test_data_lake_local_ingest(
     )
 
 
+@mock_sts
 def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
     ctx = PipelineContext(run_id="test-s3")
 
