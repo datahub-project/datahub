@@ -4,6 +4,7 @@ import subprocess
 import boto3
 import freezegun
 import pytest
+from moto import mock_sts
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
@@ -74,6 +75,7 @@ def populate_minio(pytestconfig, s3_bkt):
     yield
 
 
+@mock_sts
 @freezegun.freeze_time("2023-01-01 00:00:00+00:00")
 def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir):
     # Run the metadata ingestion pipeline.
