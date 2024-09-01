@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
+import boto3
 import pydantic
 import pytest
 from botocore.stub import Stubber
@@ -39,6 +40,7 @@ from tests.unit.test_glue_source_stubs import (
     databases_1,
     databases_2,
     get_bucket_tagging,
+    get_caller_identity_response,
     get_databases_delta_response,
     get_databases_response,
     get_databases_response_for_lineage,
@@ -158,6 +160,49 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
     assert isinstance(actual_schema_field_type.type, expected_type)
 
 
+def get_aws_client(mock_client_sts, mock_client_glue, mock_client_s3):
+    def _get_client(client_type, *args, **kwargs):
+        if client_type == "sts":
+            return mock_client_sts
+        elif client_type == "glue":
+            return mock_client_glue
+        elif client_type == "s3":
+            return mock_client_s3
+        raise Exception(f"client type not handled by the mock {client_type}")
+
+    return _get_client
+
+
+def prepare_mock_clients(mock_session):
+    mock_client_glue = boto3.client("glue", region_name="us-west-2")
+    mock_client_sts = boto3.client("sts")
+    mock_client_s3 = boto3.client("s3")
+
+    mock_session.return_value.profile_name = "mock_session"
+    glue_stubber = Stubber(mock_client_glue)
+    sts_stubber = Stubber(mock_client_sts)
+    s3_stubber = Stubber(mock_client_s3)
+
+    mock_session.return_value.client.side_effect = get_aws_client(
+        mock_client_sts, mock_client_glue, mock_client_s3
+    )
+
+    # this is needed because running tests run with DEBUG-level log. This in turn causes `get_session` logic to check
+    # session details against STS (will happen 2x per get_session() and we get 2 separate sessions for each client)
+    for i in range(4):
+        sts_stubber.add_response(
+            "get_caller_identity",
+            get_caller_identity_response,
+            {},
+        )
+
+    glue_stubber.activate()
+    sts_stubber.activate()
+    s3_stubber.activate()
+
+    return sts_stubber, glue_stubber, s3_stubber
+
+
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
@@ -170,81 +215,79 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
     ],
 )
 @freeze_time(FROZEN_TIME)
+@patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_ingest(
+    mock_session,
     tmp_path: Path,
     pytestconfig: PytestConfig,
     platform_instance: str,
     mce_file: str,
     mce_golden_file: str,
 ) -> None:
+    sts_stubber, glue_stubber, s3_stubber = prepare_mock_clients(mock_session)
+
+    glue_stubber.add_response("get_databases", get_databases_response, {})
+    glue_stubber.add_response(
+        "get_tables",
+        get_tables_response_1,
+        {"DatabaseName": "flights-database"},
+    )
+    glue_stubber.add_response(
+        "get_tables",
+        get_tables_response_2,
+        {"DatabaseName": "test-database"},
+    )
+    glue_stubber.add_response(
+        "get_tables",
+        {"TableList": []},
+        {"DatabaseName": "empty-database"},
+    )
+    glue_stubber.add_response("get_jobs", get_jobs_response, {})
+    glue_stubber.add_response(
+        "get_dataflow_graph",
+        get_dataflow_graph_response_1,
+        {"PythonScript": get_object_body_1},
+    )
+    glue_stubber.add_response(
+        "get_dataflow_graph",
+        get_dataflow_graph_response_2,
+        {"PythonScript": get_object_body_2},
+    )
+
+    for _ in range(
+        len(get_tables_response_1["TableList"])
+        + len(get_tables_response_2["TableList"])
+    ):
+        s3_stubber.add_response(
+            "get_bucket_tagging",
+            get_bucket_tagging(),
+        )
+        s3_stubber.add_response(
+            "get_object_tagging",
+            get_object_tagging(),
+        )
+
+    s3_stubber.add_response(
+        "get_object",
+        get_object_response_1(),
+        {
+            "Bucket": "aws-glue-assets-123412341234-us-west-2",
+            "Key": "scripts/job-1.py",
+        },
+    )
+    s3_stubber.add_response(
+        "get_object",
+        get_object_response_2(),
+        {
+            "Bucket": "aws-glue-assets-123412341234-us-west-2",
+            "Key": "scripts/job-2.py",
+        },
+    )
+
     glue_source_instance = glue_source(platform_instance=platform_instance)
+    mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
 
-    with Stubber(glue_source_instance.glue_client) as glue_stubber:
-        glue_stubber.add_response("get_databases", get_databases_response, {})
-        glue_stubber.add_response(
-            "get_tables",
-            get_tables_response_1,
-            {"DatabaseName": "flights-database"},
-        )
-        glue_stubber.add_response(
-            "get_tables",
-            get_tables_response_2,
-            {"DatabaseName": "test-database"},
-        )
-        glue_stubber.add_response(
-            "get_tables",
-            {"TableList": []},
-            {"DatabaseName": "empty-database"},
-        )
-        glue_stubber.add_response("get_jobs", get_jobs_response, {})
-        glue_stubber.add_response(
-            "get_dataflow_graph",
-            get_dataflow_graph_response_1,
-            {"PythonScript": get_object_body_1},
-        )
-        glue_stubber.add_response(
-            "get_dataflow_graph",
-            get_dataflow_graph_response_2,
-            {"PythonScript": get_object_body_2},
-        )
-
-        with Stubber(glue_source_instance.s3_client) as s3_stubber:
-            for _ in range(
-                len(get_tables_response_1["TableList"])
-                + len(get_tables_response_2["TableList"])
-            ):
-                s3_stubber.add_response(
-                    "get_bucket_tagging",
-                    get_bucket_tagging(),
-                )
-                s3_stubber.add_response(
-                    "get_object_tagging",
-                    get_object_tagging(),
-                )
-
-            s3_stubber.add_response(
-                "get_object",
-                get_object_response_1(),
-                {
-                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
-                    "Key": "scripts/job-1.py",
-                },
-            )
-            s3_stubber.add_response(
-                "get_object",
-                get_object_response_2(),
-                {
-                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
-                    "Key": "scripts/job-2.py",
-                },
-            )
-
-            mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
-
-            glue_stubber.assert_no_pending_responses()
-            s3_stubber.assert_no_pending_responses()
-
-            write_metadata_file(tmp_path / mce_file, mce_objects)
+    write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
@@ -254,13 +297,21 @@ def test_glue_ingest(
         golden_path=test_resources_dir / mce_golden_file,
     )
 
+    glue_stubber.assert_no_pending_responses()
+    s3_stubber.assert_no_pending_responses()
+    sts_stubber.assert_no_pending_responses()
 
-def test_platform_config():
+
+@patch("datahub.ingestion.source.aws.aws_common.Session")
+def test_platform_config(mock_session):
+    sts_stubber, _, _ = prepare_mock_clients(mock_session)
+
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(aws_region="us-west-2", platform="athena"),
     )
     assert source.platform == "athena"
+    sts_stubber.assert_no_pending_responses()
 
 
 @pytest.mark.parametrize(
@@ -270,7 +321,12 @@ def test_platform_config():
         (False, ({"test-database": resource_link_database}, target_database_tables)),
     ],
 )
-def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_result):
+@patch("datahub.ingestion.source.aws.aws_common.Session")
+def test_ignore_resource_links(
+    mock_session, ignore_resource_links, all_databases_and_tables_result
+):
+    sts_stubber, glue_stubber, _ = prepare_mock_clients(mock_session)
+
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
@@ -279,19 +335,21 @@ def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_r
         ),
     )
 
-    with Stubber(source.glue_client) as glue_stubber:
-        glue_stubber.add_response(
-            "get_databases",
-            get_databases_response_with_resource_link,
-            {},
-        )
+    glue_stubber.add_response(
+        "get_databases",
+        get_databases_response_with_resource_link,
+        {},
+    )
+    for db in all_databases_and_tables_result[0].keys():
         glue_stubber.add_response(
             "get_tables",
             get_tables_response_for_target_database,
-            {"DatabaseName": "test-database"},
+            {"DatabaseName": db},
         )
 
-        assert source.get_all_databases_and_tables() == all_databases_and_tables_result
+    assert source.get_all_databases_and_tables() == all_databases_and_tables_result
+    glue_stubber.assert_no_pending_responses()
+    sts_stubber.assert_no_pending_responses()
 
 
 def test_platform_must_be_valid():
@@ -302,7 +360,9 @@ def test_platform_must_be_valid():
         )
 
 
-def test_config_without_platform():
+@patch("datahub.ingestion.source.aws.aws_common.Session")
+def test_config_without_platform(mock_session):
+    prepare_mock_clients(mock_session)
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(aws_region="us-west-2"),
@@ -311,7 +371,19 @@ def test_config_without_platform():
 
 
 @freeze_time(FROZEN_TIME)
-def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+@patch("datahub.ingestion.source.aws.aws_common.Session")
+def test_glue_stateful(
+    mock_session, pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    sts_stubber, _, _ = prepare_mock_clients(mock_session)
+    # source will be initialized twice
+    for i in range(4):
+        sts_stubber.add_response(
+            "get_caller_identity",
+            get_caller_identity_response,
+            {},
+        )
+
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
 
     deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
@@ -407,12 +479,17 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
                 "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
             }
+    sts_stubber.assert_no_pending_responses()
 
 
+@patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_with_delta_schema_ingest(
+    mock_session,
     tmp_path: Path,
     pytestconfig: PytestConfig,
 ) -> None:
+    sts_stubber, glue_stubber, _ = prepare_mock_clients(mock_session)
+
     glue_source_instance = glue_source(
         platform_instance="delta_platform_instance",
         use_s3_bucket_tags=False,
@@ -420,22 +497,21 @@ def test_glue_with_delta_schema_ingest(
         extract_delta_schema_from_parameters=True,
     )
 
-    with Stubber(glue_source_instance.glue_client) as glue_stubber:
-        glue_stubber.add_response("get_databases", get_databases_delta_response, {})
-        glue_stubber.add_response(
-            "get_tables",
-            get_delta_tables_response_1,
-            {"DatabaseName": "delta-database"},
-        )
-        glue_stubber.add_response("get_jobs", get_jobs_response_empty, {})
+    glue_stubber.add_response("get_databases", get_databases_delta_response, {})
+    glue_stubber.add_response(
+        "get_tables",
+        get_delta_tables_response_1,
+        {"DatabaseName": "delta-database"},
+    )
+    glue_stubber.add_response("get_jobs", get_jobs_response_empty, {})
 
-        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+    mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
 
-        glue_stubber.assert_no_pending_responses()
+    glue_stubber.assert_no_pending_responses()
 
-        assert glue_source_instance.get_report().num_dataset_valid_delta_schema == 1
+    assert glue_source_instance.get_report().num_dataset_valid_delta_schema == 1
 
-        write_metadata_file(tmp_path / "glue_delta_mces.json", mce_objects)
+    write_metadata_file(tmp_path / "glue_delta_mces.json", mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
@@ -444,12 +520,17 @@ def test_glue_with_delta_schema_ingest(
         output_path=tmp_path / "glue_delta_mces.json",
         golden_path=test_resources_dir / "glue_delta_mces_golden.json",
     )
+    glue_stubber.assert_no_pending_responses()
 
 
+@patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_with_malformed_delta_schema_ingest(
+    mock_session,
     tmp_path: Path,
     pytestconfig: PytestConfig,
 ) -> None:
+    sts_stubber, glue_stubber, _ = prepare_mock_clients(mock_session)
+
     glue_source_instance = glue_source(
         platform_instance="delta_platform_instance",
         use_s3_bucket_tags=False,
@@ -457,22 +538,19 @@ def test_glue_with_malformed_delta_schema_ingest(
         extract_delta_schema_from_parameters=True,
     )
 
-    with Stubber(glue_source_instance.glue_client) as glue_stubber:
-        glue_stubber.add_response("get_databases", get_databases_delta_response, {})
-        glue_stubber.add_response(
-            "get_tables",
-            get_delta_tables_response_2,
-            {"DatabaseName": "delta-database"},
-        )
-        glue_stubber.add_response("get_jobs", get_jobs_response_empty, {})
+    glue_stubber.add_response("get_databases", get_databases_delta_response, {})
+    glue_stubber.add_response(
+        "get_tables",
+        get_delta_tables_response_2,
+        {"DatabaseName": "delta-database"},
+    )
+    glue_stubber.add_response("get_jobs", get_jobs_response_empty, {})
 
-        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+    mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
 
-        glue_stubber.assert_no_pending_responses()
+    assert glue_source_instance.get_report().num_dataset_invalid_delta_schema == 1
 
-        assert glue_source_instance.get_report().num_dataset_invalid_delta_schema == 1
-
-        write_metadata_file(tmp_path / "glue_malformed_delta_mces.json", mce_objects)
+    write_metadata_file(tmp_path / "glue_malformed_delta_mces.json", mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
@@ -481,6 +559,8 @@ def test_glue_with_malformed_delta_schema_ingest(
         output_path=tmp_path / "glue_malformed_delta_mces.json",
         golden_path=test_resources_dir / "glue_malformed_delta_mces_golden.json",
     )
+    glue_stubber.assert_no_pending_responses()
+    sts_stubber.assert_no_pending_responses()
 
 
 @pytest.mark.parametrize(
@@ -490,7 +570,9 @@ def test_glue_with_malformed_delta_schema_ingest(
     ],
 )
 @freeze_time(FROZEN_TIME)
+@patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_ingest_include_table_lineage(
+    mock_session,
     tmp_path: Path,
     pytestconfig: PytestConfig,
     mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
@@ -498,77 +580,76 @@ def test_glue_ingest_include_table_lineage(
     mce_file: str,
     mce_golden_file: str,
 ) -> None:
+    sts_stubber, glue_stubber, s3_stubber = prepare_mock_clients(mock_session)
     glue_source_instance = glue_source(
         platform_instance=platform_instance,
         mock_datahub_graph=mock_datahub_graph,
         emit_s3_lineage=True,
     )
 
-    with Stubber(glue_source_instance.glue_client) as glue_stubber:
-        glue_stubber.add_response("get_databases", get_databases_response, {})
-        glue_stubber.add_response(
-            "get_tables",
-            get_tables_response_1,
-            {"DatabaseName": "flights-database"},
+    glue_stubber.add_response("get_databases", get_databases_response, {})
+    glue_stubber.add_response(
+        "get_tables",
+        get_tables_response_1,
+        {"DatabaseName": "flights-database"},
+    )
+    glue_stubber.add_response(
+        "get_tables",
+        get_tables_response_2,
+        {"DatabaseName": "test-database"},
+    )
+    glue_stubber.add_response(
+        "get_tables",
+        {"TableList": []},
+        {"DatabaseName": "empty-database"},
+    )
+    glue_stubber.add_response("get_jobs", get_jobs_response, {})
+    glue_stubber.add_response(
+        "get_dataflow_graph",
+        get_dataflow_graph_response_1,
+        {"PythonScript": get_object_body_1},
+    )
+    glue_stubber.add_response(
+        "get_dataflow_graph",
+        get_dataflow_graph_response_2,
+        {"PythonScript": get_object_body_2},
+    )
+
+    for _ in range(
+        len(get_tables_response_1["TableList"])
+        + len(get_tables_response_2["TableList"])
+    ):
+        s3_stubber.add_response(
+            "get_bucket_tagging",
+            get_bucket_tagging(),
         )
-        glue_stubber.add_response(
-            "get_tables",
-            get_tables_response_2,
-            {"DatabaseName": "test-database"},
-        )
-        glue_stubber.add_response(
-            "get_tables",
-            {"TableList": []},
-            {"DatabaseName": "empty-database"},
-        )
-        glue_stubber.add_response("get_jobs", get_jobs_response, {})
-        glue_stubber.add_response(
-            "get_dataflow_graph",
-            get_dataflow_graph_response_1,
-            {"PythonScript": get_object_body_1},
-        )
-        glue_stubber.add_response(
-            "get_dataflow_graph",
-            get_dataflow_graph_response_2,
-            {"PythonScript": get_object_body_2},
+        s3_stubber.add_response(
+            "get_object_tagging",
+            get_object_tagging(),
         )
 
-        with Stubber(glue_source_instance.s3_client) as s3_stubber:
-            for _ in range(
-                len(get_tables_response_1["TableList"])
-                + len(get_tables_response_2["TableList"])
-            ):
-                s3_stubber.add_response(
-                    "get_bucket_tagging",
-                    get_bucket_tagging(),
-                )
-                s3_stubber.add_response(
-                    "get_object_tagging",
-                    get_object_tagging(),
-                )
+    s3_stubber.add_response(
+        "get_object",
+        get_object_response_1(),
+        {
+            "Bucket": "aws-glue-assets-123412341234-us-west-2",
+            "Key": "scripts/job-1.py",
+        },
+    )
+    s3_stubber.add_response(
+        "get_object",
+        get_object_response_2(),
+        {
+            "Bucket": "aws-glue-assets-123412341234-us-west-2",
+            "Key": "scripts/job-2.py",
+        },
+    )
 
-            s3_stubber.add_response(
-                "get_object",
-                get_object_response_1(),
-                {
-                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
-                    "Key": "scripts/job-1.py",
-                },
-            )
-            s3_stubber.add_response(
-                "get_object",
-                get_object_response_2(),
-                {
-                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
-                    "Key": "scripts/job-2.py",
-                },
-            )
+    mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+    glue_stubber.assert_no_pending_responses()
+    s3_stubber.assert_no_pending_responses()
 
-            mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
-            glue_stubber.assert_no_pending_responses()
-            s3_stubber.assert_no_pending_responses()
-
-            write_metadata_file(tmp_path / mce_file, mce_objects)
+    write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
@@ -578,6 +659,10 @@ def test_glue_ingest_include_table_lineage(
         golden_path=test_resources_dir / mce_golden_file,
     )
 
+    s3_stubber.assert_no_pending_responses()
+    glue_stubber.assert_no_pending_responses()
+    sts_stubber.assert_no_pending_responses()
+
 
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
@@ -586,7 +671,9 @@ def test_glue_ingest_include_table_lineage(
     ],
 )
 @freeze_time(FROZEN_TIME)
+@patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_ingest_include_column_lineage(
+    mock_session,
     tmp_path: Path,
     pytestconfig: PytestConfig,
     mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
@@ -594,6 +681,7 @@ def test_glue_ingest_include_column_lineage(
     mce_file: str,
     mce_golden_file: str,
 ) -> None:
+    _, glue_stubber, _ = prepare_mock_clients(mock_session)
     glue_source_instance = glue_source(
         platform_instance=platform_instance,
         mock_datahub_graph=mock_datahub_graph,
@@ -662,20 +750,17 @@ def test_glue_ingest_include_column_lineage(
 
     glue_source_instance.ctx.graph.get_schema_metadata = fake_schema_metadata  # type: ignore
 
-    with Stubber(glue_source_instance.glue_client) as glue_stubber:
-        glue_stubber.add_response(
-            "get_databases", get_databases_response_for_lineage, {}
-        )
-        glue_stubber.add_response(
-            "get_tables",
-            get_tables_lineage_response_1,
-            {"DatabaseName": "flights-database-lineage"},
-        )
+    glue_stubber.add_response("get_databases", get_databases_response_for_lineage, {})
+    glue_stubber.add_response(
+        "get_tables",
+        get_tables_lineage_response_1,
+        {"DatabaseName": "flights-database-lineage"},
+    )
 
-        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
-        glue_stubber.assert_no_pending_responses()
+    mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+    glue_stubber.assert_no_pending_responses()
 
-        write_metadata_file(tmp_path / mce_file, mce_objects)
+    write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
@@ -684,36 +769,40 @@ def test_glue_ingest_include_column_lineage(
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
     )
+
+    glue_stubber.assert_no_pending_responses()
 
 
 @freeze_time(FROZEN_TIME)
+@patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_ingest_with_profiling(
+    mock_session,
     tmp_path: Path,
     pytestconfig: PytestConfig,
 ) -> None:
+    _, glue_stubber, _ = prepare_mock_clients(mock_session)
     glue_source_instance = glue_source_with_profiling()
     mce_file = "glue_mces.json"
     mce_golden_file = "glue_mces_golden_profiling.json"
-    with Stubber(glue_source_instance.glue_client) as glue_stubber:
-        glue_stubber.add_response("get_databases", get_databases_response_profiling, {})
+    glue_stubber.add_response("get_databases", get_databases_response_profiling, {})
 
-        glue_stubber.add_response(
-            "get_tables",
-            get_tables_response_profiling_1,
-            {"DatabaseName": "flights-database-profiling"},
-        )
+    glue_stubber.add_response(
+        "get_tables",
+        get_tables_response_profiling_1,
+        {"DatabaseName": "flights-database-profiling"},
+    )
 
-        glue_stubber.add_response(
-            "get_table",
-            {"Table": tables_profiling_1[0]},
-            {"DatabaseName": "flights-database-profiling", "Name": "avro-profiling"},
-        )
+    glue_stubber.add_response(
+        "get_table",
+        {"Table": tables_profiling_1[0]},
+        {"DatabaseName": "flights-database-profiling", "Name": "avro-profiling"},
+    )
 
-        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+    mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
 
-        glue_stubber.assert_no_pending_responses()
+    glue_stubber.assert_no_pending_responses()
 
-        write_metadata_file(tmp_path / mce_file, mce_objects)
+    write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
@@ -722,3 +811,5 @@ def test_glue_ingest_with_profiling(
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
     )
+
+    glue_stubber.assert_no_pending_responses()
