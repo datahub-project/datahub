@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Type, cast
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import boto3
 import pydantic
@@ -217,7 +217,7 @@ def prepare_mock_clients(mock_session):
 @freeze_time(FROZEN_TIME)
 @patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_ingest(
-    mock_session,
+    mock_session: MagicMock,
     tmp_path: Path,
     pytestconfig: PytestConfig,
     platform_instance: str,
@@ -484,7 +484,7 @@ def test_glue_stateful(
 
 @patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_with_delta_schema_ingest(
-    mock_session,
+    mock_session: MagicMock,
     tmp_path: Path,
     pytestconfig: PytestConfig,
 ) -> None:
@@ -525,7 +525,7 @@ def test_glue_with_delta_schema_ingest(
 
 @patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_with_malformed_delta_schema_ingest(
-    mock_session,
+    mock_session: MagicMock,
     tmp_path: Path,
     pytestconfig: PytestConfig,
 ) -> None:
@@ -572,7 +572,7 @@ def test_glue_with_malformed_delta_schema_ingest(
 @freeze_time(FROZEN_TIME)
 @patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_ingest_include_table_lineage(
-    mock_session,
+    mock_session: MagicMock,
     tmp_path: Path,
     pytestconfig: PytestConfig,
     mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
@@ -673,7 +673,7 @@ def test_glue_ingest_include_table_lineage(
 @freeze_time(FROZEN_TIME)
 @patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_ingest_include_column_lineage(
-    mock_session,
+    mock_session: MagicMock,
     tmp_path: Path,
     pytestconfig: PytestConfig,
     mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
@@ -776,7 +776,7 @@ def test_glue_ingest_include_column_lineage(
 @freeze_time(FROZEN_TIME)
 @patch("datahub.ingestion.source.aws.aws_common.Session")
 def test_glue_ingest_with_profiling(
-    mock_session,
+    mock_session: MagicMock,
     tmp_path: Path,
     pytestconfig: PytestConfig,
 ) -> None:
