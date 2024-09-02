@@ -40,7 +40,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @Slf4j
 public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep {
 
-  private static final String UPGRADE_ID = "BackfillDataProcessInstanceHasRunEvents";
+  private static final String UPGRADE_ID = "BackfillDataProcessInstancesHasRunEvents";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
   private final OperationContext opContext;
