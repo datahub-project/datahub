@@ -7,8 +7,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.restli.internal.server.util.DataMapUtils;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.io.IOUtils;
@@ -16,6 +19,54 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpringContextTests {
+
+  @Test
+  public void testNativeSchemaBackwardIncompatibleChange() throws Exception {
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn =
+            Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)");
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp =
+            new AuditStamp()
+                    .setActor(Urn.createFromString("urn:li:corpuser:__datahub_system"))
+                    .setTime(1683829509553L);
+
+    List<SchemaField> schemaFields1 = new ArrayList<>();
+    schemaFields1.add(new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(16,1)"));
+    Aspect<SchemaMetadata> from =
+            new Aspect<>(
+                    new SchemaMetadata().setFields(new SchemaFieldArray(schemaFields1)),
+                    new SystemMetadata());
+
+    List<SchemaField> schemaFields2 = new ArrayList<>();
+    schemaFields2.add(new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(10,1)"));
+    Aspect<SchemaMetadata> to =
+            new Aspect<>(
+                    new SchemaMetadata().setFields(new SchemaFieldArray(schemaFields2)),
+                    new SystemMetadata());
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to, auditStamp);
+    // Test single field going from NUMBER(16,1) -> NUMBER(10,1)
+    assertEquals(1, actual.size());
+
+    List<ChangeEvent> actual2 = test.getChangeEvents(urn, entity, aspect, to, from, auditStamp);
+    // Test single field going from NUMBER(10,1) -> NUMBER(16,1)
+    assertEquals(1, actual2.size());
+
+    List<SchemaField> schemaFields3 = new ArrayList<>();
+    schemaFields2.add(new SchemaField().setFieldPath("aa").setNativeDataType("NUMBER(10,1)"));
+    schemaFields2.add(new SchemaField().setFieldPath("ID").setNativeDataType("NUMBER(10,1)"));
+    Aspect<SchemaMetadata> to3 =
+            new Aspect<>(
+                    new SchemaMetadata().setFields(new SchemaFieldArray(schemaFields3)),
+                    new SystemMetadata());
+    List<ChangeEvent> actual3 = test.getChangeEvents(urn, entity, aspect, from, to3, auditStamp);
+    ChangeEvent actual3Event = actual3.get(0);
+    System.out.println("actual3Event description is " + actual3Event.getDescription());
+    // Test single field going from NUMBER(10,1) to 2 fields each of NUMBER(16,1). One new field aa added
+    assertEquals(2, actual3.size());
+  }
 
   @Test
   public void testDelete() throws Exception {
