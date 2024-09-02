@@ -39,6 +39,7 @@ class MSSQLJob:
     env: str
     source: str = "mssql"
     type: str = "JOB"
+    schema: str = ""
 
     @property
     def formatted_name(self) -> str:
@@ -65,6 +66,7 @@ class MSSQLProceduresContainer:
     env: str
     source: str = "mssql"
     type: str = "JOB"
+    schema: str = ""
 
     @property
     def formatted_name(self) -> str:

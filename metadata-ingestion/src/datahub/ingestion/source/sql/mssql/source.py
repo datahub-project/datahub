@@ -47,6 +47,8 @@ from datahub.ingestion.source.sql.sql_config import (
 )
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     NumberTypeClass,
     StringTypeClass,
     UnionTypeClass,
@@ -401,6 +403,7 @@ class SQLServerSource(SQLAlchemySource):
             env=sql_config.env,
             db=db_name,
             platform_instance=sql_config.platform_instance,
+            schema=schema,
         )
         data_flow = MSSQLDataFlow(entity=mssql_default_job)
         with inspector.engine.connect() as conn:
@@ -614,6 +617,23 @@ class SQLServerSource(SQLAlchemySource):
         ).as_workunit()
         # TODO: Add SubType when it appear
 
+        path = [
+            BrowsePathEntryClass(id=data_job.entity.flow.env),
+            BrowsePathEntryClass(id=data_job.entity.flow.platform_instance or ''),
+            BrowsePathEntryClass(id=data_job.entity.flow.db),
+        ]
+
+        if data_job.entity.flow.schema:
+            path.append(BrowsePathEntryClass(id=data_job.entity.flow.schema))
+
+        path.append(BrowsePathEntryClass(id=data_job.entity.flow.name))
+
+        yield MetadataChangeProposalWrapper(
+            entityType=data_job.type,
+            entityUrn=data_job.urn,
+            aspect=BrowsePathsV2Class(path=path),
+        ).as_workunit()
+
     def construct_flow_workunits(
         self,
         data_flow: MSSQLDataFlow,
@@ -623,6 +643,20 @@ class SQLServerSource(SQLAlchemySource):
             aspect=data_flow.as_dataflow_info_aspect,
         ).as_workunit()
         # TODO: Add SubType when it appear
+
+        path = [
+            BrowsePathEntryClass(id=data_flow.entity.env),
+            BrowsePathEntryClass(id=data_flow.entity.platform_instance or ''),
+            BrowsePathEntryClass(id=data_flow.entity.db),
+        ]
+        if data_flow.entity.schema:
+            path.append(BrowsePathEntryClass(id=data_flow.entity.schema))
+
+        yield MetadataChangeProposalWrapper(
+            entityType=data_flow.type,
+            entityUrn=data_flow.urn,
+            aspect=BrowsePathsV2Class(path=path),
+        ).as_workunit()
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
