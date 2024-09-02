@@ -2,6 +2,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+    "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -10,7 +11,9 @@
                 "platform": "vertica",
                 "env": "PROD",
                 "database": "Vmart"
+                "database": "Vmart"
             },
+            "name": "Vmart"
             "name": "Vmart"
         }
     },
@@ -22,6 +25,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -39,6 +43,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+    "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -54,6 +59,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -73,6 +79,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+    "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -89,6 +96,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -96,6 +104,7 @@
             "customProperties": {
                 "platform": "vertica",
                 "env": "PROD",
+                "database": "Vmart",
                 "database": "Vmart",
                 "schema": "public"
             },
@@ -110,6 +119,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -127,6 +137,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -142,6 +153,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -161,10 +173,12 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
             "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
         }
     },
@@ -177,12 +191,15 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 }
@@ -228,6 +245,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -362,8 +380,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -409,6 +431,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -777,8 +800,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -824,6 +851,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -1192,8 +1220,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -1239,6 +1271,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -1568,8 +1601,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -1615,6 +1652,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -1788,8 +1826,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -1835,6 +1877,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -1943,8 +1986,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -1990,6 +2037,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -2358,8 +2406,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -2405,6 +2457,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -2656,8 +2709,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -2703,6 +2760,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -2837,8 +2895,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -2884,6 +2946,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -3031,8 +3094,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -3078,6 +3145,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -3277,8 +3345,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -3324,6 +3396,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -3432,8 +3505,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -3479,6 +3556,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -3652,8 +3730,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -3699,6 +3781,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -3840,8 +3923,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -3857,6 +3944,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -3864,6 +3952,7 @@
             "customProperties": {
                 "platform": "vertica",
                 "env": "PROD",
+                "database": "Vmart",
                 "database": "Vmart",
                 "schema": "store"
             },
@@ -3878,6 +3967,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -3895,6 +3985,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -3910,6 +4001,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -3929,10 +4021,12 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
             "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
         }
     },
@@ -3945,12 +4039,15 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 }
@@ -3996,6 +4093,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
             "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
         }
     },
@@ -4325,8 +4423,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+                    "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                     "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
                     "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                 }
@@ -4372,6 +4474,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
             "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
         }
     },
@@ -4714,8 +4817,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+                    "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                     "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
                     "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                 }
@@ -4761,6 +4868,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
             "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
         }
     },
@@ -5077,8 +5185,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+                    "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                     "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
                     "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                 }
@@ -5094,6 +5206,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -5101,6 +5214,7 @@
             "customProperties": {
                 "platform": "vertica",
                 "env": "PROD",
+                "database": "Vmart",
                 "database": "Vmart",
                 "schema": "online_sales"
             },
@@ -5115,6 +5229,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -5132,6 +5247,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5147,6 +5263,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -5166,10 +5283,12 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
             "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
         }
     },
@@ -5182,12 +5301,15 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 }
@@ -5233,6 +5355,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
             "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
         }
     },
@@ -5484,8 +5607,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+                    "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                     "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
                     "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                 }
@@ -5531,6 +5658,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
             "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
         }
     },
@@ -5704,8 +5832,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+                    "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                     "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
                     "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                 }
@@ -5751,6 +5883,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
             "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
         }
     },
@@ -6106,8 +6239,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+                    "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                     "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
                     "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                 }
@@ -6123,6 +6260,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+    "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -6130,6 +6268,7 @@
             "customProperties": {
                 "platform": "vertica",
                 "env": "PROD",
+                "database": "Vmart",
                 "database": "Vmart",
                 "cluster_type": "Enterprise",
 <<<<<<< HEAD
@@ -6141,6 +6280,7 @@
                 "communal_storage_path": ""
             },
             "name": "Vmart"
+            "name": "Vmart"
         }
     },
     "systemMetadata": {
@@ -6151,6 +6291,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -6168,6 +6309,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+    "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -6183,6 +6325,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "entityUrn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -6202,6 +6345,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -6209,6 +6353,7 @@
             "customProperties": {
                 "platform": "vertica",
                 "env": "PROD",
+                "database": "Vmart",
                 "database": "Vmart",
                 "schema": "public",
                 "projection_count": "12",
@@ -6231,6 +6376,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -6247,6 +6393,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -6262,6 +6409,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -6281,10 +6429,12 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+    "entityUrn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
             "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
         }
     },
@@ -6327,6 +6477,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -6697,8 +6848,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -6744,6 +6899,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -7114,8 +7270,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -7161,6 +7321,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -7414,8 +7575,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -7461,6 +7626,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -7662,8 +7828,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -7709,6 +7879,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -8079,8 +8250,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -8126,6 +8301,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -8457,8 +8633,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -8504,6 +8684,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -8679,8 +8860,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -8726,6 +8911,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -8875,8 +9061,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -8922,6 +9112,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -9097,8 +9288,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -9144,6 +9339,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -9280,8 +9476,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -9327,6 +9527,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -9437,8 +9638,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -9484,6 +9689,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
             "container": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
         }
     },
@@ -9594,8 +9800,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
+                    "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                     "id": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705",
                     "urn": "urn:li:container:6f2fa3ed5b7c2d4f7cb8eeaefb9fb705"
                 }
@@ -9611,6 +9821,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -9618,6 +9829,7 @@
             "customProperties": {
                 "platform": "vertica",
                 "env": "PROD",
+                "database": "Vmart",
                 "database": "Vmart",
                 "schema": "store",
                 "projection_count": "3",
@@ -9636,6 +9848,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -9652,6 +9865,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -9667,6 +9881,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -9686,10 +9901,12 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+    "entityUrn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
             "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
         }
     },
@@ -9732,6 +9949,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
             "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
         }
     },
@@ -10063,8 +10281,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+                    "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                     "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
                     "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                 }
@@ -10110,6 +10332,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
             "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
         }
     },
@@ -10428,8 +10651,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+                    "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                     "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
                     "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                 }
@@ -10475,6 +10702,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
             "container": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
         }
     },
@@ -10819,8 +11047,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
+                    "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                     "id": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44",
                     "urn": "urn:li:container:2f662cbce881bdbfccbd2c74da9e0e44"
                 }
@@ -10836,6 +11068,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -10843,6 +11076,7 @@
             "customProperties": {
                 "platform": "vertica",
                 "env": "PROD",
+                "database": "Vmart",
                 "database": "Vmart",
                 "schema": "online_sales",
                 "projection_count": "3",
@@ -10861,6 +11095,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -10877,6 +11112,7 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -10892,6 +11128,7 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -10911,10 +11148,12 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+    "entityUrn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
             "container": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
         }
     },
@@ -10957,6 +11196,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
             "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
         }
     },
@@ -11132,8 +11372,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+                    "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                     "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
                     "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                 }
@@ -11179,6 +11423,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
             "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
         }
     },
@@ -11432,8 +11677,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+                    "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                     "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
                     "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                 }
@@ -11479,6 +11728,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
+            "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
             "container": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
         }
     },
@@ -11836,8 +12086,12 @@
                 {
                     "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
                     "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
+                    "id": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295",
+                    "urn": "urn:li:container:22a1e700b43e78dd5f8b2603aae8e295"
                 },
                 {
+                    "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
+                    "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                     "id": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557",
                     "urn": "urn:li:container:5df74c9464cf21d65e8b02a1977ab557"
                 }
