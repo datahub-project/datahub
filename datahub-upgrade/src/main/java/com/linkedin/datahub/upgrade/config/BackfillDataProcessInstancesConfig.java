@@ -22,8 +22,16 @@ public class BackfillDataProcessInstancesConfig {
       ElasticSearchService elasticSearchService,
       RestHighLevelClient restHighLevelClient,
       @Value("${systemUpdate.processInstanceHasRunEvents.enabled}") final boolean enabled,
+      @Value("${systemUpdate.processInstanceHasRunEvents.reprocess.enabled}")
+          boolean reprocessEnabled,
       @Value("${systemUpdate.processInstanceHasRunEvents.batchSize}") final Integer batchSize) {
     return new BackfillDataProcessInstances(
-        opContext, entityService, elasticSearchService, restHighLevelClient, enabled, batchSize);
+        opContext,
+        entityService,
+        elasticSearchService,
+        restHighLevelClient,
+        enabled,
+        reprocessEnabled,
+        batchSize);
   }
 }

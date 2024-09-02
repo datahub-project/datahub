@@ -1,7 +1,6 @@
 package com.linkedin.datahub.upgrade.system.dataprocessinstances;
 
-import static com.linkedin.metadata.Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.base.Throwables;
 import com.linkedin.common.AuditStamp;
@@ -49,6 +48,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
   private final ElasticSearchService elasticSearchService;
   private final RestHighLevelClient restHighLevelClient;
 
+  private final boolean reprocessEnabled;
   private final Integer batchSize;
 
   public BackfillDataProcessInstancesHasRunEventsStep(
@@ -56,11 +56,13 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
       EntityService<?> entityService,
       ElasticSearchService elasticSearchService,
       RestHighLevelClient restHighLevelClient,
+      boolean reprocessEnabled,
       Integer batchSize) {
     this.opContext = opContext;
     this.entityService = entityService;
     this.elasticSearchService = elasticSearchService;
     this.restHighLevelClient = restHighLevelClient;
+    this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
   }
 
@@ -156,12 +158,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
   /** Returns whether the upgrade should be skipped. */
   @Override
   public boolean skip(UpgradeContext context) {
-    return false;
-
-    /*boolean envEnabled =
-        Boolean.parseBoolean(System.getenv("BACKFILL_PROCESS_INSTANCES_HAS_RUN_EVENTS"));
-
-    if (envEnabled) {
+    if (reprocessEnabled) {
       return false;
     }
 
@@ -170,8 +167,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
             context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());
-      return true;
     }
-    return false;*/
+    return previouslyRun;
   }
 }

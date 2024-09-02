@@ -19,12 +19,18 @@ public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
       ElasticSearchService elasticSearchService,
       RestHighLevelClient restHighLevelClient,
       boolean enabled,
+      boolean reprocessEnabled,
       Integer batchSize) {
     if (enabled) {
       _steps =
           ImmutableList.of(
               new BackfillDataProcessInstancesHasRunEventsStep(
-                  opContext, entityService, elasticSearchService, restHighLevelClient, batchSize));
+                  opContext,
+                  entityService,
+                  elasticSearchService,
+                  restHighLevelClient,
+                  reprocessEnabled,
+                  batchSize));
     } else {
       _steps = ImmutableList.of();
     }
