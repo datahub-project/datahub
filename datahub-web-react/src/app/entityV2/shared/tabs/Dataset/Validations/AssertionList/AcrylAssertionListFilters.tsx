@@ -4,6 +4,7 @@ import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFil
 import { AcrylAssertionListSearch } from './AcrylAssertionListSearch';
 import { AcryAssertionTypeSelect } from './AcryAssertionTypeSelect';
 import { AssertionListFilter, AssertionTable } from './types';
+import { AcrylAssertionFilters } from './AcrylAssertionFilters';
 import { ASSERTION_GROUP_BY_FILTER_OPTIONS, DEFAULT_FILTERS } from './constant';
 
 interface FilterItem {
@@ -26,6 +27,17 @@ const SearchFilterContainer = styled.div`
     padding: 0px 10px;
     margin-bottom: 8px;
     margin-top: 8px;
+    gap: 12px;
+`;
+
+const StyledFilterContainer = styled.div`
+    button {
+        box-shadow: none !important;
+        height: 36px !important;
+        font-size: 14px !important;
+        border-radius: 8px !important;
+        color: #5f6685;
+    }
 `;
 
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
@@ -79,7 +91,6 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         const appliedRecommendedFilters = recommendedFilters.filter(
             (item) => status.includes(item.name) || type.includes(item.name) || others.includes(item.name),
         );
-
         setAppliedFilters(appliedRecommendedFilters);
         setSelectedGroupBy(filter.groupBy);
     }, [filter, filterOptions]);
@@ -94,8 +105,17 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                     matchResultCount={filteredAssertions.assertions?.length || 0}
                     numRows={allAssertionCount}
                 />
+
+                {/* ************Render Filter Component ************************* */}
+                <StyledFilterContainer>
+                    <AcrylAssertionFilters
+                        filterOptions={filterOptions?.filterGroupOptions || []}
+                        selectedFilters={appliedFilters}
+                        onFilterChange={handleFilterChange}
+                    />
+                </StyledFilterContainer>
                 {/* ************Render Group By Component ************************* */}
-                <div style={{ marginLeft: 8 }}>
+                <div>
                     <AcryAssertionTypeSelect
                         options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
                         selectedValue={selectedGroupBy}

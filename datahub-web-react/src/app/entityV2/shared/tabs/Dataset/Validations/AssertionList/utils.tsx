@@ -48,7 +48,12 @@ import {
 } from '../fieldDescriptionUtils';
 
 import { getFormattedParameterValue } from '../assertionUtils';
-import { AssertionWithMonitorDetails, createAssertionGroups, getAssertionGroupName } from '../acrylUtils';
+import {
+    ASSERTION_INFO,
+    AssertionWithMonitorDetails,
+    createAssertionGroups,
+    getAssertionGroupName,
+} from '../acrylUtils';
 import { isExternalAssertion } from '../assertion/profile/shared/isExternalAssertion';
 import { AssertionGroupHeader } from './AssertionGroupHeader';
 import {
@@ -471,18 +476,15 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[
     });
 };
 
+const CORE_STATUSES = [AssertionResultType.Success, AssertionResultType.Failure, AssertionResultType.Error];
+
 // Generate Assertion Group By Status
 const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]): AssertionStatusGroup[] => {
-    const STATUSES = [
-        AssertionResultType.Success,
-        AssertionResultType.Failure,
-        AssertionResultType.Error,
-        AssertionResultType.Init,
-    ];
+    const assertionStatus = [...CORE_STATUSES, AssertionResultType.Init];
 
     const assertionGroup: AssertionStatusGroup[] = [];
 
-    STATUSES.forEach((status) => {
+    assertionStatus.forEach((status) => {
         const filteredAssertions = assertions.filter((assertion) => {
             const mostRecentRun = assertion.runEvents?.runEvents?.[0];
             const resultType = mostRecentRun?.result?.type;
@@ -563,13 +565,29 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
 
     const others: Record<string, number> = {};
 
+    // maintain array to show all the Assertion Type count even if it is not present
+    const remainingAssertionTypes = ASSERTION_INFO.map((item) => item.type);
+    const remainingAssertionStatus = [...CORE_STATUSES];
+
     assertions.forEach((assertion: AssertionWithMonitorDetails) => {
-        const type = assertion.info?.type || '';
+        // filter out tracked types
+        const type = (assertion.info?.type || '') as AssertionType;
+        const index = remainingAssertionTypes.indexOf(type);
+        if (index > -1) {
+            remainingAssertionTypes.splice(index, 1);
+        }
+
         filterGroupCounts.type[type] = (filterGroupCounts.type[type] || 0) + 1;
 
+        // filter out tracked statuses
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
         const resultType = mostRecentRun?.result?.type || '';
         if (resultType) {
+            const statusIndex = remainingAssertionStatus.indexOf(resultType);
+            if (statusIndex > -1) {
+                remainingAssertionStatus.splice(statusIndex, 1);
+            }
+
             filterGroupCounts.status[resultType] = (filterGroupCounts.status[resultType] || 0) + 1;
         }
 
@@ -594,8 +612,18 @@ const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorD
         }
     });
 
-    buildFilterOptions('type', filterGroupCounts.type, filterOptions);
+    // Add remaining Assertion type with count 0
+    remainingAssertionTypes.forEach((assertionType: AssertionType) => {
+        filterGroupCounts.type[assertionType] = 0;
+    });
+
+    // Add remaining Assertion status with count 0
+    remainingAssertionStatus.forEach((status: AssertionResultType) => {
+        filterGroupCounts.status[status] = 0;
+    });
+
     buildFilterOptions('status', filterGroupCounts.status, filterOptions);
+    buildFilterOptions('type', filterGroupCounts.type, filterOptions);
 
     Object.entries(others).forEach(([name, count]) => {
         filterOptions.recommendedFilters.push({
