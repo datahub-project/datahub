@@ -50,6 +50,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -224,6 +225,21 @@ def make_user_urn(username: str) -> str:
     )
 
 
+def make_actor_urn(actor: str) -> Union[CorpUserUrn, CorpGroupUrn]:
+    """
+    Makes a user urn if the input is not a user or group urn already
+    """
+    return (
+        CorpUserUrn(actor)
+        if not actor.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
+        else (
+            CorpUserUrn.from_string(actor)
+            if actor.startswith("urn:li:corpuser:")
+            else CorpGroupUrn.from_string(actor)
+        )
+    )
+
+
 def make_group_urn(groupname: str) -> str:
     """
     Makes a group urn if the input is not a user or group urn already
@@ -244,6 +260,12 @@ def make_tag_urn(tag: str) -> str:
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
+    if owner_type == OwnerType.USER:
+        return make_user_urn(owner)
+    elif owner_type == OwnerType.GROUP:
+        return make_group_urn(owner)
+    # This should pretty much never happen.
+    # TODO: With Python 3.11, we can use typing.assert_never() here.
     return f"urn:li:{owner_type.value}:{owner}"
 
 

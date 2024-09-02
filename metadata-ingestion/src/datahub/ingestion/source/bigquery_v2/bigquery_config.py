@@ -1,5 +1,8 @@
+import json
 import logging
 import os
+import re
+import tempfile
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
@@ -8,25 +11,81 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
     StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
-from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_BQ_SCHEMA_PARALLELISM = int(
     os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20)
 )
+
+# Regexp for sharded tables.
+# A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
+# The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
+# then it is not a sharded table.
+_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
+    "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
+)
+
+
+class BigQueryBaseConfig(ConfigModel):
+    rate_limit: bool = Field(
+        default=False, description="Should we rate limit requests made to API."
+    )
+    requests_per_min: int = Field(
+        default=60,
+        description="Used to control number of API calls made per min. Only used when `rate_limit` is set to `True`.",
+    )
+
+    temp_table_dataset_prefix: str = Field(
+        default="_",
+        description="If you are creating temp tables in a dataset with a particular prefix you can use this config to set the prefix for the dataset. This is to support workflows from before bigquery's introduction of temp tables. By default we use `_` because of datasets that begin with an underscore are hidden by default https://cloud.google.com/bigquery/docs/datasets#dataset-naming.",
+    )
+
+    sharded_table_pattern: str = Field(
+        deprecated=True,
+        default=_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+        description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
+    )
+
+    @validator("sharded_table_pattern")
+    def sharded_table_pattern_is_a_valid_regexp(cls, v):
+        try:
+            re.compile(v)
+        except Exception as e:
+            raise ValueError(
+                "sharded_table_pattern configuration pattern is invalid."
+            ) from e
+        return v
+
+    @root_validator(pre=True, skip_on_failure=True)
+    def project_id_backward_compatibility_configs_set(cls, values: Dict) -> Dict:
+        project_id = values.pop("project_id", None)
+        project_ids = values.get("project_ids")
+
+        if not project_ids and project_id:
+            values["project_ids"] = [project_id]
+        elif project_ids and project_id:
+            logging.warning(
+                "Please use `project_ids` config. Config `project_id` will be ignored."
+            )
+        return values
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
@@ -45,6 +104,48 @@ class BigQueryUsageConfig(BaseUsageConfig):
         "usage to views / tables mentioned in the query. If set to True, usage is applied to base tables "
         "only.",
     )
+
+
+class BigQueryCredential(ConfigModel):
+    project_id: str = Field(description="Project id to set the credentials")
+    private_key_id: str = Field(description="Private key id")
+    private_key: str = Field(
+        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
+    )
+    client_email: str = Field(description="Client email")
+    client_id: str = Field(description="Client Id")
+    auth_uri: str = Field(
+        default="https://accounts.google.com/o/oauth2/auth",
+        description="Authentication uri",
+    )
+    token_uri: str = Field(
+        default="https://oauth2.googleapis.com/token", description="Token uri"
+    )
+    auth_provider_x509_cert_url: str = Field(
+        default="https://www.googleapis.com/oauth2/v1/certs",
+        description="Auth provider x509 certificate url",
+    )
+    type: str = Field(default="service_account", description="Authentication type")
+    client_x509_cert_url: Optional[str] = Field(
+        default=None,
+        description="If not set it will be default to https://www.googleapis.com/robot/v1/metadata/x509/client_email",
+    )
+
+    _fix_private_key_newlines = pydantic_multiline_string("private_key")
+
+    @root_validator(skip_on_failure=True)
+    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if values.get("client_x509_cert_url") is None:
+            values[
+                "client_x509_cert_url"
+            ] = f'https://www.googleapis.com/robot/v1/metadata/x509/{values["client_email"]}'
+        return values
+
+    def create_credential_temp_file(self) -> str:
+        with tempfile.NamedTemporaryFile(delete=False) as fp:
+            cred_json = json.dumps(self.dict(), indent=4, separators=(",", ": "))
+            fp.write(cred_json.encode())
+            return fp.name
 
 
 class BigQueryConnectionConfig(ConfigModel):
@@ -105,19 +206,139 @@ class BigQueryConnectionConfig(ConfigModel):
         return "bigquery://"
 
 
+class BigQueryFilterConfig(SQLFilterConfig):
+    project_ids: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
+            "don't want to give project resourcemanager.projects.list to your service account. "
+            "Overrides `project_id_pattern`."
+        ),
+    )
+    project_labels: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ingests projects with the specified labels. Set value in the format of `key:value`. Use this property to "
+            "define which projects to ingest based"
+            "on project-level labels. If project_ids or project_id is set, this configuration has no effect. The "
+            "ingestion process filters projects by label first, and then applies the project_id_pattern."
+        ),
+    )
+
+    project_id_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for project_id to filter in ingestion.",
+    )
+
+    dataset_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. "
+        "e.g. to match all tables in schema analytics, use the regex 'analytics'",
+    )
+
+    match_fully_qualified_names: bool = Field(
+        default=True,
+        description="[deprecated] Whether `dataset_pattern` is matched against fully qualified dataset name "
+        "`<project_id>.<dataset_name>`.",
+    )
+
+    table_snapshot_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire "
+        "snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with "
+        "customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+    )
+
+    # NOTE: `schema_pattern` is added here only to hide it from docs.
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        hidden_from_docs=True,
+    )
+
+    @root_validator(pre=False, skip_on_failure=True)
+    def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
+        dataset_pattern: Optional[AllowDenyPattern] = values.get("dataset_pattern")
+        schema_pattern = values.get("schema_pattern")
+        if (
+            dataset_pattern == AllowDenyPattern.allow_all()
+            and schema_pattern != AllowDenyPattern.allow_all()
+        ):
+            logging.warning(
+                "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. "
+                "schema_pattern will be deprecated, please use dataset_pattern instead."
+            )
+            values["dataset_pattern"] = schema_pattern
+            dataset_pattern = schema_pattern
+        elif (
+            dataset_pattern != AllowDenyPattern.allow_all()
+            and schema_pattern != AllowDenyPattern.allow_all()
+        ):
+            logging.warning(
+                "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated,"
+                " please use dataset_pattern only."
+            )
+
+        match_fully_qualified_names = values.get("match_fully_qualified_names")
+
+        if (
+            dataset_pattern is not None
+            and dataset_pattern != AllowDenyPattern.allow_all()
+            and match_fully_qualified_names is not None
+            and not match_fully_qualified_names
+        ):
+            logger.warning(
+                "Please update `dataset_pattern` to match against fully qualified schema name "
+                "`<project_id>.<dataset_name>` and set config `match_fully_qualified_names : True`."
+                "The config option `match_fully_qualified_names` is deprecated and will be "
+                "removed in a future release."
+            )
+        elif match_fully_qualified_names and dataset_pattern is not None:
+            adjusted = False
+            for lst in [dataset_pattern.allow, dataset_pattern.deny]:
+                for i, pattern in enumerate(lst):
+                    if "." not in pattern:
+                        if pattern.startswith("^"):
+                            lst[i] = r"^.*\." + pattern[1:]
+                        else:
+                            lst[i] = r".*\." + pattern
+                        adjusted = True
+            if adjusted:
+                logger.warning(
+                    "`dataset_pattern` was adjusted to match against fully qualified schema names,"
+                    " of the form `<project_id>.<dataset_name>`."
+                )
+
+        return values
+
+
+class BigQueryIdentifierConfig(
+    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
+    include_data_platform_instance: bool = Field(
+        default=False,
+        description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
+        " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
+        " because the project id is represented as the top-level container.",
+    )
+
+    enable_legacy_sharded_table_support: bool = Field(
+        default=True,
+        description="Use the legacy sharded table urn suffix added.",
+    )
+
+
 class BigQueryV2Config(
     BigQueryConnectionConfig,
     BigQueryBaseConfig,
+    BigQueryFilterConfig,
+    # BigQueryFilterConfig must come before (higher precedence) the SQLCommon config, so that the documentation overrides are applied.
+    BigQueryIdentifierConfig,
     SQLCommonConfig,
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
-    project_id_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for project_id to filter in ingestion.",
-    )
 
     include_schema_metadata: bool = Field(
         default=True,
@@ -148,39 +369,13 @@ class BigQueryV2Config(
         description="Capture BigQuery dataset labels as DataHub tag",
     )
 
-    dataset_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. "
-        "e.g. to match all tables in schema analytics, use the regex 'analytics'",
-    )
-
-    match_fully_qualified_names: bool = Field(
-        default=True,
-        description="[deprecated] Whether `dataset_pattern` is matched against fully qualified dataset name "
-        "`<project_id>.<dataset_name>`.",
-    )
-
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate BigQuery Console url to Datasets/Tables",
     )
 
-    include_data_platform_instance: bool = Field(
-        default=False,
-        description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
-        " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
-        " because the project id is represented as the top-level container.",
-    )
-
     include_table_snapshots: Optional[bool] = Field(
         default=True, description="Whether table snapshots should be ingested."
-    )
-
-    table_snapshot_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire "
-        "snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with "
-        "customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
     debug_include_full_payloads: bool = Field(
@@ -209,6 +404,11 @@ class BigQueryV2Config(
         "enabled.",
     )
 
+    use_queries_v2: bool = Field(
+        default=False,
+        description="If enabled, uses the new queries extractor to extract queries from bigquery.",
+    )
+
     @property
     def have_table_data_read_permission(self) -> bool:
         return self.use_tables_list_query_v2 or self.is_profiling_enabled()
@@ -219,30 +419,6 @@ class BigQueryV2Config(
         "should be touched with care. This restriction is needed because excessively wide tables can "
         "result in failure to ingest the schema.",
     )
-    # The inheritance hierarchy is wonky here, but these options need modifications.
-    project_id: Optional[str] = Field(
-        default=None,
-        description="[deprecated] Use project_id_pattern or project_ids instead.",
-    )
-    project_ids: List[str] = Field(
-        default_factory=list,
-        description=(
-            "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
-            "don't want to give project resourcemanager.projects.list to your service account. "
-            "Overrides `project_id_pattern`."
-        ),
-    )
-    project_labels: List[str] = Field(
-        default_factory=list,
-        description=(
-            "Ingests projects with the specified labels. Set value in the format of `key:value`. Use this property to "
-            "define which projects to ingest based"
-            "on project-level labels. If project_ids or project_id is set, this configuration has no effect. The "
-            "ingestion process filters projects by label first, and then applies the project_id_pattern."
-        ),
-    )
-
-    storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
     lineage_use_sql_parser: bool = Field(
         default=True,
@@ -267,11 +443,6 @@ class BigQueryV2Config(
     extract_lineage_from_catalog: bool = Field(
         default=False,
         description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/concepts/about-data-lineage",
-    )
-
-    enable_legacy_sharded_table_support: bool = Field(
-        default=True,
-        description="Use the legacy sharded table urn suffix added.",
     )
 
     extract_policy_tags_from_catalog: bool = Field(
@@ -368,70 +539,6 @@ class BigQueryV2Config(
             ), "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
 
         return v
-
-    @root_validator(pre=False, skip_on_failure=True)
-    def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
-        project_id = values.get("project_id")
-        project_id_pattern = values.get("project_id_pattern")
-
-        if project_id_pattern == AllowDenyPattern.allow_all() and project_id:
-            logging.warning(
-                "project_id_pattern is not set but project_id is set, source will only ingest the project_id project. project_id will be deprecated, please use project_id_pattern instead."
-            )
-            values["project_id_pattern"] = AllowDenyPattern(allow=[f"^{project_id}$"])
-        elif project_id_pattern != AllowDenyPattern.allow_all() and project_id:
-            logging.warning(
-                "use project_id_pattern whenever possible. project_id will be deprecated, please use project_id_pattern only if possible."
-            )
-
-        dataset_pattern: Optional[AllowDenyPattern] = values.get("dataset_pattern")
-        schema_pattern = values.get("schema_pattern")
-        if (
-            dataset_pattern == AllowDenyPattern.allow_all()
-            and schema_pattern != AllowDenyPattern.allow_all()
-        ):
-            logging.warning(
-                "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. schema_pattern will be deprecated, please use dataset_pattern instead."
-            )
-            values["dataset_pattern"] = schema_pattern
-            dataset_pattern = schema_pattern
-        elif (
-            dataset_pattern != AllowDenyPattern.allow_all()
-            and schema_pattern != AllowDenyPattern.allow_all()
-        ):
-            logging.warning(
-                "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated, please use dataset_pattern only."
-            )
-
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
-
-        if (
-            dataset_pattern is not None
-            and dataset_pattern != AllowDenyPattern.allow_all()
-            and match_fully_qualified_names is not None
-            and not match_fully_qualified_names
-        ):
-            logger.warning(
-                "Please update `dataset_pattern` to match against fully qualified schema name `<project_id>.<dataset_name>` and set config `match_fully_qualified_names : True`."
-                "The config option `match_fully_qualified_names` is deprecated and will be removed in a future release."
-            )
-        elif match_fully_qualified_names and dataset_pattern is not None:
-            adjusted = False
-            for lst in [dataset_pattern.allow, dataset_pattern.deny]:
-                for i, pattern in enumerate(lst):
-                    if "." not in pattern:
-                        if pattern.startswith("^"):
-                            lst[i] = r"^.*\." + pattern[1:]
-                        else:
-                            lst[i] = r".*\." + pattern
-                        adjusted = True
-            if adjusted:
-                logger.warning(
-                    "`dataset_pattern` was adjusted to match against fully qualified schema names,"
-                    " of the form `<project_id>.<dataset_name>`."
-                )
-
-        return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""

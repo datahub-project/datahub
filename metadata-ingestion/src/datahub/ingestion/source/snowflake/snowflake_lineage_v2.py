@@ -353,7 +353,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     def _process_external_lineage_result_row(
         cls,
         db_row: dict,
-        discovered_tables: Optional[List[str]],
+        discovered_tables: Optional[Collection[str]],
         identifiers: SnowflakeIdentifierBuilder,
     ) -> Optional[KnownLineageMapping]:
         # key is the down-stream table name
