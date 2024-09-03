@@ -45,7 +45,8 @@ public class SearchResolverTest {
     EntityClient mockClient = initMockSearchEntityClient();
     final SearchResolver resolver = new SearchResolver(mockClient);
 
-    final SearchInput testInput = new SearchInput(EntityType.DATASET, "", 0, 10, null, null, null);
+    final SearchInput testInput =
+        new SearchInput(EntityType.DATASET, "", 0, 10, null, null, null, null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
@@ -86,7 +87,7 @@ public class SearchResolverTest {
     inputSearchFlags.setSkipCache(true);
 
     final SearchInput testInput =
-        new SearchInput(EntityType.DATASET, "", 1, 11, null, null, inputSearchFlags);
+        new SearchInput(EntityType.DATASET, "", 1, 11, null, null, inputSearchFlags, null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
@@ -118,7 +119,7 @@ public class SearchResolverTest {
     final SearchResolver resolver = new SearchResolver(mockClient);
 
     final SearchInput testInput =
-        new SearchInput(EntityType.DATASET, "not a wildcard", 0, 10, null, null, null);
+        new SearchInput(EntityType.DATASET, "not a wildcard", 0, 10, null, null, null, null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
@@ -153,7 +154,7 @@ public class SearchResolverTest {
                 any(),
                 Mockito.anyString(),
                 Mockito.anyString(),
-                Mockito.any(),
+                Mockito.anyMap(),
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt()))

@@ -108,6 +108,11 @@ input SearchInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 """

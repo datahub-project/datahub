@@ -71,11 +71,12 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
         () -> {
           try {
             log.debug(
-                "Executing search. entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}, searchFlags: {}",
+                "Executing search. entity type {}, query {}, filters: {}, orFilters: {}, sort: {}, start: {}, count: {} searchFlags: {}",
                 input.getType(),
                 input.getQuery(),
                 input.getFilters(),
                 input.getOrFilters(),
+                input.getSortInput(),
                 start,
                 count,
                 searchFlags);
@@ -95,22 +96,24 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                     count));
           } catch (Exception e) {
             log.error(
-                "Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}, searchFlags: {}",
+                "Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, sort: {}, start: {}, count: {}, searchFlags: {}",
                 input.getType(),
                 input.getQuery(),
                 input.getFilters(),
                 input.getOrFilters(),
+                input.getSortInput(),
                 start,
                 count,
                 searchFlags);
             throw new RuntimeException(
                 "Failed to execute search: "
                     + String.format(
-                        "entity type %s, query %s, filters: %s, orFilters: %s, start: %s, count: %s, searchFlags: %s",
+                        "entity type %s, query %s, filters: %s, orFilters: %s, sort: %s, start: %s, count: %s, searchFlags: %s",
                         input.getType(),
                         input.getQuery(),
                         input.getFilters(),
                         input.getOrFilters(),
+                        input.getSortInput(),
                         start,
                         count,
                         searchFlags),
