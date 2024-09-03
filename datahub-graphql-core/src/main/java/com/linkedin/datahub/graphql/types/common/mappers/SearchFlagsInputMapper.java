@@ -8,6 +8,7 @@ import com.linkedin.metadata.query.GroupingSpec;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import com.linkedin.data.template.StringArray;
 
 /**
  * Maps GraphQL SearchFlags to Pegasus
@@ -63,6 +64,12 @@ public class SearchFlagsInputMapper
                       searchFlags.getGroupingSpec().getGroupingCriteria().stream()
                           .map(c -> GroupingCriterionInputMapper.map(context, c))
                           .collect(Collectors.toList()))));
+    }
+    if (searchFlags.getCustomHighlighting() != null) {
+      result.setCustomHighlighting(searchFlags.getCustomHighlighting());
+    }
+    if (searchFlags.getCustomHighlightingFields() != null) {
+      result.setCustomHighlightingFields(new StringArray(searchFlags.getCustomHighlightingFields()));
     }
     return result;
   }

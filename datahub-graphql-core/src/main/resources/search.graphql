@@ -162,6 +162,16 @@ input  SearchFlags {
   Whether to include restricted entities
   """
   includeRestricted: Boolean
+
+  """
+  Whether to enable custom highlighting
+  """
+  customHighlighting: Boolean
+
+  """
+  fields to include for custom Highlighting
+  """
+  customHighlightingFields: [String!]
 }
 
 """

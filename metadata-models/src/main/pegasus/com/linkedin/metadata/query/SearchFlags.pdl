@@ -48,4 +48,14 @@ record SearchFlags {
    * include restricted entities in results (default is to filter)
    */
    includeRestricted:optional boolean = false
+  
+  /**
+   * Whether to enable custom highlighting
+   */
+   customHighlighting:optional boolean = false
+
+  /**
+   * include mentioned fields inside elastich highlighting query
+   */
+   customHighlightingFields:optional array[string]
 }
