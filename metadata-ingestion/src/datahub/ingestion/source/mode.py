@@ -429,10 +429,25 @@ class ModeSource(StatefulIngestionSourceBase):
         # Last refreshed ts.
         last_refreshed_ts = self._parse_last_run_at(report_info)
 
+        # Datasets
+        datasets = []
+        for imported_dataset_name in report_info.get("imported_datasets", {}):
+            mode_dataset = self._get_request_json(
+                f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
+            )
+            dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                self.platform,
+                str(mode_dataset.get("id")),
+                platform_instance=None,
+                env=self.config.env,
+            )
+            datasets.append(dataset_urn)
+
         dashboard_info_class = DashboardInfoClass(
             description=description if description else "",
             title=title if title else "",
             charts=self._get_chart_urns(report_token),
+            datasets=datasets if datasets else None,
             lastModified=last_modified,
             lastRefreshed=last_refreshed_ts,
             dashboardUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}",
@@ -725,6 +740,10 @@ class ModeSource(StatefulIngestionSourceBase):
                     data_source.get("adapter", ""), data_source.get("name", "")
                 )
                 database = data_source.get("database", "")
+                # This is hacky but on bigquery we want to change the database if its default
+                # For lineage we need project_id.db.table
+                if platform == "bigquery" and database == "default":
+                    database = data_source.get("host", "")
                 return platform, database
         else:
             self.report.report_warning(
@@ -900,18 +919,24 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return rendered_query
 
-    def construct_query_from_api_data(
+    def construct_query_or_dataset(
         self,
         report_token: str,
         query_data: dict,
         space_token: str,
         report_info: dict,
+        is_mode_dataset: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
-        query_urn = self.get_dataset_urn_from_query(query_data)
+        query_urn = (
+            self.get_dataset_urn_from_query(query_data)
+            if not is_mode_dataset
+            else self.get_dataset_urn_from_query(report_info)
+        )
+
         query_token = query_data.get("token")
 
         dataset_props = DatasetPropertiesClass(
-            name=query_data.get("name"),
+            name=report_info.get("name") if is_mode_dataset else query_data.get("name"),
             description=f"""### Source Code
 ``` sql
 {query_data.get("raw_query")}
@@ -939,7 +964,15 @@ class ModeSource(StatefulIngestionSourceBase):
             ).as_workunit()
         )
 
-        subtypes = SubTypesClass(typeNames=([BIAssetSubTypes.MODE_QUERY]))
+        subtypes = SubTypesClass(
+            typeNames=(
+                [
+                    BIAssetSubTypes.MODE_DATASET
+                    if is_mode_dataset
+                    else BIAssetSubTypes.MODE_QUERY
+                ]
+            )
+        )
         yield (
             MetadataChangeProposalWrapper(
                 entityUrn=query_urn,
@@ -958,7 +991,6 @@ class ModeSource(StatefulIngestionSourceBase):
             upstream_warehouse_platform,
             upstream_warehouse_db_name,
         ) = self._get_platform_and_dbname(query_data.get("data_source_id"))
-
         if upstream_warehouse_platform is None:
             # this means we can't infer the platform
             return
@@ -1022,7 +1054,7 @@ class ModeSource(StatefulIngestionSourceBase):
         schema_fields = infer_output_schema(parsed_query_object)
         if schema_fields:
             schema_metadata = SchemaMetadataClass(
-                schemaName="mode_query",
+                schemaName="mode_dataset" if is_mode_dataset else "mode_query",
                 platform=f"urn:li:dataPlatform:{self.platform}",
                 version=0,
                 fields=schema_fields,
@@ -1040,7 +1072,7 @@ class ModeSource(StatefulIngestionSourceBase):
             )
 
         yield from self.get_upstream_lineage_for_parsed_sql(
-            query_data, parsed_query_object
+            query_urn, query_data, parsed_query_object
         )
 
         operation = OperationClass(
@@ -1089,10 +1121,9 @@ class ModeSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
     def get_upstream_lineage_for_parsed_sql(
-        self, query_data: dict, parsed_query_object: SqlParsingResult
+        self, query_urn: str, query_data: dict, parsed_query_object: SqlParsingResult
     ) -> List[MetadataWorkUnit]:
         wu = []
-        query_urn = self.get_dataset_urn_from_query(query_data)
 
         if parsed_query_object is None:
             logger.info(
@@ -1351,6 +1382,24 @@ class ModeSource(StatefulIngestionSourceBase):
         return reports
 
     @lru_cache(maxsize=None)
+    def _get_datasets(self, space_token: str) -> List[dict]:
+        """
+        Retrieves datasets for a given space token.
+        """
+        datasets = []
+        try:
+            url = f"{self.workspace_uri}/spaces/{space_token}/datasets"
+            datasets_json = self._get_request_json(url)
+            datasets = datasets_json.get("_embedded", {}).get("reports", [])
+        except HTTPError as http_error:
+            self.report.report_failure(
+                title="Failed to Retrieve Datasets for Space",
+                message=f"Unable to retrieve datasets for space token {space_token}.",
+                context=f"Error: {str(http_error)}",
+            )
+        return datasets
+
+    @lru_cache(maxsize=None)
     def _get_queries(self, report_token: str) -> list:
         queries = []
         try:
@@ -1523,20 +1572,9 @@ class ModeSource(StatefulIngestionSourceBase):
             for report in reports:
                 report_token = report.get("token", "")
 
-                if report.get("imported_datasets"):
-                    # The connector doesn't support imported datasets yet.
-                    # For now, we just keep this in the report to track what we're missing.
-                    imported_datasets = [
-                        imported_dataset.get("name") or str(imported_dataset)
-                        for imported_dataset in report["imported_datasets"]
-                    ]
-                    self.report.dropped_imported_datasets.setdefault(
-                        report_token, LossyList()
-                    ).extend(imported_datasets)
-
                 queries = self._get_queries(report_token)
                 for query in queries:
-                    query_mcps = self.construct_query_from_api_data(
+                    query_mcps = self.construct_query_or_dataset(
                         report_token,
                         query,
                         space_token=space_token,
@@ -1566,6 +1604,34 @@ class ModeSource(StatefulIngestionSourceBase):
                             query_name=query["name"],
                         )
 
+    def emit_dataset_mces(self):
+        """
+        Emits MetadataChangeEvents (MCEs) for datasets within each space.
+        """
+        for space_token, _ in self.space_tokens.items():
+            datasets = self._get_datasets(space_token)
+
+            for report in datasets:
+                report_token = report.get("token", "")
+                queries = self._get_queries(report_token)
+                for query in queries:
+                    query_mcps = self.construct_query_or_dataset(
+                        report_token,
+                        query,
+                        space_token=space_token,
+                        report_info=report,
+                        is_mode_dataset=True,
+                    )
+                    chart_fields: Dict[str, SchemaFieldClass] = {}
+                    for wu in query_mcps:
+                        if isinstance(
+                            wu.metadata, MetadataChangeProposalWrapper
+                        ) and isinstance(wu.metadata.aspect, SchemaMetadataClass):
+                            schema_metadata = wu.metadata.aspect
+                            for field in schema_metadata.fields:
+                                chart_fields.setdefault(field.fieldPath, field)
+                        yield wu
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
         config: ModeConfig = ModeConfig.parse_obj(config_dict)
@@ -1581,6 +1647,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
+        yield from self.emit_dataset_mces()
         yield from self.emit_chart_mces()
 
     def get_report(self) -> SourceReport:
