@@ -1,6 +1,10 @@
 export function translateDisplayNames(t: any, displayName: string | null | undefined): string {
     if (!displayName) return '';
-    const displayNameFormatted = displayName.trim().replaceAll(' ', '').replaceAll(/[^a-zA-Z\s]/g, '').toLowerCase();
+    const displayNameFormatted = displayName
+        .trim()
+        .replaceAll(' ', '')
+        .replaceAll(/[^a-zA-Z\s]/g, '')
+        .toLowerCase();
 
     const FIELD_TO_DISPLAY_NAMES = {
         // common
@@ -91,8 +95,8 @@ export function translateDisplayNames(t: any, displayName: string | null | undef
         datalandscapesummary: t('analytics.dataLandscapeSummary'),
         usageanalytics: t('analytics.usageAnalytics'),
         datahubusageanalytics: t('analytics.usageAnalytics'),
-        weeklyactiveusers: t('analytics.activeUsersWithParam', { param: t('analytics.byWeek')}),
-        monthlyactiveusers: t('analytics.activeUsersWithParam', { param: t('analytics.byMonth')}),
+        weeklyactiveusers: t('analytics.activeUsersWithParam', { param: t('analytics.byWeek') }),
+        monthlyactiveusers: t('analytics.activeUsersWithParam', { param: t('analytics.byMonth') }),
         entitiesbydomain: t('analytics.entitiesByDomain'),
         assetsbyplatform: t('analytics.assetsByPlatform'),
         newusers: t('analytics.newUsers'),
@@ -197,14 +201,14 @@ export function translateDisplayNames(t: any, displayName: string | null | undef
         lookmlGithubDeployKeyToolTipTwo: t('ingest.lookml.lookmlGithubDeployKeyToolTipTwo'),
         thePreferredWayToObboardNewUsers: t('ingest.common.thePreferredWayToObboardNewUsers'),
         learnMoreAboutConfiguringSingleLogin: t('ingest.common.learnMoreAboutConfiguringSingleLogin'),
-
-    }
+    };
 
     const entries = Object.entries(FIELD_TO_DISPLAY_NAMES);
-    for (const [key, value] of entries) {
-        if (key === displayNameFormatted) {
-            return value;
-        }
+    const entry = entries.find(([key]) => key === displayNameFormatted);
+
+    if (entry) {
+        return entry[1];
     }
+
     return displayName;
 }
