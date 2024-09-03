@@ -20,12 +20,12 @@ const StyledEditor = styled(MarkdownEditor)`
 `;
 
 export default function CreateGroupModal({ onClose, onCreate }: Props) {
+    const { t } = useTranslation();
     const [stagedName, setStagedName] = useState('');
     const [stagedDescription, setStagedDescription] = useState('');
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [createGroupMutation] = useCreateGroupMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
-    const { t } = useTranslation();
     const [form] = Form.useForm();
 
     // Reference to the styled editor for handling focus

@@ -856,7 +856,10 @@
         "noGroups": "No Groups",
         "noMemberInGroup": "No members in this group yet.",
         "removeFromGroup": "Remove from Group",
-        "removeUserConfirm": "Are you sure you want to remove this user from the group?"
+        "removeUserConfirm": "Are you sure you want to remove this user from the group?",
+        "assignRoleError": "Failed to assign role {{roleName}} to group {{groupName}}",
+        "assignRoleSuccess": "Assigned role {{roleName}} to group {{groupName}}!",
+        "assignRoleTitle": "Would you like to assign the role {{roleName}} to group {{groupName}}"
     },
     "home": {
         "changeLanguageTitle": "Change Langage",

@@ -871,7 +871,10 @@
         "removeFromGroup": "Remover do Grupo",
         "removeUserConfirm": "Tem certeza de que deseja remover este usuário do grupo?",
         "addMember": "Adicionar Membro",
-        "makeOwner": "Tornar proprietário"
+        "makeOwner": "Tornar proprietário",
+        "assignRoleError": "Falha ao atribuir a função {{roleName}} ao grupo {{groupName}}",
+        "assignRoleSuccess": "Função {{roleName}} atribuída ao grupo {{groupName}}!",
+        "assignRoleTitle": "Você gostaria de atribuir a função {{roleName}} ao grupo {{groupName}}"
     },
     "home": {
         "changeLanguageTitle": "Mudar Idioma",

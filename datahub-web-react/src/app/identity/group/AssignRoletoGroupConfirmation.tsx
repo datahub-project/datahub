@@ -3,6 +3,7 @@ import { message, Popconfirm } from 'antd';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { DataHubRole } from '../../../types.generated';
 import analytics, { EventType } from '../../analytics';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
     open: boolean;
@@ -21,6 +22,7 @@ export default function AssignRoletoGroupConfirmation({
     onClose,
     onConfirm,
 }: Props) {
+    const { t } = useTranslation();
     const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
     // eslint-disable-next-line
     const batchAssignRole = () => {
@@ -41,8 +43,8 @@ export default function AssignRoletoGroupConfirmation({
                     });
                     message.success({
                         content: roleToAssign
-                            ? `Assigned role ${roleToAssign?.name} to group ${groupName}!`
-                            : `Removed role from user ${groupName}!`,
+                            ? t('group.assignRoleSuccess', { roleName: roleToAssign?.name, groupName: groupName})
+                            : t('user.removeRoleSuccess', { username: groupName}),
                         duration: 2,
                     });
                     onConfirm();
@@ -52,16 +54,16 @@ export default function AssignRoletoGroupConfirmation({
                 message.destroy();
                 message.error({
                     content: roleToAssign
-                        ? `Failed to assign role ${roleToAssign?.name} to group ${groupName}: \n ${e.message || ''}`
-                        : `Failed to remove role from  group ${groupName}: \n ${e.message || ''}`,
+                        ? `${t('group.assignRoleError', { roleName: roleToAssign?.name, groupName: groupName})}: \n ${e.message || ''}`
+                        : `${t('user.removeRoleError', { username: groupName })}: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
     };
 
     const assignRoleText = roleToAssign
-        ? `Would you like to assign the role ${roleToAssign?.name} to group ${groupName}?`
-        : `Would you like to remove group ${groupName}'s existing role?`;
+        ? `${t('group.assignRoleTitle', { roleName: roleToAssign?.name, groupName: groupName})}?`
+        : `${t('user.removeRoleTitle', { username: groupName})}?`;
 
     return <Popconfirm title={assignRoleText} open={open} onConfirm={batchAssignRole} onCancel={onClose} />;
 }
