@@ -1,6 +1,7 @@
-import { Modal } from 'antd';
+import { Modal, Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
+import { useGetEntitiesQuery } from '@src/graphql/entity.generated';
 import { Entity, EntityPath, LineageDirection } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { CompactEntityNameList } from '../../recommendations/renderer/component/CompactEntityNameList';
@@ -28,6 +29,12 @@ const Header = styled.div`
     padding-top: 8px;
 `;
 
+const ErrorContainer = styled.div`
+    font-size: 14px;
+    padding: 8px 0px;
+    color: ${ANTD_GRAY[7]};
+`;
+
 interface Props {
     paths: EntityPath[];
     resultEntityUrn: string;
@@ -38,6 +45,42 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
     const { lineageDirection } = useContext(LineageTabContext);
     const displayedColumns = getDisplayedColumns(paths, resultEntityUrn);
 
+    // We need to fetch the below urns before loading the content of this modal
+    const entityUrnsToFetch: string[] = paths
+        .flatMap((path) => path.path ?? [])
+        .map((entity) => entity?.urn)
+        .filter((urn): urn is string => !!urn);
+    const {
+        data: result,
+        loading,
+        error,
+    } = useGetEntitiesQuery({
+        variables: { urns: entityUrnsToFetch },
+    });
+    const fetchedEntities = result?.entities;
+
+    const loadedState = error ? (
+        <ErrorContainer>Encountered an error while trying to fetch paths. Please try again later.</ErrorContainer>
+    ) : (
+        paths.map((path, i) => {
+            const entities: Entity[] = (
+                lineageDirection === LineageDirection.Upstream ? [...path.path].reverse() : path.path
+            )
+                .map(
+                    (bareEntity) =>
+                        fetchedEntities?.find(
+                            (hydratedEntity) => hydratedEntity && hydratedEntity.urn === bareEntity?.urn,
+                        ) as Entity | undefined,
+                )
+                .filter((entity): entity is Entity => !!entity);
+            const key = `${i}`;
+            return (
+                <PathWrapper key={key}>
+                    <CompactEntityNameList entities={entities} showArrows />
+                </PathWrapper>
+            );
+        })
+    );
     return (
         <StyledModal
             data-testid="entity-paths-modal"
@@ -54,15 +97,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
             footer={null}
             bodyStyle={{ padding: '16px 24px' }}
         >
-            {paths.map((path, i) => {
-                const entities = lineageDirection === LineageDirection.Upstream ? [...path.path].reverse() : path.path;
-                const key = `${i}`;
-                return (
-                    <PathWrapper key={key}>
-                        <CompactEntityNameList entities={entities as Entity[]} showArrows />
-                    </PathWrapper>
-                );
-            })}{' '}
+            {loading ? <Skeleton /> : loadedState}
         </StyledModal>
     );
 }

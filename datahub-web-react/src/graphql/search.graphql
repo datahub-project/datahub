@@ -1097,7 +1097,8 @@ fragment schemaFieldEntitySearchFields on SchemaFieldEntity {
     type
     fieldPath
     parent {
-        ...searchResultsWithoutSchemaField
+        urn
+        type
     }
 }
 
