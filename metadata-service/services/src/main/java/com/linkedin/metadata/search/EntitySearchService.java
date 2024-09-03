@@ -80,7 +80,7 @@ public interface EntitySearchService {
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return a {@link SearchResult} that contains a list of matched documents and related search
@@ -92,7 +92,7 @@ public interface EntitySearchService {
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size);
 
@@ -108,7 +108,7 @@ public interface EntitySearchService {
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param facets list of facets we want aggregations for
@@ -121,7 +121,7 @@ public interface EntitySearchService {
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets);
@@ -132,7 +132,7 @@ public interface EntitySearchService {
    * @param entityName name of the entity
    * @param filters the request map with fields and values to be applied as filters to the search
    *     query
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size number of search hits to return
    * @return a {@link SearchResult} that contains a list of filtered documents and related search
@@ -143,7 +143,7 @@ public interface EntitySearchService {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size);
 
@@ -265,7 +265,7 @@ public interface EntitySearchService {
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
@@ -277,7 +277,7 @@ public interface EntitySearchService {
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size);
@@ -290,7 +290,7 @@ public interface EntitySearchService {
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
@@ -302,7 +302,7 @@ public interface EntitySearchService {
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size);
@@ -316,7 +316,7 @@ public interface EntitySearchService {
       @Nonnull String documentId,
       @Nonnull String entityName,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,

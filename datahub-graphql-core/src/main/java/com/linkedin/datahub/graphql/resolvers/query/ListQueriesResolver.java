@@ -61,8 +61,9 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            final SortCriterion sortCriterion =
-                new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
+            final List<SortCriterion> sortCriteria =
+                Collections.singletonList(
+                    new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING));
 
             // First, get all Query Urns.
             final SearchResult gmsResult =
@@ -74,7 +75,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                     QUERY_ENTITY_NAME,
                     query,
                     buildFilters(input, context.getOperationContext().getAspectRetriever()),
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
 

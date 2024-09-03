@@ -41,6 +41,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,17 +71,28 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   private final SystemEntityClient systemEntityClient;
   private final EntitySearchService entitySearchService;
-  private final boolean _isEnabled;
+  private final boolean isEnabled;
   private OperationContext systemOperationContext;
+  @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull final EntitySearchService searchService,
-      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${siblings.consumerGroupSuffix}") String consumerGroupSuffix) {
     this.systemEntityClient = systemEntityClient;
     entitySearchService = searchService;
-    _isEnabled = isEnabled;
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+  }
+
+  @VisibleForTesting
+  public SiblingAssociationHook(
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final EntitySearchService searchService,
+      @Nonnull Boolean isEnabled) {
+    this(systemEntityClient, searchService, isEnabled, "");
   }
 
   @Value("${siblings.enabled:false}")
@@ -99,7 +111,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   @Override
   public boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   @Override

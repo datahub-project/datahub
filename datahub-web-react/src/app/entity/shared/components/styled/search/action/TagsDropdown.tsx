@@ -39,7 +39,7 @@ export default function TagsDropdown({ urns, disabled = false, refetch }: Props)
             {isEditModalVisible && (
                 <EditTagTermsModal
                     type={EntityType.Tag}
-                    visible
+                    open
                     onCloseModal={() => {
                         setIsEditModalVisible(false);
                         refetch?.();

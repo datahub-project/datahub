@@ -307,7 +307,11 @@ public class SchemaRegistryController
             })
         .orElseGet(
             () -> {
-              log.error("Couldn't find topic with name {}.", topicName);
+              if (topicName.matches("^[a-zA-Z0-9._-]+$")) {
+                log.error("Couldn't find topic with name {}.", topicName);
+              } else {
+                log.error("Couldn't find topic (Malformed topic name)");
+              }
               return new ResponseEntity<>(HttpStatus.NOT_FOUND);
             });
   }

@@ -13,14 +13,11 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -41,7 +38,6 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -57,7 +53,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -66,6 +61,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -171,6 +167,7 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "query", defaultValue = "*") String query,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "sort", required = false, defaultValue = "urn") String sortField,
+      @RequestParam(value = "sortCriteria", required = false) List<String> sortFields,
       @RequestParam(value = "sortOrder", required = false, defaultValue = "ASCENDING")
           String sortOrder,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
@@ -199,8 +196,15 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // TODO: support additional and multiple sort params
-    SortCriterion sortCriterion = SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder));
+    List<SortCriterion> sortCriteria;
+    if (!CollectionUtils.isEmpty(sortFields)) {
+      sortCriteria = new ArrayList<>();
+      sortFields.forEach(
+          field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
+    } else {
+      sortCriteria =
+          Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
+    }
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
@@ -211,7 +215,7 @@ public abstract class GenericEntitiesController<
             List.of(entitySpec.getName()),
             query,
             null,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             null,
             count);
@@ -726,28 +730,14 @@ public abstract class GenericEntitiesController<
         aspectSpec.getDataTemplateClass(), envelopedAspect.getValue().data());
   }
 
-  protected ChangeMCP toUpsertItem(
+  protected abstract ChangeMCP toUpsertItem(
       @Nonnull AspectRetriever aspectRetriever,
       Urn entityUrn,
       AspectSpec aspectSpec,
       Boolean createIfNotExists,
       String jsonAspect,
       Actor actor)
-      throws JsonProcessingException {
-    JsonNode jsonNode = objectMapper.readTree(jsonAspect);
-    String aspectJson = jsonNode.get("value").toString();
-    return ChangeItemImpl.builder()
-        .urn(entityUrn)
-        .aspectName(aspectSpec.getName())
-        .changeType(Boolean.TRUE.equals(createIfNotExists) ? ChangeType.CREATE : ChangeType.UPSERT)
-        .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-        .recordTemplate(
-            GenericRecordUtils.deserializeAspect(
-                ByteString.copyString(aspectJson, StandardCharsets.UTF_8),
-                GenericRecordUtils.JSON,
-                aspectSpec))
-        .build(aspectRetriever);
-  }
+      throws URISyntaxException, JsonProcessingException;
 
   protected ChangeMCP toUpsertItem(
       @Nonnull AspectRetriever aspectRetriever,

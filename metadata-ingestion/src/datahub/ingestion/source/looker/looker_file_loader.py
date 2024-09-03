@@ -1,17 +1,18 @@
 import logging
 import pathlib
 from dataclasses import replace
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_template_language import (
-    resolve_liquid_variable_in_view_dict,
+    process_lookml_template_language,
 )
 from datahub.ingestion.source.looker.lookml_config import (
     _EXPLORE_FILE_EXTENSION,
     _VIEW_FILE_EXTENSION,
+    LookMLSourceConfig,
     LookMLSourceReport,
 )
 
@@ -29,13 +30,13 @@ class LookerViewFileLoader:
         root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
-        liquid_variable: Dict[Any, Any],
+        source_config: LookMLSourceConfig,
     ) -> None:
         self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
-        self.liquid_variable = liquid_variable
+        self.source_config = source_config
 
     def _load_viewfile(
         self, project_name: str, path: str, reporter: LookMLSourceReport
@@ -73,9 +74,9 @@ class LookerViewFileLoader:
 
             parsed = load_lkml(path)
 
-            resolve_liquid_variable_in_view_dict(
-                raw_view=parsed,
-                liquid_variable=self.liquid_variable,
+            process_lookml_template_language(
+                view_lkml_file_dict=parsed,
+                source_config=self.source_config,
             )
 
             looker_viewfile = LookerViewFile.from_looker_dict(

@@ -32,3 +32,13 @@ urn:li:corpuser:jdoe
 urn:li:dataset:(urn:li:dataPlatform:kafka,PageViewEvent,PROD)
 urn:li:dataset:(urn:li:dataPlatform:hdfs,PageViewEvent,EI)
 ```
+
+## Restrictions
+
+There are a few restrictions when creating an urn:
+
+1. Commas are reserved character in URN fields: `,`
+2. Parentheses are reserved characters in URN fields: `( , )`
+3. Colons are reserved characters in URN fields: `:`
+
+Please do not use these characters when creating or generating urns.

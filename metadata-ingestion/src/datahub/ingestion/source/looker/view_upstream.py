@@ -385,7 +385,7 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
             config=self.config,
         )
 
-        return upstreams_column_refs
+        return _drop_hive_dot_from_upstream(upstreams_column_refs)
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return self._get_upstream_dataset_urn()

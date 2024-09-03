@@ -187,7 +187,7 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull String input,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
@@ -213,7 +213,7 @@ public class SearchRequestHandler {
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(highlights);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
 
     if (Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
@@ -243,7 +243,7 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull String input,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable Object[] sort,
       @Nullable String pitId,
       @Nullable String keepAlive,
@@ -272,7 +272,7 @@ public class SearchRequestHandler {
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(highlights);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
     searchRequest.indicesOptions(null);
@@ -285,7 +285,7 @@ public class SearchRequestHandler {
    * to be applied to search results.
    *
    * @param filters {@link Filter} list of conditions with fields and values
-   * @param sortCriterion {@link SortCriterion} to be applied to the search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to the search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return {@link SearchRequest} that contains the filtered query
@@ -294,7 +294,7 @@ public class SearchRequestHandler {
   public SearchRequest getFilterRequest(
       @Nonnull OperationContext opContext,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size) {
     SearchRequest searchRequest = new SearchRequest();
@@ -303,7 +303,7 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
