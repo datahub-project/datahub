@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { DataHubRole } from '../../../types.generated';
 import analytics, { EventType } from '../../analytics';
+import { translateDisplayNames } from '../../../utils/translation/translation';
 
 type Props = {
     open: boolean;
@@ -36,7 +37,7 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                     });
                     message.success({
                         content: roleToAssign
-                            ? t('user.assignRoleSuccess', { roleName: roleToAssign?.name, username })
+                            ? t('user.assignRoleSuccess', { roleName: translateDisplayNames(t, roleToAssign?.name), username })
                             : t('user.removeRoleSuccess', { username }),
                         duration: 2,
                     });
@@ -47,7 +48,7 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                 message.destroy();
                 message.error({
                     content: roleToAssign
-                        ? `${t('user.assignRoleError', { roleName: roleToAssign?.name, username })}: \n ${
+                        ? `${t('user.assignRoleError', { roleName: translateDisplayNames(t, roleToAssign?.name), username })}: \n ${
                               e.message || ''
                           }`
                         : `${t('user.removeRoleError', { username })}: \n ${e.message || ''}`,
@@ -57,7 +58,7 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
     };
 
     const assignRoleText = roleToAssign
-        ? `${t('user.assignRoleTitle', { roleName: roleToAssign?.name, username })}?`
+        ? `${t('user.assignRoleTitle', { roleName: translateDisplayNames(t, roleToAssign?.name), username })}?`
         : `${t('user.removeRoleTitle', { username })}?`;
 
     return <Popconfirm title={assignRoleText} open={open} onConfirm={batchAssignRole} onCancel={onClose} />;

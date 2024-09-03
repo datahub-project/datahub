@@ -9,6 +9,12 @@ export function translateDisplayNames(t: any, displayName: string | null | undef
     const FIELD_TO_DISPLAY_NAMES = {
         groups: t('common.groups'),
         users: t('common.users'),
+
+        // roles
+        norole: t('role.noRole'),
+        admin: t('role.admin'),
+        editor: t('role.editor'),
+        reader: t('role.reader'),
     };
 
     const entries = Object.entries(FIELD_TO_DISPLAY_NAMES);

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { DataHubRole } from '../../../types.generated';
 import analytics, { EventType } from '../../analytics';
+import { translateDisplayNames } from '../../../utils/translation/translation';
 
 type Props = {
     open: boolean;
@@ -43,7 +44,7 @@ export default function AssignRoletoGroupConfirmation({
                     });
                     message.success({
                         content: roleToAssign
-                            ? t('group.assignRoleSuccess', { roleName: roleToAssign?.name, groupName })
+                            ? t('group.assignRoleSuccess', { roleName: translateDisplayNames(t, roleToAssign?.name), groupName })
                             : t('user.removeRoleSuccess', { username: groupName }),
                         duration: 2,
                     });
@@ -54,7 +55,7 @@ export default function AssignRoletoGroupConfirmation({
                 message.destroy();
                 message.error({
                     content: roleToAssign
-                        ? `${t('group.assignRoleError', { roleName: roleToAssign?.name, groupName })}: \n ${
+                        ? `${t('group.assignRoleError', { roleName: translateDisplayNames(t, roleToAssign?.name), groupName })}: \n ${
                               e.message || ''
                           }`
                         : `${t('user.removeRoleError', { username: groupName })}: \n ${e.message || ''}`,
@@ -64,7 +65,7 @@ export default function AssignRoletoGroupConfirmation({
     };
 
     const assignRoleText = roleToAssign
-        ? `${t('group.assignRoleTitle', { roleName: roleToAssign?.name, groupName })}?`
+        ? `${t('group.assignRoleTitle', { roleName: translateDisplayNames(t, roleToAssign?.name), groupName })}?`
         : `${t('user.removeRoleTitle', { username: groupName })}?`;
 
     return <Popconfirm title={assignRoleText} open={open} onConfirm={batchAssignRole} onCancel={onClose} />;

@@ -1901,5 +1901,11 @@
         "customTypePlaceholder": "Freshness",
         "unhealthy": "This asset may be unhealthy",
         "healthy": "This asset is healthy"
+    },
+    "role": {
+        "admin": "Admin",
+        "editor": "Editor",
+        "reader": "Reader",
+        "noRole": "No Role"
     }
 }

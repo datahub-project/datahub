@@ -1969,5 +1969,11 @@
     "inheritedBy": {
         "emptyTitle": "Não é herdado por nenhum termo",
         "emptyDescription": "Os termos podem ser herdados por outros termos para representar um relacionamento do tipo \"É A\"."
+    },
+    "role": {
+        "admin": "Admin",
+        "editor": "Editor",
+        "reader": "Leitor",
+        "noRole": "Sem Função"
     }
 }
