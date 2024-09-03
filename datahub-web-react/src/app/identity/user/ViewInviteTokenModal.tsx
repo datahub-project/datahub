@@ -152,7 +152,9 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `${t('authentification.generateNewInviteLinkError', { roleName: selectedRole?.name})}: \n ${e.message || ''}`,
+                    content: `${t('authentification.generateNewInviteLinkError', {
+                        roleName: selectedRole?.name,
+                    })}: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });

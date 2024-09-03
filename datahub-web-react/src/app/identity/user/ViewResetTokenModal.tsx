@@ -96,7 +96,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                 <ModalSection>
                     <ModalSectionHeader strong>{t('authentification.shareResetLink')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        {t('authentification.shareResetLinkDescription', { username: username })}
+                        {t('authentification.shareResetLinkDescription', { username })}
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: inviteLink }}>
                         <pre>{inviteLink}</pre>
@@ -112,9 +112,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
             )}
             <ModalSection>
                 <ModalSectionHeader strong>{t('authentification.generateNewLink')}</ModalSectionHeader>
-                <ModalSectionParagraph>
-                    {t('authentification.generateNewLinkDescription')}
-                </ModalSectionParagraph>
+                <ModalSectionParagraph>{t('authentification.generateNewLinkDescription')}</ModalSectionParagraph>
                 <CreateResetTokenButton
                     onClick={createNativeUserResetToken}
                     size="small"

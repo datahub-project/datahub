@@ -1,9 +1,9 @@
 import React from 'react';
 import { message, Popconfirm } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { DataHubRole } from '../../../types.generated';
 import analytics, { EventType } from '../../analytics';
-import { useTranslation } from 'react-i18next';
 
 type Props = {
     open: boolean;
@@ -43,8 +43,8 @@ export default function AssignRoletoGroupConfirmation({
                     });
                     message.success({
                         content: roleToAssign
-                            ? t('group.assignRoleSuccess', { roleName: roleToAssign?.name, groupName: groupName})
-                            : t('user.removeRoleSuccess', { username: groupName}),
+                            ? t('group.assignRoleSuccess', { roleName: roleToAssign?.name, groupName })
+                            : t('user.removeRoleSuccess', { username: groupName }),
                         duration: 2,
                     });
                     onConfirm();
@@ -54,7 +54,9 @@ export default function AssignRoletoGroupConfirmation({
                 message.destroy();
                 message.error({
                     content: roleToAssign
-                        ? `${t('group.assignRoleError', { roleName: roleToAssign?.name, groupName: groupName})}: \n ${e.message || ''}`
+                        ? `${t('group.assignRoleError', { roleName: roleToAssign?.name, groupName })}: \n ${
+                              e.message || ''
+                          }`
                         : `${t('user.removeRoleError', { username: groupName })}: \n ${e.message || ''}`,
                     duration: 3,
                 });
@@ -62,8 +64,8 @@ export default function AssignRoletoGroupConfirmation({
     };
 
     const assignRoleText = roleToAssign
-        ? `${t('group.assignRoleTitle', { roleName: roleToAssign?.name, groupName: groupName})}?`
-        : `${t('user.removeRoleTitle', { username: groupName})}?`;
+        ? `${t('group.assignRoleTitle', { roleName: roleToAssign?.name, groupName })}?`
+        : `${t('user.removeRoleTitle', { username: groupName })}?`;
 
     return <Popconfirm title={assignRoleText} open={open} onConfirm={batchAssignRole} onCancel={onClose} />;
 }

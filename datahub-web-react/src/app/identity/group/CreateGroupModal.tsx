@@ -52,7 +52,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                             type: EventType.CreateGroupEvent,
                         });
                         message.success({
-                            content: t('crud.success.createWithName', { name: t('common.group')}),
+                            content: t('crud.success.createWithName', { name: t('common.group') }),
                             duration: 3,
                         });
                         // TODO: Get a full corp group back from create endpoint.
@@ -148,11 +148,12 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     </Form.Item>
                 </Form.Item>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">{t('common.advanced')}</Typography.Text>} key="1">
+                    <Collapse.Panel
+                        header={<Typography.Text type="secondary">{t('common.advanced')}</Typography.Text>}
+                        key="1"
+                    >
                         <Form.Item label={<Typography.Text strong>{t('group.groupId')}</Typography.Text>}>
-                            <Typography.Paragraph>
-                                {t('group.groupIdDescription')}
-                            </Typography.Paragraph>
+                            <Typography.Paragraph>{t('group.groupIdDescription')}</Typography.Paragraph>
                             <Form.Item
                                 name="groupId"
                                 rules={[

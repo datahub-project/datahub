@@ -8,7 +8,7 @@ export function translateDisplayNames(t: any, displayName: string | null | undef
 
     const FIELD_TO_DISPLAY_NAMES = {
         groups: t('common.groups'),
-        users: t('common.users')
+        users: t('common.users'),
     };
 
     const entries = Object.entries(FIELD_TO_DISPLAY_NAMES);

@@ -1,9 +1,9 @@
 import React from 'react';
 import { message, Popconfirm } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { DataHubRole } from '../../../types.generated';
 import analytics, { EventType } from '../../analytics';
-import { useTranslation } from 'react-i18next';
 
 type Props = {
     open: boolean;
@@ -36,8 +36,8 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                     });
                     message.success({
                         content: roleToAssign
-                            ? t('user.assignRoleSuccess', { roleName: roleToAssign?.name, username: username})
-                            : t('user.removeRoleSuccess', { username: username}),
+                            ? t('user.assignRoleSuccess', { roleName: roleToAssign?.name, username })
+                            : t('user.removeRoleSuccess', { username }),
                         duration: 2,
                     });
                     onConfirm();
@@ -47,16 +47,18 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                 message.destroy();
                 message.error({
                     content: roleToAssign
-                        ? `${t('user.assignRoleError', { roleName: roleToAssign?.name, username: username})}: \n ${e.message || ''}`
-                        : `${t('user.removeRoleError', { username: username})}: \n ${e.message || ''}`,
+                        ? `${t('user.assignRoleError', { roleName: roleToAssign?.name, username })}: \n ${
+                              e.message || ''
+                          }`
+                        : `${t('user.removeRoleError', { username })}: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
     };
 
     const assignRoleText = roleToAssign
-        ? `${t('user.assignRoleTitle', { roleName: roleToAssign?.name, username: username})}?`
-        : `${t('user.removeRoleTitle', { username: username})}?`;
+        ? `${t('user.assignRoleTitle', { roleName: roleToAssign?.name, username })}?`
+        : `${t('user.removeRoleTitle', { username })}?`;
 
     return <Popconfirm title={assignRoleText} open={open} onConfirm={batchAssignRole} onCancel={onClose} />;
 }

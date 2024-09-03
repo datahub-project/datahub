@@ -3,6 +3,7 @@ import styled from 'styled-components/macro';
 import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { CorpUser, CorpUserStatus, EntityType, DataHubRole } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -12,7 +13,6 @@ import useDeleteEntity from '../../entity/shared/EntityDropdown/useDeleteEntity'
 import SelectRole from './SelectRole';
 import { USERS_ASSIGN_ROLE_ID } from '../../onboarding/config/UsersOnboardingConfig';
 import { MenuItemStyle } from '../../entity/view/menu/item/styledComponent';
-import { useTranslation } from 'react-i18next';
 
 type Props = {
     user: CorpUser;
@@ -52,7 +52,7 @@ const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 `;
 
 export default function UserListItem({ user, canManageUserCredentials, selectRoleOptions, onDelete, refetch }: Props) {
-    const { t } = useTranslation()
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);

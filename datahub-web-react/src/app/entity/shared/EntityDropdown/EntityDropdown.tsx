@@ -13,6 +13,7 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import { Redirect, useHistory } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { EntityType } from '../../../../types.generated';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
 import { UpdateDeprecationModal } from './UpdateDeprecationModal';
@@ -29,7 +30,6 @@ import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 import { getEntityPath } from '../containers/profile/utils';
 import { useIsSeparateSiblingsMode } from '../siblingUtils';
 import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
-import { useTranslation } from 'react-i18next';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -128,7 +128,7 @@ function EntityDropdown(props: Props) {
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
-        message.loading({ content:  `${t('crud.updating')}...` });
+        message.loading({ content: `${t('crud.updating')}...` });
         try {
             await updateDeprecation({
                 variables: {
@@ -141,11 +141,19 @@ function EntityDropdown(props: Props) {
                 },
             });
             message.destroy();
-            message.success({ content:  t('crud.success.updateWithName', { name: t('common.deprecation') }), duration: 2 });
+            message.success({
+                content: t('crud.success.updateWithName', { name: t('common.deprecation') }),
+                duration: 2,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `${t('crud.error.updateWithName', { name: t('common.deprecation') })}: \n ${e.message || ''}`, duration: 2 });
+                message.error({
+                    content: `${t('crud.error.updateWithName', { name: t('common.deprecation') })}: \n ${
+                        e.message || ''
+                    }`,
+                    duration: 2,
+                });
             }
         }
         refetchForEntity?.();

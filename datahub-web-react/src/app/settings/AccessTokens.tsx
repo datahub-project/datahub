@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { Alert, Button, Divider, Empty, message, Modal, Pagination, Select, Typography } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { red } from '@ant-design/colors';
+import { useTranslation } from 'react-i18next';
 import { EntityType, FacetFilterInput } from '../../types.generated';
 import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '../../graphql/auth.generated';
 import { Message } from '../shared/Message';
@@ -17,7 +18,6 @@ import { useAppConfig } from '../useAppConfig';
 import { useListUsersQuery } from '../../graphql/user.generated';
 import { OwnerLabel } from '../shared/OwnerLabel';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { useTranslation } from 'react-i18next';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -222,7 +222,12 @@ export const AccessTokens = () => {
                     })
                     .catch((e) => {
                         message.destroy();
-                        message.error({ content: `${t('crud.error.revokeWithName', { name: t('common.token') })}!: \n ${e.message || ''}`, duration: 3 });
+                        message.error({
+                            content: `${t('crud.error.revokeWithName', { name: t('common.token') })}!: \n ${
+                                e.message || ''
+                            }`,
+                            duration: 3,
+                        });
                     })
                     .finally(() => {
                         setTimeout(() => {
@@ -316,7 +321,11 @@ export const AccessTokens = () => {
     return (
         <SourceContainer>
             {tokensLoading && !tokensData && (
-                <Message type="loading" content={t('common.loadingWithName', { name: t('common.tokens')})} style={{ marginTop: '10%' }} />
+                <Message
+                    type="loading"
+                    content={t('common.loadingWithName', { name: t('common.tokens') })}
+                    style={{ marginTop: '10%' }}
+                />
             )}
             {tokensError && message.error(`${t('crud.error.loadWithName', { name: t('common.tokens') })}  :(`)}
             {revokeTokenError && message.error(`${t('crud.error.updateWithName', { name: t('common.token') })} :(`)}
@@ -360,7 +369,7 @@ export const AccessTokens = () => {
                         <>
                             <StyledSelectOwner
                                 showSearch
-                                placeholder={t('placeholder.searchForWithName', { name: t('common.owner')})}
+                                placeholder={t('placeholder.searchForWithName', { name: t('common.owner') })}
                                 optionFilterProp="children"
                                 allowClear
                                 filterOption={false}

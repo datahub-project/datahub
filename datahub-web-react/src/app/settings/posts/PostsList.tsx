@@ -143,8 +143,10 @@ export const PostList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content={t('common.loadingWithName', { name: t('common.posts')})} />}
-            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.posts')})} />}
+            {!data && loading && (
+                <Message type="loading" content={t('common.loadingWithName', { name: t('common.posts') })} />
+            )}
+            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.posts') })} />}
             <PostsContainer>
                 <TabToolbar>
                     <Button id="posts-create-post" type="text" onClick={() => setIsCreatingPost(true)}>

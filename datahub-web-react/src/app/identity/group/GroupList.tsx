@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { useLocation } from 'react-router';
 import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { CorpGroup, DataHubRole } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import { useListGroupsQuery } from '../../../graphql/group.generated';
@@ -17,7 +18,6 @@ import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '../../onboarding/config
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { addGroupToListGroupsCache, DEFAULT_GROUP_LIST_PAGE_SIZE, removeGroupFromListGroupsCache } from './cacheUtils';
 import { useListRolesQuery } from '../../../graphql/role.generated';
-import { useTranslation } from 'react-i18next';
 
 const GroupContainer = styled.div`
     display: flex;
@@ -101,15 +101,15 @@ export const GroupList = () => {
         <>
             <OnboardingTour stepIds={[GROUPS_INTRO_ID, GROUPS_CREATE_GROUP_ID]} />
             {!data && loading && <Message type="loading" content="Loading groups..." />}
-            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.groups')})} />}
+            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.groups') })} />}
             <GroupContainer>
                 <TabToolbar>
                     <Button id={GROUPS_CREATE_GROUP_ID} type="text" onClick={() => setIsCreatingGroup(true)}>
-                        <UsergroupAddOutlined /> {t('crud.createWithName', { name: t('common.group')})}
+                        <UsergroupAddOutlined /> {t('crud.createWithName', { name: t('common.group') })}
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText={t('placeholder.searchWithName', { name: t('common.groups')})}
+                        placeholderText={t('placeholder.searchWithName', { name: t('common.groups') })}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,

@@ -74,7 +74,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: t('crud.success.createWithName', { name: t('common.post')}),
+                        content: t('crud.success.createWithName', { name: t('common.post') }),
                         duration: 3,
                     });
                     onCreate(
@@ -90,8 +90,8 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: t('crud.error.createWithName', { name: t('common.post')}),
-                    permissionMessage: t('crud.error.unauthorizedToCreateWithName', { name: t('common.post')}),
+                    defaultMessage: t('crud.error.createWithName', { name: t('common.post') }),
+                    permissionMessage: t('crud.error.unauthorizedToCreateWithName', { name: t('common.post') }),
                 });
             });
         onClose();
@@ -124,7 +124,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: t('crud.success.updatedWithNameReverse', { name: t('common.post')}),
+                        content: t('crud.success.updatedWithNameReverse', { name: t('common.post') }),
                         duration: 3,
                     });
                     onEdit();
@@ -133,8 +133,8 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: t('crud.error.updateWithName', { name: t('common.post')}), duration: 3 });
-                console.error(`${t('crud.error.updateWithName', { name: t('common.post')})}:`, e.message);
+                message.error({ content: t('crud.error.updateWithName', { name: t('common.post') }), duration: 3 });
+                console.error(`${t('crud.error.updateWithName', { name: t('common.post') })}:`, e.message);
             });
         onClose();
     };

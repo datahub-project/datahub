@@ -119,8 +119,10 @@ export const UserList = () => {
     return (
         <>
             <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_INVITE_LINK_ID, USERS_ASSIGN_ROLE_ID]} />
-            {!usersData && loading && <Message type="loading" content={t('common.loadingWithName', { name: t('common.users')})} />}
-            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.users')})} />}
+            {!usersData && loading && (
+                <Message type="loading" content={t('common.loadingWithName', { name: t('common.users') })} />
+            )}
+            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.users') })} />}
             <UserContainer>
                 <TabToolbar>
                     <div>

@@ -26,15 +26,15 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success(t('crud.success.deleteWithName', { name: t('common.post')}));
+                    message.success(t('crud.success.deleteWithName', { name: t('common.post') }));
                     onDelete?.();
                 }
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: t('crud.error.deleteWithName', { name: t('common.post')}),
-                    permissionMessage: t('crud.error.unauthorizedToDeleteWithName', { name: t('common.post')}),
+                    defaultMessage: t('crud.error.deleteWithName', { name: t('common.post') }),
+                    permissionMessage: t('crud.error.unauthorizedToDeleteWithName', { name: t('common.post') }),
                 });
             });
     };
