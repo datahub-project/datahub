@@ -619,7 +619,7 @@ class SQLServerSource(SQLAlchemySource):
 
         path = [
             BrowsePathEntryClass(id=data_job.entity.flow.env),
-            BrowsePathEntryClass(id=data_job.entity.flow.platform_instance or ''),
+            BrowsePathEntryClass(id=data_job.entity.flow.platform_instance or ""),
             BrowsePathEntryClass(id=data_job.entity.flow.db),
         ]
 
@@ -646,7 +646,7 @@ class SQLServerSource(SQLAlchemySource):
 
         path = [
             BrowsePathEntryClass(id=data_flow.entity.env),
-            BrowsePathEntryClass(id=data_flow.entity.platform_instance or ''),
+            BrowsePathEntryClass(id=data_flow.entity.platform_instance or ""),
             BrowsePathEntryClass(id=data_flow.entity.db),
         ]
         if data_flow.entity.schema:
