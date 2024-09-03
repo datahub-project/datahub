@@ -73,7 +73,7 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
                           .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.SECRETS_ENTITY_NAME,
                       query,
-                      null,
+                      (Map<String, String>) null,
                       Collections.singletonList(
                           new SortCriterion()
                               .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)

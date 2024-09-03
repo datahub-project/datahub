@@ -27,6 +27,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -121,6 +122,7 @@ public class DataProductType
   public SearchResults search(
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
+      @Nullable SortCriterion sort,
       int start,
       int count,
       @Nonnull final QueryContext context)

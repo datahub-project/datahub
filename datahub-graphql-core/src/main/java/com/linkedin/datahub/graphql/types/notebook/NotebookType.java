@@ -39,6 +39,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -49,6 +50,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -85,6 +87,7 @@ public class NotebookType
   public SearchResults search(
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
+      @Nullable SortCriterion sort,
       int start,
       int count,
       @Nonnull final QueryContext context)
@@ -92,12 +95,20 @@ public class NotebookType
     // Put empty map here according to
     // https://datahubspace.slack.com/archives/C029A3M079U/p1646288772126639
     final Map<String, String> facetFilters = Collections.emptyMap();
+    final SortCriterion sortCriterion = new SortCriterion();
+    Optional.ofNullable(sort)
+        .ifPresent(
+            s -> {
+              sortCriterion.setField(s.getField());
+              sortCriterion.setOrder(s.getOrder());
+            });
     final SearchResult searchResult =
         _entityClient.search(
             context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             NOTEBOOK_ENTITY_NAME,
             query,
             facetFilters,
+            Collections.singletonList(sortCriterion),
             start,
             count);
     return UrnSearchResultsMapper.map(context, searchResult);

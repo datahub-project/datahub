@@ -61,6 +61,7 @@ public class ListBusinessAttributesResolver
                     Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
                     query,
                     Collections.emptyMap(),
+                    Collections.emptyList(),
                     start,
                     count);
 

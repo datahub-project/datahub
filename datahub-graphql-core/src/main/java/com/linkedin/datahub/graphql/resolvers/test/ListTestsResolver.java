@@ -63,6 +63,7 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                       Constants.TEST_ENTITY_NAME,
                       query,
                       Collections.emptyMap(),
+                      Collections.emptyList(),
                       start,
                       count);
 

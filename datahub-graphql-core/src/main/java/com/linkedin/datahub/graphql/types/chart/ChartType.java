@@ -40,6 +40,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -47,9 +48,11 @@ import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -147,17 +150,28 @@ public class ChartType
   public SearchResults search(
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
+      @Nullable SortCriterion sort,
       int start,
       int count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+
+    final SortCriterion sortCriterion = new SortCriterion();
+    Optional.ofNullable(sort)
+        .ifPresent(
+            s -> {
+              sortCriterion.setField(s.getField());
+              sortCriterion.setOrder(s.getOrder());
+            });
+
     final SearchResult searchResult =
         _entityClient.search(
             context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "chart",
             query,
             facetFilters,
+            Collections.singletonList(sortCriterion),
             start,
             count);
     return UrnSearchResultsMapper.map(context, searchResult);

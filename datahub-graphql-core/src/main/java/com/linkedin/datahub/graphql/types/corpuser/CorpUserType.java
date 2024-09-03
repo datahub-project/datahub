@@ -37,6 +37,7 @@ import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.execution.DataFetcherResult;
@@ -113,16 +114,26 @@ public class CorpUserType
   public SearchResults search(
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
+      @Nullable SortCriterion sort,
       int start,
       int count,
       @Nonnull final QueryContext context)
       throws Exception {
+
+    final SortCriterion sortCriterion = new SortCriterion();
+    Optional.ofNullable(sort)
+        .ifPresent(
+            s -> {
+              sortCriterion.setField(s.getField());
+              sortCriterion.setOrder(s.getOrder());
+            });
     final SearchResult searchResult =
         _entityClient.search(
             context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "corpuser",
             query,
             Collections.emptyMap(),
+            Collections.singletonList(sortCriterion),
             start,
             count);
     return UrnSearchResultsMapper.map(context, searchResult);

@@ -63,7 +63,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     POST_ENTITY_NAME,
                     query,
-                    null,
+                    (Map<String, String>) null,
                     sortCriteria,
                     start,
                     count);

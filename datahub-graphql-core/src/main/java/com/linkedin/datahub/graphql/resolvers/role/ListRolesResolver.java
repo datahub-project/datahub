@@ -58,6 +58,7 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
                     DATAHUB_ROLE_ENTITY_NAME,
                     query,
                     Collections.emptyMap(),
+                    Collections.emptyList(),
                     start,
                     count);
 

@@ -16,6 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -97,6 +98,7 @@ public class DomainType
   public SearchResults search(
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
+      @Nullable SortCriterion sort,
       int start,
       int count,
       @Nonnull final QueryContext context)

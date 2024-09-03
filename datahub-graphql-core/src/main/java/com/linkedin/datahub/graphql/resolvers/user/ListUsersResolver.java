@@ -64,6 +64,7 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
                       CORP_USER_ENTITY_NAME,
                       query,
                       Collections.emptyMap(),
+                      Collections.emptyList(),
                       start,
                       count);
 

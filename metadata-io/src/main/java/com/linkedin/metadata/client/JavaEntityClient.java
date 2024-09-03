@@ -357,6 +357,7 @@ public class JavaEntityClient implements EntityClient {
    *
    * @param input search query
    * @param requestFilters search filters
+   * @param sortCriteria sort criteria
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return a set of search results
@@ -369,6 +370,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
@@ -380,7 +382,7 @@ public class JavaEntityClient implements EntityClient {
             List.of(entity),
             input,
             newFilter(requestFilters),
-            Collections.emptyList(),
+            sortCriteria,
             start,
             count),
         entityService);
