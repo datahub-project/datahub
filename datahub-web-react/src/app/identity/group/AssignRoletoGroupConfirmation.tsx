@@ -44,7 +44,10 @@ export default function AssignRoletoGroupConfirmation({
                     });
                     message.success({
                         content: roleToAssign
-                            ? t('group.assignRoleSuccess', { roleName: translateDisplayNames(t, roleToAssign?.name), groupName })
+                            ? t('group.assignRoleSuccess', {
+                                  roleName: translateDisplayNames(t, roleToAssign?.name),
+                                  groupName,
+                              })
                             : t('user.removeRoleSuccess', { username: groupName }),
                         duration: 2,
                     });
@@ -55,9 +58,10 @@ export default function AssignRoletoGroupConfirmation({
                 message.destroy();
                 message.error({
                     content: roleToAssign
-                        ? `${t('group.assignRoleError', { roleName: translateDisplayNames(t, roleToAssign?.name), groupName })}: \n ${
-                              e.message || ''
-                          }`
+                        ? `${t('group.assignRoleError', {
+                              roleName: translateDisplayNames(t, roleToAssign?.name),
+                              groupName,
+                          })}: \n ${e.message || ''}`
                         : `${t('user.removeRoleError', { username: groupName })}: \n ${e.message || ''}`,
                     duration: 3,
                 });

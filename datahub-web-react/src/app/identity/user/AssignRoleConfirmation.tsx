@@ -37,7 +37,10 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                     });
                     message.success({
                         content: roleToAssign
-                            ? t('user.assignRoleSuccess', { roleName: translateDisplayNames(t, roleToAssign?.name), username })
+                            ? t('user.assignRoleSuccess', {
+                                  roleName: translateDisplayNames(t, roleToAssign?.name),
+                                  username,
+                              })
                             : t('user.removeRoleSuccess', { username }),
                         duration: 2,
                     });
@@ -48,9 +51,10 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                 message.destroy();
                 message.error({
                     content: roleToAssign
-                        ? `${t('user.assignRoleError', { roleName: translateDisplayNames(t, roleToAssign?.name), username })}: \n ${
-                              e.message || ''
-                          }`
+                        ? `${t('user.assignRoleError', {
+                              roleName: translateDisplayNames(t, roleToAssign?.name),
+                              username,
+                          })}: \n ${e.message || ''}`
                         : `${t('user.removeRoleError', { username })}: \n ${e.message || ''}`,
                     duration: 3,
                 });

@@ -3,13 +3,13 @@ import { UserOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { CorpGroup, DataHubRole } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { clearRoleListCache } from '../../permissions/roles/cacheUtils';
 import AssignRoletoGroupConfirmation from './AssignRoletoGroupConfirmation';
 import { mapRoleIcon } from '../user/UserUtils';
 import { translateDisplayNames } from '../../../utils/translation/translation';
-import { useTranslation } from 'react-i18next';
 
 const NO_ROLE_TEXT = 'No Role';
 const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
