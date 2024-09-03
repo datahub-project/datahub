@@ -17,6 +17,7 @@ import { useAppConfig } from '../useAppConfig';
 import { useListUsersQuery } from '../../graphql/user.generated';
 import { OwnerLabel } from '../shared/OwnerLabel';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { useTranslation } from 'react-i18next';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -99,6 +100,7 @@ export enum StatusType {
 }
 
 export const AccessTokens = () => {
+    const { t } = useTranslation();
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [removedTokens, setRemovedTokens] = useState<string[]>([]);
     const [statusFilter, setStatusFilter] = useState(StatusType.ALL);
@@ -205,8 +207,8 @@ export const AccessTokens = () => {
     // Revoke token Handler
     const onRemoveToken = (token: any) => {
         Modal.confirm({
-            title: 'Are you sure you want to revoke this token?',
-            content: `Anyone using this token will no longer be able to access the DataHub API. You cannot undo this action.`,
+            title: t('token.validateTokenRevoke'),
+            content: t('token.validateTokenRevokeDescription'),
             onOk() {
                 // Hack to deal with eventual consistency.
                 const newTokenIds = [...removedTokens, token.id];
@@ -220,7 +222,7 @@ export const AccessTokens = () => {
                     })
                     .catch((e) => {
                         message.destroy();
-                        message.error({ content: `Failed to revoke Token!: \n ${e.message || ''}`, duration: 3 });
+                        message.error({ content: `${t('crud.error.revokeWithName', { name: t('common.token') })}!: \n ${e.message || ''}`, duration: 3 });
                     })
                     .finally(() => {
                         setTimeout(() => {
@@ -229,7 +231,7 @@ export const AccessTokens = () => {
                     });
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });
@@ -249,23 +251,23 @@ export const AccessTokens = () => {
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: t('common.name'),
             dataIndex: 'name',
             key: 'name',
             render: (name: string) => <b>{name}</b>,
         },
         {
-            title: 'Description',
+            title: t('common.description'),
             dataIndex: 'description',
             key: 'description',
             render: (description: string) => description || '',
         },
         {
-            title: 'Expires At',
+            title: t('token.expireAt'),
             dataIndex: 'expiresAt',
             key: 'expiresAt',
             render: (expiresAt: string) => {
-                if (expiresAt === null) return <NeverExpireText>Never</NeverExpireText>;
+                if (expiresAt === null) return <NeverExpireText>{t('duration.never')}</NeverExpireText>;
                 const localeTimezone = getLocaleTimezone();
                 const formattedExpireAt = new Date(expiresAt);
                 return (
@@ -274,7 +276,7 @@ export const AccessTokens = () => {
             },
         },
         {
-            title: 'Owner',
+            title: t('common.owner'),
             dataIndex: 'ownerUrn',
             key: 'ownerUrn',
             render: (ownerUrn: string) => {
@@ -297,7 +299,7 @@ export const AccessTokens = () => {
                         danger
                         data-testid="revoke-token-button"
                     >
-                        Revoke
+                        {t('common.revoke')}
                     </Button>
                 </ActionButtonContainer>
             ),
@@ -314,15 +316,15 @@ export const AccessTokens = () => {
     return (
         <SourceContainer>
             {tokensLoading && !tokensData && (
-                <Message type="loading" content="Loading tokens..." style={{ marginTop: '10%' }} />
+                <Message type="loading" content={t('common.loadingWithName', { name: t('common.tokens')})} style={{ marginTop: '10%' }} />
             )}
-            {tokensError && message.error('Failed to load tokens :(')}
-            {revokeTokenError && message.error('Failed to update the Token :(')}
+            {tokensError && message.error(`${t('crud.error.loadWithName', { name: t('common.tokens') })}  :(`)}
+            {revokeTokenError && message.error(`${t('crud.error.updateWithName', { name: t('common.token') })} :(`)}
             <TokensContainer>
                 <TokensHeaderContainer>
-                    <TokensTitle level={2}>Manage Access Tokens</TokensTitle>
+                    <TokensTitle level={2}>{t('token.manageAccessToken')}</TokensTitle>
                     <Typography.Paragraph type="secondary">
-                        Manage Access Tokens for use with DataHub APIs.
+                        {t('token.manageAccessTokenForUseWithAPI')}
                     </Typography.Paragraph>
                 </TokensHeaderContainer>
             </TokensContainer>
@@ -333,16 +335,14 @@ export const AccessTokens = () => {
                     message={
                         <span>
                             <StyledInfoCircleOutlined />
-                            Token based authentication is currently disabled. Contact your DataHub administrator to
-                            enable this feature.
+                            {t('token.basedAuthIsDisabled')}
                         </span>
                     }
                 />
             )}
-            <Typography.Title level={5}>Personal Access Tokens</Typography.Title>
+            <Typography.Title level={5}>{t('token.personalAccessToken')}</Typography.Title>
             <PersonTokenDescriptionText type="secondary">
-                Personal Access Tokens allow you to make programmatic requests to DataHub&apos;s APIs. They inherit your
-                privileges and have a finite lifespan. Do not share Personal Access Tokens.
+                {t('token.personalAccessTokenDescription')}
             </PersonTokenDescriptionText>
             <TabToolbar>
                 <div>
@@ -352,7 +352,7 @@ export const AccessTokens = () => {
                         data-testid="add-token-button"
                         disabled={!canGeneratePersonalAccessTokens}
                     >
-                        <PlusOutlined /> Generate new token
+                        <PlusOutlined /> {t('token.generateNewToken')}
                     </Button>
                 </div>
                 <SelectContainer>
@@ -360,7 +360,7 @@ export const AccessTokens = () => {
                         <>
                             <StyledSelectOwner
                                 showSearch
-                                placeholder="Search for owner"
+                                placeholder={t('placeholder.searchForWithName', { name: t('common.owner')})}
                                 optionFilterProp="children"
                                 allowClear
                                 filterOption={false}
@@ -370,7 +370,7 @@ export const AccessTokens = () => {
                                 }}
                                 onClear={() => {
                                     setQuery('');
-                                    setOwner('All');
+                                    setOwner(t('common.all'));
                                 }}
                                 onSearch={(value: string) => {
                                     setQuery(value.trim());
@@ -388,10 +388,10 @@ export const AccessTokens = () => {
                             style={{ width: 100 }}
                         >
                             <Select.Option value={StatusType.ALL} key="ALL">
-                                All
+                                {t('common.all')}
                             </Select.Option>
                             <Select.Option value={StatusType.EXPIRED} key="EXPIRED">
-                                Expired
+                                {t('common.expired')}
                             </Select.Option>
                         </StyledSelect>
                     )}
@@ -402,7 +402,7 @@ export const AccessTokens = () => {
                 dataSource={tableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: <Empty description="No Access Tokens!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    emptyText: <Empty description={t('token.noAccessToken')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                 }}
                 pagination={false}
             />

@@ -1,6 +1,7 @@
 import React from 'react';
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { Dropdown, message, Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { MenuIcon } from '../../entity/shared/EntityDropdown/EntityDropdown';
 import { useDeletePostMutation } from '../../../graphql/post.generated';
 import handleGraphQLError from '../../shared/handleGraphQLError';
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
+    const { t } = useTranslation();
     const [deletePostMutation] = useDeletePostMutation();
 
     const deletePost = () => {
@@ -24,28 +26,28 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success('Deleted Post!');
+                    message.success(t('crud.success.deleteWithName', { name: t('common.post')}));
                     onDelete?.();
                 }
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to delete Post! An unexpected error occurred',
-                    permissionMessage: 'Unauthorized to delete Post. Please contact your DataHub administrator.',
+                    defaultMessage: t('crud.error.deleteWithName', { name: t('common.post')}),
+                    permissionMessage: t('crud.error.unauthorizedToDeleteWithName', { name: t('common.post')}),
                 });
             });
     };
 
     const onConfirmDelete = () => {
         Modal.confirm({
-            title: `Delete Post '${title}'`,
-            content: `Are you sure you want to remove this Post?`,
+            title: `${t('crud.deletePost')} '${title}'`,
+            content: t('post.removePostDescription'),
             onOk() {
                 deletePost();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: t('common.yes'),
             maskClosable: true,
             closable: true,
         });
@@ -56,7 +58,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
             key: 'delete',
             label: (
                 <MenuItemStyle onClick={onConfirmDelete}>
-                    <DeleteOutlined /> &nbsp;Delete
+                    <DeleteOutlined /> &nbsp;{t('crud.delete')}
                 </MenuItemStyle>
             ),
         },
@@ -64,7 +66,7 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
             key: 'edit',
             label: (
                 <MenuItemStyle onClick={onEdit}>
-                    <EditOutlined /> &nbsp;Edit
+                    <EditOutlined /> &nbsp;{t('common.edit')}
                 </MenuItemStyle>
             ),
         },
