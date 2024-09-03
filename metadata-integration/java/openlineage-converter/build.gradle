@@ -47,6 +47,10 @@ shadowJar {
     exclude('log4j2.*', 'log4j.*')
 }
 
+jar {
+    archiveClassifier = 'lib'
+}
+
 //task sourcesJar(type: Jar) {
 //    classifier 'sources'
 //    from sourceSets.main.allJava

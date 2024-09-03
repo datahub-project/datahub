@@ -39,6 +39,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+    BigQueryQueriesExtractor,
+    BigQueryQueriesExtractorConfig,
+)
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -51,6 +55,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import QUERIES_EXTRACTION
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -139,6 +144,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = BigqueryLineageExtractor(
             config,
             self.report,
+            schema_resolver=self.sql_parser_schema_resolver,
             identifiers=self.identifiers,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
@@ -196,7 +202,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _init_schema_resolver(self) -> SchemaResolver:
         schema_resolution_required = (
-            self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser
+            self.config.use_queries_v2
+            or self.config.lineage_parse_view_ddl
+            or self.config.lineage_use_sql_parser
         )
         schema_ingestion_enabled = (
             self.config.include_schema_metadata
@@ -244,21 +252,53 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             for project in projects:
                 yield from self.bq_schema_extractor.get_project_workunits(project)
 
-        if self.config.include_usage_statistics:
-            yield from self.usage_extractor.get_usage_workunits(
-                [p.id for p in projects], self.bq_schema_extractor.table_refs
-            )
+        if self.config.use_queries_v2:
+            self.report.set_ingestion_stage("*", "View and Snapshot Lineage")
 
-        if self.config.include_table_lineage:
-            yield from self.lineage_extractor.get_lineage_workunits(
+            yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(
                 [p.id for p in projects],
-                self.sql_parser_schema_resolver,
                 self.bq_schema_extractor.view_refs_by_project,
                 self.bq_schema_extractor.view_definitions,
                 self.bq_schema_extractor.snapshot_refs_by_project,
                 self.bq_schema_extractor.snapshots_by_ref,
-                self.bq_schema_extractor.table_refs,
             )
+
+            self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
+
+            queries_extractor = BigQueryQueriesExtractor(
+                connection=self.config.get_bigquery_client(),
+                schema_api=self.bq_schema_extractor.schema_api,
+                config=BigQueryQueriesExtractorConfig(
+                    window=self.config,
+                    user_email_pattern=self.config.usage.user_email_pattern,
+                    include_lineage=self.config.include_table_lineage,
+                    include_usage_statistics=self.config.include_usage_statistics,
+                    include_operations=self.config.usage.include_operational_stats,
+                    top_n_queries=self.config.usage.top_n_queries,
+                ),
+                structured_report=self.report,
+                filters=self.filters,
+                identifiers=self.identifiers,
+                schema_resolver=self.sql_parser_schema_resolver,
+                discovered_tables=self.bq_schema_extractor.table_refs,
+            )
+            self.report.queries_extractor = queries_extractor.report
+            yield from queries_extractor.get_workunits_internal()
+        else:
+            if self.config.include_usage_statistics:
+                yield from self.usage_extractor.get_usage_workunits(
+                    [p.id for p in projects], self.bq_schema_extractor.table_refs
+                )
+
+            if self.config.include_table_lineage:
+                yield from self.lineage_extractor.get_lineage_workunits(
+                    [p.id for p in projects],
+                    self.bq_schema_extractor.view_refs_by_project,
+                    self.bq_schema_extractor.view_definitions,
+                    self.bq_schema_extractor.snapshot_refs_by_project,
+                    self.bq_schema_extractor.snapshots_by_ref,
+                    self.bq_schema_extractor.table_refs,
+                )
 
     def get_report(self) -> BigQueryV2Report:
         return self.report
