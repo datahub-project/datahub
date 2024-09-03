@@ -467,6 +467,7 @@ class BigQueryV2Config(
         default=True,
         description="Option to enable/disable lineage generation. Is enabled by default.",
     )
+
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
@@ -520,6 +521,30 @@ class BigQueryV2Config(
         description="Number of worker threads to use to parallelize BigQuery Dataset Metadata Extraction."
         " Set to 1 to disable.",
     )
+
+    # include_view_lineage and include_view_column_lineage are inherited from SQLCommonConfig
+    # but not used in bigquery so we hide them from docs.
+    include_view_lineage: bool = Field(default=True, hidden_from_docs=True)
+
+    include_view_column_lineage: bool = Field(default=True, hidden_from_docs=True)
+
+    @root_validator(pre=True)
+    def set_include_schema_metadata(cls, values: Dict) -> Dict:
+        # Historically this is used to disable schema ingestion
+        if (
+            "include_tables" in values
+            and "include_views" in values
+            and not values["include_tables"]
+            and not values["include_views"]
+        ):
+            values["include_schema_metadata"] = False
+            values["include_table_snapshots"] = False
+            logger.info(
+                "include_tables and include_views are both set to False."
+                " Disabling schema metadata ingestion for tables, views, and snapshots."
+            )
+
+        return values
 
     @root_validator(skip_on_failure=True)
     def profile_default_settings(cls, values: Dict) -> Dict:
