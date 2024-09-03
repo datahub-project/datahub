@@ -17,6 +17,7 @@ import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '../../onboarding/config
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { addGroupToListGroupsCache, DEFAULT_GROUP_LIST_PAGE_SIZE, removeGroupFromListGroupsCache } from './cacheUtils';
 import { useListRolesQuery } from '../../../graphql/role.generated';
+import { useTranslation } from 'react-i18next';
 
 const GroupContainer = styled.div`
     display: flex;
@@ -40,6 +41,7 @@ const GroupPaginationContainer = styled.div`
 `;
 
 export const GroupList = () => {
+    const { t } = useTranslation();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -99,15 +101,15 @@ export const GroupList = () => {
         <>
             <OnboardingTour stepIds={[GROUPS_INTRO_ID, GROUPS_CREATE_GROUP_ID]} />
             {!data && loading && <Message type="loading" content="Loading groups..." />}
-            {error && <Message type="error" content="Failed to load groups! An unexpected error occurred." />}
+            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.groups')})} />}
             <GroupContainer>
                 <TabToolbar>
                     <Button id={GROUPS_CREATE_GROUP_ID} type="text" onClick={() => setIsCreatingGroup(true)}>
-                        <UsergroupAddOutlined /> Create group
+                        <UsergroupAddOutlined /> {t('crud.createWithName', { name: t('common.group')})}
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search groups..."
+                        placeholderText={t('placeholder.searchWithName', { name: t('common.groups')})}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -129,7 +131,7 @@ export const GroupList = () => {
                 <GroupStyledList
                     bordered
                     locale={{
-                        emptyText: <Empty description="No Groups!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description={t('group.noGroups')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     dataSource={groups}
                     renderItem={(item: any) => (

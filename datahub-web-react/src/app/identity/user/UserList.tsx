@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import UserListItem from './UserListItem';
 import { Message } from '../../shared/Message';
 import { useListUsersQuery } from '../../../graphql/user.generated';
@@ -112,14 +113,14 @@ export const UserList = () => {
     const loading = usersLoading || rolesLoading;
     const error = usersError || rolesError;
     const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
-
+    const { t } = useTranslation();
     useToggleEducationStepIdsAllowList(canManagePolicies, USERS_INVITE_LINK_ID);
 
     return (
         <>
             <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_INVITE_LINK_ID, USERS_ASSIGN_ROLE_ID]} />
-            {!usersData && loading && <Message type="loading" content="Loading users..." />}
-            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
+            {!usersData && loading && <Message type="loading" content={t('common.loadingWithName', { name: t('common.users')})} />}
+            {error && <Message type="error" content={t('crud.error.loadWithName', { name: t('common.users')})} />}
             <UserContainer>
                 <TabToolbar>
                     <div>
@@ -129,12 +130,12 @@ export const UserList = () => {
                             type="text"
                             onClick={() => setIsViewingInviteToken(true)}
                         >
-                            <UsergroupAddOutlined /> Invite Users
+                            <UsergroupAddOutlined /> {t('user.inviteUser')}
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search users..."
+                        placeholderText={t('common.searchUsers')}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -157,7 +158,7 @@ export const UserList = () => {
                 <UserStyledList
                     bordered
                     locale={{
-                        emptyText: <Empty description="No Users!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description={t('user.noUsers')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     dataSource={usersList}
                     renderItem={(item: any) => (

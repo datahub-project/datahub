@@ -12,6 +12,7 @@ import useDeleteEntity from '../../entity/shared/EntityDropdown/useDeleteEntity'
 import SelectRole from './SelectRole';
 import { USERS_ASSIGN_ROLE_ID } from '../../onboarding/config/UsersOnboardingConfig';
 import { MenuItemStyle } from '../../entity/view/menu/item/styledComponent';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
     user: CorpUser;
@@ -51,6 +52,7 @@ const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 `;
 
 export default function UserListItem({ user, canManageUserCredentials, selectRoleOptions, onDelete, refetch }: Props) {
+    const { t } = useTranslation()
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
@@ -66,7 +68,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
     const getUserStatusToolTip = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
             case CorpUserStatus.Active:
-                return 'The user has logged in.';
+                return t('authentification.userHasLoggedIn');
             default:
                 return '';
         }
@@ -94,7 +96,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                     onClick={() => setIsViewingResetToken(true)}
                     data-testid="reset-menu-item"
                 >
-                    <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
+                    <UnlockOutlined data-testid="resetButton" /> &nbsp; {t('authentification.resetUserPassword')}
                 </MenuItemStyle>
             ),
         },
@@ -102,7 +104,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
             key: 'delete',
             label: (
                 <MenuItemStyle onClick={onDeleteEntity}>
-                    <DeleteOutlined /> &nbsp;Delete
+                    <DeleteOutlined /> &nbsp;{t('crud.delete')}
                 </MenuItemStyle>
             ),
         },

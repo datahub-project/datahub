@@ -85,7 +85,7 @@
         "generatedNewInviteLink": "Novo link de convite gerado",
         "generateNewInviteLinkError": "Falha ao criar Token de Convite para o papel {{roleName}}",
         "generateNewLink": "Gerar um novo link",
-        "generateNewLinkDescription_component": "Gere um novo link de redefinição! Nota: qualquer link antigo deixará de ser ativo.",
+        "generateNewLinkDescription": "Gere um novo link de redefinição! Nota: qualquer link antigo deixará de ser ativo.",
         "generateNewLinkTitle": "Gere um novo link. Qualquer link antigo não será mais válido.",
         "loggingIn": "Entrando",
         "newLinkMustBeGenerated": "Um novo link deve ser gerado",
@@ -97,7 +97,7 @@
         "resetUserPassword": "Redefinir Senha do Usuário",
         "shareInviteLink": "Compartilhar Link de Convite",
         "shareResetLink": "Compartilhar link de redefinição",
-        "shareResetLinkDescription_component": "Compartilhe este link de redefinição para redefinir as credenciais de {{username}}. Este link expirará em 24 horas.",
+        "shareResetLinkDescription": "Compartilhe este link de redefinição para redefinir as credenciais de {{username}}. Este link expirará em 24 horas.",
         "signIn": "Entrar",
         "signingUp": "Inscrevendo-se",
         "signInWithSso": "Entrar com SSO",
@@ -110,6 +110,7 @@
         "onAContainedChart": "em um Gráfico contido"
     },
     "common": {
+        "clone": "Clonar",
         "results": "resultados",
         "of": "de",
         "here": "aqui",
@@ -121,7 +122,7 @@
         "searchRoles": "Pesquisar funções...",
         "searchByName": "Pesquisar por nomes...",
         "expired": "Expirado",
-        "searchUsers": "Buscar usúarios...",
+        "searchUsers": "Buscar usuários...",
         "classification": "Classificação",
         "created": "Criado",
         "Relationships": "Relacionamentos",
@@ -858,6 +859,8 @@
         "emptyGlossaryDescription": "Crie Termos e Grupos de Termos para organizar ativos de dados usando um vocabulário compartilhado."
     },
     "group": {
+        "create": "Criar novo Grupo",
+        "nameDescription": "Dê um nome ao grupo",
         "ownersAdded": "Proprietários adicionados",
         "cantEditBecauseExternalGroup": "A adesão a este grupo não pode ser editada no DataHub, pois origina-se de {{externalGroupType}}",
         "groupId": "ID do Grupo",
@@ -1617,6 +1620,7 @@
         "filterWithName": "Filtrar {{name}}...",
         "groupDescription": "Uma descrição para seu grupo",
         "groupName": "Um nome para seu grupo",
+        "groupOptionalDescription": "Uma descrição opcional para seu grupo",
         "newPolicyDescriptionPlaceHolder": "Sua descrição de política",
         "resourceDescriptionPlaceHolder": "Aplicar a TODOS os recursos por padrão. Selecione recursos específicos para aplicar.",
         "resourceTypeDescriptionPlaceHolder": "Aplicar a TODOS os tipos de recursos por padrão. Selecione tipos para aplicar a tipos específicos de entidades.",
@@ -1879,7 +1883,8 @@
         "noUser": "Nenhum usuário",
         "removeRoleError": "Falha ao remover a função de {{username}}",
         "removeRoleSuccess": "Função removida do usuário {{username}}!",
-        "removeRoleTitle": "Você gostaria de remover a função existente de {{username}}?"
+        "removeRoleTitle": "Você gostaria de remover a função existente de {{username}}?",
+        "noUsers": "Nenhum usuário"
     },
     "message": {
         "noDocumentationYet": "Ainda não há documentação",

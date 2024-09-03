@@ -85,7 +85,7 @@
         "generatedNewInviteLink": "Generated new invite link",
         "generateNewInviteLinkError": "Failed to create Invite Token for role {{roleName}}",
         "generateNewLink": "Generate a new link",
-        "generateNewLinkDescription_component": "Generate a new reset link! Note, any old links will cease to be active.",
+        "generateNewLinkDescription": "Generate a new reset link! Note, any old links will cease to be active.",
         "generateNewLinkTitle": "Generate a new link. Any old links will no longer be valid.",
         "loggingIn": "Logging in",
         "newLinkMustBeGenerated": "A new link must be generated",
@@ -97,7 +97,7 @@
         "resetUserPassword": "Reset User Password",
         "shareInviteLink": "Share Invite Link",
         "shareResetLink": "Share reset link",
-        "shareResetLinkDescription_component": "Share this reset link to reset the credentials for {{username}}. This link will expire in 24 hours.",
+        "shareResetLinkDescription": "Share this reset link to reset the credentials for {{username}}. This link will expire in 24 hours.",
         "signIn": "Sign In",
         "signingUp": "Signing up",
         "signInWithSso": "Sign in with SSO",
@@ -110,6 +110,7 @@
         "onAContainedChart": "on a contained Chart"
     },
     "common": {
+        "clone": "Clone",
         "results": "results",
         "of": "of",
         "here": "here",
@@ -845,6 +846,8 @@
         "emptyGlossaryDescription": "Create Terms and Term Groups to organize data assets using a shared vocabulary."
     },
     "group": {
+        "create": "Create new Group",
+        "nameDescription": "Give your new group a name.",
         "ownersAdded": "Owners Added",
         "cantEditBecauseExternalGroup": "Membership for this group cannot be edited in DataHub as it originates from {{externalGroupType}}",
         "groupId": "Group Id",
@@ -1601,6 +1604,7 @@
         "filterWithName": "Filter {{name}}...",
         "groupDescription": "A description for your group",
         "groupName": "A name for your group",
+        "groupOptionalDescription": "An optional description for your new group.",
         "newPolicyDescriptionPlaceHolder": "Your policy description",
         "resourceDescriptionPlaceHolder": "Apply to ALL resources by default. Select specific resources to apply to.",
         "resourceTypeDescriptionPlaceHolder": "Apply to ALL resource types by default. Select types to apply to specific types of entities.",
@@ -1857,7 +1861,8 @@
         "noUser": "No user",
         "removeRoleError": "Failed to remove role from {{username}}",
         "removeRoleSuccess": "Removed role from user {{username}}!",
-        "removeRoleTitle": "Would you like to remove {{username}}'s existing role?"
+        "removeRoleTitle": "Would you like to remove {{username}}'s existing role?",
+        "noUsers": "No Users"
     },
     "message": {
         "noDocumentationYet": "No documentation yet",

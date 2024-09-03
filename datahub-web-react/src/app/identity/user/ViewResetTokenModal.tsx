@@ -2,6 +2,7 @@ import { RedoOutlined } from '@ant-design/icons';
 import { Button, message, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { PageRoutes } from '../../../conf/Global';
 import { useCreateNativeUserResetTokenMutation } from '../../../graphql/user.generated';
 import analytics, { EventType } from '../../analytics';
@@ -41,6 +42,7 @@ type Props = {
 };
 
 export default function ViewResetTokenModal({ open, userUrn, username, onClose }: Props) {
+    const { t } = useTranslation();
     const baseUrl = window.location.origin;
     const [hasGeneratedResetToken, setHasGeneratedResetToken] = useState(false);
 
@@ -84,7 +86,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
             footer={null}
             title={
                 <Typography.Text>
-                    <b>Reset User Password</b>
+                    <b>{t('authentification.resetUserPassword')}</b>
                 </Typography.Text>
             }
             open={open}
@@ -92,10 +94,9 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
         >
             {hasGeneratedResetToken ? (
                 <ModalSection>
-                    <ModalSectionHeader strong>Share reset link</ModalSectionHeader>
+                    <ModalSectionHeader strong>{t('authentification.shareResetLink')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        Share this reset link to reset the credentials for {username}.
-                        <b>This link will expire in 24 hours.</b>
+                        {t('authentification.shareResetLinkDescription', { username: username })}
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: inviteLink }}>
                         <pre>{inviteLink}</pre>
@@ -103,16 +104,16 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                 </ModalSection>
             ) : (
                 <ModalSection>
-                    <ModalSectionHeader strong>A new link must be generated</ModalSectionHeader>
+                    <ModalSectionHeader strong>{t('authentification.newLinkMustBeGenerated')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        You cannot view any old reset links. Please generate a new one below.
+                        {t('authentification.newLinkMustBeGeneratedDescription')}
                     </ModalSectionParagraph>
                 </ModalSection>
             )}
             <ModalSection>
-                <ModalSectionHeader strong>Generate a new link</ModalSectionHeader>
+                <ModalSectionHeader strong>{t('authentification.generateNewLink')}</ModalSectionHeader>
                 <ModalSectionParagraph>
-                    Generate a new reset link! Note, any old links will <b>cease to be active</b>.
+                    {t('authentification.generateNewLinkDescription')}
                 </ModalSectionParagraph>
                 <CreateResetTokenButton
                     onClick={createNativeUserResetToken}
