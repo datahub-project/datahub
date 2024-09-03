@@ -148,7 +148,7 @@ public class DataJobType
       @Nullable SortCriterion sort,
       int start,
       int count,
-      @Nonnull QueryContext context)
+      @Nonnull final QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
 
@@ -191,7 +191,7 @@ public class DataJobType
       @Nullable List<FacetFilterInput> filters,
       int start,
       int count,
-      @Nonnull final QueryContext context)
+      @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final String pathStr =
