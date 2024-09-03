@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 
 import { HelmetProvider } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { DataFlowEntity } from '../../app/entity/dataFlow/DataFlowEntity';
@@ -32,28 +33,29 @@ type Props = {
     initialEntries?: string[];
 };
 
-export function getTestEntityRegistry() {
+export function getTestEntityRegistry(t?: any) {
     const entityRegistry = new EntityRegistry();
-    entityRegistry.register(new DatasetEntity());
-    entityRegistry.register(new ChartEntity());
-    entityRegistry.register(new DashboardEntity());
-    entityRegistry.register(new UserEntity());
-    entityRegistry.register(new GroupEntity());
+    entityRegistry.register(new DatasetEntity(t));
+    entityRegistry.register(new ChartEntity(t));
+    entityRegistry.register(new DashboardEntity(t));
+    entityRegistry.register(new UserEntity(t));
+    entityRegistry.register(new GroupEntity(t));
     entityRegistry.register(new TagEntity());
-    entityRegistry.register(new DataFlowEntity());
-    entityRegistry.register(new DataJobEntity());
-    entityRegistry.register(new GlossaryTermEntity());
-    entityRegistry.register(new MLFeatureTableEntity());
+    entityRegistry.register(new DataFlowEntity(t));
+    entityRegistry.register(new DataJobEntity(t));
+    entityRegistry.register(new GlossaryTermEntity(t));
+    entityRegistry.register(new MLFeatureTableEntity(t));
     entityRegistry.register(new MLModelEntity());
-    entityRegistry.register(new MLModelGroupEntity());
+    entityRegistry.register(new MLModelGroupEntity(t));
     entityRegistry.register(new DataPlatformEntity());
-    entityRegistry.register(new ContainerEntity());
+    entityRegistry.register(new ContainerEntity(t));
     entityRegistry.register(new BusinessAttributeEntity());
     return entityRegistry;
 }
 
 export default ({ children, initialEntries }: Props) => {
-    const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
+    const { t } = useTranslation();
+    const entityRegistry = useMemo(() => getTestEntityRegistry(t), [t]);
     Object.defineProperty(window.document, 'cookie', {
         writable: true,
         value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:2`,

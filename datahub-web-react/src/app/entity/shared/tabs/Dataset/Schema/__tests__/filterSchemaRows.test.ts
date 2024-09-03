@@ -1,10 +1,12 @@
+import { useTranslation } from 'react-i18next';
 import { glossaryTerm1, sampleTag } from '../../../../../../../Mocks';
 import { SchemaField } from '../../../../../../../types.generated';
 import { getTestEntityRegistry } from '../../../../../../../utils/test-utils/TestPageContainer';
 import { filterSchemaRows } from '../utils/filterSchemaRows';
 
 describe('filterSchemaRows', () => {
-    const testEntityRegistry = getTestEntityRegistry();
+    const { t } = useTranslation();
+    const testEntityRegistry = getTestEntityRegistry(t);
     const rows = [
         { fieldPath: 'customer', description: 'customer description' },
         { fieldPath: 'testing', description: 'testing description' },

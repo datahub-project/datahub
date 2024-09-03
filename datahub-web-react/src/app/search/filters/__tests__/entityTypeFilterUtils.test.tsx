@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
 import {
     LEGACY_ENTITY_FILTER_NAME,
@@ -43,7 +44,8 @@ const mockData = {
 };
 
 describe('getDisplayedFilterOptions', () => {
-    const testEntityRegistry = getTestEntityRegistry();
+    const { t } = useTranslation();
+    const testEntityRegistry = getTestEntityRegistry(t);
     const mockSetSelectedFilterOptions = () => {};
 
     it('should get the list of displayed filter options with nested filters underneath their parents', () => {

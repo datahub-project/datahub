@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { getTestEntityRegistry } from '../../../../../../utils/test-utils/TestPageContainer';
 import { PropertyRow } from '../types';
 import { filterStructuredProperties } from '../utils';
 
 describe('filterSchemaRows', () => {
-    const testEntityRegistry = getTestEntityRegistry();
+    const { t } = useTranslation();
+    const testEntityRegistry = getTestEntityRegistry(t);
     const rows = [
         {
             displayName: 'Has PII',

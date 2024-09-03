@@ -1,5 +1,6 @@
 import { FolderFilled } from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
 import { EntityType } from '../../../../types.generated';
 import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
@@ -116,7 +117,8 @@ describe('filter utils - isAnyOptionSelected', () => {
 });
 
 describe('filter utils - getFilterIconAndLabel', () => {
-    const mockEntityRegistry = getTestEntityRegistry();
+    const { t } = useTranslation();
+    const mockEntityRegistry = getTestEntityRegistry(t);
 
     it('should get the correct icon and label for entity filters', () => {
         const { icon, label } = getFilterIconAndLabel('entity', EntityType.Dataset, mockEntityRegistry, dataset1);
