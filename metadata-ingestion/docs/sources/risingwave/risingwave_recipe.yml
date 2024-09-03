@@ -1,0 +1,21 @@
+source:
+  type: risingwave
+  config:
+    # Coordinates
+    host_port: localhost:4560
+    database: dev
+
+    # Credentials
+    username: user
+    password: pass
+
+    # Optional: SSL configuration.
+    # options:
+    #   connect_args:
+    #     sslcert: "<<path to sslcert>>"
+    #     sslkey: "<<path to sslkey>>"
+    #     sslrootcert: "<<path to verification ca chain>>"
+    #     sslmode: "verify-full"
+
+sink:
+  # sink configs
