@@ -20,12 +20,7 @@ import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
 import jakarta.json.JsonPatch;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -208,8 +203,167 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     return propChangeEvents;
   }
 
-  // TODO: This could use some cleanup, lots of repeated logic and tenuous conditionals
+  private static Map<String, SchemaField> getSchemaFieldMap(SchemaFieldArray fieldArray) {
+    Map<String, SchemaField> fieldMap = new HashMap<>();
+    fieldArray.forEach(schemaField -> fieldMap.put(schemaField.getFieldPath(), schemaField));
+    return fieldMap;
+  }
+
+  private static void processFieldPathDataTypeChange(
+      String baseFieldPath,
+      Urn datasetUrn,
+      ChangeCategory changeCategory,
+      AuditStamp auditStamp,
+      Map<String, SchemaField> baseFieldMap,
+      Map<String, SchemaField> targetFieldMap,
+      Set<String> processedBaseFields,
+      Set<String> processedTargetFields,
+      List<ChangeEvent> changeEvents) {
+    SchemaField curBaseField = baseFieldMap.get(baseFieldPath);
+    if (!targetFieldMap.containsKey(baseFieldPath)) {
+      return;
+    }
+    processedBaseFields.add(baseFieldPath);
+    processedTargetFields.add(baseFieldPath);
+    SchemaField curTargetField = targetFieldMap.get(baseFieldPath);
+    if (!curBaseField.getNativeDataType().equals(curTargetField.getNativeDataType())) {
+      // Non-backward compatible change + Major version bump
+      if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+        changeEvents.add(
+            DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
+                .category(ChangeCategory.TECHNICAL_SCHEMA)
+                .modifier(getSchemaFieldUrn(datasetUrn, curBaseField).toString())
+                .entityUrn(datasetUrn.toString())
+                .operation(ChangeOperation.MODIFY)
+                .semVerChange(SemanticChangeType.MAJOR)
+                .description(
+                    String.format(
+                        "%s native datatype of the field '%s' changed from '%s' to '%s'.",
+                        BACKWARDS_INCOMPATIBLE_DESC,
+                        getFieldPathV1(curTargetField),
+                        curBaseField.getNativeDataType(),
+                        curTargetField.getNativeDataType()))
+                .fieldPath(curBaseField.getFieldPath())
+                .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
+                .nullable(curBaseField.isNullable())
+                .auditStamp(auditStamp)
+                .build());
+      }
+      List<ChangeEvent> propChangeEvents =
+          getFieldPropertyChangeEvents(
+              curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
+      changeEvents.addAll(propChangeEvents);
+    }
+  }
+
+  private static void processFieldPathRename(
+      String baseFieldPath,
+      Urn datasetUrn,
+      ChangeCategory changeCategory,
+      AuditStamp auditStamp,
+      Map<String, SchemaField> baseFieldMap,
+      Map<String, SchemaField> targetFieldMap,
+      Set<String> processedBaseFields,
+      Set<String> processedTargetFields,
+      List<ChangeEvent> changeEvents,
+      Set<SchemaField> renamedFields) {
+
+    List<SchemaField> nonProcessedTargetSchemaFields = new ArrayList<>();
+    targetFieldMap.forEach(
+        (s, schemaField) -> {
+          if (!processedTargetFields.contains(s)) {
+            nonProcessedTargetSchemaFields.add(schemaField);
+          }
+        });
+
+    SchemaField curBaseField = baseFieldMap.get(baseFieldPath);
+    SchemaField renamedField =
+        findRenamedField(curBaseField, nonProcessedTargetSchemaFields, renamedFields);
+    processedBaseFields.add(baseFieldPath);
+    if (renamedField == null) {
+      processRemoval(changeCategory, changeEvents, datasetUrn, curBaseField, auditStamp);
+    } else {
+      if (!ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+        return;
+      }
+      processedTargetFields.add(renamedField.getFieldPath());
+      changeEvents.add(generateRenameEvent(datasetUrn, curBaseField, renamedField, auditStamp));
+      List<ChangeEvent> propChangeEvents =
+          getFieldPropertyChangeEvents(
+              curBaseField, renamedField, datasetUrn, changeCategory, auditStamp);
+      changeEvents.addAll(propChangeEvents);
+    }
+  }
+
+  private static Set<String> getNonProcessedFields(
+      Map<String, SchemaField> fieldMap, Set<String> processedFields) {
+    Set<String> nonProcessedFields = new HashSet<>(fieldMap.keySet());
+    nonProcessedFields.removeAll(processedFields);
+    return nonProcessedFields;
+  }
+
   private static List<ChangeEvent> computeDiffs(
+      SchemaMetadata baseSchema,
+      SchemaMetadata targetSchema,
+      Urn datasetUrn,
+      ChangeCategory changeCategory,
+      AuditStamp auditStamp) {
+    SchemaFieldArray baseFields =
+        (baseSchema != null ? baseSchema.getFields() : new SchemaFieldArray());
+    SchemaFieldArray targetFields =
+        targetSchema != null ? targetSchema.getFields() : new SchemaFieldArray();
+
+    Map<String, SchemaField> baseFieldMap = getSchemaFieldMap(baseFields);
+    Map<String, SchemaField> targetFieldMap = getSchemaFieldMap(targetFields);
+
+    Set<String> processedBaseFields = new HashSet<>();
+    Set<String> processedTargetFields = new HashSet<>();
+
+    List<ChangeEvent> changeEvents = new ArrayList<>();
+    Set<SchemaField> renamedFields = new HashSet<>();
+
+    for (String baseFieldPath : baseFieldMap.keySet()) {
+      processFieldPathDataTypeChange(
+          baseFieldPath,
+          datasetUrn,
+          changeCategory,
+          auditStamp,
+          baseFieldMap,
+          targetFieldMap,
+          processedBaseFields,
+          processedTargetFields,
+          changeEvents);
+    }
+    Set<String> nonProcessedBaseFields = getNonProcessedFields(baseFieldMap, processedBaseFields);
+    for (String baseFieldPath : nonProcessedBaseFields) {
+      processFieldPathRename(
+          baseFieldPath,
+          datasetUrn,
+          changeCategory,
+          auditStamp,
+          baseFieldMap,
+          targetFieldMap,
+          processedBaseFields,
+          processedTargetFields,
+          changeEvents,
+          renamedFields);
+    }
+
+    Set<String> nonProcessedTargetFields =
+        getNonProcessedFields(targetFieldMap, processedTargetFields);
+
+    nonProcessedTargetFields.forEach(
+        fieldPath -> {
+          SchemaField curTargetField = targetFieldMap.get(fieldPath);
+          processAdd(changeCategory, changeEvents, datasetUrn, curTargetField, auditStamp);
+        });
+
+    return changeEvents;
+  }
+
+  // TODO Remove computeDiffs2 after all cases are covered by new computeDiffs
+  // TODO: This could use some cleanup, lots of repeated logic and tenuous conditionals
+  private static List<ChangeEvent> computeDiffs2(
       SchemaMetadata baseSchema,
       SchemaMetadata targetSchema,
       Urn datasetUrn,
@@ -391,8 +545,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static boolean descriptionsMatch(SchemaField curField, SchemaField schemaField) {
-    return StringUtils.isNotBlank(curField.getDescription())
-        && curField.getDescription().equals(schemaField.getDescription());
+    if (StringUtils.isBlank(curField.getDescription())
+        && StringUtils.isBlank(schemaField.getDescription())) {
+      return true;
+    }
+    return curField.getDescription().equals(schemaField.getDescription());
   }
 
   private static void processRemoval(
