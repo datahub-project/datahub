@@ -307,6 +307,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
             "docs/managed-datahub/release-notes/v_0_3_3",
             "docs/managed-datahub/release-notes/v_0_3_2",
@@ -443,6 +444,11 @@ module.exports = {
           type: "doc",
           id: "docs/lineage/openlineage",
           label: "OpenLineage",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/prefect",
+          label: "Prefect",
         },
         {
           type: "doc",
@@ -917,6 +923,7 @@ module.exports = {
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
+    //"metadata-ingestion-modules/prefect-plugin/README"
     //"metadata-ingestion-modules/gx-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
