@@ -1,9 +1,9 @@
 import React from 'react';
-import { DatasetStatsSummary as DatasetStatsSummaryObj } from '../../../../../../types.generated';
-import { useBaseEntity } from '../../../../shared/EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { DatasetStatsSummary } from '../../../shared/DatasetStatsSummary';
+import { DatasetStatsSummary as DatasetStatsSummaryObj } from '../../../../../../types.generated';
 import { getDatasetLastUpdatedMs } from '../../../../../entityV2/shared/utils';
+import { useBaseEntity } from '../../../../shared/EntityContext';
+import { DatasetStatsSummary } from '../../../shared/DatasetStatsSummary';
 
 export const DatasetStatsSummarySubHeader = ({ properties }: { properties?: any }) => {
     const result = useBaseEntity<GetDatasetQuery>();
@@ -11,8 +11,10 @@ export const DatasetStatsSummarySubHeader = ({ properties }: { properties?: any 
 
     const maybeStatsSummary = dataset?.statsSummary as DatasetStatsSummaryObj;
 
-    const maybeLastProfile =
-        dataset?.datasetProfiles && dataset.datasetProfiles.length ? dataset.datasetProfiles[0] : undefined;
+    const latestFullTableProfile = dataset?.latestFullTableProfile?.[0];
+    const latestPartitionProfile = dataset?.latestPartitionProfile?.[0];
+
+    const maybeLastProfile = latestFullTableProfile || latestPartitionProfile || undefined;
 
     const rowCount = maybeLastProfile?.rowCount;
     const columnCount = maybeLastProfile?.columnCount;

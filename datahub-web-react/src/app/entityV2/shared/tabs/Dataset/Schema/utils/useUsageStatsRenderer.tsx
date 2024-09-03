@@ -1,12 +1,12 @@
 import { geekblue } from '@ant-design/colors';
+import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
+import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
-import { DatasetProfile, UsageQueryResult } from '../../../../../../../types.generated';
+import { UsageQueryResult } from '../../../../../../../types.generated';
 // import { ReactComponent as LineageDisabledIcon } from '../../../../../../../images/lineage-disabled-icon.svg';
 import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../../../entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '../../../../constants';
 import { FieldPopularity } from '../components/SchemaFieldDrawer/FieldPopularity';
 
@@ -43,11 +43,10 @@ export default function useUsageStatsRenderer(
     expandedDrawerFieldPath?: string | null,
 ) {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
-    const datasetProfiles =
-        (hasDatasetProfiles && (baseEntity?.dataset?.datasetProfiles as Array<DatasetProfile>)) || undefined;
+    const latestFullTableProfile = baseEntity?.dataset?.latestFullTableProfile?.[0];
+    const latestPartitionProfile = baseEntity?.dataset?.latestPartitionProfile?.[0];
 
-    const latestProfile = datasetProfiles && datasetProfiles[0];
+    const latestProfile = latestFullTableProfile || latestPartitionProfile;
 
     const usageStatsRenderer = (fieldPath: string) => {
         const isFieldSelected = expandedDrawerFieldPath === fieldPath;

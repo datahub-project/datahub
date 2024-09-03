@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '../../../../../../graphql/dataset.generated';
-import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../types.generated';
+import { Operation, UsageQueryResult } from '../../../../../../types.generated';
+import { toLocalDateString, toLocalDateTimeString, toLocalTimeString } from '../../../../../shared/time/timeUtils';
 import { useBaseEntity } from '../../../EntityContext';
-import { toLocalDateString, toLocalTimeString, toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
+import StatsHeader from './StatsHeader';
 import HistoricalStats from './historical/HistoricalStats';
 import { LOOKBACK_WINDOWS } from './lookbackWindows';
 import ColumnStats from './snapshot/ColumnStats';
 import TableStats from './snapshot/TableStats';
-import StatsHeader from './StatsHeader';
 import { ViewType } from './viewType';
 
 export default function StatsTab() {
@@ -22,15 +22,15 @@ export default function StatsTab() {
     });
 
     const hasUsageStats = usageStatsData?.dataset?.usageStats !== undefined;
-    const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
+
     const hasOperations = baseEntity?.dataset?.operations !== undefined;
 
     const usageStats = (hasUsageStats && (usageStatsData?.dataset?.usageStats as UsageQueryResult)) || undefined;
-    const datasetProfiles =
-        (hasDatasetProfiles && (baseEntity?.dataset?.datasetProfiles as Array<DatasetProfile>)) || undefined;
+
+    const latestFullTableProfile = baseEntity?.dataset?.latestFullTableProfile?.[0];
+    const latestPartitionProfile = baseEntity?.dataset?.latestPartitionProfile?.[0];
 
     // Used for rendering latest stats.
-    const latestProfile = datasetProfiles && datasetProfiles[0]; // This is required for showing latest stats.
     const urn = baseEntity && baseEntity.dataset && baseEntity.dataset?.urn;
 
     // Used for rendering operation info.
@@ -38,17 +38,22 @@ export default function StatsTab() {
     const latestOperation = operations && operations[0];
     const lastUpdatedTime = latestOperation && toLocalDateTimeString(latestOperation?.lastUpdatedTimestamp);
     const lastReportedTime = latestOperation && toLocalDateTimeString(latestOperation?.timestampMillis);
-    // Okay so if we are disabled, we don't have both or the other. Let's render
 
-    // const emptyView = <Empty description="TODO: Stats!" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    // Okay so if we are disabled, we don't have both or the other. Let's render
     // Action buttons.
     // Table Stats.
     // Column Stats
 
-    const reportedAt =
-        latestProfile &&
-        `Reported on ${toLocalDateString(latestProfile?.timestampMillis)} at ${toLocalTimeString(
-            latestProfile?.timestampMillis,
+    const fullTableReportedAt =
+        latestFullTableProfile &&
+        `Reported on ${toLocalDateString(latestFullTableProfile?.timestampMillis)} at ${toLocalTimeString(
+            latestFullTableProfile?.timestampMillis,
+        )}`;
+
+    const partitionReportedAt =
+        latestPartitionProfile &&
+        `Reported on ${toLocalDateString(latestPartitionProfile?.timestampMillis)} at ${toLocalTimeString(
+            latestPartitionProfile?.timestampMillis,
         )}`;
 
     const totalSqlQueries = usageStats?.aggregations?.totalSqlQueries;
@@ -56,17 +61,20 @@ export default function StatsTab() {
 
     const statsHeader = (
         <StatsHeader
+            reportedAt={fullTableReportedAt || partitionReportedAt || ''}
             viewType={viewType}
             setViewType={setViewType}
-            reportedAt={reportedAt || ''}
             lookbackWindow={lookbackWindow}
             setLookbackWindow={setLookbackWindow}
         />
     );
 
+    const latestProfile = latestFullTableProfile || latestPartitionProfile;
+
     const latestStats = (
         <>
             <TableStats
+                partitionSpec={latestProfile?.partitionSpec}
                 rowCount={latestProfile?.rowCount || undefined}
                 columnCount={latestProfile?.columnCount || undefined}
                 queryCount={queryCountLast30Days || totalSqlQueries || undefined}
@@ -75,7 +83,10 @@ export default function StatsTab() {
                 lastReportedTime={lastReportedTime || undefined}
             />
             {latestProfile?.fieldProfiles && latestProfile?.fieldProfiles?.length > 0 && (
-                <ColumnStats columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
+                <ColumnStats
+                    partitionSpec={latestProfile?.partitionSpec}
+                    columnStats={(latestProfile && latestProfile.fieldProfiles) || []}
+                />
             )}
         </>
     );

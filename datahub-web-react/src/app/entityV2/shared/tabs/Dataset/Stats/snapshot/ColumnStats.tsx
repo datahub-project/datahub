@@ -2,13 +2,14 @@ import { Typography } from 'antd';
 import { ColumnsType, ColumnType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { DatasetFieldProfile } from '../../../../../../../types.generated';
+import { DatasetFieldProfile, Maybe, PartitionSpec, PartitionType } from '../../../../../../../types.generated';
 import { StyledTable } from '../../../../components/styled/StyledTable';
 import { ANTD_GRAY } from '../../../../constants';
 import SampleValueTag from './SampleValueTag';
 
 type Props = {
     columnStats: Array<DatasetFieldProfile>;
+    partitionSpec?: Maybe<PartitionSpec>;
 };
 
 const StatSection = styled.div`
@@ -30,7 +31,7 @@ const decimalToPercentStr = (decimal: number, precision: number): string => {
     return `${(decimal * 100).toFixed(precision)}%`;
 };
 
-export default function ColumnStats({ columnStats }: Props) {
+export default function ColumnStats({ columnStats, partitionSpec }: Props) {
     const columnStatsTableData = useMemo(
         () =>
             columnStats.map((doc) => ({
@@ -48,6 +49,9 @@ export default function ColumnStats({ columnStats }: Props) {
             })) || [],
         [columnStats],
     );
+
+    // we assume if no partition spec is provided, it's a full table
+    const isPartitioned = partitionSpec && partitionSpec.type !== PartitionType.FullTable;
 
     /**
      * Returns a placeholder value to show in the column data table when data is null.
@@ -161,7 +165,9 @@ export default function ColumnStats({ columnStats }: Props) {
 
     return (
         <StatSection>
-            <Typography.Title level={5}>Column Stats</Typography.Title>
+            <Typography.Title level={5}>
+                {isPartitioned ? `Column Stats for Partition ${partitionSpec.partition}` : 'Column Stats'}
+            </Typography.Title>
             <StyledTable pagination={false} columns={columnStatsColumns} dataSource={columnStatsTableData} />
         </StatSection>
     );

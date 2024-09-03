@@ -2,9 +2,10 @@ import { Button, Modal, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { DatasetProfile } from '../../../../../../../../types.generated';
+import { formatBytes, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
+import { FULL_TABLE_PARTITION_KEYS } from '../../constants';
 import ColumnStats from '../../snapshot/ColumnStats';
 import TableStats from '../../snapshot/TableStats';
-import { formatBytes, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
 
 export const ChartTable = styled(Table)`
     margin-top: 16px;
@@ -12,6 +13,7 @@ export const ChartTable = styled(Table)`
 
 export type Props = {
     profiles: Array<DatasetProfile>;
+    areAllProfilesPartitioned: boolean;
 };
 
 const bytesFormatter = (bytes: number) => {
@@ -20,7 +22,7 @@ const bytesFormatter = (bytes: number) => {
     return `${formattedBytes.number} ${formattedBytes.unit} (${fullBytes} bytes)`;
 };
 
-export default function ProfilingRunsChart({ profiles }: Props) {
+export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned }: Props) {
     const [showModal, setShowModal] = useState(false);
     const [selectedProfileIndex, setSelectedProfileIndex] = useState(-1);
 
@@ -41,18 +43,21 @@ export default function ProfilingRunsChart({ profiles }: Props) {
             rowCount: profile.rowCount?.toString() || 'unknown',
             columnCount: profile.columnCount?.toString() || 'unknown',
             sizeInBytes: profile.sizeInBytes ? bytesFormatter(profile.sizeInBytes) : 'unknown',
+            partition: profile.partitionSpec?.partition || '',
         };
     });
 
     const tableColumns = [
         {
-            title: 'Date',
+            title: areAllProfilesPartitioned ? 'Partition' : 'Date',
             key: 'Date',
             dataIndex: 'timestamp',
             render: (title, record, index) => {
                 return (
                     <Button type="text" onClick={() => showProfileModal(index)}>
-                        <Typography.Text underline>{title}</Typography.Text>
+                        <Typography.Text underline>
+                            {FULL_TABLE_PARTITION_KEYS.includes(record.partition) ? title : record.partition}
+                        </Typography.Text>
                     </Button>
                 );
             },

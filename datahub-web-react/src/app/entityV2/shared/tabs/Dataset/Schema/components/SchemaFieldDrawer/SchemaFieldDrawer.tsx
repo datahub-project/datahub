@@ -5,23 +5,22 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '../../../../../../../../graphql/dataset.generated';
 import {
-    DatasetProfile,
     EditableSchemaMetadata,
     SchemaField,
     TimeWindow,
     UsageQueryResult,
 } from '../../../../../../../../types.generated';
 import { useBaseEntity } from '../../../../../../../entity/shared/EntityContext';
+import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
 import { REDESIGN_COLORS } from '../../../../../constants';
+import { PropertiesTab } from '../../../../Properties/PropertiesTab';
 import { SchemaTimelineSection } from '../../../Timeline/SchemaTimelineSection';
 import { AboutFieldTab } from './AboutFieldTab';
 import DrawerFooter from './DrawerFooter';
 import FieldHeader from './FieldHeader';
 import { SchemaFieldDrawerTabs } from './SchemaFieldDrawerTabs';
-import StatsSidebarView from './StatsSidebarView';
-import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
-import { PropertiesTab } from '../../../../Properties/PropertiesTab';
 import SchemaFieldQueriesSidebarTab from './SchemaFieldQueriesSidebarTab';
+import StatsSidebarView from './StatsSidebarView';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -107,11 +106,11 @@ export default function SchemaFieldDrawer({
         expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? displayedRows[expandedFieldIndex] : undefined;
 
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
-    const datasetProfiles =
-        (hasDatasetProfiles && (baseEntity?.dataset?.datasetProfiles as Array<DatasetProfile>)) || undefined;
+    const latestFullTableProfile = baseEntity?.dataset?.latestFullTableProfile?.[0];
+    const latestPartitionProfile = baseEntity?.dataset?.latestPartitionProfile?.[0];
 
-    const latestProfile = datasetProfiles && datasetProfiles[0];
+    const latestProfile = latestFullTableProfile || latestPartitionProfile;
+
     const fieldProfile = latestProfile?.fieldProfiles?.find(
         (profile) => profile.fieldPath === expandedField?.fieldPath,
     );

@@ -1,15 +1,15 @@
+import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
 
 import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
+import CompactContext from '../../../../../../../shared/CompactContext';
+import { formatBytes, formatNumber, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
+import { REDESIGN_COLORS } from '../../../../../constants';
 import { getPopularityColumn, SidebarStatsColumn } from '../../../utils';
-import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
 import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';
 import { getDatasetPopularityTier, isValuePresent, userExists } from '../../shared/utils';
-import CompactContext from '../../../../../../../shared/CompactContext';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import { formatBytes, formatNumber, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
+import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
 
 const StatContent = styled.div`
     color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};
@@ -24,6 +24,11 @@ const SidebarDatasetHeaderSection = () => {
     const isCompact = React.useContext(CompactContext);
 
     const columns: SidebarStatsColumn[] = [];
+
+    const latestFullTableProfile = dataset?.latestFullTableProfile?.[0];
+    const latestPartitionProfile = dataset?.latestPartitionProfile?.[0];
+
+    const maybeLastProfile = latestFullTableProfile || latestPartitionProfile || undefined;
 
     /**
      * Popularity tab
@@ -96,15 +101,15 @@ const SidebarDatasetHeaderSection = () => {
     /**
      * Rows column
      */
-    if (isValuePresent(dataset?.datasetProfiles?.[0]?.rowCount)) {
+    if (isValuePresent(maybeLastProfile?.rowCount)) {
         columns.push({
             title: 'Rows',
             content: (
                 <Tooltip
                     showArrow={false}
-                    title={`${formatNumberWithoutAbbreviation(dataset?.datasetProfiles?.[0]?.rowCount)} rows`}
+                    title={`${formatNumberWithoutAbbreviation(maybeLastProfile?.rowCount)} rows`}
                 >
-                    <StatContent>{formatNumber(dataset?.datasetProfiles[0]?.rowCount)} rows</StatContent>
+                    <StatContent>{formatNumber(maybeLastProfile?.rowCount)} rows</StatContent>
                 </Tooltip>
             ),
         });
@@ -113,18 +118,18 @@ const SidebarDatasetHeaderSection = () => {
     /**
      * Column column
      */
-    if (isValuePresent(dataset?.datasetProfiles?.[0]?.columnCount)) {
+    if (isValuePresent(maybeLastProfile?.columnCount)) {
         columns.push({
             title: 'Columns',
-            content: <StatContent>{formatNumber(dataset?.datasetProfiles[0]?.columnCount)} columns</StatContent>,
+            content: <StatContent>{formatNumber(maybeLastProfile?.columnCount)} columns</StatContent>,
         });
     }
 
     /**
      * Size column
      */
-    if (isValuePresent(dataset?.datasetProfiles?.[0]?.sizeInBytes)) {
-        const formattedBytes = formatBytes(dataset?.datasetProfiles[0]?.sizeInBytes, 0);
+    if (isValuePresent(maybeLastProfile?.sizeInBytes)) {
+        const formattedBytes = formatBytes(maybeLastProfile?.sizeInBytes, 0);
         const { number, unit } = formattedBytes;
         columns.push({
             title: 'Size',
@@ -132,7 +137,7 @@ const SidebarDatasetHeaderSection = () => {
                 <Tooltip
                     showArrow={false}
                     title={`Consumes ${formatNumberWithoutAbbreviation(
-                        dataset?.datasetProfiles[0]?.sizeInBytes,
+                        maybeLastProfile?.sizeInBytes,
                     )} bytes of storage.`}
                 >
                     <StatContent>

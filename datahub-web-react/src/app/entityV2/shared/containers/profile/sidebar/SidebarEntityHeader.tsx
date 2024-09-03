@@ -5,6 +5,7 @@ import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
 import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
+import StaticSearchCardBrowsePath from '../../../../../previewV2/StaticSearchCardBrowsePath';
 import useContentTruncation from '../../../../../shared/useContentTruncation';
 import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -14,7 +15,6 @@ import EntityName from '../header/EntityName';
 import ContainerIcon from '../header/PlatformContent/ContainerIcon';
 import PlatformHeaderIcons from '../header/PlatformContent/PlatformHeaderIcons';
 import { getDisplayedEntityType } from '../header/utils';
-import StaticSearchCardBrowsePath from '../../../../../previewV2/StaticSearchCardBrowsePath';
 
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;
