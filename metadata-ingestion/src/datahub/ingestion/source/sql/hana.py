@@ -16,7 +16,8 @@ from sqlalchemy.engine.reflection import Inspector
 from datahub.configuration.common import AllowDenyPattern
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.utilities.urns.corpuser_urn import CorpuserUrn
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance, make_data_platform_urn, make_user_urn
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -39,10 +40,20 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TimeStampClass
 )
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator, KnownQueryLineageInfo
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
-from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, SqlWorkUnit, SQLSourceReport
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_data_platform_urn,
+    make_user_urn
+)
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    SqlParsingAggregator,
+    KnownQueryLineageInfo
+)
+from datahub.ingestion.source.sql.sql_common import (
+    SQLAlchemySource,
+    SqlWorkUnit,
+    SQLSourceReport
+)
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     UpstreamClass,
@@ -111,7 +122,9 @@ class BaseHanaConfig(BasicSQLAlchemyConfig):
     )
     max_workers: int = Field(
         default=5,
-        description="Maximum concurrent SQL connections to the SAP Hana instance."
+        description=(
+            "Maximum concurrent SQL connections to the SAP Hana instance."
+        ),
     )
 
 
@@ -125,7 +138,9 @@ class HanaConfig(BaseHanaConfig):
     )
     database: Optional[str] = Field(
         default=None,
-        description="database (catalog). If set to Null, all databases will be considered for ingestion.",
+        description=(
+            "database (catalog). If set to Null, all databases will be considered for ingestion."
+        ),
     )
 
 
@@ -191,7 +206,7 @@ class HanaSource(SQLAlchemySource):
             name=view,
             description=definition_and_description[1],
             created=TimeStampClass(
-               time=int(definition_and_description[2].timestamp())*1000
+                time=int(definition_and_description[2].timestamp()) * 1000
             ),
             customProperties={
                 "View Type": definition_and_description[3],
@@ -203,7 +218,8 @@ class HanaSource(SQLAlchemySource):
             SELECT LOWER(BASE_SCHEMA_NAME) as BASE_SCHEMA_NAME,
             LOWER(BASE_OBJECT_NAME) AS BASE_OBJECT_NAME
             FROM SYS.OBJECT_DEPENDENCIES
-            WHERE LOWER(DEPENDENT_SCHEMA_NAME) = '{schema.lower()}' AND LOWER(DEPENDENT_OBJECT_NAME) = '{table_or_view.lower()}'
+            WHERE LOWER(DEPENDENT_SCHEMA_NAME) = '{schema.lower()}'
+            AND LOWER(DEPENDENT_OBJECT_NAME) = '{table_or_view.lower()}'
         """
         return self.engine.execute(query).fetchall()
 
@@ -239,7 +255,7 @@ class HanaSource(SQLAlchemySource):
         ]
 
     def get_query_logs(self) -> List[Dict]:
-        query = f"""
+        query = """
             SELECT STATEMENT_STRING,
             USER_NAME, LAST_EXECUTION_TIMESTAMP
             FROM SYS.M_SQL_PLAN_CACHE"""
@@ -247,7 +263,7 @@ class HanaSource(SQLAlchemySource):
         return [dict(row) for row in result]
 
     def get_package_names(self) -> List[dict]:
-        query = f"""
+        query = """
             SELECT
             PACKAGE_ID,
             OBJECT_NAME,
@@ -263,7 +279,7 @@ class HanaSource(SQLAlchemySource):
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
         pass
 
-    def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
+    def get_allowed_schemas(self, inspector: Inspector) -> Iterable[str]:
         # this function returns the schema names which are filtered by schema_pattern.
         for schema in self.get_schema_names(inspector):
             if not self.config.schema_pattern.allowed(schema):
@@ -422,7 +438,7 @@ class HanaSource(SQLAlchemySource):
             schema_metadata,
             view_properties,
             subtype
-                 ]
+        ]
 
         if lineage:
             aspects.append(lineage)
@@ -500,8 +516,6 @@ class HanaSource(SQLAlchemySource):
         ]
         return UpstreamLineageClass(upstreams=upstream)
 
-
-
     def _process_calculation_view(
             self,
             dataset_path: str,
@@ -516,12 +530,21 @@ class HanaSource(SQLAlchemySource):
             platform_instance=self.config.platform_instance,
             env=self.config.env
         )
-        root = xml.etree.ElementTree.fromstring(dataset_definition)
+
+        try:
+            logging.info(f"Dataset definition for {dataset_path}.{dataset_name}: {dataset_definition}")
+            root = xml.etree.ElementTree.fromstring(dataset_definition)
+        except Exception as e:
+            logging.error(e)
+            root = None
+
         ns = {
             'Calculation': 'http://www.sap.com/ndb/BiModelCalculation.ecore',
             'xsi': 'http://www.w3.org/2001/XMLSchema-instance'
         }
-        lineage = self.get_calculation_view_lineage(root=root, ns=ns, dataset_path=dataset_path, dataset_name=dataset_name)
+        if root:
+            lineage = self.get_calculation_view_lineage(root=root, ns=ns, dataset_path=dataset_path,
+                                                        dataset_name=dataset_name)
 
         columns = self.get_columns(inspector=inspector, schema=schema, table_or_view=dataset_name)
 
