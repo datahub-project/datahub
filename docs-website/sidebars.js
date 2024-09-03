@@ -881,89 +881,89 @@ module.exports = {
         {
           label: "Business Attributes",
           type: "doc",
-          id: "docs/managed-datahub/businessattributes",
+          id: "docs/managed-datahub/generated/businessattributes",
         },
         {
           label: "Business Glossary",
           type: "doc",
-          id: "docs/managed-datahub/glossary/business-glossary",
+          id: "docs/managed-datahub/generated/glossary/business-glossary",
         },
-        "docs/managed-datahub/features/feature-guides/documentation-forms",
+        "docs/managed-datahub/generated/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
-          id: "docs/managed-datahub/domains",
+          id: "docs/managed-datahub/generated/domains",
         },
         {
           label: "Ingestion",
           type: "doc",
-          id: "docs/managed-datahub/ui-ingestion",
+          id: "docs/managed-datahub/generated/ui-ingestion",
         },
         {
           label: "Lineage",
           type: "category",
           link: {
             type: "doc",
-            id: "docs/managed-datahub/generated/lineage/lineage-feature-guide",
+            id: "docs/managed-datahub/generated/generated/lineage/lineage-feature-guide",
           },
           items: [
             {
               label: "Lineage Impact analysis",
               type: "doc",
-              id: "docs/managed-datahub/act-on-metadata/impact-analysis",
+              id: "docs/managed-datahub/generated/act-on-metadata/impact-analysis",
             },
             {
               label: "Managing Lineage via UI",
               type: "doc",
-              id: "docs/managed-datahub/features/feature-guides/ui-lineage",
+              id: "docs/managed-datahub/generated/features/feature-guides/ui-lineage",
             },
           ],
         },
         {
           label: "Properties",
           type: "doc",
-          id: "docs/managed-datahub/features/feature-guides/properties",
+          id: "docs/managed-datahub/generated/features/feature-guides/properties",
         },
         {
           label: "Schema history",
           type: "doc",
-          id: "docs/managed-datahub/schema-history",
+          id: "docs/managed-datahub/generated/schema-history",
         },
         {
           label: "Search",
           type: "doc",
-          id: "docs/managed-datahub/how/search",
+          id: "docs/managed-datahub/generated/how/search",
         },
         {
           label: "Tags",
           type: "doc",
-          id: "docs/managed-datahub/tags",
+          id: "docs/managed-datahub/generated/tags",
         },
-        "docs/managed-datahub/features/dataset-usage-and-query-history",
+        "docs/managed-datahub/generated/features/dataset-usage-and-query-history",
       ],
     },
     {
       type: "category",
       label: "Data Governance",
       items: [
-        "docs/managed-datahub/approval-workflows",
-        "docs/managed-datahub/chrome-extension",
+        "docs/managed-datahub/generated/approval-workflows",
+        "docs/managed-datahub/generated/chrome-extension",
         {
           label: "Data Contract",
           type: "doc",
-          id: "docs/managed-datahub/observe/data-contract",
+          id: "docs/managed-datahub/generated/observe/data-contract",
         },
         {
           label: "Ownership",
           type: "doc",
-          id: "docs/managed-datahub/ownership/ownership-types",
+          id: "docs/managed-datahub/generated/ownership/ownership-types",
         },
         {
           label: "Policies",
           type: "doc",
-          id: "docs/managed-datahub/authorization/access-policies-guide",
+          id: "docs/managed-datahub/generated/authorization/access-policies-guide",
         },
-        "docs/managed-datahub/posts",
+        "docs/managed-datahub/generated/posts",
       ],
     },
     {
@@ -973,36 +973,39 @@ module.exports = {
         {
           label: "Assertions",
           type: "category",
-          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/generated/observe/assertions",
+          },
           items: [
             {
               label: "Column Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/column-assertions",
+              id: "docs/managed-datahub/generated/observe/column-assertions",
               className: "saasOnly",
             },
             {
               label: "Custom SQL Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/custom-sql-assertions",
+              id: "docs/managed-datahub/generated/observe/custom-sql-assertions",
               className: "saasOnly",
             },
             {
               label: "Freshness Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/freshness-assertions",
+              id: "docs/managed-datahub/generated/observe/freshness-assertions",
               className: "saasOnly",
             },
             {
               label: "Schema Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/schema-assertions",
+              id: "docs/managed-datahub/generated/observe/schema-assertions",
               className: "saasOnly",
             },
             {
               label: "Volume Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
+              id: "docs/managed-datahub/generated/observe/volume-assertions",
               className: "saasOnly",
             },
             {
@@ -1010,13 +1013,13 @@ module.exports = {
               type: "category",
               link: {
                 type: "doc",
-                id: "docs/managed-datahub/assertions/open-assertions-spec",
+                id: "docs/managed-datahub/generated/assertions/open-assertions-spec",
               },
               items: [
                 {
                   label: "Snowflake",
                   type: "doc",
-                  id: "docs/managed-datahub/assertions/snowflake/snowflake_dmfs",
+                  id: "docs/managed-datahub/generated/assertions/snowflake/snowflake_dmfs",
                 },
               ],
             },
@@ -1025,17 +1028,17 @@ module.exports = {
         {
           label: "Data Products",
           type: "doc",
-          id: "docs/managed-datahub/dataproducts",
+          id: "docs/managed-datahub/generated/dataproducts",
         },
         {
           label: "Incidents",
           type: "doc",
-          id: "docs/managed-datahub/incidents/incidents",
+          id: "docs/managed-datahub/generated/incidents/incidents",
         },
         {
           label: "Sync Status", // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
           type: "doc",
-          id: "docs/managed-datahub/sync-status",
+          id: "docs/managed-datahub/generated/sync-status",
         },
       ],
     },
@@ -1044,24 +1047,24 @@ module.exports = {
         {
           label: "Subscriptions & Notifications",
           type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
+          id: "docs/managed-datahub/generated/subscription-and-notification",
           className: "saasOnly",
         },
         {
           Slack: [
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-setup",
+              id: "docs/managed-datahub/generated/slack/saas-slack-setup",
               className: "saasOnly",
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-app",
+              id: "docs/managed-datahub/generated/slack/saas-slack-app",
               className: "saasOnly",
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+              id: "docs/managed-datahub/generated/slack/saas-slack-troubleshoot",
               className: "saasOnly",
             },
           ],
@@ -1123,17 +1126,17 @@ module.exports = {
         // collapse these; add push-based at top
         {
           type: "doc",
-          id: "docs/managed-datahub/lineage/airflow",
+          id: "docs/managed-datahub/generated/lineage/airflow",
           label: "Airflow",
         },
         {
           type: "doc",
-          id: "docs/managed-datahub/lineage/dagster",
+          id: "docs/managed-datahub/generated/lineage/dagster",
           label: "Dagster",
         },
         {
           type: "doc",
-          id: "docs/managed-datahub/lineage/openlineage",
+          id: "docs/managed-datahub/generated/lineage/openlineage",
           label: "OpenLineage",
         },
         {
@@ -1148,7 +1151,7 @@ module.exports = {
         //"metadata-ingestion/source-docs-template",
         {
           type: "autogenerated",
-          dirName: "docs/managed-datahub/generated/ingestion/sources", // '.' means the current docs folder
+          dirName: "docs/managed-datahub/generated/generated/ingestion/sources", // '.' means the current docs folder
         },
       ],
     },
@@ -1162,8 +1165,7 @@ module.exports = {
             "docs/managed-datahub/metadata-ingestion/schedule_docs/kubernetes",
           ],
         },
-
-        "docs/managed-datahub/platform-instances",
+        "docs/managed-datahub/generated/platform-instances",
         "docs/managed-datahub/metadata-ingestion/docs/dev_guides/stateful",
         "docs/managed-datahub/metadata-ingestion/docs/dev_guides/classification",
         "docs/managed-datahub/metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
@@ -1176,28 +1178,28 @@ module.exports = {
       value: "<div>Admin</div>",
       defaultStyle: true,
     },
-    "docs/managed-datahub/authentication/guides/add-users",
-    "docs/managed-datahub/authentication/personal-access-tokens",
+    "docs/managed-datahub/generated/authentication/guides/add-users",
+    "docs/managed-datahub/generated/authentication/personal-access-tokens",
     {
       Authorization: [
-        "docs/managed-datahub/authorization/README",
-        "docs/managed-datahub/authorization/roles",
-        "docs/managed-datahub/authorization/policies",
-        "docs/managed-datahub/authorization/groups",
+        "docs/managed-datahub/generated/authorization/README",
+        "docs/managed-datahub/generated/authorization/roles",
+        "docs/managed-datahub/generated/authorization/policies",
+        "docs/managed-datahub/generated/authorization/groups",
       ],
     },
     {
       "Advanced Guides": [
-        "docs/managed-datahub/how/delete-metadata",
+        "docs/managed-datahub/generated/how/delete-metadata",
         {
           type: "doc",
-          id: "docs/managed-datahub/integrations/aws-privatelink",
+          id: "docs/managed-datahub/generated/integrations/aws-privatelink",
           label: "AWS PrivateLink Intergration",
           className: "saasOnly",
         },
         {
           type: "doc",
-          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          id: "docs/managed-datahub/generated/integrations/oidc-sso-integration",
           className: "saasOnly",
         },
         {
@@ -1219,23 +1221,23 @@ module.exports = {
     },
     {
       Architecture: [
-        "docs/managed-datahub/architecture/architecture",
-        "docs/managed-datahub/components",
-        "docs/managed-datahub/architecture/metadata-ingestion",
-        "docs/managed-datahub/architecture/metadata-serving",
-        "docs/managed-datahub/architecture/docker-containers",
+        "docs/managed-datahub/generated/architecture/architecture",
+        "docs/managed-datahub/generated/components",
+        "docs/managed-datahub/generated/architecture/metadata-ingestion",
+        "docs/managed-datahub/generated/architecture/metadata-serving",
+        "docs/managed-datahub/generated/architecture/docker-containers",
       ],
     },
     {
       "Metadata Model": [
-        "docs/managed-datahub/modeling/metadata-model",
-        "docs/managed-datahub/modeling/extending-the-metadata-model",
-        "docs/managed-datahub/what/mxe",
+        "docs/managed-datahub/generated/modeling/metadata-model",
+        "docs/managed-datahub/generated/modeling/extending-the-metadata-model",
+        "docs/managed-datahub/generated/what/mxe",
         {
           Entities: [
             {
               type: "autogenerated",
-              dirName: "docs/managed-datahub/generated/metamodel/entities", // '.' means the current docs folder
+              dirName: "docs/managed-datahub/generated/generated/metamodel/entities", // '.' means the current docs folder
             },
           ],
         },
@@ -1248,7 +1250,10 @@ module.exports = {
     },
     {
       type: "category",
-      link: { type: "doc", id: "docs/managed-datahub/api/datahub-apis" },
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/generated/api/datahub-apis",
+      },
       label: "API",
       items: [
         {
@@ -1256,7 +1261,7 @@ module.exports = {
             {
               label: "Overview",
               type: "doc",
-              id: "docs/managed-datahub/api/graphql/overview",
+              id: "docs/managed-datahub/generated/api/graphql/overview",
             },
             {
               type: "doc",
@@ -1312,17 +1317,17 @@ module.exports = {
                 {
                   type: "doc",
                   label: "How To Set Up GraphQL",
-                  id: "docs/managed-datahub/api/graphql/how-to-set-up-graphql",
+                  id: "docs/managed-datahub/generated/api/graphql/how-to-set-up-graphql",
                 },
                 {
                   type: "doc",
                   label: "Getting Started With GraphQL",
-                  id: "docs/managed-datahub/api/graphql/getting-started",
+                  id: "docs/managed-datahub/generated/api/graphql/getting-started",
                 },
                 {
                   type: "doc",
                   label: "Access Token Management",
-                  id: "docs/managed-datahub/api/graphql/token-management",
+                  id: "docs/managed-datahub/generated/api/graphql/token-management",
                 },
               ],
             },
@@ -1333,7 +1338,7 @@ module.exports = {
             {
               type: "doc",
               label: "OpenAPI",
-              id: "docs/managed-datahub/api/openapi/openapi-usage-guide",
+              id: "docs/managed-datahub/generated/api/openapi/openapi-usage-guide",
             },
           ],
         },
@@ -1342,43 +1347,43 @@ module.exports = {
           id: "docs/managed-datahub/datahub-api/entity-events-api",
           className: "saasOnly",
         },
-        "docs/managed-datahub/dev-guides/timeline",
+        "docs/managed-datahub/generated/dev-guides/timeline",
         {
           "Rest.li API": [
             {
               type: "doc",
               label: "Rest.li API Guide",
-              id: "docs/managed-datahub/api/restli/restli-overview",
+              id: "docs/managed-datahub/generated/api/restli/restli-overview",
             },
             {
               type: "doc",
               label: "Restore Indices",
-              id: "docs/managed-datahub/api/restli/restore-indices",
+              id: "docs/managed-datahub/generated/api/restli/restore-indices",
             },
             {
               type: "doc",
               label: "Get Index Sizes",
-              id: "docs/managed-datahub/api/restli/get-index-sizes",
+              id: "docs/managed-datahub/generated/api/restli/get-index-sizes",
             },
             {
               type: "doc",
               label: "Truncate Timeseries Aspect",
-              id: "docs/managed-datahub/api/restli/truncate-time-series-aspect",
+              id: "docs/managed-datahub/generated/api/restli/truncate-time-series-aspect",
             },
             {
               type: "doc",
               label: "Get ElasticSearch Task Status Endpoint",
-              id: "docs/managed-datahub/api/restli/get-elastic-task-status",
+              id: "docs/managed-datahub/generated/api/restli/get-elastic-task-status",
             },
             {
               type: "doc",
               label: "Evaluate Tests",
-              id: "docs/managed-datahub/api/restli/evaluate-tests",
+              id: "docs/managed-datahub/generated/api/restli/evaluate-tests",
             },
             {
               type: "doc",
               label: "Aspect Versioning and Rest.li Modeling",
-              id: "docs/managed-datahub/advanced/aspect-versioning",
+              id: "docs/managed-datahub/generated/advanced/aspect-versioning",
             },
           ],
         },
@@ -1412,64 +1417,69 @@ module.exports = {
       type: "category",
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
-      items: ["docs/managed-datahub/datahub_lite"],
+      items: ["docs/managed-datahub/generated/datahub_lite"],
     },
     {
       type: "category",
       label: "Datahub Actions",
-      link: { type: "doc", id: "docs/managed-datahub/act-on-metadata" },
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/generated/act-on-metadata",
+      },
       items: [
-        "docs/managed-datahub/actions/README",
-        "docs/managed-datahub/actions/quickstart",
-        "docs/managed-datahub/actions/concepts",
+        "docs/managed-datahub/generated/actions/README",
+        "docs/managed-datahub/generated/actions/quickstart",
+        "docs/managed-datahub/generated/actions/concepts",
         {
-          Sources: ["docs/managed-datahub/actions/sources/kafka-event-source"],
+          Sources: [
+            "docs/managed-datahub/generated/actions/sources/kafka-event-source",
+          ],
         },
         {
           Events: [
-            "docs/managed-datahub/actions/events/entity-change-event",
-            "docs/managed-datahub/actions/events/metadata-change-log-event",
+            "docs/managed-datahub/generated/actions/events/entity-change-event",
+            "docs/managed-datahub/generated/actions/events/metadata-change-log-event",
           ],
         },
         {
           Actions: [
-            "docs/managed-datahub/actions/actions/executor",
-            "docs/managed-datahub/actions/actions/hello_world",
-            "docs/managed-datahub/actions/actions/slack",
-            "docs/managed-datahub/actions/actions/teams",
+            "docs/managed-datahub/generated/actions/actions/executor",
+            "docs/managed-datahub/generated/actions/actions/hello_world",
+            "docs/managed-datahub/generated/actions/actions/slack",
+            "docs/managed-datahub/generated/actions/actions/teams",
           ],
         },
         {
           Guides: [
-            "docs/managed-datahub/actions/guides/developing-a-transformer",
-            "docs/managed-datahub/actions/guides/developing-an-action",
+            "docs/managed-datahub/generated/actions/guides/developing-a-transformer",
+            "docs/managed-datahub/generated/actions/guides/developing-an-action",
           ],
         },
       ],
     },
     {
       Guides: [
-        "docs/managed-datahub/api/tutorials/custom-properties",
-        "docs/managed-datahub/api/tutorials/datasets",
-        "docs/managed-datahub/api/tutorials/deprecation",
-        "docs/managed-datahub/api/tutorials/descriptions",
-        "docs/managed-datahub/api/tutorials/custom-properties",
-        "docs/managed-datahub/api/tutorials/assertions",
-        "docs/managed-datahub/api/tutorials/custom-assertions",
-        "docs/managed-datahub/api/tutorials/incidents",
-        "docs/managed-datahub/api/tutorials/operations",
-        "docs/managed-datahub/api/tutorials/data-contracts",
-        "docs/managed-datahub/api/tutorials/domains",
-        "docs/managed-datahub/api/tutorials/forms",
-        "docs/managed-datahub/api/tutorials/lineage",
-        "docs/managed-datahub/api/tutorials/ml",
-        "docs/managed-datahub/api/tutorials/owners",
-        "docs/managed-datahub/api/tutorials/structured-properties",
-        "docs/managed-datahub/api/tutorials/tags",
-        "docs/managed-datahub/api/tutorials/terms",
+        "docs/managed-datahub/generated/api/tutorials/custom-properties",
+        "docs/managed-datahub/generated/api/tutorials/datasets",
+        "docs/managed-datahub/generated/api/tutorials/deprecation",
+        "docs/managed-datahub/generated/api/tutorials/descriptions",
+        "docs/managed-datahub/generated/api/tutorials/custom-properties",
+        "docs/managed-datahub/generated/api/tutorials/assertions",
+        "docs/managed-datahub/generated/api/tutorials/custom-assertions",
+        "docs/managed-datahub/generated/api/tutorials/incidents",
+        "docs/managed-datahub/generated/api/tutorials/operations",
+        "docs/managed-datahub/generated/api/tutorials/data-contracts",
+        "docs/managed-datahub/generated/api/tutorials/domains",
+        "docs/managed-datahub/generated/api/tutorials/forms",
+        "docs/managed-datahub/generated/api/tutorials/lineage",
+        "docs/managed-datahub/generated/api/tutorials/ml",
+        "docs/managed-datahub/generated/api/tutorials/owners",
+        "docs/managed-datahub/generated/api/tutorials/structured-properties",
+        "docs/managed-datahub/generated/api/tutorials/tags",
+        "docs/managed-datahub/generated/api/tutorials/terms",
         {
           type: "doc",
-          id: "docs/managed-datahub/advanced/patch",
+          id: "docs/managed-datahub/generated/advanced/patch",
           label: "Patch",
         },
       ],
@@ -1489,14 +1499,13 @@ module.exports = {
         description: "Learn about DataHub community.",
       },
       items: [
-        "docs/managed-datahub/slack",
-        "docs/managed-datahub/townhalls",
+        "docs/managed-datahub/generated/slack",
+        "docs/managed-datahub/generated/townhalls",
         //        "docs/townhall-history",
-        "docs/managed-datahub/CODE_OF_CONDUCT",
-        "docs/managed-datahub/CONTRIBUTING",
-        "docs/managed-datahub/links",
-        "docs/managed-datahub/rfc",
-        "docs/managed-datahub/SECURITY",
+        "docs/managed-datahub/generated/CODE_OF_CONDUCT",
+        "docs/managed-datahub/generated/CONTRIBUTING",
+        "docs/managed-datahub/generated/links",
+        "docs/managed-datahub/generated/rfc",
       ],
     },
     {

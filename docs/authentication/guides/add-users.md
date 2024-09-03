@@ -72,23 +72,23 @@ To complete the integration, you'll need the following:
 2. **Client Secret** - A shared secret to use for exchange between you and your identity provider
 3. **Discovery URL** - A URL where the OpenID settings for your identity provider can be discovered.
 
-These values can be obtained from your Identity Provider by following Step 1 on the [OpenID Connect Authentication](sso/configure-oidc-react.md)) Guide.
+These values can be obtained from your Identity Provider by following Step 1 on the [OpenID Connect Authentication](/docs/authentication/guides/sso/configure-oidc-react.md) Guide.
 
 ### Self-Hosted DataHub
 
 For information about configuring Self-Hosted DataHub to use OpenID Connect (OIDC) to
-perform authentication, check out [OIDC Authentication](sso/configure-oidc-react.md).
+perform authentication, check out [OIDC Authentication](/docs/authentication/guides/sso/configure-oidc-react.md).
 
 > **A note about user URNs**: User URNs are unique identifiers for users on DataHub. The username received from an Identity Provider
 > when a user logs into DataHub via OIDC is used to construct a unique identifier for the user on DataHub. The urn is computed as:
 > `urn:li:corpuser:<extracted-username>`
 >
 > By default, the email address will be the username extracted from the Identity Provider. For information about customizing
-> the claim should be treated as the username in Datahub, check out the [OIDC Authentication](sso/configure-oidc-react.md) documentation.
+> the claim should be treated as the username in Datahub, check out the [OIDC Authentication](/docs/authentication/guides/sso/configure-oidc-react.md) documentation.
 
 # Static Credential Configuration File (Self-Hosted Only)
 
-User credentials can be managed via a [JaaS Authentication](./jaas.md) configuration file containing
+User credentials can be managed via a [JaaS Authentication](/docs/authentication/guides/jaas.md) configuration file containing
 static username and password combinations. By default, the credentials for the root 'datahub' users are configured
 using this mechanism. It is highly recommended that admins change or remove the default credentials for this user
 
@@ -181,7 +181,7 @@ kubectl create secret generic datahub-users-secret --from-file=user.props=./<pat
 
 ## Changing the default 'datahub' user credentials (Recommended)
 
-Please refer to [Changing the default user credentials](../changing-default-credentials.md).
+Please refer to [Changing the default user credentials](/docs/authentication/changing-default-credentials.md).
 
 ## Caveats
 

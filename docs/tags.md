@@ -72,14 +72,14 @@ You can search for a tag in the search bar, and even filter entities by the pres
 
 ### GraphQL
 
-* [addTag](../graphql/mutations.md#addtag)
-* [addTags](../graphql/mutations.md#addtags)
-* [batchAddTags](../graphql/mutations.md#batchaddtags)
-* [removeTag](../graphql/mutations.md#removetag)
-* [batchRemoveTags](../graphql/mutations.md#batchremovetags)
-* [createTag](../graphql/mutations.md#createtag)
-* [updateTag](../graphql/mutations.md#updatetag)
-* [deleteTag](../graphql/mutations.md#deletetag)
+* <a href="https://datahubproject.io/docs/graphql/mutations#addtag">addTag</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#addtags">addTags</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#batchaddtags">batchAddTags</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#removetag">removeTag</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#batchremovetags">batchRemoveTags</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#createtag">createTag</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#updatetag">updateTag</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#deletetag">deleteTag</a>
 
 You can easily fetch the Tags for an entity with a given its URN using the **tags** property. Check out [Working with Metadata Entities](./api/graphql/how-to-set-up-graphql.md#querying-for-tags-of-an-asset) for an example. 
 

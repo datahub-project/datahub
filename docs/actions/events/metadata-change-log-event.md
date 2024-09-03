@@ -143,9 +143,9 @@ Great Question! All MetadataChangeLog events are based on the Metadata Model whi
 Aspects, and Relationships which make up an enterprise Metadata Graph. We recommend checking out the following
 resources to learn more about this:
 
-- [Intro to Metadata Model](https://datahubproject.io/docs/metadata-modeling/metadata-model)
+- [Intro to Metadata Model](/docs/modeling/metadata-model.md)
 
-You can also find a comprehensive list of Entities + Aspects of the Metadata Model under the **Metadata Modeling > Entities** section of the [official DataHub docs](https://datahubproject.io/docs/). 
+You can also find a comprehensive list of Entities + Aspects of the Metadata Model under the **Metadata Modeling > Entities** section of the [official DataHub docs](/docs/). 
 
 
 

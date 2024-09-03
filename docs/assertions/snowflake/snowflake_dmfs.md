@@ -10,8 +10,8 @@ of the table with which they are associated.
 - You must have a Snowflake Enterprise account, where the DMFs feature is enabled.
 - You must have the necessary permissions to provision DMFs in your Snowflake environment (see below)
 - You must have the necessary permissions to query the DMF results in your Snowflake environment (see below)
-- You must have DataHub instance with Snowflake metadata ingested. If you do not have existing snowflake ingestion, refer [Snowflake Quickstart Guide](https://datahubproject.io/docs/quick-ingestion-guides/snowflake/overview) to get started.
-- You must have DataHub CLI installed and run [`datahub init`](https://datahubproject.io/docs/cli/#init).
+- You must have DataHub instance with Snowflake metadata ingested. If you do not have existing snowflake ingestion, refer [Snowflake Quickstart Guide](/docs/quick-ingestion-guides/snowflake/overview.md) to get started.
+- You must have DataHub CLI installed and run [`datahub init`](/docs/cli.md#init).
 
 ### Permissions
 
@@ -87,10 +87,10 @@ grant application role SNOWFLAKE.DATA_QUALITY_MONITORING_VIEWER to role "<datahu
 
 The following assertion types are currently supported by the DataHub Snowflake DMF Assertion Compiler:
 
-- [Freshness](/docs/managed-datahub/observe/freshness-assertions.md)
-- [Volume](/docs/managed-datahub/observe/volume-assertions.md)
-- [Column](/docs/managed-datahub/observe/column-assertions.md)
-- [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
+- [Freshness](/docs/observe/freshness-assertions.md)
+- [Volume](/docs/observe/volume-assertions.md)
+- [Column](/docs/observe/column-assertions.md)
+- [Custom SQL](/docs/observe/custom-sql-assertions.md)
 
 Note that Schema Assertions are not currently supported.
 

@@ -6,12 +6,12 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 Personal Access Tokens, or PATs for short, allow users to represent themselves in code and programmatically use DataHub's APIs in deployments where security is a concern. 
 
-Used along-side with [authentication-enabled metadata service](introducing-metadata-service-authentication.md), PATs add a layer of protection to DataHub where only authorized users are able to perform actions in an automated way.
+Used along-side with [authentication-enabled metadata service](/docs/authentication/introducing-metadata-service-authentication.md), PATs add a layer of protection to DataHub where only authorized users are able to perform actions in an automated way.
 
 ## Personal Access Tokens Setup, Prerequisites, and Permissions
 
 To use PATs, two things are required:
- 1. Metadata Authentication must have been enabled in GMS. See `Configuring Metadata Service Authentication` in [authentication-enabled metadata service](introducing-metadata-service-authentication.md).
+ 1. Metadata Authentication must have been enabled in GMS. See `Configuring Metadata Service Authentication` in [authentication-enabled metadata service](/docs/authentication/introducing-metadata-service-authentication.md).
  2. Users must have been granted the `Generate Personal Access Tokens` or `Manage All Access Tokens` Privilege via a [DataHub Policy](../authorization/policies.md).
 
 Once configured, users should be able to navigate to **'Settings'** > **'Access Tokens'** > **'Generate Personal Access Token'** to generate a token:
@@ -86,7 +86,7 @@ is enabled.
 
 ## Additional Resources
 
-- Learn more about how this feature is by DataHub [Authentication Metadata Service](introducing-metadata-service-authentication.md).
+- Learn more about how this feature is by DataHub [Authentication Metadata Service](/docs/authentication/introducing-metadata-service-authentication.md).
 - Check out our [Authorization Policies](../authorization/policies.md) to see what permissions can be programatically used.
 
 ### GraphQL

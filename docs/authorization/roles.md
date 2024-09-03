@@ -186,9 +186,9 @@ These privileges are only relevant to DataHub Cloud.
 
 ### GraphQL
 
-* [acceptRole](../../graphql/mutations.md#acceptrole)
-* [batchAssignRole](../../graphql/mutations.md#batchassignrole)
-* [listRoles](../../graphql/queries.md#listroles)
+* <a href="https://datahubproject.io/docs/graphql/mutations#acceptrole">acceptRole</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#batchassignrole">batchAssignRole</a>
+* <a href="https://datahubproject.io/docs/graphql/queries#listroles">listRoles</a>
 
 ## FAQ and Troubleshooting
 

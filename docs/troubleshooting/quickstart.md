@@ -115,7 +115,7 @@ broker                  | [2020-04-03 14:34:42,398] INFO Client session timed ou
 schema-registry         | [2020-04-03 14:34:48,518] WARN Client session timed out, have not heard from server in 20459ms for sessionid 0x10000023fa60007 (org.apache.zookeeper.ClientCnxn)
 ```
 
-## How can I check if [MXE](../what/mxe.md) Kafka topics are created?
+## How can I check if [MXE](/docs/what/mxe.md) Kafka topics are created?
 
 You can use a utility like [kafkacat](https://github.com/edenhill/kafkacat) to list all topics.
 You can run below command to see the Kafka topics created in your Kafka broker.
@@ -246,7 +246,7 @@ ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_
 ## I've modified the default user.props file to include a custom username and password, but I don't see the new user(s) inside the Users & Groups tab. Why not?
 
 Currently, `user.props` is a file used by the JAAS PropertyFileLoginModule solely for the purpose of **Authentication**. The file is not used as an source from which to
-ingest additional metadata about the user. For that, you'll need to ingest some custom information about your new user using the Rest.li APIs or the [Metadata File ingestion source](../generated/ingestion/sources/metadata-file.md).
+ingest additional metadata about the user. For that, you'll need to ingest some custom information about your new user using the Rest.li APIs or the [Metadata File ingestion source](/docs/generated/ingestion/sources/metadata-file.md).
 
 For an example of a file that ingests user information, check out [single_mce.json](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/mce_files/single_mce.json), which ingests a single user object into DataHub. Notice that the "urn" field provided
 will need to align with the custom username you've provided in user.props file. For example, if your user.props file contains:

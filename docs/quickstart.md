@@ -128,7 +128,7 @@ datahub docker ingest-sample-data
 
 :::note Token Authentication
 
-If you've enabled [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token
+If you've enabled [Metadata Service Authentication](/docs/authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token
 using the `--token <token>` parameter in the command.
 
 :::
@@ -256,7 +256,7 @@ datahub docker quickstart --restore --no-restore-indices
 - [Add Users to DataHub](authentication/guides/add-users.md)
 - [Configure OIDC Authentication](authentication/guides/sso/configure-oidc-react.md)
 - [Configure JaaS Authentication](authentication/guides/jaas.md)
-- [Configure authentication in DataHub's backend](authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication).
+- [Configure authentication in DataHub's backend](/docs/authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication).
 - [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart)
 
 ### Move To Production

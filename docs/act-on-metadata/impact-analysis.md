@@ -68,8 +68,8 @@ Follow these simple steps to understand the full dependency chain of your data e
 
 ### GraphQL
 
-* [searchAcrossLineage](../../graphql/queries.md#searchacrosslineage)
-* [searchAcrossLineageInput](../../graphql/inputObjects.md#searchacrosslineageinput)
+* <a href="https://datahubproject.io/docs/graphql/queries#searchacrosslineage">searchAcrossLineage</a>
+* <a href="https://datahubproject.io/docs/graphql/inputObjects#searchacrosslineageinput">searchAcrossLineageInput</a>
 
 Looking for an example of how to use `searchAcrossLineage` to read data lineage? Look [here](../api/tutorials/lineage.md#read-lineage)
 

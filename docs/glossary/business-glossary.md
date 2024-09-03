@@ -147,7 +147,7 @@ managing changes across teams easier, by funneling all changes through a change 
 
 To manage your glossary using Git, you can define it within a file and then use the DataHub CLI to ingest
 it into DataHub whenever a change is made (e.g. on a `git commit` hook). For detailed information about the format of
-the glossary file, and how to ingest it into DataHub, check out the [Business Glossary](../generated/ingestion/sources/business-glossary.md) source guide.
+the glossary file, and how to ingest it into DataHub, check out the [Business Glossary](/docs/generated/ingestion/sources/business-glossary.md) source guide.
 
 ## About Glossary Term Relationships
 
@@ -177,13 +177,13 @@ Check out [our demo site](https://demo.datahubproject.io/glossary) to see an exa
 
 ### GraphQL
 
-* [addTerm](../../graphql/mutations.md#addterm)
-* [addTerms](../../graphql/mutations.md#addterms)
-* [batchAddTerms](../../graphql/mutations.md#batchaddterms)
-* [removeTerm](../../graphql/mutations.md#removeterm)
-* [batchRemoveTerms](../../graphql/mutations.md#batchremoveterms)
-* [createGlossaryTerm](../../graphql/mutations.md#createglossaryterm)
-* [createGlossaryNode](../../graphql/mutations.md#createglossarynode) (Term Group)
+* <a href="https://datahubproject.io/docs/graphql/mutations#addterm">addTerm</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#addterms">addTerms</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#batchaddterms">batchAddTerms</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#removeterm">removeTerm</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#batchremoveterms">batchRemoveTerms</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#createglossaryterm">createGlossaryTerm</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#createglossarynode">createGlossaryNode</a> (Term Group)
 
 You can easily fetch the Glossary Terms for an entity with a given its URN using the **glossaryTerms** property. Check out [Working with Metadata Entities](../api/graphql/how-to-set-up-graphql.md#querying-for-glossary-terms-of-an-asset) for an example.
 

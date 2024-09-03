@@ -1,7 +1,7 @@
 # Removing Metadata from DataHub
 
 :::tip
-To follow this guide, you'll need the [DataHub CLI](../cli.md).
+To follow this guide, you'll need the [DataHub CLI](/docs/cli.md).
 :::
 
 There are a two ways to delete metadata from DataHub:
@@ -210,7 +210,7 @@ datahub delete --platform snowflake --only-soft-deleted --hard
 
 ## Deletes using the SDK and APIs
 
-The Python SDK's [DataHubGraph](../../python-sdk/clients.md) client supports deletes via the following methods:
+The Python SDK's <a href="https://datahubproject.io/docs/python-sdk/clients">DataHubGraph</a> client supports deletes via the following methods:
 
 - `soft_delete_entity`
 - `hard_delete_entity`

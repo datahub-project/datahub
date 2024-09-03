@@ -124,8 +124,8 @@ arbitrary actors from ingesting metadata into DataHub.
 ### If I enable Metadata Service Authentication, will ingestion stop working? 
 
 If you enable Metadata Service Authentication, you will want to provide a value for the "token" configuration value
-when using the `datahub-rest` sink in your [Ingestion Recipes](https://datahubproject.io/docs/metadata-ingestion/#recipes). See
-the [Rest Sink Docs](https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub#config-details) for configuration details.
+when using the `datahub-rest` sink in your [Ingestion Recipes](/metadata-ingestion/README.md). See
+the [Rest Sink Docs](/metadata-ingestion/sink_docs/datahub.md#config-details) for configuration details.
 
 We'd recommend generating a Personal Access Token (described above) from a trusted DataHub Account (e.g. root 'datahub' user) when configuring
 your Ingestion sources.

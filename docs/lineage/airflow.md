@@ -22,9 +22,6 @@ There's two actively supported implementations of the plugin, with different Air
 
 If you're using Airflow older than 2.1, it's possible to use the v1 plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
 
-<!-- TODO: Update the local Airflow guide and link to it here. -->
-<!-- If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../../docker/airflow/local_airflow.md). -->
-
 ## DataHub Plugin v2
 
 ### Installation

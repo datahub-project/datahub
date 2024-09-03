@@ -125,7 +125,7 @@ This allows you to manage your data product definition in git while still allowi
 
 ### Advanced cli commands for managing Data Products
 
-There are many more advanced cli commands for managing Data Products as code. Take a look at the [Data Products section](./cli.md#dataproduct-data-product-entity) on the CLI reference guide for more details.
+There are many more advanced cli commands for managing Data Products as code. Take a look at the [Data Products section](/docs/cli.md#dataproduct-data-product-entity) on the CLI reference guide for more details.
 
 
 ### What updates are planned for the Data Products feature?

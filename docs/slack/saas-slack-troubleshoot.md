@@ -35,7 +35,7 @@ If you choose to install a new app, your team will have to re-add the new bot in
 If you'd like support in getting a list of the private channels that are subscribed to Slack notifications on DataHub, please reach out to your customer success representative.
 :::
 
-1. Get your App Config tokens by following the first few steps outlined in the [installation guide](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/#step-by-step-guide). If it's showing expired tokens, feel free to delete them and create a new set.
+1. Get your App Config tokens by following the first few steps outlined in the [installation guide](/docs/slack/saas-slack-setup.md#step-by-step-guide). If it's showing expired tokens, feel free to delete them and create a new set.
 2. Paste them into their respective text inputs, and hit **'create a new installation'**
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/re_connect_1_1.png"/>

@@ -15,7 +15,7 @@ Below shows an example schema for the `User` search document. Note that:
 2. Similar to `Entity`, each document has an optional `removed` field for "soft deletion". 
 3. Similar to `Entity`, all remaining fields are made `optional` to support partial updates.
 4. `management` shows an example of a string array field.
-5. `ownedDataset` shows an example on how a field can be derived from metadata [aspects](aspect.md) associated with other types of entity (in this case, `Dataset`).
+5. `ownedDataset` shows an example on how a field can be derived from metadata [aspects](/docs/what/aspect.md) associated with other types of entity (in this case, `Dataset`).
 
 ```
 namespace com.linkedin.metadata.search

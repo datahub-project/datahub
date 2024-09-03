@@ -16,8 +16,8 @@ user-level.
 ### Syncing with Existing Enterprise Groups (via IdP)
 
 If you work with an Identity Provider like Okta or Azure AD, it's likely you already have groups defined there. DataHub
-allows you to import the groups you have from OIDC for [Okta](../generated/ingestion/sources/okta.md) and
-[Azure AD](../generated/ingestion/sources/azure-ad.md) using the DataHub ingestion framework.
+allows you to import the groups you have from OIDC for [Okta](/docs/generated/ingestion/sources/okta.md) and
+[Azure AD](/docs/generated/ingestion/sources/azure-ad.md) using the DataHub ingestion framework.
 
 If you routinely ingest groups from these providers, you will also be able to keep groups synced. New groups will
 be created in DataHub, stale groups will be deleted, and group membership will be updated!

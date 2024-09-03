@@ -38,21 +38,20 @@ Click 'Create' to complete.
 
 ### Create Posts Using the GraphQL
 
-To create a post via API, you can call the [createPost](../graphql/mutations.md#createPost) GraphQL mutation.
-To create a post via API, you can call the [createPost](../graphql/mutations.md#createPost) GraphQL mutation.
+To create a post via API, you can call the <a href="https://datahubproject.io/docs/graphql/mutations#createPost">createPost</a> GraphQL mutation.
 
 There is only one type of Post that can be currently made, and that is a **Home Page Announcement**. This may be extended in the future to other surfaces.
 
 DataHub currently supports two types of Post content. Posts can either contain **TEXT** or can be a **LINK**. When creating a post through GraphQL, users will have to supply the post content. 
 
-For **TEXT** posts, the following pieces of information are required in the `content` object (of type [UpdatePostContentInput](../graphql/inputObjects.md#updatepostcontentinput)) of the GraphQL `input` (of type [CreatePostInput](../graphql/inputObjects.md#createpostinput))). **TEXT** posts cannot be clicked.
+For **TEXT** posts, the following pieces of information are required in the `content` object (of type <a href="https://datahubproject.io/docs/graphql/inputObjects#updatepostcontentinput">UpdatePostContentInput</a>) of the GraphQL `input` (of type <a href="https://datahubproject.io/docs/graphql/inputObjects#createpostinput">CreatePostInput</a>)). **TEXT** posts cannot be clicked.
 * `contentType: TEXT`
 * `title`
 * `description`
 
 The `link` and `media` attributes are currently unused for **TEXT** posts.
 
-For **LINK** posts, the following pieces of information are required in the `content` object (of type [UpdatePostContentInput](../graphql/inputObjects.md#updatepostcontentinput)) of the GraphQL `input` (of type [CreatePostInput](../graphql/inputObjects.md#createpostinput))). **LINK** posts redirect to the provided link when clicked.
+For **LINK** posts, the following pieces of information are required in the `content` object (of type <a href="https://datahubproject.io/docs/graphql/inputObjects#updatepostcontentinput">UpdatePostContentInput</a>) of the GraphQL `input` (of type <a href="https://datahubproject.io/docs/graphql/inputObjects#createpostinput">CreatePostInput</a>)). **LINK** posts redirect to the provided link when clicked.
 * `contentType: LINK`
 * `title`
 * `link`
@@ -68,9 +67,9 @@ Here are some examples of Posts displayed on the home page, with one **TEXT** po
 
 ### GraphQL
 
-* [createPost](../graphql/mutations.md#createpost)
-* [listPosts](../graphql/queries.md#listposts)
-* [deletePosts](../graphql/queries.md#listposts)
+* <a href="https://datahubproject.io/docs/graphql/mutations#createpost">createPost</a>
+* <a href="https://datahubproject.io/docs/graphql/queries#listposts">listPosts</a>
+* <a href="https://datahubproject.io/docs/graphql/queries#listposts">deletePosts</a>
 
 ### Examples
 

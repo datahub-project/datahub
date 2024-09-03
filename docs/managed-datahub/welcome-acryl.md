@@ -15,7 +15,7 @@ Before you go further, you'll need to have a DataHub instance provisioned. The A
 Once you have these, you're ready to go.
 
 :::info
-If you wish to have a private connection to your DataHub instance, Acryl supports [AWS PrivateLink](https://aws.amazon.com/privatelink/) to complete this connection to your existing AWS account. Please see more details [here](integrations/aws-privatelink.md).
+If you wish to have a private connection to your DataHub instance, Acryl supports [AWS PrivateLink](https://aws.amazon.com/privatelink/) to complete this connection to your existing AWS account. Please see more details [here](/docs/integrations/aws-privatelink.md).
 :::
 
 ### Logging In

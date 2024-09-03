@@ -7,7 +7,7 @@ import TabItem from '@theme/TabItem';
 
 Documentation Forms are a way for end-users to fill out all mandatory attributes associated with a data asset. The form will be dynamically generated based on the definitions provided by administrators and stewards and matching rules.
 
-Learn more about forms in the [Documentation Forms Feature Guide](../../../docs/features/feature-guides/documentation-forms.md).
+Learn more about forms in the [Documentation Forms Feature Guide](/docs/features/feature-guides/documentation-forms.md).
 
 ### Goal Of This Guide
 This guide will show you how to 
@@ -23,7 +23,7 @@ For detailed information, please refer to [Datahub Quickstart Guide](/docs/quick
 <TabItem value="CLI" label="CLI">
 
 Install the relevant CLI version. Forms are available as of CLI version `0.13.1`. The corresponding DataHub Cloud release version is `v0.2.16.5`
-Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
+Connect to your instance via [init](/docs/cli.md#init):
 
 1. Run `datahub init` to update the instance you want to load into
 2. Set the server to your sandbox instance, `https://{your-instance-address}/gms`

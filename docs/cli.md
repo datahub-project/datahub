@@ -728,7 +728,7 @@ Please see our [Integrations page](https://datahubproject.io/integrations) if yo
 | [redash](./generated/ingestion/sources/redash.md)                                              | `pip install 'acryl-datahub[redash]'`                      | Redash source                           |
 | [redshift](./generated/ingestion/sources/redshift.md)                                          | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                         |
 | [sagemaker](./generated/ingestion/sources/sagemaker.md)                                        | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                    |
-| [snowflake](./generated/ingestion/sources/snowflake.md)                                        | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                        |
+| [snowflake](/docs/generated/ingestion/sources/snowflake.md)                                        | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                        |
 | [sqlalchemy](./generated/ingestion/sources/sqlalchemy.md)                                      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source               |
 | [superset](./generated/ingestion/sources/superset.md)                                          | `pip install 'acryl-datahub[superset]'`                    | Superset source                         |
 | [tableau](./generated/ingestion/sources/tableau.md)                                            | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                          |

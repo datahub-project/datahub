@@ -11,7 +11,7 @@ along with informing Data Practitioners when these changes happened.
 - An existing field is removed
 - An existing field changes type
 
-Schema History uses DataHub's [Timeline API](https://datahubproject.io/docs/dev-guides/timeline/) to compute schema changes.
+Schema History uses DataHub's [Timeline API](/docs/dev-guides/timeline.md) to compute schema changes.
 
 ##  Schema History Setup, Prerequisites, and Permissions
 
@@ -55,8 +55,8 @@ version. Some fields were even modified and had a type change at the latest vers
 
 ### GraphQL
 
-* [getSchemaBlame](../graphql/queries.md#getSchemaBlame)
-* [getSchemaVersionList](../graphql/queries.md#getSchemaVersionList)
+* <a href="https://datahubproject.io/docs/graphql/queries#getSchemaBlame">getSchemaBlame</a>
+* <a href="https://datahubproject.io/docs/graphql/queries#getSchemaVersionList">getSchemaVersionList</a>
 
 ## FAQ and Troubleshooting
 

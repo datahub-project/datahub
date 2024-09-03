@@ -13,7 +13,7 @@ In the document, we'll describe each of these events in detail - including notes
 
 ## Metadata Change Proposal (MCP)
 
-A Metadata Change Proposal represents a request to change to a specific [aspect](aspect.md) on an enterprise's Metadata
+A Metadata Change Proposal represents a request to change to a specific [aspect](/docs/what/aspect.md) on an enterprise's Metadata
 Graph. Each MCP provides a new value for a given aspect. For example, a single MCP can 
 be emitted to change ownership or documentation or domains or deprecation status for a data asset.
 
@@ -324,7 +324,7 @@ An example of an MCE emitted to change the 'ownership' aspect for an Entity:
 
 ## Metadata Audit Event (MAE)
 
-A Metadata Audit Event captures changes made to one or multiple metadata [aspects](aspect.md) associated with a particular [entity](entity.md), in the form of a metadata [snapshot](snapshot.md) (deprecated) before the change, and a metadata snapshot after the change.
+A Metadata Audit Event captures changes made to one or multiple metadata [aspects](/docs/what/aspect.md) associated with a particular [entity](/docs/what/entity.md), in the form of a metadata [snapshot](/docs/what/snapshot.md) (deprecated) before the change, and a metadata snapshot after the change.
 
 Every source-of-truth for a particular metadata aspect is expected to emit a MAE whenever a change is committed to that aspect. By ensuring that, any listener of MAE will be able to construct a complete view of the latest state for all aspects. 
 Furthermore, because each MAE contains the "after image", any mistake made in emitting the MAE can be easily mitigated by emitting a follow-up MAE with the correction. By the same token, the initial bootstrap problem for any newly added entity can also be solved by emitting a MAE containing all the latest metadata aspects associated with that entity.

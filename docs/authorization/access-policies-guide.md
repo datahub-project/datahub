@@ -259,10 +259,10 @@ Policies only affect REST APIs when the environment variable `REST_API_AUTHORIZA
 
 ### GraphQL
 
-* [listPolicies](../../graphql/queries.md#listPolicies)
-* [createPolicy](../../graphql/mutations.md#createPolicy)
-* [updatePolicy](../../graphql/mutations.md#updatePolicy)
-* [deletePolicy](../../graphql/mutations.md#deletePolicy)
+* <a href="https://datahubproject.io/docs/graphql/queries#listPolicies">listPolicies</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#createPolicy">createPolicy</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#updatePolicy">updatePolicy</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#deletePolicy">deletePolicy</a>
 
 ## FAQ and Troubleshooting
 

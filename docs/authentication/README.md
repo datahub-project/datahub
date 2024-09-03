@@ -38,7 +38,7 @@ but when the session expires it can no longer be used programmatically either as
 with DataHub APIs. They can be used to automate processes like enriching documentation, ownership, tags, and more on DataHub. Learn
 more about Personal Access Tokens [here](personal-access-tokens.md). 
 
-To learn more about DataHub's backend authentication, check out [Introducing Metadata Service Authentication](introducing-metadata-service-authentication.md).
+To learn more about DataHub's backend authentication, check out [Introducing Metadata Service Authentication](/docs/authentication/introducing-metadata-service-authentication.md).
 
 Credentials must be provided as Bearer Tokens inside of the **Authorization** header in any request made to DataHub's API layer. To learn 
 

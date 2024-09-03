@@ -73,7 +73,7 @@ To remove an asset from a Domain, click the 'x' icon on the Domain tag.
 > by a [Policy](authorization/policies.md).
 
 #### Ingestion-time Assignment
-All SQL-based ingestion sources support assigning domains during ingestion using the `domain` configuration. Consult your source's configuration details page (e.g. [Snowflake](./generated/ingestion/sources/snowflake.md)), to verify that it supports the Domain capability.
+All SQL-based ingestion sources support assigning domains during ingestion using the `domain` configuration. Consult your source's configuration details page (e.g. [Snowflake](/docs/generated/ingestion/sources/snowflake.md)), to verify that it supports the Domain capability.
 
 :::note
 
@@ -184,11 +184,11 @@ On the homepage, you'll also find a list of the most popular Domains in your org
 
 ### GraphQL
 
-* [domain](../graphql/queries.md#domain)
-* [listDomains](../graphql/queries.md#listdomains)
-* [createDomains](../graphql/mutations.md#createdomain)
-* [setDomain](../graphql/mutations.md#setdomain)
-* [unsetDomain](../graphql/mutations.md#unsetdomain)
+* <a href="https://datahubproject.io/docs/graphql/queries#domain">domain</a>
+* <a href="https://datahubproject.io/docs/graphql/queries#listdomains">listDomains</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#createdomain">createDomains</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#setdomain">setDomain</a>
+* <a href="https://datahubproject.io/docs/graphql/mutations#unsetdomain">unsetDomain</a>
 
 #### Examples
 

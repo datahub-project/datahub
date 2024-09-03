@@ -70,11 +70,11 @@ Next, you'll configure an ingestion **Recipe**, which defines _how_ and _what_ t
 
 #### Step 2: Configure a Recipe
 
-Next, you'll define an ingestion **Recipe** in [YAML](https://yaml.org/). A [Recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes) is a set of configurations which is
+Next, you'll define an ingestion **Recipe** in [YAML](https://yaml.org/). A [Recipe](/metadata-ingestion/README.md)  is a set of configurations which is
 used by DataHub to extract metadata from a 3rd party system. It most often consists of the following parts:
 
 1. A source **type**: The type of system you'd like to extract metadata from (e.g. snowflake, mysql, postgres). If you've chosen a native template, this will already be populated for you.
-   To view a full list of currently supported **types**, check out [this list](https://datahubproject.io/docs/metadata-ingestion/#installing-plugins).
+   To view a full list of currently supported **types**, check out **[list of integrations](https://datahubproject.io/integrations)**
    
 
 2. A source **config**: A set of configurations specific to the source **type**. Most sources support the following types of configuration values: 
@@ -97,7 +97,7 @@ A sample of a full recipe configured to ingest metadata from MySQL can be found 
 </p>
 
 
-Detailed configuration examples & documentation for each source type can be found on the [DataHub Docs](https://datahubproject.io/docs/metadata-ingestion/) website.
+Detailed configuration examples & documentation for each source type can be found on the [DataHub Docs](/metadata-ingestion/README.md) website.
 
 ##### Creating a Secret
 
@@ -201,7 +201,7 @@ Once you're happy with your changes, simply click 'Done' to save.
    </TabItem>
    <TabItem value="cli" label="CLI" default>
 
-You can upload and even update recipes using the cli as mentioned in the [cli documentation for uploading ingestion recipes](./cli.md#ingest-deploy).
+You can upload and even update recipes using the cli as mentioned in the [cli documentation for uploading ingestion recipes](/docs/cli.md#ingest-deploy).
 An example execution for a given `recipe.yaml` file, would look something like:
 
 ```bash
@@ -284,7 +284,7 @@ Once cancelled, you can view the output of the ingestion run by clicking **Detai
 A variety of things can cause an ingestion run to fail. Common reasons for failure include:  
 
 1. **Recipe Misconfiguration**: A recipe has not provided the required or expected configurations for the ingestion source. You can refer
-   to the [Metadata Ingestion Framework](https://datahubproject.io/docs/metadata-ingestion) source docs to learn more about the configurations required for your source type.
+   to the [Metadata Ingestion Framework](/metadata-ingestion/README.md) source docs to learn more about the configurations required for your source type.
    
 2. **Failure to resolve Secrets**: If DataHub is unable to find secrets that were referenced by your Recipe configuration, the ingestion run will fail. 
    Verify that the names of the secrets referenced in your recipe match those which have been created. 
@@ -293,7 +293,7 @@ A variety of things can cause an ingestion run to fail. Common reasons for failu
    failures, metadata ingestion will fail. Ensure that the network where DataHub is deployed has access to the data source which
    you are trying to reach. 
    
-4. **Authentication**: If you've enabled [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token 
+4. **Authentication**: If you've enabled [Metadata Service Authentication](/docs/authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token 
     in your Recipe Configuration. To so this, set the 'token' field of the sink configuration to contain a Personal Access Token:
    
 <p align="center">
@@ -338,13 +338,13 @@ for the `datahub-actions` container and running `docker logs <container-id>`.
 There are valid cases for ingesting metadata without the UI-based ingestion scheduler. For example,
 
 - You have written a custom ingestion Source
-- Your data sources are not reachable on the network where DataHub is deployed. DataHub Cloud users can use a [remote executor](managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md) for remote UI-based ingestion.
+- Your data sources are not reachable on the network where DataHub is deployed. DataHub Cloud users can use a [remote executor](/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md) for remote UI-based ingestion.
 - Your ingestion source requires context from a local filesystem (e.g. input files)
 - You want to distribute metadata ingestion among multiple producers / environments
 
 ### How do I attach policies to the actions pod to give it permissions to pull metadata from various sources?
 
-This varies across the underlying platform. For AWS, please refer to this [guide](./deploy/aws.md#iam-policies-for-ui-based-ingestion).
+This varies across the underlying platform. For AWS, please refer to this [guide](/docs/deploy/aws.md#iam-policies-for-ui-based-ingestion).
 
 ## Demo
 

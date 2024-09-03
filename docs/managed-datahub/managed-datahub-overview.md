@@ -112,18 +112,18 @@ Fill out
 
  ## Chrome Extension
 
-- [Early Access to the DataHub Chrome Extension](docs/managed-datahub/chrome-extension.md)
+- [Early Access to the DataHub Chrome Extension](docs/managed-datahub/generated/chrome-extension.md)
 
 ## Additional Integrations
 
-- [Slack Integration](docs/managed-datahub/slack/saas-slack-setup.md)
+- [Slack Integration](/docs/slack/saas-slack-setup.md)
 - [Remote Ingestion Executor](docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md)
-- [AWS Privatelink](docs/managed-datahub/integrations/aws-privatelink.md)
+- [AWS Privatelink](docs/integrations/aws-privatelink.md)
 - [AWS Eventbridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
 
 ## Additional SSO/Login Support
 
-- [OIDC SSO Integration in the UI](docs/managed-datahub/integrations/oidc-sso-integration.md)
+- [OIDC SSO Integration in the UI](docs/managed-datahub/generated/integrations/oidc-sso-integration.md)
 
 ## Expanded API Features
 
@@ -131,5 +131,5 @@ Fill out
 
 ## More Ways to Act on Metadata
 
-- [Approval Workflows](docs/managed-datahub/approval-workflows.md)
+- [Approval Workflows](/docs/managed-datahub/generated/approval-workflows.md)
 - [Metadata Tests](docs/tests/metadata-tests.md) -->

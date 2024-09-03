@@ -49,7 +49,7 @@ Define a JSON File containing your user
 ]
 ```
 
-Define an [ingestion recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes) 
+Define an [ingestion recipe](/metadata-ingestion/README.md)  
 
 ```
 ---
@@ -65,7 +65,7 @@ sink:
 
 ```
 
-Use [DataHub CLI](../cli.md) to do the ingestion.
+Use [DataHub CLI](/docs/cli.md) to do the ingestion.
 
 ## Using Rest.li API
 

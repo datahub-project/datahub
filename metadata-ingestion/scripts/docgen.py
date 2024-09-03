@@ -1107,26 +1107,27 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
     print("Lineage Documentation Generation Complete")
 
     # duplicate generated docs for managed-datahub directory
-    source_dir = "../docs/generated/"
-    target_dir = "../docs/managed-datahub/generated/"
 
-    # fetch all file from source dir and copy to target dir
-    # iterate though nested directories
-    for root, dirs, files in os.walk(source_dir):
-        for file in files:
-            if not file.endswith(".md"):
-                continue
-            # construct the full file path
-            source_file = os.path.join(root, file)
-            target_file = source_file.replace('/docs/', '/docs/managed-datahub/')
+source_dir = "../docs/"
+target_dir = "../docs/managed-datahub/generated/"
+dup_files_list = "./scripts/dup_files.txt"
 
-            # create the directories if not exist
-            # Create the directories if they do not exist
+# Read duplicate file paths from dup_files.txt
+with open(dup_files_list, 'r') as f:
+    dup_files = set(line.strip() for line in f if line.strip())  # Read and strip lines
+
+# Iterate through nested directories
+for root, dirs, files in os.walk(source_dir):
+    for file in files:
+        source_file = os.path.join(root, file)
+        relative_path = os.path.relpath(source_file, source_dir)
+        # print("source_file:", source_file, "relative_path:", relative_path)
+        if 'docs/generated' in source_file or relative_path in dup_files:
+            target_file = os.path.join(target_dir, relative_path)
             os.makedirs(os.path.dirname(target_file), exist_ok=True)
-            # Copy the content of the file
             shutil.copyfile(source_file, target_file)
 
-    print("Copied generated docs to managed-datahub directory")
+print("Copied selected .md docs to managed-datahub directory.")
 
 
 
