@@ -541,7 +541,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
-      List<SortCriterion> sortCriteria,
+      @Nullable List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
