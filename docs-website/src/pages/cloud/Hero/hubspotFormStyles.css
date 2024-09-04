@@ -60,13 +60,3 @@
   font-family: sans-serif;
   color: gray;
 }
-
-
-
-/* hide names & phones */
-
-#hubspotForm .hs-form .hs_firstname,
-#hubspotForm .hs-form .hs_lastname,
-#hubspotForm .hs-form .hs_phone {
-  display: none;
-}
