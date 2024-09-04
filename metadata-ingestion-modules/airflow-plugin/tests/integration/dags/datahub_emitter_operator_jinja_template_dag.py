@@ -23,7 +23,6 @@ with DAG(
         "email_on_failure": False,
         "execution_timeout": timedelta(minutes=5),
     },
-    schedule=None,
 ):
     add_custom_properties = DatahubEmitterOperator(
         task_id="datahub_emitter_operator_jinja_template_dag_task",
