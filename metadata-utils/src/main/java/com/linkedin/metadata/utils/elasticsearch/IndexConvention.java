@@ -47,4 +47,7 @@ public interface IndexConvention {
    *     if one cannot be extracted
    */
   Optional<Pair<String, String>> getEntityAndAspectName(String timeseriesAspectIndexName);
+
+  @Nonnull
+  String getIdHashAlgo();
 }

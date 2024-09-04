@@ -72,6 +72,8 @@ datahub:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
+    async:
+      request-timeout-ms: ${DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS:55000}
 
     # URI instead of above host/port/ssl
     # Priority is given to the URI setting over separate host/port/useSSL parameters
@@ -174,6 +176,7 @@ elasticsearch:
   opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
   region: ${AWS_REGION:#{null}}
   implementation: ${ELASTICSEARCH_IMPLEMENTATION:elasticsearch} # elasticsearch or opensearch, for handling divergent cases
+  idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
     secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}
@@ -295,10 +298,18 @@ metadataTests:
 
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
+  consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
 updateIndices:
   enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
+  consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}
 ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
+  consumerGroupSuffix: ${INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX:}
+incidents:
+  hook:
+    enabled: ${ENABLE_INCIDENTS_HOOK:true}
+    maxIncidentHistory: ${MAX_INCIDENT_HISTORY:100}
+    consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
   upgradeDefaultBrowsePaths:
@@ -326,6 +337,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_LIMIT:0}
+  domainDescription:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_CLL_LIMIT:0}
   browsePathsV2:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
@@ -375,6 +391,7 @@ featureFlags:
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
+  consumerGroupSuffix: ${ECE_CONSUMER_GROUP_SUFFIX:}
 
 views:
   enabled: ${VIEWS_ENABLED:true}
@@ -459,6 +476,7 @@ springdoc.api-docs.groups.enabled: true
 forms:
   hook:
     enabled: { $FORMS_HOOK_ENABLED:true }
+    consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 businessAttribute:
   fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:20000}

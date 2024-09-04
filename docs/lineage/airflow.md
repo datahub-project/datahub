@@ -18,7 +18,7 @@ There's two actively supported implementations of the plugin, with different Air
 | Approach  | Airflow Version | Notes                                                                       |
 | --------- | --------------- | --------------------------------------------------------------------------- |
 | Plugin v2 | 2.3.4+          | Recommended. Requires Python 3.8+                                           |
-| Plugin v1 | 2.1+            | No automatic lineage extraction; may not extract lineage if the task fails. |
+| Plugin v1 | 2.1 - 2.8       | No automatic lineage extraction; may not extract lineage if the task fails. |
 
 If you're using Airflow older than 2.1, it's possible to use the v1 plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
 
@@ -84,7 +84,7 @@ enabled = True  # default
 
 ### Installation
 
-The v1 plugin requires Airflow 2.1+ and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
+The v1 plugin requires Airflow 2.1 - 2.8 and Python 3.8+. If you're on older versions, it's still possible to use an older version of the plugin. See the [compatibility section](#compatibility) for more details.
 
 If you're using Airflow 2.3+, we recommend using the v2 plugin instead. If you need to use the v1 plugin with Airflow 2.3+, you must also set the environment variable `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true`.
 

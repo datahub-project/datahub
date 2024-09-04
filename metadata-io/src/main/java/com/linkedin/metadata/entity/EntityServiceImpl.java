@@ -2,7 +2,6 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
@@ -10,6 +9,7 @@ import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 import static com.linkedin.metadata.utils.metrics.ExceptionUtils.collectMetrics;
 
 import com.codahale.metrics.Timer;
@@ -1835,10 +1835,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public SystemMetadata ingestEntity(
       @Nonnull OperationContext opContext, Entity entity, AuditStamp auditStamp) {
-    SystemMetadata generatedSystemMetadata = new SystemMetadata();
-    generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
-    generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-
+    SystemMetadata generatedSystemMetadata = createDefaultSystemMetadata();
     ingestEntity(opContext, entity, auditStamp, generatedSystemMetadata);
     return generatedSystemMetadata;
   }

@@ -499,6 +499,7 @@ class AthenaSource(SQLAlchemySource):
         self,
         dataset_name: str,
         column: Dict,
+        inspector: Inspector,
         pk_constraints: Optional[dict] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
@@ -506,6 +507,7 @@ class AthenaSource(SQLAlchemySource):
         fields = get_schema_fields_for_sqlalchemy_column(
             column_name=column["name"],
             column_type=column["type"],
+            inspector=inspector,
             description=column.get("comment", None),
             nullable=column.get("nullable", True),
             is_part_of_key=(

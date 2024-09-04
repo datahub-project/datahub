@@ -335,6 +335,7 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...dataPlatformInstanceFields
     }
     editableProperties {
+        name
         description
     }
     access {

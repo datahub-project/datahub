@@ -43,7 +43,7 @@ public class SearchServiceSearchRetriever implements SearchRetriever {
         entities,
         "*",
         filters,
-        urnSort,
+        List.of(urnSort),
         scrollId,
         null,
         count);

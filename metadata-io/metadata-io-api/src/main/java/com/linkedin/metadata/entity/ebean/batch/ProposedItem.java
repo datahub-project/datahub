@@ -7,6 +7,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -63,7 +64,12 @@ public class ProposedItem implements MCPItem {
   @Nonnull
   @Override
   public Urn getUrn() {
-    return metadataChangeProposal.getEntityUrn();
+    Urn urn = metadataChangeProposal.getEntityUrn();
+    if (urn == null) {
+      urn =
+          EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
+    }
+    return urn;
   }
 
   @Nullable

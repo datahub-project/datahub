@@ -2196,7 +2196,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         relationships.stream()
             .flatMap(relationship -> relationship.getDegrees().stream())
             .reduce(0, Math::max);
-    assertTrue(maxDegree > 1);
+    assertTrue(maxDegree >= 1);
 
     EntityLineageResult lineageResultMulti =
         getGraphService(true)

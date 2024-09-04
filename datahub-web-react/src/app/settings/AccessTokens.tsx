@@ -419,7 +419,7 @@ export const AccessTokens = () => {
             </PaginationContainer>
             <CreateTokenModal
                 currentUserUrn={currentUserUrn}
-                visible={isCreatingToken}
+                open={isCreatingToken}
                 onClose={() => setIsCreatingToken(false)}
                 onCreateToken={() => {
                     // Hack to deal with eventual consistency.

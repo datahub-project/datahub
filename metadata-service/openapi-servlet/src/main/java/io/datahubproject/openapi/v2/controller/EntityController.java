@@ -13,8 +13,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -259,5 +262,27 @@ public class EntityController
               .build(objectMapper, aspectsMap));
     }
     return responseList;
+  }
+
+  @Override
+  protected ChangeMCP toUpsertItem(
+      @Nonnull AspectRetriever aspectRetriever,
+      Urn entityUrn,
+      AspectSpec aspectSpec,
+      Boolean createIfNotExists,
+      String jsonAspect,
+      Actor actor)
+      throws URISyntaxException {
+    return ChangeItemImpl.builder()
+        .urn(entityUrn)
+        .aspectName(aspectSpec.getName())
+        .changeType(Boolean.TRUE.equals(createIfNotExists) ? ChangeType.CREATE : ChangeType.UPSERT)
+        .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
+        .recordTemplate(
+            GenericRecordUtils.deserializeAspect(
+                ByteString.copyString(jsonAspect, StandardCharsets.UTF_8),
+                GenericRecordUtils.JSON,
+                aspectSpec))
+        .build(aspectRetriever);
   }
 }

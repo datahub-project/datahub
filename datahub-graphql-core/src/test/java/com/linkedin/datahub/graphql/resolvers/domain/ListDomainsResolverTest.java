@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -47,9 +48,10 @@ public class ListDomainsResolverTest {
                 Mockito.eq(""),
                 Mockito.eq(DomainUtils.buildParentDomainFilter(TEST_PARENT_DOMAIN_URN)),
                 Mockito.eq(
-                    new SortCriterion()
-                        .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
-                        .setOrder(SortOrder.DESCENDING)),
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                            .setOrder(SortOrder.DESCENDING))),
                 Mockito.eq(0),
                 Mockito.eq(20)))
         .thenReturn(
@@ -90,9 +92,10 @@ public class ListDomainsResolverTest {
                 Mockito.eq(""),
                 Mockito.eq(DomainUtils.buildParentDomainFilter(null)),
                 Mockito.eq(
-                    new SortCriterion()
-                        .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
-                        .setOrder(SortOrder.DESCENDING)),
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                            .setOrder(SortOrder.DESCENDING))),
                 Mockito.eq(0),
                 Mockito.eq(20)))
         .thenReturn(

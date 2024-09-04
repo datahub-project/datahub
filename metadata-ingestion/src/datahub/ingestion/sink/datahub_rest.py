@@ -202,6 +202,8 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 record_urn = _get_urn(record_envelope)
                 if record_urn:
                     e.info["urn"] = record_urn
+                if workunit_id := record_envelope.metadata.get("workunit_id"):
+                    e.info["workunit_id"] = workunit_id
 
                 if not self.treat_errors_as_warnings:
                     self.report.report_failure({"error": e.message, "info": e.info})

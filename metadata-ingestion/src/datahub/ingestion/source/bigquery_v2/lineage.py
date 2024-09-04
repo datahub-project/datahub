@@ -24,6 +24,7 @@ from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     AuditLogEntry,
@@ -42,7 +43,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQuerySchemaApi,
     BigqueryTableSnapshot,
 )
-from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_DATETIME_FORMAT,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
     bigquery_audit_metadata_query_template_lineage,
@@ -50,6 +54,7 @@ from datahub.ingestion.source.bigquery_v2.queries import (
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
+from datahub.ingestion.source_report.ingestion_stage import LINEAGE_EXTRACTION
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
@@ -60,6 +65,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 from datahub.utilities import memory_footprint
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -198,39 +204,21 @@ def make_lineage_edges_from_parsing_result(
     return list(table_edges.values())
 
 
-def make_lineage_edge_for_snapshot(
-    snapshot: BigqueryTableSnapshot,
-) -> Optional[LineageEdge]:
-    if snapshot.base_table_identifier:
-        base_table_name = str(
-            BigQueryTableRef.from_bigquery_table(snapshot.base_table_identifier)
-        )
-        return LineageEdge(
-            table=base_table_name,
-            column_mapping=frozenset(
-                LineageEdgeColumnMapping(
-                    out_column=column.field_path,
-                    in_columns=frozenset([column.field_path]),
-                )
-                for column in snapshot.columns
-            ),
-            auditStamp=datetime.now(timezone.utc),
-            type=DatasetLineageTypeClass.TRANSFORMED,
-        )
-    return None
-
-
 class BigqueryLineageExtractor:
     def __init__(
         self,
         config: BigQueryV2Config,
         report: BigQueryV2Report,
-        dataset_urn_builder: Callable[[BigQueryTableRef], str],
+        *,
+        schema_resolver: SchemaResolver,
+        identifiers: BigQueryIdentifierBuilder,
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
     ):
         self.config = config
         self.report = report
-        self.dataset_urn_builder = dataset_urn_builder
+        self.schema_resolver = schema_resolver
+
+        self.identifiers = identifiers
         self.audit_log_api = BigQueryAuditLogApi(
             report.audit_log_api_perf,
             self.config.rate_limit,
@@ -242,6 +230,23 @@ class BigqueryLineageExtractor:
             self.report.lineage_start_time,
             self.report.lineage_end_time,
         ) = self.get_time_window()
+
+        self.datasets_skip_audit_log_lineage: Set[str] = set()
+
+        self.aggregator = SqlParsingAggregator(
+            platform=self.identifiers.platform,
+            platform_instance=self.identifiers.identifier_config.platform_instance,
+            env=self.identifiers.identifier_config.env,
+            schema_resolver=self.schema_resolver,
+            eager_graph_load=False,
+            generate_lineage=True,
+            generate_queries=True,
+            generate_usage_statistics=False,
+            generate_query_usage_statistics=False,
+            generate_operations=False,
+            format_queries=True,
+        )
+        self.report.sql_aggregator = self.aggregator.report
 
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
@@ -268,10 +273,46 @@ class BigqueryLineageExtractor:
 
         return True
 
+    def get_lineage_workunits_for_views_and_snapshots(
+        self,
+        projects: List[str],
+        view_refs_by_project: Dict[str, Set[str]],
+        view_definitions: FileBackedDict[str],
+        snapshot_refs_by_project: Dict[str, Set[str]],
+        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
+    ) -> Iterable[MetadataWorkUnit]:
+        for project in projects:
+            if self.config.lineage_parse_view_ddl:
+                for view in view_refs_by_project[project]:
+                    self.datasets_skip_audit_log_lineage.add(view)
+                    self.aggregator.add_view_definition(
+                        view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
+                            BigQueryTableRef.from_string_name(view)
+                        ),
+                        view_definition=view_definitions[view],
+                        default_db=project,
+                    )
+
+            for snapshot_ref in snapshot_refs_by_project[project]:
+                snapshot = snapshots_by_ref[snapshot_ref]
+                if not snapshot.base_table_identifier:
+                    continue
+                self.datasets_skip_audit_log_lineage.add(snapshot_ref)
+                snapshot_urn = self.identifiers.gen_dataset_urn_from_raw_ref(
+                    BigQueryTableRef.from_string_name(snapshot_ref)
+                )
+                base_table_urn = self.identifiers.gen_dataset_urn_from_raw_ref(
+                    BigQueryTableRef(snapshot.base_table_identifier)
+                )
+                self.aggregator.add_known_lineage_mapping(
+                    upstream_urn=base_table_urn, downstream_urn=snapshot_urn
+                )
+
+        yield from auto_workunit(self.aggregator.gen_metadata())
+
     def get_lineage_workunits(
         self,
         projects: List[str],
-        sql_parser_schema_resolver: SchemaResolver,
         view_refs_by_project: Dict[str, Set[str]],
         view_definitions: FileBackedDict[str],
         snapshot_refs_by_project: Dict[str, Set[str]],
@@ -280,39 +321,22 @@ class BigqueryLineageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
-        datasets_skip_audit_log_lineage: Set[str] = set()
-        dataset_lineage: Dict[str, Set[LineageEdge]] = {}
-        for project in projects:
-            self.populate_snapshot_lineage(
-                dataset_lineage,
-                snapshot_refs_by_project[project],
-                snapshots_by_ref,
-            )
 
-            if self.config.lineage_parse_view_ddl:
-                self.populate_view_lineage_with_sql_parsing(
-                    dataset_lineage,
-                    view_refs_by_project[project],
-                    view_definitions,
-                    sql_parser_schema_resolver,
-                    project,
-                )
-
-            datasets_skip_audit_log_lineage.update(dataset_lineage.keys())
-            for lineage_key in dataset_lineage.keys():
-                yield from self.gen_lineage_workunits_for_table(
-                    dataset_lineage, BigQueryTableRef.from_string_name(lineage_key)
-                )
+        yield from self.get_lineage_workunits_for_views_and_snapshots(
+            projects,
+            view_refs_by_project,
+            view_definitions,
+            snapshot_refs_by_project,
+            snapshots_by_ref,
+        )
 
         if self.config.use_exported_bigquery_audit_metadata:
             projects = ["*"]  # project_id not used when using exported metadata
 
         for project in projects:
-            self.report.set_ingestion_stage(project, "Lineage Extraction")
+            self.report.set_ingestion_stage(project, LINEAGE_EXTRACTION)
             yield from self.generate_lineage(
                 project,
-                sql_parser_schema_resolver,
-                datasets_skip_audit_log_lineage,
                 table_refs,
             )
 
@@ -325,8 +349,6 @@ class BigqueryLineageExtractor:
     def generate_lineage(
         self,
         project_id: str,
-        sql_parser_schema_resolver: SchemaResolver,
-        datasets_skip_audit_log_lineage: Set[str],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
@@ -336,9 +358,7 @@ class BigqueryLineageExtractor:
                     lineage = self.lineage_via_catalog_lineage_api(project_id)
                 else:
                     events = self._get_parsed_audit_log_events(project_id)
-                    lineage = self._create_lineage_map(
-                        events, sql_parser_schema_resolver
-                    )
+                    lineage = self._create_lineage_map(events)
             except Exception as e:
                 self.report.lineage_failed_extraction.append(project_id)
                 self.report.warning(
@@ -364,7 +384,7 @@ class BigqueryLineageExtractor:
             # as they may contain indirectly referenced tables.
             if (
                 lineage_key not in table_refs
-                or lineage_key in datasets_skip_audit_log_lineage
+                or lineage_key in self.datasets_skip_audit_log_lineage
             ):
                 continue
 
@@ -372,62 +392,10 @@ class BigqueryLineageExtractor:
                 lineage, BigQueryTableRef.from_string_name(lineage_key)
             )
 
-    def populate_view_lineage_with_sql_parsing(
-        self,
-        view_lineage: Dict[str, Set[LineageEdge]],
-        view_refs: Set[str],
-        view_definitions: FileBackedDict[str],
-        sql_parser_schema_resolver: SchemaResolver,
-        default_project: str,
-    ) -> None:
-        for view in view_refs:
-            view_definition = view_definitions[view]
-            raw_view_lineage = sqlglot_lineage(
-                view_definition,
-                schema_resolver=sql_parser_schema_resolver,
-                default_db=default_project,
-            )
-            if raw_view_lineage.debug_info.table_error:
-                logger.debug(
-                    f"Failed to parse lineage for view {view}: {raw_view_lineage.debug_info.table_error}"
-                )
-                self.report.num_view_definitions_failed_parsing += 1
-                self.report.view_definitions_parsing_failures.append(
-                    f"Table-level sql parsing error for view {view}: {raw_view_lineage.debug_info.table_error}"
-                )
-                continue
-            elif raw_view_lineage.debug_info.column_error:
-                self.report.num_view_definitions_failed_column_parsing += 1
-                self.report.view_definitions_parsing_failures.append(
-                    f"Column-level sql parsing error for view {view}: {raw_view_lineage.debug_info.column_error}"
-                )
-            else:
-                self.report.num_view_definitions_parsed += 1
-
-            ts = datetime.now(timezone.utc)
-            view_lineage[view] = set(
-                make_lineage_edges_from_parsing_result(
-                    raw_view_lineage,
-                    audit_stamp=ts,
-                    lineage_type=DatasetLineageTypeClass.VIEW,
-                )
-            )
-
-    def populate_snapshot_lineage(
-        self,
-        snapshot_lineage: Dict[str, Set[LineageEdge]],
-        snapshot_refs: Set[str],
-        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
-    ) -> None:
-        for snapshot in snapshot_refs:
-            lineage_edge = make_lineage_edge_for_snapshot(snapshots_by_ref[snapshot])
-            if lineage_edge:
-                snapshot_lineage[snapshot] = {lineage_edge}
-
     def gen_lineage_workunits_for_table(
         self, lineage: Dict[str, Set[LineageEdge]], table_ref: BigQueryTableRef
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_urn = self.dataset_urn_builder(table_ref)
+        dataset_urn = self.identifiers.gen_dataset_urn_from_raw_ref(table_ref)
 
         lineage_info = self.get_lineage_for_table(
             bq_table=table_ref,
@@ -479,7 +447,9 @@ class BigqueryLineageExtractor:
         lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
 
         data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf, self.config.get_bigquery_client()
+            self.report.schema_api_perf,
+            self.config.get_bigquery_client(),
+            self.config.get_projects_client(),
         )
 
         # Filtering datasets
@@ -682,7 +652,6 @@ class BigqueryLineageExtractor:
     def _create_lineage_map(
         self,
         entries: Iterable[QueryEvent],
-        sql_parser_schema_resolver: SchemaResolver,
     ) -> Dict[str, Set[LineageEdge]]:
         logger.info("Entering create lineage map function")
         lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
@@ -746,7 +715,7 @@ class BigqueryLineageExtractor:
                     query = e.query
                 raw_lineage = sqlglot_lineage(
                     query,
-                    schema_resolver=sql_parser_schema_resolver,
+                    schema_resolver=self.schema_resolver,
                     default_db=e.project_id,
                 )
                 logger.debug(
@@ -870,7 +839,9 @@ class BigqueryLineageExtractor:
         # even if the lineage is same but the order is different.
         for upstream in sorted(self.get_upstream_tables(bq_table, lineage_metadata)):
             upstream_table = BigQueryTableRef.from_string_name(upstream.table)
-            upstream_table_urn = self.dataset_urn_builder(upstream_table)
+            upstream_table_urn = self.identifiers.gen_dataset_urn_from_raw_ref(
+                upstream_table
+            )
 
             # Generate table-level lineage.
             upstream_table_class = UpstreamClass(
