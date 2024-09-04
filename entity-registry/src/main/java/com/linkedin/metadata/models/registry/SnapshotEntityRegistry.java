@@ -41,6 +41,7 @@ import com.linkedin.metadata.aspect.patch.template.ml.EditableMLPrimaryKeyProper
 import com.linkedin.metadata.aspect.patch.template.monitor.MonitorInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.structuredproperty.StructuredPropertyDefinitionTemplate;
 import com.linkedin.metadata.aspect.patch.template.tests.TestResultsTemplate;
+import com.linkedin.metadata.aspect.patch.template.usagefeatures.UsageFeaturesTemplate;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
@@ -160,6 +161,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(
         ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME,
         new EditableMLPrimaryKeyPropertiesTemplate());
+    aspectSpecTemplateMap.put(USAGE_FEATURES_ASPECT_NAME, new UsageFeaturesTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 
