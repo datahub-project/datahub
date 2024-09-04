@@ -45,6 +45,8 @@ class DatahubEmitterOperator(DatahubBaseOperator):
     :type datahub_conn_id: str
     """
 
+    template_fields = ["metadata"]
+
     # See above for why these mypy type issues are ignored here.
     @apply_defaults  # type: ignore[misc]
     def __init__(  # type: ignore[no-untyped-def]

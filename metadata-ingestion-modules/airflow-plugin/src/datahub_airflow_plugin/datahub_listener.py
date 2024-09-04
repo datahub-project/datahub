@@ -20,9 +20,11 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataFlowKeyClass,
     DataJobKeyClass,
+    DatasetSnapshotClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    MetadataChangeEventClass,
     OperationClass,
     OperationTypeClass,
     StatusClass,
@@ -49,6 +51,7 @@ from datahub_airflow_plugin.entities import (
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
 )
+from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
@@ -148,7 +151,44 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
     # This is necessary to get the correct operator args in the extractors.
     try:
         task_instance_copy = copy.deepcopy(task_instance)
-        task_instance_copy.render_templates()
+
+        if isinstance(task_instance_copy.task, DatahubEmitterOperator):
+            context = task_instance_copy.get_template_context()
+            parent = task_instance_copy.task
+
+            assert parent
+
+            jinja_env = parent.get_template_env()
+
+            template_fields = parent.template_fields
+
+            for attr_name in template_fields:
+                mces = getattr(parent, attr_name)
+                for mce in mces:
+                    if isinstance(mce, MetadataChangeEventClass):
+                        for key in mce.keys():
+                            value = getattr(mce, key)
+                            if isinstance(value, DatasetSnapshotClass):
+                                urn = getattr(value, "urn")
+                                rendered_urn = parent.render_template(
+                                    urn, context, jinja_env
+                                )
+                                setattr(value, "urn", rendered_urn)
+
+                                for aspect in getattr(value, "aspects"):
+                                    for aspect_prop in aspect.keys():
+                                        prop = getattr(aspect, aspect_prop)
+                                        rendered_aspect_val = parent.render_template(
+                                            prop, context, jinja_env
+                                        )
+                                        setattr(aspect, aspect_prop, rendered_aspect_val)
+
+                            setattr(mce, key, value)
+                setattr(parent, attr_name, mces)
+                task_instance_copy.task.execute(context)
+            else:
+                task_instance_copy.render_templates()
+
         return task_instance_copy
     except Exception as e:
         logger.info(
