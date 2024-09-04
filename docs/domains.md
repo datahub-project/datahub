@@ -73,7 +73,7 @@ To remove an asset from a Domain, click the 'x' icon on the Domain tag.
 > by a [Policy](authorization/policies.md).
 
 #### Ingestion-time Assignment
-All SQL-based ingestion sources support assigning domains during ingestion using the `domain` configuration. Consult your source's configuration details page (e.g. [Snowflake](/docs/generated/ingestion/sources/snowflake.md)), to verify that it supports the Domain capability.
+All SQL-based ingestion sources support assigning domains during ingestion using the `domain` configuration. Consult your source's configuration details page (e.g. [Snowflake](./generated/ingestion/sources/snowflake.md)), to verify that it supports the Domain capability.
 
 :::note
 

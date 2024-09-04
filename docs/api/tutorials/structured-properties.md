@@ -8,8 +8,7 @@ import TabItem from '@theme/TabItem';
  Structured properties are a structured, named set of properties that can be attached to logical entities like Datasets, DataJobs, etc.
 Structured properties have values that are types. Conceptually, they are like “field definitions”.
 
-Learn more about structured properties in the [Structured Properties Feature Guide](/docs/features/feature-guides/properties.md).
-
+Learn more about structured properties in the [Structured Properties Feature Guide](../../features/feature-guides/properties.md).
 
 ### Goal Of This Guide
 
@@ -33,7 +32,7 @@ Additionally, you need to have the following tools installed according to the me
 <TabItem value="CLI" label="CLI" default>
 
 Install the relevant CLI version. Forms are available as of CLI version `0.13.1`. The corresponding DataHub Cloud release version is `v0.2.16.5`
-Connect to your instance via [init](/docs/cli.md#init):
+Connect to your instance via [init](../../cli.md#init):
 
 - Run `datahub init` to update the instance you want to load into.
 - Set the server to your sandbox instance, `https://{your-instance-address}/gms`.

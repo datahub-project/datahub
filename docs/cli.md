@@ -699,7 +699,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 Please see our [Integrations page](https://datahubproject.io/integrations) if you want to filter on the features offered by each source.
 
 | Plugin Name                                                                                    | Install Command                                            | Provides                                |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |
+|------------------------------------------------------------------------------------------------| ---------------------------------------------------------- | --------------------------------------- |
 | [metadata-file](./generated/ingestion/sources/metadata-file.md)                                | _included by default_                                      | File source and sink                    |
 | [athena](./generated/ingestion/sources/athena.md)                                              | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                       |
 | [bigquery](./generated/ingestion/sources/bigquery.md)                                          | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                         |
@@ -728,7 +728,7 @@ Please see our [Integrations page](https://datahubproject.io/integrations) if yo
 | [redash](./generated/ingestion/sources/redash.md)                                              | `pip install 'acryl-datahub[redash]'`                      | Redash source                           |
 | [redshift](./generated/ingestion/sources/redshift.md)                                          | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                         |
 | [sagemaker](./generated/ingestion/sources/sagemaker.md)                                        | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                    |
-| [snowflake](/docs/generated/ingestion/sources/snowflake.md)                                        | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                        |
+| [snowflake](./generated/ingestion/sources/snowflake.md)                                        | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                        |
 | [sqlalchemy](./generated/ingestion/sources/sqlalchemy.md)                                      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source               |
 | [superset](./generated/ingestion/sources/superset.md)                                          | `pip install 'acryl-datahub[superset]'`                    | Superset source                         |
 | [tableau](./generated/ingestion/sources/tableau.md)                                            | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                          |

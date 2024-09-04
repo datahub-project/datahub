@@ -147,7 +147,7 @@ managing changes across teams easier, by funneling all changes through a change 
 
 To manage your glossary using Git, you can define it within a file and then use the DataHub CLI to ingest
 it into DataHub whenever a change is made (e.g. on a `git commit` hook). For detailed information about the format of
-the glossary file, and how to ingest it into DataHub, check out the [Business Glossary](/docs/generated/ingestion/sources/business-glossary.md) source guide.
+the glossary file, and how to ingest it into DataHub, check out the [Business Glossary](../generated/ingestion/sources/business-glossary.md) source guide.
 
 ## About Glossary Term Relationships
 

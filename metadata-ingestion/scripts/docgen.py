@@ -1125,7 +1125,16 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
             if 'docs/generated' in source_file or relative_path in dup_files:
                 target_file = os.path.join(target_dir, relative_path)
                 os.makedirs(os.path.dirname(target_file), exist_ok=True)
-                shutil.copyfile(source_file, target_file)
+
+                # Read file content, replace all occurrences of "/docs/" with "/docs/managed-datahub/generated/"
+                with open(source_file, 'r') as f:
+                    content = f.read()
+                    content = content.replace("](../", "](../../../")
+                    # content = content.replace("](/", "](../../")
+                    content = content.replace(": ../", ": ../../../")
+                # Write the modified content to the target file
+                with open(target_file, 'w') as f:
+                    f.write(content)
 
     print("Copied selected .md docs to managed-datahub directory.")
 

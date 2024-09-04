@@ -29,10 +29,10 @@ This doc is a guide to deploy an instance of DataHub on a kubernetes cluster usi
 
 ## Components
 
-Datahub consists of 4 main components: [GMS](/metadata-service/README.md),
-[MAE Consumer](/metadata-jobs/mae-consumer-job/README.md) (optional),
-[MCE Consumer](/metadata-jobs/mce-consumer-job/README.md) (optional), and
-[Frontend](/datahub-frontend/README.md). Kubernetes deployment for each of the components are
+Datahub consists of 4 main components: [GMS](../../metadata-service/README.md),
+[MAE Consumer](../../metadata-jobs/mae-consumer-job/README.md) (optional),
+[MCE Consumer](../../metadata-jobs/mce-consumer-job/README.md) (optional), and
+[Frontend](../../datahub-frontend/README.md). Kubernetes deployment for each of the components are
 defined as subcharts under the main
 [Datahub](https://github.com/acryldata/datahub-helm/tree/master/charts/datahub)
 helm chart.

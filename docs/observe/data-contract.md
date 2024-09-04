@@ -102,7 +102,7 @@ Datahub integrates nicely with DBT Test and Great Expectations, as described bel
 
 ### DBT Test
 
-During DBT Ingestion, we pick up the dbt `run_results` file, which contains the dbt test run results, and translate it into assertion runs. [See details here.](/docs/generated/ingestion/sources/dbt.md#module-dbt)
+During DBT Ingestion, we pick up the dbt `run_results` file, which contains the dbt test run results, and translate it into assertion runs. [See details here.](../generated/ingestion/sources/dbt.md#module-dbt)
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/dbt-test.png"/>
@@ -112,7 +112,7 @@ During DBT Ingestion, we pick up the dbt `run_results` file, which contains the 
 
 ### Great Expectations
 
-For Great Expectations, you can integrate the **DataHubValidationAction** directly into your Great Expectations Checkpoint in order to have the assertion (aka. expectation) results to Datahub. [See the guide here](/metadata-ingestion/integration_docs/great-expectations.md).
+For Great Expectations, you can integrate the **DataHubValidationAction** directly into your Great Expectations Checkpoint in order to have the assertion (aka. expectation) results to Datahub. [See the guide here](../../../metadata-ingestion/integration_docs/great-expectations.md).
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/gx-test.png"/>

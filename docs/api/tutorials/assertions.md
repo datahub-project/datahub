@@ -7,11 +7,11 @@ import TabItem from '@theme/TabItem';
 
 This guide specifically covers how to use the Assertion APIs for **DataHub Cloud** native assertions, including:
 
-- [Freshness Assertions](/docs/observe/freshness-assertions.md)
-- [Volume Assertions](/docs/observe/volume-assertions.md)
-- [Column Assertions](/docs/observe/column-assertions.md)
-- [Schema Assertions](/docs/observe/schema-assertions.md)
-- [Custom SQL Assertions](/docs/observe/custom-sql-assertions.md)
+- [Freshness Assertions](../../observe/freshness-assertions.md)
+- [Volume Assertions](../../observe/volume-assertions.md)
+- [Column Assertions](../../observe/column-assertions.md)
+- [Schema Assertions](../../observe/schema-assertions.md)
+- [Custom SQL Assertions](../../observe/custom-sql-assertions.md)
 
 ## Why Would You Use Assertions APIs?
 
@@ -73,7 +73,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
-For more details, see the [Freshness Assertions](/docs/observe/freshness-assertions.md) guide.
+For more details, see the [Freshness Assertions](../../observe/freshness-assertions.md) guide.
 
 ### Volume Assertions
 
@@ -126,7 +126,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
-For more details, see the [Volume Assertions](/docs/observe/volume-assertions.md) guide.
+For more details, see the [Volume Assertions](../../observe/volume-assertions.md) guide.
 
 ### Column Assertions
 
@@ -185,7 +185,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
-For more details, see the [Column Assertions](/docs/observe/column-assertions.md) guide.
+For more details, see the [Column Assertions](../../observe/column-assertions.md) guide.
 
 ### Custom SQL Assertions
 
@@ -232,7 +232,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
-For more details, see the [Custom SQL Assertions](/docs/observe/custom-sql-assertions.md) guide.
+For more details, see the [Custom SQL Assertions](../../observe/custom-sql-assertions.md) guide.
 
 ### Schema Assertions
 
@@ -285,7 +285,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
-For more details, see the [Schema Assertions](/docs/observe/schema-assertions.md) guide.
+For more details, see the [Schema Assertions](../../observe/schema-assertions.md) guide.
 
 
 </TabItem>
@@ -573,9 +573,9 @@ You can provide **dynamic parameters** to your assertions to customize their beh
 assertions that require dynamic parameters, such as a threshold value that changes based on the time of day.
 
 Dynamic parameters can be injected into the SQL fragment portion of any Assertion. For example, it can appear
-in any part of the SQL statement in a [Custom SQL](/docs/observe/custom-sql-assertions.md) Assertion, 
-or it can appear in the **Advanced > Filter** section of a [Column](/docs/observe/column-assertions.md),
-[Volume](/docs/observe/volume-assertions.md), or [Freshness](/docs/observe/freshness-assertions.md) Assertion.
+in any part of the SQL statement in a [Custom SQL](../../observe/custom-sql-assertions.md) Assertion, 
+or it can appear in the **Advanced > Filter** section of a [Column](../../observe/column-assertions.md),
+[Volume](../../observe/volume-assertions.md), or [Freshness](../../observe/freshness-assertions.md) Assertion.
 
 To do so, you'll first need to edit the SQL fragment to include the dynamic parameter. Dynamic parameters appear
 as `${parameterName}` in the SQL fragment.

@@ -11,7 +11,7 @@ along with informing Data Practitioners when these changes happened.
 - An existing field is removed
 - An existing field changes type
 
-Schema History uses DataHub's [Timeline API](/docs/dev-guides/timeline.md) to compute schema changes.
+Schema History uses DataHub's [Timeline API](dev-guides/timeline.md) to compute schema changes.
 
 ##  Schema History Setup, Prerequisites, and Permissions
 

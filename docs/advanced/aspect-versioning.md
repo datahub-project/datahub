@@ -1,5 +1,5 @@
 # Aspect Versioning
-As each version of [metadata aspect](/docs/what/aspect.md) is immutable, any update to an existing aspect results in the creation of a new version. Typically one would expect the version number increases sequentially with the largest version number being the latest version, i.e. `v1` (oldest), `v2` (second oldest), ..., `vN` (latest). However, this approach results in major challenges in both rest.li modeling & transaction isolation and therefore requires a rethinking.
+As each version of [metadata aspect](../what/aspect.md) is immutable, any update to an existing aspect results in the creation of a new version. Typically one would expect the version number increases sequentially with the largest version number being the latest version, i.e. `v1` (oldest), `v2` (second oldest), ..., `vN` (latest). However, this approach results in major challenges in both rest.li modeling & transaction isolation and therefore requires a rethinking.
 
 ## Rest.li Modeling
 As it's common to create dedicated rest.li sub-resources for a specific aspect, e.g. `/datasets/{datasetKey}/ownership`, the concept of versions become an interesting modeling question. Should the sub-resource be a [Simple](https://linkedin.github.io/rest.li/modeling/modeling#simple) or a [Collection](https://linkedin.github.io/rest.li/modeling/modeling#collection) type?

@@ -1,6 +1,6 @@
 # High Cardinality Relationships
 
-As explained in [What is a Relationship](/docs/what/relationship.md), the raw metadata for forming relationships is captured directly inside of a [Metadata Aspect](/docs/what/aspect.md). The most natural way to model this is using an array, e.g. a group membership aspect contains an array of user [URNs](/docs/what/urn.md). However, this poses some challenges when the cardinality of the relationship is expected to be large (say, greater than 10,000). The aspect becomes large in size, which leads to slow update and retrieval. It may even exceed the underlying limit of the document store, which is often in the range of a few MBs. Furthermore, sending large messages (> 1MB) over Kafka requires special tuning and is generally discouraged.
+As explained in [What is a Relationship](../what/relationship.md), the raw metadata for forming relationships is captured directly inside of a [Metadata Aspect](../what/aspect.md). The most natural way to model this is using an array, e.g. a group membership aspect contains an array of user [URNs](../what/urn.md). However, this poses some challenges when the cardinality of the relationship is expected to be large (say, greater than 10,000). The aspect becomes large in size, which leads to slow update and retrieval. It may even exceed the underlying limit of the document store, which is often in the range of a few MBs. Furthermore, sending large messages (> 1MB) over Kafka requires special tuning and is generally discouraged.
 
 Depending on the type of relationships, there are different strategies for dealing with high cardinality. 
 
@@ -22,7 +22,7 @@ record Membership {
 }
 ```
 
-One drawback with this approach is that batch updating the member list becomes multiple DB operations and non-atomic. If the list is provided by an external metadata provider via [MCEs](/docs/what/mxe.md), this also means that multiple MCEs will be required to update the list, instead of having one giant array in a single MCE.
+One drawback with this approach is that batch updating the member list becomes multiple DB operations and non-atomic. If the list is provided by an external metadata provider via [MCEs](../what/mxe.md), this also means that multiple MCEs will be required to update the list, instead of having one giant array in a single MCE.
 
 ### M:N Relationships
 

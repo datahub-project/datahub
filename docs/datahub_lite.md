@@ -34,7 +34,7 @@ The following features are **NOT** supported:
 
 ## Prerequisites
 
-To use `datahub lite` commands, you need to install [`acryl-datahub`](https://pypi.org/project/acryl-datahub/) > 0.9.6 ([install instructions](/docs/cli.md#using-pip)) and the `datahub-lite` plugin.
+To use `datahub lite` commands, you need to install [`acryl-datahub`](https://pypi.org/project/acryl-datahub/) > 0.9.6 ([install instructions](./cli.md#using-pip)) and the `datahub-lite` plugin.
 
 ```shell
 pip install acryl-datahub[datahub-lite]

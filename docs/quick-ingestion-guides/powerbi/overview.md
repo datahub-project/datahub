@@ -18,7 +18,7 @@ Upon completing this guide, you will have a recurring ingestion pipeline that wi
 
 
 
-*To learn more about setting these advanced values, check out the [PowerBI Ingestion Source](/docs/generated/ingestion/sources/powerbi.md).*
+*To learn more about setting these advanced values, check out the [PowerBI Ingestion Source](../../generated/ingestion/sources/powerbi.md).*
 
 ## Next Steps
 Continue to the [setup guide](setup.md), where we'll describe the prerequisites.
@@ -28,5 +28,5 @@ Continue to the [setup guide](setup.md), where we'll describe the prerequisites.
 If you want to ingest metadata from PowerBI using the DataHub CLI, check out the following resources:
 
 * Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
-* [PowerBI Ingestion Source](/docs/generated/ingestion/sources/powerbi.md)
+* [PowerBI Ingestion Source](../../generated/ingestion/sources/powerbi.md)
 

@@ -42,29 +42,29 @@ Primary-key based reads (e.g. getting schema metadata for a dataset based on the
 [RecordTemplate]: https://github.com/linkedin/rest.li/blob/master/data/src/main/java/com/linkedin/data/template/RecordTemplate.java
 [GenericRecord]: https://github.com/apache/avro/blob/master/lang/java/avro/src/main/java/org/apache/avro/generic/GenericRecord.java
 [Pegasus]: https://linkedin.github.io/rest.li/DATA-Data-Schema-and-Templates
-[relationship]: /docs/what/relationship.md
-[entity]: /docs/what/entity.md
-[aspect]: /docs/what/aspect.md
-[GMS]: /docs/what/gms.md
-[Metadata Change Log]: /docs/what/mxe.md#metadata-change-log-mcl
+[relationship]: ../what/relationship.md
+[entity]: ../what/entity.md
+[aspect]: ../what/aspect.md
+[GMS]: ../what/gms.md
+[Metadata Change Log]: ../what/mxe.md#metadata-change-log-mcl
 [rest.li]: https://rest.li
 
 
-[Metadata Change Proposal (MCP)]: /docs/what/mxe.md#metadata-change-proposal-mcp
-[Metadata Change Log (MCL)]: /docs/what/mxe.md#metadata-change-log-mcl
-[MCP]: /docs/what/mxe.md#metadata-change-proposal-mcp
-[MCL]: /docs/what/mxe.md#metadata-change-log-mcl
+[Metadata Change Proposal (MCP)]: ../what/mxe.md#metadata-change-proposal-mcp
+[Metadata Change Log (MCL)]: ../what/mxe.md#metadata-change-log-mcl
+[MCP]: ../what/mxe.md#metadata-change-proposal-mcp
+[MCL]: ../what/mxe.md#metadata-change-log-mcl
 
 [equivalent Pegasus format]: https://linkedin.github.io/rest.li/how_data_is_represented_in_memory#the-data-template-layer
-[graph]: /docs/what/graph.md
-[search index]: /docs/what/search-index.md
+[graph]: ../what/graph.md
+[search index]: ../what/search-index.md
 [mce-consumer-job]: ../../metadata-jobs/mce-consumer-job
 [mae-consumer-job]: ../../metadata-jobs/mae-consumer-job
 [Remote DAO]: ../architecture/metadata-serving.md#remote-dao
-[URN]: /docs/what/urn.md
+[URN]: ../what/urn.md
 [Metadata Modelling]: ../modeling/metadata-model.md
-[Entity]: /docs/what/entity.md
-[Relationship]: /docs/what/relationship.md
-[Search Document]: /docs/what/search-document.md
-[metadata aspect]: /docs/what/aspect.md
+[Entity]: ../what/entity.md
+[Relationship]: ../what/relationship.md
+[Search Document]: ../what/search-document.md
+[metadata aspect]: ../what/aspect.md
 [Python emitters]: /metadata-ingestion/as-a-library.md

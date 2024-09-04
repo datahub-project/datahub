@@ -31,9 +31,9 @@ As long as you can emit a [Metadata Change Proposal (MCP)] event to Kafka or mak
 
 DataHub comes with a Spring job, [mce-consumer-job], which consumes the Metadata Change Proposals and writes them into the DataHub Metadata Service (datahub-gms) using the `/ingest` endpoint. 
 
-[Metadata Change Proposal (MCP)]: /docs/what/mxe.md#metadata-change-proposal-mcp
-[Metadata Change Proposal]: /docs/what/mxe.md#metadata-change-proposal-mcp
-[Metadata Change Log (MCL)]: /docs/what/mxe.md#metadata-change-log-mcl
+[Metadata Change Proposal (MCP)]: ../what/mxe.md#metadata-change-proposal-mcp
+[Metadata Change Proposal]: ../what/mxe.md#metadata-change-proposal-mcp
+[Metadata Change Log (MCL)]: ../what/mxe.md#metadata-change-log-mcl
 [equivalent Pegasus format]: https://linkedin.github.io/rest.li/how_data_is_represented_in_memory#the-data-template-layer
 [mce-consumer-job]: ../../metadata-jobs/mce-consumer-job
 [Python emitters]: ../../metadata-ingestion/README.md#using-as-a-library

@@ -20,7 +20,7 @@ Looker connector will ingest Looker asset types:
 
 :::note
 
-To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the [lookml](/docs/generated/ingestion/sources/looker.md#module-lookml) connector.
+To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the [lookml](../../generated/ingestion/sources/looker.md#module-lookml) connector.
 
 :::
 
@@ -36,7 +36,7 @@ LookMl connector will include the following LookML asset types:
 
 :::note
 
-To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the [looker](/docs/generated/ingestion/sources/looker.md#module-looker) connector.
+To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the [looker](../../generated/ingestion/sources/looker.md#module-looker) connector.
 
 :::
 
@@ -48,6 +48,6 @@ Please continue to the [setup guide](setup.md), where we'll describe the prerequ
 
 If you want to ingest metadata from Looker using the DataHub CLI, check out the following resources:
 * Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
-* [Looker Ingestion Source](/docs/generated/ingestion/sources/looker.md)
+* [Looker Ingestion Source](../../generated/ingestion/sources/looker.md)
 
 

@@ -144,12 +144,12 @@ You can now see the column-level lineage between datasets. Note that you have to
 You can also add lineage to non-dataset entities, such as DataJobs, Charts, and Dashboards.
 Please refer to the following examples.
 
-| Connection          | Examples         | A.K.A           |
-|---------------------|-------------------|-----------------|
-| DataJob to DataFlow | - [lineage_job_dataflow.py](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)    | | 
+| Connection          | Examples                                                                                                      | A.K.A           |
+|---------------------|---------------------------------------------------------------------------------------------------------------|-----------------|
+| DataJob to DataFlow | - [lineage_job_dataflow.py](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)             | | 
 | DataJob to Dataset  | - [lineage_dataset_job_dataset.py](../../../metadata-ingestion/examples/library/lineage_dataset_job_dataset.py) <br /> | Pipeline Lineage |
-| Chart to Dashboard  | - [lineage_chart_dashboard.py](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py) |  |
-| Chart to Dataset    | - [lineage_dataset_chart.py](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py) |  |
+| Chart to Dashboard  | - [lineage_chart_dashboard.py](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)       |  |
+| Chart to Dataset    | - [lineage_dataset_chart.py](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py)           |  |
 
 
 ## Read Lineage (Lineage Impact Analysis)

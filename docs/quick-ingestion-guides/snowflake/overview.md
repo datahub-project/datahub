@@ -32,7 +32,7 @@ By default, DataHub only profiles datasets that have changed in the past 1 day. 
 
 Additionally, DataHub only extracts usage and lineage information based on operations performed in the last 1 day. This can be changed by setting a custom value for `start_time` and `end_time` in the YAML editor.
 
-*To learn more about setting these advanced values, check out the [Snowflake Ingestion Source](/docs/generated/ingestion/sources/snowflake.md).*
+*To learn more about setting these advanced values, check out the [Snowflake Ingestion Source](../../generated/ingestion/sources/snowflake.md).*
 
 ## Next Steps
 
@@ -43,5 +43,5 @@ If that all sounds like what you're looking for, navigate to the [next page](set
 If you want to ingest metadata from Snowflake using the DataHub CLI, check out the following resources:
 
 * Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
-* [Snowflake Ingestion Source](/docs/generated/ingestion/sources/snowflake.md)
+* [Snowflake Ingestion Source](../../generated/ingestion/sources/snowflake.md)
 

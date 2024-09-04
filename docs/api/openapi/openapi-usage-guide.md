@@ -588,7 +588,7 @@ public class Main {
 ### Conditional Writes
 
 All the create/POST endpoints for aspects support `headers` in the POST body to support batch APIs. See the docs in the
-[MetadataChangeProposal](/docs/advanced/mcp-mcl.md) section for the use of these headers to support conditional writes semantics.
+[MetadataChangeProposal](../../advanced/mcp-mcl.md) section for the use of these headers to support conditional writes semantics.
 
 ### Batch Get
 

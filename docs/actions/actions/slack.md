@@ -138,7 +138,7 @@ In the next steps, we'll show you how to configure the Slack Action based on the
 
 #### DataHub Cloud
 
-Head over to the [Configuring Notifications](/docs/slack/saas-slack-setup.md)#configure-slack-for-notifications) section in the DataHub Cloud guide to configure Slack notifications for your DataHub Cloud instance.
+Head over to the [Configuring Notifications](../../slack/saas-slack-setup.md)#configure-slack-for-notifications) section in the DataHub Cloud guide to configure Slack notifications for your DataHub Cloud instance.
 
 
 #### Quickstart

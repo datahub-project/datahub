@@ -217,7 +217,7 @@ After you create your Aspect, you need to attach to all the entities that it app
 At the beginning of this document, we walked you through a flow-chart that should help you decide whether you need to maintain a fork of the open source DataHub repo for your model extensions, or whether you can just use a model extension repository that can stay independent of the DataHub repo. Depending on what path you took, the place you store your aspect model files (the .pdl files) and the entity-registry files (the yaml file called `entity-registry.yaml` or `entity-registry.yml`) will vary.
 
 - Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into [`metadata-models/src/main/resources/entity-registry.yml`](../../metadata-models/src/main/resources/entity-registry.yml). Read on for more details in [Step 5](#step-5-attaching-your-non-key-aspects-to-the-entity).
-- Custom repository: Read the [metadata-models-custom](/metadata-models-custom/README.md) documentation to learn how to store and version your aspect models and registry.
+- Custom repository: Read the [metadata-models-custom](../../metadata-models-custom/README.md) documentation to learn how to store and version your aspect models and registry.
 
 ### <a name="step_5"></a>Step 5: Attaching your non-key Aspect(s) to the Entity
 
@@ -248,7 +248,7 @@ before running `build`.
 
 Then, run `./gradlew build` from the repository root to rebuild Datahub with access to your new entity.
 
-Then, re-deploy metadata-service (gms), and mae-consumer and mce-consumer (optionally if you are running them unbundled). See [docker development](/docker/README.md) for details on how
+Then, re-deploy metadata-service (gms), and mae-consumer and mce-consumer (optionally if you are running them unbundled). See [docker development](../../docker/README.md) for details on how
 to deploy during development. This will allow Datahub to read and write your new entity or extensions to existing entities, along with serving search and graph queries for that entity type.
 
 ### <a name="step_7"></a>(Optional) Step 7: Use custom models with the Python SDK
@@ -261,7 +261,7 @@ import TabItem from '@theme/TabItem';
 
 If you're purely using the custom models locally, you can use a local development-mode install of the DataHub CLI.
 
-Install the DataHub CLI locally by following the [developer instructions](metadata-ingestion/developing.md).
+Install the DataHub CLI locally by following the [developer instructions](../../metadata-ingestion/developing.md).
 The `./gradlew build` command already generated the avro schemas for your local ingestion cli tool to use.
 After following the developing guide, you should be able to emit your new event using the local DataHub CLI.
 
@@ -305,8 +305,7 @@ You'll also be able to import those models, with IDE support, by changing your i
 If you are extending an entity with additional aspects, and you can use the auto-render specifications to automatically render these aspects to your satisfaction, you do not need to write any custom code.
 
 However, if you want to write specific code to render your model extensions, or if you introduced a whole new entity and want to give it its own page, you will need to write custom React and Grapqhl code to view and mutate your entity in GraphQL or React. For
-instructions on how to start extending the GraphQL graph, see [graphql docs](/datahub-graphql-core/README.md). Once you’ve done that, you can follow the guide [here](/datahub-web-react/README.md) to add your entity into the React UI.
-
+instructions on how to start extending the GraphQL graph, see [graphql docs](../../datahub-graphql-core/README.md). Once you’ve done that, you can follow the guide [here](../../datahub-web-react/README.md) to add your entity into the React UI.
 ## Metadata Annotations
 
 There are four core annotations that DataHub recognizes:
