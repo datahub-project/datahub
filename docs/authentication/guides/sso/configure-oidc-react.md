@@ -48,7 +48,7 @@ Select `Web` as the **Platform**, and `OpenID Connect` as the **Sign on method**
 Click **Create** and name your application under **General Settings** and save.
 
 - **Login Redirect URI** : `https://your-datahub-domain.com/callback/oidc`.
-- **Logout Redirect URI**. `https://your-datahub-domain.com`
+- **Logout Redirect URI**. `https://your-datahub-domain.com/login`
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/okta-setup-2.png"/>
