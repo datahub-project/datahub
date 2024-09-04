@@ -60,3 +60,11 @@
   font-family: sans-serif;
   color: gray;
 }
+
+#hubspotForm .hs-form .hs_firstname {
+  padding-right: 0.5rem;
+}
+
+#hubspotForm .hs-form .hs_lastname {
+  padding-left: 0.5rem;
+}
