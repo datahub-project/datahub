@@ -1,0 +1,33 @@
+namespace com.linkedin.accessrequest
+
+import com.linkedin.common.CorpuserUrn
+
+/**
+ * People who can be involved in decision upon and use of access request.
+ * This aspect should not be created or updated by the end user, but
+ * rather by the backend with corresponding data from the context.
+ */
+@Aspect = {
+  "name": "accessRequestParties"
+}
+record AccessRequestParties {
+  @Relationship = {
+    "name": "AccessRequestedBy",
+    "entityTypes": [ "corpuser" ]
+  }
+  requester: optional CorpuserUrn
+
+  @Relationship = {
+    "/*": {
+      "name": "AccessRequestCanBeApprovedBy",
+      "entityTypes": [ "corpuser" ]
+    }
+  }
+  authorizedApprovers: optional array[CorpuserUrn]
+
+  @Relationship = {
+    "name": "AccessRequestGrantedBy",
+    "entityTypes": [ "corpuser" ]
+  }
+  grantor: optional CorpuserUrn
+}

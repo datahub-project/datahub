@@ -55,6 +55,14 @@ entities:
       - dataAccessStatusInfo
       - dataAccessParties
       - dataAccessLifeCycle
+  - name: accessRequest
+    doc: An Access Request represents a unique request that bundles multiple data accesses together.
+    keyAspect: accessRequestKey
+    aspects:
+      - accessRequestAccessList
+      - accessRequestProperties
+      - accessRequestStatusInfo
+      - accessRequestParties
   - name: dataPlatformPrincipal
     doc: DataPlatformPrincipal represents a principal in a particular data platform.
     keyAspect: dataPlatformPrincipalKey
@@ -249,6 +257,7 @@ entities:
       - browsePathsV2
       - structuredProperties
       - forms
+      - dataAccessConfiguration
   - name: tag
     category: core
     keyAspect: tagKey

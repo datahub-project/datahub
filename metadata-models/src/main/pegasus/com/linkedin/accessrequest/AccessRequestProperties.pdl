@@ -1,0 +1,26 @@
+namespace com.linkedin.accessrequest
+
+import com.linkedin.common.Time
+
+/**
+ * Properties of data access request
+ */
+@Aspect = {
+  "name": "accessRequestProperties"
+}
+record AccessRequestProperties {
+  /**
+   * The purpose of the access request
+   */
+  purpose: optional string
+
+  /**
+   * The details of the access request
+   */
+  details: optional string
+
+  /**
+   * The creation time of access request
+   */
+  requestTime: optional Time
+}

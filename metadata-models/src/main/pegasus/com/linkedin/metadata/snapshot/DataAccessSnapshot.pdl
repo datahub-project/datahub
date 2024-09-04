@@ -1,6 +1,6 @@
 namespace com.linkedin.metadata.snapshot
 
-import com.linkedin.common.DataAccessUrn
+import com.linkedin.common.Urn
 import com.linkedin.metadata.aspect.DataAccessAspect
 
 /**
@@ -15,7 +15,7 @@ record DataAccessSnapshot {
   /**
    * URN for the entity the metadata snapshot is associated with.
    */
-  urn: DataAccessUrn
+  urn: Urn
 
   /**
    * The list of metadata aspects associated with the data access. Depending on the use case, this can either be all, or a selection, of supported aspects.
