@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
@@ -225,7 +225,7 @@ class BigQuerySchemaApi:
         return projects
 
     @lru_cache(maxsize=1)
-    def get_projects_with_labels(self, labels: frozenset[str]) -> List[BigqueryProject]:
+    def get_projects_with_labels(self, labels: FrozenSet[str]) -> List[BigqueryProject]:
         with self.report.list_projects_with_labels_timer:
             try:
                 projects = []
@@ -679,7 +679,7 @@ def query_project_list_from_labels(
     filters: BigQueryFilter,
 ) -> Iterable[BigqueryProject]:
     projects = schema_api.get_projects_with_labels(
-        frozenset(filters.filter_config.project_labels)
+        FrozenSet(filters.filter_config.project_labels)
     )
 
     if not projects:  # Report failure on exception and if empty list is returned
