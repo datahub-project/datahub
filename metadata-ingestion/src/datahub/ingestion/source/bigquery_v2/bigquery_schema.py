@@ -679,7 +679,7 @@ def query_project_list_from_labels(
     filters: BigQueryFilter,
 ) -> Iterable[BigqueryProject]:
     projects = schema_api.get_projects_with_labels(
-        FrozenSet(filters.filter_config.project_labels)
+        frozenset(filters.filter_config.project_labels)
     )
 
     if not projects:  # Report failure on exception and if empty list is returned
