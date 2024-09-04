@@ -490,9 +490,9 @@ class UsageStat:
 class TableauProject:
     id: str
     name: str
-    description: str
+    description: Optional[str]
     parent_id: Optional[str]
-    parent_name: Optional[str]  # Name of parent project
+    parent_name: Optional[str]  # Name of a parent project
     path: List[str]
 
 
@@ -3067,30 +3067,38 @@ class TableauSiteSource:
         return None
 
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
-        history: Set[str] = set()
+        visited_project_ids: Set[str] = set()
 
         def emit_project_in_topological_order(
             project_: TableauProject,
         ) -> Iterable[MetadataWorkUnit]:
+            """
+            The source_helpers.py file includes a function called auto_browse_path_v2 that automatically generates
+            BrowsePathsV2. This auto-generation relies on the correct sequencing of MetadataWorkUnit containers.
+            The emit_project_in_topological_order function ensures that parent containers are emitted before their child
+            containers.
+            This is a recursive function.
+            """
             if project_.parent_id is None:
                 project_key = self.gen_project_key(project_.id)
-                if project_key.guid() not in history:
-                    history.add(project_key.guid())
 
-                    parent_container_key: Optional[ContainerKey] = None
-                    # set site as parent as per config
-                    if self.config.add_site_container and self.site and self.site.id:
-                        parent_container_key = self.gen_site_key(self.site.id)
+                if project_key.guid() in visited_project_ids:
+                    return
 
-                    yield from gen_containers(
-                        container_key=self.gen_project_key(project_.id),
-                        name=project_.name,
-                        description=project_.description
-                        if project_.description != ""
-                        else None,
-                        sub_types=[c.PROJECT],
-                        parent_container_key=parent_container_key,
-                    )
+                visited_project_ids.add(project_key.guid())
+
+                parent_container_key: Optional[ContainerKey] = None
+                # set site as parent container
+                if self.config.add_site_container and self.site and self.site.id:
+                    parent_container_key = self.gen_site_key(self.site.id)
+
+                yield from gen_containers(
+                    container_key=project_key,
+                    name=project_.name,
+                    description=project_.description,
+                    sub_types=[c.PROJECT],
+                    parent_container_key=parent_container_key,
+                )
 
                 return
 
@@ -3104,10 +3112,11 @@ class TableauSiteSource:
                 assert (
                     project_.parent_name
                 ), f"project {project_.name} parent project name is None"
+
                 parent_project = TableauProject(
                     id=project_.parent_id,
                     name=project_.parent_name,
-                    description="",
+                    description=None,  # No description available for parent project
                     parent_id=None,
                     parent_name=None,
                     path=[],
@@ -3117,15 +3126,18 @@ class TableauSiteSource:
 
             container_key = self.gen_project_key(project_.id)
 
-            if container_key.guid() not in history:
-                history.add(container_key.guid())
-                yield from gen_containers(
-                    container_key=container_key,
-                    name=project_.name,
-                    description=project_.description,
-                    sub_types=[c.PROJECT],
-                    parent_container_key=self.gen_project_key(project_.parent_id),
-                )
+            if container_key.guid() in visited_project_ids:
+                return
+
+            visited_project_ids.add(container_key.guid())
+
+            yield from gen_containers(
+                container_key=container_key,
+                name=project_.name,
+                description=project_.description,
+                sub_types=[c.PROJECT],
+                parent_container_key=self.gen_project_key(project_.parent_id),
+            )
 
         for id_, project in self.tableau_project_registry.items():
             logger.debug(
