@@ -181,13 +181,15 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
                                         rendered_aspect_val = parent.render_template(
                                             prop, context, jinja_env
                                         )
-                                        setattr(aspect, aspect_prop, rendered_aspect_val)
+                                        setattr(
+                                            aspect, aspect_prop, rendered_aspect_val
+                                        )
 
                             setattr(mce, key, value)
                 setattr(parent, attr_name, mces)
                 task_instance_copy.task.execute(context)
-            else:
-                task_instance_copy.render_templates()
+        else:
+            task_instance_copy.render_templates()
 
         return task_instance_copy
     except Exception as e:
