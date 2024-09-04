@@ -512,6 +512,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     if (args.aspectName != null) {
       exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
     }
+    if (args.aspectNames != null && !args.aspectNames.isEmpty()) {
+      exp = exp.in(EbeanAspectV2.ASPECT_COLUMN, args.aspectNames);
+    }
     if (args.urn != null) {
       exp = exp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
     }
