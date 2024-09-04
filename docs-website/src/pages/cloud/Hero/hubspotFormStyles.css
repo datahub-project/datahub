@@ -44,11 +44,16 @@
   display: none;
 }
 
+/* error labels */
+
 #hubspotForm .hs-form .hs-error-msgs {
   font-size: 15px;
   color: red;
 }
 
+#hubspotForm .hs-form .error {
+  border: red 1.5px solid !important;
+}
 
 /* customize placeholder style */
 
