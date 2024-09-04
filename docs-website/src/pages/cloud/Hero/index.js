@@ -30,17 +30,17 @@ const Hero = () => {
           const phoneInput = document.querySelector('#hubspotForm .hs_phone .input > input');
           const additionalInfoInput = document.querySelector('#hubspotForm .hs_additional_info .input > textarea');
 
-          if (emailInput) emailInput.placeholder = 'Company Email*';
-          if (firstNameInput) firstNameInput.placeholder = 'First Name*';
-          if (lastNameInput) lastNameInput.placeholder = 'Last Name*';
-          if (phoneInput) phoneInput.placeholder = 'Phone*';
+          if (emailInput) emailInput.placeholder = 'Company Email';
+          if (firstNameInput) firstNameInput.placeholder = 'First Name';
+          if (lastNameInput) lastNameInput.placeholder = 'Last Name';
+          if (phoneInput) phoneInput.placeholder = 'Phone Number';
           if (additionalInfoInput) additionalInfoInput.placeholder = 'How can we help?';
 
           const selectNoEElement = document.getElementById("number_of_employees-ed2447d6-e6f9-4771-8f77-825b114a9421");
           if (selectNoEElement) {
             const disabledOption = selectNoEElement.querySelector('option[disabled]');
             if (disabledOption) {
-              disabledOption.text = "Select Number of Employees*";
+              disabledOption.text = "Select Number of Employees";
               disabledOption.value = "";
             }
           }
@@ -71,18 +71,18 @@ const Hero = () => {
         <div className="hero__content">
           <div className="row row__padded">
             <div className={clsx(styles.hero__cta, styles.col, "col col--7")}>
-                <h1 className={clsx("hero__title", styles.hero__title)}>Try DataHub Cloud</h1>
+                <h1 className={clsx("hero__title", styles.hero__title)}>DataHub Cloud</h1>
                 <div className={clsx("hero__subtitle", styles.hero__subtitle)}>
-                  Introducing DataHub as a Managed Service
+                Experience the premium version of DataHub
                   <div style={{ fontWeight: "500" }}>
                     with Data Observability and Data Governance built-in.
                   </div>
                 </div>
-                <Link className={clsx(styles.button, "button button--primary button--lg")} to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
+                <Link className={clsx(styles.button, styles.bookButton, "button button--primary button--lg")} to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
                   Book Demo
                 </Link>
-                <Link className={clsx(styles.button, styles.buttonLightBlue, "button button--secondary button--lg")} to="https://www.acryldata.io/tour">
-                  Product Tour
+                <Link className={clsx(styles.button, styles.productTourButton, "button button--secondary button--lg")} to="https://www.acryldata.io/tour">
+                  Live Product Tour →
                 </Link>
                 <ScrollingCustomers />
             </div>
@@ -90,9 +90,9 @@ const Hero = () => {
               <div className={clsx(styles.formContainer)}>
                 <div className={clsx(styles.formContent)}>
                   <div className={clsx(styles.formHeader)}>
-                    <div className={clsx(styles.formTitle)}>Try it for free!</div>
+                    <div className={clsx(styles.formTitle)}>Book a free Demo</div>
                     <div className={clsx(styles.formSubtitle)}>
-                      Get free a demo, and a trial if you’re interested.
+                      Schedule a personalized demo and get a free a trial.
                     </div>
                   </div>
                   <div id="hubspotForm" className={styles.hubspotForm}></div>

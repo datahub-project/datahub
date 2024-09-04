@@ -9,11 +9,11 @@
 #hubspotForm .hs-form input,
 #hubspotForm .hs-form select,
 #hubspotForm .hs-form textarea {
-  border: none;
-  background-color: #D9D9D9;
-  padding: 1rem; 
-  margin: 0.6rem auto;
-  border-radius: 4px; 
+  border: .5px solid #DDD;
+  background-color: #FFF;
+  padding: .75rem 1rem; 
+  margin: 0.4rem auto;
+  border-radius: 8px; 
   font-size: 16px;
   width: 100%;
 }
@@ -23,15 +23,15 @@
 }
 
 #hubspotForm .hs-form input[type="submit"] {
-  background-color: #171B2B;
+  background-color: #1990FF;
   color: #fff; 
   border: none; 
   padding: 10px 20px; /* Custom padding */
   cursor: pointer;
-  border-radius: 4px; /* Rounded corners */
-  font-size: 20px;
+  border-radius: 8px; /* Rounded corners */
+  font-size: 16px;
   font-weight: 600;
-  width: 130px;
+  width: 100px;
 }
 
 #hubspotForm .hs-form input[type="submit"]:hover {
