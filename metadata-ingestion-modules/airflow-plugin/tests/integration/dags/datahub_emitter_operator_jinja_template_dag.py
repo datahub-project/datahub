@@ -12,7 +12,7 @@ class CustomOperator(DatahubEmitterOperator):
         super().__init__(**kwargs)
 
 
-default_args={
+default_args = {
     "owner": "airflow",
     "depends_on_past": False,
     "start_date": datetime(2023, 1, 1),
@@ -20,6 +20,7 @@ default_args={
     "email_on_failure": False,
     "execution_timeout": timedelta(minutes=5),
 }
+
 
 with DAG(
     "datahub_emitter_operator_jinja_template_dag",
