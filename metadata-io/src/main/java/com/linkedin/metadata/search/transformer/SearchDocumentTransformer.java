@@ -282,33 +282,50 @@ public class SearchDocumentTransformer {
               });
       searchDocument.set(fieldName, dictDoc);
     } else if (valueType == DataSchema.Type.MAP) {
-        ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
-        fieldValues
-        .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
-        .forEach(
-            fieldValue -> {
+      ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
+      fieldValues
+          .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
+          .forEach(
+              fieldValue -> {
                 String[] keyValues = fieldValue.toString().split("=");
                 String key = keyValues[0], value = "";
                 if (keyValues.length > 1) {
-                    value = keyValues[1];
-                    if (((MapDataSchema) fieldSpec.getPegasusSchema()).getValues().getType().equals(DataSchema.Type.BOOLEAN)) {
-                        dictDoc.set(key, JsonNodeFactory.instance.booleanNode(Boolean.parseBoolean(value)));
-                    } else if (((MapDataSchema) fieldSpec.getPegasusSchema()).getValues().getType().equals(DataSchema.Type.INT)) {
-                        dictDoc.set(key, JsonNodeFactory.instance.numberNode(Integer.parseInt(value)));
-                    } else if (((MapDataSchema) fieldSpec.getPegasusSchema()).getValues().getType().equals(DataSchema.Type.DOUBLE)) {
-                        dictDoc.set(key, JsonNodeFactory.instance.numberNode(Double.parseDouble(value)));
-                    } else if (((MapDataSchema) fieldSpec.getPegasusSchema()).getValues().getType().equals(DataSchema.Type.LONG)) {
-                        dictDoc.set(key, JsonNodeFactory.instance.numberNode(Long.parseLong(value)));
-                    } else if (((MapDataSchema) fieldSpec.getPegasusSchema()).getValues().getType().equals(DataSchema.Type.FLOAT)) {
-                        dictDoc.set(key, JsonNodeFactory.instance.numberNode(Float.parseFloat(value)));
-                    } else {
-                        dictDoc.put(key, value);
-                    }
-                } else {
+                  value = keyValues[1];
+                  if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.BOOLEAN)) {
+                    dictDoc.set(
+                        key, JsonNodeFactory.instance.booleanNode(Boolean.parseBoolean(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.INT)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Integer.parseInt(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.DOUBLE)) {
+                    dictDoc.set(
+                        key, JsonNodeFactory.instance.numberNode(Double.parseDouble(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.LONG)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Long.parseLong(value)));
+                  } else if (((MapDataSchema) fieldSpec.getPegasusSchema())
+                      .getValues()
+                      .getType()
+                      .equals(DataSchema.Type.FLOAT)) {
+                    dictDoc.set(key, JsonNodeFactory.instance.numberNode(Float.parseFloat(value)));
+                  } else {
                     dictDoc.put(key, value);
+                  }
+                } else {
+                  dictDoc.put(key, value);
                 }
-            });
-        searchDocument.set(fieldName, dictDoc);
+              });
+      searchDocument.set(fieldName, dictDoc);
     } else if (!fieldValues.isEmpty()) {
       getNodeForValue(valueType, fieldValues.get(0), fieldType)
           .ifPresent(node -> searchDocument.set(fieldName, node));
