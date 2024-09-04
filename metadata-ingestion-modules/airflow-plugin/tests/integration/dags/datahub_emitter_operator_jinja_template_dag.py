@@ -10,19 +10,25 @@ from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 class CustomOperator(DatahubEmitterOperator):
     def __init__(self, name, **kwargs):
         super().__init__(**kwargs)
-        self.mces = []
 
+
+default_args={
+    "owner": "airflow",
+    "depends_on_past": False,
+    "start_date": datetime(2023, 1, 1),
+    "email": ["jdoe@example.com"],
+    "email_on_failure": False,
+    "execution_timeout": timedelta(minutes=5),
+}
 
 with DAG(
     "datahub_emitter_operator_jinja_template_dag",
-    default_args={
-        "owner": "airflow",
-        "depends_on_past": False,
-        "start_date": datetime(2023, 1, 1),
-        "email": ["jdoe@example.com"],
-        "email_on_failure": False,
-        "execution_timeout": timedelta(minutes=5),
-    },
+    default_args=default_args,
+    description="An example dag with jinja template",
+    schedule_interval=None,
+    tags=["example_tag"],
+    catchup=False,
+    default_view="tree",
 ):
     add_custom_properties = DatahubEmitterOperator(
         task_id="datahub_emitter_operator_jinja_template_dag_task",
