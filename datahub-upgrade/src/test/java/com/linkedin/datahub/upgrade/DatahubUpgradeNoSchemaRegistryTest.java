@@ -7,9 +7,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.mxe.Topics;
@@ -55,7 +55,7 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
 
   @Autowired
   @Named("schemaRegistryConfig")
-  private SchemaRegistryConfig schemaRegistryConfig;
+  private KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig;
 
   @Test
   public void testSystemUpdateInit() {
@@ -64,13 +64,17 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
 
   @Test
   public void testSystemUpdateKafkaProducerOverride() throws RestClientException, IOException {
-    assertEquals(schemaRegistryConfig.getDeserializer(), MockSystemUpdateDeserializer.class);
-    assertEquals(schemaRegistryConfig.getSerializer(), MockSystemUpdateSerializer.class);
+    assertEquals(
+        schemaRegistryConfig.getValue().getDeserializer(),
+        MockSystemUpdateDeserializer.class.getName());
+    assertEquals(
+        schemaRegistryConfig.getValue().getSerializer(),
+        MockSystemUpdateSerializer.class.getName());
     assertEquals(kafkaEventProducer, duheKafkaEventProducer);
     assertEquals(entityService.getProducer(), duheKafkaEventProducer);
 
     MockSystemUpdateSerializer serializer = new MockSystemUpdateSerializer();
-    serializer.configure(schemaRegistryConfig.getProperties(), false);
+    serializer.configure(schemaRegistryConfig.getProperties(null), false);
     SchemaRegistryClient registry = serializer.getSchemaRegistryClient();
     assertEquals(
         registry.getId(
