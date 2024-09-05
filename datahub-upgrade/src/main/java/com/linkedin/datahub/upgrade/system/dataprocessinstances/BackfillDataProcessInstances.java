@@ -38,7 +38,7 @@ public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
 
   @Override
   public String id() {
-    return "BackfillDataProcessInstanceHasRunEvents";
+    return "BackfillDataProcessInstances";
   }
 
   @Override

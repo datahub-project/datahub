@@ -14,13 +14,13 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.utils.SearchUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
@@ -82,14 +82,13 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
       ObjectNode json = JsonNodeFactory.instance.objectNode();
       json.put("hasRunEvents", true);
 
-      String runEventsIndexName =
-          opContext
-              .getSearchContext()
-              .getIndexConvention()
-              .getTimeseriesAspectIndexName(
-                  DATA_PROCESS_INSTANCE_ENTITY_NAME, DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
+      IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
 
-      UpgradeStepResult.Result result = UpgradeStepResult.Result.SUCCEEDED;
+      String runEventsIndexName =
+          indexConvention.getTimeseriesAspectIndexName(
+              DATA_PROCESS_INSTANCE_ENTITY_NAME, DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
+
+      DataHubUpgradeState upgradeState = DataHubUpgradeState.SUCCEEDED;
 
       while (true) {
         SearchRequest searchRequest = new SearchRequest(runEventsIndexName);
@@ -101,7 +100,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
         } catch (IOException e) {
           log.error(Throwables.getStackTraceAsString(e));
           log.error("Error querying index {}", runEventsIndexName);
-          result = UpgradeStepResult.Result.FAILED;
+          upgradeState = DataHubUpgradeState.FAILED;
           break;
         }
         List<Aggregation> aggregations = response.getAggregations().asList();
@@ -122,14 +121,12 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
         if (!urns.isEmpty()) {
           urns = entityService.exists(opContext, urns);
           urns.forEach(
-              urn -> {
-                Optional<String> docId = SearchUtils.getDocId(urn);
-                if (docId.isEmpty()) {
-                  return;
-                }
-                elasticSearchService.upsertDocument(
-                    opContext, DATA_PROCESS_INSTANCE_ENTITY_NAME, json.toString(), docId.get());
-              });
+              urn ->
+                  elasticSearchService.upsertDocument(
+                      opContext,
+                      DATA_PROCESS_INSTANCE_ENTITY_NAME,
+                      json.toString(),
+                      indexConvention.getEntityDocumentId(urn)));
         }
         if (aggregation.afterKey() == null) {
           break;
@@ -137,7 +134,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
         aggregationBuilder.aggregateAfter(aggregation.afterKey());
       }
       BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
-      return new DefaultUpgradeStepResult(id(), result);
+      return new DefaultUpgradeStepResult(id(), upgradeState);
     };
   }
 
