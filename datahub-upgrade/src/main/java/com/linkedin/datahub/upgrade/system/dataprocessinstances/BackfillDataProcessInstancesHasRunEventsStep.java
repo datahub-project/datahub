@@ -3,14 +3,11 @@ package com.linkedin.datahub.upgrade.system.dataprocessinstances;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.base.Throwables;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -50,6 +47,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
 
   private final boolean reprocessEnabled;
   private final Integer batchSize;
+  private final Integer batchDelayMs;
 
   public BackfillDataProcessInstancesHasRunEventsStep(
       OperationContext opContext,
@@ -57,23 +55,21 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
       ElasticSearchService elasticSearchService,
       RestHighLevelClient restHighLevelClient,
       boolean reprocessEnabled,
-      Integer batchSize) {
+      Integer batchSize,
+      Integer batchDelayMs) {
     this.opContext = opContext;
     this.entityService = entityService;
     this.elasticSearchService = elasticSearchService;
     this.restHighLevelClient = restHighLevelClient;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
+    this.batchDelayMs = batchDelayMs;
   }
 
+  @SuppressWarnings("BusyWait")
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-      final AuditStamp auditStamp =
-          new AuditStamp()
-              .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-              .setTime(System.currentTimeMillis());
-
       TermsValuesSourceBuilder termsValuesSourceBuilder =
           new TermsValuesSourceBuilder("urn").field("urn");
 
@@ -132,6 +128,14 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
           break;
         }
         aggregationBuilder.aggregateAfter(aggregation.afterKey());
+        if (batchDelayMs > 0) {
+          log.info("Sleeping for {} ms", batchDelayMs);
+          try {
+            Thread.sleep(batchDelayMs);
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+        }
       }
       BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
       return new DefaultUpgradeStepResult(id(), upgradeState);

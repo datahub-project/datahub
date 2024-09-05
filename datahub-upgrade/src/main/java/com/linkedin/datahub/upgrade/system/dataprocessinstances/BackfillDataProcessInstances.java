@@ -20,7 +20,8 @@ public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
       RestHighLevelClient restHighLevelClient,
       boolean enabled,
       boolean reprocessEnabled,
-      Integer batchSize) {
+      Integer batchSize,
+      Integer batchDelayMs) {
     if (enabled) {
       _steps =
           ImmutableList.of(
@@ -30,7 +31,8 @@ public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
                   elasticSearchService,
                   restHighLevelClient,
                   reprocessEnabled,
-                  batchSize));
+                  batchSize,
+                  batchDelayMs));
     } else {
       _steps = ImmutableList.of();
     }

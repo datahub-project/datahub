@@ -24,7 +24,8 @@ public class BackfillDataProcessInstancesConfig {
       @Value("${systemUpdate.processInstanceHasRunEvents.enabled}") final boolean enabled,
       @Value("${systemUpdate.processInstanceHasRunEvents.reprocess.enabled}")
           boolean reprocessEnabled,
-      @Value("${systemUpdate.processInstanceHasRunEvents.batchSize}") final Integer batchSize) {
+      @Value("${systemUpdate.processInstanceHasRunEvents.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.processInstanceHasRunEvents.delayMs}") final Integer delayMs) {
     return new BackfillDataProcessInstances(
         opContext,
         entityService,
@@ -32,6 +33,7 @@ public class BackfillDataProcessInstancesConfig {
         restHighLevelClient,
         enabled,
         reprocessEnabled,
-        batchSize);
+        batchSize,
+        delayMs);
   }
 }
