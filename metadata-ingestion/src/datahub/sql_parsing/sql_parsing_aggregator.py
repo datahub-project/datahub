@@ -47,6 +47,10 @@ from datahub.sql_parsing.sqlglot_utils import (
     get_query_fingerprint,
     try_format_query,
 )
+from datahub.sql_parsing.tool_meta_extractor import (
+    ToolMetaExtractor,
+    ToolMetaExtractorReport,
+)
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
@@ -179,6 +183,8 @@ class PreparsedQuery:
     query_type_props: QueryTypeProps = dataclasses.field(
         default_factory=lambda: QueryTypeProps()
     )
+    # Use this to store addtitional key-value information about query for debugging
+    extra_info: Optional[dict] = None
 
 
 @dataclasses.dataclass
@@ -246,6 +252,9 @@ class SqlAggregatorReport(Report):
     # Operation-related.
     num_operations_generated: int = 0
     num_operations_skipped_due_to_filters: int = 0
+
+    # Tool Metadata Extraction
+    tool_meta_report: Optional[ToolMetaExtractorReport] = None
 
     def compute_stats(self) -> None:
         self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
@@ -420,6 +429,10 @@ class SqlParsingAggregator(Closeable):
                 shared_connection=self._shared_connection,
                 tablename="query_usage_counts",
             )
+
+        # Tool Extractor
+        self._tool_meta_extractor = ToolMetaExtractor()
+        self.report.tool_meta_report = self._tool_meta_extractor.report
 
     def close(self) -> None:
         self._exit_stack.close()
@@ -736,6 +749,9 @@ class SqlParsingAggregator(Closeable):
         session_has_temp_tables: bool = True,
         _is_internal: bool = False,
     ) -> None:
+
+        self._tool_meta_extractor.extract_bi_metadata(parsed)
+
         if not _is_internal:
             self.report.num_preparsed_queries += 1
 
