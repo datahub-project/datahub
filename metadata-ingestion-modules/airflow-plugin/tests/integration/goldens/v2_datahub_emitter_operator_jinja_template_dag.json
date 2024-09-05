@@ -122,23 +122,6 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,foursquare.example.lineage_example,DEV)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "jinjaTemplate": "2023-09-27"
-                        },
-                        "tags": []
-                    }
-                }
-            ]
-        }
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
     "changeType": "UPSERT",
@@ -259,7 +242,7 @@
             "name": "datahub_emitter_operator_jinja_template_dag_datahub_emitter_operator_jinja_template_dag_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1725456265500,
+                "time": 1725524757579,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -284,30 +267,13 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1725456265500,
+            "timestampMillis": 1725524757579,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
-        }
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,foursquare.example.lineage_example,DEV)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "jinjaTemplate": "{{ ds }}"
-                        },
-                        "tags": []
-                    }
-                }
-            ]
         }
     }
 },
@@ -428,7 +394,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1725456265654,
+            "timestampMillis": 1725524757792,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

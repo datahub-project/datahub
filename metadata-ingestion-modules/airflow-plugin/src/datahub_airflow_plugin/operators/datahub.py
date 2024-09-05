@@ -3,6 +3,10 @@ from typing import List, Union
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import (
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
+)
 
 from datahub_airflow_plugin.hooks.datahub import (
     DatahubGenericHook,
@@ -62,4 +66,33 @@ class DatahubEmitterOperator(DatahubBaseOperator):
         self.metadata = mces
 
     def execute(self, context):
+        if context:
+            jinja_env = self.get_template_env()
+            for mce in self.metadata:
+                if isinstance(mce, MetadataChangeEventClass):
+                    for key in mce.keys():
+                        value = getattr(mce, key)
+                        if isinstance(value, DatasetSnapshotClass):
+                            for ds_key in value.keys():
+                                ds_value = getattr(value, ds_key)
+
+                                if isinstance(ds_value, str) and ds_value not in ["", None]:
+                                    rendered_value = self.render_template(
+                                        ds_value, context, jinja_env
+                                    )
+                                    setattr(value, ds_key, rendered_value)
+
+                                if isinstance(ds_value, list) and ds_value:
+                                    for aspect in ds_value:
+                                        for aspect_key in aspect.keys():
+                                            aspect_value = getattr(aspect, aspect_key)
+
+                                            rendered_aspect_val = self.render_template(
+                                                aspect_value, context, jinja_env
+                                            )
+
+                                            setattr(
+                                                aspect, aspect_key, rendered_aspect_val
+                                            )
+
         self.generic_hook.get_underlying_hook().emit(self.metadata)
