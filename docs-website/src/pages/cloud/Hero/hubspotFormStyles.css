@@ -49,6 +49,8 @@
 #hubspotForm .hs-form .hs-error-msgs {
   font-size: 15px;
   color: red;
+  list-style-type: none;
+  padding: 0;
 }
 
 #hubspotForm .hs-form .error {
@@ -73,3 +75,4 @@
 #hubspotForm .hs-form .hs_lastname {
   padding-left: 0.5rem;
 }
+
