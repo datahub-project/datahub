@@ -6,7 +6,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 from typing_extensions import Protocol
 
 from datahub.ingestion.api.report import Report
-from datahub.metadata._urns.urn_defs import CorpGroupUrn, CorpUserUrn
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.utilities.stats_collections import int_top_k_dict
 
 UrnStr = str
