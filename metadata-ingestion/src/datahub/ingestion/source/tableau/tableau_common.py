@@ -964,40 +964,12 @@ def query_metadata_cursor_based_pagination(
     return result
 
 
-def query_metadata(
-    server: Server,
-    main_query: str,
-    connection_name: str,
-    first: int,
-    offset: int,
-    qry_filter: str = "",
-) -> dict:
-    query = """{{
-        {connection_name} (first:{first}, offset:{offset}, filter:{{{filter}}})
-        {{
-            nodes {main_query}
-            pageInfo {{
-                hasNextPage
-                endCursor
-            }}
-            totalCount
-        }}
-    }}""".format(
-        connection_name=connection_name,
-        first=first,
-        offset=offset,
-        filter=qry_filter,
-        main_query=main_query,
-    )
-    return server.metadata.query(query)
-
-
 def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
     filter_pages = [query_filter]
     # If this is primary id filter, so we can use divide this query list into
     # multiple requests each with smaller filter list (of order page_size).
-    # It is observed in the past that if list of primary ids grow beyond
-    # a few ten thousands then tableau server responds with empty response
+    # It is observed in the past that if a list of primary ids grows beyond
+    # a few ten thousand, then tableau server responds with empty response
     # causing below error:
     # tableauserverclient.server.endpoint.exceptions.NonXMLResponseError: b''
     if (

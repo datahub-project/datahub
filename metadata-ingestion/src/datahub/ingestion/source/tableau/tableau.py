@@ -999,7 +999,7 @@ class TableauSiteSource:
         retries_remaining = retries_remaining or self.config.max_retries
 
         logger.debug(
-            f"Query {connection_type} to get {fetch_size} objects with offset {current_cursor}"
+            f"Query {connection_type} to get {fetch_size} objects with cursor {current_cursor}"
             f" and filter {query_filter}"
         )
         try:
@@ -1107,8 +1107,9 @@ class TableauSiteSource:
                         }}""",
                     )
             else:
-                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30 second
-                # timeout error. It doesn't reliably happen, so retrying a couple times makes sense.
+                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30-second
+                # timeout error.
+                # It doesn't reliably happen, so retrying a couple of times makes sense.
                 if all(
                     error.get("message")
                     == "Execution canceled because timeout of 30000 millis was reached"
@@ -3067,7 +3068,7 @@ class TableauSiteSource:
         return None
 
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
-        visited_project_ids: Set[str] = set()
+        generated_project_keys: Set[str] = set()
 
         def emit_project_in_topological_order(
             project_: TableauProject,
@@ -3079,64 +3080,55 @@ class TableauSiteSource:
             containers.
             This is a recursive function.
             """
-            if project_.parent_id is None:
-                project_key = self.gen_project_key(project_.id)
+            project_key: ProjectKey = self.gen_project_key(project_.id)
 
-                if project_key.guid() in visited_project_ids:
-                    return
+            if project_key.guid() in generated_project_keys:
+                return
 
-                visited_project_ids.add(project_key.guid())
+            generated_project_keys.add(project_key.guid())
 
-                parent_container_key: Optional[ContainerKey] = None
-                # set site as parent container
+            parent_project_key: Optional[
+                Union[ProjectKey, SiteKey]
+            ] = None  # It is going
+            # to be used as a parent container key for the current tableau project
+
+            if project_.parent_id is not None:
+                # Go to the parent project as we need to generate container first for parent
+                parent_project_key = self.gen_project_key(project_.parent_id)
+
+                parent_tableau_project: Optional[
+                    TableauProject
+                ] = self.tableau_project_registry.get(project_.parent_id)
+
+                if (
+                    parent_tableau_project is None
+                ):  # It is not in project registry because of project_pattern
+                    assert (
+                        project_.parent_name
+                    ), f"project {project_.name} should not be null"
+                    parent_tableau_project = TableauProject(
+                        id=project_.parent_id,
+                        name=project_.parent_name,
+                        description=None,
+                        parent_id=None,
+                        parent_name=None,
+                        path=[],
+                    )
+
+                yield from emit_project_in_topological_order(parent_tableau_project)
+
+            else:
+                # This is a root Tableau project since the parent_project_id is None.
+                # For a root project, either the site is the parent, or the platform is the default parent.
                 if self.config.add_site_container and self.site and self.site.id:
-                    parent_container_key = self.gen_site_key(self.site.id)
-
-                yield from gen_containers(
-                    container_key=project_key,
-                    name=project_.name,
-                    description=project_.description,
-                    sub_types=[c.PROJECT],
-                    parent_container_key=parent_container_key,
-                )
-
-                return
-
-            parent_project: Optional[
-                TableauProject
-            ] = self.tableau_project_registry.get(project_.parent_id)
-            if (
-                parent_project is None
-            ):  # this project is filtered because of project_pattern, we need to generate MCP
-                # for this, otherwise DataHub Portal will show parent container URN
-                assert (
-                    project_.parent_name
-                ), f"project {project_.name} parent project name is None"
-
-                parent_project = TableauProject(
-                    id=project_.parent_id,
-                    name=project_.parent_name,
-                    description=None,  # No description available for parent project
-                    parent_id=None,
-                    parent_name=None,
-                    path=[],
-                )
-
-            yield from emit_project_in_topological_order(parent_project)
-
-            container_key = self.gen_project_key(project_.id)
-
-            if container_key.guid() in visited_project_ids:
-                return
-
-            visited_project_ids.add(container_key.guid())
+                    parent_project_key = self.gen_site_key(self.site.id)
 
             yield from gen_containers(
-                container_key=container_key,
+                container_key=project_key,
                 name=project_.name,
                 description=project_.description,
                 sub_types=[c.PROJECT],
-                parent_container_key=self.gen_project_key(project_.parent_id),
+                parent_container_key=parent_project_key,
             )
 
         for id_, project in self.tableau_project_registry.items():
