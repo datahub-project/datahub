@@ -72,7 +72,6 @@ class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
 
 
-
 class SqlQueriesSourceReport(SourceReport):
     num_queries_parsed: int = 0
     num_table_parse_failures: int = 0
@@ -182,7 +181,7 @@ class SqlQueriesSource(Source):
             schema_resolver=self.schema_resolver,
             default_db=self.config.default_db,
             default_schema=self.config.default_schema,
-	    default_dialect=self.config.default_dialect,
+            default_dialect=self.config.default_dialect,
         )
         if result.debug_info.table_error:
             logger.info(f"Error parsing table lineage, {result.debug_info.table_error}")
