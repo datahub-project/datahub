@@ -9,4 +9,5 @@ public class ElasticSearchConfiguration {
   public String implementation;
   private SearchConfiguration search;
   private String idHashAlgo;
+  private IndexConfiguration index;
 }
