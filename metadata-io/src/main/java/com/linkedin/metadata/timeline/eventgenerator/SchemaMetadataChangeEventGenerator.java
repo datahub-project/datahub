@@ -254,6 +254,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
               curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
       changeEvents.addAll(propChangeEvents);
     }
+    List<ChangeEvent> propChangeEvents =
+        getFieldPropertyChangeEvents(
+            curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
+    changeEvents.addAll(propChangeEvents);
   }
 
   private static void processFieldPathRename(
@@ -361,161 +365,6 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     return changeEvents;
   }
 
-  // TODO Remove computeDiffs2 after all cases are covered by new computeDiffs
-  // TODO: This could use some cleanup, lots of repeated logic and tenuous conditionals
-  private static List<ChangeEvent> computeDiffs2(
-      SchemaMetadata baseSchema,
-      SchemaMetadata targetSchema,
-      Urn datasetUrn,
-      ChangeCategory changeCategory,
-      AuditStamp auditStamp) {
-    // Sort the fields by their field path.
-    if (baseSchema != null) {
-      sortFieldsByPath(baseSchema);
-    }
-    if (targetSchema != null) {
-      sortFieldsByPath(targetSchema);
-    }
-
-    // Performs ordinal based diff, primarily based on fixed field ordinals and their types.
-    SchemaFieldArray baseFields =
-        (baseSchema != null ? baseSchema.getFields() : new SchemaFieldArray());
-    SchemaFieldArray targetFields =
-        targetSchema != null ? targetSchema.getFields() : new SchemaFieldArray();
-    int baseFieldIdx = 0;
-    int targetFieldIdx = 0;
-    List<ChangeEvent> changeEvents = new ArrayList<>();
-    Set<SchemaField> renamedFields = new HashSet<>();
-    while (baseFieldIdx < baseFields.size() && targetFieldIdx < targetFields.size()) {
-      SchemaField curBaseField = baseFields.get(baseFieldIdx);
-      SchemaField curTargetField = targetFields.get(targetFieldIdx);
-      // TODO: Re-evaluate ordinal processing?
-      int comparison = curBaseField.getFieldPath().compareTo(curTargetField.getFieldPath());
-      if (renamedFields.contains(curBaseField)) {
-        baseFieldIdx++;
-      } else if (renamedFields.contains(curTargetField)) {
-        targetFieldIdx++;
-      } else if (comparison == 0) {
-        // This is the same field. Check for change events from property changes.
-        if (!curBaseField.getNativeDataType().equals(curTargetField.getNativeDataType())) {
-          // Non-backward compatible change + Major version bump
-          if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
-            changeEvents.add(
-                DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
-                    .category(ChangeCategory.TECHNICAL_SCHEMA)
-                    .modifier(getSchemaFieldUrn(datasetUrn, curBaseField).toString())
-                    .entityUrn(datasetUrn.toString())
-                    .operation(ChangeOperation.MODIFY)
-                    .semVerChange(SemanticChangeType.MAJOR)
-                    .description(
-                        String.format(
-                            "%s native datatype of the field '%s' changed from '%s' to '%s'.",
-                            BACKWARDS_INCOMPATIBLE_DESC,
-                            getFieldPathV1(curTargetField),
-                            curBaseField.getNativeDataType(),
-                            curTargetField.getNativeDataType()))
-                    .fieldPath(curBaseField.getFieldPath())
-                    .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
-                    .nullable(curBaseField.isNullable())
-                    .auditStamp(auditStamp)
-                    .build());
-          }
-          List<ChangeEvent> propChangeEvents =
-              getFieldPropertyChangeEvents(
-                  curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
-          changeEvents.addAll(propChangeEvents);
-          ++baseFieldIdx;
-          ++targetFieldIdx;
-        }
-        List<ChangeEvent> propChangeEvents =
-            getFieldPropertyChangeEvents(
-                curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
-        changeEvents.addAll(propChangeEvents);
-        ++baseFieldIdx;
-        ++targetFieldIdx;
-      } else if (comparison < 0) {
-        // Base Field was removed or was renamed. Non-backward compatible change + Major version
-        // bump
-        // Check for rename, if rename coincides with other modifications we assume drop/add.
-        // Assumes that two different fields on the same schema would not have the same description,
-        // terms,
-        // or tags and share the same type
-        SchemaField renamedField =
-            findRenamedField(
-                curBaseField,
-                targetFields.subList(targetFieldIdx, targetFields.size()),
-                renamedFields);
-        if (renamedField == null) {
-          processRemoval(changeCategory, changeEvents, datasetUrn, curBaseField, auditStamp);
-          ++baseFieldIdx;
-        } else {
-          changeEvents.add(generateRenameEvent(datasetUrn, curBaseField, renamedField, auditStamp));
-          List<ChangeEvent> propChangeEvents =
-              getFieldPropertyChangeEvents(
-                  curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
-          changeEvents.addAll(propChangeEvents);
-          ++baseFieldIdx;
-          renamedFields.add(renamedField);
-        }
-      } else {
-        // The targetField got added or a renaming occurred. Forward & backwards compatible change +
-        // minor version bump.
-        SchemaField renamedField =
-            findRenamedField(
-                curTargetField, baseFields.subList(baseFieldIdx, baseFields.size()), renamedFields);
-        if (renamedField == null) {
-          processAdd(changeCategory, changeEvents, datasetUrn, curTargetField, auditStamp);
-          ++targetFieldIdx;
-        } else {
-          changeEvents.add(
-              generateRenameEvent(datasetUrn, renamedField, curTargetField, auditStamp));
-          List<ChangeEvent> propChangeEvents =
-              getFieldPropertyChangeEvents(
-                  curBaseField, curTargetField, datasetUrn, changeCategory, auditStamp);
-          changeEvents.addAll(propChangeEvents);
-          ++targetFieldIdx;
-          renamedFields.add(renamedField);
-        }
-      }
-    }
-    while (baseFieldIdx < baseFields.size()) {
-      // Handle removed fields. Non-backward compatible change + major version bump
-      SchemaField baseField = baseFields.get(baseFieldIdx);
-      if (!renamedFields.contains(baseField)) {
-        processRemoval(changeCategory, changeEvents, datasetUrn, baseField, auditStamp);
-      }
-      ++baseFieldIdx;
-    }
-    while (targetFieldIdx < targetFields.size()) {
-      // Newly added fields. Forwards & backwards compatible change + minor version bump.
-      SchemaField targetField = targetFields.get(targetFieldIdx);
-      if (!renamedFields.contains(targetField)) {
-        processAdd(changeCategory, changeEvents, datasetUrn, targetField, auditStamp);
-      }
-      targetFieldIdx++;
-    }
-
-    // Handle primary key constraint change events.
-    List<ChangeEvent> primaryKeyChangeEvents =
-        getPrimaryKeyChangeEvents(baseSchema, targetSchema, datasetUrn, auditStamp);
-    changeEvents.addAll(primaryKeyChangeEvents);
-
-    // Handle foreign key constraint change events.
-    List<ChangeEvent> foreignKeyChangeEvents = getForeignKeyChangeEvents();
-    changeEvents.addAll(foreignKeyChangeEvents);
-
-    return changeEvents;
-  }
-
-  private static void sortFieldsByPath(SchemaMetadata schemaMetadata) {
-    if (schemaMetadata == null) {
-      throw new IllegalArgumentException("SchemaMetadata should not be null");
-    }
-    List<SchemaField> schemaFields = new ArrayList<>(schemaMetadata.getFields());
-    schemaFields.sort(Comparator.comparing(SchemaField::getFieldPath));
-    schemaMetadata.setFields(new SchemaFieldArray(schemaFields));
-  }
-
   private static SchemaField findRenamedField(
       SchemaField curField, List<SchemaField> targetFields, Set<SchemaField> renamedFields) {
     return targetFields.stream()
@@ -549,7 +398,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         && StringUtils.isBlank(schemaField.getDescription())) {
       return true;
     }
-    return curField.getDescription().equals(schemaField.getDescription());
+    return !(StringUtils.isBlank(curField.getDescription())
+            && StringUtils.isNotBlank(schemaField.getDescription()))
+        && !(StringUtils.isNotBlank(curField.getDescription())
+            && StringUtils.isBlank(schemaField.getDescription()))
+        && curField.getDescription().equals(schemaField.getDescription());
   }
 
   private static void processRemoval(
