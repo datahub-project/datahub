@@ -312,7 +312,7 @@ public class FormService extends BaseService {
       @Nonnull final PrimitivePropertyValueArray values,
       @Nonnull final String fieldPath)
       throws Exception {
-    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn.toString(), fieldPath);
+    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, fieldPath);
     ingestStructuredProperties(opContext, schemaFieldUrn, structuredPropertyUrn, values);
   }
 

@@ -5,8 +5,12 @@ import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfigu
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -71,7 +75,11 @@ public class SearchLineageFixtureConfiguration {
 
   @Bean(name = "searchLineageIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("searchLineagePrefix") String prefix) {
-    return new IndexConventionImpl(prefix, "MD5");
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder()
+            .prefix(prefix)
+            .hashIdAlgo("MD5")
+            .build());
   }
 
   @Bean(name = "searchLineageFixtureName")
@@ -79,11 +87,21 @@ public class SearchLineageFixtureConfiguration {
     return "search_lineage";
   }
 
-  @Bean(name = "lineageCacheConfiguration")
-  protected SearchLineageCacheConfiguration searchLineageCacheConfiguration() {
-    SearchLineageCacheConfiguration conf = new SearchLineageCacheConfiguration();
-    conf.setLightningThreshold(300);
-    conf.setTtlSeconds(30);
+  @Bean(name = "lineageAppConfig")
+  protected DataHubAppConfiguration searchLineageAppConfiguration() {
+    DataHubAppConfiguration conf = new DataHubAppConfiguration();
+    conf.setCache(new CacheConfiguration());
+    conf.getCache().setSearch(new SearchCacheConfiguration());
+    conf.getCache().getSearch().setLineage(new SearchLineageCacheConfiguration());
+    conf.getCache().getSearch().getLineage().setLightningThreshold(300);
+    conf.getCache().getSearch().getLineage().setTtlSeconds(30);
+    conf.setMetadataChangeProposal(new MetadataChangeProposalConfig());
+    conf.getMetadataChangeProposal()
+        .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());
+    conf.getMetadataChangeProposal()
+        .getSideEffects()
+        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+    conf.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
     return conf;
   }
 
@@ -186,7 +204,7 @@ public class SearchLineageFixtureConfiguration {
       @Qualifier("searchLineageGraphService") ElasticSearchGraphService graphService,
       @Qualifier("searchLineagePrefix") String prefix,
       @Qualifier("searchLineageFixtureName") String fixtureName,
-      @Qualifier("lineageCacheConfiguration") SearchLineageCacheConfiguration cacheConfiguration)
+      @Qualifier("lineageAppConfig") DataHubAppConfiguration appConfig)
       throws IOException {
 
     // Load fixture data (after graphService mappings applied)
@@ -198,7 +216,7 @@ public class SearchLineageFixtureConfiguration {
         .build()
         .read();
 
-    return new LineageSearchService(searchService, graphService, null, false, cacheConfiguration);
+    return new LineageSearchService(searchService, graphService, null, false, appConfig);
   }
 
   @Bean(name = "searchLineageSearchService")

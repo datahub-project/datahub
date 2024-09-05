@@ -79,7 +79,11 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     operationContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
                 new SnapshotEntityRegistry(new Snapshot()),
-                new IndexConventionImpl("search_service_test", "MD5"))
+                new IndexConventionImpl(
+                    IndexConventionImpl.IndexConventionConfig.builder()
+                        .prefix("search_service_test")
+                        .hashIdAlgo("MD5")
+                        .build()))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
     settingsBuilder = new SettingsBuilder(null);

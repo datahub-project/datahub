@@ -11274,6 +11274,21 @@ input CreatePostInput {
     The content of the post
     """
     content: UpdatePostContentInput!
+
+    """
+    Optional target URN for the post
+    """
+    resourceUrn: String
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    Optional target subresource for the post
+    """
+    subResource: String
 }
 
 """
