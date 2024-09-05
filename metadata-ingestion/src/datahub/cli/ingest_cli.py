@@ -160,17 +160,17 @@ def run(
     raw_pipeline_config = pipeline_config.pop("__raw_config")
 
     if test_source_connection:
-        _test_source_connection(report_to, pipeline_config)
+        sys.exit(_test_source_connection(report_to, pipeline_config))
+
+    if no_default_report:
+        # The default is "datahub" reporting. The extra flag will disable it.
+        report_to = None
 
     async def run_ingestion_and_check_upgrade() -> int:
         # TRICKY: We want to make sure that the Pipeline.create() call happens on the
         # same thread as the rest of the ingestion. As such, we must initialize the
         # pipeline inside the async function so that it happens on the same event
         # loop, and hence the same thread.
-
-        if no_default_report:
-            # The default is "datahub" reporting. The extra flag will disable it.
-            report_to = None
 
         # logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(
@@ -395,7 +395,7 @@ def deploy(
     click.echo(response)
 
 
-def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
+def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> int:
     connection_report = None
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
@@ -404,12 +404,12 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
             with open(report_to, "w") as out_fp:
                 out_fp.write(connection_report.as_json())
             logger.info(f"Wrote report successfully to {report_to}")
-        sys.exit(0)
+        return 0
     except Exception as e:
         logger.error(f"Failed to test connection due to {e}")
         if connection_report:
             logger.error(connection_report.as_json())
-        sys.exit(1)
+        return 1
 
 
 def parse_restli_response(response):
