@@ -12,6 +12,9 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
     const [removeRelatedTerms] = useRemoveRelatedTermsMutation();
 
     function handleRemoveRelatedTerms() {
+        message.loading({
+            content: 'Removing...',
+        });
         removeRelatedTerms({
             variables: {
                 input: {
@@ -21,22 +24,19 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
                 },
             },
         })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to remove: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
-                message.loading({
-                    content: 'Removing...',
-                    duration: 2,
-                });
+            .then(() => {
                 setTimeout(() => {
                     refetch();
+                    message.destroy();
                     message.success({
                         content: `Removed Glossary Term!`,
                         duration: 2,
                     });
                 }, 2000);
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to remove: \n ${e.message || ''}`, duration: 3 });
             });
     }
 
