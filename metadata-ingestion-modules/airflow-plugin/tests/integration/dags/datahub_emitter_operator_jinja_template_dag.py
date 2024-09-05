@@ -6,7 +6,6 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass, DatasetSnaps
 
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
-
 default_args = {
     "owner": "airflow",
     "depends_on_past": False,
