@@ -6,6 +6,8 @@ import com.linkedin.common.FormPromptAssociationArray;
 import com.linkedin.common.Forms;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DocumentationResponse;
+import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.DomainPromptResponse;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FieldFormPromptAssociation;
@@ -168,6 +170,16 @@ public class FormsMapper {
               });
       glossaryTermsResponse.setGlossaryTerms(terms);
       result.setGlossaryTermsResponse(glossaryTermsResponse);
+    }
+    if (promptResponse.getDomainResponse() != null) {
+      com.linkedin.common.DomainPromptResponse gmsDomainResponse =
+          promptResponse.getDomainResponse();
+      DomainPromptResponse domainResponse = new DomainPromptResponse();
+      Domain domain = new Domain();
+      domain.setUrn(gmsDomainResponse.getDomain().toString());
+      domain.setType(EntityType.DOMAIN);
+      domainResponse.setDomain(domain);
+      result.setDomainResponse(domainResponse);
     }
 
     return result;

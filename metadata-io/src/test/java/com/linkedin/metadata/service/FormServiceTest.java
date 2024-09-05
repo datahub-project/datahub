@@ -37,6 +37,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.form.DomainParams;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
@@ -96,6 +97,10 @@ public class FormServiceTest {
       "./forms/form_ownership_prompt_test_definition.json";
   private static final String TEST_FORM_OWNERSHIP_WITH_PARAMS_PROMPT_TEST_DEFINITION_PATH =
       "./forms/form_ownership_with_params_prompt_test_definition.json";
+  private static final String TEST_FORM_DOMAIN_PROMPT_TEST_DEFINITION_PATH =
+      "./forms/form_domain_prompt_test_definition.json";
+  private static final String TEST_FORM_DOMAIN_WITH_PARAMS_PROMPT_TEST_DEFINITION_PATH =
+      "./forms/form_domain_with_params_prompt_test_definition.json";
   private static final String TEST_FORM_ASSIGNMENT_TEST_DEFINITION_SIMPLE_PATH =
       "./forms/form_assignment_test_definition_simple.json";
   private static final String TEST_FORM_ASSIGNMENT_TEST_DEFINITION_COMPLEX_PATH =
@@ -1047,6 +1052,82 @@ public class FormServiceTest {
         new ObjectMapper()
             .readTree(
                 new ClassPathResource(TEST_GLOSSARY_TERMS_ALLOWED_LIST_PROMPT_TEST_DEFINITION_PATH)
+                    .getFile());
+    Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
+    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    // Verify that the correct test was ingested.
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.argThat(
+                new FormTestArgumentMatcher(
+                    AspectUtils.buildMetadataChangeProposal(
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+            eq(false));
+  }
+
+  @Test
+  private void testUpsertDomainPromptCompletionAutomation() throws Exception {
+    // Verify that a test of the expected format is created.
+    // This test should assert that the asset has any domain on it
+    String promptId = "test-id";
+    FormPrompt prompt =
+        new FormPrompt()
+            .setId(promptId)
+            .setType(FormPromptType.DOMAIN)
+            .setTitle("Test Title")
+            .setDescription("Test Description")
+            .setRequired(true);
+
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    JsonNode testDefinition =
+        new ObjectMapper()
+            .readTree(
+                new ClassPathResource(TEST_FORM_DOMAIN_PROMPT_TEST_DEFINITION_PATH).getFile());
+    Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
+    TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);
+    // Verify that the correct test was ingested.
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.argThat(
+                new FormTestArgumentMatcher(
+                    AspectUtils.buildMetadataChangeProposal(
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+            eq(false));
+  }
+
+  @Test
+  private void testUpsertDomainAllowedListPromptCompletionAutomation() throws Exception {
+    // Verify that a test of the expected format is created.
+    // This test should assert that the asset has one of two domains on it
+    String promptId = "test-id";
+    FormPrompt prompt =
+        new FormPrompt()
+            .setId(promptId)
+            .setType(FormPromptType.DOMAIN)
+            .setTitle("Test Title")
+            .setDescription("Test Description")
+            .setRequired(true)
+            .setDomainParams(
+                new DomainParams()
+                    .setAllowedDomains(
+                        new UrnArray(
+                            ImmutableList.of(
+                                UrnUtils.getUrn("urn:li:domain:test1"),
+                                UrnUtils.getUrn("urn:li:domain:test2")))));
+
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
+    JsonNode testDefinition =
+        new ObjectMapper()
+            .readTree(
+                new ClassPathResource(TEST_FORM_DOMAIN_WITH_PARAMS_PROMPT_TEST_DEFINITION_PATH)
                     .getFile());
     Urn expectedTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
     TestInfo expectedTestInfo = createExpectedTestInfo(testDefinition, promptId);

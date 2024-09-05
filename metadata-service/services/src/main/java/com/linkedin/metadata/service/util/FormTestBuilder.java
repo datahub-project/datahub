@@ -13,6 +13,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
+import com.linkedin.form.DomainParams;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.GlossaryTermsParams;
@@ -273,6 +274,10 @@ public class FormTestBuilder {
         ArrayNode glossaryTermsAndArray = rulesNode.putArray("or");
         glossaryTermsAndArray.addAll(buildGlossaryTermsTestConditions(prompt));
         break;
+      case DOMAIN:
+        ArrayNode domainAndArray = rulesNode.putArray("or");
+        domainAndArray.addAll(buildDomainTestConditions(prompt));
+        break;
       default:
         throw new IllegalArgumentException(
             String.format(
@@ -409,6 +414,24 @@ public class FormTestBuilder {
     }
 
     return propertiesList;
+  }
+
+  private static List<JsonNode> buildDomainTestConditions(@Nonnull final FormPrompt prompt) {
+    DomainParams promptParams = prompt.getDomainParams();
+    if (promptParams == null || promptParams.getAllowedDomains() == null) {
+      // assert that the asset has any domain on it if no specified allowed domains
+      ObjectNode propertyNode = OBJECT_MAPPER.createObjectNode();
+      propertyNode.put("property", "domains.domains");
+      propertyNode.put("operator", "exists");
+      return ImmutableList.of(propertyNode);
+    }
+
+    ObjectNode domainsPropertyNode = OBJECT_MAPPER.createObjectNode();
+    domainsPropertyNode.put("property", "domains.domains");
+    domainsPropertyNode.put("operator", "contains_any");
+    ArrayNode domainValues = domainsPropertyNode.putArray("values");
+    promptParams.getAllowedDomains().forEach(domainUrn -> domainValues.add(domainUrn.toString()));
+    return ImmutableList.of(domainsPropertyNode);
   }
 
   public static Urn createTestUrnForFormPrompt(

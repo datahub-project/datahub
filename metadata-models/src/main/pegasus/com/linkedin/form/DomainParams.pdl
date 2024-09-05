@@ -1,0 +1,13 @@
+namespace com.linkedin.form
+
+import com.linkedin.common.Urn
+
+/**
+ * Information specific to glossary terms prompts.
+ */
+record DomainParams {
+  /**
+   * An optional list of allowed domains to choose from
+   */
+  allowedDomains: optional array[Urn]
+}

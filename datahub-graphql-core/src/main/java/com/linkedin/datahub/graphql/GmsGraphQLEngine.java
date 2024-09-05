@@ -63,6 +63,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Deprecation;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.DomainPromptResponse;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
 import com.linkedin.datahub.graphql.generated.EntityPath;
@@ -2866,6 +2867,14 @@ public class GmsGraphQLEngine {
                             .getGlossaryTerms().stream()
                                 .map(GlossaryTerm::getUrn)
                                 .collect(Collectors.toList()))));
+    builder.type(
+        "DomainPromptResponse",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "domain",
+                new LoadableTypeResolver<>(
+                    domainType,
+                    (env) -> ((DomainPromptResponse) env.getSource()).getDomain().getUrn())));
   }
 
   private void configureDataProductResolvers(final RuntimeWiring.Builder builder) {

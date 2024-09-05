@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.CreateDynamicFormAssignmentInput;
 import com.linkedin.datahub.graphql.generated.CreateFormInput;
 import com.linkedin.datahub.graphql.generated.CreatePromptInput;
+import com.linkedin.datahub.graphql.generated.DomainParamsInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FormActorAssignmentInput;
 import com.linkedin.datahub.graphql.generated.FormAssetAssignment;
@@ -25,6 +26,7 @@ import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.form.DomainParams;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
@@ -371,6 +373,9 @@ public class FormUtils {
     if (promptInput.getGlossaryTermsParams() != null) {
       result.setGlossaryTermsParams(mapGlossaryTermsParams(promptInput.getGlossaryTermsParams()));
     }
+    if (promptInput.getDomainParams() != null) {
+      result.setDomainParams(mapDomainParams(promptInput.getDomainParams()));
+    }
     if (promptInput.getRequired() != null) {
       result.setRequired(promptInput.getRequired());
     }
@@ -436,6 +441,21 @@ public class FormUtils {
           .getAllowedTermGroups()
           .forEach(termGroupUrn -> allowedTermGroups.add(UrnUtils.getUrn(termGroupUrn)));
       result.setAllowedTermGroups(allowedTermGroups);
+    }
+    return result;
+  }
+
+  @Nonnull
+  public static DomainParams mapDomainParams(@Nonnull final DomainParamsInput paramsInput) {
+    Objects.requireNonNull(paramsInput, "paramsInput must not be null");
+
+    final DomainParams result = new DomainParams();
+    if (paramsInput.getAllowedDomains() != null) {
+      UrnArray allowedDomains = new UrnArray();
+      paramsInput
+          .getAllowedDomains()
+          .forEach(termUrn -> allowedDomains.add(UrnUtils.getUrn(termUrn)));
+      result.setAllowedDomains(allowedDomains);
     }
     return result;
   }

@@ -23,6 +23,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
+    DomainParamsClass,
     FormActorAssignmentClass,
     FormInfoClass,
     FormPromptClass,
@@ -59,6 +60,8 @@ class GlossaryTermsParams(ConfigModel):
     allowed_terms: Optional[List[str]] = None
     allowed_term_groups: Optional[List[str]] = None
 
+class DomainParams(ConfigModel):
+    allowed_domains: Optional[List[str]] = None
 
 class PromptType(Enum):
     STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
@@ -68,6 +71,7 @@ class PromptType(Enum):
     FIELDS_DOCUMENTATION = "FIELDS_DOCUMENTATION"
     GLOSSARY_TERMS = "GLOSSARY_TERMS"
     FIELDS_GLOSSARY_TERMS = "FIELDS_GLOSSARY_TERMS"
+    DOMAIN = "DOMAIN"
 
     @classmethod
     def has_value(cls, value):
@@ -84,6 +88,7 @@ class Prompt(ConfigModel):
     required: Optional[bool] = None
     ownership_params: Optional[OwnershipParams] = None
     glossary_terms_params: Optional[GlossaryTermsParams] = None
+    domain_params: Optional[DomainParams] = None
 
     @validator("structured_property_urn", pre=True, always=True)
     def structured_property_urn_must_be_present(cls, v, values):
@@ -243,6 +248,7 @@ class Forms(ConfigModel):
                         else None,
                         glossaryTermsParams=self.get_glossary_terms_params(prompt),
                         ownershipParams=self.get_ownership_params(prompt),
+                        domainParams=self.get_domain_params(prompt),
                         required=prompt.required,
                     )
                 )
@@ -299,6 +305,17 @@ class Forms(ConfigModel):
                 )
 
         return ownership_params
+
+    def get_domain_params(
+        self, prompt: Prompt
+    ) -> Union[None, DomainParamsClass]:
+        if prompt.type != PromptType.DOMAIN.value:
+            return None
+
+        if prompt.domain_params and prompt.domain_params.allowed_domains:
+            return DomainParamsClass(allowedDomains=prompt.domain_params.allowed_domains)
+
+        return None
 
     def create_form_actors(
         self, actors: Optional[Actors] = None

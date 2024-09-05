@@ -141,6 +141,11 @@ type FormPromptResponse {
     Response for a glossary terms type prompt
     """
     glossaryTermsResponse: GlossaryTermsPromptResponse
+
+    """
+    Response for a domain type prompt
+    """
+    domainResponse: DomainPromptResponse
 }
 
 """
@@ -191,6 +196,16 @@ type GlossaryTermsPromptResponse {
     The glossary terms associated with this prompt response
     """
     glossaryTerms: [GlossaryTerm!]!
+}
+
+"""
+Response for a domain type prompt
+"""
+type DomainPromptResponse {
+    """
+    The domain associated with this prompt response
+    """
+    domain: Domain!
 }
 
 """
@@ -381,6 +396,11 @@ type FormPrompt {
     The params for this prompt if type is GLOSSARY_TERMS or FIELDS_GLOSSARY_TERMS
     """
     glossaryTermsParams: GlossaryTermsParams
+
+    """
+    The params for this prompt if type is DOMAIN
+    """
+    domainParams: DomainParams
 }
 
 """
@@ -415,6 +435,10 @@ enum FormPromptType {
     A schema field-level glossary terms form prompt type.
     """
     FIELDS_GLOSSARY_TERMS
+    """
+    This prompt is meant to apply a domain to an entity
+    """
+    DOMAIN
 }
 
 """
@@ -473,6 +497,16 @@ type GlossaryTermsParams {
     This field will be used directly by the UI
     """
     resolvedAllowedTerms: [GlossaryTerm!]
+}
+
+"""
+Params for a domain type prompt
+"""
+type DomainParams {
+    """
+    The optional list of domains the user has to choose from
+    """
+    allowedDomains: [Domain!]
 }
 
 """
@@ -779,6 +813,11 @@ input CreatePromptInput {
     glossaryTermsParams: GlossaryTermsParamsInput
 
     """
+    The params if this prompt type is DOMAIN.
+    """
+    domainParams: DomainParamsInput
+
+    """
     Whether this prompt will be required or not. Default is false.
     """
     required: Boolean
@@ -872,6 +911,16 @@ input GlossaryTermsParamsInput {
     The optional list of term groups where allowed terms should come from
     """
     allowedTermGroups: [String!]
+}
+
+"""
+Input for a domain type prompt
+"""
+input DomainParamsInput {
+    """
+    The optional list of allowed domains that a user can submit for this prompt
+    """
+    allowedDomains: [String!]
 }
 
 """

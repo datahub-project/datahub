@@ -8,6 +8,8 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.DomainParams;
 import com.linkedin.datahub.graphql.generated.DynamicFormAssignment;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -132,6 +134,10 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
           mapGlossaryTermsParams(gmsFormPrompt.getGlossaryTermsParams()));
     }
 
+    if (gmsFormPrompt.getDomainParams() != null) {
+      formPrompt.setDomainParams(mapDomainParams(gmsFormPrompt.getDomainParams()));
+    }
+
     return formPrompt;
   }
 
@@ -222,6 +228,25 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     }
 
     return glossaryTermsParams;
+  }
+
+  private DomainParams mapDomainParams(com.linkedin.form.DomainParams inputParams) {
+    final DomainParams domainParams = new DomainParams();
+    if (inputParams.getAllowedDomains() != null) {
+      List<Domain> allowedDomains =
+          inputParams.getAllowedDomains().stream()
+              .map(
+                  urn -> {
+                    Domain domain = new Domain();
+                    domain.setUrn(urn.toString());
+                    domain.setType(EntityType.DOMAIN);
+                    return domain;
+                  })
+              .collect(Collectors.toList());
+      domainParams.setAllowedDomains(allowedDomains);
+    }
+
+    return domainParams;
   }
 
   private void mapDynamicFormAssignment(@Nonnull Form form, @Nonnull DataMap dataMap) {

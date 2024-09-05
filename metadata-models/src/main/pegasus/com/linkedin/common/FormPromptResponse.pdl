@@ -39,4 +39,9 @@ record FormPromptResponse {
      * Response for a glossary terms type prompt
      */
     glossaryTermsResponse: optional GlossaryTermsPromptResponse
+
+    /**
+     * Response for a domain type prompt
+     */
+    domainResponse: optional DomainPromptResponse
 }
