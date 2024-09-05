@@ -48,11 +48,12 @@ public class ProtobufUtilsTest {
 
   @Test
   public void testCollapseLocationCommentsWithUTF8() {
-    DescriptorProtos.SourceCodeInfo.Location location = DescriptorProtos.SourceCodeInfo.Location.newBuilder()
-        .addAllLeadingDetachedComments(Arrays.asList("/* Emoji 😊 */", "/* Accented é */"))
-        .setLeadingComments("/* Chinese 你好 */\n// Russian Привет")
-        .setTrailingComments("// Korean 안녕")
-        .build();
+    DescriptorProtos.SourceCodeInfo.Location location =
+        DescriptorProtos.SourceCodeInfo.Location.newBuilder()
+            .addAllLeadingDetachedComments(Arrays.asList("/* Emoji 😊 */", "/* Accented é */"))
+            .setLeadingComments("/* Chinese 你好 */\n// Russian Привет")
+            .setTrailingComments("// Korean 안녕")
+            .build();
 
     String actual = ProtobufUtils.collapseLocationComments(location);
     String expected = "Emoji 😊 */\nAccented é */\nChinese 你好 */\nRussian Привет\nKorean 안녕";
