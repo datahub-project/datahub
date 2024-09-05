@@ -20,11 +20,9 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataFlowKeyClass,
     DataJobKeyClass,
-    DatasetSnapshotClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    MetadataChangeEventClass,
     OperationClass,
     OperationTypeClass,
     StatusClass,
@@ -51,7 +49,6 @@ from datahub_airflow_plugin.entities import (
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
 )
-from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:

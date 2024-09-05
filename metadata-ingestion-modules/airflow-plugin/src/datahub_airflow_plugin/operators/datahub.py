@@ -76,7 +76,10 @@ class DatahubEmitterOperator(DatahubBaseOperator):
                             for ds_key in value.keys():
                                 ds_value = getattr(value, ds_key)
 
-                                if isinstance(ds_value, str) and ds_value not in ["", None]:
+                                if isinstance(ds_value, str) and ds_value not in [
+                                    "",
+                                    None,
+                                ]:
                                     rendered_value = self.render_template(
                                         ds_value, context, jinja_env
                                     )
