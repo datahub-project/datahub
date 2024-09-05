@@ -63,7 +63,11 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             new SnapshotEntityRegistry(new Snapshot()),
-            new IndexConventionImpl("es_service_test", "MD5"));
+            new IndexConventionImpl(
+                IndexConventionImpl.IndexConventionConfig.builder()
+                    .prefix("es_service_test")
+                    .hashIdAlgo("MD5")
+                    .build()));
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildService();
     elasticSearchService.reindexAll(Collections.emptySet());

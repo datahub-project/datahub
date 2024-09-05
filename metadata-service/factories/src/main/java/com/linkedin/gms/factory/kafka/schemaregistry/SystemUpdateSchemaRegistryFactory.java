@@ -27,12 +27,16 @@ public class SystemUpdateSchemaRegistryFactory {
       SYSTEM_UPDATE_TOPIC_KEY_PREFIX + "duhe";
   public static final String MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY =
       SYSTEM_UPDATE_TOPIC_KEY_PREFIX + "mcl-versioned";
+  public static final String MCP_SCHEMA_REGISTRY_TOPIC_KEY = SYSTEM_UPDATE_TOPIC_KEY_PREFIX + "mcp";
 
   @Value(TOPIC_NAME)
   private String duheTopicName;
 
   @Value("${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}")
   private String mclTopicName;
+
+  @Value("${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}")
+  private String mcpTopicName;
 
   /** Configure Kafka Producer/Consumer processes with a custom schema registry. */
   @Bean("duheSchemaRegistryConfig")
@@ -49,15 +53,18 @@ public class SystemUpdateSchemaRegistryFactory {
     props.putAll(
         Map.of(
             DUHE_SCHEMA_REGISTRY_TOPIC_KEY, duheTopicName,
-            MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY, mclTopicName));
+            MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY, mclTopicName,
+            MCP_SCHEMA_REGISTRY_TOPIC_KEY, mcpTopicName));
 
     // topic ordinals
     props.putAll(
         Map.of(
             DUHE_SCHEMA_REGISTRY_TOPIC_KEY + SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX,
-                schemaRegistryService.getSchemaIdForTopic(duheTopicName).get().toString(),
+            schemaRegistryService.getSchemaIdForTopic(duheTopicName).get().toString(),
             MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY + SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX,
-                schemaRegistryService.getSchemaIdForTopic(mclTopicName).get().toString()));
+            schemaRegistryService.getSchemaIdForTopic(mclTopicName).get().toString(),
+            MCP_SCHEMA_REGISTRY_TOPIC_KEY + SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX,
+            schemaRegistryService.getSchemaIdForTopic(mcpTopicName).get().toString()));
 
     log.info("DataHub System Update Registry");
     return new SchemaRegistryConfig(
