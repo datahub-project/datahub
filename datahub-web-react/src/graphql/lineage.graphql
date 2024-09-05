@@ -773,6 +773,8 @@ query getLineageCounts(
 
 query getSearchAcrossLineageCounts(
     $urn: String!
+    $startTimeMillis: Long
+    $endTimeMillis: Long
     $excludeUpstream: Boolean = false
     $excludeDownstream: Boolean = false
 ) {
@@ -784,6 +786,7 @@ query getSearchAcrossLineageCounts(
             count: 10000
             filters: [{ field: "degree", value: "1", values: ["1"] }]
             direction: UPSTREAM
+            lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }
         }
     ) @skip(if: $excludeUpstream) {
         start
@@ -801,6 +804,7 @@ query getSearchAcrossLineageCounts(
             count: 10000
             filters: [{ field: "degree", value: "1", values: ["1"] }]
             direction: DOWNSTREAM
+            lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }
         }
     ) @skip(if: $excludeDownstream) {
         start

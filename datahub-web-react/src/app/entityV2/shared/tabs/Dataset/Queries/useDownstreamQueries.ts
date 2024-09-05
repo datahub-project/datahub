@@ -1,3 +1,4 @@
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import { useEffect, useState } from 'react';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useSearchAcrossLineageForQueriesQuery } from '../../../../../../graphql/query.generated';
@@ -12,6 +13,7 @@ import { mapQuery } from './utils/mapQuery';
 
 export default function useDownstreamQueries(filterText: string) {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
     const { data: lineageData, loading } = useSearchAcrossLineageForQueriesQuery({
         variables: {
@@ -30,6 +32,7 @@ export default function useDownstreamQueries(filterText: string) {
                     },
                 ],
                 lineageFlags: {
+                    startTimeMillis,
                     entitiesExploredPerHopLimit: LINEAGE_FILTER_PAGINATION,
                     ignoreAsHops: [
                         {

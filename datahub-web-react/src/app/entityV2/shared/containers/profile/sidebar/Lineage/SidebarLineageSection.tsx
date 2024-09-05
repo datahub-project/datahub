@@ -1,3 +1,4 @@
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -67,11 +68,10 @@ const SidebarLineageSection = () => {
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
+    const startTimeMillis = useGetDefaultLineageStartTimeMillis();
 
     const { data, loading } = useGetSearchAcrossLineageCountsQuery({
-        variables: {
-            urn,
-        },
+        variables: { urn, startTimeMillis },
         fetchPolicy: 'cache-first',
     });
 

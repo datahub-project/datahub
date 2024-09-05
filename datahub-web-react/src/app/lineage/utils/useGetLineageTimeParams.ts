@@ -8,10 +8,10 @@ export const START_TIME_MILLIS_URL_PARAM = 'start_time_millis';
 export const END_TIME_MILLIS_URL_PARAM = 'end_time_millis';
 export const SHOW_ALL_TIME_LINEAGE_URL_PARAM = 'show_all_time_lineage';
 
-export function useGetLineageTimeParams() {
+export function useGetDefaultLineageStartTimeMillis() {
     const appConfig = useAppConfig();
     const { defaultLastDaysFilter } = appConfig.config.lineageConfig;
-    const startTimeMillisDefault = useMemo(
+    return useMemo(
         () =>
             defaultLastDaysFilter
                 ? moment()
@@ -21,6 +21,10 @@ export function useGetLineageTimeParams() {
                 : null,
         [defaultLastDaysFilter],
     );
+}
+
+export function useGetLineageTimeParams() {
+    const startTimeMillisDefault = useGetDefaultLineageStartTimeMillis();
 
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });

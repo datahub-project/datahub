@@ -14,20 +14,33 @@ export function getNumAssertionsFailing(dataset: Dataset) {
 
 export const DATASET_COUNT = 5;
 
-export function generateQueryVariables(
-    urn: string,
-    filterField: string,
-    start: number,
-    includeAssertions: boolean,
-    includeIncidents: boolean,
-    skip?: boolean,
-    count?: number,
-) {
+interface Arguments {
+    urn: string;
+    filterField: string;
+    start: number;
+    includeAssertions: boolean;
+    includeIncidents: boolean;
+    startTimeMillis: number | null;
+    skip?: boolean;
+    count?: number;
+}
+
+export function generateQueryVariables({
+    urn,
+    startTimeMillis,
+    filterField,
+    start,
+    includeAssertions,
+    includeIncidents,
+    skip,
+    count,
+}: Arguments) {
     return {
         skip,
         variables: {
             input: {
                 urn,
+                startTimeMillis,
                 query: '*',
                 types: [EntityType.Dataset],
                 start,
