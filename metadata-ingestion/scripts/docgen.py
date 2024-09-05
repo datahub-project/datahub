@@ -1126,12 +1126,16 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
                 target_file = os.path.join(target_dir, relative_path)
                 os.makedirs(os.path.dirname(target_file), exist_ok=True)
 
-                # Read file content, replace all occurrences of "/docs/" with "/docs/managed-datahub/generated/"
-                with open(source_file, 'r') as f:
-                    content = f.read()
-                    content = content.replace("](../", "](../../../")
-                    # content = content.replace("](/", "](../../")
-                    content = content.replace(": ../", ": ../../../")
+                if "docs/generated" not in source_file:
+                    with open(source_file, 'r') as f:
+                        content = f.read()
+                        content = content.replace("](../", "](../../../")
+                        content = content.replace("](./", "](../../")
+                        content = content.replace(": ../", ": ../../../")
+                    #
+                    # if "generated/ingestion/sources" in source_file:
+                    #     content = content.replace("(../../../../metamodel/", "(../../metamodel/")
+                    #     content = content.replace("(../../../events/", "(../events/")
                 # Write the modified content to the target file
                 with open(target_file, 'w') as f:
                     f.write(content)

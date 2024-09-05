@@ -2,6 +2,7 @@ act-on-metadata.md
 approval-workflows.md
 businessattributes.md
 chrome-extension.md
+cli.md
 CODE_OF_CONDUCT.md
 components.md
 CONTRIBUTING.md
@@ -19,7 +20,9 @@ subscription-and-notification.md
 sync-status.md
 tags.md
 townhalls.md
+townhall-history.md
 ui-ingestion.md
+quickstart.md
 act-on-metadata/impact-analysis.md
 actions/concepts.md
 actions/quickstart.md
@@ -72,12 +75,16 @@ assertions/open-assertions-spec.md
 assertions/snowflake/snowflake_dmfs.md
 authentication/personal-access-tokens.md
 authentication/guides/add-users.md
+authentication/guides/sso/configure-oidc-react.md
+authentication/changing-default-credentials.md
+authentication/introducing-metadata-service-authentication.md
 authorization/access-policies-guide.md
 authorization/groups.md
 authorization/policies.md
 authorization/README.md
 authorization/roles.md
 dev-guides/timeline.md
+deploy/aws.md
 features/dataset-usage-and-query-history.md
 features/feature-guides/documentation-forms.md
 features/feature-guides/properties.md
@@ -105,6 +112,9 @@ slack/saas-slack-app.md
 slack/saas-slack-setup.md
 slack/saas-slack-troubleshoot.md
 what/mxe.md
+what/aspect.md
+what/relationship.md
+what/entity.md
 
 
 metadata-ingestion/as-a-library.md
