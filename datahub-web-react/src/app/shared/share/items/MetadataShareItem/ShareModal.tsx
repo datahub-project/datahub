@@ -269,7 +269,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
     };
 
     const isLoading = loading && searchLoading;
-    const isDisabled = isLoading || !selectedInstances.length;
+    const isDisabled = isLoading || !instancesToShare.length;
     const filteredResults = lastShareResults?.filter((result) => !result.implicitShareEntity);
     const implicitShares = lastShareResults?.filter((result) => !!result.implicitShareEntity);
 
