@@ -588,7 +588,6 @@ def generate(
 
         if plugin_name in {
             "snowflake-summary",
-            "unity-catalog"
         }:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
@@ -1005,77 +1004,77 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
         )
         f.write("| ---------- | ------ | ----- |----- |\n")
 
-        # for platform_id, platform_docs in sorted(
-        #         source_documentation.items(),
-        #         key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
-        #         if "name" in x[1]
-        #         else (x[0].casefold(), x[0]),
-        # ):
-        #     for plugin, plugin_docs in sorted(
-        #             platform_docs["plugins"].items(),
-        #             key=lambda x: str(x[1].get("doc_order"))
-        #             if x[1].get("doc_order")
-        #             else x[0],
-        #     ):
-        #         platform_name = platform_docs["name"]
-        #         if len(platform_docs["plugins"].keys()) > 1:
-        #             # We only need to show this if there are multiple modules.
-        #             platform_name = f"{platform_name} `{plugin}`"
-        #
-        #         # Initialize variables
-        #         table_level_supported = "❌"
-        #         column_level_supported = "❌"
-        #         config_names = ""
-        #
-        #         if "capabilities" in plugin_docs:
-        #             plugin_capabilities = plugin_docs["capabilities"]
-        #
-        #             for cap_setting in plugin_capabilities:
-        #                 capability_text = get_capability_text(cap_setting.capability)
-        #                 capability_supported = get_capability_supported_badge(
-        #                     cap_setting.supported
-        #                 )
-        #
-        #                 if (
-        #                         capability_text == "Table-Level Lineage"
-        #                         and capability_supported == "✅"
-        #                 ):
-        #                     table_level_supported = "✅"
-        #
-        #                 if (
-        #                         capability_text == "Column-level Lineage"
-        #                         and capability_supported == "✅"
-        #                 ):
-        #                     column_level_supported = "✅"
-        #
-        #         if not (table_level_supported == "❌" and column_level_supported == "❌"):
-        #             if "config_schema" in plugin_docs:
-        #                 config_properties = json.loads(
-        #                     plugin_docs["config_schema"]
-        #                 ).get("properties", {})
-        #                 config_names = "<br />".join(
-        #                     [
-        #                         f"- {property_name}"
-        #                         for property_name in config_properties
-        #                         if "lineage" in property_name
-        #                     ]
-        #                 )
-        #         lineage_not_applicable_sources = [
-        #             "azure-ad",
-        #             "csv",
-        #             "demo-data",
-        #             "dynamodb",
-        #             "iceberg",
-        #             "json-schema",
-        #             "ldap",
-        #             "openapi",
-        #             "pulsar",
-        #             "sqlalchemy",
-        #         ]
-        #         if platform_id not in lineage_not_applicable_sources:
-        #             f.write(
-        #                 f"| [{platform_name}](/docs/generated/ingestion/sources/{platform_id}.md) | {table_level_supported} | {column_level_supported} | {config_names}|\n"
-        #             )
+        for platform_id, platform_docs in sorted(
+                source_documentation.items(),
+                key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
+                if "name" in x[1]
+                else (x[0].casefold(), x[0]),
+        ):
+            for plugin, plugin_docs in sorted(
+                    platform_docs["plugins"].items(),
+                    key=lambda x: str(x[1].get("doc_order"))
+                    if x[1].get("doc_order")
+                    else x[0],
+            ):
+                platform_name = platform_docs["name"]
+                if len(platform_docs["plugins"].keys()) > 1:
+                    # We only need to show this if there are multiple modules.
+                    platform_name = f"{platform_name} `{plugin}`"
+
+                # Initialize variables
+                table_level_supported = "❌"
+                column_level_supported = "❌"
+                config_names = ""
+
+                if "capabilities" in plugin_docs:
+                    plugin_capabilities = plugin_docs["capabilities"]
+
+                    for cap_setting in plugin_capabilities:
+                        capability_text = get_capability_text(cap_setting.capability)
+                        capability_supported = get_capability_supported_badge(
+                            cap_setting.supported
+                        )
+
+                        if (
+                                capability_text == "Table-Level Lineage"
+                                and capability_supported == "✅"
+                        ):
+                            table_level_supported = "✅"
+
+                        if (
+                                capability_text == "Column-level Lineage"
+                                and capability_supported == "✅"
+                        ):
+                            column_level_supported = "✅"
+
+                if not (table_level_supported == "❌" and column_level_supported == "❌"):
+                    if "config_schema" in plugin_docs:
+                        config_properties = json.loads(
+                            plugin_docs["config_schema"]
+                        ).get("properties", {})
+                        config_names = "<br />".join(
+                            [
+                                f"- {property_name}"
+                                for property_name in config_properties
+                                if "lineage" in property_name
+                            ]
+                        )
+                lineage_not_applicable_sources = [
+                    "azure-ad",
+                    "csv",
+                    "demo-data",
+                    "dynamodb",
+                    "iceberg",
+                    "json-schema",
+                    "ldap",
+                    "openapi",
+                    "pulsar",
+                    "sqlalchemy",
+                ]
+                if platform_id not in lineage_not_applicable_sources:
+                    f.write(
+                        f"| [{platform_name}](/docs/generated/ingestion/sources/{platform_id}.md) | {table_level_supported} | {column_level_supported} | {config_names}|\n"
+                    )
 
         f.write(
             """
