@@ -6,6 +6,7 @@ import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
@@ -321,4 +322,11 @@ public interface EntitySearchService {
       @Nullable String keepAlive,
       int size,
       @Nullable List<String> facets);
+
+  /**
+   * Return index convention
+   *
+   * @return convent
+   */
+  IndexConvention getIndexConvention();
 }

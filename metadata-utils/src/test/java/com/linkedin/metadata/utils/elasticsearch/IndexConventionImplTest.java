@@ -1,8 +1,11 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
+import static org.apache.commons.codec.digest.DigestUtils.sha256Hex;
 import static org.testng.Assert.*;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.util.Pair;
+import java.net.URLEncoder;
 import java.util.Optional;
 import org.testng.annotations.Test;
 
@@ -25,7 +28,12 @@ public class IndexConventionImplTest {
 
   @Test
   public void testIndexConventionPrefix() {
-    IndexConvention indexConventionPrefix = new IndexConventionImpl("prefix", "MD5");
+    IndexConvention indexConventionPrefix =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("prefix")
+                .hashIdAlgo("MD5")
+                .build());
     String entityName = "dataset";
     String expectedIndexName = "prefix_datasetindex_v2";
     assertEquals(indexConventionPrefix.getEntityIndexName(entityName), expectedIndexName);
@@ -64,7 +72,12 @@ public class IndexConventionImplTest {
 
   @Test
   public void testTimeseriesIndexConventionPrefix() {
-    IndexConvention indexConventionPrefix = new IndexConventionImpl("prefix", "MD5");
+    IndexConvention indexConventionPrefix =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("prefix")
+                .hashIdAlgo("MD5")
+                .build());
     String entityName = "dataset";
     String aspectName = "datasetusagestatistics";
     String expectedIndexName = "prefix_dataset_datasetusagestatisticsaspect_v1";
@@ -80,5 +93,25 @@ public class IndexConventionImplTest {
     assertEquals(
         indexConventionPrefix.getEntityAndAspectName("prefix_datasetusagestatisticsaspect_v1"),
         Optional.empty());
+  }
+
+  @Test
+  public void testSchemaFieldDocumentId() {
+    assertEquals(
+        new IndexConventionImpl(
+                IndexConventionImpl.IndexConventionConfig.builder()
+                    .prefix("")
+                    .hashIdAlgo("")
+                    .schemaFieldDocIdHashEnabled(true)
+                    .build())
+            .getEntityDocumentId(
+                UrnUtils.getUrn(
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,economic_data.factor_income,PROD),year)")),
+        URLEncoder.encode(
+            String.format(
+                "urn:li:schemaField:(%s,%s)",
+                sha256Hex(
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,economic_data.factor_income,PROD)"),
+                sha256Hex("year"))));
   }
 }

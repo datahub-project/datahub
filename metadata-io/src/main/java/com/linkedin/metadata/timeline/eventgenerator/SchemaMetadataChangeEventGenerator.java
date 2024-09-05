@@ -3,7 +3,6 @@ package com.linkedin.metadata.timeline.eventgenerator;
 import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.*;
 
 import com.datahub.util.RecordUtils;
-import com.github.fge.jsonpatch.JsonPatch;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
@@ -19,6 +18,7 @@ import com.linkedin.metadata.timeline.data.dataset.DatasetSchemaFieldChangeEvent
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
+import jakarta.json.JsonPatch;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
