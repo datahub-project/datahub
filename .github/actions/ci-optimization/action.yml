@@ -52,20 +52,18 @@ runs:
           frontend:
             - "datahub-frontend/**"
             - "datahub-web-react/**"
-            - "smoke-test/tests/cypress/**"
             - "docker/datahub-frontend/**"
           ingestion:
             - "metadata-ingestion-modules/**"
             - "metadata-ingestion/**"
             - "metadata-models/**"
-            - "smoke-test/**"
-            - "docker/datahub-ingestion**"
+            - "docker/datahub-ingestion-base/**"
+            - "docker/datahub-ingestion/**"
           ingestion-base:
             - "docker/datahub-ingestion-base/**"
           docker:
             - "docker/**"
           backend:
-            - ".github/**"
             - "metadata-models/**"
             - "datahub-upgrade/**"
             - "entity-registry/**"
@@ -79,7 +77,6 @@ runs:
             - "metadata-utils/**"
             - "metadata-operation-context/**"
             - "datahub-graphql-core/**"
-            - "smoke-test/**"
             - "docker/**"
           kafka-setup:
             - "docker/kafka-setup/**"

@@ -60,6 +60,7 @@ const TopButtonsWrapper = styled.div`
 export function getCanEditName(
     entityType: EntityType,
     entityData: GenericEntityProperties | null,
+    isEditableDatasetNameEnabled: boolean,
     privileges?: PlatformPrivileges,
 ) {
     switch (entityType) {
@@ -73,7 +74,7 @@ export function getCanEditName(
         case EntityType.BusinessAttribute:
             return privileges?.manageBusinessAttributes;
         case EntityType.Dataset:
-            return entityData?.privileges?.canEditProperties;
+            return isEditableDatasetNameEnabled && entityData?.privileges?.canEditProperties;
         default:
             return false;
     }
@@ -99,9 +100,13 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
 
     const isEditableDatasetNameEnabled = useIsEditableDatasetNameEnabled();
     const canEditName =
-        isEditableDatasetNameEnabled &&
         isNameEditable &&
-        getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+        getCanEditName(
+            entityType,
+            entityData,
+            isEditableDatasetNameEnabled,
+            me?.platformPrivileges as PlatformPrivileges,
+        );
     const entityRegistry = useEntityRegistry();
 
     return (

@@ -12,6 +12,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
     unquote_and_decode_unicode_escape_seq,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -117,11 +118,12 @@ AND
 
     corrected_start_time = config.start_time - config.max_query_duration
     corrected_end_time = config.end_time + config.max_query_duration
+    report = BigQueryV2Report()
     filter: str = BigQueryUsageExtractor(
         config,
-        BigQueryV2Report(),
+        report,
         schema_resolver=SchemaResolver(platform="bigquery"),
-        dataset_urn_builder=lambda x: "",
+        identifiers=BigQueryIdentifierBuilder(config, report),
     )._generate_filter(corrected_start_time, corrected_end_time)
     assert filter == expected_filter
 
