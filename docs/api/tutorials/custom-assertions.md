@@ -6,7 +6,7 @@ import TabItem from '@theme/TabItem';
 This guide specifically covers how to create and report results for custom assertions in DataHub.
 Custom Assertions are those not natively run or directly modeled by DataHub, and managed by a 3rd party framework or tool.
 
-To create _native_ assertions using the API (e.g. for DataHub to manage), please refer to the [Assertions API](./assertions.md).
+To create _native_ assertions using the API (e.g. for DataHub to manage), please refer to the [Assertions API](assertions.md).
 
 This guide may be used as reference for partners seeking to integrate their own monitoring tools with DataHub.
 

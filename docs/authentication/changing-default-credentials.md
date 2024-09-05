@@ -2,7 +2,7 @@
 
 ## Default User Credential
 
-The 'datahub' root user is created for you by default. This user is controlled via a [user.props](https://github.com/datahub-project/datahub/blob/master/datahub-frontend/conf/user.props) file which [JaaS Authentication](./guides/jaas.md) is configured to use:
+The 'datahub' root user is created for you by default. This user is controlled via a [user.props](https://github.com/datahub-project/datahub/blob/master/datahub-frontend/conf/user.props) file which [JaaS Authentication](guides/jaas.md) is configured to use:
 
 By default, the credential file looks like this for each and every self-hosted DataHub deployment:
 

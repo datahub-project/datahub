@@ -2,7 +2,7 @@
 
 <FeatureAvailability/>
 
-Access Policies define who can do what to which resources. In conjunction with [Roles](./roles.md), Access Policies determine what users are allowed to do on DataHub.
+Access Policies define who can do what to which resources. In conjunction with [Roles](roles.md), Access Policies determine what users are allowed to do on DataHub.
 
 ## Policy Types
 
@@ -93,7 +93,7 @@ In the second step, we can simply select the Privileges that this Platform Polic
 </p>
 
 **Platform** Privileges most often provide access to perform administrative functions on the Platform. 
-Refer to the [Policies Guide](./policies.md#platform-level-privileges) for a complete list of these privileges.
+Refer to the [Policies Guide](policies.md#platform-level-privileges) for a complete list of these privileges.
 
 #### Step 3: Choose Policy Actors
 
@@ -169,7 +169,7 @@ scope.
 </p>
 
 **Metadata** Privileges grant access to change specific *entities* (i.e. data assets) on DataHub.
-These include [**common metadata privileges**](./policies.md#platform-level-privileges) that span across entity types, as well as [**specific entity-level privileges**](./policies.md#specific-entity-level-privileges).
+These include [**common metadata privileges**](policies.md#platform-level-privileges) that span across entity types, as well as [**specific entity-level privileges**](policies.md#specific-entity-level-privileges).
 
 #### Step 3: Choose Policy Actors
 
@@ -248,9 +248,9 @@ Policies only affect REST APIs when the environment variable `REST_API_AUTHORIZA
 
 ## Additional Resources
 
-- [Authorization Overview](./README.md)
-- [Roles Overview](./roles.md)
-- [Authorization using Groups](./groups.md)
+- [Authorization Overview](README.md)
+- [Roles Overview](roles.md)
+- [Authorization using Groups](groups.md)
 
 
 ### Videos
@@ -272,4 +272,4 @@ Policies are the lowest level primitive for granting Privileges to users on Data
 
 Roles are built for convenience on top of Policies. Roles grant Privileges to actors indirectly, driven by Policies
 behind the scenes. Both can be used in conjunction to grant Privileges to end users. For more information on roles
-please refer to [Authorization > Roles](./roles.md).
+please refer to [Authorization > Roles](roles.md).

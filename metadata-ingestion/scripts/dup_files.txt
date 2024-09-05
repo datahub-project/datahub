@@ -75,6 +75,7 @@ assertions/open-assertions-spec.md
 assertions/snowflake/snowflake_dmfs.md
 authentication/personal-access-tokens.md
 authentication/guides/add-users.md
+authentication/guides/jaas.md
 authentication/guides/sso/configure-oidc-react.md
 authentication/changing-default-credentials.md
 authentication/introducing-metadata-service-authentication.md
@@ -85,6 +86,7 @@ authorization/README.md
 authorization/roles.md
 dev-guides/timeline.md
 deploy/aws.md
+deploy/kubernetes.md
 features/dataset-usage-and-query-history.md
 features/feature-guides/documentation-forms.md
 features/feature-guides/properties.md

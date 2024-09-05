@@ -5,7 +5,7 @@ slug: /metadata-modeling/extending-the-metadata-model
 # Extending the Metadata Model
 
 You can extend the metadata model by either creating a new Entity or extending an existing one. Unsure if you need to
-create a new entity or add an aspect to an existing entity? Read [metadata-model](./metadata-model.md) to understand
+create a new entity or add an aspect to an existing entity? Read [metadata-model](metadata-model.md) to understand
 these two concepts prior to making changes.
 
 ## To fork or not to fork?
