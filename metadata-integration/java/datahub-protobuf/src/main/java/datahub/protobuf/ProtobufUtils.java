@@ -22,13 +22,13 @@ public class ProtobufUtils {
 
   public static String collapseLocationComments(DescriptorProtos.SourceCodeInfo.Location location) {
     return Stream.concat(
-                location.getLeadingDetachedCommentsList().stream(),
-                Stream.of(location.getLeadingComments(), location.getTrailingComments()))
-            .filter(Objects::nonNull)
-            .flatMap(line -> Arrays.stream(line.split("\n")))
-            .map(line -> line.replaceFirst("^[*/ ]+", ""))
-            .collect(Collectors.joining("\n"))
-            .trim();
+            location.getLeadingDetachedCommentsList().stream(),
+            Stream.of(location.getLeadingComments(), location.getTrailingComments()))
+        .filter(Objects::nonNull)
+        .flatMap(line -> Arrays.stream(line.split("\n")))
+        .map(line -> line.replaceFirst("^[*/ ]+", ""))
+        .collect(Collectors.joining("\n"))
+        .trim();
   }
 
   /*
