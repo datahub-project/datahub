@@ -119,7 +119,7 @@ def run(
     strict_warnings: bool,
     preview_workunits: int,
     test_source_connection: bool,
-    report_to: str,
+    report_to: Optional[str],
     no_default_report: bool,
     no_spinner: bool,
     no_progress: bool,
