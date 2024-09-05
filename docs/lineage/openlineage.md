@@ -6,7 +6,7 @@ DataHub, now supports [OpenLineage](https://openlineage.io/) integration. With t
 
 - **REST Endpoint Support**: DataHub now includes a REST endpoint that can understand OpenLineage events. This allows users to send lineage information directly to DataHub, enabling easy integration with various data processing frameworks.
 
-- **[Spark Event Listener Plugin](../../metadata-integration/java/acryl-spark-lineage/README.md)**: DataHub provides a Spark Event Listener plugin that seamlessly integrates OpenLineage's Spark plugin. This plugin enhances DataHub's OpenLineage support by offering additional features such as PathSpec support, column-level lineage, patch support and more.
+- **[Spark Event Listener Plugin](/metadata-integration/java/acryl-spark-lineage/README.md)**: DataHub provides a Spark Event Listener plugin that seamlessly integrates OpenLineage's Spark plugin. This plugin enhances DataHub's OpenLineage support by offering additional features such as PathSpec support, column-level lineage, patch support and more.
 
 ## OpenLineage Support with DataHub
 
@@ -73,7 +73,7 @@ The transport should look like this:
 #### Known Limitations
 With Spark and Airflow we recommend using the Spark Lineage or DataHub's Airflow plugin for tighter integration with DataHub.
 
-- **[PathSpec](../../metadata-integration/java/acryl-spark-lineage/README.md#configuring-hdfs-based-dataset-urns) Support**: While the REST endpoint supports OpenLineage messages, full [PathSpec](../../metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns)) support is not yet available.
+- **[PathSpec](/metadata-integration/java/acryl-spark-lineage/README.md#configuring-hdfs-based-dataset-urns) Support**: While the REST endpoint supports OpenLineage messages, full [PathSpec](/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns)) support is not yet available.
 
 - **Column-level Lineage**: DataHub's current OpenLineage support does not provide full column-level lineage tracking.
 - etc...
