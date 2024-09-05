@@ -168,16 +168,19 @@ def run(
         # pipeline inside the async function so that it happens on the same event
         # loop, and hence the same thread.
 
+        if no_default_report:
+            # The default is "datahub" reporting. The extra flag will disable it.
+            report_to = None
+
         # logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(
             pipeline_config,
-            dry_run,
-            preview,
-            preview_workunits,
-            report_to,
-            no_default_report,
-            no_progress,
-            raw_pipeline_config,
+            dry_run=dry_run,
+            preview_mode=preview,
+            preview_workunits=preview_workunits,
+            report_to=report_to,
+            no_progress=no_progress,
+            raw_config=raw_pipeline_config,
         )
 
         version_stats_future = asyncio.ensure_future(
@@ -447,7 +450,7 @@ def mcps(path: str) -> None:
         },
     }
 
-    pipeline = Pipeline.create(recipe, no_default_report=True)
+    pipeline = Pipeline.create(recipe, report_to=None)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
