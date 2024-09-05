@@ -333,6 +333,8 @@ export const dataset1 = {
         ],
     },
     usageStats: null,
+    latestFullTableProfile: null,
+    latestPartitionProfile: null,
     datasetProfiles: [
         {
             timestampMillis: 0,
@@ -428,6 +430,8 @@ export const dataset2 = {
         },
     },
     usageStats: null,
+    latestFullTableProfile: null,
+    latestPartitionProfile: null,
     datasetProfiles: [
         {
             timestampMillis: 0,
@@ -649,6 +653,8 @@ export const dataset3 = {
     deprecation: null,
     documentation: null,
     usageStats: null,
+    latestFullTableProfile: null,
+    latestPartitionProfile: null,
     tagProposals: null,
     termProposals: null,
     constraints: null,
