@@ -283,22 +283,16 @@ class Forms(ConfigModel):
 
         return glossary_terms_params
 
-    def get_ownership_params(
-        self, prompt: Prompt
-    ) -> Union[None, OwnershipParamsClass]:
+    def get_ownership_params(self, prompt: Prompt) -> Optional[OwnershipParamsClass]:
         if prompt.type != PromptType.OWNERSHIP.value:
             return None
 
         ownership_params = OwnershipParamsClass(cardinality="MULTIPLE")
         if prompt.ownership_params:
             if prompt.ownership_params.cardinality:
-                ownership_params.cardinality = (
-                    prompt.ownership_params.cardinality
-                )
+                ownership_params.cardinality = prompt.ownership_params.cardinality
             if prompt.ownership_params.allowed_owners:
-                ownership_params.allowedOwners = (
-                    prompt.ownership_params.allowed_owners
-                )
+                ownership_params.allowedOwners = prompt.ownership_params.allowed_owners
             if prompt.ownership_params.allowed_ownership_types:
                 ownership_params.allowedOwnershipTypes = (
                     prompt.ownership_params.allowed_ownership_types
