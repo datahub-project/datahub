@@ -15,12 +15,17 @@ interface Props {
     description: string;
     isExpandable?: boolean;
     lineLimit?: number;
+    isShowMoreEnabled?: boolean;
 }
 
-export default function DescriptionSection({ description, isExpandable, lineLimit }: Props) {
+export default function DescriptionSection({ description, isExpandable, lineLimit, isShowMoreEnabled }: Props) {
     return (
         <ContentWrapper>
-            <CompactMarkdownViewer lineLimit={isExpandable ? lineLimit : null} content={description} />
+            <CompactMarkdownViewer
+                lineLimit={isExpandable ? lineLimit : null}
+                content={description}
+                isShowMoreEnabled={isShowMoreEnabled}
+            />
         </ContentWrapper>
     );
 }

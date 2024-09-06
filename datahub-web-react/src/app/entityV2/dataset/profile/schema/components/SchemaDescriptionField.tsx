@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 import { Sparkle } from 'phosphor-react';
 
+import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import InferenceDetailsIndicator from '@src/app/sharedV2/inferred/InferenceDetailsIndicator';
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
@@ -136,6 +137,7 @@ type Props = {
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
     onPropose?: (description: string) => void;
     onInferDescription?: () => Promise<void>;
+    handleShowMore?: (_: string) => void;
     isEdited?: boolean;
     isReadOnly?: boolean;
     isPropagated?: boolean;
@@ -143,8 +145,6 @@ type Props = {
     enableInferenceButton?: boolean;
     sourceDetail?: StringMapEntry[] | null;
 };
-
-// const ABBREVIATED_LIMIT = 35;
 
 export default function DescriptionField({
     expanded,
@@ -154,6 +154,7 @@ export default function DescriptionField({
     onUpdate,
     onPropose,
     onInferDescription,
+    handleShowMore,
     isEdited = false,
     original,
     isReadOnly,
@@ -266,7 +267,13 @@ export default function DescriptionField({
                             {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
                             {isInferred && <InferenceDetailsIndicator />}
                             &nbsp;
-                            {description}
+                            <CompactMarkdownViewer
+                                content={description}
+                                lineLimit={1}
+                                handleShowMore={() => handleShowMore && handleShowMore(fieldPath || '')}
+                                fixedLineHeight
+                                customStyle={{ fontSize: '12px' }}
+                            />
                         </DescriptionWrapper>
                         {/* </StripMarkdownText> */}
                     </>

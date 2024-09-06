@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from 'antd';
 import styled from 'styled-components';
 import { REDESIGN_COLORS } from '../../../constants';
@@ -6,20 +6,33 @@ import { Editor } from './editor/Editor';
 
 const LINE_HEIGHT = 1.5;
 
-const MarkdownContainer = styled.div`
+const ShowMoreWrapper = styled.div`
+    align-items: start;
+    display: flex;
+    flex-direction: column;
+`;
+
+const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
     max-width: 100%;
     position: relative;
+    ${(props) =>
+        props.lineLimit &&
+        props.lineLimit <= 1 &&
+        ` 
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        ${ShowMoreWrapper}{
+            flex-direction: row;
+            align-items: center;
+            gap: 4px;
+        }
+    `}
 `;
 
 const EllipsisWrapper = styled.span`
     font-size: 150%;
     line-height: 0.5em;
-`;
-
-const ShowMoreWrapper = styled.div`
-    align-items: start;
-    display: flex;
-    flex-direction: column;
 `;
 
 const CustomButton = styled(Button)`
@@ -35,7 +48,7 @@ const MarkdownViewContainer = styled.div`
     overflow-y: hidden;
 `;
 
-const CompactEditor = styled(Editor)<{ limit: number | null }>`
+const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
     .remirror-editor.ProseMirror {
         ${({ limit }) => limit && `max-height: ${limit * LINE_HEIGHT}em;`}
         h1 {
@@ -60,6 +73,7 @@ const CompactEditor = styled(Editor)<{ limit: number | null }>`
         }
 
         p {
+            ${(props) => props?.customStyle?.fontSize && `font-size: ${props?.customStyle?.fontSize}`};
             margin-bottom: 0;
         }
 
@@ -67,13 +81,16 @@ const CompactEditor = styled(Editor)<{ limit: number | null }>`
     }
 `;
 
-const FixedLineHeightEditor = styled(CompactEditor)`
+const FixedLineHeightEditor = styled(CompactEditor)<{ customStyle?: React.CSSProperties }>`
     .remirror-editor.ProseMirror {
         * {
             line-height: ${LINE_HEIGHT};
             font-size: 1em !important;
             margin-top: 0;
             margin-bottom: 0;
+        }
+        p {
+            font-size: ${(props) => (props?.customStyle?.fontSize ? props?.customStyle?.fontSize : '1em')} !important;
         }
     }
 `;
@@ -82,16 +99,35 @@ export type Props = {
     content: string;
     lineLimit?: number | null;
     fixedLineHeight?: boolean;
+    isShowMoreEnabled?: boolean;
+    customStyle?: React.CSSProperties;
+    handleShowMore?: () => void;
 };
 
-export default function CompactMarkdownViewer({ content, lineLimit = 4, fixedLineHeight = false }: Props) {
+export default function CompactMarkdownViewer({
+    content,
+    lineLimit = 4,
+    fixedLineHeight = false,
+    isShowMoreEnabled = false,
+    customStyle = {},
+    handleShowMore,
+}: Props) {
     const [isShowingMore, setIsShowingMore] = useState(false);
     const [isTruncated, setIsTruncated] = useState(false);
+
+    useEffect(() => {
+        if (isShowMoreEnabled) {
+            setIsShowingMore(isShowMoreEnabled);
+        }
+        return () => {
+            setIsShowingMore(false);
+        };
+    }, [isShowMoreEnabled]);
 
     const measuredRef = useCallback((node: HTMLDivElement | null) => {
         if (node !== null) {
             const resizeObserver = new ResizeObserver(() => {
-                setIsTruncated(node.scrollHeight > node.clientHeight);
+                setIsTruncated(node.scrollHeight > node.clientHeight + 1);
             });
             resizeObserver.observe(node);
         }
@@ -100,14 +136,22 @@ export default function CompactMarkdownViewer({ content, lineLimit = 4, fixedLin
     const StyledEditor = fixedLineHeight ? FixedLineHeightEditor : CompactEditor;
 
     return (
-        <MarkdownContainer>
+        <MarkdownContainer lineLimit={lineLimit}>
             <MarkdownViewContainer ref={measuredRef}>
-                <StyledEditor limit={isShowingMore ? null : lineLimit} content={content} readOnly />
+                <StyledEditor
+                    customStyle={customStyle}
+                    limit={isShowingMore ? null : lineLimit}
+                    content={content}
+                    readOnly
+                />
             </MarkdownViewContainer>
             {(isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
                 <ShowMoreWrapper>
                     {isTruncated && <EllipsisWrapper>...</EllipsisWrapper>}
-                    <CustomButton type="link" onClick={() => setIsShowingMore(!isShowingMore)}>
+                    <CustomButton
+                        type="link"
+                        onClick={() => (handleShowMore ? handleShowMore() : setIsShowingMore(!isShowingMore))}
+                    >
                         {isShowingMore ? 'show less' : 'show more'}
                     </CustomButton>
                 </ShowMoreWrapper>

@@ -34,6 +34,7 @@ interface AboutFieldTabProps {
         fieldProfile: DatasetFieldProfile | undefined;
         profiles: any[];
         setSelectedTabName: any;
+        isShowMoreEnabled?: boolean;
         refetch?: () => void;
     };
 }
@@ -81,7 +82,11 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             refetch={() => setTimeout(() => refetch?.(), 2000)}
                         />
                         {!!notes?.length && <StyledDivider dashed />}
-                        <FieldDescription expandedField={expandedField} editableFieldInfo={editableFieldInfo} />
+                        <FieldDescription
+                            expandedField={expandedField}
+                            editableFieldInfo={editableFieldInfo}
+                            isShowMoreEnabled={properties.isShowMoreEnabled}
+                        />
                         <FieldTags
                             expandedField={expandedField}
                             editableSchemaMetadata={properties.editableSchemaMetadata}

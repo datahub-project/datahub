@@ -205,8 +205,17 @@ export default function SchemaTable({
         }
     };
 
+    const [rowDescriptionExpanded, setRowDescriptionExpanded] = useState<{
+        [_: string]: boolean;
+    }>({});
+
+    const handleShowMore = (field) => {
+        setRowDescriptionExpanded({ [field]: true });
+    };
+
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false, {
         onInferSchemaDescriptions,
+        handleShowMore,
     });
     const usageStatsRenderer = useUsageStatsRenderer(usageStats, expandedDrawerFieldPath);
     const tagRenderer = useTagsAndTermsRenderer(
@@ -547,6 +556,9 @@ export default function SchemaTable({
                     usageStats={usageStats}
                     displayedRows={schemaSorter ? sortedDisplayedRows : displayedRows}
                     refetch={refetch}
+                    isShowMoreEnabled={
+                        (schemaFieldDrawerFieldPath && rowDescriptionExpanded[schemaFieldDrawerFieldPath]) || false
+                    }
                 />
             )}
         </>

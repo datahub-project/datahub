@@ -64,6 +64,7 @@ const DescriptionWrapper = styled.div`
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
+    isShowMoreEnabled?: boolean;
 }
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
@@ -72,7 +73,7 @@ export function getShouldShowProposeButton(entityType: EntityType) {
     return PROPOSAL_ENTITY_TYPES.includes(entityType);
 }
 
-export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
+export default function FieldDescription({ expandedField, editableFieldInfo, isShowMoreEnabled }: Props) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -178,7 +179,11 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                             {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
                             {isInferred && <InferenceDetailsIndicator />}
                             {!!displayedDescription && (
-                                <DescriptionSection description={displayedDescription} isExpandable />
+                                <DescriptionSection
+                                    description={displayedDescription}
+                                    isShowMoreEnabled={isShowMoreEnabled}
+                                    isExpandable
+                                />
                             )}
                         </DescriptionWrapper>
                     </>

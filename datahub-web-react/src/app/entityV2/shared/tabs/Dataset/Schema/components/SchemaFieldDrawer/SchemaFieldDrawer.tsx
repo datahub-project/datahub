@@ -82,6 +82,7 @@ interface Props {
     displayedRows: ExtendedSchemaFields[];
     refetch?: () => void;
     mask?: boolean;
+    isShowMoreEnabled?: boolean;
 }
 
 export default function SchemaFieldDrawer({
@@ -97,6 +98,7 @@ export default function SchemaFieldDrawer({
     displayedRows,
     refetch,
     mask = false,
+    isShowMoreEnabled,
 }: Props) {
     const expandedFieldIndex = useMemo(
         () => displayedRows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
@@ -167,6 +169,7 @@ export default function SchemaFieldDrawer({
                 usageStats,
                 fieldProfile,
                 profiles,
+                isShowMoreEnabled,
                 setSelectedTabName,
                 refetch,
             },
