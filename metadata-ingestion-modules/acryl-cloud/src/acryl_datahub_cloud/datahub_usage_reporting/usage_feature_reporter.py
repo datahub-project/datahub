@@ -38,7 +38,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
-from datahub.metadata._schema_classes import UsageFeaturesClass
+from datahub.metadata.schema_classes import UsageFeaturesClass
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)

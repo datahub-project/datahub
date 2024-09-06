@@ -60,8 +60,10 @@ class GlossaryTermsParams(ConfigModel):
     allowed_terms: Optional[List[str]] = None
     allowed_term_groups: Optional[List[str]] = None
 
+
 class DomainParams(ConfigModel):
     allowed_domains: Optional[List[str]] = None
+
 
 class PromptType(Enum):
     STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
@@ -241,11 +243,13 @@ class Forms(ConfigModel):
                         title=prompt.title,
                         description=prompt.description,
                         type=prompt.type,
-                        structuredPropertyParams=StructuredPropertyParamsClass(
-                            urn=prompt.structured_property_urn
-                        )
-                        if prompt.structured_property_urn
-                        else None,
+                        structuredPropertyParams=(
+                            StructuredPropertyParamsClass(
+                                urn=prompt.structured_property_urn
+                            )
+                            if prompt.structured_property_urn
+                            else None
+                        ),
                         glossaryTermsParams=self.get_glossary_terms_params(prompt),
                         ownershipParams=self.get_ownership_params(prompt),
                         domainParams=self.get_domain_params(prompt),
@@ -283,7 +287,7 @@ class Forms(ConfigModel):
 
         return glossary_terms_params
 
-    def get_ownership_params(self, prompt: Prompt) -> Optional[OwnershipParamsClass]:
+    def get_ownership_params(self, prompt: Prompt) -> Union[None, OwnershipParamsClass]:
         if prompt.type != PromptType.OWNERSHIP.value:
             return None
 
@@ -300,14 +304,14 @@ class Forms(ConfigModel):
 
         return ownership_params
 
-    def get_domain_params(
-        self, prompt: Prompt
-    ) -> Union[None, DomainParamsClass]:
+    def get_domain_params(self, prompt: Prompt) -> Union[None, DomainParamsClass]:
         if prompt.type != PromptType.DOMAIN.value:
             return None
 
         if prompt.domain_params and prompt.domain_params.allowed_domains:
-            return DomainParamsClass(allowedDomains=prompt.domain_params.allowed_domains)
+            return DomainParamsClass(
+                allowedDomains=prompt.domain_params.allowed_domains
+            )
 
         return None
 
@@ -440,14 +444,18 @@ class Forms(ConfigModel):
                     title=prompt_raw.title,
                     description=prompt_raw.description,
                     type=prompt_raw.type,
-                    structured_property_urn=prompt_raw.structuredPropertyParams.urn
-                    if prompt_raw.structuredPropertyParams
-                    else None,
-                    ownership_params=OwnershipParams(
-                        cardinality=prompt_raw.ownershipParams.cardinality
-                    )
-                    if prompt_raw.ownershipParams
-                    else None,
+                    structured_property_urn=(
+                        prompt_raw.structuredPropertyParams.urn
+                        if prompt_raw.structuredPropertyParams
+                        else None
+                    ),
+                    ownership_params=(
+                        OwnershipParams(
+                            cardinality=prompt_raw.ownershipParams.cardinality
+                        )
+                        if prompt_raw.ownershipParams
+                        else None
+                    ),
                 )
             )
         return Forms(
