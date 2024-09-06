@@ -46,7 +46,7 @@ public class ListIngestionSourceResolverTest {
                 any(),
                 Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
                 Mockito.eq(""),
-                Mockito.any(),
+                Mockito.anyMap(),
                 Mockito.any(),
                 Mockito.eq(0),
                 Mockito.eq(20)))
@@ -120,6 +120,7 @@ public class ListIngestionSourceResolverTest {
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
+            Mockito.anyList(),
             Mockito.anyInt(),
             Mockito.anyInt());
   }

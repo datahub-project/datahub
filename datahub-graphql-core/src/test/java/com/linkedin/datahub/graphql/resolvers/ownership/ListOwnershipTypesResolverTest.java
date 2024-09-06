@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.ownership.OwnershipTypeInfo;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -42,7 +43,7 @@ public class ListOwnershipTypesResolverTest {
                 any(),
                 Mockito.eq(Constants.OWNERSHIP_TYPE_ENTITY_NAME),
                 Mockito.eq(""),
-                Mockito.eq(null),
+                Mockito.eq(Collections.emptyMap()),
                 Mockito.any(),
                 Mockito.eq(0),
                 Mockito.eq(20)))
@@ -91,6 +92,7 @@ public class ListOwnershipTypesResolverTest {
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
+            Mockito.anyList(),
             Mockito.anyInt(),
             Mockito.anyInt());
   }

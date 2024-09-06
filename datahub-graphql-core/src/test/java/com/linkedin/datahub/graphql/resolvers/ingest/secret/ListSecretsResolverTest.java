@@ -22,6 +22,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import org.mockito.Mockito;
@@ -43,7 +44,7 @@ public class ListSecretsResolverTest {
                 any(),
                 Mockito.eq(Constants.SECRETS_ENTITY_NAME),
                 Mockito.eq(""),
-                Mockito.eq(null),
+                Mockito.eq(Collections.emptyMap()),
                 Mockito.any(List.class),
                 Mockito.eq(0),
                 Mockito.eq(20)))
@@ -111,7 +112,7 @@ public class ListSecretsResolverTest {
             any(),
             Mockito.any(),
             Mockito.eq(""),
-            Mockito.eq(null),
+            Mockito.eq(Collections.emptyMap()),
             Mockito.any(List.class),
             Mockito.anyInt(),
             Mockito.anyInt());
