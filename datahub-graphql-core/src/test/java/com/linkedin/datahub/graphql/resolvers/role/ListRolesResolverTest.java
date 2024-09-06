@@ -100,7 +100,7 @@ public class ListRolesResolverTest {
                 new SearchEntity().setEntity(Urn.createFromString(EDITOR_ROLE_URN_STRING)))));
 
     when(_entityClient.search(
-            any(), eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+            any(), eq(DATAHUB_ROLE_ENTITY_NAME), any(), anyMap(), any(), anyInt(), anyInt()))
         .thenReturn(roleSearchResult);
     when(_entityClient.batchGetV2(any(), eq(DATAHUB_ROLE_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
