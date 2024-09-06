@@ -434,8 +434,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 message="The cardinality for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": {self.dataset_name}.{column},
-                        "errorMessage": {e}
+                        "column": "{self.dataset_name}.{column}",
+                        "errorMessage": "{e}"
                     }}
                 """,
             )
@@ -526,8 +526,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 message="The min for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": {self.dataset_name}.{column},
-                        "errorMessage": {e}
+                        "column": "{self.dataset_name}.{column}",
+                        "errorMessage": "{e}"
                     }}
                 """,
             )
@@ -550,8 +550,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 message="The max for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": {self.dataset_name}.{column},
-                        "errorMessage": {e}
+                        "column": "{self.dataset_name}.{column}",
+                        "errorMessage": "{e}"
                     }}
                 """,
             )
@@ -574,8 +574,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 message="The mean for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": {self.dataset_name}.{column},
-                        "errorMessage": {e}
+                        "column": "{self.dataset_name}.{column}",
+                        "errorMessage": "{e}"
                     }}
                 """,
             )
@@ -615,8 +615,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 message="The medians for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": {self.dataset_name}.{column},
-                        "errorMessage": {e}
+                        "column": "{self.dataset_name}.{column}",
+                        "errorMessage": "{e}"
                     }}
                 """,
             )
@@ -638,8 +638,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 message="The standard deviation for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": {self.dataset_name}.{column},
-                        "errorMessage": {e}
+                        "column": "{self.dataset_name}.{column}",
+                        "errorMessage": "{e}"
                     }}
                 """,
             )
@@ -685,8 +685,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 message="The quantiles for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": {self.dataset_name}.{column},
-                        "errorMessage": {e}
+                        "column": "{self.dataset_name}.{column}",
+                        "errorMessage": "{e}"
                     }}
                 """,
             )
@@ -730,9 +730,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column histogram for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column histogram",
-                f"{self.dataset_name}.{column}",
+                title="Unable to Calculate Histogram",
+                message="The histogram for the column will not be accessible",
+                context=f"""
+                    {{
+                        "column": "{self.dataset_name}.{column}",
+                        "errorMessage": "{e}"
+                    }}
+                """,
             )
 
     @_run_with_query_combiner
@@ -762,9 +769,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get sample values for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column sample values",
-                f"{self.dataset_name}.{column}",
+                title="Unable to Calculate Sample Values",
+                message="The sample values for the column will not be accessible",
+                context=f"""
+                    {{
+                        "column": "{self.dataset_name}.{column}",
+                        "errorMessage": "{e}"
+                    }}
+                """,
             )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
