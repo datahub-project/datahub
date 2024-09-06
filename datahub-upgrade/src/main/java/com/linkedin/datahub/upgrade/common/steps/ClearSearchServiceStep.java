@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.function.Function;
 
 public class ClearSearchServiceStep implements UpgradeStep {
@@ -48,9 +49,9 @@ public class ClearSearchServiceStep implements UpgradeStep {
         _entitySearchService.clear(context.opContext());
       } catch (Exception e) {
         context.report().addLine("Failed to clear search service", e);
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
-      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 }
