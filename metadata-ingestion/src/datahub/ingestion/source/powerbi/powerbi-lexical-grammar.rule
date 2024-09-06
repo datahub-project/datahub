@@ -5,7 +5,7 @@
 // - Tweak unary_expression to allow arbitrary operators within it.
 //   This is necessary because unary_expression is the base for the
 //   whole relational_expression parse tree.
-
+// - Added letter_character_and_decimal_digit phrase and updated keyword_or_identifier phrase
 
 lexical_unit:   lexical_elements?
 
@@ -127,6 +127,7 @@ regular_identifier:     available_identifier
 available_identifier:   keyword_or_identifier
 
 keyword_or_identifier:  letter_character
+                  |     letter_character_and_decimal_digit
                   |     underscore_character
                   |     identifier_start_character identifier_part_characters
 
@@ -156,6 +157,8 @@ dot_character:    "."
 underscore_character:   "_"
 
 letter_character: /[_\-\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}]+/
+
+letter_character_and_decimal_digit: /[_\-\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}\p{Nd}]+/
 
 combining_character:    /[_\p{Mn}\p{Mc}]+/
 

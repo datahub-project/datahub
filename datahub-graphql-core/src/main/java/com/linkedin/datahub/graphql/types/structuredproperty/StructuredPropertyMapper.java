@@ -60,6 +60,7 @@ public class StructuredPropertyMapper
     definition.setQualifiedName(gmsDefinition.getQualifiedName());
     definition.setCardinality(
         PropertyCardinality.valueOf(gmsDefinition.getCardinality().toString()));
+    definition.setImmutable(gmsDefinition.isImmutable());
     definition.setValueType(createDataTypeEntity(gmsDefinition.getValueType()));
     if (gmsDefinition.hasDisplayName()) {
       definition.setDisplayName(gmsDefinition.getDisplayName());

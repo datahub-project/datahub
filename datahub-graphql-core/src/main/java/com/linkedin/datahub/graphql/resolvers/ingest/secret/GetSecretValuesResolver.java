@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetSecretValuesInput;
 import com.linkedin.datahub.graphql.generated.SecretValue;
@@ -50,7 +51,7 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
       final GetSecretValuesInput input =
           bindArgument(environment.getArgument("input"), GetSecretValuesInput.class);
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // Fetch secrets
@@ -92,7 +93,9 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
               throw new RuntimeException(
                   String.format("Failed to perform update against input %s", input.toString()), e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

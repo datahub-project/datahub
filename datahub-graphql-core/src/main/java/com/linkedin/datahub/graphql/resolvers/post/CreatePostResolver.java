@@ -7,6 +7,7 @@ import com.datahub.authentication.post.PostService;
 import com.linkedin.common.Media;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreatePostInput;
 import com.linkedin.datahub.graphql.generated.PostContentType;
@@ -54,7 +55,7 @@ public class CreatePostResolver implements DataFetcher<CompletableFuture<Boolean
     PostContent postContent =
         _postService.mapPostContent(contentType.toString(), title, description, link, media);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             return _postService.createPost(
@@ -62,6 +63,8 @@ public class CreatePostResolver implements DataFetcher<CompletableFuture<Boolean
           } catch (Exception e) {
             throw new RuntimeException("Failed to create a new post", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

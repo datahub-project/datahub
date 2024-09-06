@@ -1,13 +1,14 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.toStructuredPropertyFacetName;
+import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.data.template.LongMap;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -136,14 +137,7 @@ public class AggregationQueryBuilder {
             configs.getMaxTermBucketSize());
     for (int i = facets.size() - 1; i >= 0; i--) {
       String facet = facets.get(i);
-      if (facet.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-        String structPropFqn = facet.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1);
-        StructuredPropertyUtils.validateStructuredPropertyFQN(
-            Set.of(structPropFqn), opContext.getRetrieverContext().get().getAspectRetriever());
-        facet =
-            STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                + StructuredPropertyUtils.sanitizeStructuredPropertyFQN(structPropFqn);
-      }
+
       AggregationBuilder aggBuilder;
       if (facet.contains(AGGREGATION_SPECIAL_TYPE_DELIMITER)) {
         List<String> specialTypeFields = List.of(facet.split(AGGREGATION_SPECIAL_TYPE_DELIMITER));
@@ -152,9 +146,11 @@ public class AggregationQueryBuilder {
             aggBuilder =
                 INDEX_VIRTUAL_FIELD.equalsIgnoreCase(specialTypeFields.get(1))
                     ? AggregationBuilders.missing(inputFacet)
-                        .field(getAggregationField(ES_INDEX_FIELD))
+                        .field(getAggregationField(ES_INDEX_FIELD, opContext.getAspectRetriever()))
                     : AggregationBuilders.missing(inputFacet)
-                        .field(getAggregationField(specialTypeFields.get(1)));
+                        .field(
+                            getAggregationField(
+                                specialTypeFields.get(1), opContext.getAspectRetriever()));
             break;
           default:
             throw new UnsupportedOperationException(
@@ -164,11 +160,11 @@ public class AggregationQueryBuilder {
         aggBuilder =
             facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
                 ? AggregationBuilders.terms(inputFacet)
-                    .field(getAggregationField(ES_INDEX_FIELD))
+                    .field(getAggregationField(ES_INDEX_FIELD, opContext.getAspectRetriever()))
                     .size(maxTermBuckets)
                     .minDocCount(0)
                 : AggregationBuilders.terms(inputFacet)
-                    .field(getAggregationField(facet))
+                    .field(getAggregationField(facet, opContext.getAspectRetriever()))
                     .size(maxTermBuckets);
       }
       if (lastAggBuilder != null) {
@@ -180,13 +176,16 @@ public class AggregationQueryBuilder {
     return lastAggBuilder;
   }
 
-  private String getAggregationField(final String facet) {
+  private String getAggregationField(
+      final String facet, @Nullable AspectRetriever aspectRetriever) {
     if (facet.startsWith("has")) {
       // Boolean hasX field, not a keyword field. Return the name of the original facet.
       return facet;
     }
-    // Otherwise assume that this field is of keyword type.
-    return ESUtils.toKeywordField(facet, false);
+    // intercept structured property if it exists
+    return toStructuredPropertyFacetName(facet, aspectRetriever)
+        // Otherwise assume that this field is of keyword type.
+        .orElse(ESUtils.toKeywordField(facet, false, aspectRetriever));
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {
@@ -229,10 +228,12 @@ public class AggregationQueryBuilder {
   }
 
   List<AggregationMetadata> extractAggregationMetadata(
-      @Nonnull SearchResponse searchResponse, @Nullable Filter filter) {
+      @Nonnull SearchResponse searchResponse,
+      @Nullable Filter filter,
+      @Nullable AspectRetriever aspectRetriever) {
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
     if (searchResponse.getAggregations() == null) {
-      return addFiltersToAggregationMetadata(aggregationMetadataList, filter);
+      return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
     }
     for (Map.Entry<String, Aggregation> entry :
         searchResponse.getAggregations().getAsMap().entrySet()) {
@@ -243,7 +244,7 @@ public class AggregationQueryBuilder {
         processMissingAggregations(entry, aggregationMetadataList);
       }
     }
-    return addFiltersToAggregationMetadata(aggregationMetadataList, filter);
+    return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
   }
 
   private void processTermAggregations(
@@ -343,38 +344,45 @@ public class AggregationQueryBuilder {
 
   /** Injects the missing conjunctive filters into the aggregations list. */
   public List<AggregationMetadata> addFiltersToAggregationMetadata(
-      @Nonnull final List<AggregationMetadata> originalMetadata, @Nullable final Filter filter) {
+      @Nonnull final List<AggregationMetadata> originalMetadata,
+      @Nullable final Filter filter,
+      @Nullable AspectRetriever aspectRetriever) {
     if (filter == null) {
       return originalMetadata;
     }
     if (filter.getOr() != null) {
-      addOrFiltersToAggregationMetadata(filter.getOr(), originalMetadata);
+      addOrFiltersToAggregationMetadata(filter.getOr(), originalMetadata, aspectRetriever);
     } else if (filter.getCriteria() != null) {
-      addCriteriaFiltersToAggregationMetadata(filter.getCriteria(), originalMetadata);
+      addCriteriaFiltersToAggregationMetadata(
+          filter.getCriteria(), originalMetadata, aspectRetriever);
     }
     return originalMetadata;
   }
 
   void addOrFiltersToAggregationMetadata(
       @Nonnull final ConjunctiveCriterionArray or,
-      @Nonnull final List<AggregationMetadata> originalMetadata) {
+      @Nonnull final List<AggregationMetadata> originalMetadata,
+      @Nullable AspectRetriever aspectRetriever) {
     for (ConjunctiveCriterion conjunction : or) {
       // For each item in the conjunction, inject an empty aggregation if necessary
-      addCriteriaFiltersToAggregationMetadata(conjunction.getAnd(), originalMetadata);
+      addCriteriaFiltersToAggregationMetadata(
+          conjunction.getAnd(), originalMetadata, aspectRetriever);
     }
   }
 
   private void addCriteriaFiltersToAggregationMetadata(
       @Nonnull final CriterionArray criteria,
-      @Nonnull final List<AggregationMetadata> originalMetadata) {
+      @Nonnull final List<AggregationMetadata> originalMetadata,
+      @Nullable AspectRetriever aspectRetriever) {
     for (Criterion criterion : criteria) {
-      addCriterionFiltersToAggregationMetadata(criterion, originalMetadata);
+      addCriterionFiltersToAggregationMetadata(criterion, originalMetadata, aspectRetriever);
     }
   }
 
   private void addCriterionFiltersToAggregationMetadata(
       @Nonnull final Criterion criterion,
-      @Nonnull final List<AggregationMetadata> aggregationMetadata) {
+      @Nonnull final List<AggregationMetadata> aggregationMetadata,
+      @Nullable AspectRetriever aspectRetriever) {
 
     // We should never see duplicate aggregation for the same field in aggregation metadata list.
     final Map<String, AggregationMetadata> aggregationMetadataMap =
@@ -382,7 +390,7 @@ public class AggregationQueryBuilder {
             .collect(Collectors.toMap(AggregationMetadata::getName, agg -> agg));
 
     // Map a filter criterion to a facet field (e.g. domains.keyword -> domains)
-    final String finalFacetField = toFacetField(criterion.getField());
+    final String finalFacetField = toParentField(criterion.getField(), aspectRetriever);
 
     if (finalFacetField == null) {
       log.warn(

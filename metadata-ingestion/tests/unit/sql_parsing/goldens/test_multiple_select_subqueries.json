@@ -1,0 +1,37 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "6550b4146336b0b15b972685bd4b5b30ba9573c9a1f2e5ddd2fc2fb64eca1b51",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,x,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "y",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,x,PROD)",
+                    "column": "a"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,x,PROD)",
+                    "column": "b"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,x,PROD)",
+                    "column": "c"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT SUM((SELECT MAX(a) AS a FROM x) + (SELECT MIN(b) AS b FROM x) + c) AS y FROM x"
+    }
+}

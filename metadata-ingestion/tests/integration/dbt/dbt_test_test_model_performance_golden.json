@@ -7,8 +7,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
         }
     },
@@ -47,6 +46,7 @@
                             "dbt_file_path": "models/transform/customer_details.sql",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.customer_details",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -224,7 +224,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),customer_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),customer_id)"
                                 ],
@@ -236,7 +236,7 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),first_name)",
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),last_name)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),full_name)"
                                 ],
@@ -248,7 +248,7 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer_snapshot,PROD),first_name)",
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer_snapshot,PROD),last_name)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),initial_full_name)"
                                 ],
@@ -259,7 +259,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),email)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),email)"
                                 ],
@@ -270,7 +270,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD),address)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),address)"
                                 ],
@@ -281,7 +281,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD),city)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),city)"
                                 ],
@@ -292,7 +292,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD),postal_code)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),postal_code)"
                                 ],
@@ -303,7 +303,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD),phone)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),phone)"
                                 ],
@@ -337,9 +337,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
         }
     },
@@ -379,6 +377,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.monthly_billing_with_cust",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -492,7 +491,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payments_by_customer_by_month,PROD),BillingMonth)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),billing_month)"
                                 ],
@@ -503,7 +502,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payments_by_customer_by_month,PROD),customer_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),customer_id)"
                                 ],
@@ -514,7 +513,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payments_by_customer_by_month,PROD),amount)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),amount)"
                                 ],
@@ -525,7 +524,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),email)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),email)"
                                 ],
@@ -565,7 +564,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1643871600000,
+                "time": 1663355198240,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -685,8 +684,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
         }
     },
@@ -726,6 +724,7 @@
                             "catalog_type": "VIEW",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.payments_base",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -900,7 +899,7 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD),amount)",
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD),amount)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD),amount)"
                                 ],
@@ -916,7 +915,7 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD),customer_id)",
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD),customer_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD),customer_id)"
                                 ],
@@ -932,7 +931,7 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD),payment_date)",
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD),payment_date)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD),payment_date)"
                                 ],
@@ -948,7 +947,7 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD),payment_id)",
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD),payment_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD),payment_id)"
                                 ],
@@ -964,7 +963,7 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD),rental_id)",
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD),rental_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD),rental_id)"
                                 ],
@@ -980,7 +979,7 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD),staff_id)",
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD),staff_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD),staff_id)"
                                 ],
@@ -1020,7 +1019,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1643871600000,
+                "time": 1663355198240,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1144,9 +1143,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
         }
     },
@@ -1186,6 +1183,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.payments_by_customer_by_month",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -1287,7 +1285,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.an_aliased_view_for_payments,PROD),payment_date)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD),BillingMonth)"
                                 ],
@@ -1298,7 +1296,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.an_aliased_view_for_payments,PROD),customer_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD),customer_id)"
                                 ],
@@ -1309,7 +1307,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.an_aliased_view_for_payments,PROD),amount)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD),amount)"
                                 ],
@@ -1349,7 +1347,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1643871600000,
+                "time": 1663355198240,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1468,8 +1466,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Snapshot",
-                "View"
+                "Snapshot"
             ]
         }
     },
@@ -1509,6 +1506,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "snapshot.sample_dbt.customer_snapshot",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -1734,7 +1732,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),active)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),active)"
                                 ],
@@ -1745,7 +1743,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),activebool)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),activebool)"
                                 ],
@@ -1756,7 +1754,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),address_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),address_id)"
                                 ],
@@ -1767,7 +1765,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),create_date)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),create_date)"
                                 ],
@@ -1778,7 +1776,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),customer_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),customer_id)"
                                 ],
@@ -1789,7 +1787,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),email)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),email)"
                                 ],
@@ -1800,7 +1798,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),first_name)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),first_name)"
                                 ],
@@ -1811,7 +1809,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),last_name)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),last_name)"
                                 ],
@@ -1822,7 +1820,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),last_update)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),last_update)"
                                 ],
@@ -1833,7 +1831,7 @@
                                 "upstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD),store_id)"
                                 ],
-                                "downstreamType": "FIELD_SET",
+                                "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD),store_id)"
                                 ],
@@ -1873,7 +1871,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1643871600000,
+                "time": 1663355198240,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -2034,6 +2032,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.actor",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -2256,6 +2255,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.address",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -2551,6 +2551,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.category",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -2731,6 +2732,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.city",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -2937,6 +2939,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.country",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -3132,6 +3135,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.customer",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -3473,6 +3477,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_01",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -3726,6 +3731,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_02",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -3990,6 +3996,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_03",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -4239,6 +4246,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_04",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -4488,6 +4496,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_05",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -4737,6 +4746,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_06",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -5987,6 +5997,70 @@
 {
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:f812b73477d81e6af283d918cb59e7bf",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:36225e795a4597b2376996774a803b0d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:57aa623f096cf3a28af70fe94b713907",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a42a5b1bee156e45972e12d4156fb7a2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fc6268f0be68fd04c310705b65efd6fe",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

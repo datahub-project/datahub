@@ -7,7 +7,9 @@ import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +17,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * A batch of aspects in the context of either an MCP or MCL write path to a data store. The item is
@@ -82,6 +85,13 @@ public interface AspectsBatch {
     }
   }
 
+  default Stream<MCPItem> applyProposalMutationHooks(
+      Collection<MCPItem> proposedItems, @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks().stream()
+        .flatMap(
+            mutationHook -> mutationHook.applyProposalMutation(proposedItems, retrieverContext));
+  }
+
   default <T extends BatchItem> ValidationExceptionCollection validateProposed(
       Collection<T> mcpItems) {
     return validateProposed(mcpItems, getRetrieverContext());
@@ -125,6 +135,16 @@ public interface AspectsBatch {
       Collection<ChangeMCP> items, @Nonnull RetrieverContext retrieverContext) {
     return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
         .flatMap(mcpSideEffect -> mcpSideEffect.apply(items, retrieverContext));
+  }
+
+  default Stream<MCPItem> applyPostMCPSideEffects(Collection<MCLItem> items) {
+    return applyPostMCPSideEffects(items, getRetrieverContext());
+  }
+
+  static Stream<MCPItem> applyPostMCPSideEffects(
+      Collection<MCLItem> items, @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
+        .flatMap(mcpSideEffect -> mcpSideEffect.postApply(items, retrieverContext));
   }
 
   default Stream<MCLItem> applyMCLSideEffects(Collection<MCLItem> items) {
@@ -179,17 +199,31 @@ public interface AspectsBatch {
 
   static <T> Map<String, Map<String, T>> merge(
       @Nonnull Map<String, Map<String, T>> a, @Nonnull Map<String, Map<String, T>> b) {
-    return Stream.concat(a.entrySet().stream(), b.entrySet().stream())
-        .flatMap(
-            entry ->
-                entry.getValue().entrySet().stream()
-                    .map(innerEntry -> Pair.of(entry.getKey(), innerEntry)))
-        .collect(
-            Collectors.groupingBy(
-                Pair::getKey,
-                Collectors.mapping(
-                    Pair::getValue, Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+    Map<String, Map<String, T>> mergedMap = new HashMap<>();
+    for (Map.Entry<String, Map<String, T>> entry :
+        Stream.concat(a.entrySet().stream(), b.entrySet().stream()).collect(Collectors.toList())) {
+      mergedMap.computeIfAbsent(entry.getKey(), k -> new HashMap<>()).putAll(entry.getValue());
+    }
+    return mergedMap;
   }
 
-  String toAbbreviatedString(int maxWidth);
+  default String toAbbreviatedString(int maxWidth) {
+    return toAbbreviatedString(getItems(), maxWidth);
+  }
+
+  static String toAbbreviatedString(Collection<? extends BatchItem> items, int maxWidth) {
+    List<String> itemsAbbreviated = new ArrayList<String>();
+    items.forEach(
+        item -> {
+          if (item instanceof ChangeMCP) {
+            itemsAbbreviated.add(((ChangeMCP) item).toAbbreviatedString());
+          } else {
+            itemsAbbreviated.add(item.toString());
+          }
+        });
+    return "AspectsBatchImpl{"
+        + "items="
+        + StringUtils.abbreviate(itemsAbbreviated.toString(), maxWidth)
+        + '}';
+  }
 }

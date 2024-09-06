@@ -14,7 +14,7 @@ import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchSuggestion;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import java.net.URISyntaxException;
@@ -89,7 +89,7 @@ public class MapperUtils {
               if (SearchUtils.isUrn(field.getValue())) {
                 try {
                   Urn urn = Urn.createFromString(field.getValue());
-                  ValidationUtils.validateUrn(
+                  ValidationApiUtils.validateUrn(
                       context.getOperationContext().getEntityRegistry(), urn);
                   matchedField.setEntity(UrnToEntityMapper.map(context, urn));
                 } catch (IllegalArgumentException | URISyntaxException e) {

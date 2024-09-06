@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CreateDynamicFormAssignmentInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
 import com.linkedin.form.DynamicFormAssignment;
@@ -32,9 +33,11 @@ public class CreateDynamicFormAssignmentResolver
     final CreateDynamicFormAssignmentInput input =
         bindArgument(environment.getArgument("input"), CreateDynamicFormAssignmentInput.class);
     final Urn formUrn = UrnUtils.getUrn(input.getFormUrn());
-    final DynamicFormAssignment formAssignment = FormUtils.mapDynamicFormAssignment(input);
+    final DynamicFormAssignment formAssignment =
+        FormUtils.mapDynamicFormAssignment(
+            input, context.getOperationContext().getAspectRetriever());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _formService.createDynamicFormAssignment(
@@ -44,6 +47,8 @@ public class CreateDynamicFormAssignmentResolver
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

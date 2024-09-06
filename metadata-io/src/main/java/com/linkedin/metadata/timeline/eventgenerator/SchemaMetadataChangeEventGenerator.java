@@ -4,6 +4,7 @@ import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGenerator
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -62,6 +63,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           .description(
               String.format(
                   FIELD_DESCRIPTION_ADDED_FORMAT, targetDescription, targetField.getFieldPath()))
+          .parameters(ImmutableMap.of("description", targetDescription))
           .auditStamp(auditStamp)
           .build();
     }
@@ -75,6 +77,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           .description(
               String.format(
                   FIELD_DESCRIPTION_REMOVED_FORMAT, baseDescription, baseField.getFieldPath()))
+          .parameters(ImmutableMap.of("description", baseDescription))
           .auditStamp(auditStamp)
           .build();
     }
@@ -91,6 +94,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
                   baseField.getFieldPath(),
                   baseDescription,
                   targetDescription))
+          .parameters(ImmutableMap.of("description", targetDescription))
           .auditStamp(auditStamp)
           .build();
     }

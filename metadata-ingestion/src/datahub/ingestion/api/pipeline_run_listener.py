@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.sink import Sink
 
 
 class PipelineRunListener(ABC):
@@ -21,6 +22,11 @@ class PipelineRunListener(ABC):
 
     @classmethod
     @abstractmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "PipelineRunListener":
+    def create(
+        cls,
+        config_dict: Dict[str, Any],
+        ctx: PipelineContext,
+        sink: Sink,
+    ) -> "PipelineRunListener":
         # Creation and initialization.
         pass

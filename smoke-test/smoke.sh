@@ -16,13 +16,23 @@ cd "$DIR"
 
 if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
     source ./run-quickstart.sh
-fi
+else
+  mkdir -p ~/.datahub/plugins/frontend/auth/
+  echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
+  echo "datahub:datahub" > ~/.datahub/plugins/frontend/auth/user.props
 
-source venv/bin/activate
+  python3 -m venv venv
+  source venv/bin/activate
+  python -m pip install --upgrade pip uv>=0.1.10 wheel setuptools
+  uv pip install -r requirements.txt
+fi
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 
 source ./set-cypress-creds.sh
+
+# set environment variables for the test
+source ./set-test-env-vars.sh
 
 # no_cypress_suite0, no_cypress_suite1, cypress_suite1, cypress_rest
 if [[ -z "${TEST_STRATEGY}" ]]; then

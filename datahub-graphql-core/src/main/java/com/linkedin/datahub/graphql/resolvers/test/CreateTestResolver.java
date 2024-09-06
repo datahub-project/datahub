@@ -8,6 +8,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.authentication.Authentication;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTestInput;
 import com.linkedin.entity.client.EntityClient;
@@ -36,7 +37,7 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
     final CreateTestInput input =
         bindArgument(environment.getArgument("input"), CreateTestInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (canManageTests(context)) {
 
@@ -71,7 +72,9 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static TestInfo mapCreateTestInput(final CreateTestInput input) {

@@ -14,7 +14,7 @@ buildscript {
 }
 
 plugins {
-    id 'java-library'
+    id 'java'
     id 'maven-publish'
     id 'pegasus'
 }
@@ -27,17 +27,14 @@ if (project.hasProperty('projVersion')) {
 
 dependencies {
   implementation spec.product.pegasus.data
-  // Uncomment these if you want to depend on models defined in core datahub
-  // DataQualityRuleEvent in this example uses Urn and TimeseriesAspectBase
-  implementation project(':li-utils')
-  dataModel project(':li-utils')
-  implementation project(':metadata-models')
-  dataModel project(':metadata-models')
 
-  // Required for custom code plugins
-  implementation project(':entity-registry')
-  // Required for MCL/MCP hooks
-  implementation project (':metadata-io')
+  // Core DataHub dependencies
+  implementation project(path: ':metadata-integration:java:custom-plugin-lib', configuration: 'shadow')
+  // DataModel DataHub dependencies
+  dataModel project(path: ':metadata-integration:java:custom-plugin-lib', configuration: 'shadow')
+
+  // Required for Spring-enabled plugins only
+  implementation externalDependency.springBootAutoconfigure
 }
 def deployBaseDir = findProperty('pluginModelsDir') ?: file(project.gradle.gradleUserHomeDir.parent + "/.datahub/plugins/models")
 

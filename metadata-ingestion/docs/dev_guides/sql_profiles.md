@@ -28,6 +28,3 @@ Extracts:
 
 SQL profiling is supported for all SQL sources. Check the individual source page to verify if it supports profiling.
 
-## Questions
-
-If you've got any questions on configuring profiling, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

@@ -24,7 +24,7 @@ export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement }: Pr
     return (
         <>
             {(unhealthy && (
-                <Link to={`${baseUrl}/Validation`}>
+                <Link to={`${baseUrl}/Quality`}>
                     <Container>
                         <EntityHealthPopover health={health} baseUrl={baseUrl} placement={tooltipPlacement}>
                             {icon}

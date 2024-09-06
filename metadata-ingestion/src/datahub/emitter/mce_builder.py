@@ -23,6 +23,7 @@ from typing import (
 )
 
 import typing_inspect
+from avrogen.dict_wrapper import DictWrapper
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
 from datahub.metadata.schema_classes import (
@@ -49,9 +50,11 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.tag_urn import TagUrn
 
 logger = logging.getLogger(__name__)
 Aspect = TypeVar("Aspect", bound=AspectAbstract)
@@ -222,6 +225,21 @@ def make_user_urn(username: str) -> str:
     )
 
 
+def make_actor_urn(actor: str) -> Union[CorpUserUrn, CorpGroupUrn]:
+    """
+    Makes a user urn if the input is not a user or group urn already
+    """
+    return (
+        CorpUserUrn(actor)
+        if not actor.startswith(("urn:li:corpuser:", "urn:li:corpGroup:"))
+        else (
+            CorpUserUrn.from_string(actor)
+            if actor.startswith("urn:li:corpuser:")
+            else CorpGroupUrn.from_string(actor)
+        )
+    )
+
+
 def make_group_urn(groupname: str) -> str:
     """
     Makes a group urn if the input is not a user or group urn already
@@ -238,11 +256,16 @@ def make_tag_urn(tag: str) -> str:
     """
     if tag and tag.startswith("urn:li:tag:"):
         return tag
-    else:
-        return f"urn:li:tag:{tag}"
+    return str(TagUrn(tag))
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
+    if owner_type == OwnerType.USER:
+        return make_user_urn(owner)
+    elif owner_type == OwnerType.GROUP:
+        return make_group_urn(owner)
+    # This should pretty much never happen.
+    # TODO: With Python 3.11, we can use typing.assert_never() here.
     return f"urn:li:{owner_type.value}:{owner}"
 
 
@@ -367,7 +390,7 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     )
 
 
-def get_class_fields(_class: Type[object]) -> Iterable[str]:
+def _get_enum_options(_class: Type[object]) -> Iterable[str]:
     return [
         f
         for f in dir(_class)
@@ -378,7 +401,8 @@ def get_class_fields(_class: Type[object]) -> Iterable[str]:
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     if ownership_type.startswith("urn:li:"):
         return OwnershipTypeClass.CUSTOM, ownership_type
-    if ownership_type in get_class_fields(OwnershipTypeClass):
+    ownership_type = ownership_type.upper()
+    if ownership_type in _get_enum_options(OwnershipTypeClass):
         return ownership_type, None
     raise ValueError(f"Unexpected ownership type: {ownership_type}")
 
@@ -411,15 +435,21 @@ def make_lineage_mce(
     return mce
 
 
-def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
-    SnapshotType = type(mce.proposedSnapshot)
-
+def can_add_aspect_to_snapshot(
+    SnapshotType: Type[DictWrapper], AspectType: Type[Aspect]
+) -> bool:
     constructor_annotations = get_type_hints(SnapshotType.__init__)
     aspect_list_union = typing_inspect.get_args(constructor_annotations["aspects"])[0]
 
     supported_aspect_types = typing_inspect.get_args(aspect_list_union)
 
     return issubclass(AspectType, supported_aspect_types)
+
+
+def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
+    SnapshotType = type(mce.proposedSnapshot)
+
+    return can_add_aspect_to_snapshot(SnapshotType, AspectType)
 
 
 def assert_can_add_aspect(
@@ -475,7 +505,7 @@ def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
 
 def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
     return GlobalTagsClass(
-        tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
+        tags=[TagAssociationClass(make_tag_urn(tag)) for tag in tags]
     )
 
 

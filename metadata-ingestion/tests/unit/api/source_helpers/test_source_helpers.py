@@ -201,7 +201,7 @@ def test_auto_browse_path_v2_by_container_hierarchy(telemetry_ping_mock):
     assert paths["i"] == _make_container_browse_path_entries(["one", "a"])
 
     # Check urns emitted on demand -- not all at end
-    for urn in set(wu.get_urn() for wu in new_wus):
+    for urn in {wu.get_urn() for wu in new_wus}:
         try:
             idx = next(
                 i

@@ -1,0 +1,16 @@
+namespace com.linkedin.common
+
+/**
+* Attributes defining a CRON-formatted schedule.
+*/
+record CronSchedule {
+  /**
+   * A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+   */
+  cron: string
+
+  /**
+   * Timezone in which the cron interval applies, e.g. America/Los Angeles
+   */
+  timezone: string
+}

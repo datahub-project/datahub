@@ -10,8 +10,10 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
+import org.apache.hc.core5.util.TimeValue;
 
 @Value
 @Builder
@@ -23,20 +25,23 @@ public class RestEmitterConfig {
   public static final String DEFAULT_AUTH_TOKEN = null;
   public static final String CLIENT_VERSION_PROPERTY = "clientVersion";
 
-  @Builder.Default private final String server = "http://localhost:8080";
+  @Builder.Default String server = "http://localhost:8080";
 
-  private final Integer timeoutSec;
-  @Builder.Default private final boolean disableSslVerification = false;
+  Integer timeoutSec;
+  @Builder.Default boolean disableSslVerification = false;
 
-  @Builder.Default private final String token = DEFAULT_AUTH_TOKEN;
+  @Builder.Default int maxRetries = 0;
 
-  @Builder.Default @NonNull private final Map<String, String> extraHeaders = Collections.EMPTY_MAP;
+  @Builder.Default int retryIntervalSec = 10;
 
-  private final HttpAsyncClientBuilder asyncHttpClientBuilder;
+  @Builder.Default String token = DEFAULT_AUTH_TOKEN;
+
+  @Builder.Default @NonNull Map<String, String> extraHeaders = Collections.EMPTY_MAP;
 
   @Builder.Default
-  private final EventFormatter eventFormatter =
-      new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
+  EventFormatter eventFormatter = new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
+
+  HttpAsyncClientBuilder asyncHttpClientBuilder;
 
   public static class RestEmitterConfigBuilder {
 
@@ -53,13 +58,19 @@ public class RestEmitterConfig {
     }
 
     private HttpAsyncClientBuilder asyncHttpClientBuilder =
-        HttpAsyncClientBuilder.create()
+        HttpAsyncClients.custom()
+            .setUserAgent("DataHub-RestClient/" + getVersion())
             .setDefaultRequestConfig(
                 RequestConfig.custom()
-                    .setConnectTimeout(DEFAULT_CONNECT_TIMEOUT_SEC * 1000)
-                    .setSocketTimeout(DEFAULT_READ_TIMEOUT_SEC * 1000)
+                    .setConnectionRequestTimeout(
+                        DEFAULT_CONNECT_TIMEOUT_SEC * 1000,
+                        java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .setResponseTimeout(
+                        DEFAULT_READ_TIMEOUT_SEC * 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
                     .build())
-            .setUserAgent("DataHub-RestClient/" + getVersion());
+            .setRetryStrategy(
+                new DatahubHttpRequestRetryStrategy(
+                    maxRetries$value, TimeValue.ofSeconds(retryIntervalSec$value)));
 
     public RestEmitterConfigBuilder with(Consumer<RestEmitterConfigBuilder> builderFunction) {
       builderFunction.accept(this);

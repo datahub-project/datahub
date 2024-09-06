@@ -11,6 +11,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
@@ -49,7 +50,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   @Override
   public CompletableFuture<AuthenticatedUser> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // 1. Get currently logged in user profile.
@@ -75,6 +76,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageIngestion(canManageIngestion(context));
             platformPrivileges.setManageSecrets(canManageSecrets(context));
             platformPrivileges.setManageTokens(canManageTokens(context));
+            platformPrivileges.setViewTests(canViewTests(context));
             platformPrivileges.setManageTests(canManageTests(context));
             platformPrivileges.setManageGlossaries(canManageGlossaries(context));
             platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
@@ -99,7 +101,9 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to fetch authenticated user!", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /** Returns true if the authenticated user has privileges to view analytics. */
@@ -128,6 +132,12 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         context.getAuthorizer(),
         context.getActorUrn(),
         PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
+  }
+
+  /** Returns true if the authenticated user has privileges to view tests. */
+  private boolean canViewTests(final QueryContext context) {
+    return isAuthorized(
+        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.VIEW_TESTS_PRIVILEGE);
   }
 
   /** Returns true if the authenticated user has privileges to manage (add or remove) tests. */

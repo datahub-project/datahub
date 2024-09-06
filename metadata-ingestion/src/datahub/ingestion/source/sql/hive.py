@@ -74,7 +74,9 @@ try:
                 coltype = _type_map[col_type]
             except KeyError:
                 util.warn(
-                    "Did not recognize type '%s' of column '%s'" % (col_type, col_name)
+                    "Did not recognize type '{}' of column '{}'".format(
+                        col_type, col_name
+                    )
                 )
                 coltype = types.NullType  # type: ignore
             result.append(
@@ -112,7 +114,7 @@ def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
             self.identifier_preparer.quote_identifier(schema),
             self.identifier_preparer.quote_identifier(view_name),
         )
-    row = connection.execute("SHOW CREATE TABLE {}".format(full_table)).fetchone()
+    row = connection.execute(f"SHOW CREATE TABLE {full_table}").fetchone()
     return row[0]
 
 
@@ -167,11 +169,16 @@ class HiveSource(TwoTierSQLAlchemySource):
         self,
         dataset_name: str,
         column: Dict[Any, Any],
+        inspector: Inspector,
         pk_constraints: Optional[Dict[Any, Any]] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         fields = super().get_schema_fields_for_column(
-            dataset_name, column, pk_constraints
+            dataset_name,
+            column,
+            inspector,
+            pk_constraints,
         )
 
         if self._COMPLEX_TYPE.match(fields[0].nativeDataType) and isinstance(

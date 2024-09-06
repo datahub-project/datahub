@@ -65,7 +65,5 @@ def run_test():
 
 
 if __name__ == "__main__":
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-    root_logger.addHandler(logging.StreamHandler())
+    logging.basicConfig(level=logging.INFO)
     run_test()

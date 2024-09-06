@@ -48,9 +48,9 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
         setOwnershipType(ownershipType);
     };
 
-    const onCopy=() => {
+    const onCopy = () => {
         navigator.clipboard.writeText(ownershipType.urn);
-    }
+    };
 
     const [deleteOwnershipTypeMutation] = useDeleteOwnershipTypeMutation();
 
@@ -125,8 +125,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
         const key = e.key as string;
         if (key === 'edit') {
             editOnClick();
-        }
-        else if( key === 'copy') {
+        } else if (key === 'copy') {
             onCopy();
         }
     };

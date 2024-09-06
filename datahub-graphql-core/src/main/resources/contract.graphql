@@ -1,0 +1,183 @@
+extend type Mutation {
+    """
+    Create or update a data contract for a given dataset. Requires the "Edit Data Contract" privilege for the provided dataset.
+    """
+    upsertDataContract(urn: String, input: UpsertDataContractInput!): DataContract!
+}
+
+extend type Dataset {
+    """
+    An optional Data Contract defined for the Dataset.
+    """
+    contract: DataContract
+}
+
+"""
+A Data Contract Entity. A Data Contract is a verifiable group of assertions regarding various aspects of the data: its freshness (sla),
+schema, and data quality or validity. This group of assertions represents a data owner's commitment to producing data that confirms to the agreed
+upon contract. Each dataset can have a single contract. The contract can be in a "passing" or "violating" state, depending
+on whether the assertions that compose the contract are passing or failing.
+Note that the data contract entity is currently in early preview (beta).
+"""
+type DataContract implements Entity {
+    """
+    A primary key of the data contract
+    """
+    urn: String!
+
+    """
+    The standard entity type
+    """
+    type: EntityType!
+
+    """
+    Properties describing the data contract
+    """
+    properties: DataContractProperties
+
+    """
+    The status of the data contract
+    """
+    status: DataContractStatus
+
+    """
+    List of relationships between the source Entity and some destination entities with a given types
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+type DataContractProperties {
+    """
+    The urn of the related entity, e.g. the Dataset today. In the future, we may support additional contract entities.
+    """
+    entityUrn: String!
+
+    """
+    The Freshness (SLA) portion of the contract.
+    As of today, it is expected that there will not be more than 1 Freshness contract. If there are, only the first will be displayed.
+    """
+    freshness: [FreshnessContract!]
+
+    """
+    The schema / structural portion of the contract.
+    As of today, it is expected that there will not be more than 1 Schema contract. If there are, only the first will be displayed.
+    """
+    schema: [SchemaContract!]
+
+    """
+    A set of data quality related contracts, e.g. table and column-level contract constraints.
+    """
+    dataQuality: [DataQualityContract!]
+}
+
+"""
+The state of the data contract
+"""
+enum DataContractState {
+    """
+    The data contract is active.
+    """
+    ACTIVE
+
+    """
+    The data contract is pending. Note that this symbol is currently experimental.
+    """
+    PENDING
+}
+
+type DataContractStatus {
+    """
+    The state of the data contract
+    """
+    state: DataContractState!
+}
+
+type DataQualityContract {
+    """
+    The assertion representing the schema contract.
+    """
+    assertion: Assertion!
+}
+
+type SchemaContract {
+    """
+    The assertion representing the schema contract.
+    """
+    assertion: Assertion!
+}
+
+type FreshnessContract {
+    """
+    The assertion representing the Freshness contract.
+    """
+    assertion: Assertion!
+}
+
+"""
+Input required to upsert a Data Contract entity for an asset
+"""
+input UpsertDataContractInput {
+    """
+    The urn of the related entity. Dataset is the only entity type supported today.
+    """
+    entityUrn: String!
+
+    """
+    The Freshness / Freshness portion of the contract. If not provided, this will be set to none.
+    For Dataset Contracts, it is expected that there will not be more than 1 Freshness contract. If there are, only the first will be displayed.
+    """
+    freshness: [FreshnessContractInput!]
+
+    """
+    The schema / structural portion of the contract. If not provided, this will be set to none.
+    For Dataset Contracts, it is expected that there will not be more than 1 Schema contract. If there are, only the first will be displayed.
+    """
+    schema: [SchemaContractInput!]
+
+    """
+    The data quality portion of the contract. If not provided, this will be set to none.
+    """
+    dataQuality: [DataQualityContractInput!]
+
+    """
+    The state of the data contract. If not provided, it will be in ACTIVE mode by default.
+    """
+    state: DataContractState
+
+    """
+    Optional ID of the contract you want to create. Only applicable if this is a create operation. If not provided, a random
+    id will be generated for you.
+    """
+    id: String
+}
+
+"""
+Input required to create an Freshness contract
+"""
+input FreshnessContractInput {
+    """
+    The assertion monitoring this part of the data contract. Assertion must be of type Freshness.
+    """
+    assertionUrn: String!
+}
+
+"""
+Input required to create a schema contract
+"""
+input SchemaContractInput {
+    """
+    The assertion monitoring this part of the data contract. Assertion must be of type Data Schema.
+    """
+    assertionUrn: String!
+}
+
+"""
+Input required to create a data quality contract
+"""
+input DataQualityContractInput {
+    """
+    The assertion monitoring this part of the data contract. Assertion must be of type Dataset, Volume, Field / Column, or Custom SQL.
+    """
+    assertionUrn: String!
+}
+

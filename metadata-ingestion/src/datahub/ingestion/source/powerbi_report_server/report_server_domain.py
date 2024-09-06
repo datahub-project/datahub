@@ -39,10 +39,10 @@ class CatalogItem(BaseModel):
         return ""
 
     def get_urn_part(self):
-        return "reports.{}".format(self.id)
+        return f"reports.{self.id}"
 
     def get_web_url(self, base_reports_url: str) -> str:
-        return "{}powerbi{}".format(base_reports_url, self.path)
+        return f"{base_reports_url}powerbi{self.path}"
 
     def get_browse_path(
         self, base_folder: str, workspace: str, env: str, report_directory: str
@@ -57,7 +57,7 @@ class DataSet(CatalogItem):
     query_execution_time_out: int = Field(alias="QueryExecutionTimeOut")
 
     def get_urn_part(self):
-        return "datasets.{}".format(self.id)
+        return f"datasets.{self.id}"
 
     def __members(self):
         return (self.id,)
@@ -339,7 +339,7 @@ class CorpUser(BaseModel):
     global_tags: Optional[GlobalTags] = Field(None, alias="globalTags")
 
     def get_urn_part(self):
-        return "{}".format(self.username)
+        return f"{self.username}"
 
     def __members(self):
         return (self.username,)

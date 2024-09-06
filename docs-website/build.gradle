@@ -86,6 +86,8 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     ':metadata-ingestion:buildWheel',
     ':metadata-ingestion-modules:airflow-plugin:buildWheel',
     ':metadata-ingestion-modules:dagster-plugin:buildWheel',
+    ':metadata-ingestion-modules:prefect-plugin:buildWheel',
+    ':metadata-ingestion-modules:gx-plugin:buildWheel',
     ]) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
@@ -148,8 +150,12 @@ clean {
   delete 'tmp'
   delete 'build'
   delete 'just'
+  delete 'sphinx/venv'
+  delete 'sphinx/_build'
+  delete 'versioned_docs'
   delete fileTree(dir: 'genDocs', exclude: '.gitignore')
   delete fileTree(dir: 'docs', exclude: '.gitignore')
+  delete fileTree(dir: 'genStatic', exclude: '.gitignore')
   delete 'graphql/combined.graphql'
   yarnClear
 }

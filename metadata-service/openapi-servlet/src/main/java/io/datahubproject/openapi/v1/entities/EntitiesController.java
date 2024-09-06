@@ -30,6 +30,7 @@ import io.datahubproject.openapi.generated.AspectRowSummary;
 import io.datahubproject.openapi.util.MappingUtil;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Collections;
@@ -55,6 +56,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/*
+ Use v2 or v3 controllers instead
+*/
+@Deprecated
 @RestController
 @RequestMapping("/entities/v1")
 @Slf4j
@@ -86,6 +91,7 @@ public class EntitiesController {
 
   @GetMapping(value = "/latest", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<UrnResponseMap> getEntities(
+      HttpServletRequest request,
       @Parameter(
               name = "urns",
               required = true,
@@ -118,6 +124,8 @@ public class EntitiesController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
+                    actorUrnStr,
+                    request,
                     "getEntities",
                     entityUrns.stream()
                         .map(Urn::getEntityType)
@@ -165,6 +173,7 @@ public class EntitiesController {
 
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
+      HttpServletRequest request,
       @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests,
       @RequestParam(required = false, name = "async") Boolean async,
       @RequestParam(required = false, name = "createIfNotExists") Boolean createIfNotExists,
@@ -187,6 +196,8 @@ public class EntitiesController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
+                    actorUrnStr,
+                    request,
                     "postEntities",
                     proposals.stream()
                         .map(MetadataChangeProposal::getEntityType)
@@ -237,6 +248,7 @@ public class EntitiesController {
 
   @DeleteMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<RollbackRunResultDto>> deleteEntities(
+      HttpServletRequest request,
       @Parameter(
               name = "urns",
               required = true,
@@ -274,6 +286,8 @@ public class EntitiesController {
               systemOperationContext,
               RequestContext.builder()
                   .buildOpenapi(
+                      actorUrnStr,
+                      request,
                       "deleteEntities",
                       entityUrns.stream().map(Urn::getEntityType).collect(Collectors.toSet())),
               _authorizerChain,

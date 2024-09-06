@@ -206,6 +206,7 @@ embedded_datasource_graphql_query = """
         name
         database {
             name
+            id
         }
         schema
         fullName
@@ -290,6 +291,7 @@ custom_sql_graphql_query = """
               name
               database {
                 name
+                id
               }
               schema
               fullName
@@ -315,6 +317,7 @@ custom_sql_graphql_query = """
         name
         database {
           name
+          id
         }
         schema
         fullName
@@ -324,8 +327,10 @@ custom_sql_graphql_query = """
             totalCount
         }
       }
+      connectionType
       database{
         name
+        id
         connectionType
       }
 }
@@ -346,6 +351,7 @@ published_datasource_graphql_query = """
       name
       database {
         name
+        id
       }
       schema
       fullName
@@ -414,6 +420,16 @@ database_tables_graphql_query = """
       remoteType
       name
     }
+}
+"""
+
+database_servers_graphql_query = """
+{
+    name
+    id
+    connectionType
+    extendedConnectionType
+    hostName
 }
 """
 
@@ -486,7 +502,12 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
 
 
 def tableau_field_to_schema_field(field, ingest_tags):
-    nativeDataType = field.get("dataType", "UNKNOWN")
+    # The check here makes sure that even if 'dataType' key exists in the 'field' dictionary but has value None,
+    # it will be set as "UNKNOWN" (nativeDataType field can not be None in the SchemaField).
+    # Hence, field.get("dataType", "UNKNOWN") is not enough
+    nativeDataType = field.get("dataType")
+    if nativeDataType is None:
+        nativeDataType = "UNKNOWN"
     TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 
     schema_field = SchemaField(
@@ -591,6 +612,7 @@ def get_fully_qualified_table_name(
 @dataclass
 class TableauUpstreamReference:
     database: Optional[str]
+    database_id: Optional[str]
     schema: Optional[str]
     table: str
 
@@ -602,6 +624,7 @@ class TableauUpstreamReference:
     ) -> "TableauUpstreamReference":
         # Values directly from `table` object from Tableau
         database = t_database = d.get(c.DATABASE, {}).get(c.NAME)
+        database_id = d.get(c.DATABASE, {}).get(c.ID)
         schema = t_schema = d.get(c.SCHEMA)
         table = t_table = d.get(c.NAME) or ""
         t_full_name = d.get(c.FULL_NAME)
@@ -653,6 +676,7 @@ class TableauUpstreamReference:
 
         return cls(
             database=database,
+            database_id=database_id,
             schema=schema,
             table=table,
             connection_type=t_connection_type,
@@ -678,6 +702,8 @@ class TableauUpstreamReference:
         env: str,
         platform_instance_map: Optional[Dict[str, str]],
         lineage_overrides: Optional[TableauLineageOverrides] = None,
+        database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
+        database_server_hostname_map: Optional[Dict[str, str]] = None,
     ) -> str:
         (
             upstream_db,
@@ -687,8 +713,11 @@ class TableauUpstreamReference:
         ) = get_overridden_info(
             connection_type=self.connection_type,
             upstream_db=self.database,
+            upstream_db_id=self.database_id,
             lineage_overrides=lineage_overrides,
             platform_instance_map=platform_instance_map,
+            database_hostname_to_platform_instance_map=database_hostname_to_platform_instance_map,
+            database_server_hostname_map=database_server_hostname_map,
         )
 
         table_name = get_fully_qualified_table_name(
@@ -706,8 +735,11 @@ class TableauUpstreamReference:
 def get_overridden_info(
     connection_type: Optional[str],
     upstream_db: Optional[str],
+    upstream_db_id: Optional[str],
     platform_instance_map: Optional[Dict[str, str]],
     lineage_overrides: Optional[TableauLineageOverrides] = None,
+    database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
+    database_server_hostname_map: Optional[Dict[str, str]] = None,
 ) -> Tuple[Optional[str], Optional[str], str, str]:
     original_platform = platform = get_platform(connection_type)
     if (
@@ -728,8 +760,24 @@ def get_overridden_info(
     platform_instance = (
         platform_instance_map.get(original_platform) if platform_instance_map else None
     )
+    if (
+        database_server_hostname_map is not None
+        and upstream_db_id is not None
+        and upstream_db_id in database_server_hostname_map
+    ):
+        hostname = database_server_hostname_map.get(upstream_db_id)
+        if (
+            database_hostname_to_platform_instance_map is not None
+            and hostname in database_hostname_to_platform_instance_map
+        ):
+            platform_instance = database_hostname_to_platform_instance_map.get(hostname)
 
-    if original_platform in ("athena", "hive", "mysql"):  # Two tier databases
+    if original_platform in (
+        "athena",
+        "hive",
+        "mysql",
+        "teradata",
+    ):  # Two tier databases
         upstream_db = None
 
     return upstream_db, platform_instance, platform, original_platform
@@ -827,6 +875,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
             # are missing from api result.
             "isUnsupportedCustomSql": True if not custom_sql.get("tables") else False,
             "query": custom_sql.get("query"),
+            "connectionType": custom_sql.get("connectionType"),
             "columns": custom_sql.get("columns"),
             "tables": custom_sql.get("tables"),
             "database": custom_sql.get("database"),

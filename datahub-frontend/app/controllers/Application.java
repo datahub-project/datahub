@@ -155,7 +155,7 @@ public class Application extends Controller {
         .setBody(
             new InMemoryBodyWritable(
                 ByteString.fromByteBuffer(request.body().asBytes().asByteBuffer()),
-                "application/json"))
+                request.contentType().orElse("application/json")))
         .setRequestTimeout(Duration.ofSeconds(120))
         .execute()
         .thenApply(

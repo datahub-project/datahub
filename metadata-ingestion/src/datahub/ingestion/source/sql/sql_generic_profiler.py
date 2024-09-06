@@ -17,6 +17,7 @@ from datahub.ingestion.source.ge_data_profiler import (
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
+from datahub.ingestion.source.sql.sql_utils import check_table_with_profile_pattern
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
@@ -33,6 +34,10 @@ class DetailedProfilerReportMixin:
     )
 
     profiling_skipped_row_limit: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+
+    profiling_skipped_table_profile_pattern: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
 
@@ -87,16 +92,25 @@ class GenericProfiler:
             request for request in requests if request.profile_table_level_only
         ]
         for request in table_level_profile_requests:
-            table_level_profile = DatasetProfile(
-                timestampMillis=int(datetime.now().timestamp() * 1000),
-                columnCount=request.table.column_count,
-                rowCount=request.table.rows_count,
-                sizeInBytes=request.table.size_in_bytes,
-            )
-            dataset_urn = self.dataset_urn_builder(request.pretty_name)
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=table_level_profile
-            ).as_workunit()
+            if (
+                request.table.column_count is None
+                and request.table.rows_count is None
+                and request.table.size_in_bytes is None
+            ):
+                logger.warning(
+                    f"Table {request.pretty_name} has no column count, rows count, or size in bytes. Skipping emitting table level profile."
+                )
+            else:
+                table_level_profile = DatasetProfile(
+                    timestampMillis=int(datetime.now().timestamp() * 1000),
+                    columnCount=request.table.column_count,
+                    rowCount=request.table.rows_count,
+                    sizeInBytes=request.table.size_in_bytes,
+                )
+                dataset_urn = self.dataset_urn_builder(request.pretty_name)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=table_level_profile
+                ).as_workunit()
 
         if not ge_profile_requests:
             return
@@ -272,8 +286,17 @@ class GenericProfiler:
             threshold_time = datetime.now(timezone.utc) - timedelta(
                 self.config.profiling.profile_if_updated_since_days
             )
-
         schema_name = dataset_name.rsplit(".", 1)[0]
+
+        if not check_table_with_profile_pattern(
+            self.config.profile_pattern, dataset_name
+        ):
+            self.report.profiling_skipped_table_profile_pattern[schema_name] += 1
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to profile pattern"
+            )
+            return False
+
         if (threshold_time is not None) and (
             last_altered is not None and last_altered < threshold_time
         ):

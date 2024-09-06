@@ -110,7 +110,9 @@ def _wait_for_dag_finish(
 
 @contextlib.contextmanager
 def _run_airflow(
-    tmp_path: pathlib.Path, dags_folder: pathlib.Path, is_v1: bool
+    tmp_path: pathlib.Path,
+    dags_folder: pathlib.Path,
+    is_v1: bool,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -255,7 +257,7 @@ def check_golden_file(
         update_golden=update_golden,
         copy_output=False,
         ignore_paths=ignore_paths,
-        ignore_order=False,
+        ignore_order=True,
     )
 
 
@@ -272,6 +274,7 @@ test_cases = [
     DagTestCase("basic_iolets"),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True),
+    DagTestCase("custom_operator_dag", v2_only=True),
 ]
 
 
@@ -373,7 +376,10 @@ def test_airflow_plugin(
         golden_path=golden_path,
         ignore_paths=[
             # TODO: If we switched to Git urls, maybe we could get this to work consistently.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['datahub_sql_parser_error'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['log_url'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
         ],
     )
 

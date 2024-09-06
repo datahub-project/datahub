@@ -10,6 +10,7 @@ import com.linkedin.common.urn.BusinessAttributeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AddBusinessAttributeInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.metadata.entity.EntityService;
@@ -39,7 +40,7 @@ public class AddBusinessAttributeResolver implements DataFetcher<CompletableFutu
     final Urn businessAttributeUrn = UrnUtils.getUrn(input.getBusinessAttributeUrn());
     final List<ResourceRefInput> resourceRefInputs = input.getResourceUrn();
     validateBusinessAttribute(context.getOperationContext(), businessAttributeUrn);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             addBusinessAttributeToResource(
@@ -60,7 +61,9 @@ public class AddBusinessAttributeResolver implements DataFetcher<CompletableFutu
                     businessAttributeUrn, resourceRefInputs),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateBusinessAttribute(

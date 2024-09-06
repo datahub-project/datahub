@@ -29,7 +29,13 @@ class _FrozenModel(_ParserBaseModel, frozen=True):
         for field in self.__fields__:
             self_v = getattr(self, field)
             other_v = getattr(other, field)
-            if self_v != other_v:
+
+            # Handle None values by pushing them to the end of the ordering.
+            if self_v is None and other_v is not None:
+                return False
+            elif self_v is not None and other_v is None:
+                return True
+            elif self_v != other_v:
                 return self_v < other_v
 
         return False
@@ -71,8 +77,20 @@ class _TableName(_FrozenModel):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
+        if isinstance(table.this, sqlglot.exp.Dot):
+            # For tables that are more than 3 parts, the extra parts will be in a Dot.
+            # For now, we just merge them into the table name.
+            parts = []
+            exp = table.this
+            while isinstance(exp, sqlglot.exp.Dot):
+                parts.append(exp.this.name)
+                exp = exp.expression
+            parts.append(exp.name)
+            table_name = ".".join(parts)
+        else:
+            table_name = table.this.name
         return cls(
             database=table.catalog or default_db,
             db_schema=table.db or default_schema,
-            table=table.this.name,
+            table=table_name,
         )

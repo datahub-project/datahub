@@ -23,7 +23,8 @@ import javax.annotation.Nonnull;
 public class IncidentType
     implements com.linkedin.datahub.graphql.types.EntityType<Incident, String> {
 
-  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME);
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME, Constants.GLOBAL_TAGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   public IncidentType(final EntityClient entityClient) {

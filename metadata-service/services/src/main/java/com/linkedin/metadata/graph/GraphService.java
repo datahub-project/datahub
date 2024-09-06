@@ -314,7 +314,7 @@ public interface GraphService extends GraphRetriever {
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter);
 
-  void configure();
+  default void configure() {}
 
   /** Removes all edges and nodes from the graph. */
   void clear();

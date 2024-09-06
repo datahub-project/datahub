@@ -7,6 +7,7 @@ from datahub.configuration.common import ConfigurationError, ConfigurationWarnin
 from datahub.ingestion.api.registry import PluginRegistry
 from datahub.ingestion.api.sink import Sink
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
+from datahub.ingestion.fs.fs_registry import fs_registry
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
@@ -54,6 +55,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
         (reporting_provider_registry, ["datahub", "file"]),
         (ingestion_checkpoint_provider_registry, ["datahub"]),
         (lite_registry, ["duckdb"]),
+        (fs_registry, ["file", "http", "s3"]),
     ],
 )
 def test_registry_defaults(registry: PluginRegistry, expected: List[str]) -> None:

@@ -39,6 +39,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
@@ -78,12 +79,12 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     operationContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
                 new SnapshotEntityRegistry(new Snapshot()),
-                new IndexConventionImpl("search_service_test"))
+                new IndexConventionImpl("search_service_test", "MD5"))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
-    elasticSearchService.configure();
+    elasticSearchService.reindexAll(Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
     resetSearchService();
   }
@@ -107,6 +108,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(operationContext);
     syncAfterWrite(getBulkProcessor());
   }

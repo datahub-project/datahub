@@ -3,7 +3,6 @@ package com.linkedin.metadata.aspect.plugins;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -15,27 +14,23 @@ import lombok.EqualsAndHashCode;
 public abstract class PluginSpec {
   protected static String ENTITY_WILDCARD = "*";
 
-  private final AspectPluginConfig aspectPluginConfig;
+  @Nonnull
+  public abstract AspectPluginConfig getConfig();
 
-  protected AspectPluginConfig getConfig() {
-    return this.aspectPluginConfig;
+  public abstract PluginSpec setConfig(@Nonnull AspectPluginConfig config);
+
+  public boolean enabled() {
+    return true;
   }
 
   public boolean shouldApply(
-      @Nullable ChangeType changeType, @Nonnull Urn entityUrn, @Nonnull AspectSpec aspectSpec) {
-    return shouldApply(changeType, entityUrn.getEntityType(), aspectSpec);
+      @Nullable ChangeType changeType, @Nonnull Urn entityUrn, @Nonnull String aspectName) {
+    return shouldApply(changeType, entityUrn.getEntityType(), aspectName);
   }
 
   public boolean shouldApply(
-      @Nullable ChangeType changeType,
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull AspectSpec aspectSpec) {
-    return shouldApply(changeType, entitySpec.getName(), aspectSpec.getName());
-  }
-
-  public boolean shouldApply(
-      @Nullable ChangeType changeType, @Nonnull String entityName, @Nonnull AspectSpec aspectSpec) {
-    return shouldApply(changeType, entityName, aspectSpec.getName());
+      @Nullable ChangeType changeType, @Nonnull EntitySpec entitySpec, @Nonnull String aspectName) {
+    return shouldApply(changeType, entitySpec.getName(), aspectName);
   }
 
   public boolean shouldApply(
@@ -46,8 +41,8 @@ public abstract class PluginSpec {
   }
 
   protected boolean isEntityAspectSupported(
-      @Nonnull EntitySpec entitySpec, @Nonnull AspectSpec aspectSpec) {
-    return isEntityAspectSupported(entitySpec.getName(), aspectSpec.getName());
+      @Nonnull EntitySpec entitySpec, @Nonnull String aspectName) {
+    return isEntityAspectSupported(entitySpec.getName(), aspectName);
   }
 
   protected boolean isEntityAspectSupported(

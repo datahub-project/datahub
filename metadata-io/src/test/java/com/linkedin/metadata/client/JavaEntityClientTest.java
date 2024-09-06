@@ -70,7 +70,8 @@ public class JavaEntityClientTest {
         _lineageSearchService,
         _timeseriesAspectService,
         rollbackService,
-        _eventProducer);
+        _eventProducer,
+        1);
   }
 
   @Test

@@ -9,5 +9,9 @@ record SchemaContract {
   /**
    * The assertion representing the schema contract.
    */
+  @Relationship = {
+    "name": "IncludesSchemaAssertion",
+    "entityTypes": [ "assertion" ]
+  }
   assertion: Urn
 }

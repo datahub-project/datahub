@@ -12,6 +12,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
     unquote_and_decode_unicode_escape_seq,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -117,11 +118,12 @@ AND
 
     corrected_start_time = config.start_time - config.max_query_duration
     corrected_end_time = config.end_time + config.max_query_duration
+    report = BigQueryV2Report()
     filter: str = BigQueryUsageExtractor(
         config,
-        BigQueryV2Report(),
+        report,
         schema_resolver=SchemaResolver(platform="bigquery"),
-        dataset_urn_builder=lambda x: "",
+        identifiers=BigQueryIdentifierBuilder(config, report),
     )._generate_filter(corrected_start_time, corrected_end_time)
     assert filter == expected_filter
 
@@ -210,5 +212,31 @@ def test_unquote_and_decode_unicode_escape_seq():
     # Test with a string that starts and ends with quotes but does not have escape sequences
     input_string = '"No escape sequences here"'
     expected_output = "No escape sequences here"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with invalid Unicode escape sequences
+    input_string = '"No escape \\u123 sequences here"'
+    expected_output = "No escape \\u123 sequences here"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that has multiple Unicode escape sequences
+    input_string = '"Hello \\u003cWorld\\u003e \\u003cAgain\\u003e \\u003cAgain\\u003e \\u003cAgain\\u003e"'
+    expected_output = "Hello <World> <Again> <Again> <Again>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with a string that has a Unicode escape sequence at the beginning
+    input_string = '"Hello \\utest"'
+    expected_output = "Hello \\utest"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
+
+    # Test with special characters
+    input_string = (
+        '"Hello \\u003cWorld\\u003e \\u003cçãâÁÁà|{}()[].,/;\\+=--_*&%$#@!?\\u003e"'
+    )
+    expected_output = "Hello <World> <çãâÁÁà|{}()[].,/;\\+=--_*&%$#@!?>"
     result = unquote_and_decode_unicode_escape_seq(input_string)
     assert result == expected_output

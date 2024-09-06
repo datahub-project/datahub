@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.ListOwnershipTypesInput;
@@ -47,7 +48,7 @@ public class ListOwnershipTypesResolver
     final ListOwnershipTypesInput input =
         bindArgument(environment.getArgument("input"), ListOwnershipTypesInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
           final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
@@ -62,8 +63,11 @@ public class ListOwnershipTypesResolver
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.OWNERSHIP_TYPE_ENTITY_NAME,
                     query,
-                    buildFilter(filters, Collections.emptyList()),
-                    DEFAULT_SORT_CRITERION,
+                    buildFilter(
+                        filters,
+                        Collections.emptyList(),
+                        context.getOperationContext().getAspectRetriever()),
+                    Collections.singletonList(DEFAULT_SORT_CRITERION),
                     start,
                     count);
 
@@ -80,7 +84,9 @@ public class ListOwnershipTypesResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to list custom ownership types", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<OwnershipTypeEntity> mapUnresolvedOwnershipTypes(List<Urn> entityUrns) {

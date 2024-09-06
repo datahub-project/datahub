@@ -86,7 +86,7 @@ if version.parse(trino.__version__) >= version.parse("0.317.0"):
     register_custom_type(datatype.JSON, RecordTypeClass)
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def gen_catalog_connector_dict(engine: Engine) -> Dict[str, str]:
     query = dedent(
         """
@@ -387,11 +387,16 @@ class TrinoSource(SQLAlchemySource):
         self,
         dataset_name: str,
         column: dict,
+        inspector: Inspector,
         pk_constraints: Optional[dict] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         fields = super().get_schema_fields_for_column(
-            dataset_name, column, pk_constraints
+            dataset_name,
+            column,
+            inspector,
+            pk_constraints,
         )
 
         if isinstance(column["type"], (datatype.ROW, sqltypes.ARRAY, datatype.MAP)):
@@ -473,7 +478,7 @@ def _parse_struct_fields(parts):
         "type": "record",
         "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
         "fields": fields,
-        "native_data_type": "ROW({})".format(parts),
+        "native_data_type": f"ROW({parts})",
     }
 
 

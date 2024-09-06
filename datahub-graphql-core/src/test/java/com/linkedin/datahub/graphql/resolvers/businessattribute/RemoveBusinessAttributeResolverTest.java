@@ -31,7 +31,7 @@ public class RemoveBusinessAttributeResolverTest {
       "urn:li:businessAttribute:7d0c4283-de02-4043-aaf2-698b04274658";
   private static final String RESOURCE_URN =
       "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_bar)";
-  private EntityService mockService;
+  private EntityService<?> mockService;
   private QueryContext mockContext;
   private DataFetchingEnvironment mockEnv;
 

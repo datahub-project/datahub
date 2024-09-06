@@ -14,6 +14,7 @@ import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
+import com.linkedin.restli.server.annotations.Context;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
@@ -28,6 +29,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
+import javax.servlet.http.HttpServletRequest;
 
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -80,7 +82,8 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + entityName);
             }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_TIMESERIES_STATS, entityName), authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_GET_TIMESERIES_STATS, entityName), authorizer, auth, true);
 
             log.info("Attempting to query timeseries stats");
           GetTimeseriesAggregatedStatsResponse resp = new GetTimeseriesAggregatedStatsResponse();

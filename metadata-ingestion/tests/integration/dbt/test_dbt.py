@@ -216,6 +216,20 @@ class DbtTestConfig:
             run_results_files=["sample_dbt_run_results_2.json"],
             source_config_modifiers={},
         ),
+        DbtTestConfig(
+            "dbt-prefer-sql-parser-lineage",
+            "dbt_test_prefer_sql_parser_lineage.json",
+            "dbt_test_prefer_sql_parser_lineage_golden.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            manifest_file="sample_dbt_manifest_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            run_results_files=["sample_dbt_run_results_2.json"],
+            source_config_modifiers={
+                "prefer_sql_parser_lineage": True,
+                "skip_sources_in_lineage": True,
+                # "entities_enabled": {"sources": "NO"},
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
@@ -232,13 +246,13 @@ def test_dbt_ingest(
     config: DbtTestConfig = dbt_test_config
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
-    with open(test_resources_dir / "dbt_manifest.json", "r") as f:
+    with open(test_resources_dir / "dbt_manifest.json") as f:
         requests_mock.get("http://some-external-repo/dbt_manifest.json", text=f.read())
 
-    with open(test_resources_dir / "dbt_catalog.json", "r") as f:
+    with open(test_resources_dir / "dbt_catalog.json") as f:
         requests_mock.get("http://some-external-repo/dbt_catalog.json", text=f.read())
 
-    with open(test_resources_dir / "dbt_sources.json", "r") as f:
+    with open(test_resources_dir / "dbt_sources.json") as f:
         requests_mock.get("http://some-external-repo/dbt_sources.json", text=f.read())
 
     config.set_paths(

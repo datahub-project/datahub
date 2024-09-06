@@ -9,6 +9,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
@@ -31,9 +32,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
@@ -48,6 +51,10 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   private final DataSchemaFactory dataSchemaFactory;
   @Getter private final PluginFactory pluginFactory;
+
+  @Getter @Nullable
+  private BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider;
+
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
   private final Map<String, AspectSpec> _aspectNameToSpec;
@@ -88,7 +95,9 @@ public class PatchEntityRegistry implements EntityRegistry {
   public PatchEntityRegistry(
       Pair<Path, Path> configFileClassPathPair,
       String registryName,
-      ComparableVersion registryVersion)
+      ComparableVersion registryVersion,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
       throws IOException, EntityRegistryException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
@@ -98,13 +107,22 @@ public class PatchEntityRegistry implements EntityRegistry {
             .collect(Collectors.toList()),
         configFileClassPathPair.getFirst(),
         registryName,
-        registryVersion);
+        registryVersion,
+        pluginFactoryProvider);
   }
 
   public PatchEntityRegistry(
-      String entityRegistryRoot, String registryName, ComparableVersion registryVersion)
+      String entityRegistryRoot,
+      String registryName,
+      ComparableVersion registryVersion,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
       throws EntityRegistryException, IOException {
-    this(getFileAndClassPath(entityRegistryRoot), registryName, registryVersion);
+    this(
+        getFileAndClassPath(entityRegistryRoot),
+        registryName,
+        registryVersion,
+        pluginFactoryProvider);
   }
 
   private static Pair<Path, Path> getFileAndClassPath(String entityRegistryRoot)
@@ -147,14 +165,17 @@ public class PatchEntityRegistry implements EntityRegistry {
       List<ClassLoader> classLoaders,
       Path configFilePath,
       String registryName,
-      ComparableVersion registryVersion)
+      ComparableVersion registryVersion,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
       throws FileNotFoundException, EntityRegistryException {
     this(
         dataSchemaFactory,
         classLoaders,
         new FileInputStream(configFilePath.toString()),
         registryName,
-        registryVersion);
+        registryVersion,
+        pluginFactoryProvider);
   }
 
   private PatchEntityRegistry(
@@ -162,7 +183,9 @@ public class PatchEntityRegistry implements EntityRegistry {
       List<ClassLoader> classLoaders,
       InputStream configFileStream,
       String registryName,
-      ComparableVersion registryVersion)
+      ComparableVersion registryVersion,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
       throws EntityRegistryException {
     this.dataSchemaFactory = dataSchemaFactory;
     this.registryName = registryName;
@@ -171,7 +194,12 @@ public class PatchEntityRegistry implements EntityRegistry {
     Entities entities;
     try {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
-      this.pluginFactory = PluginFactory.withCustomClasspath(entities.getPlugins(), classLoaders);
+      if (pluginFactoryProvider != null) {
+        this.pluginFactory = pluginFactoryProvider.apply(entities.getPlugins(), classLoaders);
+      } else {
+        this.pluginFactory = PluginFactory.withCustomClasspath(entities.getPlugins(), classLoaders);
+      }
+      this.pluginFactoryProvider = pluginFactoryProvider;
     } catch (IOException e) {
       log.error("Unable to read Patch configuration.", e);
       throw new IllegalArgumentException(

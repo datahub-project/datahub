@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
@@ -116,7 +117,7 @@ public class ListDataProductAssetsResolver
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // if no assets in data product properties, exit early before search and return empty
           // results
@@ -131,7 +132,10 @@ public class ListDataProductAssetsResolver
 
           // add urns from the aspect to our filters
           final Filter baseFilter =
-              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+              ResolverUtils.buildFilter(
+                  input.getFilters(),
+                  input.getOrFilters(),
+                  context.getOperationContext().getAspectRetriever());
           final Filter finalFilter = buildFilterWithUrns(new HashSet<>(assetUrns), baseFilter);
 
           final SearchFlags searchFlags;
@@ -178,6 +182,8 @@ public class ListDataProductAssetsResolver
                         input.getTypes(), input.getQuery(), input.getOrFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

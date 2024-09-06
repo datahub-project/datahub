@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.UpdateUserSettingInput;
 import com.linkedin.datahub.graphql.generated.UserSetting;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
@@ -38,7 +39,7 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
     final boolean value = input.getValue();
     final Urn actor = UrnUtils.getUrn(context.getActorUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // In the future with more settings, we'll need to do a read-modify-write
@@ -72,6 +73,8 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
                     "Failed to perform user settings update against input %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

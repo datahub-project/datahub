@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.GraphQLEngine;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
@@ -28,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -54,8 +56,11 @@ public class GraphQLController {
   @Named("systemOperationContext")
   private OperationContext systemOperationContext;
 
+  private static final int MAX_LOG_WIDTH = 512;
+
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
-  CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
+  CompletableFuture<ResponseEntity<String>> postGraphQL(
+      HttpServletRequest request, HttpEntity<String> httpEntity) {
 
     String jsonStr = httpEntity.getBody();
     ObjectMapper mapper = new ObjectMapper();
@@ -70,7 +75,7 @@ public class GraphQLController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(String.format("Failed to parse json %s", jsonStr));
+      log.error("Failed to parse json ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
@@ -85,6 +90,7 @@ public class GraphQLController {
     if (queryJson == null) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
+    final String query = queryJson.asText();
 
     /*
      * Extract "operationName" field
@@ -105,8 +111,6 @@ public class GraphQLController {
                 .convertValue(variablesJson, new TypeReference<Map<String, Object>>() {})
             : Collections.emptyMap();
 
-    log.debug(String.format("Executing graphQL query: %s, variables: %s", queryJson, variables));
-
     /*
      * Init QueryContext
      */
@@ -118,49 +122,58 @@ public class GraphQLController {
             authentication,
             _authorizerChain,
             systemOperationContext,
-            queryJson.asText(),
+            request,
+            operationName,
+            query,
             variables);
     Span.current().setAttribute("actor.urn", context.getActorUrn());
 
-    return CompletableFuture.supplyAsync(
+    final String threadName = Thread.currentThread().getName();
+    final String queryName = context.getQueryName();
+    log.debug("Query: {}, variables: {}", query, variables);
+
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          log.info("Executing operation {} for {}", queryName, threadName);
+
           /*
            * Execute GraphQL Query
            */
           ExecutionResult executionResult =
-              _engine.execute(queryJson.asText(), operationName, variables, context);
+              _engine.execute(query, operationName, variables, context);
 
           if (executionResult.getErrors().size() != 0) {
             // There were GraphQL errors. Report in error logs.
             log.error(
-                String.format(
-                    "Errors while executing graphQL query: %s, result: %s, errors: %s",
-                    queryJson, executionResult.toSpecification(), executionResult.getErrors()));
-          } else {
-            log.debug(
-                String.format(
-                    "Executed graphQL query: %s, result: %s",
-                    queryJson, executionResult.toSpecification()));
+                "Errors while executing query: {}, result: {}, errors: {}",
+                StringUtils.abbreviate(query, MAX_LOG_WIDTH),
+                executionResult.toSpecification(),
+                executionResult.getErrors());
           }
 
           /*
            * Format & Return Response
            */
           try {
-            submitMetrics(executionResult);
+            long totalDuration = submitMetrics(executionResult);
+            String executionTook = totalDuration > 0 ? " in " + totalDuration + " ms" : "";
+            log.info("Executed operation {}" + executionTook, queryName);
             // Remove tracing from response to reduce bulk, not used by the frontend
             executionResult.getExtensions().remove("tracing");
             String responseBodyStr =
                 new ObjectMapper().writeValueAsString(executionResult.toSpecification());
+            log.info("Operation {} execution result size: {}", queryName, responseBodyStr.length());
+            log.trace("Execution result: {}", responseBodyStr);
             return new ResponseEntity<>(responseBodyStr, HttpStatus.OK);
           } catch (IllegalArgumentException | JsonProcessingException e) {
             log.error(
-                String.format(
-                    "Failed to convert execution result %s into a JsonNode",
-                    executionResult.toSpecification()));
+                "Failed to convert execution result {} into a JsonNode",
+                executionResult.toSpecification());
             return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "postGraphQL");
   }
 
   @GetMapping("/graphql")
@@ -197,7 +210,7 @@ public class GraphQLController {
   }
 
   @SuppressWarnings("unchecked")
-  private void submitMetrics(ExecutionResult executionResult) {
+  private long submitMetrics(ExecutionResult executionResult) {
     try {
       observeErrors(executionResult);
       MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call")).inc();
@@ -220,6 +233,7 @@ public class GraphQLController {
         MetricUtils.get()
             .histogram(MetricRegistry.name(this.getClass(), fieldName))
             .update(totalDuration);
+        return totalDuration;
       }
     } catch (Exception e) {
       MetricUtils.get()
@@ -227,5 +241,7 @@ public class GraphQLController {
           .inc();
       log.error("Unable to submit metrics for GraphQL call.", e);
     }
+
+    return -1;
   }
 }

@@ -8,7 +8,7 @@ configurations {
 }
 
 dependencies {
-    implementation externalDependency.jsonPatch
+    implementation 'com.github.java-json-tools:json-patch:1.13' // TODO: Replace with jakarta.json
     implementation project(':entity-registry')
     implementation project(':metadata-utils')
     implementation project(':metadata-events:mxe-avro')

@@ -62,6 +62,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                           entityUrn))
                   .ownerUrn(targetOwner.getOwner())
                   .ownerType(targetOwner.getType())
+                  .ownerTypeUrn(targetOwner.getTypeUrn())
                   .auditStamp(auditStamp)
                   .build());
         }
@@ -84,6 +85,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                         entityUrn))
                 .ownerUrn(baseOwner.getOwner())
                 .ownerType(baseOwner.getType())
+                .ownerTypeUrn(baseOwner.getTypeUrn())
                 .auditStamp(auditStamp)
                 .build());
         ++baseOwnerIdx;
@@ -104,6 +106,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                         entityUrn))
                 .ownerUrn(targetOwner.getOwner())
                 .ownerType(targetOwner.getType())
+                .ownerTypeUrn(targetOwner.getTypeUrn())
                 .auditStamp(auditStamp)
                 .build());
         ++targetOwnerIdx;
@@ -128,6 +131,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                       entityUrn))
               .ownerUrn(baseOwner.getOwner())
               .ownerType(baseOwner.getType())
+              .ownerTypeUrn(baseOwner.getTypeUrn())
               .auditStamp(auditStamp)
               .build());
       ++baseOwnerIdx;
@@ -150,6 +154,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
                       entityUrn))
               .ownerUrn(targetOwner.getOwner())
               .ownerType(targetOwner.getType())
+              .ownerTypeUrn(targetOwner.getTypeUrn())
               .auditStamp(auditStamp)
               .build());
       ++targetOwnerIdx;

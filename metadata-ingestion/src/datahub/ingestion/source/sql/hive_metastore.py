@@ -130,8 +130,8 @@ class HiveMetastore(BasicSQLAlchemyConfig):
     )
 
     enable_properties_merge: bool = Field(
-        default=False,
-        description="By default, the connector overwrites properties every time. Set this to True to enable merging of properties with what exists on the server.",
+        default=True,
+        description="By default, the connector enables merging of properties with what exists on the server. Set this to False to enable the default connector behavior of overwriting properties on each ingestion.",
     )
 
     simplify_nested_field_paths: bool = Field(
@@ -521,7 +521,7 @@ class HiveMetastoreSource(SQLAlchemySource):
             )
 
             # add table schema fields
-            schema_fields = self.get_schema_fields(dataset_name, columns)
+            schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
 
             self._set_partition_key(columns, schema_fields)
 
@@ -754,7 +754,9 @@ class HiveMetastoreSource(SQLAlchemySource):
 
             # add view schema fields
             schema_fields = self.get_schema_fields(
-                dataset.dataset_name, dataset.columns
+                dataset.dataset_name,
+                dataset.columns,
+                inspector,
             )
 
             schema_metadata = get_schema_metadata(
@@ -877,7 +879,9 @@ class HiveMetastoreSource(SQLAlchemySource):
         self,
         dataset_name: str,
         column: Dict[Any, Any],
+        inspector: Inspector,
         pk_constraints: Optional[Dict[Any, Any]] = None,
+        partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         return get_schema_fields_for_hive_column(

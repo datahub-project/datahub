@@ -12,11 +12,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
@@ -93,13 +94,22 @@ class CSVEnricherReport(SourceReport):
     num_domain_workunits_produced: int = 0
 
 
-@platform_name("CSV")
+@platform_name("CSV Enricher")
 @config_class(CSVEnricherConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.DOMAINS, "Supported by default")
+@capability(SourceCapability.TAGS, "Supported by default")
+@capability(SourceCapability.DESCRIPTIONS, "Supported by default")
+@capability(SourceCapability.OWNERSHIP, "Supported by default")
 class CSVEnricherSource(Source):
     """
+    :::tip Looking to ingest a CSV data file into DataHub, as an asset?
+    Use the [Local File](./s3.md) ingestion source.
+    The CSV enricher is used for enriching entities already ingested into DataHub.
+    :::
+
     This plugin is used to bulk upload metadata to Datahub.
-    It will apply glossary terms, tags, decription, owners and domain at the entity level. It can also be used to apply tags,
+    It will apply glossary terms, tags, description, owners and domain at the entity level. It can also be used to apply tags,
     glossary terms, and documentation at the column level. These values are read from a CSV file. You have the option to either overwrite
     or append existing values.
 
@@ -154,9 +164,7 @@ class CSVEnricherSource(Source):
             # If we want to overwrite or there are no existing terms, create a new GlossaryTerms object
             current_terms = GlossaryTermsClass(term_associations, get_audit_stamp())
         else:
-            current_term_urns: Set[str] = set(
-                [term.urn for term in current_terms.terms]
-            )
+            current_term_urns: Set[str] = {term.urn for term in current_terms.terms}
             term_associations_filtered: List[GlossaryTermAssociationClass] = [
                 association
                 for association in term_associations
@@ -192,7 +200,7 @@ class CSVEnricherSource(Source):
             # If we want to overwrite or there are no existing tags, create a new GlobalTags object
             current_tags = GlobalTagsClass(tag_associations)
         else:
-            current_tag_urns: Set[str] = set([tag.tag for tag in current_tags.tags])
+            current_tag_urns: Set[str] = {tag.tag for tag in current_tags.tags}
             tag_associations_filtered: List[TagAssociationClass] = [
                 association
                 for association in tag_associations
@@ -453,9 +461,9 @@ class CSVEnricherSource(Source):
                 field_match = True
                 if has_terms:
                     if field_info.glossaryTerms and not self.should_overwrite:
-                        current_term_urns = set(
-                            [term.urn for term in field_info.glossaryTerms.terms]
-                        )
+                        current_term_urns = {
+                            term.urn for term in field_info.glossaryTerms.terms
+                        }
                         term_associations_filtered = [
                             association
                             for association in term_associations
@@ -472,9 +480,9 @@ class CSVEnricherSource(Source):
 
                 if has_tags:
                     if field_info.globalTags and not self.should_overwrite:
-                        current_tag_urns = set(
-                            [tag.tag for tag in field_info.globalTags.tags]
-                        )
+                        current_tag_urns = {
+                            tag.tag for tag in field_info.globalTags.tags
+                        }
                         tag_associations_filtered = [
                             association
                             for association in tag_associations
@@ -631,9 +639,7 @@ class CSVEnricherSource(Source):
                     f"Cannot read remote file {self.config.filename}, error:{e}"
                 )
         else:
-            with open(
-                pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
-            ) as f:
+            with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
                 rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
 
         for row in rows:

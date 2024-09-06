@@ -8,6 +8,7 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchGetStepStatesInput;
 import com.linkedin.datahub.graphql.generated.BatchGetStepStatesResult;
 import com.linkedin.datahub.graphql.generated.StepStateResult;
@@ -46,7 +47,7 @@ public class BatchGetStepStatesResolver
     final BatchGetStepStatesInput input =
         bindArgument(environment.getArgument("input"), BatchGetStepStatesInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           Map<Urn, String> urnsToIdsMap;
           Set<Urn> urns;
@@ -84,7 +85,9 @@ public class BatchGetStepStatesResolver
           final BatchGetStepStatesResult result = new BatchGetStepStatesResult();
           result.setResults(results);
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nonnull

@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AddOwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -42,7 +43,7 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
     OwnerInput ownerInput = ownerInputBuilder.build();
     OwnerUtils.validateAuthorizedToUpdateOwners(context, targetUrn);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           OwnerUtils.validateAddOwnerInput(
               context.getOperationContext(), ownerInput, ownerUrn, _entityService);
@@ -64,6 +65,8 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
             throw new RuntimeException(
                 String.format("Failed to add owner to resource with input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

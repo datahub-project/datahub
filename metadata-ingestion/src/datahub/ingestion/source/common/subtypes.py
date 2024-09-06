@@ -18,6 +18,9 @@ class DatasetSubTypes(str, Enum):
     QLIK_DATASET = "Qlik Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
     SIGMA_DATASET = "Sigma Dataset"
+    SAC_MODEL = "Model"
+    SAC_IMPORT_DATA_MODEL = "Import Data Model"
+    SAC_LIVE_DATA_MODEL = "Live Data Model"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -35,6 +38,7 @@ class DatasetContainerSubTypes(str, Enum):
     FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
     GCS_BUCKET = "GCS bucket"
+    ABS_CONTAINER = "ABS container"
 
 
 class BIContainerSubTypes(str, Enum):
@@ -48,6 +52,7 @@ class BIContainerSubTypes(str, Enum):
     QLIK_APP = "Qlik App"
     SIGMA_WORKSPACE = "Sigma Workspace"
     SIGMA_WORKBOOK = "Sigma Workbook"
+    MODE_COLLECTION = "Collection"
 
 
 class JobContainerSubTypes(str, Enum):
@@ -64,3 +69,12 @@ class BIAssetSubTypes(str, Enum):
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
+
+    # Mode
+    MODE_REPORT = "Report"
+    MODE_QUERY = "Query"
+    MODE_CHART = "Chart"
+
+    # SAP Analytics Cloud
+    SAC_STORY = "Story"
+    SAC_APPLICATION = "Application"

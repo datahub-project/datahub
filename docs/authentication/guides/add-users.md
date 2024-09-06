@@ -60,7 +60,7 @@ and many more.
 
 This option is strongly recommended for production deployments of DataHub.
 
-### Managed DataHub
+### DataHub Cloud
 
 Single Sign-On can be configured and enabled by navigating to **Settings** > **SSO** > **OIDC**. Note
 that a user must have the **Manage Platform Settings** [Platform Privilege](../../authorization/access-policies-guide.md)

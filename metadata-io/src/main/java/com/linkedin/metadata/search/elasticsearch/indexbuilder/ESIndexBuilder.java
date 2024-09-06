@@ -81,6 +81,8 @@ public class ESIndexBuilder {
 
   @Getter private final boolean enableIndexMappingsReindex;
 
+  @Getter private final boolean enableStructuredPropertiesReindex;
+
   @Getter private final ElasticSearchConfiguration elasticSearchConfiguration;
 
   @Getter private final GitVersion gitVersion;
@@ -101,6 +103,7 @@ public class ESIndexBuilder {
       Map<String, Map<String, String>> indexSettingOverrides,
       boolean enableIndexSettingsReindex,
       boolean enableIndexMappingsReindex,
+      boolean enableStructuredPropertiesReindex,
       ElasticSearchConfiguration elasticSearchConfiguration,
       GitVersion gitVersion) {
     this._searchClient = searchClient;
@@ -112,6 +115,7 @@ public class ESIndexBuilder {
     this.enableIndexSettingsReindex = enableIndexSettingsReindex;
     this.enableIndexMappingsReindex = enableIndexMappingsReindex;
     this.elasticSearchConfiguration = elasticSearchConfiguration;
+    this.enableStructuredPropertiesReindex = enableStructuredPropertiesReindex;
     this.gitVersion = gitVersion;
 
     RetryConfig config =
@@ -143,6 +147,8 @@ public class ESIndexBuilder {
             .name(indexName)
             .enableIndexSettingsReindex(enableIndexSettingsReindex)
             .enableIndexMappingsReindex(enableIndexMappingsReindex)
+            .enableStructuredPropertiesReindex(
+                enableStructuredPropertiesReindex && !copyStructuredPropertyMappings)
             .version(gitVersion.getVersion());
 
     Map<String, Object> baseSettings = new HashMap<>(settings);
@@ -293,7 +299,7 @@ public class ESIndexBuilder {
    * @throws IOException communication issues with ES
    */
   public void applyMappings(ReindexConfig indexState, boolean suppressError) throws IOException {
-    if (indexState.isPureMappingsAddition() || indexState.isPureStructuredProperty()) {
+    if (indexState.isPureMappingsAddition() || indexState.isPureStructuredPropertyAddition()) {
       log.info("Updating index {} mappings in place.", indexState.name());
       PutMappingRequest request =
           new PutMappingRequest(indexState.name()).source(indexState.targetMappings());

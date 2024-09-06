@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +53,7 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // First, get all group Urns.
@@ -63,9 +65,10 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
                       CORP_GROUP_ENTITY_NAME,
                       query,
                       null,
-                      new SortCriterion()
-                          .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
-                          .setOrder(SortOrder.DESCENDING),
+                      Collections.singletonList(
+                          new SortCriterion()
+                              .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
+                              .setOrder(SortOrder.DESCENDING)),
                       start,
                       count);
 
@@ -94,7 +97,9 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
             } catch (Exception e) {
               throw new RuntimeException("Failed to list groups", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

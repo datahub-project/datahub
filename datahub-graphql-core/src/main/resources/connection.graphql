@@ -1,0 +1,130 @@
+# DataHub Connections-specific GraphQL types
+
+extend type Query {
+  """
+  Get a set of connection details by URN.
+  This requires the 'Manage Connections' platform privilege.
+  Returns null if a connection with the provided urn does not exist.
+  """
+  connection(urn: String!): DataHubConnection
+}
+
+extend type Mutation {
+  """
+  Upsert a particular connection.
+  This requires the 'Manage Connections' platform privilege.
+  """
+  upsertConnection(input: UpsertDataHubConnectionInput!): DataHubConnection!
+}
+
+"""
+A connection between DataHub and an external Platform.
+"""
+type DataHubConnection implements Entity {
+  """
+  The urn of the connection
+  """
+  urn: String!
+
+  """
+  The standard Entity Type field
+  """
+  type: EntityType!
+
+  """
+  The connection details
+  """
+  details: DataHubConnectionDetails!
+
+  """
+  The external Data Platform associated with the connection
+  """
+  platform: DataPlatform!
+
+  """
+  Not implemented!
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+
+"""
+The details of the Connection
+"""
+type DataHubConnectionDetails {
+  """
+  The type or format of connection
+  """
+  type: DataHubConnectionDetailsType!
+
+  """
+  A JSON-encoded connection. Present when type is JSON.
+  """
+  json: DataHubJsonConnection
+
+  """
+  The name for this DataHub connection
+  """
+  name: String
+}
+
+"""
+The type of a DataHub connection
+"""
+enum DataHubConnectionDetailsType {
+  """
+  A json-encoded set of connection details.
+  """
+  JSON
+}
+
+"""
+The details of a JSON Connection
+"""
+type DataHubJsonConnection {
+  """
+  The JSON blob containing the specific connection details.
+  """
+  blob: String!
+}
+
+"""
+Input required to upsert a new DataHub connection.
+"""
+input UpsertDataHubConnectionInput {
+  """
+  An optional ID to use when creating the URN of the connection. If none is provided,
+  a random UUID will be generated automatically.
+  """
+  id: String
+
+  """
+  The type or format of connection
+  """
+  type: DataHubConnectionDetailsType!
+
+  """
+  Urn of the associated platform
+  """
+  platformUrn: String!
+
+  """
+  A JSON-encoded connection. This must be present when type is JSON.
+  """
+  json: DataHubJsonConnectionInput
+
+  """
+  An optional name for this connection entity
+  """
+  name: String
+}
+
+"""
+The details of a JSON Connection
+"""
+input DataHubJsonConnectionInput {
+  """
+  The JSON blob containing the specific connection details.
+  """
+  blob: String!
+}

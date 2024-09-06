@@ -1,6 +1,7 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
+import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfiguration;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
@@ -8,7 +9,6 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -39,6 +39,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -70,7 +71,7 @@ public class SearchLineageFixtureConfiguration {
 
   @Bean(name = "searchLineageIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("searchLineagePrefix") String prefix) {
-    return new IndexConventionImpl(prefix);
+    return new IndexConventionImpl(prefix, "MD5");
   }
 
   @Bean(name = "searchLineageFixtureName")
@@ -99,6 +100,7 @@ public class SearchLineageFixtureConfiguration {
             1,
             Map.of(),
             true,
+            false,
             false,
             new ElasticSearchConfiguration(),
             gitVersion);
@@ -151,6 +153,7 @@ public class SearchLineageFixtureConfiguration {
         Map.of(),
         true,
         true,
+        false,
         new ElasticSearchConfiguration(),
         gitVersion);
   }
@@ -169,12 +172,10 @@ public class SearchLineageFixtureConfiguration {
             indexConvention,
             new ESGraphWriteDAO(indexConvention, bulkProcessor, 1),
             new ESGraphQueryDAO(
-                searchClient,
-                lineageRegistry,
-                indexConvention,
-                GraphQueryConfiguration.testDefaults),
-            indexBuilder);
-    graphService.configure();
+                searchClient, lineageRegistry, indexConvention, getGraphQueryConfiguration()),
+            indexBuilder,
+            indexConvention.getIdHashAlgo());
+    graphService.reindexAll(Collections.emptySet());
     return graphService;
   }
 
@@ -225,7 +226,7 @@ public class SearchLineageFixtureConfiguration {
             ranker);
 
     // Build indices
-    indexBuilders.reindexAll();
+    indexBuilders.reindexAll(Collections.emptySet());
 
     return service;
   }
@@ -250,6 +251,7 @@ public class SearchLineageFixtureConfiguration {
         null,
         null,
         null,
-        null);
+        null,
+        1);
   }
 }

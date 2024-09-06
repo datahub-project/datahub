@@ -17,6 +17,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -51,7 +52,7 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
     final ReportOperationInput input =
         bindArgument(environment.getArgument("input"), ReportOperationInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           Urn entityUrn = UrnUtils.getUrn(input.getUrn());
 
@@ -73,7 +74,9 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
             log.error("Failed to report operation. {}", e.getMessage());
             throw new RuntimeException("Failed to report operation", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Operation mapOperation(final ReportOperationInput input, final QueryContext context)

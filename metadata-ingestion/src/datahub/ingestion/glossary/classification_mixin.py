@@ -48,7 +48,7 @@ class ClassificationReportMixin:
 class ClassificationSourceConfigMixin(ConfigModel):
     classification: ClassificationConfig = Field(
         default=ClassificationConfig(),
-        description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
+        description="For details, refer to [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
     )
 
 
@@ -300,6 +300,8 @@ def classification_workunit_processor(
     table_name = ".".join(table_id)
     if not classification_handler.is_classification_enabled_for_table(table_name):
         yield from table_wu_generator
+        return
+
     for wu in table_wu_generator:
         maybe_schema_metadata = wu.get_aspect_of_type(SchemaMetadata)
         if (

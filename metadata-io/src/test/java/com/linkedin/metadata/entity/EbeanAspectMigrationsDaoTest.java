@@ -53,9 +53,12 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
     List<String> ingestedUrns =
         ingestedAspects.keySet().stream().map(Urn::toString).collect(Collectors.toList());
 
-    Stream<EntityAspect> aspectStream =
-        _migrationsDao.streamAspects(CORP_USER_ENTITY_NAME, CORP_USER_KEY_ASPECT_NAME);
-    List<EntityAspect> aspectList = aspectStream.collect(Collectors.toList());
+    List<EntityAspect> aspectList;
+    try (Stream<EntityAspect> stream =
+        _migrationsDao.streamAspects(CORP_USER_ENTITY_NAME, CORP_USER_KEY_ASPECT_NAME)) {
+      aspectList = stream.collect(Collectors.toList());
+    }
+
     assertEquals(ingestedUrns.size(), aspectList.size());
     Set<String> urnsFetched =
         aspectList.stream().map(EntityAspect::getUrn).collect(Collectors.toSet());

@@ -25,7 +25,7 @@ import UserContextProvider from '../../app/context/UserContextProvider';
 import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
 import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
 import AppConfigProvider from '../../AppConfigProvider';
-import {BusinessAttributeEntity} from "../../app/entity/businessAttribute/BusinessAttributeEntity";
+import { BusinessAttributeEntity } from '../../app/entity/businessAttribute/BusinessAttributeEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -58,7 +58,7 @@ export default ({ children, initialEntries }: Props) => {
         writable: true,
         value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:2`,
     });
-    vi.mock('js-cookie', () => ({ default: { get: () => 'urn:li:corpuser:2' }}));
+    vi.mock('js-cookie', () => ({ default: { get: () => 'urn:li:corpuser:2' } }));
 
     return (
         <HelmetProvider>

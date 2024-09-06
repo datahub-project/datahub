@@ -15,6 +15,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Final,
     Generic,
     Iterator,
     List,
@@ -27,8 +28,6 @@ from typing import (
     TypeVar,
     Union,
 )
-
-from typing_extensions import Final
 
 from datahub.ingestion.api.closeable import Closeable
 

@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.LineageEdge;
 import com.linkedin.datahub.graphql.generated.UpdateLineageInput;
@@ -57,7 +58,7 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
     downstreamUrns.addAll(downstreamToUpstreamsToAdd.keySet());
     downstreamUrns.addAll(downstreamToUpstreamsToRemove.keySet());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Set<Urn> existingDownstreamUrns =
               _entityService.exists(context.getOperationContext(), downstreamUrns, true);
@@ -168,7 +169,9 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           }
 
           return true;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<Urn> filterOutDataJobUrns(@Nonnull final List<Urn> urns) {

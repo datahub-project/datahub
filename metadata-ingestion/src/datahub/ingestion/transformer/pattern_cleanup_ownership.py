@@ -42,9 +42,9 @@ class PatternCleanUpOwnership(DatasetOwnershipTransformer):
         if self.ctx.graph is not None:
             current_ownership = self.ctx.graph.get_ownership(entity_urn=entity_urn)
             if current_ownership is not None:
-                current_owner_urns: Set[str] = set(
-                    [owner.owner for owner in current_ownership.owners]
-                )
+                current_owner_urns: Set[str] = {
+                    owner.owner for owner in current_ownership.owners
+                }
                 return current_owner_urns
             else:
                 return set()

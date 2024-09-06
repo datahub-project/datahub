@@ -273,7 +273,7 @@ class BaseStatGenerator(ABC):
         logger.debug("Entering fill user stat aspect")
 
         # We first resolve all the users using a threadpool to warm up the cache
-        user_ids = set([self._get_user_identifier(row) for row in user_wise_rows])
+        user_ids = {self._get_user_identifier(row) for row in user_wise_rows}
         start_time = datetime.datetime.now()
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads
@@ -507,7 +507,7 @@ class DashboardStatGenerator(BaseStatGenerator):
         user_urn: Optional[str] = user.get_urn(self.config.strip_user_ids_from_email)
 
         if user_urn is None:
-            logger.warning("user_urn not found for the user {}".format(user))
+            logger.warning(f"user_urn not found for the user {user}")
             return
 
         dashboard_stat_aspect.userCounts.append(
@@ -614,7 +614,7 @@ class LookStatGenerator(BaseStatGenerator):
         user_urn: Optional[str] = user.get_urn(self.config.strip_user_ids_from_email)
 
         if user_urn is None:
-            logger.warning("user_urn not found for the user {}".format(user))
+            logger.warning(f"user_urn not found for the user {user}")
             return
 
         chart_stat_aspect.userCounts.append(

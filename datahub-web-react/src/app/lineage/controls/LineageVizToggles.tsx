@@ -8,6 +8,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { navigateToLineageUrl } from '../utils/navigateToLineageUrl';
 import { useIsSeparateSiblingsMode } from '../../entity/shared/siblingUtils';
 import { useIsShowColumnsMode } from '../utils/useIsShowColumnsMode';
+import { useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
 
 const ControlDiv = styled.div`
     display: flex;
@@ -38,6 +39,7 @@ export function LineageVizToggles({ showExpandedTitles, setShowExpandedTitles }:
     const location = useLocation();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const showColumns = useIsShowColumnsMode();
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
 
     return (
         <>
@@ -51,26 +53,28 @@ export function LineageVizToggles({ showExpandedTitles, setShowExpandedTitles }:
                     <b>Show Full Titles</b>
                 </ControlLabel>
             </ControlDiv>
-            <ControlDiv>
-                <ControlsSwitch
-                    data-testid="compress-lineage-toggle"
-                    checked={!isHideSiblingMode}
-                    onChange={(checked) => {
-                        navigateToLineageUrl({
-                            location,
-                            history,
-                            isLineageMode: true,
-                            isHideSiblingMode: !checked,
-                        });
-                    }}
-                />{' '}
-                <ControlLabel>
-                    <b>Compress Lineage</b>
-                    <Tooltip title="Collapses related entities into a single lineage node" placement="topRight">
-                        <HelpIcon />
-                    </Tooltip>
-                </ControlLabel>
-            </ControlDiv>
+            {!showSeparateSiblings && (
+                <ControlDiv>
+                    <ControlsSwitch
+                        data-testid="compress-lineage-toggle"
+                        checked={!isHideSiblingMode}
+                        onChange={(checked) => {
+                            navigateToLineageUrl({
+                                location,
+                                history,
+                                isLineageMode: true,
+                                isHideSiblingMode: !checked,
+                            });
+                        }}
+                    />{' '}
+                    <ControlLabel>
+                        <b>Compress Lineage</b>
+                        <Tooltip title="Collapses related entities into a single lineage node" placement="topRight">
+                            <HelpIcon />
+                        </Tooltip>
+                    </ControlLabel>
+                </ControlDiv>
+            )}
             <ControlDiv>
                 <ControlsSwitch
                     data-testid="column-toggle"

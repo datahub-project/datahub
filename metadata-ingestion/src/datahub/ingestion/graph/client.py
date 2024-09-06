@@ -15,6 +15,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Literal,
     Optional,
     Tuple,
     Type,
@@ -23,15 +24,21 @@ from typing import (
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
+from pydantic import BaseModel
 from requests.models import HTTPError
 
-from datahub.cli.cli_utils import get_url_and_token
+from datahub.cli import config_utils
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.connections import (
+    connections_gql,
+    get_id_from_connection_urn,
+)
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
@@ -63,7 +70,10 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
-    from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+    from datahub.ingestion.sink.datahub_rest import (
+        DatahubRestSink,
+        DatahubRestSinkConfig,
+    )
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
@@ -77,20 +87,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
-
-
-class DatahubClientConfig(ConfigModel):
-    """Configuration class for holding connectivity to datahub gms"""
-
-    server: str = "http://localhost:8080"
-    token: Optional[str] = None
-    timeout_sec: Optional[int] = None
-    retry_status_codes: Optional[List[int]] = None
-    retry_max_times: Optional[int] = None
-    extra_headers: Optional[Dict[str, str]] = None
-    ca_certificate_path: Optional[str] = None
-    client_certificate_path: Optional[str] = None
-    disable_ssl_verification: bool = False
 
 
 # Alias for backwards compatibility.
@@ -162,6 +158,22 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = _MISSING_SERVER_ID
             logger.debug(f"Failed to get server id due to {e}")
 
+    @property
+    def frontend_base_url(self) -> str:
+        """Get the public-facing base url of the frontend
+
+        This url can be used to construct links to the frontend. The url will not include a trailing slash.
+        Note: Only supported with DataHub Cloud.
+        """
+
+        if not self.server_config:
+            self.test_connection()
+
+        base_url = self.server_config.get("baseUrl")
+        if not base_url:
+            raise ValueError("baseUrl not found in server config")
+        return base_url
+
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
         return cls(
@@ -202,15 +214,10 @@ class DataHubGraph(DatahubRestEmitter):
     def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict)
 
-    @contextlib.contextmanager
-    def make_rest_sink(
-        self, run_id: str = _GRAPH_DUMMY_RUN_ID
-    ) -> Iterator["DatahubRestSink"]:
-        from datahub.ingestion.api.common import PipelineContext
+    def _make_rest_sink_config(self) -> "DatahubRestSinkConfig":
         from datahub.ingestion.sink.datahub_rest import (
-            DatahubRestSink,
             DatahubRestSinkConfig,
-            SyncOrAsync,
+            RestSinkMode,
         )
 
         # This is a bit convoluted - this DataHubGraph class is a subclass of DatahubRestEmitter,
@@ -218,10 +225,16 @@ class DataHubGraph(DatahubRestEmitter):
         # TODO: We should refactor out the multithreading functionality of the sink
         # into a separate class that can be used by both the sink and the graph client
         # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
-        sink_config = DatahubRestSinkConfig(
-            **self.config.dict(), mode=SyncOrAsync.ASYNC
-        )
+        return DatahubRestSinkConfig(**self.config.dict(), mode=RestSinkMode.ASYNC)
 
+    @contextlib.contextmanager
+    def make_rest_sink(
+        self, run_id: str = _GRAPH_DUMMY_RUN_ID
+    ) -> Iterator["DatahubRestSink"]:
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+
+        sink_config = self._make_rest_sink_config()
         with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
             yield sink
         if sink.report.failures:
@@ -243,14 +256,10 @@ class DataHubGraph(DatahubRestEmitter):
     ) -> None:
         """Emit all items in the iterable using multiple threads."""
 
+        # The context manager also ensures that we raise an error if a failure occurs.
         with self.make_rest_sink(run_id=run_id) as sink:
             for item in items:
                 sink.emit_async(item)
-        if sink.report.failures:
-            raise OperationalError(
-                f"Failed to emit {len(sink.report.failures)} records",
-                info=sink.report.as_obj(),
-            )
 
     def get_aspect(
         self,
@@ -324,6 +333,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=SchemaMetadataClass)
 
+    @deprecated(reason="Use get_aspect directly.")
     def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainPropertiesClass)
 
@@ -343,11 +353,9 @@ class DataHubGraph(DatahubRestEmitter):
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
+    @deprecated(reason="Use get_aspect directly.")
     def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
-        return self.get_aspect(
-            entity_urn=entity_urn,
-            aspect_type=BrowsePathsClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=BrowsePathsClass)
 
     def get_usage_aspects_from_urn(
         self, entity_urn: str, start_timestamp: int, end_timestamp: int
@@ -419,26 +427,47 @@ class DataHubGraph(DatahubRestEmitter):
             {"field": k, "value": v, "condition": "EQUAL"}
             for k, v in filter_criteria_map.items()
         ]
+        filter = {"or": [{"and": filter_criteria}]}
+
+        values = self.get_timeseries_values(
+            entity_urn=entity_urn, aspect_type=aspect_type, filter=filter, limit=1
+        )
+        if not values:
+            return None
+
+        assert len(values) == 1, len(values)
+        return values[0]
+
+    def get_timeseries_values(
+        self,
+        entity_urn: str,
+        aspect_type: Type[Aspect],
+        filter: Dict[str, Any],
+        limit: int = 10,
+    ) -> List[Aspect]:
         query_body = {
             "urn": entity_urn,
             "entity": guess_entity_type(entity_urn),
             "aspect": aspect_type.ASPECT_NAME,
-            "limit": 1,
-            "filter": {"or": [{"and": filter_criteria}]},
+            "limit": limit,
+            "filter": filter,
         }
         end_point = f"{self.config.server}/aspects?action=getTimeseriesAspectValues"
         resp: Dict = self._post_generic(end_point, query_body)
-        values: list = resp.get("value", {}).get("values")
-        if values:
-            assert len(values) == 1, len(values)
-            aspect_json: str = values[0].get("aspect", {}).get("value")
+
+        values: Optional[List] = resp.get("value", {}).get("values")
+        aspects: List[Aspect] = []
+        for value in values or []:
+            aspect_json: str = value.get("aspect", {}).get("value")
             if aspect_json:
-                return aspect_type.from_obj(json.loads(aspect_json), tuples=False)
+                aspects.append(
+                    aspect_type.from_obj(json.loads(aspect_json), tuples=False)
+                )
             else:
                 raise GraphError(
                     f"Failed to find {aspect_type} in response {aspect_json}"
                 )
-        return None
+        return aspects
 
     def get_entity_raw(
         self, entity_urn: str, aspects: Optional[List[str]] = None
@@ -472,8 +501,8 @@ class DataHubGraph(DatahubRestEmitter):
         responds to these calls, and will be fixed automatically when the server-side issue is fixed.
 
         :param str entity_urn: The urn of the entity
-        :param List[Type[Aspect]] aspect_type_list: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
-        :param List[str] aspects_list: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
+        :param aspects: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
+        :param aspect_types: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
         :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
         :raises HttpError: if the HTTP response is not a 200
         """
@@ -498,8 +527,10 @@ class DataHubGraph(DatahubRestEmitter):
 
         return result
 
-    def get_entity_semityped(self, entity_urn: str) -> AspectBag:
-        """Get all non-timeseries aspects for an entity (experimental).
+    def get_entity_semityped(
+        self, entity_urn: str, aspects: Optional[List[str]] = None
+    ) -> AspectBag:
+        """Get (all) non-timeseries aspects for an entity.
 
         This method is called "semityped" because it returns aspects as a dictionary of
         properly typed objects. While the returned dictionary is constrained using a TypedDict,
@@ -509,11 +540,12 @@ class DataHubGraph(DatahubRestEmitter):
         something, even if the entity doesn't actually exist in DataHub.
 
         :param entity_urn: The urn of the entity
+        :param aspects: Optional list of aspect names being requested (e.g. ["schemaMetadata", "datasetProperties"])
         :returns: A dictionary of aspect name to aspect value. If an aspect is not found, it will
             not be present in the dictionary. The entity's key aspect will always be present.
         """
 
-        response_json = self.get_entity_raw(entity_urn)
+        response_json = self.get_entity_raw(entity_urn, aspects)
 
         # Now, we parse the response into proper aspect objects.
         result: AspectBag = {}
@@ -540,6 +572,9 @@ class DataHubGraph(DatahubRestEmitter):
     @property
     def _aspect_count_endpoint(self):
         return f"{self.config.server}/aspects?action=getCount"
+
+    # def _session(self) -> Session:
+    #    return super()._session
 
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
@@ -574,6 +609,83 @@ class DataHubGraph(DatahubRestEmitter):
             logger.debug(f"yielding {x['entity']}")
             entities.append(x["entity"])
         return entities[0] if entities_yielded else None
+
+    def get_connection_json(self, urn: str) -> Optional[dict]:
+        """Retrieve a connection config.
+
+        This is only supported with DataHub Cloud.
+
+        Args:
+            urn: The urn of the connection.
+
+        Returns:
+            The connection config as a dictionary, or None if the connection was not found.
+        """
+
+        # TODO: This should be capable of resolving secrets.
+
+        res = self.execute_graphql(
+            query=connections_gql,
+            operation_name="GetConnection",
+            variables={"urn": urn},
+        )
+
+        if not res["connection"]:
+            return None
+
+        connection_type = res["connection"]["details"]["type"]
+        if connection_type != "JSON":
+            logger.error(
+                f"Expected connection details type to be 'JSON', but got {connection_type}"
+            )
+            return None
+
+        blob = res["connection"]["details"]["json"]["blob"]
+        obj = json.loads(blob)
+
+        name = res["connection"]["details"].get("name")
+        logger.info(f"Loaded connection {name or urn}")
+
+        return obj
+
+    def set_connection_json(
+        self,
+        urn: str,
+        *,
+        platform_urn: str,
+        config: Union[ConfigModel, BaseModel, dict],
+        name: Optional[str] = None,
+    ) -> None:
+        """Set a connection config.
+
+        This is only supported with DataHub Cloud.
+
+        Args:
+            urn: The urn of the connection.
+            platform_urn: The urn of the platform.
+            config: The connection config as a dictionary or a ConfigModel.
+            name: The name of the connection.
+        """
+
+        if isinstance(config, (ConfigModel, BaseModel)):
+            blob = config.json()
+        else:
+            blob = json.dumps(config)
+
+        id = get_id_from_connection_urn(urn)
+
+        res = self.execute_graphql(
+            query=connections_gql,
+            operation_name="SetConnection",
+            variables={
+                "id": id,
+                "platformUrn": platform_urn,
+                "name": name,
+                "blob": blob,
+            },
+        )
+
+        assert res["upsertConnection"]["urn"] == urn
 
     @deprecated(
         reason='Use get_urns_by_filter(entity_types=["container"], ...) instead'
@@ -709,6 +821,7 @@ class DataHubGraph(DatahubRestEmitter):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[SearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -738,7 +851,13 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Env filter.
         orFilters = generate_filter(
-            platform, platform_instance, env, container, status, extraFilters
+            platform,
+            platform_instance,
+            env,
+            container,
+            status,
+            extraFilters,
+            extra_or_filters=extra_or_filters,
         )
 
         graphql_query = textwrap.dedent(
@@ -781,6 +900,137 @@ class DataHubGraph(DatahubRestEmitter):
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
+
+    def get_results_by_filter(
+        self,
+        *,
+        entity_types: Optional[List[str]] = None,
+        platform: Optional[str] = None,
+        platform_instance: Optional[str] = None,
+        env: Optional[str] = None,
+        query: Optional[str] = None,
+        container: Optional[str] = None,
+        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
+        batch_size: int = 10000,
+        extra_and_filters: Optional[List[SearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
+        extra_source_fields: Optional[List[str]] = None,
+        skip_cache: bool = False,
+    ) -> Iterable[dict]:
+        """Fetch all results that match all of the given filters.
+
+        Note: Only supported with DataHub Cloud.
+
+        Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
+        Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
+        The same goes for the env filter.
+
+        :param entity_types: List of entity types to include. If None, all entity types will be returned.
+        :param platform: Platform to filter on. If None, all platforms will be returned.
+        :param platform_instance: Platform instance to filter on. If None, all platform instances will be returned.
+        :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+        :param query: Query string to filter on. If None, all entities will be returned.
+        :param container: A container urn that entities must be within.
+            This works recursively, so it will include entities within sub-containers as well.
+            If None, all entities will be returned.
+            Note that this requires browsePathV2 aspects (added in 0.10.4+).
+        :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
+        :param extra_and_filters: Additional filters to apply. If specified, the
+            results will match all of the filters.
+        :param extra_or_filters: Additional filters to apply. If specified, the
+            results will match any of the filters.
+
+        :return: An iterable of urns that match the filters.
+        """
+
+        types = self._get_types(entity_types)
+
+        # Add the query default of * if no query is specified.
+        query = query or "*"
+
+        or_filters_final = generate_filter(
+            platform,
+            platform_instance,
+            env,
+            container,
+            status,
+            extra_and_filters,
+            extra_or_filters,
+        )
+        graphql_query = textwrap.dedent(
+            """
+            query scrollUrnsWithFilters(
+                $types: [EntityType!],
+                $query: String!,
+                $orFilters: [AndFilterInput!],
+                $batchSize: Int!,
+                $scrollId: String,
+                $skipCache: Boolean!,
+                $fetchExtraFields: [String!]) {
+
+                scrollAcrossEntities(input: {
+                    query: $query,
+                    count: $batchSize,
+                    scrollId: $scrollId,
+                    types: $types,
+                    orFilters: $orFilters,
+                    searchFlags: {
+                        skipHighlighting: true
+                        skipAggregates: true
+                        skipCache: $skipCache
+                        fetchExtraFields: $fetchExtraFields
+                    }
+                }) {
+                    nextScrollId
+                    searchResults {
+                        entity {
+                            urn
+                        }
+                        extraProperties {
+                            name
+                            value
+                        }
+                    }
+                }
+            }
+            """
+        )
+
+        variables = {
+            "types": types,
+            "query": query,
+            "orFilters": or_filters_final,
+            "batchSize": batch_size,
+            "skipCache": "true" if skip_cache else "false",
+            "fetchExtraFields": extra_source_fields,
+        }
+
+        for result in self._scroll_across_entities_results(graphql_query, variables):
+            yield result
+
+    def _scroll_across_entities_results(
+        self, graphql_query: str, variables_orig: dict
+    ) -> Iterable[dict]:
+        variables = variables_orig.copy()
+        first_iter = True
+        scroll_id: Optional[str] = None
+        while first_iter or scroll_id:
+            first_iter = False
+            variables["scrollId"] = scroll_id
+
+            response = self.execute_graphql(
+                graphql_query,
+                variables=variables,
+            )
+            data = response["scrollAcrossEntities"]
+            scroll_id = data["nextScrollId"]
+            for entry in data["searchResults"]:
+                yield entry
+
+            if scroll_id:
+                logger.debug(
+                    f"Scrolling to next scrollAcrossEntities page: {scroll_id}"
+                )
 
     def _scroll_across_entities(
         self, graphql_query: str, variables_orig: dict
@@ -864,6 +1114,7 @@ class DataHubGraph(DatahubRestEmitter):
         query: str,
         variables: Optional[Dict] = None,
         operation_name: Optional[str] = None,
+        format_exception: bool = True,
     ) -> Dict:
         url = f"{self.config.server}/api/graphql"
 
@@ -876,11 +1127,14 @@ class DataHubGraph(DatahubRestEmitter):
             body["operationName"] = operation_name
 
         logger.debug(
-            f"Executing graphql query: {query} with variables: {json.dumps(variables)}"
+            f"Executing {operation_name or ''} graphql query: {query} with variables: {json.dumps(variables)}"
         )
         result = self._post_generic(url, body)
         if result.get("errors"):
-            raise GraphError(f"Error executing graphql query: {result['errors']}")
+            if format_exception:
+                raise GraphError(f"Error executing graphql query: {result['errors']}")
+            else:
+                raise GraphError(result["errors"])
 
         return result["data"]
 
@@ -1074,7 +1328,7 @@ class DataHubGraph(DatahubRestEmitter):
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
 
-    @functools.lru_cache()
+    @functools.lru_cache
     def _make_schema_resolver(
         self,
         platform: str,
@@ -1138,6 +1392,7 @@ class DataHubGraph(DatahubRestEmitter):
         env: str = DEFAULT_ENV,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
+        default_dialect: Optional[str] = None,
     ) -> "SqlParsingResult":
         from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
@@ -1151,6 +1406,7 @@ class DataHubGraph(DatahubRestEmitter):
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            default_dialect=default_dialect,
         )
 
     def create_tag(self, tag_name: str) -> str:
@@ -1175,13 +1431,336 @@ class DataHubGraph(DatahubRestEmitter):
         # return urn
         return res["createTag"]
 
+    def remove_tag(self, tag_urn: str, resource_urn: str) -> bool:
+        graph_query = f"""
+            mutation removeTag {{
+                removeTag(
+                input: {{
+                    tagUrn: "{tag_urn}",
+                    resourceUrn: "{resource_urn}"
+                    }})
+            }}
+        """
+
+        res = self.execute_graphql(query=graph_query)
+        return res["removeTag"]
+
+    def _assertion_result_shared(self) -> str:
+        fragment: str = """
+             fragment assertionResult on AssertionResult {
+                 type
+                 rowCount
+                 missingCount
+                 unexpectedCount
+                 actualAggValue
+                 externalUrl
+                 nativeResults {
+                     value
+                 }
+                 error {
+                     type
+                     properties {
+                         value
+                     }
+                 }
+             }
+        """
+        return fragment
+
+    def _run_assertion_result_shared(self) -> str:
+        fragment: str = """
+            fragment runAssertionResult on RunAssertionResult {
+                assertion {
+                    urn
+                }
+                result {
+                    ... assertionResult
+                }
+            }
+        """
+        return fragment
+
+    def _run_assertion_build_params(
+        self, params: Optional[Dict[str, str]] = {}
+    ) -> List[Any]:
+        if params is None:
+            return []
+
+        results = []
+        for key, value in params.items():
+            result = {
+                "key": key,
+                "value": value,
+            }
+            results.append(result)
+
+        return results
+
+    def run_assertion(
+        self,
+        urn: str,
+        save_result: bool = True,
+        parameters: Optional[Dict[str, str]] = {},
+        async_flag: bool = False,
+    ) -> Dict:
+        params = self._run_assertion_build_params(parameters)
+        graph_query: str = """
+            %s
+            mutation runAssertion($assertionUrn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+                runAssertion(urn: $assertionUrn, saveResult: $saveResult, parameters: $parameters, async: $async) {
+                    ... assertionResult
+                }
+            }
+        """ % (
+            self._assertion_result_shared()
+        )
+
+        variables = {
+            "assertionUrn": urn,
+            "saveResult": save_result,
+            "parameters": params,
+            "async": async_flag,
+        }
+
+        res = self.execute_graphql(
+            query=graph_query,
+            variables=variables,
+        )
+
+        return res["runAssertion"]
+
+    def run_assertions(
+        self,
+        urns: List[str],
+        save_result: bool = True,
+        parameters: Optional[Dict[str, str]] = {},
+        async_flag: bool = False,
+    ) -> Dict:
+        params = self._run_assertion_build_params(parameters)
+        graph_query: str = """
+            %s
+            %s
+            mutation runAssertions($assertionUrns: [String!]!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+                runAssertions(urns: $assertionUrns, saveResults: $saveResult, parameters: $parameters, async: $async) {
+                    passingCount
+                    failingCount
+                    errorCount
+                    results {
+                        ... runAssertionResult
+                    }
+                }
+            }
+        """ % (
+            self._assertion_result_shared(),
+            self._run_assertion_result_shared(),
+        )
+
+        variables = {
+            "assertionUrns": urns,
+            "saveResult": save_result,
+            "parameters": params,
+            "async": async_flag,
+        }
+
+        res = self.execute_graphql(
+            query=graph_query,
+            variables=variables,
+        )
+
+        return res["runAssertions"]
+
+    def run_assertions_for_asset(
+        self,
+        urn: str,
+        tag_urns: Optional[List[str]] = [],
+        parameters: Optional[Dict[str, str]] = {},
+        async_flag: bool = False,
+    ) -> Dict:
+        params = self._run_assertion_build_params(parameters)
+        graph_query: str = """
+            %s
+            %s
+            mutation runAssertionsForAsset($assetUrn: String!, $tagUrns: [String!], $parameters: [StringMapEntryInput!], $async: Boolean!) {
+                runAssertionsForAsset(urn: $assetUrn, tagUrns: $tagUrns, parameters: $parameters, async: $async) {
+                    passingCount
+                    failingCount
+                    errorCount
+                    results {
+                        ... runAssertionResult
+                    }
+                }
+            }
+        """ % (
+            self._assertion_result_shared(),
+            self._run_assertion_result_shared(),
+        )
+
+        variables = {
+            "assetUrn": urn,
+            "tagUrns": tag_urns,
+            "parameters": params,
+            "async": async_flag,
+        }
+
+        res = self.execute_graphql(
+            query=graph_query,
+            variables=variables,
+        )
+
+        return res["runAssertionsForAsset"]
+
+    def get_entities_v2(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: List[str] = [],
+        with_system_metadata: bool = False,
+    ) -> Dict[str, Any]:
+        payload = {
+            "urns": urns,
+            "aspectNames": aspects,
+            "withSystemMetadata": with_system_metadata,
+        }
+        headers: Dict[str, Any] = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        url = f"{self.config.server}/openapi/v2/entity/batch/{entity_name}"
+        response = self._session.post(url, data=json.dumps(payload), headers=headers)
+        response.raise_for_status()
+
+        json_resp = response.json()
+        entities = json_resp.get("entities", [])
+        aspects_set = set(aspects)
+        retval: Dict[str, Any] = {}
+
+        for entity in entities:
+            entity_aspects = entity.get("aspects", {})
+            entity_urn = entity.get("urn", None)
+
+            if entity_urn is None:
+                continue
+            for aspect_key, aspect_value in entity_aspects.items():
+                # Include all aspects if aspect filter is empty
+                if len(aspects) == 0 or aspect_key in aspects_set:
+                    retval.setdefault(entity_urn, {})
+                    retval[entity_urn][aspect_key] = aspect_value
+        return retval
+
+    def upsert_custom_assertion(
+        self,
+        urn: Optional[str],
+        entity_urn: str,
+        type: str,
+        description: str,
+        platform_name: Optional[str] = None,
+        platform_urn: Optional[str] = None,
+        field_path: Optional[str] = None,
+        external_url: Optional[str] = None,
+        logic: Optional[str] = None,
+    ) -> Dict:
+        graph_query: str = """
+            mutation upsertCustomAssertion(
+                $assertionUrn: String,
+                $entityUrn: String!,
+                $type: String!,
+                $description: String!,
+                $fieldPath: String,
+                $platformName: String,
+                $platformUrn: String,
+                $externalUrl: String,
+                $logic: String
+            ) {
+                upsertCustomAssertion(urn: $assertionUrn, input: {
+                    entityUrn: $entityUrn
+                    type: $type
+                    description: $description
+                    fieldPath: $fieldPath
+                    platform: {
+                        urn: $platformUrn
+                        name: $platformName
+                    }
+                    externalUrl: $externalUrl
+                    logic: $logic
+                }) {
+                        urn
+                }
+            }
+        """
+
+        variables = {
+            "assertionUrn": urn,
+            "entityUrn": entity_urn,
+            "type": type,
+            "description": description,
+            "fieldPath": field_path,
+            "platformName": platform_name,
+            "platformUrn": platform_urn,
+            "externalUrl": external_url,
+            "logic": logic,
+        }
+
+        res = self.execute_graphql(
+            query=graph_query,
+            variables=variables,
+        )
+
+        return res["upsertCustomAssertion"]
+
+    def report_assertion_result(
+        self,
+        urn: str,
+        timestamp_millis: int,
+        type: Literal["SUCCESS", "FAILURE", "ERROR", "INIT"],
+        properties: Optional[List[Dict[str, str]]] = None,
+        external_url: Optional[str] = None,
+        error_type: Optional[str] = None,
+        error_message: Optional[str] = None,
+    ) -> bool:
+        graph_query: str = """
+            mutation reportAssertionResult(
+                $assertionUrn: String!,
+                $timestampMillis: Long!,
+                $type: AssertionResultType!,
+                $properties: [StringMapEntryInput!],
+                $externalUrl: String,
+                $error: AssertionResultErrorInput,
+            ) {
+                reportAssertionResult(urn: $assertionUrn, result: {
+                    timestampMillis: $timestampMillis
+                    type: $type
+                    properties: $properties
+                    externalUrl: $externalUrl
+                    error: $error
+                })
+            }
+        """
+
+        variables = {
+            "assertionUrn": urn,
+            "timestampMillis": timestamp_millis,
+            "type": type,
+            "properties": properties,
+            "externalUrl": external_url,
+            "error": {"type": error_type, "message": error_message}
+            if error_type
+            else None,
+        }
+
+        res = self.execute_graphql(
+            query=graph_query,
+            variables=variables,
+        )
+
+        return res["reportAssertionResult"]
+
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()
         super().close()
 
 
 def get_default_graph() -> DataHubGraph:
-    (url, token) = get_url_and_token()
-    graph = DataHubGraph(DatahubClientConfig(server=url, token=token))
+    graph_config = config_utils.load_client_config()
+    graph = DataHubGraph(graph_config)
     graph.test_connection()
     return graph

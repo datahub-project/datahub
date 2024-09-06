@@ -51,7 +51,7 @@ public class SchemaFieldMapper {
     return result;
   }
 
-  private SchemaFieldDataType mapSchemaFieldDataType(
+  public SchemaFieldDataType mapSchemaFieldDataType(
       @Nonnull final com.linkedin.schema.SchemaFieldDataType dataTypeUnion) {
     final com.linkedin.schema.SchemaFieldDataType.Type type = dataTypeUnion.getType();
     if (type.isBytesType()) {

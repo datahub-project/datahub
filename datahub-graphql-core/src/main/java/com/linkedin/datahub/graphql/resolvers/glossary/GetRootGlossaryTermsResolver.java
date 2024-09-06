@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryEntitiesInput;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryTermsResult;
@@ -42,7 +43,7 @@ public class GetRootGlossaryTermsResolver
 
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final GetRootGlossaryEntitiesInput input =
               bindArgument(environment.getArgument("input"), GetRootGlossaryEntitiesInput.class);
@@ -75,7 +76,9 @@ public class GetRootGlossaryTermsResolver
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve root glossary terms from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildGlossaryEntitiesFilter() {

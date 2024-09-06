@@ -4,17 +4,12 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.PluginSpec;
-import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
 public abstract class AspectPayloadValidator extends PluginSpec {
-
-  public AspectPayloadValidator(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
 
   /**
    * Validate a proposal for the given change type for an aspect within the context of the given
@@ -27,7 +22,7 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull RetrieverContext retrieverContext) {
     return validateProposedAspects(
         mcpItems.stream()
-            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectSpec()))
+            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
             .collect(Collectors.toList()),
         retrieverContext);
   }
@@ -42,7 +37,7 @@ public abstract class AspectPayloadValidator extends PluginSpec {
       @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return validatePreCommitAspects(
         changeMCPs.stream()
-            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectSpec()))
+            .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
             .collect(Collectors.toList()),
         retrieverContext);
   }

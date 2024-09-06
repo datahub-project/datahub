@@ -2,9 +2,20 @@ import pathlib
 
 import pytest
 
+import datahub.testing.check_sql_parser_result as checker
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
+
+
+@pytest.fixture(autouse=True)
+def set_update_sql_parser(
+    pytestconfig: pytest.Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    update_golden = pytestconfig.getoption("--update-golden-files")
+
+    if update_golden:
+        monkeypatch.setattr(checker, "UPDATE_FILES", True)
 
 
 def test_invalid_sql():
@@ -81,6 +92,40 @@ JOIN cte2 ON cte1.col2 = cte2.col4
 """,
         dialect="oracle",
         expected_file=RESOURCE_DIR / "test_select_with_ctes.json",
+    )
+
+
+def test_select_with_complex_ctes():
+    # This one has group bys in the CTEs, which means they can't be collapsed into the main query.
+    assert_sql_result(
+        """
+WITH cte1 AS (
+    SELECT col1, col2
+    FROM table1
+    WHERE col1 = 'value1'
+    GROUP BY 1, 2
+), cte2 AS (
+    SELECT col3, col4
+    FROM table2
+    WHERE col2 = 'value2'
+    GROUP BY col3, col4
+)
+SELECT cte1.col1, cte2.col3
+FROM cte1
+JOIN cte2 ON cte1.col2 = cte2.col4
+""",
+        dialect="oracle",
+        expected_file=RESOURCE_DIR / "test_select_with_complex_ctes.json",
+    )
+
+
+def test_multiple_select_subqueries():
+    assert_sql_result(
+        """
+SELECT SUM((SELECT max(a) a from x) + (SELECT min(b) b from x) + c) AS y FROM x
+""",
+        dialect="mysql",
+        expected_file=RESOURCE_DIR / "test_multiple_select_subqueries.json",
     )
 
 
@@ -956,7 +1001,6 @@ FROM table1
     )
 
 
-@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
 def test_postgres_update_subselect():
     assert_sql_result(
         """
@@ -1078,7 +1122,6 @@ CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spect
     )
 
 
-@pytest.mark.skip(reason="sqlglot doesn't recognize the BACKUP directive right now")
 def test_redshift_system_automove() -> None:
     # Came across this in the Redshift query log, but it seems to be a system-generated query.
     assert_sql_result(
@@ -1107,4 +1150,106 @@ AS (
         dialect="redshift",
         default_db="my_db",
         expected_file=RESOURCE_DIR / "test_redshift_system_automove.json",
+    )
+
+
+def test_snowflake_with_unnamed_column_from_udf_call() -> None:
+    assert_sql_result(
+        """SELECT
+  A.ID,
+  B.NAME,
+  PARSE_JSON(B.MY_JSON) AS :userInfo,
+  B.ADDRESS
+FROM my_db.my_schema.my_table AS A
+LEFT JOIN my_db.my_schema.my_table_B AS B
+  ON A.ID = B.ID
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        expected_file=RESOURCE_DIR / "test_snowflake_unnamed_column_udf.json",
+    )
+
+
+def test_sqlite_insert_into_values() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO my_table (id, month, total_cost, area)
+    VALUES
+        (1, '2021-01', 100, 10),
+        (2, '2021-02', 200, 20),
+        (3, '2021-03', 300, 30)
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_insert_into_values.json",
+    )
+
+
+def test_bigquery_information_schema_query() -> None:
+    # Special case - the BigQuery INFORMATION_SCHEMA views are prefixed with a
+    # project + possibly a dataset/region, so sometimes are 4 parts instead of 3.
+    # https://cloud.google.com/bigquery/docs/information-schema-intro#syntax
+
+    assert_sql_result(
+        """\
+select
+  c.table_catalog as table_catalog,
+  c.table_schema as table_schema,
+  c.table_name as table_name,
+  c.column_name as column_name,
+  c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
+  c.is_nullable as is_nullable,
+  CASE WHEN CONTAINS_SUBSTR(cfp.field_path, ".") THEN NULL ELSE c.data_type END as data_type,
+  description as comment,
+  c.is_hidden as is_hidden,
+  c.is_partitioning_column as is_partitioning_column,
+  c.clustering_ordinal_position as clustering_ordinal_position,
+from
+  `acryl-staging-2`.`smoke_test_db_4`.INFORMATION_SCHEMA.COLUMNS c
+  join `acryl-staging-2`.`smoke_test_db_4`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  and cfp.column_name = c.column_name
+ORDER BY
+  table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_information_schema_query.json",
+    )
+
+
+def test_bigquery_alter_table_column() -> None:
+    assert_sql_result(
+        """\
+ALTER TABLE `my-bq-project.covid_data.covid_deaths` drop COLUMN patient_name
+    """,
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_alter_table_column.json",
+    )
+
+
+def test_sqlite_drop_table() -> None:
+    assert_sql_result(
+        """\
+DROP TABLE my_schema.my_table
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_drop_table.json",
+    )
+
+
+def test_sqlite_drop_view() -> None:
+    assert_sql_result(
+        """\
+DROP VIEW my_schema.my_view
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_drop_view.json",
+    )
+
+
+def test_snowflake_drop_schema() -> None:
+    assert_sql_result(
+        """\
+DROP SCHEMA my_schema
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_drop_schema.json",
     )

@@ -289,7 +289,7 @@ class OktaSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def __init__(self, config: OktaConfig, ctx: PipelineContext):
-        super(OktaSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
@@ -465,8 +465,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     "okta_groups", f"Failed to fetch Groups from Okta API: {err}"
                 )
             if groups:
-                for group in groups:
-                    yield group
+                yield from groups
             if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:
@@ -504,8 +503,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     f"Failed to fetch Users of Group {group.profile.name} from Okta API: {err}",
                 )
             if users:
-                for user in users:
-                    yield user
+                yield from users
             if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:
@@ -542,8 +540,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     "okta_users", f"Failed to fetch Users from Okta API: {err}"
                 )
             if users:
-                for user in users:
-                    yield user
+                yield from users
             if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:

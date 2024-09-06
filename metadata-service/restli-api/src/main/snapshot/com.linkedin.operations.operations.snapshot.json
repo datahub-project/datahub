@@ -576,7 +576,7 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
@@ -585,6 +585,7 @@
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
+      "RVW" : "Designates review fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
       "UAT" : "Designates user acceptance testing fabrics"
@@ -638,6 +639,51 @@
             "type" : "string",
             "doc" : "Additional context about the association",
             "optional" : true
+          }, {
+            "name" : "attribution",
+            "type" : {
+              "type" : "record",
+              "name" : "MetadataAttribution",
+              "doc" : "Information about who, why, and how this metadata was applied",
+              "fields" : [ {
+                "name" : "time",
+                "type" : "Time",
+                "doc" : "When this metadata was updated."
+              }, {
+                "name" : "actor",
+                "type" : "Urn",
+                "doc" : "The entity (e.g. a member URN) responsible for applying the assocated metadata. This can\neither be a user (in case of UI edits) or the datahub system for automation."
+              }, {
+                "name" : "source",
+                "type" : "Urn",
+                "doc" : "The DataHub source responsible for applying the associated metadata. This will only be filled out\nwhen a DataHub source is responsible. This includes the specific metadata test urn, the automation urn.",
+                "optional" : true
+              }, {
+                "name" : "sourceDetail",
+                "type" : {
+                  "type" : "map",
+                  "values" : "string"
+                },
+                "doc" : "The details associated with why this metadata was applied. For example, this could include\nthe actual regex rule, sql statement, ingestion pipeline ID, etc.",
+                "default" : { }
+              } ]
+            },
+            "doc" : "Information about who, why, and how this metadata was applied",
+            "optional" : true,
+            "Searchable" : {
+              "/actor" : {
+                "fieldName" : "tagAttributionActors",
+                "fieldType" : "URN"
+              },
+              "/source" : {
+                "fieldName" : "tagAttributionSources",
+                "fieldType" : "URN"
+              },
+              "/time" : {
+                "fieldName" : "tagAttributionDates",
+                "fieldType" : "DATETIME"
+              }
+            }
           } ]
         }
       },
@@ -746,6 +792,25 @@
       "type" : "string",
       "doc" : "Additional context about the association",
       "optional" : true
+    }, {
+      "name" : "attribution",
+      "type" : "MetadataAttribution",
+      "doc" : "Information about who, why, and how this metadata was applied",
+      "optional" : true,
+      "Searchable" : {
+        "/actor" : {
+          "fieldName" : "termAttributionActors",
+          "fieldType" : "URN"
+        },
+        "/source" : {
+          "fieldName" : "termAttributionSources",
+          "fieldType" : "URN"
+        },
+        "/time" : {
+          "fieldName" : "termAttributionDates",
+          "fieldType" : "DATETIME"
+        }
+      }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",
@@ -857,7 +922,7 @@
         "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
-  }, {
+  }, "com.linkedin.common.MetadataAttribution", {
     "type" : "record",
     "name" : "Owner",
     "namespace" : "com.linkedin.common",
@@ -1227,6 +1292,17 @@
           "fieldType" : "DATETIME"
         }
       }
+    }, {
+      "name" : "env",
+      "type" : "com.linkedin.common.FabricType",
+      "doc" : "Environment for this flow",
+      "optional" : true,
+      "Searchable" : {
+        "addToFilters" : true,
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Environment",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "name" : "dataFlowInfo"
@@ -1323,6 +1399,17 @@
       "doc" : "Status of the job - Deprecated for Data Process Instance model.",
       "optional" : true,
       "deprecated" : "Use Data Process Instance model, instead"
+    }, {
+      "name" : "env",
+      "type" : "com.linkedin.common.FabricType",
+      "doc" : "Environment for this job",
+      "optional" : true,
+      "Searchable" : {
+        "addToFilters" : true,
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Environment",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "name" : "dataJobInfo"
@@ -2080,6 +2167,29 @@
       "doc" : "DataHub-native Title, e.g. 'Software Engineer'",
       "optional" : true
     }, {
+      "name" : "platforms",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "The platforms that the user commonly works with",
+      "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "dataPlatform" ],
+          "name" : "IsUserOf"
+        }
+      }
+    }, {
+      "name" : "persona",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "The user's persona type, based on their role",
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "dataHubPersona" ],
+        "name" : "IsPersona"
+      }
+    }, {
       "name" : "slack",
       "type" : "string",
       "doc" : "Slack handle for the user",
@@ -2215,7 +2325,13 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who last modified the status and when."
+      "doc" : "Audit stamp containing who last modified the status and when.",
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "statusLastModifiedAt",
+          "fieldType" : "COUNT"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "corpUserStatus"
@@ -2587,8 +2703,9 @@
             }, {
               "name" : "label",
               "type" : "string",
-              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.",
+              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.\n\nNote that this field is deprecated and is not surfaced in the UI.",
               "optional" : true,
+              "Deprecated" : true,
               "Searchable" : {
                 "boostScore" : 0.2,
                 "fieldName" : "fieldLabels",
@@ -2729,6 +2846,18 @@
                 }
               },
               "Searchable" : {
+                "/tags/*/attribution/actor" : {
+                  "fieldName" : "fieldTagAttributionActors",
+                  "fieldType" : "URN"
+                },
+                "/tags/*/attribution/source" : {
+                  "fieldName" : "fieldTagAttributionSources",
+                  "fieldType" : "URN"
+                },
+                "/tags/*/attribution/time" : {
+                  "fieldName" : "fieldTagAttributionDates",
+                  "fieldType" : "DATETIME"
+                },
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
                   "fieldName" : "fieldTags",
@@ -2747,6 +2876,18 @@
                 }
               },
               "Searchable" : {
+                "/terms/*/attribution/actor" : {
+                  "fieldName" : "fieldTermAttributionActors",
+                  "fieldType" : "URN"
+                },
+                "/terms/*/attribution/source" : {
+                  "fieldName" : "fieldTermAttributionSources",
+                  "fieldType" : "URN"
+                },
+                "/terms/*/attribution/time" : {
+                  "fieldName" : "fieldTermAttributionDates",
+                  "fieldType" : "DATETIME"
+                },
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
                   "fieldName" : "fieldGlossaryTerms",
@@ -2916,6 +3057,18 @@
                 }
               },
               "Searchable" : {
+                "/tags/*/attribution/actor" : {
+                  "fieldName" : "editedFieldTagAttributionActors",
+                  "fieldType" : "URN"
+                },
+                "/tags/*/attribution/source" : {
+                  "fieldName" : "editedFieldTagAttributionSources",
+                  "fieldType" : "URN"
+                },
+                "/tags/*/attribution/time" : {
+                  "fieldName" : "editedFieldTagAttributionDates",
+                  "fieldType" : "DATETIME"
+                },
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
                   "fieldName" : "editedFieldTags",
@@ -2934,6 +3087,18 @@
                 }
               },
               "Searchable" : {
+                "/terms/*/attribution/actor" : {
+                  "fieldName" : "editedFieldTermAttributionActors",
+                  "fieldType" : "URN"
+                },
+                "/terms/*/attribution/source" : {
+                  "fieldName" : "editedFieldTermAttributionSources",
+                  "fieldType" : "URN"
+                },
+                "/terms/*/attribution/time" : {
+                  "fieldName" : "editedFieldTermAttributionDates",
+                  "fieldType" : "DATETIME"
+                },
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
                   "fieldName" : "editedFieldGlossaryTerms",
@@ -3013,6 +3178,7 @@
       "name" : "MLFeatureProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a MLFeature",
+      "include" : [ "com.linkedin.common.CustomProperties" ],
       "fields" : [ {
         "name" : "description",
         "type" : "string",

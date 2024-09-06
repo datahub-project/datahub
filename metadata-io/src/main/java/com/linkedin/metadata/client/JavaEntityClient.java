@@ -7,11 +7,11 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
@@ -23,6 +23,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -47,6 +48,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -59,12 +61,17 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -90,6 +97,7 @@ public class JavaEntityClient implements EntityClient {
   private final TimeseriesAspectService timeseriesAspectService;
   private final RollbackService rollbackService;
   private final EventProducer eventProducer;
+  private final int batchGetV2Size;
 
   @Override
   @Nullable
@@ -108,7 +116,7 @@ public class JavaEntityClient implements EntityClient {
   @Nonnull
   @Deprecated
   public Entity get(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
-    return entityService.getEntity(opContext, urn, ImmutableSet.of());
+    return entityService.getEntity(opContext, urn, ImmutableSet.of(), true);
   }
 
   @Nonnull
@@ -121,7 +129,22 @@ public class JavaEntityClient implements EntityClient {
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
-    return entityService.getEntitiesV2(opContext, entityName, urns, projectedAspects);
+
+    Map<Urn, EntityResponse> responseMap = new HashMap<>();
+
+    Iterators.partition(urns.iterator(), Math.max(1, batchGetV2Size))
+        .forEachRemaining(
+            batch -> {
+              try {
+                responseMap.putAll(
+                    entityService.getEntitiesV2(
+                        opContext, entityName, new HashSet<>(batch), projectedAspects));
+              } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    return responseMap;
   }
 
   @Override
@@ -130,11 +153,25 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Set<VersionedUrn> versionedUrns,
-      @Nullable final Set<String> aspectNames)
-      throws RemoteInvocationException, URISyntaxException {
+      @Nullable final Set<String> aspectNames) {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
-    return entityService.getEntitiesVersionedV2(opContext, versionedUrns, projectedAspects);
+
+    Map<Urn, EntityResponse> responseMap = new HashMap<>();
+
+    Iterators.partition(versionedUrns.iterator(), Math.max(1, batchGetV2Size))
+        .forEachRemaining(
+            batch -> {
+              try {
+                responseMap.putAll(
+                    entityService.getEntitiesVersionedV2(
+                        opContext, new HashSet<>(batch), projectedAspects));
+              } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    return responseMap;
   }
 
   @Override
@@ -142,7 +179,7 @@ public class JavaEntityClient implements EntityClient {
   @Deprecated
   public Map<Urn, Entity> batchGet(
       @Nonnull OperationContext opContext, @Nonnull final Set<Urn> urns) {
-    return entityService.getEntities(opContext, urns, ImmutableSet.of());
+    return entityService.getEntities(opContext, urns, ImmutableSet.of(), true);
   }
 
   /**
@@ -339,7 +376,13 @@ public class JavaEntityClient implements EntityClient {
     return ValidationUtils.validateSearchResult(
         opContext,
         entitySearchService.search(
-            opContext, List.of(entity), input, newFilter(requestFilters), null, start, count),
+            opContext,
+            List.of(entity),
+            input,
+            newFilter(requestFilters),
+            Collections.emptyList(),
+            start,
+            count),
         entityService);
   }
 
@@ -370,7 +413,7 @@ public class JavaEntityClient implements EntityClient {
                 opContext.withSearchFlags(flags -> flags.setFulltext(false)),
                 entity,
                 newFilter(requestFilters),
-                null,
+                Collections.emptyList(),
                 start,
                 count)),
         entityService);
@@ -381,7 +424,7 @@ public class JavaEntityClient implements EntityClient {
    *
    * @param input search query
    * @param filter search filters
-   * @param sortCriterion sort criterion
+   * @param sortCriteria sort criteria
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
@@ -393,14 +436,14 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
         opContext,
         entitySearchService.search(
-            opContext, List.of(entity), input, filter, sortCriterion, start, count),
+            opContext, List.of(entity), input, filter, sortCriteria, start, count),
         entityService);
   }
 
@@ -413,10 +456,10 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion)
+      List<SortCriterion> sortCriteria)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriterion, null);
+        opContext, entities, input, filter, start, count, sortCriteria, null);
   }
 
   /**
@@ -428,7 +471,7 @@ public class JavaEntityClient implements EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @param facets list of facets we want aggregations for
-   * @param sortCriterion sorting criterion
+   * @param sortCriteria sorting criteria
    * @return Snapshot key
    * @throws RemoteInvocationException when unable to execute request
    */
@@ -440,7 +483,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
 
@@ -451,7 +494,7 @@ public class JavaEntityClient implements EntityClient {
             entities,
             input,
             filter,
-            sortCriterion,
+            sortCriteria,
             start,
             count,
             facets),
@@ -493,7 +536,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
@@ -507,7 +550,7 @@ public class JavaEntityClient implements EntityClient {
             input,
             maxHops,
             filter,
-            sortCriterion,
+            sortCriteria,
             start,
             count),
         entityService);
@@ -523,7 +566,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       int count)
@@ -541,7 +584,7 @@ public class JavaEntityClient implements EntityClient {
             input,
             maxHops,
             filter,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             keepAlive,
             count),
@@ -609,7 +652,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
@@ -619,7 +662,7 @@ public class JavaEntityClient implements EntityClient {
             opContext.withSearchFlags(flags -> flags.setFulltext(true)),
             entity,
             filter,
-            sortCriterion,
+            sortCriteria,
             start,
             count),
         entityService);
@@ -705,35 +748,54 @@ public class JavaEntityClient implements EntityClient {
     return response.getValues();
   }
 
-  // TODO: Factor out ingest logic into a util that can be accessed by the java client and the
-  // resource
   @Override
-  public String ingestProposal(
+  @Nonnull
+  public List<String> batchIngestProposals(
       @Nonnull OperationContext opContext,
-      @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      final boolean async)
-      throws RemoteInvocationException {
+      @Nonnull Collection<MetadataChangeProposal> metadataChangeProposals,
+      boolean async) {
     String actorUrnStr =
         opContext.getSessionAuthentication().getActor() != null
             ? opContext.getSessionAuthentication().getActor().toUrnStr()
             : Constants.UNKNOWN_ACTOR;
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(UrnUtils.getUrn(actorUrnStr));
+    final AuditStamp auditStamp = AuditStampUtils.createAuditStamp(actorUrnStr);
 
     AspectsBatch batch =
         AspectsBatchImpl.builder()
-            .mcps(
-                List.of(metadataChangeProposal), auditStamp, opContext.getRetrieverContext().get())
+            .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get())
             .build();
 
-    Optional<IngestResult> one =
-        entityService.ingestProposal(opContext, batch, async).stream().findFirst();
+    Map<BatchItem, List<IngestResult>> resultMap =
+        entityService.ingestProposal(opContext, batch, async).stream()
+            .collect(Collectors.groupingBy(IngestResult::getRequest));
 
-    Urn urn = one.map(IngestResult::getUrn).orElse(metadataChangeProposal.getEntityUrn());
-    if (one.isPresent()) {
-      tryIndexRunId(opContext, urn, metadataChangeProposal.getSystemMetadata());
-    }
-    return urn.toString();
+    // Update runIds
+    batch.getItems().stream()
+        .filter(resultMap::containsKey)
+        .forEach(
+            requestItem -> {
+              List<IngestResult> results = resultMap.get(requestItem);
+              Optional<Urn> resultUrn =
+                  results.stream().map(IngestResult::getUrn).filter(Objects::nonNull).findFirst();
+              resultUrn.ifPresent(
+                  urn -> tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
+            });
+
+    // Preserve ordering
+    return batch.getItems().stream()
+        .map(
+            requestItem -> {
+              if (resultMap.containsKey(requestItem)) {
+                List<IngestResult> results = resultMap.get(requestItem);
+                return results.stream()
+                    .filter(r -> r.getUrn() != null)
+                    .findFirst()
+                    .map(r -> r.getUrn().toString())
+                    .orElse(null);
+              }
+              return null;
+            })
+        .collect(Collectors.toList());
   }
 
   @SneakyThrows

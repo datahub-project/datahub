@@ -45,6 +45,18 @@ task yarnInstall(type: YarnTask) {
   args = ['install', '--cwd', "${project.rootDir}/smoke-test/tests/cypress"]
 }
 
+task cypressLint(type: YarnTask, dependsOn: yarnInstall) {
+  environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
+  // TODO: Run a full lint instead of just format.
+  args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format']
+}
+
+task cypressLintFix(type: YarnTask, dependsOn: yarnInstall) {
+  environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
+  // TODO: Run a full lint instead of just format.
+  args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format', '--write']
+}
+
 task installDev(type: Exec) {
     inputs.file file('pyproject.toml')
     inputs.file file('requirements.txt')
@@ -58,7 +70,7 @@ task installDev(type: Exec) {
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
-task lint(type: Exec, dependsOn: installDev) {
+task pythonLint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
         "black --check --diff tests/ && " +
@@ -66,7 +78,7 @@ task lint(type: Exec, dependsOn: installDev) {
         "ruff --statistics tests/ && " +
         "mypy tests/"
 }
-task lintFix(type: Exec, dependsOn: installDev) {
+task pythonLintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
         "black tests/ && " +
@@ -81,8 +93,6 @@ task lintFix(type: Exec, dependsOn: installDev) {
  */
 task noCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'no_cypress_suite0'
 
     workingDir = project.projectDir
@@ -93,8 +103,6 @@ task noCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:in
 
 task noCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'no_cypress_suite1'
 
     workingDir = project.projectDir
@@ -105,8 +113,6 @@ task noCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:in
 
 task cypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'cypress_suite1'
 
     workingDir = project.projectDir
@@ -117,8 +123,6 @@ task cypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:inst
 
 task cypressRest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'cypress_rest'
 
     workingDir = project.projectDir
@@ -132,11 +136,30 @@ task cypressRest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:instal
  */
 task cypressDev(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
-    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
-    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
             "source ${venv_name}/bin/activate && set -x && " +
                     "./cypress-dev.sh"
+}
+
+/**
+ * The following will install Cypress data in an already running stack.
+ */
+task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'RUN_UI', 'false'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./cypress-dev.sh"
+}
+
+task lint {
+    dependsOn pythonLint, cypressLint
+}
+
+task lintFix {
+    dependsOn pythonLintFix
 }

@@ -12,6 +12,7 @@ import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.EntityResponse;
@@ -20,8 +21,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -29,6 +30,7 @@ import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
@@ -132,7 +134,7 @@ public class DefaultAspectsUtil {
                               getProposalFromAspectForDefault(
                                   entry.getKey(), entry.getValue(), entityKeyAspect, templateItem),
                               templateItem.getAuditStamp(),
-                              opContext.getRetrieverContext().get().getAspectRetriever()))
+                              opContext.getAspectRetrieverOpt().get()))
                   .filter(Objects::nonNull);
             })
         .collect(Collectors.toList());
@@ -157,7 +159,7 @@ public class DefaultAspectsUtil {
     // Key Aspect
     final String keyAspectName = opContext.getKeyAspectName(urn);
     defaultAspects.add(
-        Pair.of(keyAspectName, EntityUtils.buildKeyAspect(opContext.getEntityRegistry(), urn)));
+        Pair.of(keyAspectName, EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), urn)));
 
     // Other Aspects
     defaultAspects.addAll(
@@ -348,7 +350,14 @@ public class DefaultAspectsUtil {
 
     // Set fields determined from original
     if (templateItem.getSystemMetadata() != null) {
-      proposal.setSystemMetadata(templateItem.getSystemMetadata());
+      SystemMetadata systemMetadata = null;
+      try {
+        systemMetadata = new SystemMetadata(templateItem.getSystemMetadata().copy().data());
+      } catch (CloneNotSupportedException e) {
+        throw new RuntimeException(e);
+      }
+      systemMetadata.setVersion(null, SetMode.REMOVE_IF_NULL);
+      proposal.setSystemMetadata(systemMetadata);
     }
     if (templateItem.getUrn() != null) {
       proposal.setEntityUrn(templateItem.getUrn());

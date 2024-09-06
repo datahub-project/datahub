@@ -44,7 +44,7 @@ public class DataHubKafkaProducerFactory {
           Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    Map<String, Object> props = properties.buildProducerProperties();
+    Map<String, Object> props = properties.buildProducerProperties(null);
 
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getSerializer());
 

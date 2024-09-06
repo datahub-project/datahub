@@ -3,7 +3,7 @@ import logging
 import time
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import requests
 from pydantic import Field, validator
@@ -124,6 +124,9 @@ class SalesforceConfig(DatasetSourceConfigMixin):
         default=dict(),
         description='Regex patterns for tables/schemas to describe domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain keys specified.',
     )
+    api_version: Optional[str] = Field(
+        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'"
+    )
 
     profiling: SalesforceProfilingConfig = SalesforceProfilingConfig()
 
@@ -199,6 +202,14 @@ FIELD_TYPE_MAPPING = {
     description="Not supported yet",
     supported=False,
 )
+@capability(
+    capability_name=SourceCapability.SCHEMA_METADATA,
+    description="Enabled by default",
+)
+@capability(
+    capability_name=SourceCapability.TAGS,
+    description="Enabled by default",
+)
 class SalesforceSource(Source):
     base_url: str
     config: SalesforceConfig
@@ -214,6 +225,12 @@ class SalesforceSource(Source):
         self.session = requests.Session()
         self.platform: str = "salesforce"
         self.fieldCounts = {}
+        common_args: Dict[str, Any] = {
+            "domain": "test" if self.config.is_sandbox else None,
+            "session": self.session,
+        }
+        if self.config.api_version:
+            common_args["version"] = self.config.api_version
 
         try:
             if self.config.auth is SalesforceAuthType.DIRECT_ACCESS_TOKEN:
@@ -228,8 +245,7 @@ class SalesforceSource(Source):
                 self.sf = Salesforce(
                     instance_url=self.config.instance_url,
                     session_id=self.config.access_token,
-                    session=self.session,
-                    domain="test" if self.config.is_sandbox else None,
+                    **common_args,
                 )
             elif self.config.auth is SalesforceAuthType.USERNAME_PASSWORD:
                 logger.debug("Username/Password Provided in Config")
@@ -247,8 +263,7 @@ class SalesforceSource(Source):
                     username=self.config.username,
                     password=self.config.password,
                     security_token=self.config.security_token,
-                    session=self.session,
-                    domain="test" if self.config.is_sandbox else None,
+                    **common_args,
                 )
 
             elif self.config.auth is SalesforceAuthType.JSON_WEB_TOKEN:
@@ -267,14 +282,13 @@ class SalesforceSource(Source):
                     username=self.config.username,
                     consumer_key=self.config.consumer_key,
                     privatekey=self.config.private_key,
-                    session=self.session,
-                    domain="test" if self.config.is_sandbox else None,
+                    **common_args,
                 )
 
         except Exception as e:
             logger.error(e)
             raise ConfigurationError("Salesforce login failed") from e
-        else:
+        if not self.config.api_version:
             # List all REST API versions and use latest one
             versions_url = "https://{instance}/services/data/".format(
                 instance=self.sf.sf_instance,
@@ -282,17 +296,22 @@ class SalesforceSource(Source):
             versions_response = self.sf._call_salesforce("GET", versions_url).json()
             latest_version = versions_response[-1]
             version = latest_version["version"]
+            # we could avoid setting the version like below (after the Salesforce object has been already initiated
+            # above), since, according to the docs:
+            # https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_versions.htm
+            # we don't need to be authenticated to list the versions (so we could perform this call before even
+            # authenticating)
             self.sf.sf_version = version
 
-            self.base_url = "https://{instance}/services/data/v{sf_version}/".format(
-                instance=self.sf.sf_instance, sf_version=version
-            )
+        self.base_url = "https://{instance}/services/data/v{sf_version}/".format(
+            instance=self.sf.sf_instance, sf_version=self.sf.sf_version
+        )
 
-            logger.debug(
-                "Using Salesforce REST API with {label} version: {version}".format(
-                    label=latest_version["label"], version=latest_version["version"]
-                )
+        logger.debug(
+            "Using Salesforce REST API version: {version}".format(
+                version=self.sf.sf_version
             )
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         sObjects = self.get_salesforce_objects()
@@ -353,7 +372,7 @@ class SalesforceSource(Source):
             self.base_url
             + "tooling/query/?q=SELECT Description, Language, ManageableState, "
             + "CreatedDate, CreatedBy.Username, LastModifiedDate, LastModifiedBy.Username "
-            + "FROM CustomObject where DeveloperName='{0}'".format(sObjectDeveloperName)
+            + f"FROM CustomObject where DeveloperName='{sObjectDeveloperName}'"
         )
         custom_objects_response = self.sf._call_salesforce("GET", query_url).json()
         if len(custom_objects_response["records"]) > 0:
@@ -537,20 +556,22 @@ class SalesforceSource(Source):
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(self, field: dict, customField: dict) -> str:
-        desc = (
-            "\\" + field["Label"] if field["Label"].startswith("#") else field["Label"]
-        )
+        if "Label" not in field or field["Label"] is None:
+            desc = ""
+        elif field["Label"].startswith("#"):
+            desc = "\\" + field["Label"]
+        else:
+            desc = field["Label"]
 
-        for key in ["FieldDefinition", "InlineHelpText"]:
-            text: Optional[str] = ""
-            if isinstance(field.get(key), dict):
-                text = field[key].get("Description")
-            else:
-                text = field.get(key)
+        text = field.get("FieldDefinition", {}).get("Description", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
 
-            if text:
-                prefix = "\\" if text.startswith("#") else ""
-                desc += f"\n\n{prefix}{text}"
+        text = field.get("InlineHelpText", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
 
         return desc
 
@@ -654,7 +675,7 @@ class SalesforceSource(Source):
             + "Precision, Scale, Length, Digits ,FieldDefinition.IsIndexed, IsUnique,"
             + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
             + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText "
-            + "FROM EntityParticle WHERE EntityDefinitionId='{0}'".format(
+            + "FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
                 sObject["DurableId"]
             )
         )
@@ -663,16 +684,14 @@ class SalesforceSource(Source):
             "GET", sObject_fields_query_url
         ).json()
 
-        logger.debug(
-            "Received Salesforce {sObject} fields response".format(sObject=sObjectName)
-        )
+        logger.debug(f"Received Salesforce {sObjectName} fields response")
 
         sObject_custom_fields_query_url = (
             self.base_url
             + "tooling/query?q=SELECT "
             + "DeveloperName,CreatedDate,CreatedBy.Username,InlineHelpText,"
             + "LastModifiedDate,LastModifiedBy.Username "
-            + "FROM CustomField WHERE EntityDefinitionId='{0}'".format(
+            + "FROM CustomField WHERE EntityDefinitionId='{}'".format(
                 sObject["DurableId"]
             )
         )

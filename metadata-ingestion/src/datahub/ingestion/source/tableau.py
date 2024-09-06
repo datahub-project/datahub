@@ -1,5 +1,7 @@
 import logging
 import re
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
@@ -12,19 +14,22 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Type,
     Union,
     cast,
 )
+from urllib.parse import quote, urlparse
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
-from requests.adapters import ConnectionError, HTTPAdapter
+from requests.adapters import HTTPAdapter
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
     ServerResponseError,
+    SiteItem,
     TableauAuth,
 )
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
@@ -86,6 +91,7 @@ from datahub.ingestion.source.tableau_common import (
     clean_query,
     custom_sql_graphql_query,
     dashboard_graphql_query,
+    database_servers_graphql_query,
     database_tables_graphql_query,
     embedded_datasource_graphql_query,
     get_filter_pages,
@@ -154,6 +160,21 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.utilities import config_clean
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
+try:
+    # On earlier versions of the tableauserverclient, the NonXMLResponseError
+    # was thrown when reauthentication was needed. We'll keep both exceptions
+    # around for now, but can remove this in the future.
+    from tableauserverclient.server.endpoint.exceptions import (  # type: ignore
+        NotSignedInError,
+    )
+
+    REAUTHENTICATE_ERRORS: Tuple[Type[Exception], ...] = (
+        NotSignedInError,
+        NonXMLResponseError,
+    )
+except ImportError:
+    REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Replace / with |
@@ -203,24 +224,31 @@ class TableauConnectionConfig(ConfigModel):
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    def make_tableau_client(self) -> Server:
+    def get_tableau_auth(
+        self, site: str
+    ) -> Union[TableauAuth, PersonalAccessTokenAuth]:
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
         authentication: Union[TableauAuth, PersonalAccessTokenAuth]
         if self.username and self.password:
             authentication = TableauAuth(
                 username=self.username,
                 password=self.password,
-                site_id=self.site,
+                site_id=site,
             )
         elif self.token_name and self.token_value:
             authentication = PersonalAccessTokenAuth(
-                self.token_name, self.token_value, self.site
+                self.token_name, self.token_value, site
             )
         else:
             raise ConfigurationError(
                 "Tableau Source: Either username/password or token_name/token_value must be set"
             )
+        return authentication
 
+    def make_tableau_client(self, site: str) -> Server:
+        authentication: Union[
+            TableauAuth, PersonalAccessTokenAuth
+        ] = self.get_tableau_auth(site)
         try:
             server = Server(
                 self.connect_uri,
@@ -345,6 +373,11 @@ class TableauConfig(
         description="Mappings to change generated dataset urns. Use only if you really know what you are doing.",
     )
 
+    database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Mappings to change platform instance in generated dataset urns based on database. Use only if you really know what you are doing.",
+    )
+
     extract_usage_stats: bool = Field(
         default=False,
         description="[experimental] Extract usage statistics for dashboards and charts.",
@@ -390,6 +423,25 @@ class TableauConfig(
         "(allows to workaround ingestion errors when pre ingested schema and queries are out of sync)",
     )
 
+    ingest_multiple_sites: bool = Field(
+        False,
+        description="When enabled, ingests multiple sites the user has access to. If the user doesn't have access to the default site, specify an initial site to query in the site property. By default all sites the user has access to will be ingested. You can filter sites with the site_name_pattern property. This flag is currently only supported for Tableau Server. Tableau Cloud is not supported.",
+    )
+
+    site_name_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filter for specific Tableau sites. "
+        "By default, all sites will be included in the ingestion. "
+        "You can both allow and deny sites based on their name using their name, or a Regex pattern. "
+        "Deny patterns always take precedence over allow patterns. "
+        "This property is currently only supported for Tableau Server. Tableau Cloud is not supported. ",
+    )
+
+    add_site_container: bool = Field(
+        False,
+        description="When enabled, sites are added as containers and therefore visible in the folder structure within Datahub.",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
@@ -416,6 +468,10 @@ class WorkbookKey(ContainerKey):
 
 class ProjectKey(ContainerKey):
     project_id: str
+
+
+class SiteKey(ContainerKey):
+    site_id: str
 
 
 @dataclass
@@ -527,16 +583,134 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         ctx: PipelineContext,
     ):
         super().__init__(config, ctx)
-
         self.config: TableauConfig = config
         self.report: TableauSourceReport = TableauSourceReport()
         self.server: Optional[Server] = None
+        self._authenticate(self.config.site)
+
+    def _authenticate(self, site_content_url: str) -> None:
+        try:
+            logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
+            self.server = self.config.make_tableau_client(site_content_url)
+        # Note that we're not catching ConfigurationError, since we want that to throw.
+        except ValueError as e:
+            self.report.failure(
+                title="Tableau Login Error",
+                message="Failed to authenticate with Tableau.",
+                exc=e,
+            )
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            source_config = TableauConfig.parse_obj_allow_extras(config_dict)
+            source_config.make_tableau_client(source_config.site)
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+        except Exception as e:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=str(e)
+            )
+        return test_report
+
+    def get_report(self) -> TableauSourceReport:
+        return self.report
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
+        config = TableauConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.server is None or not self.server.is_signed_in():
+            return
+        try:
+            if self.config.ingest_multiple_sites:
+                for site in list(TSC.Pager(self.server.sites)):
+                    if (
+                        site.state != "Active"
+                        or not self.config.site_name_pattern.allowed(site.name)
+                    ):
+                        logger.info(
+                            f"Skip site '{site.name}' as it's excluded in site_name_pattern or inactive."
+                        )
+                        continue
+                    self.server.auth.switch_site(site)
+                    site_source = TableauSiteSource(
+                        config=self.config,
+                        ctx=self.ctx,
+                        site=site,
+                        report=self.report,
+                        server=self.server,
+                        platform=self.platform,
+                    )
+                    logger.info(f"Ingesting assets of site '{site.content_url}'.")
+                    yield from site_source.ingest_tableau_site()
+            else:
+                site = self.server.sites.get_by_id(self.server.site_id)
+                site_source = TableauSiteSource(
+                    config=self.config,
+                    ctx=self.ctx,
+                    site=site,
+                    report=self.report,
+                    server=self.server,
+                    platform=self.platform,
+                )
+                yield from site_source.ingest_tableau_site()
+        except MetadataQueryException as md_exception:
+            self.report.failure(
+                title="Failed to Retrieve Tableau Metadata",
+                message="Unable to retrieve metadata from tableau.",
+                context=str(md_exception),
+            )
+
+    def close(self) -> None:
+        try:
+            if self.server is not None:
+                self.server.auth.sign_out()
+        except Exception as ex:
+            logger.warning(
+                "During graceful closing of Tableau source a sign-out call was tried but ended up with"
+                " an Exception (%s). Continuing closing of the source",
+                ex,
+            )
+            self.server = None
+        super().close()
+
+
+class TableauSiteSource:
+    def __init__(
+        self,
+        config: TableauConfig,
+        ctx: PipelineContext,
+        site: SiteItem,
+        report: TableauSourceReport,
+        server: Server,
+        platform: str,
+    ):
+        self.config: TableauConfig = config
+        self.report = report
+        self.server: Server = server
+        self.ctx: PipelineContext = ctx
+        self.site: SiteItem = site
+        self.platform = platform
+
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
         self.tableau_project_registry: Dict[str, TableauProject] = {}
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
 
+        # This map keeps track of the database server connection hostnames.
+        self.database_server_hostname_map: Dict[str, str] = {}
         # This list keeps track of sheets in workbooks so that we retrieve those
         # when emitting sheets.
         self.sheet_ids: List[str] = []
@@ -553,34 +727,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
 
-        self._authenticate()
-
-    @staticmethod
-    def test_connection(config_dict: dict) -> TestConnectionReport:
-        test_report = TestConnectionReport()
-        try:
-            source_config = TableauConfig.parse_obj_allow_extras(config_dict)
-            source_config.make_tableau_client()
-            test_report.basic_connectivity = CapabilityReport(capable=True)
-        except Exception as e:
-            test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(e)
-            )
-        return test_report
-
-    def close(self) -> None:
-        try:
-            if self.server is not None:
-                self.server.auth.sign_out()
-        except ConnectionError as err:
-            logger.warning(
-                "During graceful closing of Tableau source a sign-out call was tried but ended up with"
-                " a ConnectionError (%s). Continuing closing of the source",
-                err,
-            )
-            self.server = None
-        super().close()
-
     @property
     def no_env_browse_prefix(self) -> str:
         # Prefix to use with browse path (v1)
@@ -591,12 +737,31 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.platform_instance
             else self.platform
         )
-        return f"/{platform_with_instance}"
+        return f"/{platform_with_instance}{self.site_name_browse_path}"
+
+    @property
+    def site_name_browse_path(self) -> str:
+        site_name_prefix = (
+            self.site.name if self.site and self.config.add_site_container else ""
+        )
+        return f"/{site_name_prefix}" if site_name_prefix else ""
 
     @property
     def dataset_browse_prefix(self) -> str:
         # datasets also have the env in the browse path
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
+
+    def _re_authenticate(self):
+        tableau_auth: Union[
+            TableauAuth, PersonalAccessTokenAuth
+        ] = self.config.get_tableau_auth(self.site.content_url)
+        self.server.auth.sign_in(tableau_auth)
+
+    @property
+    def site_content_url(self) -> Optional[str]:
+        if self.site and self.site.content_url:
+            return self.site.content_url
+        return None
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -608,6 +773,24 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
+
+    def _populate_database_server_hostname_map(self) -> None:
+        def maybe_parse_hostname():
+            # If the connection string is a URL instead of a hostname, parse it
+            # and extract the hostname, otherwise just return the connection string.
+            parsed_host_name = urlparse(server_connection).hostname
+            if parsed_host_name:
+                return parsed_host_name
+            return server_connection
+
+        for database_server in self.get_connection_objects(
+            database_servers_graphql_query, c.DATABASE_SERVERS_CONNECTION
+        ):
+            database_server_id = database_server.get(c.ID)
+            server_connection = database_server.get(c.HOST_NAME)
+            host_name = maybe_parse_hostname()
+            if host_name:
+                self.database_server_hostname_map[str(database_server_id)] = host_name
 
     def _get_all_project(self) -> Dict[str, TableauProject]:
         all_project_map: Dict[str, TableauProject] = {}
@@ -638,6 +821,12 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 cur_proj = all_project_map[project_id]
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
+                    if cur_proj.parent_id not in all_project_map:
+                        self.report.report_warning(
+                            "project-issue",
+                            f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
+                        )
+                        break
                     cur_proj = all_project_map[cur_proj.parent_id]
                     ancestors = [cur_proj.name, *ancestors]
                 return ancestors
@@ -680,7 +869,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
-
+        projects_to_ingest = {}
         for project in all_project_map.values():
             # Skip project if it is not allowed
             logger.debug(f"Evaluating project pattern for {project.name}")
@@ -689,7 +878,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 logger.debug(f"Project {project.name} is skipped")
                 continue
             logger.debug(f"Project {project.name} is added in project registry")
-            self.tableau_project_registry[project.id] = project
+            projects_to_ingest[project.id] = project
+
+        # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
+        # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
+        self.tableau_project_registry = OrderedDict(
+            sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path))
+        )
 
         if self.config.extract_project_hierarchy is False:
             logger.debug(
@@ -760,17 +955,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             f"Tableau workbooks {self.workbook_project_map}",
         )
 
-    def _authenticate(self) -> None:
-        try:
-            self.server = self.config.make_tableau_client()
-            logger.info("Authenticated to Tableau server")
-        # Note that we're not catching ConfigurationError, since we want that to throw.
-        except ValueError as e:
-            self.report.failure(
-                key="tableau-login",
-                reason=str(e),
-            )
-
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=builder.make_data_platform_urn(self.platform),
@@ -804,14 +988,14 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             query_data = query_metadata(
                 self.server, query, connection_type, count, offset, query_filter
             )
-        except NonXMLResponseError:
+        except REAUTHENTICATE_ERRORS:
             if not retry_on_auth_error:
                 raise
 
             # If ingestion has been running for over 2 hours, the Tableau
             # temporary credentials will expire. If this happens, this exception
             # will be thrown and we need to re-authenticate and retry.
-            self._authenticate()
+            self._re_authenticate()
             return self.get_connection_object_page(
                 query,
                 connection_type,
@@ -848,8 +1032,64 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 error and (error.get(c.EXTENSIONS) or {}).get(c.SEVERITY) == c.WARNING
                 for error in errors
             ):
-                self.report.warning(key=connection_type, reason=f"{errors}")
+                # filter out PERMISSIONS_MODE_SWITCHED to report error in human-readable format
+                other_errors = []
+                permission_mode_errors = []
+                for error in errors:
+                    if (
+                        error.get("extensions")
+                        and error["extensions"].get("code")
+                        == "PERMISSIONS_MODE_SWITCHED"
+                    ):
+                        permission_mode_errors.append(error)
+                    else:
+                        other_errors.append(error)
+
+                if other_errors:
+                    self.report.warning(
+                        message=f"Received error fetching Query Connection {connection_type}",
+                        context=f"Errors: {other_errors}",
+                    )
+
+                if permission_mode_errors:
+                    self.report.warning(
+                        title="Derived Permission Error",
+                        message="Turn on your derived permissions. See for details "
+                        "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the"
+                        "-permissionsmodeswitched-error",
+                        context=f"{permission_mode_errors}",
+                    )
+
             else:
+                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30 second
+                # timeout error. It doesn't reliably happen, so retrying a couple times makes sense.
+                if all(
+                    error.get("message")
+                    == "Execution canceled because timeout of 30000 millis was reached"
+                    for error in errors
+                ):
+                    # If it was only a timeout error, we can retry.
+                    if retries_remaining <= 0:
+                        raise
+
+                    # This is a pretty dumb backoff mechanism, but it's good enough for now.
+                    backoff_time = min(
+                        (self.config.max_retries - retries_remaining + 1) ** 2, 60
+                    )
+                    logger.info(
+                        f"Query {connection_type} received a 30 second timeout error - will retry in {backoff_time} seconds. "
+                        f"Retries remaining: {retries_remaining}"
+                    )
+                    time.sleep(backoff_time)
+                    return self.get_connection_object_page(
+                        query,
+                        connection_type,
+                        query_filter,
+                        count,
+                        offset,
+                        retry_on_auth_error=False,
+                        retries_remaining=retries_remaining - 1,
+                    )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
         connection_object = query_data.get(c.DATA, {}).get(connection_type, {})
@@ -864,7 +1104,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self,
         query: str,
         connection_type: str,
-        query_filter: dict,
+        query_filter: dict = {},
         page_size_override: Optional[int] = None,
     ) -> Iterable[dict]:
         # Calls the get_connection_object_page function to get the objects,
@@ -897,8 +1137,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
                 offset += count
 
-                for obj in connection_objects.get(c.NODES) or []:
-                    yield obj
+                yield from connection_objects.get(c.NODES) or []
 
     def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
         if self.tableau_project_registry:
@@ -1003,6 +1242,30 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
+
+        if not upstream_tables:
+            # Tableau's metadata graphql API sometimes returns an empty list for upstreamTables
+            # for embedded datasources. However, the upstreamColumns field often includes information.
+            # This attempts to populate upstream table information from the upstreamColumns field.
+            table_id_to_urn = {
+                column[c.TABLE][c.ID]: builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    column[c.TABLE][c.ID],
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                for field in datasource.get(c.FIELDS, [])
+                for column in field.get(c.UPSTREAM_COLUMNS, [])
+                if column.get(c.TABLE, {}).get(c.TYPE_NAME) == c.CUSTOM_SQL_TABLE
+                and column.get(c.TABLE, {}).get(c.ID)
+            }
+            fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
+                datasource, datasource_urn, table_id_to_urn
+            )
+            upstream_tables = [
+                Upstream(dataset=table_urn, type=DatasetLineageType.TRANSFORMED)
+                for table_urn in table_id_to_urn.values()
+            ]
 
         if datasource.get(c.FIELDS):
             if self.config.extract_column_level_lineage:
@@ -1118,6 +1381,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.env,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
+                self.config.database_hostname_to_platform_instance_map,
+                self.database_server_hostname_map,
             )
             table_id_to_urn[table[c.ID]] = table_urn
 
@@ -1365,6 +1630,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
             datasource_name = None
             project = None
+            columns: List[Dict[Any, Any]] = []
             if len(csql[c.DATA_SOURCES]) > 0:
                 # CustomSQLTable id owned by exactly one tableau data source
                 logger.debug(
@@ -1412,7 +1678,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 project = self._get_project_browse_path_name(datasource)
 
                 # if condition is needed as graphQL return "columns": None
-                columns: List[Dict[Any, Any]] = (
+                columns = (
                     cast(List[Dict[Any, Any]], csql.get(c.COLUMNS))
                     if c.COLUMNS in csql and csql.get(c.COLUMNS) is not None
                     else []
@@ -1684,8 +1950,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 [
                     str,
                     Optional[str],
+                    Optional[str],
                     Optional[Dict[str, str]],
                     Optional[TableauLineageOverrides],
+                    Optional[Dict[str, str]],
+                    Optional[Dict[str, str]],
                 ],
                 Tuple[Optional[str], Optional[str], str, str],
             ]
@@ -1693,7 +1962,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional["SqlParsingResult"]:
         database_info = datasource.get(c.DATABASE) or {
             c.NAME: c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: "databricks",
+            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE),
         }
 
         if (
@@ -1703,7 +1972,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
-        if c.NAME not in database_info or c.CONNECTION_TYPE not in database_info:
+        if (
+            database_info.get(c.NAME) is None
+            or database_info.get(c.CONNECTION_TYPE) is None
+        ):
             logger.debug(
                 f"database information is missing from datasource {datasource_urn}"
             )
@@ -1726,8 +1998,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             upstream_db, platform_instance, platform, _ = func_overridden_info(
                 database_info[c.CONNECTION_TYPE],
                 database_info.get(c.NAME),
+                database_info.get(c.ID),
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
+                self.config.database_hostname_to_platform_instance_map,
+                self.database_server_hostname_map,
             )
 
         logger.debug(
@@ -2056,7 +2331,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
             yield from self.emit_table(database_table, tableau_columns)
 
-        # Emmitting tables that were purely parsed from SQL queries
+        # Emitting tables that were purely parsed from SQL queries
         for database_table in self.database_tables.values():
             # Only tables purely parsed from SQL queries don't have ID
             if database_table.id:
@@ -2079,10 +2354,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         tableau_columns: Optional[List[Dict[str, Any]]],
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(
-            f"Emiting external table {database_table} tableau_columns {tableau_columns}"
+            f"Emitting external table {database_table} tableau_columns {tableau_columns}"
         )
+        dataset_urn = DatasetUrn.from_string(database_table.urn)
         dataset_snapshot = DatasetSnapshot(
-            urn=database_table.urn,
+            urn=str(dataset_urn),
             aspects=[],
         )
         if database_table.paths:
@@ -2102,6 +2378,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         )
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
+
+        if not dataset_snapshot.aspects:
+            # This should only happen with ingest_tables_external enabled.
+            logger.warning(
+                f"Urn {database_table.urn} has no real aspects, adding a key aspect to ensure materialization"
+            )
+            dataset_snapshot.aspects.append(dataset_urn.to_key_aspect())
 
         yield self.get_metadata_change_event(dataset_snapshot)
 
@@ -2247,7 +2530,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
         if sheet.get(c.PATH):
-            site_part = f"/site/{self.config.site}" if self.config.site else ""
+            site_part = (
+                f"/site/{self.site_content_url}" if self.site_content_url else ""
+            )
             sheet_external_url = (
                 f"{self.config.connect_uri}/#{site_part}/views/{sheet.get(c.PATH)}"
             )
@@ -2258,9 +2543,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             and sheet[c.CONTAINED_IN_DASHBOARDS][0].get(c.PATH)
         ):
             # sheet contained in dashboard
-            site_part = f"/t/{self.config.site}" if self.config.site else ""
+            site_part = f"/t/{self.site_content_url}" if self.site_content_url else ""
             dashboard_path = sheet[c.CONTAINED_IN_DASHBOARDS][0][c.PATH]
-            sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{sheet.get(c.NAME, '')}"
+            sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{quote(sheet.get(c.NAME, ''), safe='')}"
         else:
             # hidden or viz-in-tooltip sheet
             sheet_external_url = None
@@ -2390,7 +2675,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             else None
         )
 
-        site_part = f"/site/{self.config.site}" if self.config.site else ""
+        site_part = f"/site/{self.site_content_url}" if self.site_content_url else ""
         workbook_uri = workbook.get("uri")
         workbook_part = (
             workbook_uri[workbook_uri.index("/workbooks/") :] if workbook_uri else None
@@ -2437,6 +2722,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             instance=self.config.platform_instance,
             project_id=project_luid,
+        )
+
+    def gen_site_key(self, site_id: str) -> SiteKey:
+        return SiteKey(
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            site_id=site_id,
         )
 
     @staticmethod
@@ -2542,7 +2834,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         updated_at = dashboard.get(c.UPDATED_AT, datetime.now())
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
-        site_part = f"/site/{self.config.site}" if self.config.site else ""
+        site_part = f"/site/{self.site_content_url}" if self.site_content_url else ""
         dashboard_external_url = (
             f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get(c.PATH, '')}"
         )
@@ -2685,23 +2977,20 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
         return None
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = TableauConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
         for _id, project in self.tableau_project_registry.items():
+            parent_container_key: Optional[ContainerKey] = None
+            if project.parent_id:
+                parent_container_key = self.gen_project_key(project.parent_id)
+            elif self.config.add_site_container and self.site and self.site.id:
+                parent_container_key = self.gen_site_key(self.site.id)
+
             yield from gen_containers(
                 container_key=self.gen_project_key(_id),
                 name=project.name,
                 description=project.description,
                 sub_types=[c.PROJECT],
-                parent_container_key=(
-                    self.gen_project_key(project.parent_id)
-                    if project.parent_id
-                    else None
-                ),
+                parent_container_key=parent_container_key,
             )
             if (
                 project.parent_id is not None
@@ -2716,43 +3005,42 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     sub_types=[c.PROJECT],
                 )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        if self.server is None or not self.server.is_signed_in():
+    def emit_site_container(self):
+        if not self.site or not self.site.id:
+            logger.warning("Can not ingest site container. No site information found.")
             return
-        try:
-            # Initialise the dictionary to later look-up for chart and dashboard stat
-            if self.config.extract_usage_stats:
-                self._populate_usage_stat_registry()
 
-            self._populate_projects_registry()
-            yield from self.emit_project_containers()
-            yield from self.emit_workbooks()
-            if self.sheet_ids:
-                yield from self.emit_sheets()
-            if self.dashboard_ids:
-                yield from self.emit_dashboards()
-            if self.embedded_datasource_ids_being_used:
-                yield from self.emit_embedded_datasources()
-            if self.datasource_ids_being_used:
-                yield from self.emit_published_datasources()
-            if self.custom_sql_ids_being_used:
-                yield from self.emit_custom_sql_datasources()
-            if self.database_tables:
-                yield from self.emit_upstream_tables()
-        except MetadataQueryException as md_exception:
-            self.report.failure(
-                key="tableau-metadata",
-                reason=f"Unable to retrieve metadata from tableau. Information: {str(md_exception)}",
-            )
+        yield from gen_containers(
+            container_key=self.gen_site_key(self.site.id),
+            name=self.site.name or "Default",
+            sub_types=[c.SITE],
+        )
 
-    def get_report(self) -> TableauSourceReport:
-        return self.report
-        return self.report
+    def ingest_tableau_site(self):
+        # Initialise the dictionary to later look-up for chart and dashboard stat
+        if self.config.extract_usage_stats:
+            self._populate_usage_stat_registry()
+
+        # Populate the map of database names and database hostnames to be used later to map
+        # databases to platform instances.
+        if self.config.database_hostname_to_platform_instance_map:
+            self._populate_database_server_hostname_map()
+
+        self._populate_projects_registry()
+
+        if self.config.add_site_container:
+            yield from self.emit_site_container()
+        yield from self.emit_project_containers()
+        yield from self.emit_workbooks()
+        if self.sheet_ids:
+            yield from self.emit_sheets()
+        if self.dashboard_ids:
+            yield from self.emit_dashboards()
+        if self.embedded_datasource_ids_being_used:
+            yield from self.emit_embedded_datasources()
+        if self.datasource_ids_being_used:
+            yield from self.emit_published_datasources()
+        if self.custom_sql_ids_being_used:
+            yield from self.emit_custom_sql_datasources()
+        if self.database_tables:
+            yield from self.emit_upstream_tables()

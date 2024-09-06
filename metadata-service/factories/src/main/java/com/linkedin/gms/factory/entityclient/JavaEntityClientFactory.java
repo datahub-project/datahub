@@ -16,6 +16,7 @@ import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,7 +38,8 @@ public class JavaEntityClientFactory {
       final @Qualifier("timeseriesAspectService") TimeseriesAspectService _timeseriesAspectService,
       final @Qualifier("relationshipSearchService") LineageSearchService _lineageSearchService,
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
-      final RollbackService rollbackService) {
+      final RollbackService rollbackService,
+      final @Value("${entityClient.restli.get.batchSize:375}") int batchGetV2Size) {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -47,7 +49,8 @@ public class JavaEntityClientFactory {
         _lineageSearchService,
         _timeseriesAspectService,
         rollbackService,
-        _eventProducer);
+        _eventProducer,
+        batchGetV2Size);
   }
 
   @Bean("systemEntityClient")
@@ -63,7 +66,8 @@ public class JavaEntityClientFactory {
       final @Qualifier("relationshipSearchService") LineageSearchService _lineageSearchService,
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
       final RollbackService rollbackService,
-      final EntityClientCacheConfig entityClientCacheConfig) {
+      final EntityClientCacheConfig entityClientCacheConfig,
+      final @Value("${entityClient.restli.get.batchSize:375}") int batchGetV2Size) {
     return new SystemJavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -74,6 +78,7 @@ public class JavaEntityClientFactory {
         _timeseriesAspectService,
         rollbackService,
         _eventProducer,
-        entityClientCacheConfig);
+        entityClientCacheConfig,
+        batchGetV2Size);
   }
 }
