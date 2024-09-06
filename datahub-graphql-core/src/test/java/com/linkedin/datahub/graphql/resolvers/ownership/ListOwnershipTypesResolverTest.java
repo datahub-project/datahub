@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListOwnershipTypesInput;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.OwnershipTypeKey;
@@ -43,7 +44,9 @@ public class ListOwnershipTypesResolverTest {
                 any(),
                 Mockito.eq(Constants.OWNERSHIP_TYPE_ENTITY_NAME),
                 Mockito.eq(""),
-                Mockito.eq(Collections.emptyMap()),
+                Mockito.eq(
+                    ResolverUtils.buildFilter(
+                        Collections.emptyList(), Collections.emptyList(), null)),
                 Mockito.any(),
                 Mockito.eq(0),
                 Mockito.eq(20)))

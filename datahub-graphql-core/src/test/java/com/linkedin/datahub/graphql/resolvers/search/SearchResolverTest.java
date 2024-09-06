@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.generated.SearchInput;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.GroupingCriterionArray;
@@ -154,7 +155,9 @@ public class SearchResolverTest {
                 any(),
                 Mockito.anyString(),
                 Mockito.anyString(),
-                Mockito.anyMap(),
+                Mockito.eq(
+                    ResolverUtils.buildFilter(
+                        Collections.emptyList(), Collections.emptyList(), null)),
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt()))
