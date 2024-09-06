@@ -40,38 +40,42 @@ def monitors_to_execution_requests(
 ) -> List[ExecutionRequestSchedule]:
     execution_requests = []
     for monitor in monitors:
-        assertion_specs = (
-            monitor.assertion_monitor.assertions
-            if monitor.assertion_monitor is not None
-            else []
-        )
-        dry_run = is_dry_run_mode(monitor)
-        if assertion_specs:
-            for assertion_spec in assertion_specs:
-                context = AssertionEvaluationContext(
-                    dry_run=dry_run,
-                    monitor_urn=monitor.urn,
-                    assertion_evaluation_spec=assertion_spec,
-                )
-
-                execution_request = ExecutionRequest(
-                    executor_id=(
-                        monitor.executor_id if monitor.executor_id else "default"
-                    ),
-                    exec_id=monitor.urn,
-                    name=RUN_ASSERTION_TASK_NAME,
-                    args={
-                        "urn": monitor.urn,
-                        "assertion_spec": assertion_spec.dict(by_alias=True),
-                        "context": context.__dict__,
-                    },
-                )
-
-                execution_requests.append(
-                    ExecutionRequestSchedule(
-                        execution_request=execution_request,
-                        schedule=assertion_spec.schedule,
+        try:
+            assertion_specs = (
+                monitor.assertion_monitor.assertions
+                if monitor.assertion_monitor is not None
+                else []
+            )
+            dry_run = is_dry_run_mode(monitor)
+            if assertion_specs:
+                for assertion_spec in assertion_specs:
+                    context = AssertionEvaluationContext(
+                        dry_run=dry_run,
+                        monitor_urn=monitor.urn,
+                        assertion_evaluation_spec=assertion_spec,
                     )
-                )
+
+                    execution_request = ExecutionRequest(
+                        executor_id=(
+                            monitor.executor_id if monitor.executor_id else "default"
+                        ),
+                        exec_id=monitor.urn,
+                        name=RUN_ASSERTION_TASK_NAME,
+                        args={
+                            "urn": monitor.urn,
+                            "assertion_spec": assertion_spec.dict(by_alias=True),
+                            "context": context.__dict__,
+                        },
+                    )
+
+                    execution_requests.append(
+                        ExecutionRequestSchedule(
+                            execution_request=execution_request,
+                            schedule=assertion_spec.schedule,
+                        )
+                    )
+        except Exception as e:
+            STATS_ASSERTION_FETCHER_ITEMS_MAPPED.inc()
+            logger.warning(f"Exception while fetching monitors: {e}")
 
     return execution_requests

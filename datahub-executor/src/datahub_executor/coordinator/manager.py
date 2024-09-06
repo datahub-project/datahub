@@ -115,26 +115,30 @@ class ExecutionRequestManager:
         """
         Refresh the list of execution_requests by fetching them from the API
         """
-        fetcher = self.fetchers[fetcher_id]
 
-        logger.info(
-            f"Attempting to refresh the set of execution requests for {fetcher_id}..."
-        )
-        execution_requests = fetcher.fetch_execution_requests()
+        try:
+            fetcher = self.fetchers[fetcher_id]
 
-        self.prev_scheduled_execution_requests[
-            fetcher_id
-        ] = self.scheduled_execution_requests[fetcher_id].copy()
-        self.scheduled_execution_requests[fetcher_id] = {}
+            logger.info(
+                f"Attempting to refresh the set of execution requests for {fetcher_id}..."
+            )
+            execution_requests = fetcher.fetch_execution_requests()
 
-        for execution_request in execution_requests:
-            self.schedule_execution_request(fetcher_id, execution_request)
+            self.prev_scheduled_execution_requests[
+                fetcher_id
+            ] = self.scheduled_execution_requests[fetcher_id].copy()
+            self.scheduled_execution_requests[fetcher_id] = {}
 
-        self.unschedule_deleted_execution_requests(fetcher_id)
+            for execution_request in execution_requests:
+                self.schedule_execution_request(fetcher_id, execution_request)
 
-        logger.info(
-            f"Scheduled {len(self.scheduled_execution_requests[fetcher_id])} '{fetcher.config.id}' execution_requests!"
-        )
+            self.unschedule_deleted_execution_requests(fetcher_id)
+
+            logger.info(
+                f"Scheduled {len(self.scheduled_execution_requests[fetcher_id])} '{fetcher.config.id}' execution_requests!"
+            )
+        except Exception as e:
+            logger.warning(f"Exception while refreshing execution requests: {e}")
 
     def start(self) -> None:
         # Start the refresh scheduler

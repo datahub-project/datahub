@@ -123,36 +123,40 @@ class ExecutionRequestScheduler:
         :param schedule: The schedule on which to evaluate the execution_request.
         :return: The scheduled job id.
         """
-        cron = (
-            schedule.cron
-            if schedule is not None and schedule.cron is not None
-            else self.default_schedule
-        )
-        timezone = (
-            schedule.timezone
-            if schedule is not None and schedule.timezone is not None
-            else self.default_timezone
-        )
 
-        # Parse the cron string into separate fields
-        minute, hour, day, month, day_of_week = cron.split(" ")
+        try:
+            cron = (
+                schedule.cron
+                if schedule is not None and schedule.cron is not None
+                else self.default_schedule
+            )
+            timezone = (
+                schedule.timezone
+                if schedule is not None and schedule.timezone is not None
+                else self.default_timezone
+            )
 
-        logger.debug(
-            f"Scheduling execution_request evaluation job for execution_request with exec_id {execution_request.exec_id} at {cron}"
-        )
+            # Parse the cron string into separate fields
+            minute, hour, day, month, day_of_week = cron.split(" ")
 
-        job = self.scheduler.add_job(
-            self.submit_execution_request,
-            trigger="cron",
-            args=[execution_request],
-            minute=minute,
-            hour=hour,
-            day=day,
-            month=month,
-            day_of_week=day_of_week,
-            timezone=timezone,  # specify the timezone here
-            misfire_grace_time=6 * 60 * 60,  # 6 hour misfire grace period
-        )
+            logger.debug(
+                f"Scheduling execution_request evaluation job for execution_request with exec_id {execution_request.exec_id} at {cron}"
+            )
+
+            job = self.scheduler.add_job(
+                self.submit_execution_request,
+                trigger="cron",
+                args=[execution_request],
+                minute=minute,
+                hour=hour,
+                day=day,
+                month=month,
+                day_of_week=day_of_week,
+                timezone=timezone,  # specify the timezone here
+                misfire_grace_time=6 * 60 * 60,  # 6 hour misfire grace period
+            )
+        except Exception as e:
+            logger.warning(f"Exception while creating a scheduler job: {e}")
         return job.id
 
     def unschedule_execution_request(self, job_id: str) -> None:
@@ -161,7 +165,10 @@ class ExecutionRequestScheduler:
 
         :param job_id: The job id to be unscheduled.
         """
-        self.scheduler.remove_job(job_id)
+        try:
+            self.scheduler.remove_job(job_id)
+        except Exception as e:
+            logger.warning(f"Exception while removing a scheduler job: {e}")
 
     def add_execution_request(
         self,
