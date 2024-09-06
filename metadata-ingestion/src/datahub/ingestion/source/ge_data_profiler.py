@@ -305,10 +305,9 @@ def _is_single_row_query_method(query: Any) -> bool:
         if frame.name in SINGLE_ROW_QUERY_METHODS:
             return True
         if frame.name in CONSTANT_ROW_QUERY_METHODS:
-            # TODO: figure out how to handle these.
-            # A cross join will return (`constant` ** `queries`) rows rather
-            # than `constant` rows with `queries` columns.
-            # See https://stackoverflow.com/questions/35638753/create-query-to-join-2-tables-1-on-1-with-nothing-in-common.
+            # TODO: figure out how to handle these. A cross join will return (`constant` ** `queries`) rows rather
+            #  than `constant` rows with `queries` columns. See
+            #  https://stackoverflow.com/questions/35638753/create-query-to-join-2-tables-1-on-1-with-nothing-in-common.
             return False
 
         if frame.name == COLUMN_MAP_QUERY_METHOD:
@@ -429,9 +428,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column cardinality for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column cardinality",
-                f"{self.dataset_name}.{column}",
+                title="Unable to Calculate Cardinality",
+                message="The cardinality for the column will not be accessible",
+                context=f"""
+                    {{
+                        "column": {self.dataset_name}.{column},
+                        "errorMessage": {e}
+                    }}
+                """,
             )
             return
 
@@ -484,14 +490,15 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 self.dataset.engine.execute(get_estimate_script).scalar()
             )
         else:
-            # If the configuration is not set to 'estimate only' mode, we directly obtain the row count from the dataset.
-            # However, if an offset or limit is set, we need to adjust how we calculate the row count.
-            # This is because applying a limit or offset could potentially skew the row count.
-            # For instance, if a limit is set and the actual row count exceeds this limit,
-            # the returned row count would incorrectly be the limit value.
+            # If the configuration is not set to 'estimate only' mode, we directly obtain the row count from the
+            # dataset. However, if an offset or limit is set, we need to adjust how we calculate the row count. This
+            # is because applying a limit or offset could potentially skew the row count. For instance, if a limit is
+            # set and the actual row count exceeds this limit, the returned row count would incorrectly be the limit
+            # value.
             #
-            # To address this, if a limit is set, we use the original table name when calculating the row count.
-            # This ensures that the row count is based on the original table, not on a view which have limit or offset applied.
+            # To address this, if a limit is set, we use the original table name when calculating the row count. This
+            # ensures that the row count is based on the original table, not on a view which have limit or offset
+            # applied.
             if (self.config.limit or self.config.offset) and not self.custom_sql:
                 # We don't want limit and offset to get applied to the row count
                 # This is kinda hacky way to do it, but every other way would require major refactoring
@@ -513,9 +520,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column min for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column min",
-                f"{self.dataset_name}.{column}",
+                title="Unable to Calculate Min",
+                message="The min for the column will not be accessible",
+                context=f"""
+                    {{
+                        "column": {self.dataset_name}.{column},
+                        "errorMessage": {e}
+                    }}
+                """,
             )
 
     @_run_with_query_combiner
@@ -530,9 +544,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column max for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column max",
-                f"{self.dataset_name}.{column}",
+                title="Unable to Calculate Max",
+                message="The max for the column will not be accessible",
+                context=f"""
+                    {{
+                        "column": {self.dataset_name}.{column},
+                        "errorMessage": {e}
+                    }}
+                """,
             )
 
     @_run_with_query_combiner
@@ -547,9 +568,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column mean for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column mean",
-                f"{self.dataset_name}.{column}",
+                title="Unable to Calculate Mean",
+                message="The mean for the column will not be accessible",
+                context=f"""
+                    {{
+                        "column": {self.dataset_name}.{column},
+                        "errorMessage": {e}
+                    }}
+                """,
             )
 
     @_run_with_query_combiner
@@ -581,9 +609,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column median for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column medians",
-                f"{self.dataset_name}.{column}",
+                title="Unable to Calculate Medians",
+                message="The medians for the column will not be accessible",
+                context=f"""
+                    {{
+                        "column": {self.dataset_name}.{column},
+                        "errorMessage": {e}
+                    }}
+                """,
             )
 
     @_run_with_query_combiner
@@ -599,8 +634,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column stddev for column {column}. {e}"
             )
             self.report.report_warning(
-                "Profiling - Unable to get column stddev",
-                f"{self.dataset_name}.{column}",
+                title="Unable to Calculate Standard Deviation",
+                message="The standard deviation for the column will not be accessible",
+                context=f"""
+                    {{
+                        "column": {self.dataset_name}.{column},
+                        "errorMessage": {e}
+                    }}
+                """,
             )
 
     @_run_with_query_combiner
@@ -638,9 +679,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column quantiles for column {column}. {e}"
             )
+
             self.report.report_warning(
-                "Profiling - Unable to get column quantiles",
-                f"{self.dataset_name}.{column}",
+                title="Unable to Calculate Quantiles",
+                message="The quantiles for the column will not be accessible",
+                context=f"""
+                    {{
+                        "column": {self.dataset_name}.{column},
+                        "errorMessage": {e}
+                    }}
+                """,
             )
 
     @_run_with_query_combiner
