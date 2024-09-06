@@ -740,6 +740,9 @@ class SqlParsingAggregator(Closeable):
         _is_internal: bool = False,
     ) -> None:
 
+        # Adding tool specific metadata extraction here allows it
+        # to work for both ObservedQuery and PreparsedQuery as
+        # add_preparsed_query it used within add_observed_query.
         self._tool_meta_extractor.extract_bi_metadata(parsed)
 
         if not _is_internal:
