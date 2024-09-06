@@ -96,7 +96,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                 input.getQuery(),
                 input.getFilters(),
                 input.getOrFilters(),
-                sortCriteria,
+                input.getSortInput(),
                 start,
                 count,
                 searchFlags);
@@ -121,7 +121,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                 input.getQuery(),
                 input.getFilters(),
                 input.getOrFilters(),
-                sortCriteria,
+                input.getSortInput(),
                 start,
                 count,
                 searchFlags);
@@ -133,7 +133,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         input.getQuery(),
                         input.getFilters(),
                         input.getOrFilters(),
-                        sortCriteria,
+                        input.getSortInput(),
                         start,
                         count,
                         searchFlags),
