@@ -250,6 +250,23 @@ kafka:
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
+  serde:
+    usageEvent:
+      key:
+        serializer: ${KAFKA_SERDE_USAGE_EVENTS_KEY_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+        deserializer: ${KAFKA_SERDE_USAGE_EVENTS_KEY_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+      value:
+        serializer: ${KAFKA_SERDE_USAGE_EVENTS_VALUE_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+        deserializer: ${KAFKA_SERDE_USAGE_EVENTS_VALUE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+    event:
+      key:
+        serializer: ${KAFKA_SERDE_EVENT_KEY_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+        deserializer: ${KAFKA_SERDE_EVENT_KEY_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+        delegateDeserializer: ${KAFKA_SERDE_EVENT_KEY_DELEGATE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+      value:
+        serializer: ${KAFKA_SERDE_EVENT_VALUE_SERIALIZER:io.confluent.kafka.serializers.KafkaAvroSerializer}
+        deserializer: ${KAFKA_SERDE_EVENT_VALUE_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+        delegateDeserializer: ${KAFKA_SERDE_EVENT_VALUE_DELEGATE_DESERIALIZER:io.confluent.kafka.serializers.KafkaAvroDeserializer}
   producer:
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
