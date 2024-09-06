@@ -1,0 +1,48 @@
+namespace com.linkedin.platformresource
+
+import com.linkedin.common.SerializedValue
+
+/**
+ * Platform Resource Info.
+ * These entities are for miscelaneous data that is used in non-core parts of the system.
+ * For instance, if we want to persist & retrieve data from auxiliary integrations such as Slack or Microsoft Teams.
+ */
+@Aspect = {
+  "name": "platformResourceInfo"
+}
+record PlatformResourceInfo {
+   /**
+    * The type of the resource. 
+    * This is used to differentiate between different types of resources.
+    * Possible values specified in {@link com.linkedin.platformresource.PlatformResourceType}
+   */
+   @Searchable = {
+     "fieldType": "KEYWORD"
+   }
+   resourceType: string
+
+  /**
+   * The primary key for this platform resource.
+   * I.e., for a slack member this would be the memberID.
+   */
+  @Searchable = {
+      "fieldType": "KEYWORD"
+  }
+  primaryKey: string
+
+  /**
+   * The secondary keys this platform resource can be located by.
+   * I.e., for a slack member this would be email or phone.
+   */
+  @Searchable = {
+      "/*": {
+        "fieldType": "KEYWORD"
+      }
+  }
+  secondaryKeys: optional array[string]
+
+  /**
+   * The serialized value of this platform resource item.
+   */
+  value: optional SerializedValue
+}

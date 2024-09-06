@@ -615,6 +615,14 @@ entities:
     aspects:
       - dataHubConnectionDetails
       - dataPlatformInstance
+  - name: platformResource
+    doc:
+    category: core
+    keyAspect: platformResourceKey
+    aspects:
+      - dataPlatformInstance
+      - platformResourceInfo
+      - status
 events:
 plugins:
   aspectPayloadValidators:
