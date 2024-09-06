@@ -925,7 +925,7 @@ class ModeSource(StatefulIngestionSourceBase):
         query_data: dict,
         space_token: str,
         report_info: dict,
-        is_mode_dataset: bool = False,
+        is_mode_dataset: bool,
     ) -> Iterable[MetadataWorkUnit]:
         query_urn = (
             self.get_dataset_urn_from_query(query_data)
@@ -1579,6 +1579,7 @@ class ModeSource(StatefulIngestionSourceBase):
                         query,
                         space_token=space_token,
                         report_info=report,
+                        is_mode_dataset=False,
                     )
                     chart_fields: Dict[str, SchemaFieldClass] = {}
                     for wu in query_mcps:
@@ -1622,14 +1623,7 @@ class ModeSource(StatefulIngestionSourceBase):
                         report_info=report,
                         is_mode_dataset=True,
                     )
-                    chart_fields: Dict[str, SchemaFieldClass] = {}
                     for wu in query_mcps:
-                        if isinstance(
-                            wu.metadata, MetadataChangeProposalWrapper
-                        ) and isinstance(wu.metadata.aspect, SchemaMetadataClass):
-                            schema_metadata = wu.metadata.aspect
-                            for field in schema_metadata.fields:
-                                chart_fields.setdefault(field.fieldPath, field)
                         yield wu
 
     @classmethod
