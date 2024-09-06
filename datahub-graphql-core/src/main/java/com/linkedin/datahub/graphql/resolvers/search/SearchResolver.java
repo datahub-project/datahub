@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -17,11 +17,14 @@ import com.linkedin.metadata.query.GroupingCriterion;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,6 +69,23 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
     } else {
       searchFlags = applyDefaultSearchFlags(null, sanitizedQuery, SEARCH_RESOLVER_DEFAULTS);
     }
+    List<SortCriterion> sortCriteria;
+    if (input.getSortInput() != null) {
+      if (input.getSortInput().getSortCriteria() != null) {
+        sortCriteria =
+            input.getSortInput().getSortCriteria().stream()
+                .map(SearchUtils::mapSortCriterion)
+                .collect(Collectors.toList());
+      } else {
+        sortCriteria =
+            input.getSortInput().getSortCriterion() != null
+                ? Collections.singletonList(
+                    SearchUtils.mapSortCriterion(input.getSortInput().getSortCriterion()))
+                : Collections.emptyList();
+      }
+    } else {
+      sortCriteria = Collections.emptyList();
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -76,7 +96,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                 input.getQuery(),
                 input.getFilters(),
                 input.getOrFilters(),
-                input.getSortInput(),
+                sortCriteria,
                 start,
                 count,
                 searchFlags);
@@ -91,29 +111,29 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         input.getFilters(),
                         input.getOrFilters(),
                         context.getOperationContext().getAspectRetriever()),
-                    Collections.emptyList(),
+                    sortCriteria,
                     start,
                     count));
           } catch (Exception e) {
             log.error(
-                "Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, sort: {}, start: {}, count: {}, searchFlags: {}",
+                "Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, sortCriteria: {}, start: {}, count: {}, searchFlags: {}",
                 input.getType(),
                 input.getQuery(),
                 input.getFilters(),
                 input.getOrFilters(),
-                input.getSortInput(),
+                sortCriteria,
                 start,
                 count,
                 searchFlags);
             throw new RuntimeException(
                 "Failed to execute search: "
                     + String.format(
-                        "entity type %s, query %s, filters: %s, orFilters: %s, sort: %s, start: %s, count: %s, searchFlags: %s",
+                        "entity type %s, query %s, filters: %s, orFilters: %s, sortCriteria: %s, start: %s, count: %s, searchFlags: %s",
                         input.getType(),
                         input.getQuery(),
                         input.getFilters(),
                         input.getOrFilters(),
-                        input.getSortInput(),
+                        sortCriteria,
                         start,
                         count,
                         searchFlags),
