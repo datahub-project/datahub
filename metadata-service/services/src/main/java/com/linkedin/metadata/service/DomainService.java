@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.METADATA_TESTS_SOURCE;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
 
@@ -11,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.DomainsPatchBuilder;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -28,11 +30,23 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DomainService extends BaseService {
 
+  private final boolean _isAsync;
+
+  public DomainService(
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper,
+      final boolean isAsync) {
+    super(entityClient, openApiClient, objectMapper);
+    _isAsync = isAsync;
+  }
+
   public DomainService(
       @Nonnull SystemEntityClient entityClient,
       @Nonnull final OpenApiClient openApiClient,
       @Nonnull ObjectMapper objectMapper) {
     super(entityClient, openApiClient, objectMapper);
+    _isAsync = false;
   }
 
   /**
@@ -144,11 +158,12 @@ public class DomainService extends BaseService {
       List<ResourceReference> resources,
       @Nullable String appSource)
       throws Exception {
-    final List<MetadataChangeProposal> changes = buildSetDomainProposals(domainUrn, resources);
+    final List<MetadataChangeProposal> changes =
+        buildSetDomainProposals(domainUrn, resources, appSource);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   private void addDomainsToResources(
@@ -162,7 +177,7 @@ public class DomainService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   private void unsetDomainForResources(
@@ -174,7 +189,7 @@ public class DomainService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   public void removeDomainsFromResources(
@@ -188,13 +203,19 @@ public class DomainService extends BaseService {
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, _isAsync);
   }
 
   @VisibleForTesting
   @Nonnull
   List<MetadataChangeProposal> buildSetDomainProposals(
-      com.linkedin.common.urn.Urn domainUrn, List<ResourceReference> resources) {
+      com.linkedin.common.urn.Urn domainUrn,
+      List<ResourceReference> resources,
+      @Nullable String appSource) {
+    if (appSource != null && appSource.equals(METADATA_TESTS_SOURCE)) {
+      return patchSetDomain(domainUrn, resources);
+    }
+
     List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
       Domains domains = new Domains();
@@ -203,6 +224,17 @@ public class DomainService extends BaseService {
           buildMetadataChangeProposal(resource.getUrn(), Constants.DOMAINS_ASPECT_NAME, domains));
     }
     return changes;
+  }
+
+  List<MetadataChangeProposal> patchSetDomain(
+      com.linkedin.common.urn.Urn domainUrn, List<ResourceReference> resources) {
+    final List<MetadataChangeProposal> mcps = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+      DomainsPatchBuilder patchBuilder = new DomainsPatchBuilder().urn(resource.getUrn());
+      patchBuilder.setDomain(domainUrn);
+      mcps.add(patchBuilder.build());
+    }
+    return mcps;
   }
 
   @VisibleForTesting

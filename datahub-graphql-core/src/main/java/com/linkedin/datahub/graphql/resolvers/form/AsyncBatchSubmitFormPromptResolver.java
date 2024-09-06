@@ -157,6 +157,8 @@ public class AsyncBatchSubmitFormPromptResolver
       addDocumentationPromptParams(submitPromptParamsNode, promptInput);
     } else if (promptInput.getType().equals(FormPromptType.GLOSSARY_TERMS)) {
       addGlossaryTermsPromptParams(submitPromptParamsNode, promptInput);
+    } else if (promptInput.getType().equals(FormPromptType.DOMAIN)) {
+      addDomainPromptParams(submitPromptParamsNode, promptInput);
     } else {
       throw new IllegalArgumentException(
           String.format(
@@ -249,5 +251,18 @@ public class AsyncBatchSubmitFormPromptResolver
     }
     ArrayNode termsArray = submitPromptParamsNode.putArray("glossaryTerms");
     promptInput.getGlossaryTermsParams().getGlossaryTermUrns().forEach(termsArray::add);
+  }
+
+  /*
+   * Adds the params necessary to submit a domain response
+   */
+  private void addDomainPromptParams(
+      ObjectNode submitPromptParamsNode, SubmitFormPromptInput promptInput)
+      throws IllegalArgumentException {
+    if (promptInput.getDomainParams() == null) {
+      throw new IllegalArgumentException(
+          "Failed to submit as no domain params were provided for domain response");
+    }
+    submitPromptParamsNode.put("domain", promptInput.getDomainParams().getDomainUrn());
   }
 }

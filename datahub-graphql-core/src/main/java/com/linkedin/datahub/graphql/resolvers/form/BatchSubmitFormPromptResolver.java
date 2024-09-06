@@ -146,6 +146,20 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   promptId,
                   UrnUtils.getUrn(context.getActorUrn()),
                   true);
+            } else if (promptInput.getType().equals(FormPromptType.DOMAIN)) {
+              if (promptInput.getDomainParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide domain params for prompt type DOMAIN");
+              }
+              final Urn domainUrn = UrnUtils.getUrn(promptInput.getDomainParams().getDomainUrn());
+              return _formService.batchSubmitDomainPromptResponse(
+                  context.getOperationContext(),
+                  entityUrns,
+                  domainUrn,
+                  formUrn,
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()),
+                  true);
             }
             return false;
           } catch (Exception e) {

@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchSubmitFormPromptInput;
 import com.linkedin.datahub.graphql.generated.DocumentationInputParams;
+import com.linkedin.datahub.graphql.generated.DomainInputParams;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.GlossaryTermsInputParams;
 import com.linkedin.datahub.graphql.generated.PropertyValueInput;
@@ -39,6 +40,7 @@ public class BatchSubmitFormPromptResolverTest {
   private static final String TEST_FORM_URN = "urn:li:form:1";
   private static final String TEST_DOCUMENTATION = "test documentation";
   private static final String TERM_URN = "urn:li:glossaryTerm:test1";
+  private static final String DOMAIN_URN = "urn:li:domain:test";
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -224,6 +226,46 @@ public class BatchSubmitFormPromptResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
+  @Test
+  public void testGetDomainSuccess() throws Exception {
+    FormService mockFormService = initMockFormService();
+    BatchSubmitFormPromptResolver resolver = new BatchSubmitFormPromptResolver(mockFormService);
+
+    BatchSubmitFormPromptInput input = generateDomainInput(true);
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    boolean success = resolver.get(mockEnv).get();
+
+    assertTrue(success);
+
+    Mockito.verify(mockFormService, Mockito.times(1))
+        .batchSubmitDomainPromptResponse(
+            any(OperationContext.class),
+            Mockito.eq(ENTITY_URNS),
+            Mockito.eq(UrnUtils.getUrn(DOMAIN_URN)),
+            Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
+            Mockito.eq(PROMPT_ID),
+            Mockito.any(),
+            Mockito.eq(true));
+  }
+
+  @Test
+  public void testGetFailureMissingDomainParams() throws Exception {
+    FormService mockFormService = initMockFormService();
+    BatchSubmitFormPromptResolver resolver = new BatchSubmitFormPromptResolver(mockFormService);
+
+    BatchSubmitFormPromptInput input = generateDomainInput(false);
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
   private FormService initMockFormService() throws Exception {
     FormService service = Mockito.mock(FormService.class);
     Mockito.when(
@@ -263,6 +305,17 @@ public class BatchSubmitFormPromptResolverTest {
 
     Mockito.when(
             service.batchSubmitGlossaryTermsPromptResponse(
+                any(OperationContext.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(true)))
+        .thenReturn(true);
+
+    Mockito.when(
+            service.batchSubmitDomainPromptResponse(
                 any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
@@ -317,7 +370,7 @@ public class BatchSubmitFormPromptResolverTest {
     return input;
   }
 
-  private BatchSubmitFormPromptInput generateGlossaryTermsInput(boolean addDocParams)
+  private BatchSubmitFormPromptInput generateGlossaryTermsInput(boolean addParams)
       throws Exception {
     BatchSubmitFormPromptInput input = new BatchSubmitFormPromptInput();
     input.setAssetUrns(ENTITY_URNS);
@@ -325,10 +378,27 @@ public class BatchSubmitFormPromptResolverTest {
     promptInput.setType(FormPromptType.GLOSSARY_TERMS);
     promptInput.setPromptId(PROMPT_ID);
     promptInput.setFormUrn(TEST_FORM_URN);
-    if (addDocParams) {
+    if (addParams) {
       GlossaryTermsInputParams glossaryTermParams = new GlossaryTermsInputParams();
       glossaryTermParams.setGlossaryTermUrns(ImmutableList.of(TERM_URN));
       promptInput.setGlossaryTermsParams(glossaryTermParams);
+    }
+    input.setInput(promptInput);
+
+    return input;
+  }
+
+  private BatchSubmitFormPromptInput generateDomainInput(boolean addParams) throws Exception {
+    BatchSubmitFormPromptInput input = new BatchSubmitFormPromptInput();
+    input.setAssetUrns(ENTITY_URNS);
+    SubmitFormPromptInput promptInput = new SubmitFormPromptInput();
+    promptInput.setType(FormPromptType.DOMAIN);
+    promptInput.setPromptId(PROMPT_ID);
+    promptInput.setFormUrn(TEST_FORM_URN);
+    if (addParams) {
+      DomainInputParams domainParams = new DomainInputParams();
+      domainParams.setDomainUrn(DOMAIN_URN);
+      promptInput.setDomainParams(domainParams);
     }
     input.setInput(promptInput);
 

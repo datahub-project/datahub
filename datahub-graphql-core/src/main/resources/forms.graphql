@@ -574,6 +574,11 @@ input SubmitFormPromptInput {
     Input params for a glossary terms type prompt
     """
     glossaryTermsParams: GlossaryTermsInputParams
+
+    """
+    Input params for a domain type prompt
+    """
+    domainParams: DomainInputParams
 }
 
 
@@ -637,9 +642,19 @@ Input params for a glossary terms type prompt
 """
 input GlossaryTermsInputParams {
     """
-    The list of glossary term urns being applied to asets
+    The list of glossary term urns being applied to assets
     """
     glossaryTermUrns: [String!]!
+}
+
+"""
+Input params for a domain type prompt
+"""
+input DomainInputParams {
+    """
+    The domain urn being applied to assets
+    """
+    domainUrn: String!
 }
 
 """

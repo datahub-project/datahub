@@ -172,6 +172,19 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   promptId,
                   uniqueFieldPaths,
                   UrnUtils.getUrn(context.getActorUrn()));
+            } else if (input.getType().equals(FormPromptType.DOMAIN)) {
+              if (input.getDomainParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide domain params for prompt type DOMAIN");
+              }
+              final Urn domainUrn = UrnUtils.getUrn(input.getDomainParams().getDomainUrn());
+              return _formService.submitDomainPromptResponse(
+                  context.getOperationContext(),
+                  entityUrn,
+                  domainUrn,
+                  formUrn,
+                  promptId,
+                  UrnUtils.getUrn(context.getActorUrn()));
             }
             return false;
           } catch (Exception e) {

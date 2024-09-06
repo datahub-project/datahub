@@ -84,6 +84,7 @@ public class FormService extends BaseService {
   private final OwnerService _ownerService;
   private final GlossaryTermService _glossaryTermService;
   private final DocumentationService _documentationService;
+  private final DomainService _domainService;
   private final String _appSource;
   private final boolean _isAsync;
 
@@ -100,6 +101,7 @@ public class FormService extends BaseService {
     _documentationService =
         new DocumentationService(
             systemEntityClient, openApiClient, objectMapper, appSource, isAsync);
+    _domainService = new DomainService(systemEntityClient, openApiClient, objectMapper, isAsync);
     _appSource = appSource;
     _isAsync = isAsync;
   }
@@ -113,6 +115,7 @@ public class FormService extends BaseService {
     _glossaryTermService = new GlossaryTermService(systemEntityClient, openApiClient, objectMapper);
     _documentationService =
         new DocumentationService(systemEntityClient, openApiClient, objectMapper);
+    _domainService = new DomainService(systemEntityClient, openApiClient, objectMapper);
     _appSource = null;
     _isAsync = false;
   }
@@ -592,6 +595,64 @@ public class FormService extends BaseService {
     UrnArray termUrns = new UrnArray(glossaryTerms);
     termsPromptResponse.setGlossaryTerms(termUrns);
     promptResponse.setGlossaryTermsResponse(termsPromptResponse);
+    return promptResponse;
+  }
+
+  /** Batch submit a response for a glossary terms type prompt. */
+  public Boolean batchSubmitDomainPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityUrns,
+      @Nonnull final Urn domainUrn,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nullable Urn actorUrn,
+      final boolean shouldThrow)
+      throws Exception {
+    entityUrns.forEach(
+        urnStr -> {
+          Urn urn = UrnUtils.getUrn(urnStr);
+          try {
+            submitDomainPromptResponse(opContext, urn, domainUrn, formUrn, formPromptId, actorUrn);
+          } catch (Exception e) {
+            log.error("Failed to batch submit domain prompt", e);
+            if (shouldThrow) {
+              throw new RuntimeException("Failed to batch submit domain prompt", e);
+            }
+          }
+        });
+
+    return true;
+  }
+
+  /** Submit a response for a domain type prompt. */
+  public Boolean submitDomainPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn domainUrn,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nullable Urn actorUrn)
+      throws Exception {
+
+    // First, let's apply the action and set the domain
+    ResourceReference resourceRef = new ResourceReference(entityUrn, null, null);
+    final String finalAppSource = _appSource != null ? _appSource : UI_SOURCE;
+    _domainService.batchSetDomain(
+        opContext, domainUrn, ImmutableList.of(resourceRef), finalAppSource);
+
+    // Then, let's apply the change to the entity's form status.
+    FormPromptResponse promptResponse = createDomainPromptResponse(domainUrn);
+    ingestCompletedFormResponse(
+        opContext, entityUrn, formUrn, formPromptId, promptResponse, actorUrn);
+
+    return true;
+  }
+
+  private FormPromptResponse createDomainPromptResponse(@Nonnull final Urn domainUrn) {
+    FormPromptResponse promptResponse = new FormPromptResponse();
+    DomainPromptResponse domainPromptResponse = new DomainPromptResponse();
+    domainPromptResponse.setDomain(domainUrn);
+    promptResponse.setDomainResponse(domainPromptResponse);
     return promptResponse;
   }
 

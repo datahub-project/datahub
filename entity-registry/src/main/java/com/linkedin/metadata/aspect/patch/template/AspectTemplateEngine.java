@@ -57,7 +57,8 @@ public class AspectTemplateEngine {
               OWNERSHIP_ASPECT_NAME,
               STRUCTURED_PROPERTIES_ASPECT_NAME,
               STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
-              UPSTREAM_LINEAGE_ASPECT_NAME)
+              UPSTREAM_LINEAGE_ASPECT_NAME,
+              DOMAINS_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;

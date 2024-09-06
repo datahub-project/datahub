@@ -59,7 +59,8 @@ public class DomainServiceTest {
             newDomainUrn,
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
+            null);
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.DOMAINS_ASPECT_NAME);
@@ -98,7 +99,8 @@ public class DomainServiceTest {
             newDomainUrn,
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
+            null);
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.DOMAINS_ASPECT_NAME);

@@ -33,6 +33,7 @@ public class SubmitFormPromptAction implements Action {
   private static final String OWNERSHIP_TYPE_URN_PARAMETER = "ownershipTypeUrn";
   private static final String DOCUMENTATION_PARAMETER = "documentation";
   private static final String GLOSSARY_TERMS_PARAMETER = "glossaryTerms";
+  private static final String DOMAIN_PARAMETER = "domain";
 
   private final FormService formService;
 
@@ -86,6 +87,8 @@ public class SubmitFormPromptAction implements Action {
         submitDocumentationResponse(opContext, params, urnStrings, formUrn, promptId, actorUrn);
       } else if (promptType.equals(FormPromptType.GLOSSARY_TERMS)) {
         submitGlossaryTermsResponse(opContext, params, urnStrings, formUrn, promptId, actorUrn);
+      } else if (promptType.equals(FormPromptType.DOMAIN)) {
+        submitDomainResponse(opContext, params, urnStrings, formUrn, promptId, actorUrn);
       } else {
         log.error(
             String.format(
@@ -231,6 +234,35 @@ public class SubmitFormPromptAction implements Action {
       log.error(
           String.format(
               "Failed to submit ownership response for urns %s, form urn %s", urnStrings, formUrn),
+          e);
+    }
+  }
+
+  private void submitDomainResponse(
+      @Nonnull OperationContext opContext,
+      ActionParameters params,
+      List<String> urnStrings,
+      Urn formUrn,
+      String promptId,
+      Urn actorUrn) {
+    try {
+      // Grab params specific to submitting documentation response
+      if (!paramsContainsKey(params, DOMAIN_PARAMETER)) {
+        throw new InvalidActionParamsException(
+            "Action parameters are missing the required 'domain' parameter.");
+      }
+      Urn domainUrn =
+          params.getParams().get(DOMAIN_PARAMETER).stream()
+              .map(UrnUtils::getUrn)
+              .collect(Collectors.toList())
+              .get(0);
+
+      formService.batchSubmitDomainPromptResponse(
+          opContext, urnStrings, domainUrn, formUrn, promptId, actorUrn, false);
+    } catch (Exception e) {
+      log.error(
+          String.format(
+              "Failed to submit domain response for urns %s, form urn %s", urnStrings, formUrn),
           e);
     }
   }

@@ -338,7 +338,72 @@ public class SubmitFormPromptActionTest {
     submitPromptAction.apply(
         mock(OperationContext.class), Collections.singletonList(entityUrn), params);
     verify(formService, times(0))
-        .batchSubmitDocumentationPromptResponse(
+        .batchSubmitGlossaryTermsPromptResponse(
+            any(OperationContext.class),
+            eq(Collections.singletonList(entityUrn.toString())),
+            any(),
+            eq(formUrn),
+            eq(promptId),
+            eq(actorUrn),
+            eq(false));
+  }
+
+  @Test
+  public void testApplyDomainPrompt() throws Exception {
+    FormService formService = Mockito.mock(FormService.class);
+    SubmitFormPromptAction submitPromptAction = new SubmitFormPromptAction(formService);
+    Urn actorUrn = UrnUtils.getUrn("urn:li:corpuser:testing");
+    Urn formUrn = UrnUtils.getUrn("urn:li:form:test");
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
+    String promptId = "testPrompt123";
+    String promptType = "DOMAIN";
+    Urn domainUrn = UrnUtils.getUrn("urn:li:domain:test");
+
+    // Given
+    Map<String, List<String>> paramsMap = new HashMap<>();
+    paramsMap.put("actorUrn", Collections.singletonList(actorUrn.toString()));
+    paramsMap.put("formUrn", Collections.singletonList(formUrn.toString()));
+    paramsMap.put("promptId", Collections.singletonList(promptId));
+    paramsMap.put("promptType", Collections.singletonList(promptType));
+    paramsMap.put("domain", Collections.singletonList(domainUrn.toString()));
+    ActionParameters params = new ActionParameters(paramsMap);
+
+    submitPromptAction.apply(
+        mock(OperationContext.class), Collections.singletonList(entityUrn), params);
+    verify(formService, times(1))
+        .batchSubmitDomainPromptResponse(
+            any(OperationContext.class),
+            eq(Collections.singletonList(entityUrn.toString())),
+            eq(domainUrn),
+            eq(formUrn),
+            eq(promptId),
+            eq(actorUrn),
+            eq(false));
+  }
+
+  @Test
+  public void testInvalidParamsDomainPrompt() throws Exception {
+    FormService formService = Mockito.mock(FormService.class);
+    SubmitFormPromptAction submitPromptAction = new SubmitFormPromptAction(formService);
+    Urn actorUrn = UrnUtils.getUrn("urn:li:corpuser:testing");
+    Urn formUrn = UrnUtils.getUrn("urn:li:form:test");
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
+    String promptId = "testPrompt123";
+    String promptType = "DOMAIN";
+
+    // Given
+    Map<String, List<String>> paramsMap = new HashMap<>();
+    paramsMap.put("actorUrn", Collections.singletonList(actorUrn.toString()));
+    paramsMap.put("formUrn", Collections.singletonList(formUrn.toString()));
+    paramsMap.put("promptId", Collections.singletonList(promptId));
+    paramsMap.put("promptType", Collections.singletonList(promptType));
+    ActionParameters params = new ActionParameters(paramsMap);
+
+    // does not submit since we are missing the glossaryTerms param
+    submitPromptAction.apply(
+        mock(OperationContext.class), Collections.singletonList(entityUrn), params);
+    verify(formService, times(0))
+        .batchSubmitDomainPromptResponse(
             any(OperationContext.class),
             eq(Collections.singletonList(entityUrn.toString())),
             any(),
