@@ -277,18 +277,18 @@ export default function SchemaHeader({
                             >
                                 {renderOptions()}
                             </SchemaBlameSelector>
-                            <Tooltip title={schemaAuditToggleText}>
-                                <SchemaAuditButton
-                                    type="text"
-                                    data-testid="schema-blame-button"
-                                    onClick={() => setShowSchemaTimeline(!showSchemaTimeline)}
-                                    style={{ color: showSchemaTimeline ? REDESIGN_COLORS.BLUE : ANTD_GRAY[7] }}
-                                >
-                                    <HistoryIcon />
-                                </SchemaAuditButton>
-                            </Tooltip>
                         </>
                     )}
+                    <Tooltip title={schemaAuditToggleText}>
+                        <SchemaAuditButton
+                            type="text"
+                            data-testid="schema-blame-button"
+                            onClick={() => setShowSchemaTimeline(!showSchemaTimeline)}
+                            style={{ color: showSchemaTimeline ? REDESIGN_COLORS.BLUE : ANTD_GRAY[7] }}
+                        >
+                            <HistoryIcon />
+                        </SchemaAuditButton>
+                    </Tooltip>
                 </RightButtonsGroup>
             </SchemaHeaderContainer>
         </TabToolbar>
