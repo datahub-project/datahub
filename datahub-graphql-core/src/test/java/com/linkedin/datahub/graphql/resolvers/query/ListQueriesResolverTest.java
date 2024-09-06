@@ -119,6 +119,7 @@ public class ListQueriesResolverTest {
             Mockito.any(),
             Mockito.eq("*"),
             Mockito.anyMap(),
+            Mockito.anyList(),
             Mockito.anyInt(),
             Mockito.anyInt());
   }
@@ -134,6 +135,7 @@ public class ListQueriesResolverTest {
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
+            Mockito.anyList(),
             Mockito.anyInt(),
             Mockito.anyInt());
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);

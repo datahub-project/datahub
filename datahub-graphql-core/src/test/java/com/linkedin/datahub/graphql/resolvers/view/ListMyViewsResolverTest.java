@@ -179,6 +179,7 @@ public class ListMyViewsResolverTest {
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
+            Mockito.anyList(),
             Mockito.anyInt(),
             Mockito.anyInt());
   }
@@ -194,6 +195,7 @@ public class ListMyViewsResolverTest {
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
+            Mockito.anyList(),
             Mockito.anyInt(),
             Mockito.anyInt());
     ListMyViewsResolver resolver = new ListMyViewsResolver(mockClient);

@@ -143,6 +143,7 @@ public class ListDomainsResolverTest {
             Mockito.any(),
             Mockito.eq("*"),
             Mockito.anyMap(),
+            Mockito.anyList(),
             Mockito.anyInt(),
             Mockito.anyInt());
   }
@@ -158,6 +159,7 @@ public class ListDomainsResolverTest {
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
+            Mockito.anyList(),
             Mockito.anyInt(),
             Mockito.anyInt());
     ListDomainsResolver resolver = new ListDomainsResolver(mockClient);
