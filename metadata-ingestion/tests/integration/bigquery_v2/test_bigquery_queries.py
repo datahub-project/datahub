@@ -32,7 +32,7 @@ def _generate_queries_cached_file(tmp_path: Path, queries_json_path: Path) -> No
         for query in queries:
             query["timestamp"] = datetime.fromisoformat(query["timestamp"])
             query["user"] = (
-                CorpUserUrn.create_from_string(query["user"]) if query["user"] else None
+                CorpUserUrn.from_string(query["user"]) if query["user"] else None
             )
             query_cache.append(ObservedQuery(**query))
 

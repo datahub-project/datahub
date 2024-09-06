@@ -364,7 +364,7 @@ class BigQueryQueriesExtractor:
             session_id=row["session_id"],
             timestamp=row["creation_time"],
             user=(
-                CorpUserUrn.create_from_string(
+                CorpUserUrn.from_string(
                     self.identifiers.gen_user_urn(row["user_email"])
                 )
                 if row["user_email"]
