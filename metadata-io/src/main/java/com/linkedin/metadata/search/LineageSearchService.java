@@ -2,6 +2,7 @@ package com.linkedin.metadata.search;
 
 import static com.datahub.authorization.AuthUtil.canViewEntity;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -12,9 +13,8 @@ import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -32,7 +32,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.FilterUtils;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -81,7 +80,7 @@ public class LineageSearchService {
   private final GraphService _graphService;
   @Nullable private final Cache cache;
   private final boolean cacheEnabled;
-  private final SearchLineageCacheConfiguration cacheConfiguration;
+  private final DataHubAppConfiguration appConfig;
   private final ExecutorService cacheRefillExecutor = Executors.newFixedThreadPool(1);
 
   private static final String DEGREE_FILTER = "degree";
@@ -198,7 +197,7 @@ public class LineageSearchService {
       freshnessStats.setSystemFreshness(systemFreshness);
       // set up cache refill if needed
       if (System.currentTimeMillis() - cachedLineageResult.getTimestamp()
-          > cacheConfiguration.getTTLMillis()) {
+          > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
         log.info("Cached lineage entry for: {} is older than one day. Will refill.", sourceUrn);
         Integer finalMaxHops = maxHops;
         this.cacheRefillExecutor.submit(
@@ -208,7 +207,7 @@ public class LineageSearchService {
                   cache.get(cacheKey, CachedEntityLineageResult.class);
               if (reFetchLineageResult == null
                   || System.currentTimeMillis() - reFetchLineageResult.getTimestamp()
-                      > cacheConfiguration.getTTLMillis()) {
+                      > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
                 // we have to refetch
                 EntityLineageResult result =
                     _graphService.getLineage(
@@ -315,7 +314,8 @@ public class LineageSearchService {
                                 criterion1 ->
                                     "platform".equals(criterion1.getField())
                                         || "origin".equals(criterion1.getField())));
-    return (lineageRelationships.size() > cacheConfiguration.getLightningThreshold())
+    return (lineageRelationships.size()
+            > appConfig.getCache().getSearch().getLineage().getLightningThreshold())
         && input.equals("*")
         && simpleFilters
         && CollectionUtils.isEmpty(sortCriteria);
@@ -555,7 +555,7 @@ public class LineageSearchService {
               .distinct()
               .collect(Collectors.toList());
       Map<Urn, LineageRelationship> urnToRelationship = generateUrnToRelationshipMap(batch);
-      Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
+      Filter finalFilter = buildFilterWithUrns(appConfig, urnToRelationship.keySet(), inputFilters);
 
       LineageSearchResult resultForBatch =
           buildLineageSearchResult(
@@ -669,27 +669,6 @@ public class LineageSearchService {
       }
     }
     return relationshipsFilteredByEntities.collect(Collectors.toList());
-  }
-
-  private Filter buildFilter(@Nonnull Set<Urn> urns, @Nullable Filter inputFilters) {
-    Criterion urnMatchCriterion =
-        new Criterion()
-            .setField("urn")
-            .setValue("")
-            .setValues(
-                new StringArray(urns.stream().map(Object::toString).collect(Collectors.toList())));
-    if (inputFilters == null) {
-      return QueryUtils.newFilter(urnMatchCriterion);
-    }
-
-    // Add urn match criterion to each or clause
-    if (!CollectionUtils.isEmpty(inputFilters.getOr())) {
-      for (ConjunctiveCriterion conjunctiveCriterion : inputFilters.getOr()) {
-        conjunctiveCriterion.getAnd().add(urnMatchCriterion);
-      }
-      return inputFilters;
-    }
-    return QueryUtils.newFilter(urnMatchCriterion);
   }
 
   private LineageSearchResult buildLineageSearchResult(
@@ -809,7 +788,7 @@ public class LineageSearchService {
     } else {
       lineageResult = cachedLineageResult.getEntityLineageResult();
       if (System.currentTimeMillis() - cachedLineageResult.getTimestamp()
-          > cacheConfiguration.getTTLMillis()) {
+          > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
         log.warn("Cached lineage entry for: {} is older than one day.", sourceUrn);
       }
     }
@@ -868,7 +847,7 @@ public class LineageSearchService {
               .distinct()
               .collect(Collectors.toList());
       Map<Urn, LineageRelationship> urnToRelationship = generateUrnToRelationshipMap(batch);
-      Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
+      Filter finalFilter = buildFilterWithUrns(appConfig, urnToRelationship.keySet(), inputFilters);
 
       LineageScrollResult resultForBatch =
           buildLineageScrollResult(

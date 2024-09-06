@@ -28,7 +28,6 @@ dependencies {
   implementation externalDependency.guava
   implementation externalDependency.reflections
 
-  implementation 'com.github.java-json-tools:json-patch:1.13' // TODO: Replace with jakarta.json
   api(externalDependency.dgraph4j) {
     exclude group: 'com.google.guava', module: 'guava'
     exclude group: 'io.grpc', module: 'grpc-protobuf'
