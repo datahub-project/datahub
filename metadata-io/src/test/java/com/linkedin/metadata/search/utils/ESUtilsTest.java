@@ -148,13 +148,14 @@ public class ESUtilsTest {
   @Test
   public void testGetQueryBuilderFromCriterionContain() {
     final Criterion singleValueCriterion =
-            new Criterion().setField("myTestField").setCondition(Condition.CONTAIN).setValue("value1");
+        new Criterion().setField("myTestField").setCondition(Condition.CONTAIN).setValue("value1");
 
     QueryBuilder result =
-            ESUtils.getQueryBuilderFromCriterion(
-                    singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
 
-    String expected = "{\n"
+    String expected =
+        "{\n"
             + "  \"wildcard\" : {\n"
             + "    \"myTestField.keyword\" : {\n"
             + "      \"wildcard\" : \"*value1*\",\n"
@@ -167,17 +168,17 @@ public class ESUtilsTest {
     Assert.assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
-            new Criterion()
-                    .setField("myTestField")
-                    .setCondition(Condition.CONTAIN)
-                    .setValues(new StringArray(ImmutableList.of("value1", "value2")));
+        new Criterion()
+            .setField("myTestField")
+            .setCondition(Condition.CONTAIN)
+            .setValues(new StringArray(ImmutableList.of("value1", "value2")));
 
     result =
-            ESUtils.getQueryBuilderFromCriterion(
-                    multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+        ESUtils.getQueryBuilderFromCriterion(
+            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
 
-
-    expected = "{\n"
+    expected =
+        "{\n"
             + "  \"bool\" : {\n"
             + "    \"should\" : [\n"
             + "      {\n"
@@ -204,21 +205,23 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-
     Assert.assertEquals(result.toString(), expected);
-
   }
+
   @Test
-  public void testWildcardQueryBuilderFromCriterionWhenStartsWith()
-  {
+  public void testWildcardQueryBuilderFromCriterionWhenStartsWith() {
     final Criterion singleValueCriterion =
-            new Criterion().setField("myTestField").setCondition(Condition.START_WITH).setValue("value1");
+        new Criterion()
+            .setField("myTestField")
+            .setCondition(Condition.START_WITH)
+            .setValue("value1");
 
     QueryBuilder result =
-            ESUtils.getQueryBuilderFromCriterion(
-                    singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
 
-    String expected = "{\n"
+    String expected =
+        "{\n"
             + "  \"wildcard\" : {\n"
             + "    \"myTestField.keyword\" : {\n"
             + "      \"wildcard\" : \"value1*\",\n"
@@ -231,17 +234,17 @@ public class ESUtilsTest {
     Assert.assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
-            new Criterion()
-                    .setField("myTestField")
-                    .setCondition(Condition.START_WITH)
-                    .setValues(new StringArray(ImmutableList.of("value1", "value2")));
+        new Criterion()
+            .setField("myTestField")
+            .setCondition(Condition.START_WITH)
+            .setValues(new StringArray(ImmutableList.of("value1", "value2")));
 
     result =
-            ESUtils.getQueryBuilderFromCriterion(
-                    multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+        ESUtils.getQueryBuilderFromCriterion(
+            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
 
-
-    expected = "{\n"
+    expected =
+        "{\n"
             + "  \"bool\" : {\n"
             + "    \"should\" : [\n"
             + "      {\n"
@@ -268,21 +271,20 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-
     Assert.assertEquals(result.toString(), expected);
   }
 
   @Test
-  public void testWildcardQueryBuilderFromCriterionWhenEndsWith()
-  {
+  public void testWildcardQueryBuilderFromCriterionWhenEndsWith() {
     final Criterion singleValueCriterion =
-            new Criterion().setField("myTestField").setCondition(Condition.END_WITH).setValue("value1");
+        new Criterion().setField("myTestField").setCondition(Condition.END_WITH).setValue("value1");
 
     QueryBuilder result =
-            ESUtils.getQueryBuilderFromCriterion(
-                    singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
 
-    String expected = "{\n"
+    String expected =
+        "{\n"
             + "  \"wildcard\" : {\n"
             + "    \"myTestField.keyword\" : {\n"
             + "      \"wildcard\" : \"*value1\",\n"
@@ -294,17 +296,17 @@ public class ESUtilsTest {
     Assert.assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
-            new Criterion()
-                    .setField("myTestField")
-                    .setCondition(Condition.END_WITH)
-                    .setValues(new StringArray(ImmutableList.of("value1", "value2")));
+        new Criterion()
+            .setField("myTestField")
+            .setCondition(Condition.END_WITH)
+            .setValues(new StringArray(ImmutableList.of("value1", "value2")));
 
     result =
-            ESUtils.getQueryBuilderFromCriterion(
-                    multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+        ESUtils.getQueryBuilderFromCriterion(
+            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
 
-
-    expected = "{\n"
+    expected =
+        "{\n"
             + "  \"bool\" : {\n"
             + "    \"should\" : [\n"
             + "      {\n"
@@ -331,10 +333,8 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-
     Assert.assertEquals(result.toString(), expected);
   }
-
 
   @Test
   public void testGetQueryBuilderFromCriterionExists() {
