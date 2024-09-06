@@ -1,0 +1,34 @@
+import { Text } from '@components';
+import { Property } from '@src/app/tests/builder/steps/definition/builder/property/types/properties';
+import { Select, Tooltip } from 'antd';
+import React from 'react';
+import { StyledSelect } from './styledComponents';
+
+interface Props {
+    selectedProperty?: string;
+    properties: Property[];
+    onChangeProperty: (propertyId) => void;
+}
+
+const PropertySelect = ({ selectedProperty, properties, onChangeProperty }: Props) => {
+    return (
+        <StyledSelect
+            value={selectedProperty}
+            onChange={onChangeProperty}
+            placeholder="Select a property"
+            defaultActiveFirstOption={false}
+        >
+            {properties.map((prop) => (
+                <Select.Option key={prop.id} value={prop.id}>
+                    <Tooltip title={prop.description} placement="top">
+                        <Text color="gray" type="span">
+                            {prop.displayName}
+                        </Text>
+                    </Tooltip>
+                </Select.Option>
+            ))}
+        </StyledSelect>
+    );
+};
+
+export default PropertySelect;

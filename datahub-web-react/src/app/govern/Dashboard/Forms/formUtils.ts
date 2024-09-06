@@ -1,3 +1,4 @@
+import { LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
 import { CorpGroup, CorpUser, FormState, FormType } from '../../../../types.generated';
 
 export type FormMode = 'create' | 'edit';
@@ -26,6 +27,7 @@ export type FormFields = {
     questions: FormQuestion[];
     actors?: FormActors;
     state?: FormState;
+    filters?: LogicalPredicate;
 };
 
 export const handleInputChange = (setFormValues) => (event) => {

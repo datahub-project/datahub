@@ -12,6 +12,8 @@ type Props = {
     placeholder?: string;
     mode?: 'multiple' | 'single';
     style?: any;
+    tagStyle?: React.CSSProperties;
+    optionStyle?: React.CSSProperties;
     onChangeSelectedUrns: (newUrns: string[]) => void;
 };
 
@@ -42,6 +44,8 @@ export const EntitySearchInput = ({
     entityTypes,
     placeholder,
     style,
+    tagStyle,
+    optionStyle,
     mode,
     onChangeSelectedUrns,
 }: Props) => {
@@ -153,14 +157,14 @@ export const EntitySearchInput = ({
                     displayName = entityRegistry.getDisplayName(entity?.type, entity) || displayName;
                 }
                 return (
-                    <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                    <Tag closable={tagProps.closable} onClose={tagProps.onClose} style={tagStyle}>
                         <Tooltip title={displayName}>{displayName}</Tooltip>
                     </Tag>
                 );
             }}
         >
             {searchResults?.map((result) => (
-                <Select.Option value={result.entity.urn}>
+                <Select.Option value={result.entity.urn} style={optionStyle}>
                     <EntitySearchInputResult entity={result.entity} />
                 </Select.Option>
             ))}

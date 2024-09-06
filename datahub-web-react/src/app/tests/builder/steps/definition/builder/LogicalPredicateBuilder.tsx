@@ -1,12 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
 /* eslint-disable import/no-cycle */
-import { LogicalOperatorOperands } from './LogicalOperatorOperands';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
-import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from './types';
-import { Property } from './property/types/properties';
-import { LogicalOperatorDropdown } from './LogicalOperatorDropdown';
 import { AddPredicateButton } from './AddPredicateButton';
+import { LogicalOperatorDropdown } from './LogicalOperatorDropdown';
+import { LogicalOperatorOperands } from './LogicalOperatorOperands';
+import { Property } from './property/types/properties';
+import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from './types';
 import { isLogicalPredicate } from './utils';
 
 /**
@@ -31,7 +31,7 @@ const OperandContainer = styled.div`
     margin-left: 8px;
 `;
 
-const EMPTY_PROPERTY_PREDICATE = {
+export const EMPTY_PROPERTY_PREDICATE = {
     property: undefined,
     operator: undefined,
     values: undefined,
@@ -50,7 +50,7 @@ type Props = {
     options?: Options;
 };
 
-const convertToLogicalPredicate = (predicate: LogicalPredicate | PropertyPredicate): LogicalPredicate => {
+export const convertToLogicalPredicate = (predicate: LogicalPredicate | PropertyPredicate): LogicalPredicate => {
     // If we have a property predicate, simply convert to a basic logical predicate.
     if (!isLogicalPredicate(predicate)) {
         return {

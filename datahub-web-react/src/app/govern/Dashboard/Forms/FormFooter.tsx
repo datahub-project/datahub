@@ -8,6 +8,18 @@ import { useParams } from 'react-router';
 import ManageFormContext from './ManageFormContext';
 import { FooterContainer } from './styledComponents';
 
+// Need to replace this after converting filters to DNF orFilters
+const SAMPLE_DNF_FILTERS = [
+    {
+        and: [
+            {
+                field: 'domains',
+                values: ['urn:li:domain:51c4fa83-7edb-4a53-9c0a-a2cfaedb1659'],
+            },
+        ],
+    },
+];
+
 const FormFooter = () => {
     const { form, formValues, setFormValues, setIsFormLoading } = useContext(ManageFormContext);
     const [createForm] = useCreateFormMutation();
@@ -59,6 +71,10 @@ const FormFooter = () => {
                             groups: formValues.actors?.groups?.map((group) => group.urn),
                         },
                         state: state || formValues.state,
+                        formAssetAssignment: {
+                            orFilters: SAMPLE_DNF_FILTERS,
+                            json: JSON.stringify(formValues.filters),
+                        },
                     };
                     setIsFormLoading(true);
 
@@ -89,6 +105,10 @@ const FormFooter = () => {
                             groups: formValues.actors?.groups?.map((group) => group.urn),
                         },
                         state: state || formValues.state,
+                        formAssetAssignment: {
+                            orFilters: SAMPLE_DNF_FILTERS,
+                            json: JSON.stringify(formValues.filters),
+                        },
                     };
                     setIsFormLoading(true);
 

@@ -54,6 +54,7 @@ export const ManageFormContextProvider = ({ children }: { children: React.ReactN
                 questions: questions as FormQuestion[],
                 actors: formData?.info.actors as FormActors,
                 state: formData?.info.status.state,
+                filters: formData?.dynamicFormAssignment?.json && JSON.parse(formData?.dynamicFormAssignment?.json),
             };
             setFormValues(values);
             form?.setFieldsValue(values);

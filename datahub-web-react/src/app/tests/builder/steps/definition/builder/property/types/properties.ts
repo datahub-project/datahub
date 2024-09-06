@@ -3,7 +3,7 @@
  * which the UI deeply understands.
  */
 import { EntityType } from '../../../../../../../../types.generated';
-import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID, OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID } from '../constants';
+import { OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID, STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '../constants';
 import { SelectInputMode, ValueTypeId } from './values';
 
 /**
@@ -31,7 +31,7 @@ export type Property = {
  *          "If an asset has > 10 downstreams, then mark it as Heavy node"
  *          "Must have an owner of type Technical Owner"
  */
-const commonProps: Property[] = [
+export const commonProps: Property[] = [
     {
         id: 'urn',
         displayName: 'Urn',

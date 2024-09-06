@@ -1,14 +1,14 @@
+import { DeleteOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
 /* eslint-disable import/no-cycle */
-import { LogicalPredicateBuilder } from './LogicalPredicateBuilder';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
+import { LogicalPredicateBuilder } from './LogicalPredicateBuilder';
 import { PropertyPredicateBuilder } from './property/PropertyPredicateBuilder';
+import { Property } from './property/types/properties';
 import { LogicalPredicate, PropertyPredicate } from './types';
 import { isLogicalPredicate } from './utils';
-import { Property } from './property/types/properties';
 
 const PredicateContainer = styled.div`
     display: flex;

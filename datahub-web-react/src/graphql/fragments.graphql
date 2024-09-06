@@ -1761,6 +1761,9 @@ fragment formFields on Form {
     ownership {
         ...ownershipFields
     }
+    dynamicFormAssignment {
+        json
+    }
 }
 
 fragment formAssociationFields on FormAssociation {
