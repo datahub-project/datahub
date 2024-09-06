@@ -37,6 +37,7 @@ public class ListTestsResolverTest {
                 Mockito.eq(Constants.TEST_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(Collections.emptyMap()),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(0),
                 Mockito.eq(20)))
         .thenReturn(
@@ -78,7 +79,14 @@ public class ListTestsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .search(any(), any(), Mockito.eq(""), Mockito.anyMap(), Mockito.anyInt(), Mockito.anyInt());
+        .search(
+            any(),
+            any(),
+            Mockito.eq(""),
+            Mockito.anyMap(),
+            Mockito.anyList(),
+            Mockito.anyInt(),
+            Mockito.anyInt());
   }
 
   @Test
@@ -87,7 +95,14 @@ public class ListTestsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .search(any(), any(), Mockito.eq(""), Mockito.anyMap(), Mockito.anyInt(), Mockito.anyInt());
+        .search(
+            any(),
+            any(),
+            Mockito.eq(""),
+            Mockito.anyMap(),
+            Mockito.anyList(),
+            Mockito.anyInt(),
+            Mockito.anyInt());
     ListTestsResolver resolver = new ListTestsResolver(mockClient);
 
     // Execute resolver
