@@ -1,23 +1,15 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import {
-    EntityType,
-    FormPrompt,
-    PromptCardinality,
-    SchemaField,
-    SubmitFormPromptInput,
-} from '../../../../../../types.generated';
+import { EntityType, FormPrompt, SubmitFormPromptInput } from '../../../../../../types.generated';
 import CompletedPromptAuditStamp from '../CompletedPromptAuditStamp';
 import { applyOpacity } from '../../../../../shared/styleUtils';
 import { useEntityFormContext } from '../../EntityFormContext';
 import BulkSubmissionButton from '../BulkSubmissionButton';
 import usePromptCompletionInfo from '../usePromptCompletionInfo';
-import { ColumnSelectorProps } from '../types';
-import ColumnSelector from '../ColumnSelector';
-import PromptHeader from '../PromptHeader';
 import UrnInput from '../StructuredPropertyPrompt/UrnInput/UrnInput';
-import useGlossaryTermsPrompt from './useGlossaryTermsPrompt';
+import PromptHeader from '../PromptHeader';
+import useDomainPrompt from './useDomainPrompt';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
@@ -26,16 +18,23 @@ const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     ${(props) => props.displayBulkStyles && `color: white;`}
 `;
 
-export const PromptSubTitle = styled.div`
-    font-size: 14px;
-    font-weight: 500;
-    line-height: 18px;
-    margin-top: 4px;
-`;
-
 const InputSection = styled.div`
     margin-top: 8px;
     display: flex;
+    gap: 8px;
+    .ant-select-selector {
+        min-height: 40px;
+    }
+    .ant-select-single {
+        width: 40%;
+        max-width: 300px;
+        max-height: 40px;
+        .ant-select-selector {
+            padding-top: 3px;
+            height: 100%;
+            font-size: 14px;
+        }
+    }
 `;
 
 const StyledButton = styled(Button)`
@@ -55,25 +54,14 @@ interface Props {
     promptNumber?: number;
     prompt: FormPrompt;
     submitResponse: (input: SubmitFormPromptInput, onSuccess: () => void) => void;
-    field?: SchemaField;
     optimisticCompletedTimestamp?: number | null;
-    columnSelectorProps?: ColumnSelectorProps;
 }
 
-export default function GlossaryTermsPrompt({
-    promptNumber,
-    prompt,
-    submitResponse,
-    field,
-    optimisticCompletedTimestamp,
-    columnSelectorProps,
-}: Props) {
-    const { hasEdited, selectedValues, initialEntities, submitGlossaryTermsResponse, updateSelectedValues } =
-        useGlossaryTermsPrompt({
-            prompt,
-            submitResponse,
-            field,
-        });
+export default function DomainPrompt({ promptNumber, prompt, submitResponse, optimisticCompletedTimestamp }: Props) {
+    const { hasEdited, selectedDomain, initialEntity, submitDomainResponse, updateSelectedDomain } = useDomainPrompt({
+        prompt,
+        submitResponse,
+    });
 
     const {
         prompt: { displayBulkPromptStyles },
@@ -82,13 +70,13 @@ export default function GlossaryTermsPrompt({
 
     const { isComplete, completedByName, completedByTime } = usePromptCompletionInfo({
         prompt,
-        field,
+        field: undefined,
         optimisticCompletedTimestamp,
     });
 
-    const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0;
-    const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0;
-    const allowedTerms = prompt.glossaryTermsParams?.resolvedAllowedTerms || [];
+    const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedDomain;
+    const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedDomain;
+    const allowedDomains = prompt.domainParams?.allowedDomains || [];
 
     return (
         <>
@@ -102,32 +90,28 @@ export default function GlossaryTermsPrompt({
                     />
                     <InputSection>
                         <UrnInput
-                            initialEntities={initialEntities}
-                            allowedEntities={prompt.glossaryTermsParams?.resolvedAllowedTerms || []}
-                            allowedEntityTypes={[EntityType.GlossaryTerm]}
-                            isMultiple={prompt.glossaryTermsParams?.cardinality === PromptCardinality.Multiple}
-                            selectedValues={selectedValues}
-                            updateSelectedValues={updateSelectedValues}
-                            promptType={prompt.type}
-                            placeholder={allowedTerms.length ? 'Select from the provided Glossary Terms...' : undefined}
+                            initialEntities={initialEntity ? [initialEntity] : []}
+                            allowedEntities={allowedDomains}
+                            allowedEntityTypes={[EntityType.Domain]}
+                            isMultiple={false}
+                            selectedValues={[selectedDomain]}
+                            updateSelectedValues={(values) => updateSelectedDomain(values.length ? values[0] : null)}
+                            placeholder={allowedDomains.length ? 'Select from the provided Domains...' : undefined}
                         />
                         {displayBulkPromptStyles && (
                             <BulkSubmissionButton
-                                isDisabled={!selectedValues.length || !selectedEntities.length}
-                                submitResponse={submitGlossaryTermsResponse}
+                                isDisabled={!selectedDomain || !selectedEntities.length}
+                                submitResponse={submitDomainResponse}
                             />
                         )}
                     </InputSection>
-                    {field && columnSelectorProps && (showSaveButton || showConfirmButton) && (
-                        <ColumnSelector field={field} {...columnSelectorProps} />
-                    )}
                 </PromptInputWrapper>
                 {isComplete && !hasEdited && !displayBulkPromptStyles && (
                     <CompletedPromptAuditStamp completedByName={completedByName} completedByTime={completedByTime} />
                 )}
             </PromptWrapper>
             {(showSaveButton || showConfirmButton) && (
-                <StyledButton type="primary" onClick={submitGlossaryTermsResponse}>
+                <StyledButton type="primary" onClick={submitDomainResponse}>
                     {showSaveButton ? 'Save' : 'Confirm'}
                 </StyledButton>
             )}

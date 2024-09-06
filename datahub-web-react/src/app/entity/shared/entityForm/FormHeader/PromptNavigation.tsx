@@ -21,6 +21,7 @@ import analytics, { EventType, DocRequestView } from '../../../../analytics';
 import OwnershipPrompt from '../prompts/OwnershipPrompt/OwnershipPrompt';
 import DocumentationPrompt from '../prompts/DocumentationPrompt/DocumentationPrompt';
 import GlossaryTermsPrompt from '../prompts/GlossaryTermsPrompt/GlossaryTermsPrompt';
+import DomainPrompt from '../prompts/DomainPrompt/DomainPrompt';
 
 const FormPromptsWrapper = styled(BulkNavigationWrapper)`
     justify-content: space-between;
@@ -207,6 +208,14 @@ export default function PromptNavigation() {
             )}
             {prompt?.type === FormPromptType.GlossaryTerms && (
                 <GlossaryTermsPrompt
+                    key={promptIndex}
+                    promptNumber={promptIndex + 1}
+                    prompt={prompt}
+                    submitResponse={submitResponse}
+                />
+            )}
+            {prompt?.type === FormPromptType.Domain && (
+                <DomainPrompt
                     key={promptIndex}
                     promptNumber={promptIndex + 1}
                     prompt={prompt}

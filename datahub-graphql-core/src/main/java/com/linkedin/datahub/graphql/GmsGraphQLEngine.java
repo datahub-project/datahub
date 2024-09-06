@@ -63,6 +63,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Deprecation;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.DomainParams;
 import com.linkedin.datahub.graphql.generated.DomainPromptResponse;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
@@ -2847,6 +2848,21 @@ public class GmsGraphQLEngine {
                                   .collect(Collectors.toList())
                               : new ArrayList<>();
                         })));
+    builder.type(
+        "DomainParams",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "allowedDomains",
+                new LoadableTypeBatchResolver<>(
+                    domainType,
+                    (env) -> {
+                      final DomainParams params = env.getSource();
+                      return params.getAllowedDomains() != null
+                          ? params.getAllowedDomains().stream()
+                              .map(Domain::getUrn)
+                              .collect(Collectors.toList())
+                          : new ArrayList<>();
+                    })));
     builder.type(
         "OwnershipPromptResponse",
         typeWiring ->

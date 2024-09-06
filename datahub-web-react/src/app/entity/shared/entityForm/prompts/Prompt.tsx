@@ -15,6 +15,7 @@ import useColumnSelector from './useColumnSelector';
 import OwnershipPrompt from './OwnershipPrompt/OwnershipPrompt';
 import DocumentationPrompt from './DocumentationPrompt/DocumentationPrompt';
 import GlossaryTermsPrompt from './GlossaryTermsPrompt/GlossaryTermsPrompt';
+import DomainPrompt from './DomainPrompt/DomainPrompt';
 
 export const PromptWrapper = styled.div`
     background-color: white;
@@ -150,6 +151,14 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
                     field={field}
                     optimisticCompletedTimestamp={optimisticCompletedTimestamp}
                     columnSelectorProps={columnSelectorProps}
+                />
+            )}
+            {prompt.type === FormPromptType.Domain && (
+                <DomainPrompt
+                    promptNumber={promptNumber}
+                    prompt={prompt}
+                    submitResponse={handleSubmitResponse}
+                    optimisticCompletedTimestamp={optimisticCompletedTimestamp}
                 />
             )}
         </PromptWrapper>

@@ -128,6 +128,7 @@ export default function OwnershipPrompt({
 
     const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0 && selectedOwnerTypeUrn;
     const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0;
+    const allowedOwners = prompt.ownershipParams?.allowedOwners || [];
 
     return (
         <>
@@ -142,11 +143,14 @@ export default function OwnershipPrompt({
                     <InputSection>
                         <UrnInput
                             initialEntities={initialEntities}
-                            allowedEntities={prompt.ownershipParams?.allowedOwners || []}
+                            allowedEntities={allowedOwners}
                             allowedEntityTypes={[EntityType.CorpUser, EntityType.CorpGroup]}
                             isMultiple={prompt.ownershipParams?.cardinality === PromptCardinality.Multiple}
                             selectedValues={selectedValues}
                             updateSelectedValues={updateSelectedValues}
+                            placeholder={
+                                allowedOwners.length ? 'Select from the provided Users and Groups...' : undefined
+                            }
                         />
                         <OwnershipTypesSelect
                             selectedOwnerTypeUrn={selectedOwnerTypeUrn}

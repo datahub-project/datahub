@@ -1724,6 +1724,13 @@ fragment formFields on Form {
                     ...entityDisplayNameFields
                 }
             }
+            domainParams {
+                allowedDomains {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
         }
         actors {
             owners
@@ -1803,6 +1810,13 @@ fragment formPromptAssociationFields on FormPromptAssociation {
         }
         glossaryTermsResponse {
             glossaryTerms {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+        domainResponse {
+            domain {
                 urn
                 type
                 ...entityDisplayNameFields

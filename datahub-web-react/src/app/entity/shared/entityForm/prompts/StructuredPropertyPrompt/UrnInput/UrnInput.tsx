@@ -38,6 +38,7 @@ interface Props {
     allowedEntityTypes?: EntityType[];
     isMultiple: boolean;
     promptType?: FormPromptType;
+    placeholder?: string;
 }
 
 const GLOSSARY_TERM_PROMPT_TYPES = [FormPromptType.GlossaryTerms, FormPromptType.FieldsGlossaryTerms];
@@ -50,6 +51,7 @@ export default function UrnInput({
     selectedValues,
     updateSelectedValues,
     promptType,
+    placeholder,
 }: Props) {
     const {
         onSelectValue,
@@ -75,7 +77,8 @@ export default function UrnInput({
     });
     const inputEl = useRef(null);
 
-    const placeholder = `Search for ${entityTypeNames ? entityTypeNames.map((name) => ` ${name}`) : 'entities'}...`;
+    const displayedPlaceholder =
+        placeholder || `Search for ${entityTypeNames ? entityTypeNames.map((name) => ` ${name}`) : 'assets'}...`;
     const canShowGlossaryBrowser =
         promptType && GLOSSARY_TERM_PROMPT_TYPES.includes(promptType) && !allowedEntities?.length;
     const isShowingGlossaryBrowser = canShowGlossaryBrowser && !searchValue;
@@ -88,7 +91,7 @@ export default function UrnInput({
             <EntitySelect
                 mode="multiple"
                 filterOption={false}
-                placeholder={placeholder}
+                placeholder={displayedPlaceholder}
                 showSearch
                 ref={inputEl}
                 defaultActiveFirstOption={false}
