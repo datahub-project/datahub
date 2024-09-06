@@ -2,7 +2,8 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from functools import lru_cache
+from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
 
 from google.api_core import retry
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
@@ -175,6 +176,7 @@ class BigQuerySchemaApi:
         )
         return resp.result()
 
+    @lru_cache(maxsize=1)
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
@@ -222,7 +224,8 @@ class BigQuerySchemaApi:
                     return []
         return projects
 
-    def get_projects_with_labels(self, labels: List[str]) -> List[BigqueryProject]:
+    @lru_cache(maxsize=1)
+    def get_projects_with_labels(self, labels: FrozenSet[str]) -> List[BigqueryProject]:
         with self.report.list_projects_with_labels_timer:
             try:
                 projects = []
@@ -675,7 +678,9 @@ def query_project_list_from_labels(
     report: SourceReport,
     filters: BigQueryFilter,
 ) -> Iterable[BigqueryProject]:
-    projects = schema_api.get_projects_with_labels(filters.filter_config.project_labels)
+    projects = schema_api.get_projects_with_labels(
+        frozenset(filters.filter_config.project_labels)
+    )
 
     if not projects:  # Report failure on exception and if empty list is returned
         report.report_failure(
