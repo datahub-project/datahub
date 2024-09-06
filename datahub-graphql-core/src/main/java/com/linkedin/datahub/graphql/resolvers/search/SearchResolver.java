@@ -91,7 +91,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
         () -> {
           try {
             log.debug(
-                "Executing search. entity type {}, query {}, filters: {}, orFilters: {}, sort: {}, start: {}, count: {} searchFlags: {}",
+                "Executing search. entity type {}, query {}, filters: {}, orFilters: {}, sortCriteria: {}, start: {}, count: {} searchFlags: {}",
                 input.getType(),
                 input.getQuery(),
                 input.getFilters(),
