@@ -108,3 +108,117 @@
     }
   }
 }
+
+// Responsiveness
+@media (max-width: 480px) {
+  .community_section {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-family: "Manrope";
+
+    &::before {
+      position: absolute;
+      content: "";
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      height: 30px;
+      background-color: #ffffff;
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
+    }
+
+    &::after {
+      position: absolute;
+      content: "";
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      height: 30px;
+      background-color: #ffffff;
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+
+    .community_section_left {
+      padding: 50px 0;
+      width: 100%;
+      background: #3e2644;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .community_section_left_content {
+        width: 80%;
+        margin: 2rem auto 5rem 2rem;
+        .community_section_heading {
+          color: rgba($color: #fff, $alpha: 0.4);
+          font-size: 1.7rem;
+          line-height: normal;
+          font-weight: bold;
+        }
+        p {
+          font-size: 0.8rem;
+          color: rgba($color: #fff, $alpha: 0.6);
+          font-weight: light;
+          margin-top: 10px;
+        }
+        a {
+          cursor: pointer;
+          display: inline-block;
+          font-size: 0.8rem;
+          background-color: transparent;
+          padding: 5px 20px;
+          border-radius: 50px;
+          margin: 0 10px 0 0;
+          outline: none;
+          border: 1px solid white;
+          color: white;
+        }
+      }
+    }
+    .community_section_right {
+      width: 100%;
+      background: #000000;
+      flex: 1;
+      color: white;
+      padding: 0px;
+      display: flex;
+      justify-content: center;
+      flex-direction: column;
+      font-family: "Manrope";
+
+      .community_section_heading {
+        width: 80%;
+        margin: 2rem auto 10rem 2rem;
+        div{
+          color: white;
+          font-size: 1.2rem;
+          line-height: normal;
+          font-weight: bold;
+        }
+
+        a {
+          margin-top: 10px;
+          font-weight: 300;
+          cursor: pointer;
+          display: inline-flex;
+          font-size: 0.8rem;
+          background-color: transparent;
+          padding: 5px 10px;
+          border-radius: 50px;
+          outline: none;
+          border: 1px solid white;
+          color: white;
+          align-items: center;
+          gap: 8px;
+        }
+      }
+    }
+  }
+}

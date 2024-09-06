@@ -16,7 +16,7 @@ const Trial = () => {
               <a>Book a Demo</a>
               <a>Product Tour</a>
             </div>
-            <div className={styles.start_arrow}>Get started with Core →</div>
+            <div className={styles.start_arrow}>Get started with Core <span>→</span></div>
           </div>
         </div>
         <div className={styles.trial_right}>

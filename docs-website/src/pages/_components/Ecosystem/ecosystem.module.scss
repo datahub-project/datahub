@@ -127,3 +127,128 @@
     }
   }
 }
+
+// Responsiveness
+@media (max-width: 480px) {
+  .ecosystem_section {
+    position: relative;
+    background: white;
+
+    .ecosystem_section_content {
+      width: 100%;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 0rem;
+
+      .ecosystem_section_upper_content {
+        width: 85%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding-top: 1rem;
+
+        .ecosystem_section_heading{
+          font-size: 1.6rem;
+          line-height: normal;
+          font-family: Manrope;
+        }
+        .ecosystem_section_subtitle {
+          width: 70%;
+          font-size: 0.8rem;
+          margin-top: 10px;
+        }
+        .bottom_line {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 1rem;
+
+          span {
+            color: #12b0fb;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            span {
+              line-height: 10px;
+              font-size: 1.5rem;
+            }
+          }
+        }
+      }
+      .ecosystem_section_lower_content {
+        width: 100%;
+        display: grid;
+        grid-template-areas:
+          "item-3 item-3"
+          "item-3 item-3 "
+          "item-1 item-2"
+          "item-4 item-5";
+        gap: 10px;
+        margin-top: 20px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .item1,
+      .item2,
+      .item3,
+      .item4,
+      .item5 {
+        border-radius: 10px;
+        display: flex;
+        align-items: end;
+        justify-content: start;
+        padding: 10px;
+        overflow: hidden;
+        white-space: normal;
+        font-size: 1rem;
+        min-width: 150px;
+      }
+
+      .item1 {
+        grid-area: item-1;
+        background-color: rgb(238, 231, 243);
+      }
+
+      .item2 {
+        grid-area: item-2;
+        background-color: rgb(247, 226, 198);
+      }
+
+      .item3 {
+        grid-area: item-3;
+        aspect-ratio: 1;
+        background-color: #f6f8fb;
+        padding: 0;
+      }
+
+      .item4 {
+        grid-area: item-4;
+        background-color: rgb(241, 241, 191);
+      }
+
+      .item5 {
+        grid-area: item-5;
+        background-color: rgb(243, 206, 227);
+      }
+
+      /* Additional: Control image size */
+      .item_content img {
+        width: 20px;
+        height: 20px;
+      }
+
+      /* Additional: Limit text height with ellipsis */
+      .item_content span {
+        display: -webkit-box;
+        -webkit-line-clamp: 3; /* Show only 2 lines */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+}
