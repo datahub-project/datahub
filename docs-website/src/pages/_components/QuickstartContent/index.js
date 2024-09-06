@@ -21,7 +21,6 @@ const QuickstartContent = ({}) => {
         </div>
       </div>
       <div className="quickstart__content">
-      <div id="quickstart_progressbar" />
         <div className="quickstart__text">
           <div className="quickstart__text__label">Governance</div>
           <div className="quickstart__text__head">

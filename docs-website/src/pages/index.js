@@ -38,18 +38,9 @@ function Home() {
       <Hero />
       <div className="comapny__logos">
         <div className="text">
-          Trusted by industry leaders<br/>around the world.
+          Trusted by industry leaders around the world.
         </div>
-        <div className="company_logos_list_wrapper">
-          {keyCompanies.map(company => <a href={`/adoption-stories#${company.slug}`}>
-                <img
-                  src={useBaseUrl(company.imageUrl)}
-                  alt={company.name}
-                  title={company.name}
-                  className={'company_logo'}
-                />
-              </a>)}
-        </div>
+        <CompanyLogos />
         {/* <div style={{ textAlign: "center", margin: "1rem" }}>
           <Link
             className="button button--secondary button--md"

@@ -7,7 +7,7 @@ const Testimonials = ({}) => {
   return (
     <div className={clsx("testimonials", styles.testimonials)}>
       <div className="testimonials__content">
-        {/* <div className="arrow left">
+        <div className="arrow left">
           <svg
             width="19"
             height="15"
@@ -36,7 +36,7 @@ const Testimonials = ({}) => {
               fill-opacity="0.6"
             />
           </svg>
-        </div> */}
+        </div>
         <div className="testimonials__card">
           <div className="testimonials__logo">
             <img src={useBaseUrl("/img/logos/scrollingCompanies/notion.png")} />
@@ -76,7 +76,7 @@ const Testimonials = ({}) => {
               through automation and emphasis on time-to-value.
             </div>
             <div className="testimonials__company">
-              Notion Labs, Inc. <span>on DataHub Cloud</span>
+              Notion Labs, Inc. on DataHub Cloud
             </div>
           </div>
         </div>

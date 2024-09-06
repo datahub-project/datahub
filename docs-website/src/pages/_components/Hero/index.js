@@ -32,7 +32,7 @@ const Hero = ({}) => {
               The <strong>#1 open source</strong> metadata platform.
             </div>
             <div className="hero__subtitle">
-              The unified platform for{" "}
+              The only unified platform for{" "}
               <span>
                 {" "}
                 <span>AI Governance</span>
@@ -42,7 +42,7 @@ const Hero = ({}) => {
               <Link className="cta__primary">Datahub Cloud</Link>
               <Link className="cta__secondary">Product Tour</Link>
             </div>
-            <Link className="hero__footer_cta">Get started with Core →</Link>
+            <div className="hero__footer">Get started with Core → </div>
           </div>
           <div className="hero__img">
             <img src={useBaseUrl("/img/hero.png")} />
