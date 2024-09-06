@@ -47,17 +47,21 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
+
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
     Status,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
+    DatasetSnapshot,
     ChartSnapshot,
     DashboardSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
@@ -108,7 +112,7 @@ class SupersetConfig(
     api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
     api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
     manager_uri: str = Field(
-        default="https://api.app.preset.io", description="Preset.io API URL"
+        default="https://api.app.preset.io/", description="Preset.io API URL"
     )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -160,13 +164,15 @@ def get_filter_name(filter_obj):
     return f"{clause} {column} {operator} {comparator}"
 
 
+def format_to_full_name(change_by_data):
+    return change_by_data.get('first_name') + " " + change_by_data.get('last_name')
+
 @platform_name("Superset")
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
 )
-@capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
@@ -245,11 +251,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             return "athena"
         return platform_name
 
-    @lru_cache(maxsize=None)
-    def get_datasource_urn_from_id(self, datasource_id):
-        dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
-        ).json()
+    # @lru_cache(maxsize=None) -> look into caching
+    def get_datasource_urn_from_id(self, dataset_response):
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
@@ -260,7 +263,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         if database_id and table_name:
             return make_dataset_urn(
-                platform=self.get_platform_from_database_id(database_id),
+                platform='preset',
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
@@ -398,7 +401,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
-        datasource_urn = self.get_datasource_urn_from_id(datasource_id)
+
+        dataset_response = self.session.get(
+            f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
+        ).json()
+        datasource_urn = self.get_datasource_urn_from_id(dataset_response)
 
         params = json.loads(chart_data.get("params"))
         metrics = [
@@ -477,9 +484,88 @@ class SupersetSource(StatefulIngestionSourceBase):
                     entity_urn=chart_snapshot.urn,
                 )
 
+
+## Ingestion for Preset Dataset
+    def construct_dataset_from_dataset_data(self, dataset_data):
+
+        dataset_response = self.session.get(
+            f"{self.config.connect_uri}/api/v1/dataset/{dataset_data.get('id')}"
+        ).json()
+        datasource_urn = self.get_datasource_urn_from_id(dataset_response)
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasource_urn,
+            aspects=[Status(removed=False)],
+        )
+        ## Check API format for dataset
+        modified_actor = f"urn:li:corpuser:{(dataset_data.get('changed_by') or {}).get('username', 'unknown')}"
+        modified_ts = int(
+            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+        )
+        table_name = dataset_data.get("table_name", "")
+
+        # note: the API does not currently supply created_by usernames due to a bug
+        last_modified = ChangeAuditStamps(
+            created=None,
+            lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+        )
+        dataset_url = f"{self.config.display_uri}{dataset_data.get('url', '')}"
+        metrics = [
+            metric.get("metric_name")
+            for metric in (dataset_response.get("result", {}).get("metrics", []) or [dataset_response.get("result", {}).get("metrics")])
+        ]
+        owners = [
+            'Mark_test'
+            for owner in (dataset_response.get("result", {}).get("owners", []) or [dataset_response.get("result", {}).get("owners")])
+        ]
+
+        custom_properties = {
+            "Metrics": ", ".join(metrics),
+            "Owners": ", ".join(owners),
+        }
+
+        dataset_info = DatasetPropertiesClass(
+            name=table_name,
+            description="",
+            lastModified=TimeStamp(time=modified_ts),
+            externalUrl=dataset_url,
+            customProperties=custom_properties,
+        )
+        dataset_snapshot.aspects.append(dataset_info)
+        return dataset_snapshot
+
+    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
+        current_dataset_page = 0
+        # we will set total datasets to the actual number after we get the response
+        total_datasets = PAGE_SIZE
+
+        while current_dataset_page * PAGE_SIZE <= total_datasets and current_dataset_page:
+            dataset_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/dataset/",
+                params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
+            )
+            if dataset_response.status_code != 200:
+                logger.warning(f"Failed to get dataset data: {dataset_response.text}")
+            dataset_response.raise_for_status()
+
+            current_dataset_page += 1
+
+            payload = dataset_response.json()
+            total_datasets = payload["count"]
+            for dataset_data in payload["result"]:
+                dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
+
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+                yield from self._get_domain_wu(
+                    title=dataset_data.get("table_name", ""),
+                    entity_urn=dataset_snapshot.urn,
+                )
+
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
         yield from self.emit_chart_mces()
+        yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
