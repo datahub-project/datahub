@@ -36,6 +36,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
@@ -363,7 +364,9 @@ class BigQueryQueriesExtractor:
             session_id=row["session_id"],
             timestamp=row["creation_time"],
             user=(
-                self.identifiers.gen_user_urn(row["user_email"])
+                CorpUserUrn.create_from_string(
+                    self.identifiers.gen_user_urn(row["user_email"])
+                )
                 if row["user_email"]
                 else None
             ),

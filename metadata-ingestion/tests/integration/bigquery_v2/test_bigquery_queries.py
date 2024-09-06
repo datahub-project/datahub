@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 from tests.test_helpers import mce_helpers
@@ -26,6 +27,9 @@ def _generate_queries_cached_file(tmp_path: Path, queries_json_path: Path) -> No
         assert isinstance(queries, list)
         for query in queries:
             query["timestamp"] = datetime.fromisoformat(query["timestamp"])
+            query["user"] = (
+                CorpUserUrn.create_from_string(query["user"]) if query["user"] else None
+            )
             query_cache.append(ObservedQuery(**query))
 
         query_cache.close()
