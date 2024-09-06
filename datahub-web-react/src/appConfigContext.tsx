@@ -89,6 +89,7 @@ export const DEFAULT_APP_CONFIG = {
         editableDatasetNameEnabled: false,
         hideDbtSourceInLineage: false,
         showBulkFormByDefault: false,
+        schemaFieldLineageIgnoreStatus: false,
     },
     chromeExtensionConfig: {
         enabled: false,

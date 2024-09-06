@@ -1,3 +1,4 @@
+import { EntityType } from '@types';
 import React, { useContext, useEffect } from 'react';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes } from 'reactflow';
 import styled from 'styled-components';
@@ -37,6 +38,7 @@ const edgeTypes: EdgeTypes = {
 };
 
 interface Props {
+    entityType: EntityType;
     initialNodes: LineageVisualizationNode[];
     initialEdges: Edge[];
 }
@@ -45,7 +47,7 @@ interface Props {
 const MemoizedLineageVisualization = React.memo(LineageVisualization);
 export default MemoizedLineageVisualization;
 
-function LineageVisualization({ initialNodes, initialEdges }: Props) {
+function LineageVisualization({ entityType, initialNodes, initialEdges }: Props) {
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
 
     useEffect(() => {
@@ -90,7 +92,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
         >
             <Background variant={BackgroundVariant.Lines} />
             <ZoomControls />
-            <LineageControls />
+            <LineageControls entityType={entityType} />
             <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
         </StyledReactFlow>
     );

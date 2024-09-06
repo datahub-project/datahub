@@ -4,7 +4,13 @@ import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
 import { EntityType, LineageDirection } from '../../../types.generated';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import { LineageDisplayContext, LineageEntity, LineageNodesContext, TRANSITION_DURATION_MS } from '../common';
+import {
+    LineageDisplayContext,
+    LineageEntity,
+    LineageNodesContext,
+    TRANSITION_DURATION_MS,
+    useIgnoreSchemaFieldStatus,
+} from '../common';
 import useSearchAcrossLineage from '../useSearchAcrossLineage';
 import NodeContents from './NodeContents';
 import useDisplayedColumns from './useDisplayedColumns';
@@ -31,6 +37,7 @@ const HomeNodeBubble = styled.div`
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected } = props;
     const { urn, type, entity, id, fetchStatus, isExpanded } = data;
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { rootUrn } = useContext(LineageNodesContext);
     const { numNodes, setHoveredNode } = useContext(LineageDisplayContext);
 
@@ -90,6 +97,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
                 numColumnsWithLineage={numColumnsWithLineage}
                 numColumnsTotal={numColumnsTotal}
                 refetch={refetch}
+                ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
             />
         </>
     );

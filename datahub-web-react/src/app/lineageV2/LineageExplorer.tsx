@@ -12,6 +12,7 @@ import {
     LineageEntity,
     LineageNodesContext,
     NodeContext,
+    useIgnoreSchemaFieldStatus,
 } from './common';
 import LineageDisplay from './LineageDisplay';
 import useSearchAcrossLineage from './useSearchAcrossLineage';
@@ -23,6 +24,7 @@ type Props = {
 
 export default function LineageExplorer(props: Props) {
     const { urn, type } = props;
+
     const [nodes] = useState(new Map<string, LineageEntity>());
     const [edges] = useState(new Map<EdgeId, LineageEdge>());
     const [adjacencyList] = useState({
@@ -33,7 +35,12 @@ export default function LineageExplorer(props: Props) {
     const [dataVersion, setDataVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
-    const [showGhostEntities, setShowGhostEntities] = useState(false);
+
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
+    const [showGhostEntities, setShowGhostEntities] = useState(
+        type === EntityType.SchemaField ? ignoreSchemaFieldStatus : false,
+    );
+
     const context = {
         rootUrn: urn,
         nodes,
@@ -51,7 +58,7 @@ export default function LineageExplorer(props: Props) {
         setShowGhostEntities,
     };
 
-    const loaded = useInitializeNodes(context, urn, type);
+    const initialized = useInitializeNodes(context, urn, type);
 
     const { setTabFullsize } = useContext(TabFullsizedContext);
     useEffect(() => {
@@ -63,7 +70,7 @@ export default function LineageExplorer(props: Props) {
     return (
         <LineageNodesContext.Provider value={context}>
             <ReactFlowProvider>
-                <LineageDisplay {...props} loaded={loaded} />
+                <LineageDisplay {...props} initialized={initialized} />
             </ReactFlowProvider>
         </LineageNodesContext.Provider>
     );

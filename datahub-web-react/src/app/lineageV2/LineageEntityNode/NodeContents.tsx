@@ -174,16 +174,12 @@ const TitleWrapper = styled.div`
 // Can't be combined with TitleWrapper, or else centered health icon will not align with text when wrapper expands
 const TitleLine = styled.span`
     font-size: 14px;
+    font-weight: 600;
 
     display: flex;
     align-items: center;
     height: min-content;
     gap: 4px;
-`;
-
-const Title = styled(OverflowTitle)`
-    font-weight: 600;
-    line-height: 1.2em;
 `;
 
 const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
@@ -226,6 +222,7 @@ interface Props {
     pageIndex: number;
     setPageIndex: Dispatch<SetStateAction<number>>;
     refetch: Record<LineageDirection, () => void>;
+    ignoreSchemaFieldStatus: boolean;
 }
 
 const MemoizedNodeContents = React.memo(NodeContents);
@@ -256,11 +253,12 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         numFilteredColumns,
         numColumnsWithLineage,
         refetch,
+        ignoreSchemaFieldStatus,
     } = props;
 
     const entityRegistry = useEntityRegistry();
 
-    const isGhost = isGhostEntity(entity);
+    const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
 
     const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
     const expandHeight =
@@ -298,7 +296,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         [showColumns, setShowColumns, urn, type, entity?.platform?.urn],
     );
 
-    // TODO: Refactor into separate node, that doesn't have columns
+    // TODO: Refactor into separate node, that doesn't have columns, with shared code?
     if (type === EntityType.SchemaField) {
         return (
             <SchemaFieldNodeContents
@@ -306,6 +304,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 type={type}
                 rootUrn={rootUrn}
                 selected={selected}
+                isGhost={isGhost}
                 hasUpstreamChildren={hasUpstreamChildren}
                 hasDownstreamChildren={hasDownstreamChildren}
                 isExpanded={isExpanded}
@@ -405,7 +404,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         <ContainerPath parents={entity?.parents} />
                         <TitleWrapper>
                             <TitleLine>
-                                <Title title={entity?.name} />
+                                <OverflowTitle title={entity?.name} />
                                 {entity?.health && (
                                     <HealthIcon
                                         health={entity.health}

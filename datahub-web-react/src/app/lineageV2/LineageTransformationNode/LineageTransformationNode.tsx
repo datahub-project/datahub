@@ -6,7 +6,14 @@ import styled from 'styled-components';
 import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { EntityType, LineageDirection } from '../../../types.generated';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import { FetchStatus, isGhostEntity, LineageDisplayContext, LineageEntity, LineageNodesContext } from '../common';
+import {
+    FetchStatus,
+    isGhostEntity,
+    LineageDisplayContext,
+    LineageEntity,
+    LineageNodesContext,
+    useIgnoreSchemaFieldStatus,
+} from '../common';
 import { LoadingWrapper } from '../LineageEntityNode/NodeContents';
 
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
@@ -75,7 +82,8 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const { cllHighlightedNodes, setHoveredNode } = useContext(LineageDisplayContext);
 
     // TODO: Support ghost queries and schema fields, once they are supported in the backend
-    const isGhost = isGhostEntity(entity);
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
+    const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
 
     const name = type === EntityType.SchemaField ? entity?.expandedName : entity?.name;
     const backupLogoUrl = useFetchQuery(urn); // TODO: Remove when query nodes not instantiated on column select

@@ -33,7 +33,11 @@ const PopoverWrapper = styled.div`
 
 const StyledSwitch = styled(Switch)``;
 
-export default function LineageSearchFilters() {
+interface Props {
+    showGhostEntityToggle: boolean;
+}
+
+export default function LineageSearchFilters({ showGhostEntityToggle }: Props) {
     const {
         nodes,
         rootUrn,
@@ -45,8 +49,7 @@ export default function LineageSearchFilters() {
     } = useContext(LineageNodesContext);
 
     const hasTransformations = useMemo(
-        () => Array.from(nodes.values()).some((node) => node.urn !== rootUrn && isTransformational(node)),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        () => Array.from(nodes.values()).some((node) => node.urn !== rootUrn && isTransformational(node)), // eslint-disable-next-line react-hooks/exhaustive-deps
         [nodes, nodeVersion],
     );
     return (
@@ -75,21 +78,23 @@ export default function LineageSearchFilters() {
                     />
                 </Tooltip>
             </ToggleWrapper>
-            <ToggleWrapper>
-                <span>
-                    <ToggleLabel>
-                        Show Hidden Edges
-                        <StyledInfoPopover
-                            content={
-                                <PopoverWrapper>
-                                    Show assets that have been deleted or do not exist in DataHub
-                                </PopoverWrapper>
-                            }
-                        />
-                    </ToggleLabel>
-                </span>
-                <StyledSwitch size="small" checked={showGhostEntities} onChange={setShowGhostEntities} />
-            </ToggleWrapper>
+            {showGhostEntityToggle && (
+                <ToggleWrapper>
+                    <span>
+                        <ToggleLabel>
+                            Show Hidden Edges
+                            <StyledInfoPopover
+                                content={
+                                    <PopoverWrapper>
+                                        Show assets that have been deleted or do not exist in DataHub
+                                    </PopoverWrapper>
+                                }
+                            />
+                        </ToggleLabel>
+                    </span>
+                    <StyledSwitch size="small" checked={showGhostEntities} onChange={setShowGhostEntities} />
+                </ToggleWrapper>
+            )}
         </ControlPanel>
     );
 }

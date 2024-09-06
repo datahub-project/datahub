@@ -44,4 +44,5 @@ public class FeatureFlags {
   private boolean schemaFieldCLLEnabled = false;
   private boolean hideDbtSourceInLineage = false;
   private boolean showBulkFormByDefault = false;
+  private boolean schemaFieldLineageIgnoreStatus = false;
 }

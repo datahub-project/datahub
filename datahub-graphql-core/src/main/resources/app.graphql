@@ -1203,6 +1203,11 @@ type FeatureFlagsConfig {
   If turned on, the bulk form by question view will be shown by default from the task center
   """
   showBulkFormByDefault: Boolean!
+  
+  """
+  If turned on, schema field lineage will always fetch ghost entities and present them as real
+  """
+  schemaFieldLineageIgnoreStatus: Boolean!
 }
 
 """

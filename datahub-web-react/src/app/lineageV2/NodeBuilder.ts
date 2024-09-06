@@ -132,15 +132,22 @@ export default class NodeBuilder {
         return information && this.#isMainNode(information) ? { type: MarkerType.ArrowClosed } : undefined;
     }
 
-    createNodes(adjacencyList: NodeContext['adjacencyList']): LineageVisualizationNode[] {
+    createNodes(
+        adjacencyList: NodeContext['adjacencyList'],
+        ignoreSchemaFieldStatus: boolean,
+    ): LineageVisualizationNode[] {
         this.computeNodeX(adjacencyList);
         this.computeNodeY();
 
         const nodes: LineageVisualizationNode[] = [];
-        nodes.push(...this.entities.map((n) => this.createNode(n, LINEAGE_ENTITY_NODE_NAME, !isGhostEntity(n.entity))));
+        nodes.push(
+            ...this.entities.map((n) =>
+                this.createNode(n, LINEAGE_ENTITY_NODE_NAME, !isGhostEntity(n.entity, ignoreSchemaFieldStatus)),
+            ),
+        );
         nodes.push(
             ...this.transformations.map((n) =>
-                this.createNode(n, LINEAGE_TRANSFORMATION_NODE_NAME, !isGhostEntity(n.entity)),
+                this.createNode(n, LINEAGE_TRANSFORMATION_NODE_NAME, !isGhostEntity(n.entity, ignoreSchemaFieldStatus)),
             ),
         );
         nodes.push(...this.filterNodes.map((n) => this.createFilterNode(n)));

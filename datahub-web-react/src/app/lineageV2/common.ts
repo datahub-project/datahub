@@ -1,4 +1,5 @@
 import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
+import { useAppConfig } from '@app/useAppConfig';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
 import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
@@ -73,11 +74,16 @@ export type LineageNode = LineageEntity | LineageFilter;
 
 const TRANSFORMATION_TYPES: string[] = [EntityType.Query, EntityType.DataJob];
 
-export function isGhostEntity(node?: FetchedEntityV2): boolean {
+export function useIgnoreSchemaFieldStatus(): boolean {
+    return useAppConfig().config.featureFlags.schemaFieldLineageIgnoreStatus;
+}
+
+export function isGhostEntity(node: FetchedEntityV2 | undefined, ignoreSchemaFieldStatus: boolean): boolean {
     return (
         !!node &&
         (!node?.exists || !!node.status?.removed) &&
-        ![EntityType.Query, EntityType.SchemaField].includes(node.type)
+        node.type !== EntityType.Query &&
+        !(ignoreSchemaFieldStatus && node.type === EntityType.SchemaField)
     );
 }
 

@@ -7,7 +7,6 @@ import { ExpandLineageButton } from '@app/lineageV2/LineageEntityNode/ExpandLine
 import { LoadingWrapper } from '@app/lineageV2/LineageEntityNode/NodeContents';
 import NodeSkeleton from '@app/lineageV2/LineageEntityNode/NodeSkeleton';
 import { FetchedEntityV2 } from '@app/lineageV2/types';
-import HealthIcon from '@app/previewV2/HealthIcon';
 import { COLORS } from '@app/sharedV2/colors';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
@@ -21,8 +20,8 @@ import styled from 'styled-components';
 import LinkOut from '@images/link-out.svg?react';
 import { downgradeV2FieldPath } from '../lineageUtils';
 
-export const SCHEMA_FIELD_NODE_HEIGHT = 40;
-export const SCHEMA_FIELD_NODE_WIDTH = 160;
+export const SCHEMA_FIELD_NODE_HEIGHT = 80;
+export const SCHEMA_FIELD_NODE_WIDTH = 240;
 const NODE_COLOR = COLORS.blue_7;
 
 const LinkOutIcon = styled(LinkOut)``;
@@ -30,29 +29,24 @@ const LinkOutIcon = styled(LinkOut)``;
 const NodeWrapper = styled.div<{
     selected: boolean;
     color: string;
+    isGhost: boolean;
 }>`
     align-items: center;
     background-color: white;
-    border: 1px solid ${({ color, selected }) => (selected ? color : LINEAGE_COLORS.NODE_BORDER)};
-    border-bottom: 1px solid ${LINEAGE_COLORS.NODE_BORDER};
-    // outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
+    border: 1px solid
+        ${({ color, selected, isGhost }) => {
+            if (selected) return color;
+            if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
+            return LINEAGE_COLORS.NODE_BORDER;
+        }};
+    outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
     display: flex;
     flex-direction: column;
     overflow-y: hidden;
     width: ${SCHEMA_FIELD_NODE_WIDTH}px;
-    cursor: pointer;
-
-    ${LinkOutIcon} {
-        display: none;
-    }
-
-    :hover {
-        ${LinkOutIcon} {
-            display: inline;
-        }
-    }
+    cursor: ${({ isGhost }) => (isGhost ? 'not-allowed' : 'pointer')};
 `;
 
 const CARD_HEIGHT = SCHEMA_FIELD_NODE_HEIGHT - 2; // Inside border
@@ -65,19 +59,15 @@ const FakeCard = styled.div`
     width: 100%;
 `;
 
-const CardWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    height: ${CARD_HEIGHT}px;
-    position: absolute;
-    padding: 6px 9px;
-    width: 100%;
-`;
-
-const ParentWrapper = styled.div`
+const CardWrapper = styled.div<{ isGhost: boolean }>`
     display: flex;
     flex-direction: row;
+    align-items: center;
+    height: ${CARD_HEIGHT}px;
+    position: absolute;
+    padding: 8px 11px;
+    width: 100%;
+    ${({ isGhost }) => isGhost && 'opacity: 0.5;'}
 `;
 
 const EntityTypeShadow = styled.div<{ color: string }>`
@@ -107,12 +97,20 @@ const IconsWrapper = styled.div`
     flex-direction: column;
     font-size: 24px;
     gap: 4px;
-    margin-right: 8px;
 `;
 
 const PlatformIcon = styled.img`
     height: 1em;
     width: 1em;
+`;
+
+const VerticalDivider = styled.hr<{ margin: number }>`
+    align-self: stretch;
+    height: auto;
+    margin: 0 ${({ margin }) => margin}px;
+    border: 0.5px solid;
+    opacity: 0.1;
+    vertical-align: text-top;
 `;
 
 const MainTextWrapper = styled.div`
@@ -124,22 +122,30 @@ const MainTextWrapper = styled.div`
     min-width: 0;
 `;
 
-const Header = styled.div`
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
+const TitleWrapper = styled.div`
+    overflow: hidden;
+    flex: 1 0 fit-content;
+    min-height: 12px;
 `;
 
-const TitleWrapper = styled.div`
+const ParentLine = styled.span`
     display: flex;
     align-items: center;
+    height: min-content;
     gap: 4px;
-    overflow: hidden;
+
+    color: ${REDESIGN_COLORS.SUBTITLE};
+    font-weight: 600;
 `;
 
-const Title = styled(OverflowTitle)`
-    font-weight: 600;
-    line-height: 1.25em;
+const SchemaFieldLine = styled.span`
+    display: flex;
+    align-items: center;
+    height: min-content;
+    gap: 4px;
+
+    font-size: 1.1em;
+    font-weight: 700;
 `;
 
 const SkeletonImage = styled(Skeleton.Avatar)`
@@ -156,34 +162,11 @@ const ParentContainerPath = styled(ContainerPath)`
 
 const ColumnLinkWrapper = styled(Link)`
     display: flex;
-    margin-left: auto;
-
     color: inherit;
+
     :hover {
         color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
-`;
-
-const SchemaFieldDrawer = styled.div<{
-    selected: boolean;
-    color: string;
-}>`
-    display: flex;
-    align-items: center;
-
-    position: absolute;
-    left: 2%;
-    bottom: -19px;
-    width: 96%;
-    z-index: -1;
-    min-height: 23px;
-
-    background-color: ${REDESIGN_COLORS.WHITE};
-    border: 1px solid ${({ color, selected }) => (selected ? color : LINEAGE_COLORS.NODE_BORDER)};
-    outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
-    border-radius: 4px;
-
-    padding: 4px 6px 2px;
 `;
 
 interface Props {
@@ -191,6 +174,7 @@ interface Props {
     type: EntityType;
     rootUrn: string;
     selected: boolean;
+    isGhost: boolean;
     hasUpstreamChildren: boolean;
     hasDownstreamChildren: boolean;
     isExpanded?: Record<LineageDirection, boolean>;
@@ -206,6 +190,7 @@ export default function SchemaFieldNodeContents({
     type,
     rootUrn,
     selected,
+    isGhost,
     hasUpstreamChildren,
     hasDownstreamChildren,
     isExpanded,
@@ -225,8 +210,8 @@ export default function SchemaFieldNodeContents({
 
     const parent = entity?.parents?.[0];
 
-    return (
-        <NodeWrapper selected={selected} color={NODE_COLOR}>
+    const contents = (
+        <NodeWrapper selected={selected} isGhost={isGhost} color={NODE_COLOR}>
             <EntityTypeShadow color={NODE_COLOR} />
             <FakeCard />
             <FakeCard style={{ position: 'absolute' }}>
@@ -276,56 +261,69 @@ export default function SchemaFieldNodeContents({
                     </LoadingWrapper>
                 )}
             </FakeCard>
-            <CardWrapper onMouseEnter={() => setHoveredNode(urn)} onMouseLeave={() => setHoveredNode(null)}>
-                <ParentWrapper>
-                    <CustomHandle type="target" position={Position.Left} isConnectable={false} />
-                    <CustomHandle type="source" position={Position.Right} isConnectable={false} />
-                    <IconsWrapper>
-                        {platformIcon ? (
-                            <PlatformIcon src={platformIcon} alt={platformName || 'platform'} title={platformName} />
-                        ) : (
-                            <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />
-                        )}
-                    </IconsWrapper>
-                    {entity && (
-                        <MainTextWrapper>
-                            <ParentContainerPath parents={entity?.parents?.[0].parentContainers?.containers} />
-                            {parent?.type && (
-                                <Header>
-                                    <TitleWrapper>
-                                        {getTypeIcon(entityRegistry, parent.type, parent.subTypes?.[0], true)}
-                                        <Title title={parent?.name ?? undefined} />
-                                        {parent?.health && (
-                                            <HealthIcon
-                                                health={parent.health}
-                                                baseUrl={entityRegistry.getEntityUrl(type, urn)}
-                                            />
-                                        )}
-                                        {parent.urn && (
-                                            <ColumnLinkWrapper
-                                                to={`${entityRegistry.getEntityUrl(parent.type, parent.urn)}/Lineage`}
-                                                onClick={(e) => e.stopPropagation()}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
-                                                    <LinkOutIcon />
-                                                </Tooltip>
-                                            </ColumnLinkWrapper>
-                                        )}
-                                    </TitleWrapper>
-                                </Header>
-                            )}
-                        </MainTextWrapper>
+            <CardWrapper
+                isGhost={isGhost}
+                onMouseEnter={() => setHoveredNode(urn)}
+                onMouseLeave={() => setHoveredNode(null)}
+            >
+                <CustomHandle type="target" position={Position.Left} isConnectable={false} />
+                <CustomHandle type="source" position={Position.Right} isConnectable={false} />
+                <IconsWrapper>
+                    {platformIcon ? (
+                        <PlatformIcon src={platformIcon} alt={platformName || 'platform'} title={platformName} />
+                    ) : (
+                        <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />
                     )}
-                    {!entity && <StyledNodeSkeleton numRows={2} />}
-                </ParentWrapper>
-                {entity && (
-                    <SchemaFieldDrawer selected={selected} color={NODE_COLOR}>
-                        <Title title={downgradeV2FieldPath(entity.name) || ''} />
-                    </SchemaFieldDrawer>
+                    {parent?.type ? (
+                        getTypeIcon(entityRegistry, parent.type, parent.subTypes?.[0], true)
+                    ) : (
+                        <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />
+                    )}
+                </IconsWrapper>
+                <VerticalDivider margin={8} />
+                {!!entity && (
+                    <MainTextWrapper>
+                        <ParentContainerPath parents={entity?.parents?.[0].parentContainers?.containers} />
+                        {parent && (
+                            <TitleWrapper>
+                                <ParentLine>
+                                    <OverflowTitle title={parent?.name ?? undefined} />
+                                    {!!parent.urn && !!parent.type && (
+                                        <ColumnLinkWrapper
+                                            to={`${entityRegistry.getEntityUrl(parent.type, parent.urn)}/Lineage`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
+                                                <LinkOutIcon />
+                                            </Tooltip>
+                                        </ColumnLinkWrapper>
+                                    )}
+                                </ParentLine>
+                            </TitleWrapper>
+                        )}
+                        {!!entity && (
+                            <TitleWrapper>
+                                <SchemaFieldLine>
+                                    <OverflowTitle title={downgradeV2FieldPath(entity.name)} />
+                                </SchemaFieldLine>
+                            </TitleWrapper>
+                        )}
+                    </MainTextWrapper>
                 )}
+                {!entity && <StyledNodeSkeleton numRows={2} />}
             </CardWrapper>
         </NodeWrapper>
     );
+
+    if (isGhost) {
+        const message = entity?.status?.removed ? 'has been deleted' : 'does not exist in DataHub';
+        return (
+            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3}>
+                {contents}
+            </Tooltip>
+        );
+    }
+    return contents;
 }

@@ -14,10 +14,10 @@ import useNodeHighlighting from './useNodeHighlighting';
 type Props = {
     urn: string;
     type: EntityType;
-    loaded: boolean;
+    initialized: boolean;
 };
 
-export default function LineageDisplay({ urn, type, loaded }: Props) {
+export default function LineageDisplay({ urn, type, initialized }: Props) {
     const { getEdge, setNodes, setEdges } = useReactFlow();
 
     const [selectedColumn, setSelectedColumn] = useState<ColumnRef | null>(null);
@@ -67,7 +67,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
 
     useEffect(() => setEdges(flowEdges), [flowEdges, getEdge, setEdges]);
 
-    useFitView(loaded);
+    useFitView(initialized);
 
     return (
         <LineageDisplayContext.Provider
@@ -90,7 +90,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                 refetchUrn,
             }}
         >
-            <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />
+            <LineageVisualization entityType={type} initialNodes={flowNodes} initialEdges={flowEdges} />
             <LineageSidebar />
         </LineageDisplayContext.Provider>
     );

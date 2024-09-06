@@ -108,6 +108,7 @@ query appConfig {
             showSeparateSiblings
             hideDbtSourceInLineage
             showBulkFormByDefault
+            schemaFieldLineageIgnoreStatus
         }
         chromeExtensionConfig {
             enabled

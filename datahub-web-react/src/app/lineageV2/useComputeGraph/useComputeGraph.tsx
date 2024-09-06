@@ -1,4 +1,4 @@
-import { LineageNodesContext } from '@app/lineageV2/common';
+import { LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV2/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV2/NodeBuilder';
 import hideNodes from '@app/lineageV2/useComputeGraph/filterNodes';
 import getDisplayedNodes from '@app/lineageV2/useComputeGraph/getDisplayedNodes';
@@ -18,6 +18,7 @@ interface ProcessedData {
 }
 
 export default function useComputeGraph(urn: string, type: EntityType): ProcessedData {
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { nodes, edges, adjacencyList, nodeVersion, dataVersion, displayVersion, hideTransformations } =
         useContext(LineageNodesContext);
     const entityRegistry = useEntityRegistryV2();
@@ -52,7 +53,7 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
             const { displayedNodes, parents } = getDisplayedNodes(urn, orderedNodes, newSmallContext);
             const nodeBuilder = new NodeBuilder(urn, type, displayedNodes, parents);
             return [
-                nodeBuilder.createNodes(newSmallContext.adjacencyList),
+                nodeBuilder.createNodes(newSmallContext.adjacencyList, ignoreSchemaFieldStatus),
                 nodeBuilder.createEdges(newSmallContext.edges),
                 prevHideTransformations !== hideTransformations,
             ];

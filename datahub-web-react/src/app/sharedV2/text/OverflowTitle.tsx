@@ -6,7 +6,8 @@ import styled from 'styled-components';
 const Wrapper = styled.div<{ scale: number; computedRatio: boolean }>`
     // Wrap up to two lines, shrinking text as needed
     font-size: ${({ scale }) => `${scale}em`} !important;
-    max-height: 35px;
+    line-height: 1.25;
+    max-height: 2.5em; // 2 lines with 1.25 line height
     overflow: hidden;
     white-space: ${({ computedRatio }) => (computedRatio ? 'normal' : 'nowrap')};
     word-break: break-all;
