@@ -21,15 +21,18 @@ type Props = {
 export default function SampleValueTag({ value }: Props) {
     const [copied, setCopied] = useState(false);
 
-    const onClick = () => {
-        setCopied(true);
-        navigator.clipboard.writeText(value);
-        setTimeout(() => setCopied(false), 2000);
-    };
+    if (navigator.clipboard) {
+        const onClick = () => {
+            setCopied(true);
+            navigator.clipboard.writeText(value);
+            setTimeout(() => setCopied(false), 2000);
+        };
 
-    return (
-        <Tooltip title={copied ? 'Copied' : 'Click to copy'}>
-            <StyledTag onClick={onClick}>{value}</StyledTag>
-        </Tooltip>
-    );
+        return (
+            <Tooltip title={copied ? 'Copied' : 'Click to copy'}>
+                <StyledTag onClick={onClick}>{value}</StyledTag>
+            </Tooltip>
+        );
+    }
+    return <StyledTag>{value}</StyledTag>;
 }
