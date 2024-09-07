@@ -118,7 +118,13 @@ public class ListPostsResolverTest {
             ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(POST_URN_STRING)))));
 
     when(_entityClient.search(
-            any(), eq(POST_ENTITY_NAME), any(), anyMap(), any(), anyInt(), anyInt()))
+            any(),
+            eq(POST_ENTITY_NAME),
+            any(),
+            eq((Map<String, String>) null),
+            any(),
+            anyInt(),
+            anyInt()))
         .thenReturn(roleSearchResult);
     when(_entityClient.batchGetV2(any(), eq(POST_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
