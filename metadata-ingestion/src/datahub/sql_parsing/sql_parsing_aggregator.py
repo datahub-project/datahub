@@ -242,6 +242,7 @@ class SqlAggregatorReport(Report):
     # Usage-related.
     usage_skipped_missing_timestamp: int = 0
     num_query_usage_stats_generated: int = 0
+    num_query_usage_stats_outside_window: int = 0
 
     # Operation-related.
     num_operations_generated: int = 0
@@ -432,6 +433,7 @@ class SqlParsingAggregator(Closeable):
             or self.generate_usage_statistics
             or self.generate_queries
             or self.generate_operations
+            or self.generate_query_usage_statistics
         )
 
     def register_schema(
@@ -1033,9 +1035,9 @@ class SqlParsingAggregator(Closeable):
         queries_generated: Set[QueryId] = set()
 
         yield from self._gen_lineage_mcps(queries_generated)
-        yield from self._gen_remaining_queries(queries_generated)
         yield from self._gen_usage_statistics_mcps()
         yield from self._gen_operation_mcps(queries_generated)
+        yield from self._gen_remaining_queries(queries_generated)
 
     def _gen_lineage_mcps(
         self, queries_generated: Set[QueryId]
@@ -1322,9 +1324,15 @@ class SqlParsingAggregator(Closeable):
             query_counter = self._query_usage_counts.get(query_id)
             if not query_counter:
                 return
-            for bucket in self.usage_config.buckets():
-                count = query_counter.get(bucket)
-                if not count:
+
+            all_buckets = self.usage_config.buckets()
+
+            for bucket, count in query_counter.items():
+                if bucket not in all_buckets:
+                    # What happens if we get a query with a timestamp that's outside our configured window?
+                    # Theoretically this should never happen, since the audit logs are also fetched
+                    # for the window. However, it's useful to have reporting for it, just in case.
+                    self.report.num_query_usage_stats_outside_window += 1
                     continue
 
                 yield MetadataChangeProposalWrapper(
