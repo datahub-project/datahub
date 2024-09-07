@@ -315,11 +315,11 @@ class Mapper:
                 "createdDate": str(report.created_date),
                 "modifiedBy": report.modified_by or "",
                 "modifiedDate": str(report.modified_date) or str(report.created_date),
-                "dataSource": str(
-                    [report.connection_string for report in _report.data_sources]
-                )
-                if _report.data_sources
-                else "",
+                "dataSource": (
+                    str([report.connection_string for report in _report.data_sources])
+                    if _report.data_sources
+                    else ""
+                ),
             }
 
         # DashboardInfo mcp
