@@ -8,17 +8,16 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListOwnershipTypesInput;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.OwnershipTypeKey;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.ownership.OwnershipTypeInfo;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Collections;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -44,9 +43,7 @@ public class ListOwnershipTypesResolverTest {
                 any(),
                 Mockito.eq(Constants.OWNERSHIP_TYPE_ENTITY_NAME),
                 Mockito.eq(""),
-                Mockito.eq(
-                    ResolverUtils.buildFilter(
-                        Collections.emptyList(), Collections.emptyList(), null)),
+                Mockito.<Filter>isNull(),
                 Mockito.any(),
                 Mockito.eq(0),
                 Mockito.eq(20)))
