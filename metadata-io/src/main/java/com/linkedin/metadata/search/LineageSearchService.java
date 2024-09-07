@@ -711,10 +711,7 @@ public class LineageSearchService {
                                     .getOperationContextConfig()
                                     .getViewAuthorizationConfiguration()
                                     .isEnabled()) {
-                                  return canViewEntity(
-                                      opContext.getSessionAuthentication().getActor().toUrnStr(),
-                                      opContext.getAuthorizerContext().getAuthorizer(),
-                                      urn);
+                                  return canViewEntity(opContext, urn);
                                 }
                                 return true;
                               }))

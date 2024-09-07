@@ -91,7 +91,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   OperationsResource(OperationContext systemOperationContext, TimeseriesAspectService timeseriesAspectService) {
     this._timeseriesAspectService = timeseriesAspectService;
     this.systemOperationContext = systemOperationContext;
-    this._authorizer = systemOperationContext.getAuthorizerContext().getAuthorizer();
+    this._authorizer = systemOperationContext.getAuthorizationContext().getAuthorizer();
   }
 
   @Action(name = ACTION_RESTORE_INDICES)
@@ -134,9 +134,13 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
     return RestliUtil.toTask(
         () -> {
 
+          final Authentication auth = AuthenticationContext.getAuthentication();
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          ACTION_GET_ES_TASK_STATUS), _authorizer, auth, true);
+
           if (!isAPIAuthorized(
-                  AuthenticationContext.getAuthentication(),
-                  _authorizer,
+                  opContext,
                   PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get ES task status");
@@ -194,15 +198,16 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
         () -> {
 
             final Authentication auth = AuthenticationContext.getAuthentication();
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
+
           if (!isAPIAuthorized(
-                  AuthenticationContext.getAuthentication(),
-                  _authorizer,
+                  opContext,
                   PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get index sizes.");
           }
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
 
             TimeseriesIndicesSizesResult result = new TimeseriesIndicesSizesResult();
           result.setIndexSizes(
@@ -224,15 +229,16 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @Nullable Boolean forceReindex) {
 
       final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
+
     if (!isAPIAuthorized(
-            auth,
-            _authorizer,
+            opContext,
             PoliciesConfig.TRUNCATE_TIMESERIES_INDEX_PRIVILEGE)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to truncate timeseries index");
     }
-      final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
 
     if (forceDeleteByQuery != null && forceDeleteByQuery.equals(forceReindex)) {
       return "please only set forceReindex OR forceDeleteByQuery flags";

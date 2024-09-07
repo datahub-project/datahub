@@ -70,16 +70,17 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
     final Urn urn = Urn.createFromString(urnStr);
 
       final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "getEntityV2", urn.getEntityType()), _authorizer, auth, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            auth,
-            _authorizer,
+            opContext,
             READ,
             List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
-      final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "getEntityV2", urn.getEntityType()), _authorizer, auth, true);
 
       return RestliUtil.toTask(
         () -> {
@@ -114,16 +115,17 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
     }
 
       final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = OperationContext.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    "getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+
     if (!isAPIAuthorizedEntityUrns(
-            auth,
-            _authorizer,
+            opContext,
             READ,
             urns)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entities " + urnStrs);
     }
-      final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
 
       if (urns.size() <= 0) {
       return Task.value(Collections.emptyMap());
