@@ -23,7 +23,7 @@ else
 
   python3 -m venv venv
   source venv/bin/activate
-  python -m pip install --upgrade pip 'uv>=0.1.10' wheel setuptools
+  python -m pip install --upgrade 'uv>=0.1.10'
   uv pip install -r requirements.txt
 fi
 
