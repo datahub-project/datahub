@@ -1,7 +1,7 @@
+import { EntitySchemaFieldFieldsFragment } from '@graphql/fragments.generated';
 import moment from 'moment';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { SchemaFieldFieldsFragment } from '../../../../../../../../graphql/fragments.generated';
 import {
     DatasetFieldProfile,
     EditableSchemaMetadata,
@@ -56,10 +56,9 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
             pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );
 
-    // Have to type cast because of line `businessAttributeDataType: type` in `businessAttribute` fragment
-    const schemaFieldEntity = properties.schemaFields.find(
+    const schemaFieldEntity = (properties.schemaFields as EntitySchemaFieldFieldsFragment[]).find(
         (field) => field.fieldPath === properties.expandedDrawerFieldPath,
-    )?.schemaFieldEntity as SchemaFieldFieldsFragment['schemaFieldEntity'];
+    )?.schemaFieldEntity;
     const notes =
         schemaFieldEntity?.notes?.relationships
             ?.map((r) => r.entity as Post)

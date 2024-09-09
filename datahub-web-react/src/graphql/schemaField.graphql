@@ -7,3 +7,81 @@ query getSchemaField($urn: String!) {
         }
     }
 }
+
+fragment schemaFieldEntityFields on SchemaFieldEntity {
+    urn
+    fieldPath
+    type
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
+    documentation {
+        ...documentationFields
+    }
+    parent {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+            privileges {
+                ...entityPrivileges
+            }
+        }
+        ... on Dashboard {
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+        }
+        ... on Chart {
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+        }
+    }
+    notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
+        total
+        relationships {
+            type
+            entity {
+                ... on Post {
+                    urn
+                    type
+                    postType
+                    lastModified {
+                        time
+                        actor
+                    }
+                    content {
+                        contentType
+                        title
+                        description
+                        link
+                        media {
+                            type
+                            location
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

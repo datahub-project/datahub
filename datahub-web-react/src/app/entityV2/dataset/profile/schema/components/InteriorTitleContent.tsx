@@ -1,8 +1,8 @@
+import { SchemaMetadataFieldsFragment } from '@graphql/fragments.generated';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { SchemaFieldFieldsFragment } from '../../../../../../graphql/fragments.generated';
 import { Post, SchemaMetadata } from '../../../../../../types.generated';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
 import { REDESIGN_COLORS } from '../../../../shared/constants';
@@ -70,9 +70,9 @@ export const InteriorTitleContent = ({
         pathToDisplay = fieldPathWithoutAnnotations.slice(parentPathWithoutAnnotations.length + 1);
     }
 
-    // Have to type cast because of line `businessAttributeDataType: type` in `businessAttribute` fragment
-    const schemaFieldEntity = schemaMetadata?.fields.find((field) => field.fieldPath === fieldPath)
-        ?.schemaFieldEntity as SchemaFieldFieldsFragment['schemaFieldEntity'];
+    const schemaFieldEntity = (schemaMetadata as SchemaMetadataFieldsFragment)?.fields.find(
+        (field) => field.fieldPath === fieldPath,
+    )?.schemaFieldEntity;
     const notes = schemaFieldEntity?.notes?.relationships?.map((r) => r.entity as Post) || [];
 
     // if the field path is too long, truncate it

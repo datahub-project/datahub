@@ -902,7 +902,7 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
 }
 
-fragment schemaFieldEntityFields on SchemaFieldEntity {
+fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     urn
     fieldPath
     type
@@ -918,38 +918,6 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
     }
     documentation {
         ...documentationFields
-    }
-    parent {
-        urn
-        type
-        ...entityDisplayNameFields
-        ... on Dataset {
-            platform {
-                ...platformFields
-            }
-            subTypes {
-                typeNames
-            }
-            privileges {
-                ...entityPrivileges
-            }
-        }
-        ... on Dashboard {
-            platform {
-                ...platformFields
-            }
-            subTypes {
-                typeNames
-            }
-        }
-        ... on Chart {
-            platform {
-                ...platformFields
-            }
-            subTypes {
-                typeNames
-            }
-        }
     }
     notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
         total
@@ -980,7 +948,7 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
     }
 }
 
-fragment schemaFieldFields on SchemaField {
+fragment entitySchemaFieldFields on SchemaField {
     fieldPath
     label
     jsonPath
@@ -998,7 +966,7 @@ fragment schemaFieldFields on SchemaField {
         ...glossaryTerms
     }
     schemaFieldEntity {
-        ...schemaFieldEntityFields
+        ...entitySchemaFieldEntityFields
     }
 }
 
@@ -1021,7 +989,7 @@ fragment schemaMetadataFields on SchemaMetadata {
         }
     }
     fields {
-        ...schemaFieldFields
+        ...entitySchemaFieldFields
     }
     primaryKeys
     foreignKeys {
@@ -1323,7 +1291,7 @@ fragment inputFieldsFields on InputFields {
     fields {
         schemaFieldUrn
         schemaField {
-            ...schemaFieldFields
+            ...entitySchemaFieldFields
         }
     }
 }
