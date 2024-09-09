@@ -248,9 +248,40 @@ class HanaSource(SQLAlchemySource):
         return [
             SchemaFieldClass(
                 fieldPath=f"[version=2.0].[type={preprocess_sap_type(col.get('type'))}].{col.get('name')}",
-                type=SchemaFieldDataTypeClass(type=get_pegasus_type(col.get("type"))),
-                nativeDataType=preprocess_sap_type(col.get("type")),
+                type=SchemaFieldDataTypeClass(
+                    type=get_pegasus_type(
+                        col.get("type")
+                    )
+                ),
+                nativeDataType=preprocess_sap_type(
+                    col.get("type")
+                ),
                 description=col.get("comment", "")
+            )
+            for col in columns
+        ]
+
+    def get_calculation_view_columns(self, view: str) -> List[SchemaFieldClass]:
+        query = f"""
+            SELECT PROPERTY_NAME,
+            PROPERTY_CAPTION,
+            DATA_TYPE
+            FROM "_SYS_BI"."BIMC_PROPERTIES"
+            WHERE "SCHEMA_NAME" = '_SYS_BIC'
+            AND "PROPERTY_TYPE" IN ('1', '2', '6', '7')
+            AND LOWER(SCHEMA_NAME) = '_sys_bic' AND LOWER(CUBE_NAME) = '{view.lower()}'
+        """
+        query_result = [dict(row) for row in self.engine.execute(query).fetchall()]
+        logger.info(f"View: {view.lower()} definition: {query_result}")
+
+        columns = query_result
+
+        return [
+            SchemaFieldClass(
+                fieldPath=f"[version=2.0].[type={preprocess_sap_type(col.get('data_type'))}].{col.get('property_name')}",
+                type=SchemaFieldDataTypeClass(type=get_pegasus_type(col.get('data_type'))),
+                nativeDataType=preprocess_sap_type(col.get('data_type')),
+                description=col.get('property_caption', "")
             )
             for col in columns
         ]
@@ -555,10 +586,8 @@ class HanaSource(SQLAlchemySource):
                 dataset_name=dataset_name
             )
 
-            columns = self.get_columns(
-                inspector=inspector,
-                schema=schema,
-                table_or_view=f"{dataset_path}/{dataset_name}"
+            columns = self.get_calculation_view_columns(
+                view=f"{dataset_path}/{dataset_name}"
             )
 
             schema_metadata = SchemaMetadataClass(
