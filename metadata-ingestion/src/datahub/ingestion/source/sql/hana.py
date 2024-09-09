@@ -268,7 +268,7 @@ class HanaSource(SQLAlchemySource):
             SELECT
             PACKAGE_ID,
             OBJECT_NAME,
-            CDATA
+            TO_VARCHAR(CDATA) AS CDATA
             FROM _SYS_REPO.ACTIVE_OBJECT
             WHERE OBJECT_SUFFIX='calculationview'"""
         result = self.engine.execute(query).fetchall()
