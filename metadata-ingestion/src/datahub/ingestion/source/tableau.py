@@ -862,7 +862,7 @@ class TableauSiteSource:
         for deny_pattern in self.config.project_pattern.deny:
             # Either name or project path is denied
             if re.match(
-                    deny_pattern, project.name, self.config.project_pattern.regex_flags
+                deny_pattern, project.name, self.config.project_pattern.regex_flags
             ) or re.match(
                 deny_pattern,
                 self._get_project_path(project),
@@ -891,12 +891,14 @@ class TableauSiteSource:
                 "disabled"
             )
         else:
-            logger.debug("Reevaluating projects as extract_project_hierarchy is enabled")
+            logger.debug(
+                "Reevaluating projects as extract_project_hierarchy is enabled"
+            )
 
             for project in list_of_skip_projects:
                 if (
-                        project.parent_id in self.tableau_project_registry
-                        and self._is_denied_project(project) is False
+                    project.parent_id in self.tableau_project_registry
+                    and self._is_denied_project(project) is False
                 ):
                     logger.debug(f"Project {project.name} is added in project registry")
                     self.tableau_project_registry[project.id] = project
