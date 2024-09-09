@@ -522,7 +522,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
             self.report.report_warning(
-                title="Unable to Calculate Min",
+                title="Profiling: Unable to Calculate Min",
                 message="The min for the column will not be accessible",
                 context=f"""
                     {{
