@@ -248,9 +248,9 @@ class HanaSource(SQLAlchemySource):
         return [
             SchemaFieldClass(
                 fieldPath=f"[version=2.0].[type={preprocess_sap_type(col.get('type'))}].{col.get('name')}",
-                type=SchemaFieldDataTypeClass(type=get_pegasus_type(col.get('type'))),
-                nativeDataType=preprocess_sap_type(col.get('type')),
-                description=col.get('comment', "")
+                type=SchemaFieldDataTypeClass(type=get_pegasus_type(col.get("type"))),
+                nativeDataType=preprocess_sap_type(col.get("type")),
+                description=col.get("comment", "")
             )
             for col in columns
         ]
@@ -307,9 +307,9 @@ class HanaSource(SQLAlchemySource):
                         futures.append(
                             executor.submit(
                                 self._process_calculation_view,
-                                dataset_path=view.get("PACKAGE_ID"),
-                                dataset_name=view.get("OBJECT_NAME"),
-                                dataset_definition=view.get("CDATA"),
+                                dataset_path=view.get("package_id"),
+                                dataset_name=view.get("object_name"),
+                                dataset_definition=view.get("cdata"),
                                 inspector=inspector,
                                 schema=schema,
                             )
@@ -487,16 +487,16 @@ class HanaSource(SQLAlchemySource):
 
     def get_calculation_view_lineage(self, root: xml.etree.ElementTree, ns: Dict, dataset_path: str, dataset_name: str):
         upstreams = []
-        data_sources = root.find('dataSources', ns)
+        data_sources = root.find("dataSources", ns)
 
         try:
             if data_sources:
-                for data_source in data_sources.findall('DataSource', ns):
-                    data_source_type = data_source.get('type')
-                    if data_source_type == "CALCULATION_VIEW":
+                for data_source in data_sources.findall("DataSource", ns):
+                    data_source_type = data_source.get("type")
+                    if data_source_type.upper() == "CALCULATION_VIEW":
                         upstreams.append(f"_sys_bic.{data_source.find('resourceUri', ns).text}")
                     else:
-                        column_object = data_source.find('columnObject', ns)
+                        column_object = data_source.find("columnObject", ns)
                         upstreams.append(f"{column_object.get('schemaName')}.{column_object.get('columnObjectName')}")
 
         except Exception as e:
@@ -544,8 +544,8 @@ class HanaSource(SQLAlchemySource):
             root = None
 
         ns = {
-            'Calculation': 'http://www.sap.com/ndb/BiModelCalculation.ecore',
-            'xsi': 'http://www.w3.org/2001/XMLSchema-instance'
+            "Calculation": "http://www.sap.com/ndb/BiModelCalculation.ecore",
+            "xsi": "http://www.w3.org/2001/XMLSchema-instance"
         }
         if root:
             lineage = self.get_calculation_view_lineage(root=root, ns=ns, dataset_path=dataset_path,
