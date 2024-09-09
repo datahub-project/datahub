@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.filter.Filter;
@@ -222,6 +223,11 @@ public class SearchTestUtils {
           @Override
           public OperationContext getOperationContext() {
             return opContext;
+          }
+
+          @Override
+          public DataHubAppConfiguration getDataHubAppConfig() {
+            return new DataHubAppConfiguration();
           }
         });
   }

@@ -3180,7 +3180,7 @@
             }, {
               "name" : "isPartitioningKey",
               "type" : "boolean",
-              "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+              "doc" : "For Datasets which are partitioned, this determines the partitioning key.\nNote that multiple columns can be part of a partitioning key, but currently we do not support\nrendering the ordered partitioning key.",
               "optional" : true
             }, {
               "name" : "jsonProps",
