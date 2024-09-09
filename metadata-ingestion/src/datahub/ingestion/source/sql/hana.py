@@ -71,8 +71,6 @@ from datahub.ingestion.api.decorators import (
 
 logger = logging.getLogger(__name__)
 
-datahub.sql_parsing.sqlglot_utils._get_dialect_str = "tsql"
-
 HANA_TYPES_MAP: Dict[str, Any] = {
     "BOOLEAN": BooleanTypeClass(),
     "TINYINT": NumberTypeClass(),
@@ -598,3 +596,9 @@ class HanaSource(SQLAlchemySource):
         for mcp in dataset_snapshot:
             self.report.report_workunit(mcp.as_workunit())
             yield mcp.as_workunit()
+
+def _sql_dialect(platform: str) -> str:
+    return "tsql"
+
+
+datahub.sql_parsing.sqlglot_utils._get_dialect_str = _sql_dialect
