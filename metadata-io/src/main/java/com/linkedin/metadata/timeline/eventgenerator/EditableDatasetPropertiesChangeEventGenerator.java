@@ -3,7 +3,6 @@ package com.linkedin.metadata.timeline.eventgenerator;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
-import com.github.fge.jsonpatch.JsonPatch;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -14,6 +13,7 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import jakarta.json.JsonPatch;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;

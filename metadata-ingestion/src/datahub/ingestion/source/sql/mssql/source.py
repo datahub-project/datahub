@@ -542,25 +542,14 @@ class SQLServerSource(SQLAlchemySource):
             """
         )
 
-        # PAY ATTENTION:
-        # at 19.07.2024 self.get_db_name method converts db name to lowercase forcely:
-        # return str(engine.url.database).strip('"').lower()
-        # to avoid inconsistency, referenced_database_name in this module repeats the same behavior
-        # remove after fixing
-        db_force_converting = "lower()" in inspect_objects.getsource(self.get_db_name)
-
         for row in _dependencies:
 
             if row:
-                _key = f"{row['current_db'].lower() if db_force_converting else row['current_db']}.{row['procedure_schema']}.{row['procedure_name']}"
+                _key = f"{row['current_db']}.{row['procedure_schema']}.{row['procedure_name']}"
 
                 self.procedures_dependencies[_key].append(
                     {
-                        "referenced_database_name": row[
-                            "referenced_database_name"
-                        ].lower()
-                        if db_force_converting
-                        else row["referenced_database_name"],
+                        "referenced_database_name": row["referenced_database_name"],
                         "referenced_schema_name": row["referenced_schema_name"],
                         "referenced_entity_name": row["referenced_entity_name"],
                         "referenced_object_type": row["referenced_object_type"],

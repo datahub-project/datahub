@@ -2,25 +2,29 @@ import functools
 import logging
 import pathlib
 import tempfile
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, TypedDict
+from typing import Collection, Dict, Iterable, List, Optional, TypedDict
 
 from google.cloud.bigquery import Client
-from pydantic import Field
+from pydantic import Field, PositiveInt
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
 )
-from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    BigqueryTableIdentifier,
+    BigQueryTableRef,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryBaseConfig
+from datahub.ingestion.source.bigquery_v2.bigquery_report import (
+    BigQueryQueriesExtractorReport,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryProject,
     BigQuerySchemaApi,
@@ -35,7 +39,6 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
-    SqlAggregatorReport,
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
@@ -44,8 +47,6 @@ from datahub.utilities.file_backed_collections import (
     FileBackedDict,
     FileBackedList,
 )
-from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -95,10 +96,14 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         description="regex patterns for user emails to filter in usage.",
     )
 
+    top_n_queries: PositiveInt = Field(
+        default=10, description="Number of top queries to save to each table."
+    )
+
     include_lineage: bool = True
     include_queries: bool = True
     include_usage_statistics: bool = True
-    include_query_usage_statistics: bool = False
+    include_query_usage_statistics: bool = True
     include_operations: bool = True
 
     region_qualifiers: List[str] = Field(
@@ -106,18 +111,6 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         description="BigQuery regions to be scanned for bigquery jobs. "
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
-
-
-@dataclass
-class BigQueryQueriesExtractorReport(Report):
-    query_log_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
-    audit_log_preprocessing_timer: PerfTimer = field(default_factory=PerfTimer)
-    audit_log_load_timer: PerfTimer = field(default_factory=PerfTimer)
-    sql_aggregator: Optional[SqlAggregatorReport] = None
-    num_queries_by_project: TopKDict[str, int] = field(default_factory=int_top_k_dict)
-
-    num_total_queries: int = 0
-    num_unique_queries: int = 0
 
 
 class BigQueryQueriesExtractor:
@@ -128,6 +121,7 @@ class BigQueryQueriesExtractor:
     1. For every lineage/operation workunit, corresponding query id is also present
     2. Operation aspect for a particular query is emitted at max once(last occurence) for a day
     3. "DROP" operation accounts for usage here
+    4. userEmail is not populated in datasetUsageStatistics aspect, only user urn
 
     """
 
@@ -141,7 +135,7 @@ class BigQueryQueriesExtractor:
         identifiers: BigQueryIdentifierBuilder,
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
-        discovered_tables: Optional[List[str]] = None,
+        discovered_tables: Optional[Collection[str]] = None,
     ):
         self.connection = connection
 
@@ -150,8 +144,7 @@ class BigQueryQueriesExtractor:
         self.identifiers = identifiers
         self.schema_api = schema_api
         self.report = BigQueryQueriesExtractorReport()
-        # self.filters = filters
-        self.discovered_tables = discovered_tables
+        self.discovered_tables = set(discovered_tables) if discovered_tables else None
 
         self.structured_report = structured_report
 
@@ -171,6 +164,7 @@ class BigQueryQueriesExtractor:
                 start_time=self.config.window.start_time,
                 end_time=self.config.window.end_time,
                 user_email_pattern=self.config.user_email_pattern,
+                top_n_queries=self.config.top_n_queries,
             ),
             generate_operations=self.config.include_operations,
             is_temp_table=self.is_temp_table,
@@ -192,19 +186,35 @@ class BigQueryQueriesExtractor:
 
     def is_temp_table(self, name: str) -> bool:
         try:
-            return BigqueryTableIdentifier.from_string_name(name).dataset.startswith(
-                self.config.temp_table_dataset_prefix
-            )
+            table = BigqueryTableIdentifier.from_string_name(name)
+
+            if table.dataset.startswith(self.config.temp_table_dataset_prefix):
+                return True
+
+            # This is also a temp table if
+            #   1. this name would be allowed by the dataset patterns, and
+            #   2. we have a list of discovered tables, and
+            #   3. it's not in the discovered tables list
+            if (
+                self.filters.is_allowed(table)
+                and self.discovered_tables
+                and str(BigQueryTableRef(table)) not in self.discovered_tables
+            ):
+                return True
+
         except Exception:
             logger.warning(f"Error parsing table name {name} ")
-            return False
+        return False
 
     def is_allowed_table(self, name: str) -> bool:
         try:
-            table_id = BigqueryTableIdentifier.from_string_name(name)
-            if self.discovered_tables and str(table_id) not in self.discovered_tables:
+            table = BigqueryTableIdentifier.from_string_name(name)
+            if (
+                self.discovered_tables
+                and str(BigQueryTableRef(table)) not in self.discovered_tables
+            ):
                 return False
-            return self.filters.is_allowed(table_id)
+            return self.filters.is_allowed(table)
         except Exception:
             logger.warning(f"Error parsing table name {name} ")
             return False
