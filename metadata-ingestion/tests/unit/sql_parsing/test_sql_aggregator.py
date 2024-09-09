@@ -10,6 +10,7 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
+    ObservedQuery,
     QueryLogSetting,
     SqlParsingAggregator,
 )
@@ -41,9 +42,11 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
     )
 
     aggregator.add_observed_query(
-        query="create table foo as select a, b from bar",
-        default_db="dev",
-        default_schema="public",
+        ObservedQuery(
+            query="create table foo as select a, b from bar",
+            default_db="dev",
+            default_schema="public",
+        )
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -82,16 +85,20 @@ def test_overlapping_inserts(pytestconfig: pytest.Config) -> None:
     )
 
     aggregator.add_observed_query(
-        query="insert into downstream (a, b) select a, b from upstream1",
-        default_db="dev",
-        default_schema="public",
-        query_timestamp=_ts(20),
+        ObservedQuery(
+            query="insert into downstream (a, b) select a, b from upstream1",
+            default_db="dev",
+            default_schema="public",
+            timestamp=_ts(20),
+        )
     )
     aggregator.add_observed_query(
-        query="insert into downstream (a, c) select a, c from upstream2",
-        default_db="dev",
-        default_schema="public",
-        query_timestamp=_ts(25),
+        ObservedQuery(
+            query="insert into downstream (a, c) select a, c from upstream2",
+            default_db="dev",
+            default_schema="public",
+            timestamp=_ts(25),
+        )
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -118,28 +125,36 @@ def test_temp_table(pytestconfig: pytest.Config) -> None:
     )
 
     aggregator.add_observed_query(
-        query="create table foo as select a, 2*b as b from bar",
-        default_db="dev",
-        default_schema="public",
-        session_id="session1",
+        ObservedQuery(
+            query="create table foo as select a, 2*b as b from bar",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+        )
     )
     aggregator.add_observed_query(
-        query="create temp table foo as select a, b+c as c from bar",
-        default_db="dev",
-        default_schema="public",
-        session_id="session2",
+        ObservedQuery(
+            query="create temp table foo as select a, b+c as c from bar",
+            default_db="dev",
+            default_schema="public",
+            session_id="session2",
+        )
     )
     aggregator.add_observed_query(
-        query="create table foo_session2 as select * from foo",
-        default_db="dev",
-        default_schema="public",
-        session_id="session2",
+        ObservedQuery(
+            query="create table foo_session2 as select * from foo",
+            default_db="dev",
+            default_schema="public",
+            session_id="session2",
+        )
     )
     aggregator.add_observed_query(
-        query="create table foo_session3 as select * from foo",
-        default_db="dev",
-        default_schema="public",
-        session_id="session3",
+        ObservedQuery(
+            query="create table foo_session3 as select * from foo",
+            default_db="dev",
+            default_schema="public",
+            session_id="session3",
+        )
     )
 
     # foo_session2 should come from bar (via temp table foo), have columns a and c, and depend on bar.{a,b,c}
@@ -164,28 +179,36 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
     )
 
     aggregator.add_observed_query(
-        query="create table #temp1 as select a, 2*b as b from upstream1",
-        default_db="dev",
-        default_schema="public",
-        session_id="session1",
+        ObservedQuery(
+            query="create table #temp1 as select a, 2*b as b from upstream1",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+        )
     )
     aggregator.add_observed_query(
-        query="create table #temp2 as select b, c from upstream2",
-        default_db="dev",
-        default_schema="public",
-        session_id="session1",
+        ObservedQuery(
+            query="create table #temp2 as select b, c from upstream2",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+        )
     )
     aggregator.add_observed_query(
-        query="create temp table staging_foo as select up1.a, up1.b, up2.c from #temp1 up1 left join #temp2 up2 on up1.b = up2.b where up1.b > 0",
-        default_db="dev",
-        default_schema="public",
-        session_id="session1",
+        ObservedQuery(
+            query="create temp table staging_foo as select up1.a, up1.b, up2.c from #temp1 up1 left join #temp2 up2 on up1.b = up2.b where up1.b > 0",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+        )
     )
     aggregator.add_observed_query(
-        query="insert into table prod_foo\nselect * from staging_foo",
-        default_db="dev",
-        default_schema="public",
-        session_id="session1",
+        ObservedQuery(
+            query="insert into table prod_foo\nselect * from staging_foo",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+        )
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -224,46 +247,56 @@ def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> No
     # #stage_online_returns is populated from "online_returns", "customer", and "online_survey".
 
     aggregator.add_observed_query(
-        query="create table #stage_in_person_returns as select ipr.customer_id, customer.customer_email, ipr.return_date "
-        "from in_person_returns ipr "
-        "left join customer on in_person_returns.customer_id = customer.customer_id",
-        default_db="dev",
-        default_schema="public",
-        session_id="1234",
+        ObservedQuery(
+            query="create table #stage_in_person_returns as select ipr.customer_id, customer.customer_email, ipr.return_date "
+            "from in_person_returns ipr "
+            "left join customer on in_person_returns.customer_id = customer.customer_id",
+            default_db="dev",
+            default_schema="public",
+            session_id="1234",
+        )
     )
 
     aggregator.add_observed_query(
-        query="create table #stage_online_returns as select online_ret.customer_id, customer.customer_email, online_ret.return_date, online_survey.return_reason "
-        "from online_returns online_ret "
-        "left join customer on online_ret.customer_id = customer.customer_id "
-        "left join online_survey on online_ret.customer_id = online_survey.customer_id and online_ret.return_id = online_survey.event_id",
-        default_db="dev",
-        default_schema="public",
-        session_id="2323",
+        ObservedQuery(
+            query="create table #stage_online_returns as select online_ret.customer_id, customer.customer_email, online_ret.return_date, online_survey.return_reason "
+            "from online_returns online_ret "
+            "left join customer on online_ret.customer_id = customer.customer_id "
+            "left join online_survey on online_ret.customer_id = online_survey.customer_id and online_ret.return_id = online_survey.event_id",
+            default_db="dev",
+            default_schema="public",
+            session_id="2323",
+        )
     )
 
     aggregator.add_observed_query(
-        query="insert into all_returns (customer_id, customer_email, return_date) select customer_id, customer_email, return_date from #stage_in_person_returns",
-        default_db="dev",
-        default_schema="public",
-        session_id="1234",
+        ObservedQuery(
+            query="insert into all_returns (customer_id, customer_email, return_date) select customer_id, customer_email, return_date from #stage_in_person_returns",
+            default_db="dev",
+            default_schema="public",
+            session_id="1234",
+        )
     )
 
     aggregator.add_observed_query(
-        query="insert into all_returns (customer_id, customer_email, return_date, return_reason) select customer_id, customer_email, return_date, return_reason from #stage_online_returns",
-        default_db="dev",
-        default_schema="public",
-        session_id="2323",
+        ObservedQuery(
+            query="insert into all_returns (customer_id, customer_email, return_date, return_reason) select customer_id, customer_email, return_date, return_reason from #stage_online_returns",
+            default_db="dev",
+            default_schema="public",
+            session_id="2323",
+        )
     )
 
     # We only have one create temp table, but the same insert command from multiple sessions.
     # This should get ignored.
     assert len(report.queries_with_non_authoritative_session) == 0
     aggregator.add_observed_query(
-        query="insert into all_returns (customer_id, customer_email, return_date, return_reason) select customer_id, customer_email, return_date, return_reason from #stage_online_returns",
-        default_db="dev",
-        default_schema="public",
-        session_id="5435",
+        ObservedQuery(
+            query="insert into all_returns (customer_id, customer_email, return_date, return_reason) select customer_id, customer_email, return_date, return_reason from #stage_online_returns",
+            default_db="dev",
+            default_schema="public",
+            session_id="5435",
+        )
     )
     assert len(report.queries_with_non_authoritative_session) == 1
 
@@ -286,25 +319,31 @@ def test_aggregate_operations(pytestconfig: pytest.Config) -> None:
     )
 
     aggregator.add_observed_query(
-        query="create table foo as select a, b from bar",
-        default_db="dev",
-        default_schema="public",
-        query_timestamp=_ts(20),
-        user=CorpUserUrn("user1"),
+        ObservedQuery(
+            query="create table foo as select a, b from bar",
+            default_db="dev",
+            default_schema="public",
+            timestamp=_ts(20),
+            user=CorpUserUrn("user1"),
+        )
     )
     aggregator.add_observed_query(
-        query="create table foo as select a, b from bar",
-        default_db="dev",
-        default_schema="public",
-        query_timestamp=_ts(25),
-        user=CorpUserUrn("user2"),
+        ObservedQuery(
+            query="create table foo as select a, b from bar",
+            default_db="dev",
+            default_schema="public",
+            timestamp=_ts(25),
+            user=CorpUserUrn("user2"),
+        )
     )
     aggregator.add_observed_query(
-        query="create table foo as select a, b+1 as b from bar",
-        default_db="dev",
-        default_schema="public",
-        query_timestamp=_ts(26),
-        user=CorpUserUrn("user3"),
+        ObservedQuery(
+            query="create table foo as select a, b+1 as b from bar",
+            default_db="dev",
+            default_schema="public",
+            timestamp=_ts(26),
+            user=CorpUserUrn("user3"),
+        )
     )
 
     # The first query will basically be ignored, as it's a duplicate of the second one.
@@ -397,14 +436,18 @@ def test_column_lineage_deduplication(pytestconfig: pytest.Config) -> None:
     )
 
     aggregator.add_observed_query(
-        query="/* query 1 */ insert into foo (a, b, c) select a, b, c from bar",
-        default_db="dev",
-        default_schema="public",
+        ObservedQuery(
+            query="/* query 1 */ insert into foo (a, b, c) select a, b, c from bar",
+            default_db="dev",
+            default_schema="public",
+        )
     )
     aggregator.add_observed_query(
-        query="/* query 2 */ insert into foo (a, b) select a, b from bar",
-        default_db="dev",
-        default_schema="public",
+        ObservedQuery(
+            query="/* query 2 */ insert into foo (a, b) select a, b from bar",
+            default_db="dev",
+            default_schema="public",
+        )
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -483,16 +526,20 @@ def test_table_rename(pytestconfig: pytest.Config) -> None:
 
     # Add an unrelated query.
     aggregator.add_observed_query(
-        query="create table bar as select a, b from baz",
-        default_db="dev",
-        default_schema="public",
+        ObservedQuery(
+            query="create table bar as select a, b from baz",
+            default_db="dev",
+            default_schema="public",
+        )
     )
 
     # Add the query that created the staging table.
     aggregator.add_observed_query(
-        query="create table foo_staging as select a, b from foo_dep",
-        default_db="dev",
-        default_schema="public",
+        ObservedQuery(
+            query="create table foo_staging as select a, b from foo_dep",
+            default_db="dev",
+            default_schema="public",
+        )
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -514,10 +561,12 @@ def test_create_table_query_mcps(pytestconfig: pytest.Config) -> None:
     )
 
     aggregator.add_observed_query(
-        query="create or replace table `dataset.foo` (date_utc timestamp, revenue int);",
-        default_db="dev",
-        default_schema="public",
-        query_timestamp=datetime.now(),
+        ObservedQuery(
+            query="create or replace table `dataset.foo` (date_utc timestamp, revenue int);",
+            default_db="dev",
+            default_schema="public",
+            timestamp=datetime.now(),
+        )
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -539,14 +588,18 @@ def test_lineage_via_temp_table_disordered_add(pytestconfig: pytest.Config) -> N
     )
 
     aggregator.add_observed_query(
-        query="create table derived_from_foo as select * from foo",
-        default_db="dev",
-        default_schema="public",
+        ObservedQuery(
+            query="create table derived_from_foo as select * from foo",
+            default_db="dev",
+            default_schema="public",
+        )
     )
     aggregator.add_observed_query(
-        query="create temp table foo as select a, b+c as c from bar",
-        default_db="dev",
-        default_schema="public",
+        ObservedQuery(
+            query="create temp table foo as select a, b+c as c from bar",
+            default_db="dev",
+            default_schema="public",
+        )
     )
 
     mcps = list(aggregator.gen_metadata())
@@ -579,19 +632,23 @@ def test_basic_usage(pytestconfig: pytest.Config) -> None:
     )
 
     aggregator.add_observed_query(
-        query="select * from foo",
-        default_db="dev",
-        default_schema="public",
-        usage_multiplier=5,
-        query_timestamp=frozen_timestamp,
-        user=CorpUserUrn("user1"),
+        ObservedQuery(
+            query="select * from foo",
+            default_db="dev",
+            default_schema="public",
+            usage_multiplier=5,
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+        )
     )
     aggregator.add_observed_query(
-        query="create table bar as select b+c as c from foo",
-        default_db="dev",
-        default_schema="public",
-        query_timestamp=frozen_timestamp,
-        user=CorpUserUrn("user2"),
+        ObservedQuery(
+            query="create table bar as select b+c as c from foo",
+            default_db="dev",
+            default_schema="public",
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user2"),
+        )
     )
 
     mcps = list(aggregator.gen_metadata())
