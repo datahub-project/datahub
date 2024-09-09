@@ -2,9 +2,9 @@ from typing import Any, Dict
 
 import pytest
 
-import datahub.ingestion.source.tableau_constant as c
-from datahub.ingestion.source.tableau import TableauSiteSource
-from datahub.ingestion.source.tableau_common import (
+import datahub.ingestion.source.tableau.tableau_constant as c
+from datahub.ingestion.source.tableau.tableau import TableauSiteSource
+from datahub.ingestion.source.tableau.tableau_common import (
     get_filter_pages,
     make_filter,
     tableau_field_to_schema_field,
