@@ -1,12 +1,12 @@
+import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { Drawer } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { useGetTimelineQuery } from '../../../../../../../graphql/timeline.generated';
 import { ChangeCategoryType } from '../../../../../../../types.generated';
-import ChangeTransaction from './ChangeTransaction';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '../../../../constants';
+import ChangeTransaction from './ChangeTransaction';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -91,9 +91,14 @@ const HistorySidebar = ({ open, onClose }: Props) => {
                 </FieldHeaderWrapper>
 
                 <ChangeTransactionList>
-                    {timelineResult.data?.getTimeline?.changeTransactions.map((changeTransaction) => (
-                        <ChangeTransaction key={changeTransaction.versionStamp} changeTransaction={changeTransaction} />
-                    ))}
+                    {timelineResult.data?.getTimeline?.changeTransactions
+                        .map((changeTransaction) => (
+                            <ChangeTransaction
+                                key={changeTransaction.versionStamp}
+                                changeTransaction={changeTransaction}
+                            />
+                        ))
+                        .reverse()}
                 </ChangeTransactionList>
             </DrawerContent>
         </StyledDrawer>

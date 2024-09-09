@@ -28,7 +28,10 @@ describe("schema blame", () => {
 
     // Make sure the schema blame is accurate
     cy.get('[data-testid="schema-blame-button"]').click({ force: true });
-    cy.contains(urn).should("be.visible");
+    cy.contains("field_bar").should("be.visible");
+    cy.contains("field_foo").should("be.visible");
+    cy.contains("Bar field description").should("be.visible");
+    cy.contains("Foo field description").should("be.visible");
 
     // Verify History table tab
     cy.contains("History").should("be.visible");
@@ -54,12 +57,5 @@ describe("schema blame", () => {
       .contains("Legacy")
       .should("not.exist");
     cy.get(".anticon-file-text").click();
-
-    // Make sure the schema blame is accurate
-    cy.get('[data-testid="schema-blame-button"]').click({ force: true });
-    cy.contains(urn).should("be.visible");
-
-    // Verify History table tab
-    cy.contains("History").should("be.visible");
   });
 });

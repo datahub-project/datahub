@@ -1,8 +1,9 @@
+import { processDocumentationString } from '@src/app/lineageV2/lineageUtils';
 import React from 'react';
 import styled from 'styled-components';
-import { processDocumentationString } from '@src/app/lineageV2/lineageUtils';
 import { ChangeEvent } from '../../../../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../../constants';
+import { getDocumentationString } from './changeEventToString';
 
 const ChangeEventCircle = styled.div`
     display: inline-block;
@@ -38,10 +39,11 @@ interface ChangeTransactionProps {
 }
 
 const ChangeEventComponent: React.FC<ChangeTransactionProps> = ({ changeEvent }) => {
+    const documentationString = getDocumentationString(changeEvent);
+
     return (
         <ChangeEventContainer>
-            <ChangeEventCircle />{' '}
-            <ChangeEventText>{processDocumentationString(changeEvent.description)}</ChangeEventText>
+            <ChangeEventCircle /> <ChangeEventText>{processDocumentationString(documentationString)}</ChangeEventText>
         </ChangeEventContainer>
     );
 };
