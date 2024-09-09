@@ -106,7 +106,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.lossy_collections import LossyList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -198,10 +198,6 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_query_template_render: int = 0
     num_query_template_render_failures: int = 0
     num_query_template_render_success: int = 0
-
-    dropped_imported_datasets: LossyDict[str, LossyList[str]] = dataclasses.field(
-        default_factory=LossyDict
-    )
 
     def report_dropped_space(self, ent_name: str) -> None:
         self.filtered_spaces.append(ent_name)
@@ -935,6 +931,12 @@ class ModeSource(StatefulIngestionSourceBase):
 
         query_token = query_data.get("token")
 
+        externalUrl = (
+            f"{self.config.connect_uri}/{self.config.workspace}/datasets/{report_token}"
+            if is_mode_dataset
+            else f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}/details/queries/{query_token}"
+        )
+
         dataset_props = DatasetPropertiesClass(
             name=report_info.get("name") if is_mode_dataset else query_data.get("name"),
             description=f"""### Source Code
@@ -942,7 +944,7 @@ class ModeSource(StatefulIngestionSourceBase):
 {query_data.get("raw_query")}
 ```
             """,
-            externalUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}/details/queries/{query_token}",
+            externalUrl=externalUrl,
             customProperties=self.get_custom_props_from_dict(
                 query_data,
                 [
@@ -964,6 +966,13 @@ class ModeSource(StatefulIngestionSourceBase):
             ).as_workunit()
         )
 
+        if is_mode_dataset:
+            space_container_key = self.gen_space_key(space_token)
+            yield from add_dataset_to_container(
+                container_key=space_container_key,
+                dataset_urn=query_urn,
+            )
+
         subtypes = SubTypesClass(
             typeNames=(
                 [
@@ -983,7 +992,9 @@ class ModeSource(StatefulIngestionSourceBase):
         yield MetadataChangeProposalWrapper(
             entityUrn=query_urn,
             aspect=BrowsePathsV2Class(
-                path=self._browse_path_query(space_token, report_info)
+                path=self._browse_path_dashboard(space_token)
+                if is_mode_dataset
+                else self._browse_path_query(space_token, report_info)
             ),
         ).as_workunit()
 
