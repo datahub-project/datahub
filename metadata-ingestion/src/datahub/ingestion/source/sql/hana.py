@@ -270,10 +270,10 @@ class HanaSource(SQLAlchemySource):
             OBJECT_NAME,
             TO_VARCHAR(CDATA) AS CDATA
             FROM _SYS_REPO.ACTIVE_OBJECT
-            WHERE OBJECT_SUFFIX='calculationview'"""
+            WHERE LOWER(OBJECT_SUFFIX)='calculationview'"""
         result = self.engine.execute(query).fetchall()
         packages = [dict(row) for row in result] if result else []
-        log.info(packages)
+        logging.info(packages)
         return packages
 
     def get_schema_names(self, inspector):
@@ -551,53 +551,53 @@ class HanaSource(SQLAlchemySource):
             lineage = self.get_calculation_view_lineage(root=root, ns=ns, dataset_path=dataset_path,
                                                         dataset_name=dataset_name)
 
-        columns = self.get_columns(inspector=inspector, schema=schema, table_or_view=dataset_name)
+            columns = self.get_columns(inspector=inspector, schema=schema, table_or_view=dataset_name)
 
-        schema_metadata = SchemaMetadataClass(
-            schemaName=f"{schema}.{dataset_name}",
-            platform=make_data_platform_urn(self.get_platform()),
-            version=0,
-            fields=columns,
-            hash="",
-            platformSchema=MySqlDDLClass(""),
-            lastModified=AuditStampClass(
-                int(time.time() * 1000), "urn:li:corpuser:admin"
-            ),
-        )
+            schema_metadata = SchemaMetadataClass(
+                schemaName=f"{schema}.{dataset_name}",
+                platform=make_data_platform_urn(self.get_platform()),
+                version=0,
+                fields=columns,
+                hash="",
+                platformSchema=MySqlDDLClass(""),
+                lastModified=AuditStampClass(
+                    int(time.time() * 1000), "urn:li:corpuser:admin"
+                ),
+            )
 
-        dataset_details = DatasetPropertiesClass(name=dataset_name)
+            dataset_details = DatasetPropertiesClass(name=dataset_name)
 
-        view_properties = ViewPropertiesClass(
-            materialized=False,
-            viewLanguage="XML",
-            viewLogic=dataset_definition,
-        )
+            view_properties = ViewPropertiesClass(
+                materialized=False,
+                viewLanguage="XML",
+                viewLogic=dataset_definition,
+            )
 
-        subtype = SubTypesClass(["View"])
+            subtype = SubTypesClass(["View"])
 
-        aspects = [
-            schema_metadata,
-            subtype,
-            dataset_details,
-            view_properties
-        ]
+            aspects = [
+                schema_metadata,
+                subtype,
+                dataset_details,
+                view_properties
+            ]
 
-        if lineage:
-            aspects.append(lineage)
+            if lineage:
+                aspects.append(lineage)
 
-        dataset_snapshot = MetadataChangeProposalWrapper.construct_many(
-            entityUrn=entity,
-            aspects=aspects
-        )
+            dataset_snapshot = MetadataChangeProposalWrapper.construct_many(
+                entityUrn=entity,
+                aspects=aspects
+            )
 
-        self.aggregator.register_schema(
-            urn=entity,
-            schema=schema_metadata
-        )
+            self.aggregator.register_schema(
+                urn=entity,
+                schema=schema_metadata
+            )
 
-        for mcp in dataset_snapshot:
-            self.report.report_workunit(mcp.as_workunit())
-            yield mcp.as_workunit()
+            for mcp in dataset_snapshot:
+                self.report.report_workunit(mcp.as_workunit())
+                yield mcp.as_workunit()
 
 def _sql_dialect(platform: str) -> str:
     return "tsql"
