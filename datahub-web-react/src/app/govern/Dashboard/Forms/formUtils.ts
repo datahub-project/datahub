@@ -1,5 +1,5 @@
 import { LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
-import { CorpGroup, CorpUser, FormState, FormType } from '../../../../types.generated';
+import { CorpGroup, CorpUser, FormState, FormType, PromptCardinality } from '../../../../types.generated';
 
 export type FormMode = 'create' | 'edit';
 
@@ -11,6 +11,9 @@ export type FormQuestion = {
     required: boolean;
     structuredPropertyParams?: {
         urn: string;
+    };
+    ownershipParams?: {
+        cardinality: PromptCardinality;
     };
 };
 
@@ -40,9 +43,29 @@ export const handleInputChange = (setFormValues) => (event) => {
 
 export const questionTypes = [
     {
-        label: 'Structured Properties',
-        value: 'STRUCTURED_PROPERTY',
-        description: 'This question applies structured properties to assets',
+        label: 'Documentation',
+        value: 'DOCUMENTATION',
+        description: 'This question applies documentation to assets',
+    },
+    {
+        label: 'Documentation - Column',
+        value: 'FIELDS_DOCUMENTATION',
+        description: 'This question applies documentation to columns of assets',
+    },
+    {
+        label: 'Glossary Terms',
+        value: 'GLOSSARY_TERMS',
+        description: 'This question applies glossary terms to assets',
+    },
+    {
+        label: 'Glossary Terms - Column',
+        value: 'FIELDS_GLOSSARY_TERMS',
+        description: 'This question applies glossary terms to columns of assets',
+    },
+    {
+        label: 'Domain',
+        value: 'DOMAIN',
+        description: 'This question applies domain to assets',
     },
     {
         label: 'Ownership',
@@ -50,8 +73,14 @@ export const questionTypes = [
         description: 'This question applies ownership to assets',
     },
     {
-        label: 'Column-level Structured Properties',
+        label: 'Structured Property',
+        value: 'STRUCTURED_PROPERTY',
+        description: 'This question applies structured property to assets',
+    },
+
+    {
+        label: 'Structured Property - Column',
         value: 'FIELDS_STRUCTURED_PROPERTY',
-        description: 'This question applies to columns of assets',
+        description: 'This question applies structured property to columns of assets',
     },
 ];
