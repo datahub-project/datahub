@@ -530,7 +530,9 @@ def test_create_table_query_mcps(pytestconfig: pytest.Config) -> None:
 
 
 @freeze_time(FROZEN_TIME)
-def test_lineage_via_temp_table_disordered_add(pytestconfig: pytest.Config) -> None:
+def test_table_lineage_via_temp_table_disordered_add(
+    pytestconfig: pytest.Config,
+) -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=True,
@@ -554,7 +556,8 @@ def test_lineage_via_temp_table_disordered_add(pytestconfig: pytest.Config) -> N
     mce_helpers.check_goldens_stream(
         pytestconfig,
         outputs=mcps,
-        golden_path=RESOURCE_DIR / "test_lineage_via_temp_table_disordered_add.json",
+        golden_path=RESOURCE_DIR
+        / "test_table_lineage_via_temp_table_disordered_add.json",
     )
 
 
