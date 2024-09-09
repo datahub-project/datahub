@@ -263,9 +263,9 @@ class HanaSource(SQLAlchemySource):
 
     def get_calculation_view_columns(self, view: str) -> List[SchemaFieldClass]:
         query = f"""
-            SELECT PROPERTY_NAME,
-            PROPERTY_CAPTION,
-            DATA_TYPE
+            SELECT PROPERTY_NAME as property_name,
+            PROPERTY_CAPTION as property_caption,
+            DATA_TYPE as data_type
             FROM "_SYS_BI"."BIMC_PROPERTIES"
             WHERE "SCHEMA_NAME" = '_SYS_BIC'
             AND "PROPERTY_TYPE" IN ('1', '2', '6', '7')
