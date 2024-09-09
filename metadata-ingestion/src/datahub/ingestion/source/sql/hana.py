@@ -13,6 +13,7 @@ import xml.etree.ElementTree
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
+import datahub.sql_parsing.sqlglot_utils
 from datahub.configuration.common import AllowDenyPattern
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.utilities.urns.corpuser_urn import CorpuserUrn
@@ -69,6 +70,8 @@ from datahub.ingestion.api.decorators import (
 )
 
 logger = logging.getLogger(__name__)
+
+datahub.sql_parsing.sqlglot_utils._get_dialect_str = "tsql"
 
 HANA_TYPES_MAP: Dict[str, Any] = {
     "BOOLEAN": BooleanTypeClass(),
