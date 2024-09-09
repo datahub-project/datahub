@@ -1,6 +1,6 @@
 import random
 import string
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
@@ -454,7 +454,7 @@ def test_bigquery_queries_v2_lineage_usage_ingest(
         {
             "job_id": "1",
             "project_id": "project-id-1",
-            "creation_time": datetime.now(),
+            "creation_time": datetime.now(timezone.utc),
             "user_email": "foo@xyz.com",
             "query": "select * from `bigquery-dataset-1`.`table-1`",
             "session_id": None,
@@ -466,7 +466,7 @@ def test_bigquery_queries_v2_lineage_usage_ingest(
         {
             "job_id": "2",
             "project_id": "project-id-1",
-            "creation_time": datetime.now(),
+            "creation_time": datetime.now(timezone.utc),
             "user_email": "foo@xyz.com",
             "query": "create view `bigquery-dataset-1`.`view-1` as select * from `bigquery-dataset-1`.`table-1`",
             "session_id": None,
@@ -478,7 +478,7 @@ def test_bigquery_queries_v2_lineage_usage_ingest(
         {
             "job_id": "3",
             "project_id": "project-id-1",
-            "creation_time": datetime.now(),
+            "creation_time": datetime.now(timezone.utc),
             "user_email": "service_account@xyz.com",
             "query": """\
 select * from `bigquery-dataset-1`.`view-1`
@@ -494,7 +494,7 @@ LIMIT 100
         {
             "job_id": "4",
             "project_id": "project-id-1",
-            "creation_time": datetime.now(),
+            "creation_time": datetime.now(timezone.utc),
             "user_email": "service_account@xyz.com",
             "query": """\
 select * from `bigquery-dataset-1`.`view-1`
