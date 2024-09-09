@@ -207,6 +207,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
+                browsePaths={data?.browsePathV2 || undefined}
             />
         );
     };
@@ -237,6 +238,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                browsePaths={data?.browsePathV2 || undefined}
             />
         );
     };

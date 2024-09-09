@@ -1070,6 +1070,7 @@ export const container1 = {
         __typename: 'ContainerProperties',
     },
     autoRenderAspects: [],
+    browsePathV2: null,
     __typename: 'Container',
 } as Container;
 
@@ -1085,6 +1086,7 @@ export const container2 = {
         __typename: 'ContainerProperties',
     },
     autoRenderAspects: [],
+    browsePathV2: null,
     __typename: 'Container',
 } as Container;
 
@@ -1273,6 +1275,7 @@ const glossaryTerm3 = {
     },
     deprecation: null,
     autoRenderAspects: [],
+    parentNodes: null,
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
 
@@ -1538,6 +1541,7 @@ export const dataJob1 = {
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
+    browsePathV2: null,
 } as DataJob;
 
 export const businessAttribute = {
@@ -1707,6 +1711,7 @@ export const dataJob2 = {
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
+    browsePathV2: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1783,6 +1788,7 @@ export const dataJob3 = {
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
+    browsePathV2: null,
 } as DataJob;
 
 export const mlModel = {

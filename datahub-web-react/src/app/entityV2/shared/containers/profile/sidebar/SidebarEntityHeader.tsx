@@ -4,8 +4,7 @@ import { Container, DataPlatform, EntityType, Post } from '../../../../../../typ
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
-import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
-import StaticSearchCardBrowsePath from '../../../../../previewV2/StaticSearchCardBrowsePath';
+import ContextPath from '../../../../../previewV2/ContextPath';
 import useContentTruncation from '../../../../../shared/useContentTruncation';
 import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -48,9 +47,6 @@ const SidebarEntityHeader = () => {
         );
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
-    // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
-    const hasParentContainers = entityData?.parentContainers && entityData?.parentContainers.count > 0;
-
     const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
     const platforms =
         entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;
@@ -73,28 +69,20 @@ const SidebarEntityHeader = () => {
                     )}
                     {entityData?.health && <HealthIcon health={entityData.health} baseUrl={entityUrl} />}
                 </NameWrapper>
-                <div>
-                    {hasParentContainers && (
-                        <SearchCardBrowsePath
-                            instanceId={entityData?.dataPlatformInstance?.instanceId}
-                            typeIcon={typeIcon}
-                            type={displayedEntityType}
-                            entityType={entityType}
-                            parentContainers={entityData?.parentContainers?.containers}
-                            parentEntities={entityData?.parentDomains?.domains}
-                            parentContainersRef={contentRef}
-                            areContainersTruncated={isContentTruncated}
-                        />
-                    )}
-                    {!hasParentContainers && (
-                        <StaticSearchCardBrowsePath
-                            entityType={entityType}
-                            browsePaths={entityData?.browsePathV2}
-                            type={displayedEntityType}
-                            parentEntity={entityData?.parent}
-                        />
-                    )}
-                </div>
+                <ContextPath
+                    instanceId={entityData?.dataPlatformInstance?.instanceId}
+                    typeIcon={typeIcon}
+                    type={displayedEntityType}
+                    entityType={entityType}
+                    browsePaths={entityData?.browsePathV2}
+                    parentEntities={
+                        entityData?.parentContainers?.containers ||
+                        entityData?.parentDomains?.domains ||
+                        entityData?.parentNodes?.nodes
+                    }
+                    contentRef={contentRef}
+                    isContentTruncated={isContentTruncated}
+                />
             </EntityDetailsContainer>
         </TitleContainer>
     );

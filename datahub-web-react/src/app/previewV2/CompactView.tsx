@@ -6,12 +6,11 @@ import ColoredBackgroundPlatformIconGroup, { PlatformContentWrapper } from './Co
 import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import EntityHeader, { StyledLink } from './EntityHeader';
 import { PreviewType } from '../entity/Entity';
-import { BrowsePathV2, Deprecation, Entity, EntityType, Health, ParentContainersResult } from '../../types.generated';
+import { BrowsePathV2, Deprecation, Entity, EntityType, Health } from '../../types.generated';
 import { EntityMenuActions } from '../entityV2/Entity';
 import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
 import { GenericEntityProperties } from '../entity/shared/types';
-import SearchCardBrowsePath from './SearchCardBrowsePath';
-import StaticSearchCardBrowsePath from './StaticSearchCardBrowsePath';
+import ContextPath from './ContextPath';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 interface RowContainerProps {
@@ -99,15 +98,12 @@ interface Props {
     logoUrls?: Maybe<string | undefined>[];
     logoUrl?: string;
     previewData: GenericEntityProperties | null;
-    hasParentContainers?: boolean | null | undefined;
     platformInstanceId?: string;
     typeIcon?: JSX.Element;
     finalType?: string | undefined;
     parentEntities?: Entity[] | null;
-    parentContainers?: ParentContainersResult | null;
     contentRef: React.RefObject<HTMLDivElement>;
     browsePaths?: BrowsePathV2 | undefined;
-    parentEntity?: GenericEntityProperties | null;
 }
 
 export const CompactView = ({
@@ -132,15 +128,12 @@ export const CompactView = ({
     previewType,
     urn,
     entityType,
-    hasParentContainers,
     platformInstanceId,
     typeIcon,
     finalType,
-    parentEntities,
-    parentContainers,
+    parentEntities, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     contentRef,
     browsePaths,
-    parentEntity,
 }: Props) => {
     return (
         <>
@@ -176,30 +169,18 @@ export const CompactView = ({
                         ) : (
                             <div />
                         )}
-                        {hasParentContainers && (
-                            <SearchCardBrowsePath
-                                instanceId={platformInstanceId}
-                                typeIcon={typeIcon}
-                                type={finalType}
-                                entityType={entityType}
-                                parentContainers={parentContainers?.containers}
-                                parentEntities={parentEntities}
-                                parentContainersRef={contentRef}
-                                areContainersTruncated={false}
-                                entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
-                                previewType={previewType}
-                                isCompactView
-                            />
-                        )}
-                        {!hasParentContainers && (
-                            <StaticSearchCardBrowsePath
-                                entityType={entityType}
-                                browsePaths={browsePaths}
-                                type={finalType}
-                                parentEntity={parentEntity}
-                                isCompactView
-                            />
-                        )}
+                        <ContextPath
+                            instanceId={platformInstanceId}
+                            typeIcon={typeIcon}
+                            type={finalType}
+                            entityType={entityType}
+                            browsePaths={browsePaths}
+                            parentEntities={parentEntities}
+                            contentRef={contentRef}
+                            entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
+                            previewType={previewType}
+                            isCompactView
+                        />
                     </div>
                 </HeaderContainerV2>
                 <ActionsAndStatusSection>

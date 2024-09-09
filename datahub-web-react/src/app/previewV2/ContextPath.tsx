@@ -1,20 +1,16 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import KeyboardArrowRightOutlinedIcon from '@mui/icons-material/KeyboardArrowRightOutlined';
-import { Container, Entity, EntityType } from '../../types.generated';
+import { BrowsePathEntry, BrowsePathV2, Entity, EntityType } from '../../types.generated';
 import { getSubTypeIcon } from '../entityV2/shared/components/subtypes';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import {
-    Ellipsis,
-    ParentNodesWrapper,
-    StyledTooltip,
-} from '../entityV2/shared/containers/profile/header/PlatformContent/ParentNodesView';
 import ParentEntities from '../searchV2/filters/ParentEntities';
 import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
-import ContainerLink from './SearchCardBrowsePathContainerLink';
 import { IconStyleType, PreviewType } from '../entityV2/Entity';
+import BrowsePaths from './BrowsePaths';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { isDefaultBrowsePath } from './utils';
 
 const PlatformContentWrapper = styled.div`
     display: flex;
@@ -49,18 +45,18 @@ const PlatformDivider = styled.div`
     margin-right: 6px;
     font-size: 16px;
     margin-top: -3px;
-    color: ${REDESIGN_COLORS.TEXT_GREY};
+    color: ${ANTD_GRAY[6]};
 `;
 
-export function getParentContainerNames(containers?: Maybe<Container>[] | null) {
+export function getParentBrowsePathNames(browsePaths?: Maybe<BrowsePathEntry>[] | null) {
     let parentNames = '';
-    if (containers) {
-        [...containers].reverse().forEach((container, index) => {
-            if (container?.properties) {
+    if (browsePaths) {
+        [...browsePaths].reverse().forEach((path, index) => {
+            if (path?.name) {
                 if (index !== 0) {
                     parentNames += ' > ';
                 }
-                parentNames += container.properties.name;
+                parentNames += path.name;
             }
         });
     }
@@ -91,40 +87,41 @@ interface Props {
     typeIcon?: JSX.Element;
     type?: string;
     entityType: EntityType;
-    parentContainers?: Maybe<Container>[] | null;
     parentEntities?: Entity[] | null;
-    parentContainersRef: React.RefObject<HTMLDivElement>;
-    areContainersTruncated: boolean;
     entityTitleWidth?: number;
     previewType?: Maybe<PreviewType>;
     isCompactView?: boolean;
+    browsePaths?: Maybe<BrowsePathV2> | undefined;
+    contentRef: React.RefObject<HTMLDivElement>;
+    isContentTruncated?: boolean;
 }
 
-function SearchCardBrowsePath(props: Props) {
+function ContextPath(props: Props) {
     const {
-        parentEntities,
-        instanceId,
         type,
         entityType,
-        parentContainers,
-        parentContainersRef,
-        areContainersTruncated,
+        parentEntities,
+        browsePaths,
+        instanceId,
         entityTitleWidth = 200,
         previewType,
         isCompactView,
+        contentRef,
+        isContentTruncated = false,
     } = props;
-    const entityRegistry = useEntityRegistryV2();
 
-    const directParentContainer = parentContainers && parentContainers[0];
-    const remainingParentContainers = parentContainers && parentContainers.slice(1, parentContainers.length);
+    const entityRegistry = useEntityRegistryV2();
     const entityTypeIcon =
         getSubTypeIcon(type) || entityRegistry.getIcon(entityType, 16, IconStyleType.ACCENT, '#8d95b1');
 
-    const divider = isCompactView ? (
-        <KeyboardArrowRightOutlinedIcon style={{ fill: REDESIGN_COLORS.TEXT_GREY }} />
-    ) : (
-        <PlatformDivider>|</PlatformDivider>
-    );
+    const divider = <PlatformDivider>|</PlatformDivider>;
+
+    const hasPlatformInstance = !!instanceId;
+    const hasBrowsePath = !!browsePaths?.path?.length && !isDefaultBrowsePath(browsePaths);
+    const hasParentEntities = !!parentEntities?.length;
+
+    const showInstanceIdDivider = hasBrowsePath || hasParentEntities;
+    const showEntityTypeDivider = hasPlatformInstance || hasBrowsePath || hasParentEntities;
 
     return (
         <PlatformContentWrapper>
@@ -135,40 +132,26 @@ function SearchCardBrowsePath(props: Props) {
             >
                 {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
                 <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
-                {(!!instanceId || !!parentContainers?.length || !!parentEntities?.length) && divider}
+                {showEntityTypeDivider && divider}
             </PlatformText>
-
             {instanceId && (
                 <PlatformText>
                     {instanceId}
-                    {directParentContainer && divider}
+                    {showInstanceIdDivider && divider}
                 </PlatformText>
             )}
-            <StyledTooltip
-                title={getParentContainerNames(parentContainers)}
-                overlayStyle={areContainersTruncated ? {} : { display: 'none' }}
-                maxWidth={previewType === PreviewType.HOVER_CARD ? 300 : 620}
-            >
-                {areContainersTruncated && <Ellipsis>...</Ellipsis>}
-                {/* To avoid rendering a empty div */}
-                {(directParentContainer || remainingParentContainers) && (
-                    <ParentNodesWrapper ref={parentContainersRef}>
-                        {directParentContainer && <ContainerLink container={directParentContainer} />}
-                        {remainingParentContainers &&
-                            remainingParentContainers.map((container) => (
-                                <span key={container?.urn}>
-                                    <PlatformText>
-                                        <ContainerLink container={container} />
-                                        {divider}
-                                    </PlatformText>
-                                </span>
-                            ))}
-                    </ParentNodesWrapper>
-                )}
-            </StyledTooltip>
-            <ParentEntities parentEntities={parentEntities || []} numVisible={3} />
+            {hasBrowsePath ? (
+                <BrowsePaths
+                    browsePaths={browsePaths}
+                    previewType={previewType}
+                    contentRef={contentRef}
+                    isContentTruncated={isContentTruncated}
+                />
+            ) : (
+                <ParentEntities parentEntities={parentEntities || []} numVisible={3} />
+            )}
         </PlatformContentWrapper>
     );
 }
 
-export default SearchCardBrowsePath;
+export default ContextPath;

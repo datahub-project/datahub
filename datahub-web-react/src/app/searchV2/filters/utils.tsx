@@ -379,7 +379,7 @@ export function getParentEntities(entity: Entity): Entity[] | null {
     if (!entity) {
         return null;
     }
-    if (entity.type === EntityType.GlossaryTerm) {
+    if (entity.type === EntityType.GlossaryTerm || entity.type === EntityType.GlossaryNode) {
         return (entity as GlossaryTerm).parentNodes?.nodes || [];
     }
     if (entity.type === EntityType.Domain) {

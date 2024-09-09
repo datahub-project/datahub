@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { Entity } from '@types';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
-import SearchCardBrowsePathContainerIcon from './SearchCardBrowsePathContainerIcon';
+import ContextPathEntityIcon from './ContextPathEntityIcon';
 import useEmbeddedProfileLinkProps from '../shared/useEmbeddedProfileLinkProps';
 
 const Path = styled.div`
@@ -41,27 +41,28 @@ const StyledLink = styled(Link)`
 `;
 
 interface Props {
-    container: Maybe<Entity>;
+    entity: Maybe<Entity>;
+    style?: React.CSSProperties;
 }
 
-function ContainerLink(props: Props) {
-    const { container } = props;
+function ContextPathEntityLink(props: Props) {
+    const { entity, style } = props;
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
 
-    if (!container) return null;
+    if (!entity) return null;
 
-    const containerUrl = entityRegistry.getEntityUrl(container.type, container.urn);
-    const containerName = entityRegistry.getDisplayName(container.type, container);
+    const containerUrl = entityRegistry.getEntityUrl(entity.type, entity.urn);
+    const containerName = entityRegistry.getDisplayName(entity.type, entity);
 
     return (
-        <Path>
+        <Path style={style}>
             <StyledLink to={containerUrl} data-testid="container" {...linkProps}>
-                <SearchCardBrowsePathContainerIcon container={container} />
+                <ContextPathEntityIcon entity={entity} />
                 <ContainerText title={containerName}>{containerName}</ContainerText>
             </StyledLink>
         </Path>
     );
 }
 
-export default ContainerLink;
+export default ContextPathEntityLink;

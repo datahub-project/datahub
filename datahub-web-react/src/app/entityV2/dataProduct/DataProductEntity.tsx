@@ -207,10 +207,15 @@ export class DataProductEntity implements Entity<DataProduct> {
         const name = data?.properties?.name;
         const externalUrl = data?.properties?.externalUrl;
         const entityCount = data?.entities?.total || undefined;
+        const parentDomains = {
+            domains: (data?.domain && [data?.domain?.domain]) || [],
+            count: (data?.domain && 1) || 0,
+        };
         return {
             name,
             externalUrl,
             entityCount,
+            parentDomains,
         };
     };
 

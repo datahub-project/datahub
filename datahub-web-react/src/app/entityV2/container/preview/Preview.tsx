@@ -91,7 +91,7 @@ export const Preview = ({
             typeIcon={<ContainerIcon container={container} />}
             domain={domain || undefined}
             dataProduct={dataProduct}
-            parentContainers={parentContainers}
+            parentEntities={parentContainers?.containers}
             tags={tags || undefined}
             glossaryTerms={glossaryTerms || undefined}
             externalUrl={externalUrl}

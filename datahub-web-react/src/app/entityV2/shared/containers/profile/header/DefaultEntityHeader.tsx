@@ -12,8 +12,7 @@ import {
 import { EntitySubHeaderSection, GenericEntityProperties } from '../../../../../entity/shared/types';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
-import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
-import StaticSearchCardBrowsePath from '../../../../../previewV2/StaticSearchCardBrowsePath';
+import ContextPath from '../../../../../previewV2/ContextPath';
 import useContentTruncation from '../../../../../shared/useContentTruncation';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../Entity';
@@ -141,9 +140,6 @@ export const DefaultEntityHeader = ({
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
-    // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
-    const hasParentContainers = entityData?.parentContainers && entityData.parentContainers.count > 0;
-
     const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
     const platforms =
         entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;
@@ -210,26 +206,20 @@ export const DefaultEntityHeader = ({
                                         )}
                                     </TitleRow>
                                     <HeaderRow>
-                                        {hasParentContainers && (
-                                            <SearchCardBrowsePath
-                                                instanceId={entityData?.dataPlatformInstance?.instanceId}
-                                                typeIcon={typeIcon}
-                                                type={displayedEntityType}
-                                                entityType={entityType}
-                                                parentContainers={entityData?.parentContainers?.containers}
-                                                parentEntities={entityData?.parentDomains?.domains}
-                                                parentContainersRef={contentRef}
-                                                areContainersTruncated={isContentTruncated}
-                                            />
-                                        )}
-                                        {!hasParentContainers && (
-                                            <StaticSearchCardBrowsePath
-                                                entityType={entityType}
-                                                browsePaths={entityData?.browsePathV2 || undefined}
-                                                type={displayedEntityType}
-                                                parentEntity={entityData?.parent}
-                                            />
-                                        )}
+                                        <ContextPath
+                                            instanceId={entityData?.dataPlatformInstance?.instanceId}
+                                            typeIcon={typeIcon}
+                                            type={displayedEntityType}
+                                            entityType={entityType}
+                                            browsePaths={entityData?.browsePathV2}
+                                            parentEntities={
+                                                entityData?.parentContainers?.containers ||
+                                                entityData?.parentDomains?.domains ||
+                                                entityData?.parentNodes?.nodes
+                                            }
+                                            contentRef={contentRef}
+                                            isContentTruncated={isContentTruncated}
+                                        />
                                     </HeaderRow>
                                 </EntityDetailsContainer>
                             </TitleWrapper>

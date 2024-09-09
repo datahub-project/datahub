@@ -4,6 +4,7 @@ import { Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
 import {
+    BrowsePathV2,
     DataProduct,
     Deprecation,
     Domain,
@@ -46,6 +47,7 @@ export const Preview = ({
     isOutputPort,
     headerDropdownItems,
     previewType,
+    browsePaths,
 }: {
     urn: string;
     name: string;
@@ -68,6 +70,7 @@ export const Preview = ({
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType?: PreviewType;
+    browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -105,6 +108,7 @@ export const Preview = ({
             isOutputPort={isOutputPort}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
+            browsePaths={browsePaths}
         />
     );
 };

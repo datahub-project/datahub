@@ -18,7 +18,6 @@ import {
     Health,
     Maybe,
     Owner,
-    ParentContainersResult,
     SearchInsight,
     BrowsePathV2,
 } from '../../types.generated';
@@ -29,8 +28,7 @@ import { usePreviewData } from '../entityV2/shared/PreviewContext';
 import useContentTruncation from '../shared/useContentTruncation';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import ColoredBackgroundPlatformIconGroup from './ColoredBackgroundPlatformIconGroup';
-import SearchCardBrowsePath from './SearchCardBrowsePath';
-import StaticSearchCardBrowsePath from './StaticSearchCardBrowsePath';
+import ContextPath from './ContextPath';
 import EntityHeader from './EntityHeader';
 import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
@@ -135,7 +133,6 @@ interface Props {
     // this is provided by the impact analysis view. it is used to display
     // how the listed node is connected to the source node
     degree?: number;
-    parentContainers?: ParentContainersResult | null;
     parentEntities?: Entity[] | null;
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
@@ -220,7 +217,6 @@ export default function DefaultPreviewCard({
     entityTitleSuffix,
     onClick,
     degree,
-    parentContainers,
     parentEntities,
     platforms,
     logoUrls,
@@ -264,10 +260,6 @@ export default function DefaultPreviewCard({
     const hasPlatformIcons =
         platform || logoUrl || (platforms && platforms.length) || (logoUrls && logoUrls.length) || isOutputPort;
     const isIconPresent = !!hasPlatformIcons || !!entityIcon;
-
-    // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
-    const hasParentContainers =
-        (parentContainers && parentContainers.count > 0) || (parentEntities && parentEntities.length > 0);
 
     const { isFullViewCard } = useSearchContext();
 
@@ -356,28 +348,17 @@ export default function DefaultPreviewCard({
                         </RowContainer>
                     )}
                     <RowContainer style={{ marginTop: 8 }}>
-                        {hasParentContainers && (
-                            <SearchCardBrowsePath
-                                instanceId={platformInstanceId}
-                                typeIcon={typeIcon}
-                                type={finalType}
-                                entityType={entityType}
-                                parentContainers={parentContainers?.containers}
-                                parentEntities={parentEntities}
-                                parentContainersRef={contentRef}
-                                areContainersTruncated={false}
-                                entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
-                                previewType={previewType}
-                            />
-                        )}
-                        {!hasParentContainers && (
-                            <StaticSearchCardBrowsePath
-                                entityType={entityType}
-                                browsePaths={browsePaths}
-                                type={finalType}
-                                parentEntity={previewData?.parent}
-                            />
-                        )}
+                        <ContextPath
+                            type={finalType}
+                            entityType={entityType}
+                            instanceId={platformInstanceId}
+                            typeIcon={typeIcon}
+                            browsePaths={browsePaths}
+                            parentEntities={parentEntities}
+                            entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
+                            previewType={previewType}
+                            contentRef={contentRef}
+                        />
                     </RowContainer>
                 </>
             ) : (
@@ -403,15 +384,12 @@ export default function DefaultPreviewCard({
                     previewType={previewType}
                     urn={urn}
                     entityType={entityType}
-                    hasParentContainers={hasParentContainers}
                     platformInstanceId={platformInstanceId}
                     typeIcon={typeIcon}
                     finalType={finalType}
                     parentEntities={parentEntities}
-                    parentContainers={parentContainers}
                     contentRef={contentRef}
                     browsePaths={browsePaths}
-                    parentEntity={previewData?.parent}
                 />
             )}
             <DefaultPreviewCardFooter

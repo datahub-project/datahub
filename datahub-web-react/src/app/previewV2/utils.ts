@@ -1,6 +1,6 @@
 import { Modal, message } from 'antd';
 import { useRemoveTermMutation, useUnsetDomainMutation } from '../../graphql/mutations.generated';
-import { GlobalTags, Owner } from '../../types.generated';
+import { BrowsePathV2, GlobalTags, Owner } from '../../types.generated';
 import { EntityCapabilityType } from '../entityV2/Entity';
 
 export function getUniqueOwners(owners?: Owner[] | null) {
@@ -107,3 +107,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
 
     return { removeTerm };
 }
+
+export const isDefaultBrowsePath = (browsePaths: BrowsePathV2) => {
+    return browsePaths.path?.length === 1 && browsePaths?.path[0].name === 'Default';
+};
