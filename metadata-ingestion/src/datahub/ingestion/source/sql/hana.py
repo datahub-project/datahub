@@ -263,13 +263,13 @@ class HanaSource(SQLAlchemySource):
 
     def get_calculation_view_columns(self, view: str) -> List[SchemaFieldClass]:
         query = f"""
-            SELECT PROPERTY_NAME as property_name,
-            PROPERTY_CAPTION as property_caption,
-            DATA_TYPE as data_type
-            FROM "_SYS_BI"."BIMC_PROPERTIES"
+            SELECT COLUMN_NAME as column_name,
+            COMMENTS as comments,
+            DATA_TYPE_NAME as data_type
+            FROM SYS.VIEW_COLUMNS
             WHERE "SCHEMA_NAME" = '_SYS_BIC'
-            AND "PROPERTY_TYPE" IN ('1', '2', '6', '7')
-            AND LOWER(SCHEMA_NAME) = '_sys_bic' AND LOWER(CUBE_NAME) = '{view.lower()}'
+            AND LOWER(VIEW_NAME) = '{view.lower()}'
+            ORDER BY POSITION ASC
         """
         query_result = [dict(row) for row in self.engine.execute(query).fetchall()]
         logger.info(f"View: {view.lower()} definition: {query_result}")
@@ -278,10 +278,10 @@ class HanaSource(SQLAlchemySource):
 
         return [
             SchemaFieldClass(
-                fieldPath=f"[version=2.0].[type={preprocess_sap_type(col.get('data_type'))}].{col.get('property_name')}",
+                fieldPath=f"[version=2.0].[type={preprocess_sap_type(col.get('data_type'))}].{col.get('column_name')}",
                 type=SchemaFieldDataTypeClass(type=get_pegasus_type(col.get('data_type'))),
                 nativeDataType=preprocess_sap_type(col.get('data_type')),
-                description=col.get('property_caption', "")
+                description=col.get('comments', "")
             )
             for col in columns
         ]
@@ -500,12 +500,14 @@ class HanaSource(SQLAlchemySource):
             self.aggregator.add_known_query_lineage(
                 KnownQueryLineageInfo(
                     query_text=view_definition,
-                    upstreams=[make_dataset_urn_with_platform_instance(
-                        platform=self.get_platform(),
-                        name=f"{(self.config.database + '.') if self.config.database else ''}{row[0]}.{row[1]}",
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env
-                    ) for row in constructed_lineage],
+                    upstreams=[
+                        make_dataset_urn_with_platform_instance(
+                            platform=self.get_platform(),
+                            name=f"{(self.config.database + '.') if self.config.database else ''}{row[0]}.{row[1]}",
+                            platform_instance=self.config.platform_instance,
+                            env=self.config.env
+                        ) for row in constructed_lineage
+                    ],
                     downstream=entity,
                     query_type=QueryType.SELECT
                 ),
@@ -542,7 +544,7 @@ class HanaSource(SQLAlchemySource):
             UpstreamClass(
                 dataset=make_dataset_urn_with_platform_instance(
                     platform=self.get_platform(),
-                    name=f"{(self.config.database + '.') if self.config.database else ''}{row.lower()}",
+                    name=row.lower(),
                     platform_instance=self.config.platform_instance,
                     env=self.config.env
                 ),
@@ -562,7 +564,7 @@ class HanaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         entity = make_dataset_urn_with_platform_instance(
             platform=self.get_platform(),
-            name=f"{(self.config.database + '.') if self.config.database else ''}{dataset_path}.{dataset_name}",
+            name=f"_sys_bic.{dataset_path}.{dataset_name}",
             platform_instance=self.config.platform_instance,
             env=self.config.env
         )
