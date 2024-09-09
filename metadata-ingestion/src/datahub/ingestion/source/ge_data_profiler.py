@@ -430,14 +430,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
             self.report.report_warning(
-                title="Unable to Calculate Cardinality",
+                title="Profiling: Unable to Calculate Cardinality",
                 message="The cardinality for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": "{self.dataset_name}.{column}",
-                        "errorMessage": "{e}"
+                        "column": "{self.dataset_name}.{column}"
                     }}
                 """,
+                exc=e,
             )
             return
 
@@ -526,10 +526,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 message="The min for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": "{self.dataset_name}.{column}",
-                        "errorMessage": "{e}"
+                        "column": "{self.dataset_name}.{column}"
                     }}
                 """,
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -546,14 +546,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
             self.report.report_warning(
-                title="Unable to Calculate Max",
+                title="Profiling: Unable to Calculate Max",
                 message="The max for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": "{self.dataset_name}.{column}",
-                        "errorMessage": "{e}"
+                        "column": "{self.dataset_name}.{column}"
                     }}
                 """,
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -570,14 +570,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
             self.report.report_warning(
-                title="Unable to Calculate Mean",
+                title="Profiling: to Calculate Mean",
                 message="The mean for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": "{self.dataset_name}.{column}",
-                        "errorMessage": "{e}"
+                        "column": "{self.dataset_name}.{column}"
                     }}
                 """,
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -611,14 +611,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
             self.report.report_warning(
-                title="Unable to Calculate Medians",
+                title="Profiling: Unable to Calculate Medians",
                 message="The medians for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": "{self.dataset_name}.{column}",
-                        "errorMessage": "{e}"
+                        "column": "{self.dataset_name}.{column}"
                     }}
                 """,
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -634,14 +634,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column stddev for column {column}. {e}"
             )
             self.report.report_warning(
-                title="Unable to Calculate Standard Deviation",
+                title="Profiling: Unable to Calculate Standard Deviation",
                 message="The standard deviation for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": "{self.dataset_name}.{column}",
-                        "errorMessage": "{e}"
+                        "column": "{self.dataset_name}.{column}"
                     }}
                 """,
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -681,14 +681,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
             self.report.report_warning(
-                title="Unable to Calculate Quantiles",
+                title="Profiling: Unable to Calculate Quantiles",
                 message="The quantiles for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": "{self.dataset_name}.{column}",
-                        "errorMessage": "{e}"
+                        "column": "{self.dataset_name}.{column}"
                     }}
                 """,
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -732,14 +732,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
             self.report.report_warning(
-                title="Unable to Calculate Histogram",
+                title="Profiling: Unable to Calculate Histogram",
                 message="The histogram for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": "{self.dataset_name}.{column}",
-                        "errorMessage": "{e}"
+                        "column": "{self.dataset_name}.{column}"
                     }}
                 """,
+                exc=e,
             )
 
     @_run_with_query_combiner
@@ -771,14 +771,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             )
 
             self.report.report_warning(
-                title="Unable to Calculate Sample Values",
+                title="Profiling: Unable to Calculate Sample Values",
                 message="The sample values for the column will not be accessible",
                 context=f"""
                     {{
-                        "column": "{self.dataset_name}.{column}",
-                        "errorMessage": "{e}"
+                        "column": "{self.dataset_name}.{column}"
                     }}
                 """,
+                exc=e,
             )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
