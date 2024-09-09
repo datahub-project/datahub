@@ -70,7 +70,7 @@ public class ResolverUtils {
   @Nonnull
   public static String escapeForwardSlash(@Nonnull String input) {
     if (input.contains("/")) {
-      input = input.replace("/", "\\\\/");
+      input = input.replace("/", "\\/");
     }
     return input;
   }

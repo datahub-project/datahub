@@ -11,7 +11,6 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
@@ -98,7 +97,8 @@ public class SystemUpdateConfig {
   protected KafkaEventProducer duheKafkaEventProducer(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties properties,
-      @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig duheSchemaRegistryConfig) {
+      @Qualifier("duheSchemaRegistryConfig")
+          KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Producer<String, IndexedRecord> producer =
         new KafkaProducer<>(
@@ -130,8 +130,9 @@ public class SystemUpdateConfig {
   @ConditionalOnProperty(
       name = "kafka.schemaRegistry.type",
       havingValue = InternalSchemaRegistryFactory.TYPE)
-  protected SchemaRegistryConfig schemaRegistryConfig(
-      @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig duheSchemaRegistryConfig) {
+  protected KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig(
+      @Qualifier("duheSchemaRegistryConfig")
+          KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig) {
     return duheSchemaRegistryConfig;
   }
 
