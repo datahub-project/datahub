@@ -107,7 +107,7 @@ export default function PolicyPrivilegeForm({
     const resourceTypes = getFieldValues(resources.filter, 'TYPE') || [];
     const resourceEntities = getFieldValues(resources.filter, 'URN') || [];
 
-    const matchConditionInitial = getFieldCondition(resources.filter, 'RESOURCE_URN');
+    const matchConditionInitial = getFieldCondition(resources.filter, 'URN');
     const [matchCondition, setMatchCondition] = useState(matchConditionInitial);
     const getDisplayName = (entity) => {
         if (!entity) {
@@ -254,7 +254,7 @@ export default function PolicyPrivilegeForm({
             ...resources,
             filter: setFieldValues(
                 filter,
-                'RESOURCE_URN',
+                'URN',
                 resourceEntities,
                 excludeResource ? PolicyMatchCondition.NotEquals : PolicyMatchCondition.Equals,
             ),
