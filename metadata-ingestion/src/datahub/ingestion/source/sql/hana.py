@@ -291,7 +291,9 @@ class HanaSource(SQLAlchemySource):
 
     def get_workunits_internal(self):
         inspector = inspect(self.engine)
-        schemas = self.get_allowed_schemas(inspector, self.config.database)
+        schemas = self.get_allowed_schemas(
+            inspector=inspector,
+        )
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             futures = []
 
