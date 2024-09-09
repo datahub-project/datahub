@@ -10,7 +10,7 @@ from tableauserverclient import Server
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.source import tableau_constant as c
+from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,
@@ -223,19 +223,19 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
-        upstreamFields {
-            name
-            datasource {
-                id
-            }
-        }
-        upstreamColumns {
-            name
-            table {
-                __typename
-                id
-            }
-        }
+        # upstreamFields {
+        #     name
+        #     datasource {
+        #         id
+        #     }
+        # }
+        # upstreamColumns {
+        #     name
+        #     table {
+        #         __typename
+        #         id
+        #     }
+        # }
         ... on ColumnField {
             dataCategory
             role
@@ -336,6 +336,26 @@ custom_sql_graphql_query = """
 }
 """
 
+
+datasource_upstream_fields_graphql_query = """
+{
+    id
+    upstreamFields {
+        name
+        datasource {
+            id
+        }
+    }
+    upstreamColumns {
+        name
+        table {
+            __typename
+            id
+        }
+    }
+}
+"""
+
 published_datasource_graphql_query = """
 {
     __typename
@@ -368,19 +388,19 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
-        upstreamFields {
-            name
-            datasource {
-                id
-            }
-        }
-        upstreamColumns {
-            name
-            table {
-                __typename
-                id
-            }
-        }
+        # upstreamFields {
+        #     name
+        #     datasource {
+        #         id
+        #     }
+        # }
+        # upstreamColumns {
+        #     name
+        #     table {
+        #         __typename
+        #         id
+        #     }
+        # }
         ... on ColumnField {
             dataCategory
             role
@@ -910,40 +930,46 @@ def make_filter(filter_dict: dict) -> str:
     return filter
 
 
-def query_metadata(
+def query_metadata_cursor_based_pagination(
     server: Server,
     main_query: str,
     connection_name: str,
     first: int,
-    offset: int,
+    after: Optional[str],
     qry_filter: str = "",
 ) -> dict:
-    query = """{{
-        {connection_name} (first:{first}, offset:{offset}, filter:{{{filter}}})
-        {{
-            nodes {main_query}
-            pageInfo {{
-                hasNextPage
-                endCursor
+    query = f"""
+        query GetItems(
+          $first: Int,
+          $after: String
+        ) {{
+            {connection_name} (  first: $first, after: $after, filter:{{ {qry_filter} }})
+            {{
+                nodes {main_query}
+                pageInfo {{
+                    hasNextPage
+                    endCursor
+                }}
             }}
-            totalCount
-        }}
-    }}""".format(
-        connection_name=connection_name,
-        first=first,
-        offset=offset,
-        filter=qry_filter,
-        main_query=main_query,
+    }}"""  # {{ is to escape { character of f-string
+
+    result = server.metadata.query(
+        query=query,
+        variables={
+            "first": first,
+            "after": after,
+        },
     )
-    return server.metadata.query(query)
+
+    return result
 
 
 def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
     filter_pages = [query_filter]
-    # If this is primary id filter so we can use divide this query list into
+    # If this is primary id filter, so we can use divide this query list into
     # multiple requests each with smaller filter list (of order page_size).
-    # It is observed in the past that if list of primary ids grow beyond
-    # a few ten thousands then tableau server responds with empty response
+    # It is observed in the past that if a list of primary ids grows beyond
+    # a few ten thousand, then tableau server responds with empty response
     # causing below error:
     # tableauserverclient.server.endpoint.exceptions.NonXMLResponseError: b''
     if (
