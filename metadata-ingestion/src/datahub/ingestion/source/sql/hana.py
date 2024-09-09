@@ -558,7 +558,7 @@ class HanaSource(SQLAlchemySource):
             columns = self.get_columns(
                 inspector=inspector,
                 schema=schema,
-                table_or_view=f"{dataset_path}.{dataset_name}"
+                table_or_view=f"{dataset_path}/{dataset_name}"
             )
 
             schema_metadata = SchemaMetadataClass(
