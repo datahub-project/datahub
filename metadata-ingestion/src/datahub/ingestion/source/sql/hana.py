@@ -272,7 +272,9 @@ class HanaSource(SQLAlchemySource):
             FROM _SYS_REPO.ACTIVE_OBJECT
             WHERE OBJECT_SUFFIX='calculationview'"""
         result = self.engine.execute(query).fetchall()
-        return [dict(row) for row in result] if result else []
+        packages = [dict(row) for row in result] if result else []
+        log.info(packages)
+        return packages
 
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
