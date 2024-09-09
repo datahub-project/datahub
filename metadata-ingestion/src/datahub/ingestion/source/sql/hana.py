@@ -548,10 +548,18 @@ class HanaSource(SQLAlchemySource):
             "xsi": "http://www.w3.org/2001/XMLSchema-instance"
         }
         if root:
-            lineage = self.get_calculation_view_lineage(root=root, ns=ns, dataset_path=dataset_path,
-                                                        dataset_name=dataset_name)
+            lineage = self.get_calculation_view_lineage(
+                root=root,
+                ns=ns,
+                dataset_path=dataset_path,
+                dataset_name=dataset_name
+            )
 
-            columns = self.get_columns(inspector=inspector, schema=schema, table_or_view=dataset_name)
+            columns = self.get_columns(
+                inspector=inspector,
+                schema=schema,
+                table_or_view=f"{dataset_path}.{dataset_name}"
+            )
 
             schema_metadata = SchemaMetadataClass(
                 schemaName=f"{schema}.{dataset_name}",
