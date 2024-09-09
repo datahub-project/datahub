@@ -112,7 +112,7 @@ class AwsConnectionConfig(ConfigModel):
     aws_role: Optional[Union[str, List[Union[str, AwsAssumeRoleConfig]]]] = Field(
         default=None,
         description="AWS roles to assume. If using the string format, the role ARN can be specified directly. "
-        "If using the object format, the role can be specified in the RoleArn field and additional available arguments are documented at https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html?highlight=assume_role#STS.Client.assume_role",
+        "If using the object format, the role can be specified in the RoleArn field and additional available arguments are the same as [boto3's STS.Client.assume_role](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html?highlight=assume_role#STS.Client.assume_role).",
     )
     aws_profile: Optional[str] = Field(
         default=None,

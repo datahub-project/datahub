@@ -27,7 +27,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.TestEntityUtil;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
+import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -122,7 +126,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     operationContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
                 new SnapshotEntityRegistry(new Snapshot()),
-                new IndexConventionImpl("lineage_search_service_test", "MD5"))
+                new IndexConventionImpl(
+                    IndexConventionImpl.IndexConventionConfig.builder()
+                        .prefix("lineage_search_service_test")
+                        .hashIdAlgo("MD5")
+                        .build()))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
@@ -139,10 +147,25 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         new EntityDocCountCacheConfiguration();
     entityDocCountCacheConfiguration.setTtlSeconds(600L);
 
-    SearchLineageCacheConfiguration searchLineageCacheConfiguration =
-        new SearchLineageCacheConfiguration();
-    searchLineageCacheConfiguration.setTtlSeconds(600L);
-    searchLineageCacheConfiguration.setLightningThreshold(withLightingCache ? -1 : 300);
+    DataHubAppConfiguration appConfig = new DataHubAppConfiguration();
+    appConfig.setCache(new CacheConfiguration());
+    appConfig.getCache().setSearch(new SearchCacheConfiguration());
+    appConfig.getCache().getSearch().setLineage(new SearchLineageCacheConfiguration());
+    appConfig.getCache().getSearch().getLineage().setTtlSeconds(600L);
+    appConfig
+        .getCache()
+        .getSearch()
+        .getLineage()
+        .setLightningThreshold(withLightingCache ? -1 : 300);
+    appConfig.setMetadataChangeProposal(new MetadataChangeProposalConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .getSideEffects()
+        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+    appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
 
     lineageSearchService =
         spy(
@@ -157,7 +180,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
                 graphService,
                 cacheManager.getCache("test"),
                 withCache,
-                searchLineageCacheConfiguration));
+                appConfig));
   }
 
   @BeforeMethod
