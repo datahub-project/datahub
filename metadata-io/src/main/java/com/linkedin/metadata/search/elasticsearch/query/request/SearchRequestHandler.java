@@ -49,6 +49,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.unit.TimeValue;
@@ -211,22 +212,13 @@ public class SearchRequestHandler {
           .forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
-      searchSourceBuilder.highlighter(highlights);
+      if (CollectionUtils.isNotEmpty(searchFlags.getCustomHighlightingFields())) {
+        searchSourceBuilder.highlighter(getValidatedHighlighter(searchFlags.getCustomHighlightingFields()));
+      } else {
+        searchSourceBuilder.highlighter(highlights);
+      }
     }
-    if (Boolean.TRUE.equals(finalSearchFlags.isCustomHighlighting())) {
-      HighlightBuilder highlightBuilder = new HighlightBuilder();
 
-      // Don't set tags to get the original field value
-      highlightBuilder.preTags("");
-      highlightBuilder.postTags("");
-
-      // Check for each field name and any subfields
-      finalSearchFlags.getCustomHighlightingFields().stream()
-              .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".*")).distinct()
-              .forEach(highlightBuilder::field);
-
-      searchSourceBuilder.highlighter(highlightBuilder);
-    }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
 
     if (Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
@@ -569,5 +561,16 @@ public class SearchRequestHandler {
       }
     }
     return searchSuggestions;
+  }
+
+  private HighlightBuilder getValidatedHighlighter(Collection<String> fieldsToHighlight) {
+    HighlightBuilder highlightBuilder = new HighlightBuilder();
+    highlightBuilder.preTags("");
+    highlightBuilder.postTags("");
+    fieldsToHighlight.stream()
+            .filter(defaultQueryFieldNames::contains)
+            .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".*")).distinct()
+            .forEach(highlightBuilder::field);
+    return highlightBuilder;
   }
 }

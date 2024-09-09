@@ -164,11 +164,6 @@ input  SearchFlags {
   includeRestricted: Boolean
 
   """
-  Whether to enable custom highlighting
-  """
-  customHighlighting: Boolean
-
-  """
   fields to include for custom Highlighting
   """
   customHighlightingFields: [String!]
