@@ -116,7 +116,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
-            report=BigQueryV2Report().schema_api_perf,
+            report=self.report.schema_api_perf,
             projects_client=config.get_projects_client(),
             client=config.get_bigquery_client(),
         )
@@ -248,11 +248,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if not projects:
             return
 
-        if self.config.include_schema_metadata:
-            for project in projects:
-                yield from self.bq_schema_extractor.get_project_workunits(project)
+        for project in projects:
+            yield from self.bq_schema_extractor.get_project_workunits(project)
 
         if self.config.use_queries_v2:
+            # Always ingest View and Snapshot lineage with schema ingestion
             self.report.set_ingestion_stage("*", "View and Snapshot Lineage")
 
             yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(
@@ -262,6 +262,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.bq_schema_extractor.snapshot_refs_by_project,
                 self.bq_schema_extractor.snapshots_by_ref,
             )
+
+            # if both usage and lineage are disabled then skip queries extractor piece
+            if (
+                not self.config.include_usage_statistics
+                and not self.config.include_table_lineage
+            ):
+                return
 
             self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
 

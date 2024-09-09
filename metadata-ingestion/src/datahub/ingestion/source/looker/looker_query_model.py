@@ -1,13 +1,9 @@
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Dict, List, cast
 
 from looker_sdk.sdk.api40.models import WriteQuery
 
-
-# Enum whose value is string and compatible with dictionary having string value as key
-class StrEnum(str, Enum):
-    pass
+from datahub.utilities.str_enum import StrEnum
 
 
 class LookerModel(StrEnum):
