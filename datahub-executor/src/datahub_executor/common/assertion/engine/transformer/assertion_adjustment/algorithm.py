@@ -8,6 +8,7 @@ from datahub_executor.common.types import (
     AssertionStdParameter,
     AssertionStdParameters,
     AssertionStdParameterType,
+    FieldMetricType,
     PermissiveBaseModel,
 )
 
@@ -24,6 +25,20 @@ class AdjustmentAlgorithm(PermissiveBaseModel, ABC):
 
 
 IQR_ADJUSTMENT_ALGORITHM_NAME = "IQR"
+POSITIVE_VALUE_FIELD_METRICS = [
+    FieldMetricType.EMPTY_COUNT,
+    FieldMetricType.EMPTY_PERCENTAGE,
+    FieldMetricType.MAX_LENGTH,
+    FieldMetricType.MIN_LENGTH,
+    FieldMetricType.NEGATIVE_COUNT,
+    FieldMetricType.NEGATIVE_PERCENTAGE,
+    FieldMetricType.NULL_COUNT,
+    FieldMetricType.NULL_PERCENTAGE,
+    FieldMetricType.UNIQUE_COUNT,
+    FieldMetricType.UNIQUE_PERCENTAGE,
+    FieldMetricType.ZERO_COUNT,
+    FieldMetricType.ZERO_PERCENTAGE,
+]
 
 
 class IQRAdjustmentContext(BaseModel):
@@ -55,7 +70,7 @@ class IQRAdjustmentAlgorithm(AdjustmentAlgorithm):
         ):
             assertion.volume_assertion.row_count_total.parameters = (
                 self._adjust_parameters(
-                    assertion.volume_assertion.row_count_total.parameters
+                    assertion.volume_assertion.row_count_total.parameters, floor=0
                 )
             )
 
@@ -65,16 +80,23 @@ class IQRAdjustmentAlgorithm(AdjustmentAlgorithm):
             and assertion.field_assertion.field_metric_assertion.operator
             == AssertionStdOperator.BETWEEN
         ):
+            floor = (
+                0
+                if assertion.field_assertion.field_metric_assertion.metric
+                in POSITIVE_VALUE_FIELD_METRICS
+                else None
+            )
             assertion.field_assertion.field_metric_assertion.parameters = (
                 self._adjust_parameters(
-                    assertion.field_assertion.field_metric_assertion.parameters
+                    assertion.field_assertion.field_metric_assertion.parameters,
+                    floor=floor,
                 )
             )
 
         return assertion
 
     def _adjust_parameters(
-        self, parameters: AssertionStdParameters
+        self, parameters: AssertionStdParameters, floor: float | None
     ) -> AssertionStdParameters:
         assert parameters.max_value is not None
         assert parameters.min_value is not None
@@ -85,9 +107,13 @@ class IQRAdjustmentAlgorithm(AdjustmentAlgorithm):
             buffer = 0.1 * self.context.K * max_val
         else:
             buffer = self.context.K * iqr
+        uncapped_min = min_val - buffer
         return AssertionStdParameters(
             minValue=AssertionStdParameter(
-                type=AssertionStdParameterType.NUMBER, value=str(min_val - buffer)
+                type=AssertionStdParameterType.NUMBER,
+                value=str(
+                    max(uncapped_min, floor) if floor is not None else uncapped_min
+                ),
             ),
             maxValue=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value=str(max_val + buffer)
