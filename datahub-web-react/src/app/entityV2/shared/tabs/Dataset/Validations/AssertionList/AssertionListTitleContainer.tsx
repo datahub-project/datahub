@@ -40,7 +40,7 @@ const CreateButton = styled(Button)`
     }
 `;
 const SubTitle = styled(Typography.Text)`
-    font-size: 12px;
+    font-size: 14px;
     color: #5f6685;
 `;
 export const AssertionListTitleContainer = ({

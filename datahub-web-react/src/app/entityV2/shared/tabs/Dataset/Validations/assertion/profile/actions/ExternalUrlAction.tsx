@@ -15,9 +15,10 @@ const StyledLaunchOutlined = styled(LaunchOutlined)`
 
 type Props = {
     assertion: Assertion;
+    isExpandedView?: boolean;
 };
 
-export const ExternalUrlAction = ({ assertion }: Props) => {
+export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) => {
     const platformName =
         assertion?.platform?.properties?.displayName || assertion?.platform?.name || 'external platform';
     const externalUrl =
@@ -51,6 +52,8 @@ export const ExternalUrlAction = ({ assertion }: Props) => {
             tip={`View in ${platformName}.`}
             onClick={handleRedirect}
             icon={<StyledLaunchOutlined />}
+            isExpandedView={isExpandedView}
+            actionName="View External platform"
         />
     );
 };

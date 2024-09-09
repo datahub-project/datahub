@@ -5,19 +5,23 @@ import styled from 'styled-components';
 import { Tooltip, Typography } from 'antd';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { AssertionSourceType, EntityType, DataContract } from '@src/types.generated';
-import { SMART_ASSERTION_STALE_IN_DAYS, UNKNOWN_DATA_PLATFORM } from '@src/app/entityV2/shared/constants';
+import { AssertionSourceType, EntityType, DataContract, AssertionType } from '@src/types.generated';
+import {
+    REDESIGN_COLORS,
+    SMART_ASSERTION_STALE_IN_DAYS,
+    UNKNOWN_DATA_PLATFORM,
+} from '@src/app/entityV2/shared/constants';
 import { InferredAssertionPopover } from '../InferredAssertionPopover';
 import { InferredAssertionBadge } from '../InferredAssertionBadge';
 import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
-import { AssertionResultDot } from '../assertion/profile/shared/AssertionResultDot';
 import { isMonitorActive } from '../acrylUtils';
 import { AssertionPlatformAvatar } from '../AssertionPlatformAvatar';
 import { isAssertionPartOfContract } from '../contract/utils';
 import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
 import { DataContractBadge } from './DataContractBadge';
 import { AssertionListTableRow } from './types';
+import AcrylAssertionListStatusDot from './AcrylAssertionListStatusDot';
 
 const StyledAssertionNameContainer = styled.div`
     display: flex;
@@ -44,6 +48,28 @@ const AssertionDescriptionContainer = styled.div`
 const StyledAssertionBadgeContainer = styled.div`
     display: flex;
     align-items: center;
+`;
+
+const StyledAssertionName = styled(Typography.Paragraph)`
+    margin-bottom: 0 !important;
+`;
+
+const StyledColumnId = styled.div`
+    align-items: center;
+    background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+    width: fit-content;
+    border-radius: 12px;
+    height: 24px;
+    display: flex;
+    text-align: center;
+    justify-content: center;
+    padding: 0px 8px;
+`;
+
+const StyledName = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 `;
 
 type Props = {
@@ -78,6 +104,13 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
         : undefined;
     const isSmartAssertionStale =
         isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
+    let columnId;
+    if (record.type === AssertionType.Field) {
+        const field = (
+            assertionInfo?.fieldAssertion?.fieldMetricAssertion || assertionInfo?.fieldAssertion?.fieldValuesAssertion
+        )?.field;
+        columnId = field?.path;
+    }
 
     return (
         <StyledAssertionNameContainer>
@@ -90,13 +123,16 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                 resultStatusType={ResultStatusType.LATEST}
             >
                 <Result>
-                    <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
+                    <AcrylAssertionListStatusDot run={lastEvaluation} disabled={disabled} size={10} />
                 </Result>
             </AssertionResultPopover>
 
             {/* ******** Assertion description ******** */}
             <AssertionDescriptionContainer>
-                <Typography.Paragraph>{name}</Typography.Paragraph>
+                <StyledName>
+                    <StyledAssertionName>{name}</StyledAssertionName>
+                    {record.type === AssertionType.Field && <StyledColumnId>{columnId}</StyledColumnId>}
+                </StyledName>
 
                 {/* ****render external Icon if the assertion is external**** */}
                 {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (

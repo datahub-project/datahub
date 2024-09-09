@@ -1,8 +1,15 @@
 import React from 'react';
-
 import { Tooltip } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
+import styled from 'styled-components';
 import { ActionItemButton } from './styledComponents';
+
+const StyledActionButtonContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #46507b;
+`;
 
 type Props = {
     primary?: boolean;
@@ -12,6 +19,8 @@ type Props = {
     icon: React.ReactNode;
     key?: string;
     placement?: TooltipPlacement;
+    isExpandedView?: boolean;
+    actionName?: string;
 };
 
 export const ActionItem = ({
@@ -22,23 +31,29 @@ export const ActionItem = ({
     icon,
     key,
     placement = 'top',
+    isExpandedView = false,
+    actionName,
 }: Props) => {
     return (
-        <Tooltip placement={placement} title={tip}>
-            <span style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}>
+        <Tooltip placement={placement} title={isExpandedView ? '' : tip}>
+            <StyledActionButtonContainer
+                style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (disabled) return;
+                    onClick();
+                }}
+            >
                 <ActionItemButton
                     primary={primary}
                     key={key}
                     disabled={disabled}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        if (disabled) return;
-                        onClick();
-                    }}
+                    title={!isExpandedView ? tip : undefined}
                 >
                     {icon}
                 </ActionItemButton>
-            </span>
+                {isExpandedView && actionName && <span>{actionName}</span>}
+            </StyledActionButtonContainer>
         </Tooltip>
     );
 };

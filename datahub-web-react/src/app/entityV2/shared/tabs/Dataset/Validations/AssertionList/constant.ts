@@ -1,6 +1,6 @@
-export const DEFAULT_FILTERS = {
+export const ASSERTION_DEFAULT_FILTERS = {
     sortBy: '',
-    groupBy: '',
+    groupBy: 'type',
     filterCriteria: {
         searchText: '',
         status: [],

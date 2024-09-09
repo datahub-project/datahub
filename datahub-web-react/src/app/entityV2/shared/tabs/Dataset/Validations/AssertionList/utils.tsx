@@ -32,6 +32,7 @@ import {
     SchemaFieldRef,
     VolumeAssertionInfo,
 } from '@src/types.generated';
+import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     getIsRowCountChange,
     getOperatorDescription,
@@ -390,9 +391,11 @@ export const getPlainTextDescriptionFromAssertion = (
 const ASSERTION_TYPE_NAME_MAP = {
     VOLUME: 'Volume',
     SQL: 'Sql',
-    FIELD: 'Field',
+    FIELD: 'Column',
     FRESHNESS: 'Freshness',
     DATASET: 'Other',
+    DATA_SCHEMA: 'Schema',
+    Unknown: 'Unknown',
 };
 
 const ASSERTION_STATUS_NAME_MAP = {
@@ -476,14 +479,13 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[
     });
 };
 
-const CORE_STATUSES = [AssertionResultType.Success, AssertionResultType.Failure, AssertionResultType.Error];
+const CORE_STATUSES = [AssertionResultType.Failure, AssertionResultType.Error, AssertionResultType.Success];
 
 // Generate Assertion Group By Status
 const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]): AssertionStatusGroup[] => {
     const assertionStatus = [...CORE_STATUSES, AssertionResultType.Init];
 
     const assertionGroup: AssertionStatusGroup[] = [];
-
     assertionStatus.forEach((status) => {
         const filteredAssertions = assertions.filter((assertion) => {
             const mostRecentRun = assertion.runEvents?.runEvents?.[0];
@@ -509,13 +511,26 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
     return assertionGroup;
 };
 
+// get Assertion group by Display order
+export const getAssertionGroupsByDisplayOrder = (assertionGroups: AssertionGroup[]) => {
+    // Create a map of order from the display order
+    const orderMap = new Map(ASSERTION_INFO.map((item, index) => [item.type, index]));
+
+    // Sort the unordered list based on the orderMap
+    const orderedAssertionGroups = assertionGroups.sort(
+        (a, b) => (orderMap.get(a.type) ?? Infinity) - (orderMap.get(b.type) ?? Infinity),
+    );
+    return orderedAssertionGroups;
+};
+
 /** return assertions table data structure to render on table from assertions */
 export const transformAssertionData = (assertions: AssertionWithMonitorDetails[]): AssertionTable => {
     const assertionRawData: AssertionTable = { assertions: [], groupBy: { type: [], status: [] } };
 
     const assertionsTableData = mapAssertionData(assertions);
     assertionRawData.assertions = assertionsTableData;
-    assertionRawData.groupBy.type = createAssertionGroups(assertions);
+    const assertionGroups = createAssertionGroups(assertions);
+    assertionRawData.groupBy.type = getAssertionGroupsByDisplayOrder(assertionGroups);
     assertionRawData.groupBy.status = generateAssertionGroupByStatus(assertions);
     return assertionRawData;
 };
@@ -646,7 +661,7 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
     };
     assertionRawData.assertions = mapAssertionData(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
-    assertionRawData.groupBy.type = assertionsByType;
+    assertionRawData.groupBy.type = getAssertionGroupsByDisplayOrder(assertionsByType);
     (assertionRawData.groupBy.type || []).forEach((item) => {
         const transformedData = mapAssertionData(item.assertions);
         // eslint-disable-next-line  no-param-reassign

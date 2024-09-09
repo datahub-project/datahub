@@ -22,9 +22,10 @@ const StyledCopyOutlined = styled(CopyOutlined)`
 
 type Props = {
     assertion: Assertion;
+    isExpandedView?: boolean;
 };
 
-export const CopyUrnAction = ({ assertion }: Props) => {
+export const CopyUrnAction = ({ assertion, isExpandedView = false }: Props) => {
     const [isUrnCopied, setIsUrnCopied] = useState(false);
     return (
         <ActionItem
@@ -36,6 +37,8 @@ export const CopyUrnAction = ({ assertion }: Props) => {
                 setIsUrnCopied(true);
             }}
             icon={isUrnCopied ? <StyledCheckOutlined /> : <StyledCopyOutlined />}
+            isExpandedView={isExpandedView}
+            actionName="Copy urn"
         />
     );
 };

@@ -16,7 +16,7 @@ import { AssertionListTitleContainer } from './AssertionListTitleContainer';
 import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
 import { AcrylAssertionListTable } from './AcrylAssertionListTable';
 import { useSetFilterFromURLParams } from './hooks';
-import { DEFAULT_FILTERS } from './constant';
+import { ASSERTION_DEFAULT_FILTERS } from './constant';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -32,7 +32,7 @@ export const AcrylAssertionList = () => {
         groupBy: { type: [], status: [] },
     });
     // TODO we need to create setter function to set the filter as per the filter component
-    const [filter, setFilters] = useState<AssertionListFilter>(DEFAULT_FILTERS);
+    const [filter, setFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
     useSetFilterFromURLParams(filter, setFilters);
 
     const [assertionMonitorData, setAssertionMonitorData] = useState<AssertionWithMonitorDetails[]>([]);
@@ -105,13 +105,16 @@ export const AcrylAssertionList = () => {
                 privileges={privileges as EntityPrivileges}
                 setShowAssertionBuilder={setShowAssertionBuilder}
             />
-            <AcrylAssertionListFilters
-                filterOptions={visibleAssertions?.filterOptions}
-                setFilters={setFilters}
-                filter={filter}
-                allAssertionCount={assertionMonitorData?.length || 0}
-                filteredAssertions={visibleAssertions}
-            />
+            {assertionMonitorData?.length > 0 && (
+                <AcrylAssertionListFilters
+                    filterOptions={visibleAssertions?.filterOptions}
+                    setFilters={setFilters}
+                    filter={filter}
+                    allAssertionCount={assertionMonitorData?.length || 0}
+                    filteredAssertions={visibleAssertions}
+                />
+            )}
+
             {renderListTable()}
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { Empty } from 'antd';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '@src/graphql/monitor.generated';
@@ -11,6 +12,7 @@ import {
 import { AcrylAssertionSummaryCard } from './AcrylAssertionSummaryCard';
 import { AssertionGroup } from '../../acrylTypes';
 import { AcrylAssertionsSummaryLoading } from '../../AcrylAssertionsSummaryLoading';
+import { getAssertionGroupsByDisplayOrder } from '../utils';
 
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;
@@ -37,20 +39,25 @@ export const AcrylAssertionSummaryTab = () => {
         const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
             tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
         const assertionGroup = createAssertionGroups(assertionsWithMonitorsDetails);
-        setGroupedAssertions(assertionGroup);
+        const orderedAssertionGroups = getAssertionGroupsByDisplayOrder(assertionGroup);
+        setGroupedAssertions(orderedAssertionGroups);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
-    return (
-        <>
-            {loading ? (
-                <AcrylAssertionsSummaryLoading />
-            ) : (
+
+    const renderSummaryTab = () => {
+        if (loading) {
+            return <AcrylAssertionsSummaryLoading />;
+        }
+        if (groupedAssertions?.length > 0) {
+            return (
                 <AcrylAssertionSummaryContainer>
                     {groupedAssertions.map((group: AssertionGroup) => (
                         <AcrylAssertionSummaryCard group={group} />
                     ))}
                 </AcrylAssertionSummaryContainer>
-            )}
-        </>
-    );
+            );
+        }
+        return <Empty description="No assertions created yet." image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    };
+    return <>{renderSummaryTab()}</>;
 };

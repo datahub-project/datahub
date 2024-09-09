@@ -36,9 +36,10 @@ type Props = {
     canEdit: boolean;
     // Should be defined if canEdit
     refetch?: () => void;
+    isExpandedView?: boolean;
 };
 
-export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch }: Props) => {
+export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch, isExpandedView = false }: Props) => {
     const { urn: entityUrn } = useEntityData();
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
     const contractsEnabled = useIsContractsEnabled();
@@ -83,10 +84,10 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
     };
 
     const isPartOfContract = contract ? isAssertionPartOfContract(assertion, contract) : false;
-    const isPartOfContractTip = isPartOfContract ? 'Remove from contract' : 'Add to contract';
+    const contractTip = isPartOfContract ? 'Remove from contract' : 'Add to contract';
 
     const unauthorizedTip = canEdit ? undefined : 'You do not have permission to edit the contract';
-    const tip = canEdit ? isPartOfContractTip : unauthorizedTip;
+    const tip = canEdit ? contractTip : unauthorizedTip;
 
     return (
         <>
@@ -98,6 +99,8 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
                     disabled={!canEdit}
                     onClick={isPartOfContract ? onRemoveFromContract : onAddToContract}
                     icon={isPartOfContract ? <StyledMinusOutlined /> : <StyledPlusOutlined />}
+                    isExpandedView={isExpandedView}
+                    actionName={contractTip}
                 />
             )) ||
                 null}

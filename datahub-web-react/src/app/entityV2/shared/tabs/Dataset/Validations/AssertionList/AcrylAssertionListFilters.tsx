@@ -5,7 +5,7 @@ import { AcrylAssertionListSearch } from './AcrylAssertionListSearch';
 import { AcryAssertionTypeSelect } from './AcryAssertionTypeSelect';
 import { AssertionListFilter, AssertionTable } from './types';
 import { AcrylAssertionFilters } from './AcrylAssertionFilters';
-import { ASSERTION_GROUP_BY_FILTER_OPTIONS, DEFAULT_FILTERS } from './constant';
+import { ASSERTION_GROUP_BY_FILTER_OPTIONS, ASSERTION_DEFAULT_FILTERS } from './constant';
 
 interface FilterItem {
     name: string;
@@ -85,7 +85,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
      * This hook is for setting applied filter when we are getting it from selected Filter state
      */
     useEffect(() => {
-        const { status, type, others } = filter.filterCriteria || DEFAULT_FILTERS.filterCriteria;
+        const { status, type, others } = filter.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
         const recommendedFilters = filterOptions?.recommendedFilters || [];
         // just set recommended filters for status, type & Others as of right now
         const appliedRecommendedFilters = recommendedFilters.filter(

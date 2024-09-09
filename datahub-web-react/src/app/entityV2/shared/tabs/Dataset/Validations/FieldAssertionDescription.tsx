@@ -25,7 +25,7 @@ export const FieldAssertionDescription = ({ assertionInfo }: Props) => {
         <Typography.Text>
             {transform}
             {transform ? ' of ' : ''}
-            <Typography.Text code>{field}</Typography.Text> {operator} {parameters}
+            <Typography.Text style={{ fontWeight: 'bold' }}>{field}</Typography.Text> {operator} {parameters}
         </Typography.Text>
     );
 };

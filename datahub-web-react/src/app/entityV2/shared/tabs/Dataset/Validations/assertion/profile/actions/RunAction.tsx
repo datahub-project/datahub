@@ -22,9 +22,10 @@ type Props = {
     monitor?: Monitor;
     canEdit: boolean;
     refetch?: () => void;
+    isExpandedView?: boolean;
 };
 
-export const RunAction = ({ assertion, monitor, canEdit, refetch }: Props) => {
+export const RunAction = ({ assertion, monitor, canEdit, refetch, isExpandedView = false }: Props) => {
     const [showResult, setShowResult] = useState(false);
     const { config } = useAppConfig();
     const isRunAssertionsEnabled = config?.featureFlags?.runAssertionsEnabled;
@@ -65,6 +66,8 @@ export const RunAction = ({ assertion, monitor, canEdit, refetch }: Props) => {
                 disabled={runDisabled}
                 onClick={onRunAssertion}
                 icon={<StyledRefresh />}
+                isExpandedView={isExpandedView}
+                actionName="Run"
             />
             <RunAssertionModal urn={assertionUrn} visible={showResult} handleClose={onCloseModal} />
         </>

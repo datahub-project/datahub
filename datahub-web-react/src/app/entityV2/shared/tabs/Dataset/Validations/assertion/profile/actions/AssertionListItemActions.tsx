@@ -71,26 +71,33 @@ export const AssertionListItemActions = ({
                         contract={contract}
                         canEdit={canEditContract}
                         refetch={refetch}
+                        isExpandedView
                     />
                 </Menu.Item>
             )) ||
                 null}
             {externalUrl && (
                 <Menu.Item key="2">
-                    <ExternalUrlAction assertion={assertion} />
+                    <ExternalUrlAction assertion={assertion} isExpandedView />
                 </Menu.Item>
             )}
             {isRunAssertionsEnabled && !monitor && !isNonNative && isReachable && (
                 <Menu.Item key="3">
-                    <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
+                    <RunAction
+                        assertion={assertion}
+                        monitor={monitor}
+                        canEdit={canEditMonitor}
+                        refetch={refetch}
+                        isExpandedView
+                    />
                 </Menu.Item>
             )}
 
             <Menu.Item key="4">
-                <CopyLinkAction assertion={assertion} />
+                <CopyLinkAction assertion={assertion} isExpandedView />
             </Menu.Item>
             <Menu.Item key="5">
-                <CopyUrnAction assertion={assertion} />
+                <CopyUrnAction assertion={assertion} isExpandedView />
             </Menu.Item>
             <Menu.Item key="6">
                 <DeleteAction
@@ -98,6 +105,7 @@ export const AssertionListItemActions = ({
                     monitor={monitor}
                     canEdit={monitor ? canEditAssertion && canEditMonitor : canEditAssertion}
                     refetch={refetch}
+                    isExpandedView
                 />
             </Menu.Item>
         </Menu>

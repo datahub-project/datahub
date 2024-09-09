@@ -1,5 +1,4 @@
 import { DownOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Select } from 'antd';
 import React from 'react';
@@ -20,9 +19,10 @@ const StyledSelect = styled(Select)<{ isSelected: boolean }>`
     }
     &&& .ant-select-selection-placeholder,
     &&& .ant-select-selection-item {
-        color: ${(props) => (props.isSelected ? ANTD_GRAY[9] : ANTD_GRAY[7])};
         font-size: 14px !important;
         line-height: 34px !important;
+        color: #5f6685;
+        font-weight: 600;
     }
 `;
 const StyledSelectOption = styled(Select.Option)``;
@@ -45,7 +45,8 @@ type Props = {
 };
 
 export function AcryAssertionTypeSelect({ options, selectedValue, onSelect, placeholder }: Props) {
-    const displayValue = selectedValue ? 'Group By (1)' : undefined;
+    const selectedOption = options.find((option) => option.value === selectedValue) || { label: undefined };
+    const displayValue = selectedOption.label ? `Group By (${selectedOption.label})` : undefined;
     return (
         <StyledSelect
             isSelected={!!selectedValue}
