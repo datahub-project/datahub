@@ -103,7 +103,7 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     include_lineage: bool = True
     include_queries: bool = True
     include_usage_statistics: bool = True
-    include_query_usage_statistics: bool = False
+    include_query_usage_statistics: bool = True
     include_operations: bool = True
 
     region_qualifiers: List[str] = Field(
