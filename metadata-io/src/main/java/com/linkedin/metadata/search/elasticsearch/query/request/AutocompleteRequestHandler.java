@@ -218,10 +218,12 @@ public class AutocompleteRequestHandler {
 
   // Get HighlightBuilder to highlight the matched field
   private HighlightBuilder getHighlights(@Nullable String field) {
-    HighlightBuilder highlightBuilder = new HighlightBuilder();
-    // Don't set tags to get the original field value
-    highlightBuilder.preTags("");
-    highlightBuilder.postTags("");
+    HighlightBuilder highlightBuilder =
+        new HighlightBuilder()
+            // Don't set tags to get the original field value
+            .preTags("")
+            .postTags("")
+            .numOfFragments(1);
     // Check for each field name and any subfields
     getAutocompleteFields(field)
         .forEach(

@@ -346,11 +346,12 @@ public class SearchRequestHandler {
 
   @VisibleForTesting
   public HighlightBuilder getHighlights() {
-    HighlightBuilder highlightBuilder = new HighlightBuilder();
-
-    // Don't set tags to get the original field value
-    highlightBuilder.preTags("");
-    highlightBuilder.postTags("");
+    HighlightBuilder highlightBuilder =
+        new HighlightBuilder()
+            // Don't set tags to get the original field value
+            .preTags("")
+            .postTags("")
+            .numOfFragments(1);
 
     // Check for each field name and any subfields
     defaultQueryFieldNames.stream()
