@@ -53,7 +53,7 @@ const Trial = () => {
               </div>
               <div className={styles.link}>
                 <img width={60} height={75} src={useBaseUrl("/img/link.svg")} />
-                One link to 60
+                One link to rule
                 <br /> them all.
               </div>
             </div>

@@ -13,7 +13,7 @@
   justify-content: space-between;
 
   .trial_left {
-    width: 50%;
+    width: 55%;
     height: 100%;
     display: flex;
     justify-content: center;
@@ -71,7 +71,7 @@
     }
   }
   .trial_right {
-    width: 50%;
+    width: 45%;
     height: 100%;
 
     .right_content {
@@ -79,7 +79,7 @@
       display: flex;
       gap: 2rem;
       .right_l {
-        width: 35%;
+        width: 50%;
         height: 95%;
         display: flex;
         flex-direction: column;
@@ -100,7 +100,7 @@
           flex-direction: column;
           justify-content: center;
           padding-left: 2rem;
-          padding-right: 1rem;
+          padding-right: 1.5rem;
           height: 49%;
           border-radius: 35px;
           background-image: linear-gradient(to bottom, #FC526333, #FC5263);
@@ -111,7 +111,7 @@
           flex-direction: column;
           justify-content: center;
           padding-left: 2rem;
-          padding-right: 1rem;
+          padding-right: 1.5rem;
           background-image: linear-gradient(
             to bottom,
             #77B750,
@@ -122,7 +122,7 @@
         }
       }
       .right_r {
-        width: 35%;
+        width: 50%;
         height: 94%;
         margin-top: 3rem;
         display: flex;
@@ -144,7 +144,7 @@
           flex-direction: column;
           justify-content: center;
           padding-left: 2rem;
-          padding-right: 1rem;
+          padding-right: 1.5rem;
           background-image: linear-gradient(to bottom, #1890FF80, #1890FF);
           height: 49%;
           border-radius: 35px;
@@ -155,7 +155,7 @@
           flex-direction: column;
           justify-content: center;
           padding-left: 2rem;
-          padding-right: 1rem;
+          padding-right: 1.5rem;
           background-image: linear-gradient(
             to bottom,
             #EFB300,
