@@ -35,8 +35,13 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 _DEFAULT_FILE_NAME = "sqlite.db"
 _DEFAULT_TABLE_NAME = "data"
-_DEFAULT_MEMORY_CACHE_MAX_SIZE = 2000
-_DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 200
+
+# As per https://stackoverflow.com/questions/7106016/too-many-sql-variables-error-in-django-with-sqlite3
+# the default SQLITE_MAX_VARIABLE_NUMBER is 999. There's a few places where we embed one id from every
+# item in the cache into a query (e.g. when implementing __len__), so we need to be careful not to
+# exceed this limit.
+_DEFAULT_MEMORY_CACHE_MAX_SIZE = 900
+_DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 150
 
 # https://docs.python.org/3/library/sqlite3.html#sqlite-and-python-types
 # Datetimes get converted to strings
