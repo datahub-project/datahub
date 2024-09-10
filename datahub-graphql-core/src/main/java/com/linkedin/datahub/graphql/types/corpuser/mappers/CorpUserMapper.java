@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Origin;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -94,7 +95,14 @@ public class CorpUserMapper {
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
-
+    if (aspectMap.containsKey(ORIGIN_ASPECT_NAME)) {
+      mappingHelper.mapToResult(ORIGIN_ASPECT_NAME, this::mapEntityOriginType);
+    } else {
+      com.linkedin.datahub.graphql.generated.Origin mappedUserOrigin =
+          new com.linkedin.datahub.graphql.generated.Origin();
+      mappedUserOrigin.setType(com.linkedin.datahub.graphql.generated.OriginType.UNKNOWN);
+      result.setOrigin(mappedUserOrigin);
+    }
     mapCorpUserSettings(
         result, aspectMap.getOrDefault(CORP_USER_SETTINGS_ASPECT_NAME, null), featureFlags);
 
@@ -182,5 +190,22 @@ public class CorpUserMapper {
             && corpUserCredentials.hasSalt()
             && corpUserCredentials.hasHashedPassword();
     corpUser.setIsNativeUser(isNativeUser);
+  }
+
+  private void mapEntityOriginType(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {
+    Origin userOrigin = new Origin(dataMap);
+    com.linkedin.datahub.graphql.generated.Origin mappedUserOrigin =
+        new com.linkedin.datahub.graphql.generated.Origin();
+    if (userOrigin.hasType()) {
+      mappedUserOrigin.setType(
+          com.linkedin.datahub.graphql.generated.OriginType.valueOf(
+              userOrigin.getType().toString()));
+    } else {
+      mappedUserOrigin.setType(com.linkedin.datahub.graphql.generated.OriginType.UNKNOWN);
+    }
+    if (userOrigin.hasExternalType()) {
+      mappedUserOrigin.setExternalType(userOrigin.getExternalType());
+    }
+    corpUser.setOrigin(mappedUserOrigin);
   }
 }
