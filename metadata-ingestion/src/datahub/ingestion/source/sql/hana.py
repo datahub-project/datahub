@@ -3,7 +3,8 @@ import re
 import logging
 import time
 
-from typing import Optional, Dict, List, Iterable, Union, Tuple, Any
+from typing import Optional, Dict, List, Iterable, Union, Tuple, Any, Collection
+
 from pydantic.fields import Field
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -27,7 +28,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     SchemaFieldClass,
     ViewPropertiesClass,
-    MySqlDDLClass,
+    OtherSchemaClass,
     AuditStampClass,
     BooleanTypeClass,
     NumberTypeClass,
@@ -106,14 +107,14 @@ HANA_TYPES_MAP: Dict[str, Any] = {
 }
 
 
-def preprocess_sap_type(sap_type):
-    type_str = sap_type.__class__.__name__
-    return re.sub(r'\(.*\)', '', type_str).strip()
-
-
-def get_pegasus_type(sap_type):
-    processed_type = preprocess_sap_type(sap_type)
-    return HANA_TYPES_MAP.get(processed_type)
+# def preprocess_sap_type(sap_type):
+#     type_str = sap_type.__class__.__name__
+#     return re.sub(r'\(.*\)', '', type_str).strip()
+#
+#
+# def get_pegasus_type(sap_type):
+#     processed_type = preprocess_sap_type(sap_type)
+#     return HANA_TYPES_MAP.get(processed_type)
 
 
 class BaseHanaConfig(BasicSQLAlchemyConfig):
@@ -161,6 +162,7 @@ class HanaSource(SQLAlchemySource):
         super().__init__(config, ctx, self.get_platform())
         self.config = config
         self.engine = self._create_engine()
+        # self.discovered_tables: Optional[Collection[str]] = None
         self.aggregator = SqlParsingAggregator(
             platform=self.get_platform(),
             platform_instance=self.config.platform_instance if self.config.platform_instance else None,
@@ -171,7 +173,8 @@ class HanaSource(SQLAlchemySource):
             generate_usage_statistics=True,
             generate_operations=True,
             format_queries=True,
-            usage_config=BaseUsageConfig()
+            usage_config=BaseUsageConfig(),
+            # is_allowed_table=self.is_allowed_table,
         )
 
     def get_platform(self):
@@ -247,16 +250,16 @@ class HanaSource(SQLAlchemySource):
         columns = inspector.get_columns(table_or_view, schema)
         return [
             SchemaFieldClass(
-                fieldPath=f"[version=2.0].[type={preprocess_sap_type(col.get('type'))}].{col.get('name')}",
+                fieldPath=f"[version=2.0].[type={col.get('data_type_name')}].{col.get('column_name')}",
                 type=SchemaFieldDataTypeClass(
-                    type=get_pegasus_type(
-                        col.get("type")
+                    type=HANA_TYPES_MAP.get(
+                        col.get('data_type_name')
                     )
                 ),
-                nativeDataType=preprocess_sap_type(
-                    col.get("type")
-                ),
-                description=col.get("comment", "")
+                nativeDataType=col.get('data_type_name'),
+                description=col.get("comment", ""),
+                nullable=col.get("is_nullable"),
+
             )
             for col in columns
         ]
@@ -265,7 +268,8 @@ class HanaSource(SQLAlchemySource):
         query = f"""
             SELECT COLUMN_NAME as column_name,
             COMMENTS as comments,
-            DATA_TYPE_NAME as data_type
+            DATA_TYPE_NAME as data_type_name,
+            IS_NULLABLE as is_nullable
             FROM SYS.VIEW_COLUMNS
             WHERE "SCHEMA_NAME" = '_SYS_BIC'
             AND LOWER(VIEW_NAME) = '{view.lower()}'
@@ -278,10 +282,15 @@ class HanaSource(SQLAlchemySource):
 
         return [
             SchemaFieldClass(
-                fieldPath=f"[version=2.0].[type={preprocess_sap_type(col.get('data_type'))}].{col.get('column_name')}",
-                type=SchemaFieldDataTypeClass(type=get_pegasus_type(col.get('data_type'))),
-                nativeDataType=preprocess_sap_type(col.get('data_type')),
-                description=col.get('comments', "")
+                fieldPath=f"[version=2.0].[type={col.get('data_type_name')}].{col.get('column_name')}",
+                type=SchemaFieldDataTypeClass(
+                    type=HANA_TYPES_MAP.get(
+                        col.get('data_type_name')
+                    )
+                ),
+                nativeDataType=col.get('data_type_name'),
+                description=col.get('comments', ""),
+                nullable=col.get("is_nullable"),
             )
             for col in columns
         ]
@@ -407,10 +416,11 @@ class HanaSource(SQLAlchemySource):
             version=0,
             fields=columns,
             hash="",
-            platformSchema=MySqlDDLClass(""),
-            lastModified=AuditStampClass(
-                int(time.time() * 1000), "urn:li:corpuser:admin"
-            ),
+            platformSchema=OtherSchemaClass(""),
+            # lastModified=AuditStampClass(
+            #     time=int(time.time() * 1000),
+            #     actor="urn:li:corpuser:admin",
+            # ),
         )
 
         dataset_snapshot = MetadataChangeProposalWrapper.construct_many(
@@ -423,7 +433,7 @@ class HanaSource(SQLAlchemySource):
 
         self.aggregator.register_schema(
             urn=entity,
-            schema=schema_metadata
+            schema=schema_metadata,
         )
 
         for mcp in dataset_snapshot:
@@ -457,10 +467,11 @@ class HanaSource(SQLAlchemySource):
             version=0,
             fields=columns,
             hash="",
-            platformSchema=MySqlDDLClass(""),
-            lastModified=AuditStampClass(
-                int(time.time() * 1000), "urn:li:corpuser:admin"
-            ),
+            platformSchema=OtherSchemaClass(""),
+            # lastModified=AuditStampClass(
+            #     time=int(time.time() * 1000),
+            #     actor="urn:li:corpuser:admin",
+            # ),
         )
 
         view_properties = ViewPropertiesClass(
@@ -473,7 +484,7 @@ class HanaSource(SQLAlchemySource):
             properties,
             schema_metadata,
             view_properties,
-            subtype
+            subtype,
         ]
 
         if lineage:
@@ -511,7 +522,7 @@ class HanaSource(SQLAlchemySource):
                     downstream=entity,
                     query_type=QueryType.SELECT
                 ),
-                merge_lineage=True
+                merge_lineage=True,
             )
 
         for mcp in dataset_snapshot:
@@ -598,10 +609,11 @@ class HanaSource(SQLAlchemySource):
                 version=0,
                 fields=columns,
                 hash="",
-                platformSchema=MySqlDDLClass(""),
-                lastModified=AuditStampClass(
-                    int(time.time() * 1000), "urn:li:corpuser:admin"
-                ),
+                platformSchema=OtherSchemaClass(""),
+                # lastModified=AuditStampClass(
+                #     time=int(time.time() * 1000),
+                #     actor="urn:li:corpuser:admin",
+                # ),
             )
 
             dataset_details = DatasetPropertiesClass(name=dataset_name)
@@ -618,7 +630,7 @@ class HanaSource(SQLAlchemySource):
                 schema_metadata,
                 subtype,
                 dataset_details,
-                view_properties
+                view_properties,
             ]
 
             if lineage:
@@ -637,6 +649,7 @@ class HanaSource(SQLAlchemySource):
             for mcp in dataset_snapshot:
                 self.report.report_workunit(mcp.as_workunit())
                 yield mcp.as_workunit()
+
 
 def _sql_dialect(platform: str) -> str:
     return "tsql"
