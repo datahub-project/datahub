@@ -267,10 +267,11 @@ class BigQueryQueriesExtractor:
         with self.report.audit_log_load_timer:
             i = 0
             for queries_in_bucket in queries_deduped.values():
-                # Assuming that FileBackedDict is an OrderedDict.
-                # If this is not the case, we would need to order it by "last_query_timestamp"
-                # using queries_in_bucket.sql_query_iterator.
-                for query in queries_in_bucket.values():
+                # Ordering is essential for column-level lineage via temporary table
+                for row in queries_in_bucket.sql_query_iterator(
+                    "select value from data order by last_query_timestamp asc",
+                ):
+                    query = queries_in_bucket.deserializer(row["value"])
                     if i > 0 and i % 10000 == 0:
                         logger.info(f"Added {i} query log entries to SQL aggregator")
 
