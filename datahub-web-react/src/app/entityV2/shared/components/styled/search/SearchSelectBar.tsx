@@ -69,7 +69,7 @@ export const SearchSelectBar = ({
     const { isInFormContext } = useEntityFormContext();
     const appConfig = useAppConfig();
     const selectedEntityCount = selectedEntities.length;
-    const maxBulkLimit = appConfig.config.testsConfig.executionLimitConfig.elasticSearchExecutor;
+    const maxBulkLimit = appConfig.config.testsConfig?.executionLimitConfig?.elasticSearchExecutor; // add ? because here i'm getting white screen when i was adding assets in dataproduct
     const isBeyondAssetLimit = totalResults >= maxBulkLimit;
     const onClickCancel = () => {
         if (selectedEntityCount > 0) {

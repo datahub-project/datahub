@@ -1,4 +1,5 @@
 import { Modal, message } from 'antd';
+import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
 import { useRemoveTermMutation, useUnsetDomainMutation } from '../../graphql/mutations.generated';
 import { BrowsePathV2, GlobalTags, Owner } from '../../types.generated';
 import { EntityCapabilityType } from '../entityV2/Entity';
@@ -106,6 +107,45 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
     };
 
     return { removeTerm };
+}
+
+export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
+    const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
+
+    function handleDataProduct(urn) {
+        batchSetDataProductMutation({ variables: { input: { resourceUrns: [urn] } } })
+            .then(() => {
+                setTimeout(() => {
+                    setShouldRefetchEmbeddedListSearch(true);
+                    message.success({ content: 'Removed Data Product.', duration: 2 });
+                }, 2000);
+            })
+            .catch((e: unknown) => {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({
+                        content: `Failed to remove data product. An unknown error occurred.`,
+                        duration: 3,
+                    });
+                }
+            });
+    }
+
+    const removeDataProduct = (urn) => {
+        Modal.confirm({
+            title: `Confirm Data Product Removal`,
+            content: `Are you sure you want to remove this data product?`,
+            onOk() {
+                handleDataProduct(urn);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
+    return { removeDataProduct };
 }
 
 export const isDefaultBrowsePath = (browsePaths: BrowsePathV2) => {

@@ -39,7 +39,7 @@ import { CompactView } from './CompactView';
 
 import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
 import { useEntityContext, useEntityData } from '../entity/shared/EntityContext';
-import { useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
+import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -235,13 +235,10 @@ export default function DefaultPreviewCard({
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
-    const { showRemovalFromList } = useSearchCardContext();
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
     const previewData = usePreviewData();
-    const entityData = useEntityData();
-    const pageEntityType = entityData.entityType;
     const insightViews: Array<ReactNode> =
         insights?.map((insight) => (
             <>
@@ -263,15 +260,7 @@ export default function DefaultPreviewCard({
 
     const { isFullViewCard } = useSearchContext();
 
-    const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
-
-    const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
-    const { removeTerm } = useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch);
-
-    const removeRelationship = () => {
-        if (pageEntityType === EntityType.GlossaryTerm) removeTerm(previewData, entityData.urn);
-        else if (pageEntityType === EntityType.Domain) removeDomain(previewData?.urn);
-    };
+    const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
     return (
         <PreviewContainer data-testid={dataTestID}>
@@ -312,14 +301,9 @@ export default function DefaultPreviewCard({
 
                         <ActionsAndStatusSection>
                             <ActionsSection>
-                                {showRemovalFromList && pageEntityType === EntityType.GlossaryTerm && (
+                                {removeButtonText && (
                                     <TransparentButton size="small" onClick={removeRelationship}>
-                                        <CloseOutlined size={5} /> Remove Glossary Term
-                                    </TransparentButton>
-                                )}
-                                {showRemovalFromList && pageEntityType === EntityType.Domain && (
-                                    <TransparentButton size="small" onClick={removeRelationship}>
-                                        <CloseOutlined size={5} /> Remove from Domain
+                                        <CloseOutlined size={5} /> {removeButtonText}
                                     </TransparentButton>
                                 )}
                                 {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
@@ -410,4 +394,40 @@ export default function DefaultPreviewCard({
             />
         </PreviewContainer>
     );
+}
+
+function useRemoveRelationship(entityType: EntityType) {
+    const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
+    const { showRemovalFromList } = useSearchCardContext();
+    const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
+    const { removeTerm } = useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch);
+    const { removeDataProduct } = useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch);
+
+    const previewData = usePreviewData();
+    const entityData = useEntityData();
+    const pageEntityType = entityData.entityType;
+
+    if (pageEntityType === EntityType.Domain) {
+        return {
+            removeRelationship: () => removeDomain(previewData?.urn),
+            removeButtonText:
+                showRemovalFromList && entityType !== EntityType.DataProduct ? 'Remove from Domain' : null,
+        };
+    }
+    if (pageEntityType === EntityType.GlossaryTerm) {
+        return {
+            removeRelationship: () => removeTerm(previewData, entityData.urn),
+            removeButtonText: showRemovalFromList ? 'Remove Glossary Term' : null,
+        };
+    }
+    if (pageEntityType === EntityType.DataProduct) {
+        return {
+            removeRelationship: () => removeDataProduct(previewData?.urn),
+            removeButtonText: showRemovalFromList ? 'Remove from Data Product' : null,
+        };
+    }
+    return {
+        removeRelationship: () => {},
+        removeButtonText: null,
+    };
 }
