@@ -129,7 +129,7 @@ export class ContainerEntity implements Entity<Container> {
                 urn={data.urn}
                 name={this.displayName(data)}
                 platformName={data.platform.properties?.displayName || capitalizeFirstLetterOnly(data.platform.name)}
-                platformLogo={data.platform.properties?.logoUrl}
+                platformLogo={data.platform?.properties?.logoUrl}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
                 subTypes={data.subTypes}

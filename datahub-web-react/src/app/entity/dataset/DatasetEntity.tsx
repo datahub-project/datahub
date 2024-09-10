@@ -292,7 +292,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={
                     data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
                 }
-                platformLogo={data.platform.properties?.logoUrl}
+                platformLogo={data?.platform?.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
