@@ -1,7 +1,6 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
 import static org.testng.AssertJUnit.assertEquals;
-import static org.testng.AssertJUnit.assertTrue;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -18,7 +17,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.IOUtils;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
@@ -46,13 +44,14 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
   }
 
   private static void compareModificationCategories(
-      Set<SchemaFieldModificationCategory> expectedCategories, List<ChangeEvent> actual) {
-    Set<Object> actualModificationCategories = new HashSet<>();
+      Set<String> expectedCategories, List<ChangeEvent> actual) {
+    Set<String> actualModificationCategories = new HashSet<>();
     actual.forEach(
         changeEvent -> {
-          actualModificationCategories.add(changeEvent.getParameters().get("modificationCategory"));
+          actualModificationCategories.add(
+              changeEvent.getParameters().get("modificationCategory").toString());
         });
-    assertTrue(CollectionUtils.isEqualCollection(expectedCategories, actualModificationCategories));
+    assertEquals(expectedCategories, actualModificationCategories);
   }
 
   private static Aspect<SchemaMetadata> getSchemaMetadata(List<SchemaField> schemaFieldList) {
@@ -83,7 +82,8 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
         Set.of(
             "A backwards incompatible change due to native datatype of the field 'ID' changed from 'NUMBER(16,1)' to 'NUMBER(10,1)'."),
         actual);
-    compareModificationCategories(Set.of(SchemaFieldModificationCategory.TYPE_CHANGE), actual);
+    compareModificationCategories(
+        Set.of(SchemaFieldModificationCategory.TYPE_CHANGE.toString()), actual);
     List<ChangeEvent> actual2 = test.getChangeEvents(urn, entity, aspect, to, from, auditStamp);
     // Test single field going from NUMBER(10,1) -> NUMBER(16,1)
     assertEquals(1, actual2.size());
@@ -91,7 +91,8 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
         Set.of(
             "A backwards incompatible change due to native datatype of the field 'ID' changed from 'NUMBER(10,1)' to 'NUMBER(16,1)'."),
         actual2);
-    compareModificationCategories(Set.of(SchemaFieldModificationCategory.TYPE_CHANGE), actual);
+    compareModificationCategories(
+        Set.of(SchemaFieldModificationCategory.TYPE_CHANGE.toString()), actual);
   }
 
   @Test
@@ -118,9 +119,7 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
             "A backwards incompatible change due to native datatype of the field 'ID' changed from 'NUMBER(16,1)' to 'NUMBER(10,1)'.",
             "A forwards & backwards compatible change due to the newly added field 'aa'."),
         actual);
-    compareModificationCategories(
-        Set.of(SchemaFieldModificationCategory.OTHER, SchemaFieldModificationCategory.OTHER),
-        actual);
+    compareModificationCategories(Set.of(SchemaFieldModificationCategory.OTHER.toString()), actual);
   }
 
   @Test
@@ -144,7 +143,8 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
             "A forwards & backwards compatible change due to renaming of the field 'ID to ID2'."),
         actual);
     assertEquals(1, actual.size());
-    compareModificationCategories(Set.of(SchemaFieldModificationCategory.RENAME), actual);
+    compareModificationCategories(
+        Set.of(SchemaFieldModificationCategory.RENAME.toString()), actual);
   }
 
   @Test
