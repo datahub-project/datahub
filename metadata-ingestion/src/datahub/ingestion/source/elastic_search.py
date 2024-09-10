@@ -138,7 +138,7 @@ class ElasticToSchemaFieldConverter:
         for columnName, column in elastic_schema_dict.items():
             elastic_type: Optional[str] = column.get("type")
             nested_props: Optional[Dict[str, Any]] = column.get(PROPERTIES)
-            if elastic_type is not None:
+            if elastic_type is not None and elastic_type != "nested":
                 self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
                 schema_field_data_type = self.get_column_type(elastic_type)
                 schema_field = SchemaField(
