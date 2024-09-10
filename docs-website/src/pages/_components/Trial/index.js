@@ -1,6 +1,7 @@
 import React from "react";
 import styles from "./trial.module.scss";
 import useBaseUrl from "@docusaurus/useBaseUrl";
+import Link from "@docusaurus/Link";
 
 const Trial = () => {
   return (
@@ -8,15 +9,15 @@ const Trial = () => {
       <div className={styles.trial}>
         <div className={styles.trial_left}>
           <div className={styles.left_content}>
-            <span className="">Govern. Observe. Discover</span>
+            <span className="">Discover. Observe. Govern.</span>
             <p className="">
-              Get a free trial of <b>DataHub</b> cloud today
+              Get a free trial of<br/><b>DataHub</b> cloud today
             </p>
             <div className={styles.btn_div}>
               <a>Book a Demo</a>
               <a>Product Tour</a>
             </div>
-            <div className={styles.start_arrow}>Get started with Core <span>→</span></div>
+            <Link className={styles.start_arrow}>Get started with Core →</Link>
           </div>
         </div>
         <div className={styles.trial_right}>
@@ -24,8 +25,8 @@ const Trial = () => {
             <div className={styles.right_l}>
               <div className={styles.soc}>
                 <img
-                  width={75}
-                  height={75}
+                  width={60}
+                  height={60}
                   src={useBaseUrl("/img/lock-soc.svg")}
                 />
                 SOC 2 <br />
@@ -33,8 +34,8 @@ const Trial = () => {
               </div>
               <div className={styles.cost}>
                 <img
-                  width={75}
-                  height={75}
+                  width={60}
+                  height={60}
                   src={useBaseUrl("/img/dollar.svg")}
                 />
                 Reduce tool clutter,
@@ -44,15 +45,15 @@ const Trial = () => {
             <div className={styles.right_r}>
               <div className={styles.enterprise}>
                 <img
-                  width={75}
-                  height={75}
+                  width={60}
+                  height={60}
                   src={useBaseUrl("/img/building.svg")}
                 />
                 Built for <br /> Enterprize Scale.
               </div>
               <div className={styles.link}>
-                <img width={75} height={75} src={useBaseUrl("/img/link.svg")} />
-                One link to rule
+                <img width={60} height={75} src={useBaseUrl("/img/link.svg")} />
+                One link to 60
                 <br /> them all.
               </div>
             </div>

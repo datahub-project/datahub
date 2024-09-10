@@ -3,7 +3,8 @@
   flex-direction: column;
   background: #fafafa;
   width: 80vw;
-  margin: 5rem auto;
+  min-width: 1000px;
+  margin: 1rem auto;
 }
 .trial {
   height: 600px;
@@ -19,10 +20,11 @@
     align-items: center;
 
     .left_content {
-      width: 60%;
+      flex-grow: 1;
+      padding-right: 24px;
       span {
         color: #8088a3;
-        font-size: 2.5rem;
+        font-size: 1.5rem;
         font-weight: 400;
       }
       p {
@@ -84,12 +86,12 @@
         gap: 1rem;
 
         div {
-          font-size: 1.5rem;
-          font-weight: 500;
-          color: #2e2e38;
+          font-size: 1.25rem;
+          font-weight: 400;
+          color: #fff;
           line-height: normal;
           img {
-            margin-bottom: 20px;
+            margin-bottom: 8px;
           }
         }
 
@@ -101,7 +103,7 @@
           padding-right: 2rem;
           height: 49%;
           border-radius: 35px;
-          background-image: linear-gradient(to bottom, white, #d3b9e2);
+          background-image: linear-gradient(to bottom, #FC526333, #FC5263);
         }
 
         div:nth-child(2) {
@@ -112,8 +114,8 @@
           padding-right: 2rem;
           background-image: linear-gradient(
             to bottom,
-            rgb(236, 224, 167),
-            white
+            #77B750,
+            #77B75080
           );
           height: 49%;
           border-radius: 35px;
@@ -128,12 +130,12 @@
         gap: 1rem;
 
         div {
-          font-size: 1.5rem;
-          font-weight: 500;
-          color: #2e2e38;
+          font-size: 1.25rem;
+          font-weight: 400;
+          color: #fff;
           line-height: normal;
           img {
-            margin-bottom: 20px;
+            margin-bottom: 8px;
           }
         }
 
@@ -143,7 +145,7 @@
           justify-content: center;
           padding-left: 1rem;
           padding-right: 2rem;
-          background-image: linear-gradient(to bottom, white, #f8d4b3);
+          background-image: linear-gradient(to bottom, #1890FF80, #1890FF);
           height: 49%;
           border-radius: 35px;
         }
@@ -156,8 +158,8 @@
           padding-right: 2rem;
           background-image: linear-gradient(
             to bottom,
-            rgb(226, 167, 190),
-            white
+            #EFB300,
+            #EFB30033
           );
           height: 49%;
           border-radius: 35px;
