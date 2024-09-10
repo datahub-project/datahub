@@ -1,0 +1,60 @@
+.container {
+  background: #ffffff;
+  font-family: "Manrope";
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.upperSection {
+  border-radius: 16px;
+  width: 60%;
+  height: 40%;
+  background-color: #f0f0f0;
+  font-size: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 25px;
+  margin-bottom: 16px;
+}
+
+.rightBox {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  background-color: rgb(171, 171, 171);
+  color: #fff;
+  padding: 25px;
+}
+
+.socialSubText {
+}
+
+.socialStats {
+  display:grid;
+  gap: 20px;
+  width: 100px;
+  height: 100px;
+  grid-template-columns: 200px 200px;
+  grid-column-gap: 20px;
+  grid-row-gap: 20px;
+  margin-top: 20px;
+  margin-bottom: 70px;
+}
+
+.statItem {
+  border: 1px solid #ffffff;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.statName {
+  font-size: 20px;
+  font-weight: 700;
+}

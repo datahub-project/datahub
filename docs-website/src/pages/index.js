@@ -16,6 +16,7 @@ import Ecosystem from "./_components/Ecosystem";
 import Community from "./_components/Community";
 import CaseStudy from "./_components/CaseStudy";
 import Trial from "./_components/Trial";
+import SocialMedia from "./_components/SocialMedia";
 
 const companyIndexes = require("../../adoptionStoriesIndexes.json");
 const companies = companyIndexes.companies;
@@ -55,6 +56,7 @@ function Home() {
       {/* <Features /> */}
       <Ecosystem />
       <Community />
+      <SocialMedia />
       <CaseStudy />
       <Trial />
       {/* <Section>
