@@ -258,7 +258,7 @@ class HanaSource(SQLAlchemySource):
                 ),
                 nativeDataType=col.get('data_type_name'),
                 description=col.get("comment", ""),
-                nullable=col.get("is_nullable"),
+                nullable=bool(col.get("is_nullable")),
 
             )
             for col in columns
@@ -290,7 +290,7 @@ class HanaSource(SQLAlchemySource):
                 ),
                 nativeDataType=col.get('data_type_name'),
                 description=col.get('comments', ""),
-                nullable=col.get("is_nullable"),
+                nullable=bool(col.get("is_nullable")),
             )
             for col in columns
         ]
