@@ -58,7 +58,16 @@ public class DomainUtils {
   private DomainUtils() {}
 
   public static boolean isAuthorizedToUpdateDomainsForEntity(
-      @Nonnull QueryContext context, Urn entityUrn) {
+      @Nonnull QueryContext context, Urn entityUrn, EntityClient entityClient) {
+
+    if (entityUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
+        || entityUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME)) {
+      Urn parentNode = GlossaryUtils.getParentUrn(entityUrn, context, entityClient);
+      if (GlossaryUtils.canManageChildrenEntities(context, parentNode, entityClient)) {
+        return true;
+      }
+    }
+
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(

@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -195,7 +196,16 @@ public class OwnerUtils {
   }
 
   public static void validateAuthorizedToUpdateOwners(
-      @Nonnull QueryContext context, Urn resourceUrn) {
+      @Nonnull QueryContext context, Urn resourceUrn, EntityClient entityClient) {
+
+    if (resourceUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
+        || resourceUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME)) {
+      Urn parentNode = GlossaryUtils.getParentUrn(resourceUrn, context, entityClient);
+      if (GlossaryUtils.canManageChildrenEntities(context, parentNode, entityClient)) {
+        return;
+      }
+    }
+
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
