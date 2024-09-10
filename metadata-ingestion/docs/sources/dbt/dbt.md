@@ -273,16 +273,19 @@ source:
     # ... other configs
 ```
 
-<details>
-  <summary>[Experimental] Reducing "composed of" sprawl with multiproject setups</summary>
+If you have models that have tons of sources from other projects listed in the "Composed Of" section, it may also make sense to hide sources.
 
-When many dbt projects use a single table as a source, the "Composed Of" relationships can become very large and difficult to navigate.
-To address this, we are experimenting with an alternative approach to handling multiproject setups: not including sources.
+### Reducing "composed of" sprawl by hiding sources
+
+When many dbt projects use a single table as a source, the "Composed Of" relationships can become very large and difficult to navigate
+and extra source nodes can clutter the lineage graph.
+
+This is particularly useful for multi-project setups, but can be useful in single-project setups as well.
 
 The benefit is that your entire dbt estate becomes much easier to navigate, and the borders between projects less noticeable.
 The downside is that we will not pick up any documentation or meta mappings applied to dbt sources.
 
-To enable this, set a few additional flags in your dbt source config:
+To enable this, set `entities_enabled.sources: No` and `skip_sources_in_lineage: true` in your dbt source config:
 
 ```yaml
 source:
@@ -298,4 +301,4 @@ source:
     skip_sources_in_lineage: true
 ```
 
-</details>
+[Experimental] It's also possible to use `skip_sources_in_lineage: true` without disabling sources entirely. If you do this, sources will not participate in the lineage graph - they'll have upstreams but no downstreams. However, they will still contribute to docs, tags, etc to the warehouse entity.
