@@ -25,7 +25,9 @@ public class BackfillDataProcessInstancesConfig {
       @Value("${systemUpdate.processInstanceHasRunEvents.reprocess.enabled}")
           boolean reprocessEnabled,
       @Value("${systemUpdate.processInstanceHasRunEvents.batchSize}") final Integer batchSize,
-      @Value("${systemUpdate.processInstanceHasRunEvents.delayMs}") final Integer delayMs) {
+      @Value("${systemUpdate.processInstanceHasRunEvents.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.processInstanceHasRunEvents.totalDays}") Integer totalDays,
+      @Value("${systemUpdate.processInstanceHasRunEvents.windowDays}") Integer windowDays) {
     return new BackfillDataProcessInstances(
         opContext,
         entityService,
@@ -34,6 +36,8 @@ public class BackfillDataProcessInstancesConfig {
         enabled,
         reprocessEnabled,
         batchSize,
-        delayMs);
+        delayMs,
+        totalDays,
+        windowDays);
   }
 }

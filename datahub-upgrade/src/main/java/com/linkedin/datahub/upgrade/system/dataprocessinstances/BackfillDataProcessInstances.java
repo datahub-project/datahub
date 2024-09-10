@@ -21,7 +21,9 @@ public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
       boolean enabled,
       boolean reprocessEnabled,
       Integer batchSize,
-      Integer batchDelayMs) {
+      Integer batchDelayMs,
+      Integer totalDays,
+      Integer windowDays) {
     if (enabled) {
       _steps =
           ImmutableList.of(
@@ -32,7 +34,9 @@ public class BackfillDataProcessInstances implements NonBlockingSystemUpgrade {
                   restHighLevelClient,
                   reprocessEnabled,
                   batchSize,
-                  batchDelayMs));
+                  batchDelayMs,
+                  totalDays,
+                  windowDays));
     } else {
       _steps = ImmutableList.of();
     }
