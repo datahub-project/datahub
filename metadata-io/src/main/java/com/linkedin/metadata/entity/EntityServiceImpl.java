@@ -2,7 +2,6 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
@@ -10,6 +9,7 @@ import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 import static com.linkedin.metadata.utils.metrics.ExceptionUtils.collectMetrics;
 
 import com.codahale.metrics.Timer;
@@ -777,11 +777,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     List<UpdateAspectResult> mclResults = emitMCL(opContext, ingestResults, emitMCL);
 
     processPostCommitMCLSideEffects(
-        opContext,
-        mclResults.stream()
-            .filter(result -> !result.isNoOp())
-            .map(UpdateAspectResult::toMCL)
-            .collect(Collectors.toList()));
+        opContext, mclResults.stream().map(UpdateAspectResult::toMCL).collect(Collectors.toList()));
 
     return mclResults;
   }
@@ -853,7 +849,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               final Map<String, Map<String, SystemAspect>> latestAspects =
                   EntityUtils.toSystemAspects(
                       opContext.getRetrieverContext().get(),
-                      aspectDao.getLatestAspects(urnAspects));
+                      aspectDao.getLatestAspects(urnAspects, true));
               // read #2 (potentially)
               final Map<String, Map<String, Long>> nextVersions =
                   EntityUtils.calculateNextVersions(aspectDao, latestAspects, urnAspects);
@@ -870,7 +866,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 Map<String, Map<String, SystemAspect>> newLatestAspects =
                     EntityUtils.toSystemAspects(
                         opContext.getRetrieverContext().get(),
-                        aspectDao.getLatestAspects(updatedItems.getFirst()));
+                        aspectDao.getLatestAspects(updatedItems.getFirst(), true));
                 // merge
                 updatedLatestAspects = AspectsBatch.merge(latestAspects, newLatestAspects);
 
@@ -1835,10 +1831,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public SystemMetadata ingestEntity(
       @Nonnull OperationContext opContext, Entity entity, AuditStamp auditStamp) {
-    SystemMetadata generatedSystemMetadata = new SystemMetadata();
-    generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
-    generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-
+    SystemMetadata generatedSystemMetadata = createDefaultSystemMetadata();
     ingestEntity(opContext, entity, auditStamp, generatedSystemMetadata);
     return generatedSystemMetadata;
   }
@@ -2071,7 +2064,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     EntityAspect latestKey = null;
     try {
-      latestKey = aspectDao.getLatestAspect(urn.toString(), keyAspectName);
+      latestKey = aspectDao.getLatestAspect(urn.toString(), keyAspectName, false);
     } catch (EntityNotFoundException e) {
       log.warn("Entity to delete does not exist. {}", urn.toString());
     }
@@ -2224,7 +2217,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   (EntityAspect.EntitySystemAspect)
                       EntityUtils.toSystemAspect(
                               opContext.getRetrieverContext().get(),
-                              aspectDao.getLatestAspect(urn, aspectName))
+                              aspectDao.getLatestAspect(urn, aspectName, false))
                           .orElse(null);
 
               // 1.1 If no latest exists, skip this aspect

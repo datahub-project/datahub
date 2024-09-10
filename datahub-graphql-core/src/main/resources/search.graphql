@@ -582,6 +582,18 @@ type SearchResults {
   suggestions: [SearchSuggestion!]
 }
 
+type ExtraProperty {
+  """
+  Name of the extra property
+  """
+  name: String!
+
+  """
+  Value of the extra property
+  """
+  value: String!
+}
+
 """
 An individual search result hit
 """
@@ -600,6 +612,11 @@ type SearchResult {
   Matched field hint
   """
   matchedFields: [MatchedField!]!
+
+  """
+  Additional properties about the search result. Used for rendering in the UI
+  """
+  extraProperties: [ExtraProperty!]
 }
 
 """
@@ -1372,7 +1389,12 @@ input SearchSortInput {
   """
   A criterion to sort search results on
   """
-  sortCriterion: SortCriterion!
+  sortCriterion: SortCriterion @deprecated(reason: "Use sortCriteria instead")
+
+  """
+  A list of values to sort search results on
+  """
+  sortCriteria: [SortCriterion!]
 }
 
 """

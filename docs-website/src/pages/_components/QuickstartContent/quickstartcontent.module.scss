@@ -1,0 +1,67 @@
+.container {
+    margin-bottom: 2rem;
+}
+
+.button {
+    text-decoration: none;
+    margin: 0.5rem 0 0 0;
+    white-space: nowrap;
+    @media (min-width: 690px) {
+      margin: 0 0 0 0.5rem;
+    }
+}
+
+.quickstartContent {
+  text-align: center;
+  padding: 2rem 0;
+  height: 100%;
+  margin: 2rem 0;
+  background: #34394d;
+  border-radius: var(--ifm-card-border-radius);
+}
+
+.quickstartTitle {
+  color: #fafafa;
+}
+
+.quickstartSubtitle {
+  font-size: 1.1rem;
+  color: gray;
+}
+
+.quickstartCodeblock {
+  text-align: left;
+  padding: 0 20vh;
+}
+
+.quickLinks {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  font-weight: bold;
+  margin-bottom: -2.5vh;
+  @media (min-width: 768px) {
+    flex-direction: row;
+  }
+
+  > * {
+    padding: 0.5rem 1rem;
+    display: inline-block;
+
+    @media (min-width: 768px) {
+      padding: 0 1rem;
+    }
+  }
+}
+
+.quickLinksLabel {
+  display: flex;
+  align-items: center;
+  svg {
+    width: 24px;
+    height: 24px;
+    color: var(--ifm-text-color) !important;
+    margin-right: 0.5rem;
+  }
+}

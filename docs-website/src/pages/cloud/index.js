@@ -34,11 +34,11 @@ function Home() {
               <div className={clsx("hero__subtitle", styles.hero__subtitle)}>
                 Introducing DataHub as a Managed Service
                 <div style={{ fontWeight: "500"}}>with Data Observability and Data Governance built-in.</div>
-                <div className={styles.learnMore}>
+                {/* <div className={styles.learnMore}>
                   <a className={styles.link} href="https://acryldata.io" target="_blank">
                     Learn More  →
                   </a>
-                </div>
+                </div> */}
               </div>
               <Link className="button button--primary button--lg" to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
                 Book Demo
@@ -51,7 +51,7 @@ function Home() {
         </div>
       </header>
       <ScrollingCustomers />
-      <div className={clsx(styles.bgSection)}>
+      <div className={clsx(styles.bgSection)} style={{ marginTop: 100 }}>
         <UnifiedTabs />
       </div>
       <FeatureCards/>
@@ -73,12 +73,13 @@ function Home() {
               <Link className={clsx(styles.buttonLightBlue, "button button--secondary button--lg")} to="https://www.acryldata.io/tour">
                 Product Tour
               </Link>
-              <hr style={{margin: "3rem"}}/>
+              <div className="hero__subtitle" />
+              {/* <hr style={{margin: "3rem"}}/>
               <div className="hero__subtitle">
                 An extension of the DataHub Core project.<br/>
                 <a className={clsx(styles.link)} href="/docs/managed-datahub/managed-datahub-overview">View Cloud Docs.
                 </a>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

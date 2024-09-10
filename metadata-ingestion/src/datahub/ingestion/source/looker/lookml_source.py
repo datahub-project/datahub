@@ -669,7 +669,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.source_config.project_name,
             self.base_projects_folder,
             self.reporter,
-            self.source_config.liquid_variable,
+            self.source_config,
         )
 
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.

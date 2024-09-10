@@ -760,7 +760,7 @@ class ModeSource(StatefulIngestionSourceBase):
     def _parse_definition_name(self, definition_variable: str) -> Tuple[str, str]:
         name, alias = "", ""
         # i.e '{{ @join_on_definition as alias}}'
-        name_match = re.findall("@[a-zA-Z]+", definition_variable)
+        name_match = re.findall("@[a-zA-Z_]+", definition_variable)
         if len(name_match):
             name = name_match[0][1:]
         alias_match = re.findall(

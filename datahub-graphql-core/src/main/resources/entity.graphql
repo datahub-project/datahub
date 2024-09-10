@@ -68,6 +68,17 @@ type Query {
     Fetch a Tag by primary key (urn)
     """
     tag(urn: String!): Tag
+
+    """
+    Fetch a View by primary key (urn)
+    """
+    view(urn: String!): DataHubView
+
+    """
+    Fetch a Form by primary key (urn)
+    """
+    form(urn: String!): Form
+
     """
     Fetch a Role by primary key (urn)
     """
@@ -3471,6 +3482,11 @@ type DatasetEditableProperties {
     Description of the Dataset
     """
     description: String
+
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """
@@ -4839,6 +4855,10 @@ input DatasetEditablePropertiesUpdate {
     Writable description aka documentation for a Dataset
     """
     description: String!
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """
@@ -11254,6 +11274,21 @@ input CreatePostInput {
     The content of the post
     """
     content: UpdatePostContentInput!
+
+    """
+    Optional target URN for the post
+    """
+    resourceUrn: String
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    Optional target subresource for the post
+    """
+    subResource: String
 }
 
 """

@@ -237,7 +237,7 @@ class AbstractViewUpstream(ABC):
         return []  # it is for the special case
 
 
-class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
+class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
     """
     Handle the case where upstream dataset is defined in derived_table.sql
     """
@@ -263,7 +263,7 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
             return None
 
         spr = create_lineage_sql_parsed_result(
-            query=self.view_context.datahub_transformed_sql(),
+            query=self.get_sql_query(),
             default_schema=self.view_context.view_connection.default_schema,
             default_db=self.view_context.view_connection.default_db,
             platform=self.view_context.view_connection.platform,
@@ -385,10 +385,32 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
             config=self.config,
         )
 
-        return upstreams_column_refs
+        return _drop_hive_dot_from_upstream(upstreams_column_refs)
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return self._get_upstream_dataset_urn()
+
+    @abstractmethod
+    def get_sql_query(self) -> str:
+        pass
+
+
+class DirectQueryUpstreamSource(SqlBasedDerivedViewUpstream):
+    """
+    Pattern 7 as per view-context documentation
+    """
+
+    def get_sql_query(self) -> str:
+        return self.view_context.datahub_transformed_sql_table_name()
+
+
+class DerivedQueryUpstreamSource(SqlBasedDerivedViewUpstream):
+    """
+    Pattern 4 as per view-context documentation
+    """
+
+    def get_sql_query(self) -> str:
+        return self.view_context.datahub_transformed_sql()
 
 
 class NativeDerivedViewUpstream(AbstractViewUpstream):
@@ -611,6 +633,7 @@ def create_view_upstream(
     ctx: PipelineContext,
     reporter: LookMLSourceReport,
 ) -> AbstractViewUpstream:
+
     if view_context.is_regular_case():
         return RegularViewUpstream(
             view_context=view_context,
@@ -629,11 +652,23 @@ def create_view_upstream(
             looker_view_id_cache=looker_view_id_cache,
         )
 
-    if (
-        view_context.is_sql_based_derived_case()
-        or view_context.is_sql_based_derived_view_without_fields_case()
+    if any(
+        [
+            view_context.is_sql_based_derived_case(),
+            view_context.is_sql_based_derived_view_without_fields_case(),
+        ]
     ):
-        return SqlBasedDerivedViewUpstream(
+
+        return DerivedQueryUpstreamSource(
+            view_context=view_context,
+            config=config,
+            reporter=reporter,
+            ctx=ctx,
+            looker_view_id_cache=looker_view_id_cache,
+        )
+
+    if view_context.is_direct_sql_query_case():
+        return DirectQueryUpstreamSource(
             view_context=view_context,
             config=config,
             reporter=reporter,
@@ -651,9 +686,9 @@ def create_view_upstream(
         )
 
     reporter.report_warning(
-        title="Implementation Not Found",
+        title="ViewUpstream Implementation Not Found",
         message="No implementation found to resolve upstream of the view",
-        context=view_context.view_file_name(),
+        context=f"view_name={view_context.name()} , view_file_name={view_context.view_file_name()}",
     )
 
     return EmptyImplementation(

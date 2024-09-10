@@ -2328,6 +2328,15 @@
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT"
       }
+    }, {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Editable display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedName",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "editableDatasetProperties"
@@ -3563,7 +3572,7 @@
                         }, {
                           "name" : "isPartitioningKey",
                           "type" : "boolean",
-                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.\nNote that multiple columns can be part of a partitioning key, but currently we do not support\nrendering the ordered partitioning key.",
                           "optional" : true
                         }, {
                           "name" : "jsonProps",
@@ -6357,6 +6366,14 @@
               },
               "doc" : "A list of the the restricted aspects on the entity.\nIf the key aspect is present, assume ALL aspects should be restricted including the entity's Urn.",
               "optional" : true
+            }, {
+              "name" : "extraFields",
+              "type" : {
+                "type" : "map",
+                "values" : "string"
+              },
+              "doc" : "Extra fields from the search document based on what is requested in the search request",
+              "optional" : true
             } ]
           } ],
           "fields" : [ {
@@ -6812,6 +6829,10 @@
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+          "optional" : true
+        }, {
           "name" : "start",
           "type" : "int"
         }, {
@@ -6861,6 +6882,10 @@
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+          "optional" : true
+        }, {
           "name" : "start",
           "type" : "int"
         }, {
@@ -6899,6 +6924,10 @@
         }, {
           "name" : "sort",
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
           "optional" : true
         }, {
           "name" : "scrollId",
@@ -6946,6 +6975,10 @@
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+          "optional" : true
+        }, {
           "name" : "scrollId",
           "type" : "string",
           "optional" : true
@@ -6987,6 +7020,10 @@
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
           "optional" : true
         }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
+          "optional" : true
+        }, {
           "name" : "start",
           "type" : "int"
         }, {
@@ -7022,6 +7059,10 @@
         }, {
           "name" : "sort",
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
           "optional" : true
         }, {
           "name" : "start",
@@ -7063,6 +7104,10 @@
         }, {
           "name" : "sort",
           "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "sortCriteria",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.query.filter.SortCriterion\" }",
           "optional" : true
         }, {
           "name" : "start",

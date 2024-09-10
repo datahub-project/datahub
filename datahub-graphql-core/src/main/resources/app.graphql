@@ -509,6 +509,11 @@ type FeatureFlagsConfig {
   dataContractsEnabled: Boolean!
 
   """
+  Whether dataset names are editable
+  """
+  editableDatasetNameEnabled: Boolean!
+
+  """
   If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   """
   showSeparateSiblings: Boolean!

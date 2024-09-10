@@ -8,7 +8,9 @@ with open("./src/datahub/__init__.py") as fp:
 
 _version: str = package_metadata["__version__"]
 _self_pin = (
-    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
 )
 
 base_requirements = {
@@ -34,7 +36,7 @@ framework_common = {
     "importlib_metadata>=4.0.0; python_version < '3.10'",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.13",
+    "avro-gen3==0.7.16",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.11.3,<1.12",
     "python-dateutil>=2.8.0",
@@ -99,11 +101,13 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==25.3.1.dev3",
+    "acryl-sqlglot[rs]==25.20.2.dev5",
 }
 
 classification_lib = {
     "acryl-datahub-classify==0.0.11",
+    # schwifty is needed for the classify plugin but in 2024.08.0 they broke the python 3.8 compatibility
+    "schwifty<2024.08.0",
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
@@ -171,6 +175,7 @@ looker_common = {
     *sqlglot_lib,
     "GitPython>2",
     "python-liquid",
+    "deepmerge>=1.1.1",
 }
 
 bigquery_common = {
@@ -178,6 +183,7 @@ bigquery_common = {
     "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
     "google-cloud-datacatalog>=1.5.0",
+    "google-cloud-resource-manager",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
 }
@@ -232,7 +238,7 @@ pyhive_common = {
     # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
-microsoft_common = {"msal==1.22.0"}
+microsoft_common = {"msal>=1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -265,7 +271,7 @@ s3_base = {
 
 abs_base = {
     "azure-core==1.29.4",
-    "azure-identity>=1.14.0",
+    "azure-identity>=1.17.1",
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
     "more-itertools>=8.12.0",
@@ -295,7 +301,8 @@ slack = {"slack-sdk==3.18.1"}
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
-    "databricks-sdk>=0.9.0",
+    # 0.22.0 has support for `include_browse` in metadata list apis
+    "databricks-sdk>=0.30.0",
     "pyspark~=3.3.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
@@ -307,6 +314,12 @@ databricks = {
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
+
+sac = {
+    "requests",
+    "pyodata>=1.11.1",
+    "Authlib",
+}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -328,7 +341,9 @@ plugins: Dict[str, Set[str]] = {
         "gql[requests]>=3.3.0",
     },
     "datahub": mysql | kafka_common,
-    "great-expectations": sql_common | sqllineage_lib,
+    "great-expectations": {
+        f"acryl-datahub-gx-plugin{_self_pin}",
+    },
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
@@ -351,6 +366,7 @@ plugins: Dict[str, Set[str]] = {
         "google-cloud-datacatalog-lineage==0.2.2",
     }
     | classification_lib,
+    "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "cockroachdb": sql_common | postgres_common | {"sqlalchemy-cockroachdb<2.0.0"},
@@ -471,6 +487,7 @@ plugins: Dict[str, Set[str]] = {
     "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
+    "sac": sac,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -478,6 +495,9 @@ all_exclude_plugins: Set[str] = {
     # The Airflow extra is only retained for compatibility, but new users should
     # be using the datahub-airflow-plugin package instead.
     "airflow",
+    # The great-expectations extra is only retained for compatibility, but new users should
+    # be using the datahub-gx-plugin package instead.
+    "great-expectations",
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
@@ -523,9 +543,13 @@ mypy_stubs = {
 }
 
 
-pytest_dep = "pytest>=6.2.2"
-deepdiff_dep = "deepdiff"
-test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
+test_api_requirements = {
+    "pytest>=6.2.2",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
+    "PyYAML",
+    "pytest-docker>=1.1.0",
+}
 
 debug_requirements = {
     "memray",
@@ -547,12 +571,9 @@ base_dev_requirements = {
     "isort>=5.7.0",
     "mypy==1.10.1",
     *test_api_requirements,
-    pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=1.1.0",
     "pytest-random-order~=1.1.0",
-    deepdiff_dep,
     "requests-mock",
     "freezegun",
     "jsonpickle",
@@ -586,7 +607,6 @@ base_dev_requirements = {
             "kafka",
             "datahub-rest",
             "datahub-lite",
-            "great-expectations",
             "presto",
             "redash",
             "redshift",
@@ -609,6 +629,7 @@ base_dev_requirements = {
             "kafka-connect",
             "qlik-sense",
             "sigma",
+            "sac",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -658,6 +679,7 @@ entry_points = {
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
+        "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
@@ -700,7 +722,7 @@ entry_points = {
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
-        "tableau = datahub.ingestion.source.tableau:TableauSource",
+        "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
@@ -723,6 +745,7 @@ entry_points = {
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
+        "sac = datahub.ingestion.source.sac.sac:SACSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

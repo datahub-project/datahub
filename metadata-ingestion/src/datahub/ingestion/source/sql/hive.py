@@ -169,12 +169,16 @@ class HiveSource(TwoTierSQLAlchemySource):
         self,
         dataset_name: str,
         column: Dict[Any, Any],
+        inspector: Inspector,
         pk_constraints: Optional[Dict[Any, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         fields = super().get_schema_fields_for_column(
-            dataset_name, column, pk_constraints
+            dataset_name,
+            column,
+            inspector,
+            pk_constraints,
         )
 
         if self._COMPLEX_TYPE.match(fields[0].nativeDataType) and isinstance(

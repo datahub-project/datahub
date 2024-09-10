@@ -469,7 +469,12 @@ class VerticaSource(SQLAlchemySource):
         foreign_keys = self._get_foreign_keys(
             dataset_urn, inspector, schema, projection
         )
-        schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
+        schema_fields = self.get_schema_fields(
+            dataset_name,
+            columns,
+            inspector,
+            pk_constraints,
+        )
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
@@ -673,7 +678,7 @@ class VerticaSource(SQLAlchemySource):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        schema_fields = self.get_schema_fields(dataset_name, columns)
+        schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
 
         schema_metadata = get_schema_metadata(
             self.report,

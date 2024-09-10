@@ -602,8 +602,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     GenericAspect aspect = GenericRecordUtils.serializeAspect(pairToIngest.get(0).getSecond());
 
+    SystemMetadata initialSystemMetadata = AspectGenerationUtils.createSystemMetadata(1);
     initialChangeLog.setAspect(aspect);
-    initialChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
+    initialChangeLog.setSystemMetadata(initialSystemMetadata);
     initialChangeLog.setEntityKeyAspect(
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(
@@ -620,7 +621,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
     restateChangeLog.setPreviousAspectValue(aspect);
     restateChangeLog.setPreviousSystemMetadata(
-        simulatePullFromDB(AspectGenerationUtils.createSystemMetadata(1), SystemMetadata.class));
+        simulatePullFromDB(initialSystemMetadata, SystemMetadata.class));
     restateChangeLog.setEntityKeyAspect(
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(

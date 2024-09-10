@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -89,7 +90,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         input.getFilters(),
                         input.getOrFilters(),
                         context.getOperationContext().getAspectRetriever()),
-                    null,
+                    Collections.emptyList(),
                     start,
                     count));
           } catch (Exception e) {
