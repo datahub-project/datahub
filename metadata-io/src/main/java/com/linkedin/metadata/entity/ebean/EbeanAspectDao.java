@@ -242,7 +242,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public Map<String, Map<String, EntityAspect>> getLatestAspects(
-      @Nonnull Map<String, Set<String>> urnAspects) {
+      @Nonnull Map<String, Set<String>> urnAspects, boolean forUpdate) {
     validateConnection();
 
     List<EbeanAspectV2.PrimaryKey> keys =
@@ -256,7 +256,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                                     entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
             .collect(Collectors.toList());
 
-    List<EbeanAspectV2> results = _server.find(EbeanAspectV2.class).where().idIn(keys).findList();
+    final List<EbeanAspectV2> results;
+    if (forUpdate) {
+      results = _server.find(EbeanAspectV2.class).where().idIn(keys).forUpdate().findList();
+    } else {
+      results = _server.find(EbeanAspectV2.class).where().idIn(keys).findList();
+    }
 
     return toUrnAspectMap(results);
   }
@@ -814,7 +819,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return result;
     }
 
-    List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
+    // forUpdate is required to avoid duplicate key violations
+    List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().forUpdate().findIds();
 
     for (EbeanAspectV2.PrimaryKey key : dbResults) {
       if (result.get(key.getUrn()).get(key.getAspect()) <= key.getVersion()) {
