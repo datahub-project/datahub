@@ -223,7 +223,7 @@ class HanaSource(SQLAlchemySource):
             UpstreamClass(
                 dataset=make_dataset_urn_with_platform_instance(
                     platform=self.get_platform(),
-                    name=f"{(self.config.database + '.') if self.config.database else ''}{row[0]}.{row[1]}",
+                    name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row[0].lower()}.{row[1].lower()}",
                     platform_instance=self.config.platform_instance,
                     env=self.config.env
                 ),
@@ -391,7 +391,7 @@ class HanaSource(SQLAlchemySource):
                        ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         entity = make_dataset_urn_with_platform_instance(
             platform=self.get_platform(),
-            name=f"{(self.config.database + '.') if self.config.database else ''}{schema}.{dataset_name}",
+            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{schema.lower()}.{dataset_name.lower()}",
             platform_instance=self.config.platform_instance,
             env=self.config.env
         )
@@ -430,7 +430,7 @@ class HanaSource(SQLAlchemySource):
                       ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         entity = make_dataset_urn_with_platform_instance(
             platform=self.get_platform(),
-            name=f"{(self.config.database + '.') if self.config.database else ''}{schema}.{dataset_name}",
+            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{schema.lower()}.{dataset_name.lower()}",
             platform_instance=self.config.platform_instance,
             env=self.config.env
         )
@@ -493,7 +493,7 @@ class HanaSource(SQLAlchemySource):
                     upstreams=[
                         make_dataset_urn_with_platform_instance(
                             platform=self.get_platform(),
-                            name=f"{(self.config.database + '.') if self.config.database else ''}{row[0]}.{row[1]}",
+                            name=f"{(self.config.database.lower() + '.') if self.config.database else ''}{row[0].lower()}.{row[1].lower()}",
                             platform_instance=self.config.platform_instance,
                             env=self.config.env
                         ) for row in constructed_lineage
@@ -517,7 +517,9 @@ class HanaSource(SQLAlchemySource):
                 for data_source in data_sources.findall("DataSource", ns):
                     data_source_type = data_source.get("type")
                     if data_source_type.upper() == "CALCULATION_VIEW":
-                        upstreams.append(f"_sys_bic.{data_source.find('resourceUri', ns).text[1:]}")
+                        upstreams.append(
+                            f"_sys_bic.{data_source.find('resourceUri', ns).text[1:].replace('/calculationviews/','.')}"
+                        )
                     else:
                         column_object = data_source.find("columnObject", ns)
                         upstreams.append(f"{column_object.get('schemaName')}.{column_object.get('columnObjectName')}")
@@ -554,7 +556,7 @@ class HanaSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         entity = make_dataset_urn_with_platform_instance(
             platform=self.get_platform(),
-            name=f"_sys_bic.{dataset_path}.{dataset_name}",
+            name=f"_sys_bic.{dataset_path.lower()}.{dataset_name.lower()}",
             platform_instance=self.config.platform_instance,
             env=self.config.env
         )
