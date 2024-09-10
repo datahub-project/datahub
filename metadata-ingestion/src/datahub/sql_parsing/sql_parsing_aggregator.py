@@ -16,7 +16,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import get_time_bucket
-from datahub.emitter.mce_builder import get_sys_time, make_actor_urn, make_ts_millis
+from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import compute_upstream_fields
 from datahub.ingestion.api.closeable import Closeable
@@ -46,6 +46,10 @@ from datahub.sql_parsing.sqlglot_utils import (
     generate_hash,
     get_query_fingerprint,
     try_format_query,
+)
+from datahub.sql_parsing.tool_meta_extractor import (
+    ToolMetaExtractor,
+    ToolMetaExtractorReport,
 )
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 from datahub.utilities.file_backed_collections import (
@@ -88,9 +92,16 @@ class LoggedQuery:
 
 
 @dataclasses.dataclass
-class ObservedQuery(LoggedQuery):
+class ObservedQuery:
+    query: str
+    session_id: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
     query_hash: Optional[str] = None
     usage_multiplier: int = 1
+
     # Use this to store addtitional key-value information about query for debugging
     extra_info: Optional[dict] = None
 
@@ -179,6 +190,8 @@ class PreparsedQuery:
     query_type_props: QueryTypeProps = dataclasses.field(
         default_factory=lambda: QueryTypeProps()
     )
+    # Use this to store addtitional key-value information about query for debugging
+    extra_info: Optional[dict] = None
 
 
 @dataclasses.dataclass
@@ -242,10 +255,14 @@ class SqlAggregatorReport(Report):
     # Usage-related.
     usage_skipped_missing_timestamp: int = 0
     num_query_usage_stats_generated: int = 0
+    num_query_usage_stats_outside_window: int = 0
 
     # Operation-related.
     num_operations_generated: int = 0
     num_operations_skipped_due_to_filters: int = 0
+
+    # Tool Metadata Extraction
+    tool_meta_report: Optional[ToolMetaExtractorReport] = None
 
     def compute_stats(self) -> None:
         self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
@@ -421,6 +438,10 @@ class SqlParsingAggregator(Closeable):
                 tablename="query_usage_counts",
             )
 
+        # Tool Extractor
+        self._tool_meta_extractor = ToolMetaExtractor()
+        self.report.tool_meta_report = self._tool_meta_extractor.report
+
     def close(self) -> None:
         self._exit_stack.close()
 
@@ -432,6 +453,7 @@ class SqlParsingAggregator(Closeable):
             or self.generate_usage_statistics
             or self.generate_queries
             or self.generate_operations
+            or self.generate_query_usage_statistics
         )
 
     def register_schema(
@@ -495,16 +517,7 @@ class SqlParsingAggregator(Closeable):
         elif isinstance(item, PreparsedQuery):
             self.add_preparsed_query(item)
         elif isinstance(item, ObservedQuery):
-            self.add_observed_query(
-                query=item.query,
-                default_db=item.default_db,
-                default_schema=item.default_schema,
-                session_id=item.session_id,
-                usage_multiplier=item.usage_multiplier,
-                query_timestamp=item.timestamp,
-                user=make_actor_urn(item.user) if item.user else None,
-                query_hash=item.query_hash,
-            )
+            self.add_observed_query(item)
         else:
             raise ValueError(f"Cannot add unknown item type: {type(item)}")
 
@@ -648,18 +661,9 @@ class SqlParsingAggregator(Closeable):
 
     def add_observed_query(
         self,
-        query: str,
-        default_db: Optional[str] = None,
-        default_schema: Optional[str] = None,
-        query_timestamp: Optional[datetime] = None,
-        user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
-        session_id: Optional[
-            str
-        ] = None,  # can only see temp tables with the same session
-        usage_multiplier: int = 1,
+        observed: ObservedQuery,
         is_known_temp_table: bool = False,
         require_out_table_schema: bool = False,
-        query_hash: Optional[str] = None,
     ) -> None:
         """Add an observed query to the aggregator.
 
@@ -673,7 +677,7 @@ class SqlParsingAggregator(Closeable):
         self.report.num_observed_queries += 1
 
         # All queries with no session ID are assumed to be part of the same session.
-        session_id = session_id or _MISSING_SESSION_ID
+        session_id = observed.session_id or _MISSING_SESSION_ID
 
         # Load in the temp tables for this session.
         schema_resolver: SchemaResolverInterface = (
@@ -683,17 +687,17 @@ class SqlParsingAggregator(Closeable):
 
         # Run the SQL parser.
         parsed = self._run_sql_parser(
-            query,
-            default_db=default_db,
-            default_schema=default_schema,
+            observed.query,
+            default_db=observed.default_db,
+            default_schema=observed.default_schema,
             schema_resolver=schema_resolver,
             session_id=session_id,
-            timestamp=query_timestamp,
-            user=user,
+            timestamp=observed.timestamp,
+            user=observed.user,
         )
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
-                f"{parsed.debug_info.error} on query: {query[:100]}"
+                f"{parsed.debug_info.error} on query: {observed.query[:100]}"
             )
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
@@ -703,14 +707,14 @@ class SqlParsingAggregator(Closeable):
             if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
                 self.report.num_observed_queries_column_timeout += 1
 
-        query_fingerprint = query_hash or parsed.query_fingerprint
+        query_fingerprint = observed.query_hash or parsed.query_fingerprint
         self.add_preparsed_query(
             PreparsedQuery(
                 query_id=query_fingerprint,
-                query_text=query,
-                query_count=usage_multiplier,
-                timestamp=query_timestamp,
-                user=user,
+                query_text=observed.query,
+                query_count=observed.usage_multiplier,
+                timestamp=observed.timestamp,
+                user=observed.user,
                 session_id=session_id,
                 query_type=parsed.query_type,
                 query_type_props=parsed.query_type_props,
@@ -721,6 +725,7 @@ class SqlParsingAggregator(Closeable):
                 column_usage=compute_upstream_fields(parsed),
                 inferred_schema=infer_output_schema(parsed),
                 confidence_score=parsed.debug_info.confidence,
+                extra_info=observed.extra_info,
             ),
             is_known_temp_table=is_known_temp_table,
             require_out_table_schema=require_out_table_schema,
@@ -736,6 +741,12 @@ class SqlParsingAggregator(Closeable):
         session_has_temp_tables: bool = True,
         _is_internal: bool = False,
     ) -> None:
+
+        # Adding tool specific metadata extraction here allows it
+        # to work for both ObservedQuery and PreparsedQuery as
+        # add_preparsed_query it used within add_observed_query.
+        self._tool_meta_extractor.extract_bi_metadata(parsed)
+
         if not _is_internal:
             self.report.num_preparsed_queries += 1
 
@@ -1033,9 +1044,9 @@ class SqlParsingAggregator(Closeable):
         queries_generated: Set[QueryId] = set()
 
         yield from self._gen_lineage_mcps(queries_generated)
-        yield from self._gen_remaining_queries(queries_generated)
         yield from self._gen_usage_statistics_mcps()
         yield from self._gen_operation_mcps(queries_generated)
+        yield from self._gen_remaining_queries(queries_generated)
 
     def _gen_lineage_mcps(
         self, queries_generated: Set[QueryId]
@@ -1322,9 +1333,15 @@ class SqlParsingAggregator(Closeable):
             query_counter = self._query_usage_counts.get(query_id)
             if not query_counter:
                 return
-            for bucket in self.usage_config.buckets():
-                count = query_counter.get(bucket)
-                if not count:
+
+            all_buckets = self.usage_config.buckets()
+
+            for bucket, count in query_counter.items():
+                if bucket not in all_buckets:
+                    # What happens if we get a query with a timestamp that's outside our configured window?
+                    # Theoretically this should never happen, since the audit logs are also fetched
+                    # for the window. However, it's useful to have reporting for it, just in case.
+                    self.report.num_query_usage_stats_outside_window += 1
                     continue
 
                 yield MetadataChangeProposalWrapper(

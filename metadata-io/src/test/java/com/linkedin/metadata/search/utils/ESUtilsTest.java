@@ -146,6 +146,197 @@ public class ESUtilsTest {
   }
 
   @Test
+  public void testGetQueryBuilderFromCriterionContain() {
+    final Criterion singleValueCriterion =
+        new Criterion().setField("myTestField").setCondition(Condition.CONTAIN).setValue("value1");
+
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+
+    String expected =
+        "{\n"
+            + "  \"wildcard\" : {\n"
+            + "    \"myTestField.keyword\" : {\n"
+            + "      \"wildcard\" : \"*value1*\",\n"
+            + "      \"boost\" : 1.0,\n"
+            + "      \"_name\" : \"myTestField\"\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
+    Assert.assertEquals(result.toString(), expected);
+
+    final Criterion multiValueCriterion =
+        new Criterion()
+            .setField("myTestField")
+            .setCondition(Condition.CONTAIN)
+            .setValues(new StringArray(ImmutableList.of("value1", "value2")));
+
+    result =
+        ESUtils.getQueryBuilderFromCriterion(
+            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+
+    expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"wildcard\" : {\n"
+            + "          \"myTestField.keyword\" : {\n"
+            + "            \"wildcard\" : \"*value1*\",\n"
+            + "            \"boost\" : 1.0,\n"
+            + "            \"_name\" : \"myTestField\"\n"
+            + "          }\n"
+            + "        }\n"
+            + "      },\n"
+            + "      {\n"
+            + "        \"wildcard\" : {\n"
+            + "          \"myTestField.keyword\" : {\n"
+            + "            \"wildcard\" : \"*value2*\",\n"
+            + "            \"boost\" : 1.0,\n"
+            + "            \"_name\" : \"myTestField\"\n"
+            + "          }\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"boost\" : 1.0\n"
+            + "  }\n"
+            + "}";
+
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testWildcardQueryBuilderFromCriterionWhenStartsWith() {
+    final Criterion singleValueCriterion =
+        new Criterion()
+            .setField("myTestField")
+            .setCondition(Condition.START_WITH)
+            .setValue("value1");
+
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+
+    String expected =
+        "{\n"
+            + "  \"wildcard\" : {\n"
+            + "    \"myTestField.keyword\" : {\n"
+            + "      \"wildcard\" : \"value1*\",\n"
+            + "      \"boost\" : 1.0,\n"
+            + "      \"_name\" : \"myTestField\"\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
+    Assert.assertEquals(result.toString(), expected);
+
+    final Criterion multiValueCriterion =
+        new Criterion()
+            .setField("myTestField")
+            .setCondition(Condition.START_WITH)
+            .setValues(new StringArray(ImmutableList.of("value1", "value2")));
+
+    result =
+        ESUtils.getQueryBuilderFromCriterion(
+            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+
+    expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"wildcard\" : {\n"
+            + "          \"myTestField.keyword\" : {\n"
+            + "            \"wildcard\" : \"value1*\",\n"
+            + "            \"boost\" : 1.0,\n"
+            + "            \"_name\" : \"myTestField\"\n"
+            + "          }\n"
+            + "        }\n"
+            + "      },\n"
+            + "      {\n"
+            + "        \"wildcard\" : {\n"
+            + "          \"myTestField.keyword\" : {\n"
+            + "            \"wildcard\" : \"value2*\",\n"
+            + "            \"boost\" : 1.0,\n"
+            + "            \"_name\" : \"myTestField\"\n"
+            + "          }\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"boost\" : 1.0\n"
+            + "  }\n"
+            + "}";
+
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testWildcardQueryBuilderFromCriterionWhenEndsWith() {
+    final Criterion singleValueCriterion =
+        new Criterion().setField("myTestField").setCondition(Condition.END_WITH).setValue("value1");
+
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+
+    String expected =
+        "{\n"
+            + "  \"wildcard\" : {\n"
+            + "    \"myTestField.keyword\" : {\n"
+            + "      \"wildcard\" : \"*value1\",\n"
+            + "      \"boost\" : 1.0,\n"
+            + "      \"_name\" : \"myTestField\"\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(result.toString(), expected);
+
+    final Criterion multiValueCriterion =
+        new Criterion()
+            .setField("myTestField")
+            .setCondition(Condition.END_WITH)
+            .setValues(new StringArray(ImmutableList.of("value1", "value2")));
+
+    result =
+        ESUtils.getQueryBuilderFromCriterion(
+            multiValueCriterion, false, new HashMap<>(), mock(AspectRetriever.class));
+
+    expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"wildcard\" : {\n"
+            + "          \"myTestField.keyword\" : {\n"
+            + "            \"wildcard\" : \"*value1\",\n"
+            + "            \"boost\" : 1.0,\n"
+            + "            \"_name\" : \"myTestField\"\n"
+            + "          }\n"
+            + "        }\n"
+            + "      },\n"
+            + "      {\n"
+            + "        \"wildcard\" : {\n"
+            + "          \"myTestField.keyword\" : {\n"
+            + "            \"wildcard\" : \"*value2\",\n"
+            + "            \"boost\" : 1.0,\n"
+            + "            \"_name\" : \"myTestField\"\n"
+            + "          }\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"boost\" : 1.0\n"
+            + "  }\n"
+            + "}";
+
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
   public void testGetQueryBuilderFromCriterionExists() {
     final Criterion singleValueCriterion =
         new Criterion().setField("myTestField").setCondition(Condition.EXISTS);

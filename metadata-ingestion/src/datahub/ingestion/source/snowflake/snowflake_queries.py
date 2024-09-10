@@ -12,7 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import pydantic
 from typing_extensions import Self
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -67,8 +67,16 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
-    # TODO: make this a proper allow/deny pattern
-    deny_usernames: List[str] = []
+    pushdown_deny_usernames: List[str] = pydantic.Field(
+        default=[],
+        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes.",
+    )
+
+    user_email_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for user emails to filter in usage.",
+    )
 
     temporary_tables_pattern: List[str] = pydantic.Field(
         default=DEFAULT_TEMP_TABLES_PATTERNS,
@@ -88,7 +96,7 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
     include_lineage: bool = True
     include_queries: bool = True
     include_usage_statistics: bool = True
-    include_query_usage_statistics: bool = False
+    include_query_usage_statistics: bool = True
     include_operations: bool = True
 
 
@@ -150,6 +158,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                 bucket_duration=self.config.window.bucket_duration,
                 start_time=self.config.window.start_time,
                 end_time=self.config.window.end_time,
+                user_email_pattern=self.config.user_email_pattern,
                 # TODO make the rest of the fields configurable
             ),
             generate_operations=self.config.include_operations,
@@ -281,7 +290,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
-            deny_usernames=self.config.deny_usernames,
+            deny_usernames=self.config.pushdown_deny_usernames,
         )
 
         with self.structured_reporter.report_exc(

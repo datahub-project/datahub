@@ -475,6 +475,8 @@ entities:
       - structuredProperties
       - forms
       - businessAttributes
+      - status
+      - schemaFieldAliases
       - documentation
       - testResults
   - name: globalSettings
@@ -672,6 +674,12 @@ plugins:
           aspectName: propertyDefinition
         - entityName: structuredProperty
           aspectName: structuredPropertyKey
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
   mutationHooks:
     - className: 'com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete'
       packageScan:

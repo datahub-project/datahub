@@ -119,7 +119,7 @@ def run(
     strict_warnings: bool,
     preview_workunits: int,
     test_source_connection: bool,
-    report_to: str,
+    report_to: Optional[str],
     no_default_report: bool,
     no_spinner: bool,
     no_progress: bool,
@@ -160,7 +160,11 @@ def run(
     raw_pipeline_config = pipeline_config.pop("__raw_config")
 
     if test_source_connection:
-        _test_source_connection(report_to, pipeline_config)
+        sys.exit(_test_source_connection(report_to, pipeline_config))
+
+    if no_default_report:
+        # The default is "datahub" reporting. The extra flag will disable it.
+        report_to = None
 
     async def run_ingestion_and_check_upgrade() -> int:
         # TRICKY: We want to make sure that the Pipeline.create() call happens on the
@@ -171,13 +175,12 @@ def run(
         # logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(
             pipeline_config,
-            dry_run,
-            preview,
-            preview_workunits,
-            report_to,
-            no_default_report,
-            no_progress,
-            raw_pipeline_config,
+            dry_run=dry_run,
+            preview_mode=preview,
+            preview_workunits=preview_workunits,
+            report_to=report_to,
+            no_progress=no_progress,
+            raw_config=raw_pipeline_config,
         )
 
         version_stats_future = asyncio.ensure_future(
@@ -392,7 +395,7 @@ def deploy(
     click.echo(response)
 
 
-def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
+def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> int:
     connection_report = None
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
@@ -401,12 +404,12 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
             with open(report_to, "w") as out_fp:
                 out_fp.write(connection_report.as_json())
             logger.info(f"Wrote report successfully to {report_to}")
-        sys.exit(0)
+        return 0
     except Exception as e:
         logger.error(f"Failed to test connection due to {e}")
         if connection_report:
             logger.error(connection_report.as_json())
-        sys.exit(1)
+        return 1
 
 
 def parse_restli_response(response):
@@ -447,7 +450,7 @@ def mcps(path: str) -> None:
         },
     }
 
-    pipeline = Pipeline.create(recipe, no_default_report=True)
+    pipeline = Pipeline.create(recipe, report_to=None)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
