@@ -411,3 +411,14 @@ div[class^="announcementBar"] {
     opacity: .5;
   }
 }
+
+
+
+@keyframes expand-on-scroll {
+  from {
+      transform: scaleY(0);
+  }
+  to {
+      transform: scaleY(1);
+  }
+}

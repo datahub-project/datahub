@@ -6,43 +6,43 @@
       width: 80vw;
       margin: 0 auto;
       position: relative;
-      padding: 120px 0;
+      padding: 40px 0;
 
-      &::before {
-        position: absolute;
-        content: "";
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 80%;
-        height: 60px;
-        background-color: #ffffff;
-        border-bottom-left-radius: 10px;
-        border-bottom-right-radius: 10px;
-      }
+      // &::before {
+      //   position: absolute;
+      //   content: "";
+      //   top: 0;
+      //   left: 50%;
+      //   transform: translateX(-50%);
+      //   width: 80%;
+      //   height: 60px;
+      //   background-color: #ffffff;
+      //   border-bottom-left-radius: 10px;
+      //   border-bottom-right-radius: 10px;
+      // }
 
-      &::after {
-        position: absolute;
-        content: "";
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 80%;
-        height: 60px;
-        background-color: #ffffff;
-        border-top-left-radius: 10px;
-        border-top-right-radius: 10px;
-      }
+      // &::after {
+      //   position: absolute;
+      //   content: "";
+      //   bottom: 0;
+      //   left: 50%;
+      //   transform: translateX(-50%);
+      //   width: 80%;
+      //   height: 60px;
+      //   background-color: #ffffff;
+      //   border-top-left-radius: 10px;
+      //   border-top-right-radius: 10px;
+      // }
 
       .arrow {
         position: absolute;
         cursor: pointer;
         top: 50%;
-        width: 75px;
-        height: 75px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         background: #ffffff;
-        box-shadow: 0px 4px 9px rgba(0, 0, 0, 0.14);
+        box-shadow: 0px 4px 9px rgba(0, 0, 0, 0.05);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -57,11 +57,19 @@
       }
 
       .testimonials__card {
-        margin: 2rem 10rem;
+        margin: 2rem 4rem;
         display: flex;
 
+        .testimonials__logo {
+          max-width: 120px;
+          margin-right: 24px;
+          img {
+            max-width: 100%;
+          }
+        }
+
         .testimonials__text {
-          max-width: 80%;
+          max-width: 90%;
           padding-left: 2rem;
           color: #2e2e38;
           .testimonials__quote {
@@ -80,14 +88,19 @@
 
               &.left {
                 top: -10px;
-                left: -25px;
+                left: -32px;
               }
             }
           }
           .testimonials__company {
             margin-top: 1.5rem;
             font-size: 1.2rem;
-            color: #9ea3b6;
+            color: #3a3b41;
+            font-weight: 600;
+            span {
+              opacity: .5;
+              font-weight: 400;
+            }
           }
         }
       }
