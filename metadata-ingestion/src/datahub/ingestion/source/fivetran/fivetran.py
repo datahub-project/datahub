@@ -283,6 +283,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         logger.info("Fivetran plugin execution is started")
         connectors = self.audit_log.get_allowed_connectors_list(
             self.config.connector_patterns,
+            self.config.destination_patterns,
             self.report,
             self.config.history_sync_lookback_period,
         )

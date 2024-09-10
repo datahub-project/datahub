@@ -83,7 +83,10 @@ def test_lineage_with_timestamps(lineage_entries: List[QueryEvent]) -> None:
     config = BigQueryV2Config()
     report = BigQueryV2Report()
     extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
-        config, report, BigQueryIdentifierBuilder(config, report)
+        config,
+        report,
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        identifiers=BigQueryIdentifierBuilder(config, report),
     )
 
     bq_table = BigQueryTableRef.from_string_name(
@@ -91,8 +94,7 @@ def test_lineage_with_timestamps(lineage_entries: List[QueryEvent]) -> None:
     )
 
     lineage_map: Dict[str, Set[LineageEdge]] = extractor._create_lineage_map(
-        iter(lineage_entries),
-        sql_parser_schema_resolver=SchemaResolver(platform="bigquery"),
+        iter(lineage_entries)
     )
 
     upstream_lineage = extractor.get_lineage_for_table(
@@ -108,7 +110,10 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
     config = BigQueryV2Config(extract_column_lineage=True, incremental_lineage=False)
     report = BigQueryV2Report()
     extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
-        config, report, BigQueryIdentifierBuilder(config, report)
+        config,
+        report,
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        identifiers=BigQueryIdentifierBuilder(config, report),
     )
 
     bq_table = BigQueryTableRef.from_string_name(
@@ -117,7 +122,6 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
 
     lineage_map: Dict[str, Set[LineageEdge]] = extractor._create_lineage_map(
         lineage_entries[:1],
-        sql_parser_schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     upstream_lineage = extractor.get_lineage_for_table(

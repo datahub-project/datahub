@@ -9,6 +9,7 @@ import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.inject.Inject;
@@ -91,7 +92,7 @@ public class UpgradeCli implements CommandLineRunner {
     UpgradeResult result =
         _upgradeManager.execute(systemOperationContext, args.upgradeId.trim(), args.args);
 
-    if (UpgradeResult.Result.FAILED.equals(result.result())) {
+    if (DataHubUpgradeState.FAILED.equals(result.result())) {
       System.exit(1);
     } else {
       System.exit(0);

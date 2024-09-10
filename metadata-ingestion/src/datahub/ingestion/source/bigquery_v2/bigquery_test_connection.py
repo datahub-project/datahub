@@ -137,7 +137,10 @@ class BigQueryTestConnection:
         report: BigQueryV2Report,
     ) -> CapabilityReport:
         lineage_extractor = BigqueryLineageExtractor(
-            connection_conf, report, BigQueryIdentifierBuilder(connection_conf, report)
+            connection_conf,
+            report,
+            schema_resolver=SchemaResolver(platform="bigquery"),
+            identifiers=BigQueryIdentifierBuilder(connection_conf, report),
         )
         for project_id in project_ids:
             try:

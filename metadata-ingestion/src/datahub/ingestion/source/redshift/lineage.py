@@ -130,7 +130,7 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
     """
 
     parsed_query = parse_statement(query, dialect=get_dialect("redshift"))
-    assert isinstance(parsed_query, sqlglot.exp.AlterTable)
+    assert isinstance(parsed_query, sqlglot.exp.Alter)
     prev_name = parsed_query.this.name
     rename_clause = parsed_query.args["actions"][0]
     assert isinstance(rename_clause, sqlglot.exp.RenameTable)
@@ -875,7 +875,7 @@ class RedshiftLineageExtractor:
                     default_schema=self.config.default_schema,
                     query=query_text,
                 )
-            except ValueError as e:
+            except Exception as e:
                 logger.info(f"Failed to parse alter table rename: {e}")
                 self.report.num_alter_table_parse_errors += 1
                 continue
